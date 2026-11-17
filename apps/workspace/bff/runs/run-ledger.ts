@@ -46,8 +46,10 @@ import {
   MAX_STEPS,
   MAX_STEP_ID_CHARS,
   MAX_TITLE_CHARS,
+  RUN_LEDGER_LIFECYCLE,
   RUN_PHASES,
   RUN_STATUSES,
+  isTerminalRunStatus,
   modernizeRunLedger,
   type RunError,
   type RunLedger,
@@ -415,28 +417,45 @@ export function closePhase(ledger: RunLedger, phase: RunPhase, at: Date = new Da
   )
 }
 
-/** Set the display status — the one field a live stream can move on its own. */
+/**
+ * Set the display status, when the lifecycle has that move.
+ *
+ * A status that is no move from where the ledger stands changes nothing: an
+ * ended ledger keeps its ending against a worker that outlived its verdict,
+ * and a late flush cannot take a running ledger back to `created`.
+ */
 export function setRunStatus(ledger: RunLedger, status: RunStatus, at: Date = new Date()): RunLedger {
-  if (ledger.status === status) return ledger
+  if (!RUN_LEDGER_LIFECYCLE.canTransition(ledger.status, status)) return ledger
   return settled({ ...ledger, status, updatedAt: at.toISOString() }, ledger)
 }
+
+/** A ledger whose run ended with something to show: `done`, or `interrupted` for a salvaged answer. */
+const endedWithResult = (status: RunStatus): boolean => status === 'done' || status === 'interrupted'
 
 /**
  * The run finished, with something to show for it.
  *
  * Every open phase is closed at the same instant: the run is over, so a phase
  * left open would render as still running forever.
+ *
+ * On a ledger that has already ended, the ending stands. A result still
+ * completes an ending it agrees with (`done`, or `interrupted`, which the
+ * worker states before its result): the references the standing result lacks
+ * are added, and the status, the first `filedAt` and the first `finishedAt`
+ * are kept. A failed or cancelled ledger takes no result.
  */
 export function finishRun(ledger: RunLedger, result: RunResult, at: Date = new Date()): RunLedger {
+  const ended = isTerminalRunStatus(ledger.status)
+  if (ended && !endedWithResult(ledger.status)) return ledger
   const now = at.toISOString()
   return settled(
     {
       ...ledger,
-      status: 'done',
+      status: ended ? ledger.status : 'done',
       phases: ledger.phases.map((entry) => (entry.endedAt ? entry : { ...entry, endedAt: now })),
-      result,
+      result: ended ? { ...result, ...ledger.result } : result,
       updatedAt: now,
-      finishedAt: now,
+      finishedAt: (ended && ledger.finishedAt) || now,
     },
     ledger,
   )
@@ -449,8 +468,14 @@ export function finishRun(ledger: RunLedger, result: RunResult, at: Date = new D
  * complete, and saying it did is the difference between „beim Prüfen
  * gescheitert" and a ledger that claims the check was done. `completedBefore` is
  * derived from the phases that genuinely ended, in the order they ended.
+ *
+ * On a ledger that has already ended, the ending stands: only a `failed`
+ * ledger that gives no reason yet (the worker states the status before the
+ * reason) takes this one. The first reason is kept.
  */
 export function failRun(ledger: RunLedger, reason: string, at: Date = new Date()): RunLedger {
+  const ended = isTerminalRunStatus(ledger.status)
+  if (ended && (ledger.status !== 'failed' || ledger.error)) return ledger
   const now = at.toISOString()
   return settled(
     {
@@ -461,7 +486,7 @@ export function failRun(ledger: RunLedger, reason: string, at: Date = new Date()
         completedBefore: ledger.phases.filter((entry) => entry.endedAt).map((entry) => entry.phase),
       },
       updatedAt: now,
-      finishedAt: now,
+      finishedAt: ledger.finishedAt ?? now,
     },
     ledger,
   )
@@ -473,6 +498,11 @@ export function failRun(ledger: RunLedger, reason: string, at: Date = new Date()
  *
  * Phases first, so a step naming a phase arrives after that phase is on the
  * ledger; status last, so an explicit one wins over the „läuft" a step implies.
+ *
+ * Steps, phases and the Grundlage are still taken on an ended ledger: the
+ * worker seals its last step after it has stated the ending, and the outcome
+ * can settle the block before that step arrives. What an ended ledger does
+ * not take is another status (`setRunStatus`).
  */
 export function applyRunLedgerAppend(
   ledger: RunLedger,

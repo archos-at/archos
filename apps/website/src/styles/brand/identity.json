@@ -8,5 +8,8 @@
   "country": "AT",
   "email": "kontakt@archos.tech",
   "domain": "archos.tech",
+  "formerDomains": [
+    "piloti.at"
+  ],
   "tagline": "Building forward."
 }

@@ -19,21 +19,10 @@ import { MarkBody } from './mark-body'
 import { MarkRowContent, markRowClassName } from './mark-row'
 import { markInk } from './review-page-layer'
 
-/** Open a mark from the list; `byKeyboard` when Enter or Space did it, so its card takes the focus. */
 export type OpenMark = (annotation: AnnotationView, byKeyboard?: boolean) => void
 
-/**
- * Have Piloti check which of these open marks of an earlier Fassung look fixed
- * now: of this document (`from` null), or of the document `from` it replaces.
- */
 export type CheckFixed = (marks: readonly AnnotationView[], from: RevisionRef | null) => void
 
-/**
- * „Piloti prüfen lassen, was behoben ist" under a group of marks set on an
- * earlier Fassung: the review's own Piloti ask, scoped to these marks. Busy
- * while Piloti works on anything here (one turn at a time), and says so while
- * it checks this group.
- */
 function CheckFixedButton({
   review,
   marks,
@@ -66,11 +55,6 @@ function CheckFixedButton({
   )
 }
 
-/**
- * One mark in the list, a button that opens it (`MarkRowContent` says what it
- * is, as a project's Offene Punkte does). Memoised on its mark: a list of five
- * hundred redraws the row that changed.
- */
 const Row = memo(function Row({
   annotation,
   viewerId,
@@ -80,10 +64,8 @@ const Row = memo(function Row({
   onOpen,
 }: {
   annotation: AnnotationView
-  /** The reader, so a mention of them stands out. */
   viewerId: string | null
   selected: boolean
-  /** Its thread has news the reader has not opened: the pin's dot, and said in words. */
   unread: boolean
   onHover: (annotationId: string | null) => void
   onOpen: OpenMark
@@ -94,7 +76,6 @@ const Row = memo(function Row({
         type="button"
         data-testid="review-row"
         aria-current={selected || undefined}
-        // `detail` is 0 for a click the keyboard made.
         onClick={(event) => onOpen(annotation, event.detail === 0)}
         onPointerEnter={() => onHover(annotation.id)}
         onPointerLeave={() => onHover(null)}
@@ -106,7 +87,6 @@ const Row = memo(function Row({
   )
 })
 
-/** Marks grouped by page; the page heading only where there is more than one page to tell apart. */
 function Pages({
   marks,
   review,
@@ -149,7 +129,6 @@ function Pages({
   )
 }
 
-/** Carry marks on, one or all, and say so when not all of them went. */
 function useCarrying(review: DocumentReview) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -163,19 +142,13 @@ function useCarrying(review: DocumentReview) {
   return { busy, failed, carry }
 }
 
-/**
- * The open marks of this document set on an earlier Fassung, listed under
- * Offen and drawn as ghosts where they stood (`isGhostMark`): how many,
- * and „Alle übernehmen", which carries each the way its card's „Auf aktuelle
- * Fassung übernehmen" does.
- */
 function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckFixed?: CheckFixed }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const { busy, failed, carry } = useCarrying(review)
   const marks = review.annotations.filter((annotation) => !annotation.onCurrentRevision && annotation.carryTarget)
   if (marks.length === 0) return null
   return (
-    <div className="bg-muted/40 mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
+    <div className="bg-muted mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
       <div className="flex items-center gap-2">
         <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className="text-foreground min-w-0 flex-1 text-xs font-medium">{t('review.earlierOpen', { count: marks.length })}</span>
@@ -197,14 +170,6 @@ function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckF
   )
 }
 
-/**
- * The open marks of a document this one replaces (Index B, filed again as this
- * one under another name), read-only, under „Aus Fassung B": each carried on
- * as a linked mark by „Übernehmen", or all of them at once, where the server
- * says this reader's carry goes through (`carryTarget`), named by where it
- * lands; „Fassungen vergleichen" lays the two side by side first. A list that
- * could not be read says so, with a retry.
- */
 function CarriedFrom({
   review,
   group,
@@ -223,7 +188,6 @@ function CarriedFrom({
     await review.resolveCarried(annotation).catch(() => setResolveFailed(true))
   }
   const carryable = group.annotations.filter((annotation) => annotation.carryTarget)
-  /** The button's words: „Übernehmen" when it lands here, else the document it lands on; the row's mark for a screen reader. */
   const carryWords = (annotation: AnnotationView, target: CarryTargetView) =>
     target.documentId === review.documentId
       ? { label: t('review.carry'), aria: t('review.carryMark', { number: annotation.number }) }
@@ -279,7 +243,7 @@ function CarriedFrom({
           <p className="text-muted-foreground text-[11px] leading-4">
             {t('review.carriedLoadError', { name: group.from.filename })}
           </p>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
+          <Button type="button" variant="secondary" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
             {t('annotations.retry')}
           </Button>
         </div>
@@ -315,7 +279,7 @@ function CarriedFrom({
                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="h-7 text-xs"
                     disabled={busy}
@@ -352,11 +316,6 @@ function CarriedFrom({
   )
 }
 
-/**
- * What Piloti last said in a mark's thread, when its newest answer is Piloti's:
- * on a row of a replaced document, whose thread this review does not open,
- * it is how the person reads a check of what is fixed („In … behoben: …").
- */
 function AgentVerdict({ annotation, viewerId }: { annotation: AnnotationView; viewerId: string | null }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const newest = annotation.replies.at(-1)
@@ -374,15 +333,6 @@ function AgentVerdict({ annotation, viewerId }: { annotation: AnnotationView; vi
 
 const FILTERS: ReviewFilter[] = ['open', 'closed']
 
-/**
- * The counts on the Offen / Erledigt tabs, over what the list would show:
- * with „Für Sie" on, only the reader's marks ({@link isForReader}), the same
- * marks the list holds, so a tab never promises six and shows two. The Offen
- * tab lists Piloti's untaken proposals too, and counts them apart, as
- * Dateien's chip does („2 offen · 12 Vorschläge"): `open` is the office's own
- * open marks, `proposed` the proposals. With „Für Sie" on its `open` is the
- * number the chip says „für Sie". A tab at 0 shows no count; a count is set in the tab's own sans.
- */
 export function tabCounts(
   annotations: readonly Pick<AnnotationView, 'status' | 'assigneeUserId'>[],
   mine: { on: boolean; me: string | null }
@@ -395,13 +345,6 @@ export function tabCounts(
   }
 }
 
-/**
- * The review's list: every mark of the document, in the order a review walks
- * them. Piloti's proposals are not a tab of their own, which would hide them
- * from the work: they lead the open list as a group with one way through them.
- * Selecting a row brings its mark to the middle of the view and opens its
- * thread; hovering a row lights its mark on the page.
- */
 export function ReviewPanel({
   review,
   onOpen,
@@ -411,16 +354,8 @@ export function ReviewPanel({
 }: {
   review: DocumentReview
   onOpen: OpenMark
-  /** Start going through Piloti's proposals one by one. */
   onWalkProposals?: () => void
-  /** Have Piloti check what of the earlier Fassungen' open marks is fixed; absent where Piloti cannot be asked. */
   onCheckFixed?: CheckFixed
-  /**
-   * `rail`: the column beside the sheet, from `lg`. `sheet`: the same list in
-   * a sheet from the bottom edge, which is how a phone (and a phone on its
-   * side, at 852px still under `lg`) walks the marks; without it the only way
-   * to an item there was to find its pin on the drawing.
-   */
   presentation?: 'rail' | 'sheet'
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -489,7 +424,7 @@ export function ReviewPanel({
         ) : load === 'error' ? (
           <div className="space-y-2 px-2 py-6 text-center">
             <p className="text-muted-foreground text-sm">{t('annotations.loadError')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={review.retry}>
+            <Button type="button" variant="secondary" size="sm" onClick={review.retry}>
               {t('annotations.retry')}
             </Button>
           </div>
@@ -520,7 +455,6 @@ export function ReviewPanel({
   )
 }
 
-/** The list proper: Piloti's proposals as a group with one way through them, then the rest by page. */
 function ListedMarks({
   review,
   proposals,
@@ -588,11 +522,9 @@ function ListedMarks({
   )
 }
 
-/** What an empty list says depends on why it is empty: nothing yet, nothing left, or nothing in this view. */
 function EmptyList({ review }: { review: DocumentReview }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { counts, filter, annotations, mine } = review
-  // A finger has no C or R: the touch copy names the button instead.
   const touch = useMediaQuery('(pointer: coarse)')
   const allDone = filter === 'open' && !mine && annotations.length > 0 && counts.open + counts.proposed === 0
   const Icon = allDone ? CheckCheck : MousePointerClick

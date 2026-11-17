@@ -11,6 +11,7 @@ from agent.observability.langfuse_trace_attributes import TraceContextProcessor
 from agent.observability.langfuse_trace_attributes import UsageAttributeProcessor
 from agent.observability.langfuse_trace_attributes import UserIdentityStripProcessor
 from agent.observability.langfuse_trace_attributes import identity_attributes_enabled
+from agent.observability.processing_location import ProcessingLocationProcessor
 from agent.observability.trace_context import langfuse_release
 from nat.observability.exporter.base_exporter import BaseExporter
 from nat.plugin_api import Builder
@@ -151,42 +152,25 @@ async def otelcollector_redaction_telemetry_exporter(
         tags=config.tags,
     )
 
-    # Usage attribution (per-call input/output/total onto generation
-    # observations). Unlike identity, counts and the model name are not
-    # personal data, so this is always installed — no env gate. `position=0`
-    # puts it ahead of redaction: it reads the provider usage object out of
-    # `nat.metadata`, which a redaction pass configured to cover metadata
-    # would otherwise blank first. The attributes it ADDS (counts, model,
-    # usage/cost JSON) are numbers and names, redaction-proof by content.
-    if UsageAttributeProcessor is not None:
+    # Always installed, at `position=0` (ahead of redaction), because what each ADDS is not personal data:
+    # usage attribution (counts and the model name onto generation observations, read out of `nat.metadata`
+    # before a redaction pass covering metadata would blank it), prompt linkage (a prompt name and version),
+    # and the processing location (where a generation ran and through whom, ADR-0167). Each is
+    # redaction-proof by content and stays redactable like every other attribute we add.
+    for processor, name, lost in (
+        (UsageAttributeProcessor, "usage_attributes", "usage"),
+        (PromptLinkProcessor, "prompt_link", "a prompt version"),
+        (ProcessingLocationProcessor, "processing_location", "a processing location"),
+    ):
+        if processor is None:
+            continue
         try:
-            exporter.add_processor(
-                UsageAttributeProcessor(),
-                name="usage_attributes",
-                position=0,
-            )
+            exporter.add_processor(processor(), name=name, position=0)
         except Exception:
             logger.warning(
-                "otelcollector_redaction: could not install the usage attribute "
-                "processor - generation observations will export without usage.",
-                exc_info=True,
-            )
-
-    # Prompt linkage: which prompt version produced each generation. Installed
-    # on the same terms as usage attribution — a prompt name and a version
-    # number are not personal data — and at `position=0` for the same reason,
-    # so the pair stays redactable like every other attribute we add.
-    if PromptLinkProcessor is not None:
-        try:
-            exporter.add_processor(
-                PromptLinkProcessor(),
-                name="prompt_link",
-                position=0,
-            )
-        except Exception:
-            logger.warning(
-                "otelcollector_redaction: could not install the prompt link "
-                "processor - generations will export without a prompt version.",
+                "otelcollector_redaction: could not install the %s processor - generations will export without %s.",
+                name,
+                lost,
                 exc_info=True,
             )
 

@@ -105,13 +105,13 @@ RELATIONS: dict[str, str] = {
     "hostedIn": "which wall carries this window/door (from voids+fills)",
     "hosts": "which openings are cut out of this element",
     "fillerOf": "what fills this opening",
-    "bounds": "which elements bound this room  [geometry, see below]",
-    "enclosedBy": "which rooms this element bounds  [geometry, see below]",
-    "opensTo": "which rooms this window/door opens into  [geometry, see below]",
+    "bounds": "which elements bound this room  [geometry]",
+    "enclosedBy": "which rooms this element bounds  [geometry]",
+    "opensTo": "which rooms this window/door opens into  [geometry]",
     "connects": "which elements butt onto this one",
     "contains": "which elements sit in this storey or room",
     "containerOf": "which storey or room this element sits in",
-    "adjacentSpaces": "which rooms border this room  [geometry, see below]",
+    "adjacentSpaces": "which rooms border this room  [geometry]",
     "elementsOfStorey": "every element of this storey, including those in rooms",
     "above": "what is directly ABOVE this element or room  [geometry, rays; furniture excluded]",
     "below": "what is directly BELOW it  [geometry, rays]",
@@ -129,15 +129,15 @@ GEOMETRIC_RELATIONS = frozenset({"bounds", "enclosedBy", "opensTo", "adjacentSpa
 MEASURES: dict[str, str] = {
     "extent": "width, depth, height and centroid of one element",
     "floorArea": (
-        "a room's floor area FROM THE GEOMETRY — available even when the export publishes no "
-        "quantity. When it publishes one, both routes are compared and a contradiction is reported"
+        "a room's floor area FROM THE GEOMETRY, even when the export publishes none; a published one is "
+        "compared and a contradiction reported"
     ),
     "sillAndHead": "Brüstungs- und Sturzhöhe of a window/door above ITS OWN storey",
     "elevation": "underside and top, absolute and above the element's own storey",
     "clearHeight": (
         "lichte Raumhöhe — floor to the LOWEST thing hanging into the room (suspended ceiling, "
-        "downstand, duct). NOT the height of the space solid, which is what 'extent' gives and what "
-        "a Raumhöhennachweis must not use"
+        "downstand, duct). NOT the height of the space solid ('extent'), which a Raumhöhennachweis must "
+        "not use"
     ),
     "azimuth": "which way a facade faces. Undecidable without TrueNorth in the file",
     "lightEntryArea": (
@@ -147,10 +147,9 @@ MEASURES: dict[str, str] = {
         "threshold: the percentage is in the Bestimmung, not in the model"
     ),
     "egressPath": (
-        "a ROOM's shortest WALKABLE route to the outside through doors, with the rooms, the doors "
-        "and a length. Adjacency is not walkability — two rooms sharing a wall with no door between "
-        "them are adjacent and unreachable. The length is a polyline through room and door centres, "
-        "so it is a LOWER BOUND and explicitly not a Fluchtweglänge under OIB 2"
+        "a ROOM's shortest WALKABLE route to the outside through doors (adjacency is not walkability), "
+        "with the rooms, the doors and a length. The length runs through room and door centres, so it "
+        "is a LOWER BOUND and not a Fluchtweglänge"
     ),
     "reachableFrom": (
         "every room reachable from this one through doors, with door counts. Answers 'which rooms are "
@@ -158,8 +157,7 @@ MEASURES: dict[str, str] = {
     ),
     "clearWidth": (
         "the LICHTE Breite and Höhe of an opening, measured on the aperture itself. THIS is what a "
-        "door-width or escape-route-width check needs — 'distance' measures centroids and boxes and "
-        "gives an Achsabstand"
+        "door-width or escape-route-width check needs"
     ),
     "orientedExtent": (
         "length/width/height along the ELEMENT's own axes plus its bearing from north. Use for anything "
@@ -170,29 +168,23 @@ MEASURES: dict[str, str] = {
         "to the clear height. Names which facade it chose and, for a corner room, the runner-up"
     ),
     "stairGeometry": (
-        "riser height, tread depth, riser count and the NUTZBREITE of a stair flight — plus the SPREAD "
-        "of the risers, because a stair can be right on average and still unwalkable. Declared values "
-        "are checked against the geometry and a contradiction is reported"
+        "riser height, tread depth, riser count and the NUTZBREITE of a stair flight, plus the SPREAD "
+        "of the risers. Declared values are checked against the geometry and a contradiction reported"
     ),
     "rampSlope": "a ramp's slope as a percentage AND as a ratio, with run, rise and clear width",
-    "headroom": (
-        "clear height over a stair flight or ramp, measured PERPENDICULAR to the pitch rather than "
-        "vertically — a vertical ray from the tread misses the tight point (1.35 m vs 1.65 m measured)"
-    ),
+    "headroom": ("clear height over a stair flight or ramp, measured PERPENDICULAR to the pitch, not vertically"),
     "stepsOf": "the flights and landings a stair is made of, so one flight can be asked about",
     "turningCircle": (
-        "the largest circle that fits on a ROOM's free floor — what a Wendekreis check comes down to. "
-        "Counts fixed built-ins only; furniture is reported beside it, because a permit is granted on "
-        "the building and not on the chairs. Applies no threshold"
+        "the largest circle that fits on a ROOM's free floor, for a Wendekreis check. Counts fixed built-ins only; "
+        "furniture is reported beside it. Applies no threshold"
     ),
     "thresholdHeight": (
-        "the step at a door. Where the export models no floor build-up this is a STRUCTURAL number and "
-        "the answer says so — screed, covering and seal are what make the step, so 0 mm on raw slabs "
-        "says nothing about the finished threshold"
+        "the step at a door. Where the export models no floor build-up this is a STRUCTURAL number, "
+        "which says nothing about the finished threshold, and the answer says so"
     ),
     "balustrade": (
         "where there is a fall at an opening, how far, and what stands there. Undecidable when the "
-        "export contains no IfcRailing at all — no railing in the model is not no railing on site"
+        "export contains no IfcRailing at all"
     ),
     "clearApproach": "the free floor in front of a door on each side, and what ends it",
 }
@@ -239,10 +231,9 @@ FIRE_ASPECTS = {
         "parcel boundary is rarely exported — and it is not guessed here"
     ),
     "doorGraph": (
-        "the WHOLE building's walkable graph: rooms as nodes, OUTSIDE as its own node, doors as edges "
-        "— plus the doors that became NEITHER (unbestimmt, ausgeschlossen). A room with no edge has no "
-        "way out; an unresolved door is a hole in EVERY route through this building. measure/egressPath "
-        "gives one route, this says how sound the basis of all routes is. Takes no global_id"
+        "the WHOLE building's walkable graph: rooms as nodes, OUTSIDE as its own node, doors as edges, "
+        "plus the doors that became NEITHER (unbestimmt, ausgeschlossen). A room with no edge has no "
+        "way out; an unresolved door is a hole in every route. Takes no global_id"
     ),
 }
 
@@ -256,19 +247,17 @@ FIRE_ASPECTS = {
 ENVELOPE_ASPECTS = {
     "thermalEnvelope": (
         "which elements form the boundary between heated inside and outside, grouped by kind, each "
-        "with its area and its DECLARED U-value. Every entry says which rung decided it — declared "
-        "IsExternal and inferred from room contact are not the same claim — and the two lists that "
-        "make the total checkable come back with it: interior (decided, left out) and "
-        "unbestimmt (not decided, so neither counted nor discarded)"
+        "with its area, its DECLARED U-value and which rung decided it (declared IsExternal or inferred "
+        "from room contact), plus interior (decided, left out) and unbestimmt (neither counted nor "
+        "discarded)"
     ),
     "areaByOrientation": (
         "envelope area per compass bearing, opaque and transparent apart, with the window-to-wall "
         "ratio per facade. Needs a declared TrueNorth; without one the bearing is refused, not guessed"
     ),
     "compactness": (
-        "A/V in 1/m, with the characteristic length (V over A) beside it. A and V come back separately, "
-        "because a ratio whose inputs are invisible cannot be checked by whoever signs it. V is the "
-        "NET volume (the sum of the IfcSpace solids)"
+        "A/V in 1/m, with the characteristic length (V over A), and A and V separately. V is the NET "
+        "volume (the sum of the IfcSpace solids)"
     ),
 }
 

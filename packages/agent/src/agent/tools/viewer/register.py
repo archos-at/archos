@@ -13,7 +13,7 @@ It exists for a turn only when the asking page declared it can run it
 (``user_message.client_tools``, AG-UI's ``RunAgentInput.tools``;
 ``common/client_tools``). A phone, a tab one release older, a background run
 and an agent at the door declare nothing, and the model is not offered the tool
-there (``agents/piloti/register._tools_in_scope``). It proposes ONE place per
+there (``agents/piloti/turn_tools.tools_in_scope``). It proposes ONE place per
 turn: the page runs it after the answer has arrived, and a second call is
 refused.
 

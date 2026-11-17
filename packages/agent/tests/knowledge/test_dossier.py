@@ -1,5 +1,3 @@
-"""The document dossier: one strict reading of the whole document, stored, failing open."""
-
 from __future__ import annotations
 
 import json
@@ -36,8 +34,6 @@ def _reply(**overrides: Any) -> dict[str, Any]:
 
 
 class FakeLLM:
-    """Records what was bound and asked; answers with ``reply`` (a dict is sent as JSON)."""
-
     def __init__(self, reply: Any = None, raises: Exception | None = None):
         self.reply, self.raises = reply, raises
         self.bound: dict[str, Any] = {}
@@ -66,7 +62,6 @@ class TestRecord:
         assert [fact["key"] for fact in record["facts"]] == ["storeys_above_ground", "building_class"]
 
     def test_a_type_outside_the_vocabulary_fails_the_whole_reply(self):
-        # The schema is strict: a free type would be a value no other document can be compared on.
         assert d.parse_dossier(_reply(document_type="Brandschutzkonzept")) is None
 
     def test_a_fact_key_outside_the_vocabulary_fails_the_reply(self):
@@ -131,7 +126,6 @@ class TestWrite:
         schema = llm.bound["response_format"]["json_schema"]
         assert schema["strict"] is True
         assert schema["schema"]["additionalProperties"] is False
-        # The summary model is capped at one sentence; a dossier is an object.
         assert llm.bound["max_tokens"] == d.MAX_OUTPUT_TOKENS >= 2000
 
     def test_the_digest_is_the_users_message_and_the_rules_the_systems(self):
@@ -152,8 +146,6 @@ class TestWrite:
 
 
 class _ClippedThenAnswering(FakeLLM):
-    """Clips the first call at its budget (reasoning ate it), answers the second."""
-
     def __init__(self, reply: Any):
         super().__init__(reply)
         self.budgets: list[int] = []
@@ -242,7 +234,6 @@ class TestLiftedFacts:
         ]
 
     def test_a_chunks_drawing_data_holding_one_segment_lifts_its_facts(self):
-        # The shape the ingest hands over: one segment per chunk (``segment_payloads``).
         stored = {
             "schema_version": 5,
             "segment": {

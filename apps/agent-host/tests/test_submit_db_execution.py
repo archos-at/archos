@@ -1,10 +1,3 @@
-"""Tests for the research-queue submit payload (ADR-0021, jobs/submit.py).
-
-The critical correctness property: the payload a worker replays must carry
-exactly ``run_agent_job``'s parameters (so a signature change can't silently
-drop a field) and must survive a JSON round-trip (it is stored as text).
-"""
-
 from __future__ import annotations
 
 import inspect

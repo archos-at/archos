@@ -5,15 +5,8 @@ import { describe, expect, it } from 'vitest'
 
 import { de } from './de'
 import { en } from './en'
+import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import { legalSlugs, type LegalDocument } from '../types'
-
-/**
- * The legal text states what the product sends. PostHog receives product
- * analytics, masked replays, errors, surveys and support messages, and stores
- * `ph_…` entries in the browser, so a notice that still claims "only strictly
- * necessary cookies" is wrong, and a processor table without PostHog hides a
- * recipient. These specs hold the copy to that, in both languages.
- */
 
 const flatten = (doc: LegalDocument): string =>
   doc.sections
@@ -54,8 +47,6 @@ describe.each([
     expect(flatten(content.privacy)).toMatch(/E-Mail-Adresse und Ihr Name werden nicht|email address and name are not sent/)
   })
 
-  // These pages are public (/legal/*). A value nobody has verified is a TODO(owner)
-  // in a source comment, never a bracketed placeholder a visitor reads.
   it.each(legalSlugs)('%s renders no bracketed placeholder', (slug) => {
     const doc = content[slug]
     expect(`${doc.title}\n${doc.intro ?? ''}\n${flatten(doc)}`).not.toMatch(/\[[^\]]*\]/)
@@ -75,6 +66,21 @@ describe.each([
     expect(cloudflare?.[1]).toMatch(/Email Routing/)
     const selfHosted = content.subprocessors.sections[1]?.table?.rows ?? []
     expect(selfHosted.some((row) => row[0] === 'ClamAV')).toBe(true)
+  })
+
+  it('shows the register’s processor rows, all of them, in order', () => {
+    const locale = content === de ? 'de' : 'en'
+    const rows = content.subprocessors.sections[0]?.table?.rows ?? []
+    expect(rows.map((row) => row[0])).toEqual(SUBPROCESSOR_PAGE[locale].processors.rows.map((row) => row[0]))
+    expect(rows.flat().join('\n')).not.toContain('{productName}')
+  })
+
+  it('names address search, dictation and the audit trail’s document names in the privacy policy', () => {
+    const privacy = flatten(content.privacy)
+    expect(privacy).toContain('komoot GmbH')
+    expect(privacy).toContain('ElevenLabs')
+    expect(privacy).toMatch(/Ereignisse zu Projekten und Dokumenten enthalten deren Namen|events about projects and documents carry their names/)
+    expect(privacy).not.toMatch(/erreichen the agent|reaches the agent/)
   })
 
   it('has been revised since the PostHog switch', () => {

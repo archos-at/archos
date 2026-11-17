@@ -2,6 +2,12 @@
 export const nav = {
   projectNavigation: 'Project navigation',
   projectSections: 'Project sections',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Recent chats',
+  allChats: 'All chats',
+  // A temporary chat in the rail's list: the glyph, said in words to a screen reader and a pointer.
+  temporaryChat: '(temporary chat)',
+  temporaryChatTitle: '{title} (temporary chat: nothing from it is kept)',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
@@ -17,7 +23,6 @@ export const nav = {
   resizeSidebarHint: 'Drag to resize, click to collapse',
   expandSidebarHint: 'Drag or click to expand the sidebar',
   openNavigation: 'Open navigation',
-  closeNavigation: 'Close navigation',
   sections: {
     chat: 'Chat',
     files: 'Files',
@@ -32,6 +37,8 @@ export const nav = {
     /** The tab that leads: work delegated to Piloti, one card per task (ADR-0051). */
     tasks: 'Tasks',
     officeShelf: 'Office filing',
+    // The office's standards, commentaries and directives, a place with folders (ADR-0163).
+    baseKnowledge: 'Office standards',
     search: 'Search',
     settings: 'Overview',
     // The intake wizard, labelled "Setup" in the product (⌘K palette only).
@@ -40,11 +47,11 @@ export const nav = {
     setup: 'Setup',
   },
   sectionGroups: {
-    work: 'Work',
+    // Everything done inside one project; the rail shows it without a heading.
+    work: 'This project',
     org: 'Organization',
   },
   sectionSubtitles: {
-    files: 'This project’s documents. {productName} reads them and cites from them.',
     automation:
       'What {productName} did while you were away, what it will do next, and the skills it does it with.',
     knowledge: 'What the knowledge base currently contains.',
@@ -57,6 +64,24 @@ export const nav = {
    * is the name of the location the reader actually came from, resolved from the
    * tab's return trail.
    */
+  /** A page inside a section (Files › Project mail): its title, under the crumb „Project › Files“. */
+  subpages: {
+    'files/all': {
+      title: 'Files',
+      /** The tab: true at every depth of the tree, where „Alle Dateien“ over a subfolder was not. */
+      tab: 'Folders',
+    },
+    'files/mail': {
+      title: 'Project mail',
+    },
+    'files/bin': {
+      title: 'Bin',
+    },
+    'files/open-points': {
+      title: 'Open points',
+    },
+  },
+  filesPlaces: 'File places',
   backTo: 'Back to {label}',
   /**
    * Names for return destinations that have no nav entry of their own to borrow
@@ -103,7 +128,7 @@ export const nav = {
       title: 'More',
       description: 'More areas and your account.',
       close: 'Close',
-      places: 'Areas',
+      project: 'Project',
       account: 'Account',
     },
   },
@@ -128,6 +153,7 @@ export const nav = {
     defaultUser: 'Default User',
     authNotConfigured: 'Authentication not configured',
     profile: 'Profile',
+    memory: 'My memory',
     organization: 'Organization',
     platform: 'Platform',
     switchOrganization: 'Switch organization',

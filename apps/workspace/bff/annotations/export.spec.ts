@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Anmerkungen as a Protokoll (`./export.ts`).
- *
- * The read gate is the listing's: the document through
- * `getAccessibleDocument(…, 'read')` and the marks through `listAnnotations`,
- * both mocked here, so what is under test is that the export asks them and
- * nothing else, and what it makes of their answer: the order (by number), the
- * scope and Fassung filters, Piloti's unreviewed proposals left out or set
- * apart, who stands behind a mark and who wrote a reply, and the three files.
- * The bytes are read back with readers that share no code with the writers.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -112,7 +101,6 @@ const mark = (overrides: Partial<AnnotationView> = {}): AnnotationView => ({
   ...overrides,
 })
 
-/** A review as an office has one: out of order, a closed mark, an earlier Fassung's, Piloti's in both states. */
 const ANNOTATIONS: AnnotationView[] = [
   mark({
     number: 4,
@@ -189,7 +177,6 @@ const markdownOf = (options: Partial<AnnotationExportOptions> = {}) => {
 
 describe('selectMarks', () => {
   it('orders by number and keeps every open mark, those still open from an earlier Fassung too, without proposals', () => {
-    // Index C arrived before the Jour fixe: Nr. 3, set on Fassung 2, is still open and is still on the agenda.
     const { marks, proposals } = selectMarks(ANNOTATIONS, OPTIONS)
     expect(numbers(marks)).toEqual([1, 3, 4, 5])
     expect(proposals).toEqual([])
@@ -207,7 +194,6 @@ describe('selectMarks', () => {
     expect(numbers(selectMarks(ANNOTATIONS, { ...OPTIONS, includeProposals: true }).proposals)).toEqual([6])
     const all = selectMarks(ANNOTATIONS, { ...OPTIONS, scope: 'all', includeProposals: true })
     expect(numbers(all.proposals)).toEqual([6, 7])
-    // Never among the office's marks, whatever the scope.
     expect(numbers(all.marks)).not.toContain(6)
     expect(numbers(all.marks)).not.toContain(7)
   })
@@ -220,11 +206,9 @@ describe('the Protokoll', () => {
     expect(md).toContain('Dokument: Grundriss EG.pdf')
     expect(md).toContain('Fassung: Fassung 3 von 5 · Stand vom 14.08.2026')
     expect(md).toContain('Projekt: Wohnhaus Lindengasse')
-    // Nr. 3 came along from Fassung 2, so the open marks are those of every Fassung, and the entry says which.
     expect(md).toContain('Umfang: Offene Anmerkungen · alle Fassungen')
     expect(md).toContain('### Nr. 3 · Seite 1 · Hinweis · offen')
     expect(md).toContain('*auf Fassung 2 gesetzt*')
-    // 12:30 UTC is 14:30 in the office.
     expect(md).toContain('Exportiert am: 13.10.2026, 14:30')
     expect(md).toContain('Exportiert von: Anna Berger')
   })
@@ -378,6 +362,39 @@ describe('exportAnnotationProtocol', () => {
     expect(pdf.text).toContain('Anmerkungen – Grundriss EG')
     expect(pdf.text).toContain('Nr. 4 · Seite 2 · Mangel · offen')
     expect(pdf.text).toContain('Fassung 3 von 5')
+  })
+
+  describe('the AI marking', () => {
+    const COMPOSITE = 'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia'
+    const officeOnly = async () => {
+      const listing = await listAnnotations(SESSION, 'doc_1')
+      vi.mocked(listAnnotations).mockResolvedValue({
+        ...listing,
+        annotations: [mark({ number: 1 }), mark({ number: 2, replies: [reply()] })],
+      })
+    }
+
+    it('marks a PDF holding the agent’s text composite, in XMP and in Keywords', async () => {
+      const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(COMPOSITE)
+      expect(String(pdf.info.Keywords)).toContain(`DigitalSourceType=${COMPOSITE}`)
+    })
+
+    it('marks a Word file holding the agent’s text composite', async () => {
+      const file = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
+      const custom = readZipEntries(file.bytes).get('docProps/custom.xml') ?? ''
+      expect(custom).toContain(`name="DigitalSourceType"><vt:lpwstr>${COMPOSITE}`)
+    })
+
+    it('leaves the office’s own marks unmarked, in both formats', async () => {
+      await officeOnly()
+      const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBeUndefined()
+      expect(pdf.info.Keywords).toBeUndefined()
+      await officeOnly()
+      const docx = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
+      expect(readZipEntries(docx.bytes).has('docProps/custom.xml')).toBe(false)
+    })
   })
 
   it('refuses a PDF too long to lay out, and points at the formats that have no such limit', async () => {

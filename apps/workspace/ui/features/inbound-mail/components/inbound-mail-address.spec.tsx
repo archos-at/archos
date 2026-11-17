@@ -1,13 +1,3 @@
-/**
- * The project's mail address where people learn it: led by what it is for,
- * copyable in full, saved as a contact (each counted, by the door it was
- * taken from), replaced only behind a warning that says every follow ends,
- * offered to a manager only; the office's own signing said to a manager only;
- * the overview's tile; and the states without an address. Beside the
- * address, the size a mail may have and the upload for anything larger, both
- * read from the server's constant.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -60,13 +50,11 @@ describe('InboundMailAddressCard', () => {
   it('wraps the address only after the +, before the token and before the @, never inside the domain', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
     const shown = await screen.findByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
-    // Each line a phone may start: what precedes every <wbr> is a whole piece.
     const lines = Array.from(shown.childNodes).reduce<string[]>(
       (pieces, node) => (node.nodeName === 'WBR' ? [...pieces, ''] : [...pieces.slice(0, -1), `${pieces.at(-1)}${node.textContent}`]),
       ['']
     )
     expect(lines).toEqual(['project+', 'bauplatz-12', '.k3x7q2m9p4ab', '@inbox.example.org'])
-    // Not break-all, which split the domain mid-word; anywhere only inside a piece wider than the line.
     expect(screen.getByRole('button', { name: /project\+bauplatz-12/ }).className).not.toContain('break-all')
   })
 
@@ -154,9 +142,8 @@ describe('the size a mail may have', () => {
     const line = await screen.findByTestId('address-size-limit')
     expect(INBOUND_MAIL_MAX_MESSAGE_BYTES).toBe(25 * MIB)
     expect(line).toHaveTextContent(
-      `Up to ${INBOUND_MAIL_MAX_MESSAGE_BYTES / MIB} MB per mail, attachments together up to about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB. Upload larger files directly`
+      `Attachments up to about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB per mail. Upload larger files directly`
     )
-    // Base64 sends three bytes as four: 25 MiB of mail carries 18 MiB of files.
     expect(line).toHaveTextContent('about 18 MB')
     expect(screen.getByTestId('address-upload-instead')).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files`)
   })
@@ -170,7 +157,7 @@ describe('the size a mail may have', () => {
 
   it('states it on the overview’s tile too', async () => {
     render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
-    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Up to 25 MB per mail')
+    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Attachments up to about 18 MB per mail')
   })
 })
 
@@ -183,7 +170,6 @@ describe('InboundMailAddressDialog', () => {
     rerender(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open onOpenChange={vi.fn()} client={client} />)
     const uses = await screen.findByTestId('address-uses')
     expect(uses).toHaveTextContent('Put it in Cc when you write to the authority, the structural engineer or the client')
-    // The use comes before the address, and the promise is its last line.
     expect(uses.compareDocumentPosition(screen.getByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(uses.lastElementChild).toHaveTextContent('Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits until someone files it; mail from outside the office for 14 days.')
     expect(get).toHaveBeenCalledTimes(1)

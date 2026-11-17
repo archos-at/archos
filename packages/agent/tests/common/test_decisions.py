@@ -1,10 +1,3 @@
-"""The decision client: typed answers, fail-open everywhere, one record per call.
-
-Through an ``httpx.MockTransport``, so what is pinned is the wire contract
-(OpenRouter's alpha Decisions endpoint) and the two rules every caller
-relies on: ``None`` on any failure, and a record that says why.
-"""
-
 from __future__ import annotations
 
 import json
@@ -28,7 +21,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _bff_cost_sources() -> set[str]:
-    """`COST_SOURCES` as the BFF declares it, the vocabulary its internal usage route accepts."""
     schema = (_REPO_ROOT / "apps/workspace/bff/db/schema/budgets.ts").read_text()
     declared = re.search(r"export const COST_SOURCES = \[([^\]]*)\]", schema)
     assert declared is not None
@@ -52,7 +44,6 @@ QUESTIONS = {
 }
 
 
-#: The real resolver, captured before the fixture below replaces it.
 _RESOLVE_ENDPOINT = decisions._resolve_endpoint_blocking
 _ENDPOINT = decisions._Endpoint(url="https://openrouter.ai/api/alpha/decisions", api_key="k", model="typesafe/jev-1.13")
 
@@ -75,7 +66,6 @@ def _ok(request: httpx.Request) -> httpx.Response:
 
 @pytest.fixture(autouse=True)
 def _endpoint_available(monkeypatch):
-    """A key resolves, breaker closed, decisions enabled."""
     decisions.reset_breaker()
     monkeypatch.delenv(decisions.ENABLED_ENV, raising=False)
     monkeypatch.delenv(decisions.URL_ENV, raising=False)
@@ -101,7 +91,6 @@ def records():
 
 class TestTheRecord:
     def test_a_decision_is_one_technical_step_of_flat_numbers(self, emitted):
-        """The record is typed detail an operator counts, never the reader's text."""
         decisions.record_skipped("turn", "no_key", "because")
         assert emitted.steps == [
             StatusStep(
@@ -133,7 +122,6 @@ class TestTheWire:
             "criteria": {"true": "yes", "false": "no"},
         }
         assert seen[0].headers["authorization"] == "Bearer k"
-        # Pinned for every organization: the decision model is the platform's.
         assert body["provider"]["zdr"] is True
         assert body["provider"]["data_collection"] == "deny"
         assert decision.noul("needs_evidence") == 0.93
@@ -197,7 +185,6 @@ class TestFailOpen:
         assert endpoint is None and skipped == "byok_host"
 
     async def test_a_caller_without_an_organization_resolves_under_the_requests_one(self):
-        """The knowledge layer decides without an org id; BYOK must still see the org."""
         with (
             patch("agent.project_context.get_organization_id_from_context", return_value="org-ctx"),
             patch.object(decisions, "_resolve_endpoint_blocking", return_value=(_ENDPOINT, None)) as resolve,
@@ -207,7 +194,6 @@ class TestFailOpen:
         assert [c.args[0] for c in resolve.call_args_list] == ["org-ctx", "org-given"]
 
     async def test_a_zdr_organization_is_decided_for_not_skipped(self, records):
-        """Every decision is pinned, so a ZDR org no longer loses them to a skip."""
         seen: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -270,10 +256,6 @@ class TestManyStates:
         assert await decide_many([], QUESTIONS, slot="x") == []
 
     async def test_one_transport_serves_every_call_of_a_batch(self, records):
-        # A batch used to wrap the one transport in a client per call and close
-        # each client after its call, which closed the transport under every
-        # other call: they failed with ReadError, and five of them opened the
-        # breaker for the whole process.
         transport = _ClosingTransport(_ok)
         decided = await decide_many(["a", "b", "c", "d"], QUESTIONS, slot="fingerprint_verify", transport=transport)
         assert all(decision is not None for decision in decided)
@@ -294,8 +276,6 @@ class TestManyStates:
 
 
 class _ClosingTransport(httpx.AsyncBaseTransport):
-    """A mock that, like ``httpx.AsyncHTTPTransport``, fails every request once it was closed."""
-
     def __init__(self, handler) -> None:
         self._inner = httpx.MockTransport(handler)
         self.closed = False
@@ -321,15 +301,11 @@ class TestTheCostIsOnTheLedger:
         record.assert_called_once()
         kwargs = record.call_args.kwargs
         assert kwargs["role"] == "decision" and kwargs["prompt_tokens"] == 476
-        # A value outside the ledger's vocabulary, as "provider" was, has the
-        # internal endpoint refuse the whole batch. Read from the BFF schema.
         assert kwargs["cost_source"] == "usage_field"
         assert kwargs["cost_source"] in _bff_cost_sources()
 
 
 class TestLangfuseSeesEveryDecision:
-    """ADR-0089: a decision is a model call, so a generation; numbers, never the state."""
-
     @pytest.fixture
     def spans(self, monkeypatch):
         seen: list[tuple[str, dict, dict]] = []

@@ -1,5 +1,3 @@
-"""A mindmap that only redraws a table in the same answer is removed."""
-
 from __future__ import annotations
 
 from agent.agents.piloti.answer_shape import drop_restated_mindmaps
@@ -10,7 +8,6 @@ DEEP = (
     '```mermaid\nmindmap\n  root(("OIB-RL 2"))\n    "RL 2.1"\n      "Brandabschnitte nach Fläche"\n'
     '    "RL 2.2"\n      "Stellplätze und Parkdecks"\n```'
 )
-#: The September 2026 census: a second level that only repeats each part's number.
 NUMBERED = (
     '```mermaid\nmindmap\n  root(("OIB-RL 2"))\n    "Betriebsbauten"\n      "RL 2.1"\n'
     '    "Garagen"\n      "RL 2.2"\n```'

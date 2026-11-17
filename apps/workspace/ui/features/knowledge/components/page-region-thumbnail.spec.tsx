@@ -1,9 +1,3 @@
-/**
- * The place thumbnail: nothing is fetched until it is on screen, then only the
- * clip around the box is drawn with the box marked; a reader who may not open
- * the document gets a tile and nothing of the page; an image upload is drawn
- * from the signed picture the preview route hands out. pdf.js is a recorder.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
@@ -63,7 +57,6 @@ afterEach(() => {
 describe('PageRegionThumbnail', () => {
   test('waits until it is on screen', async () => {
     render(<PageRegionThumbnail place={PLACE} />)
-    // The suite's IntersectionObserver never reports: nothing comes near the screen.
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(pdf.opened).toEqual([])
     expect(document.querySelector('[data-place-thumbnail]')).toHaveAttribute('data-state', 'waiting')
@@ -74,7 +67,6 @@ describe('PageRegionThumbnail', () => {
     render(<PageRegionThumbnail place={PLACE} label="Grundriss EG.pdf, Seite 2" />)
     await waitFor(() => expect(document.querySelector('[data-place-thumbnail]')).toHaveAttribute('data-state', 'drawn'))
     expect(pdf.opened).toEqual(['/api/documents/doc-1/file'])
-    // Only the clip is rasterized: the viewport is shifted to the clip's corner.
     const drawn = pdf.viewports.at(-1)!
     expect(drawn.offsetX).toBeLessThan(0)
     expect(screen.getByRole('img', { name: 'Grundriss EG.pdf, Seite 2' })).toBeInTheDocument()

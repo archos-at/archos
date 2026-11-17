@@ -8,7 +8,10 @@ title = "grid-oib-agent gitleaks config"
 [extend]
 useDefault = true
 
-[allowlist]
+# `[[allowlists]]`, not the older `[allowlist]` table: gitleaks refuses a config
+# that has both, and only `[[allowlists]]` takes `targetRules`, which the
+# knowledge-pack entry at the end needs.
+[[allowlists]]
 description = "Global false-positive allowlist"
 
 # These paths hold fixtures, examples, generated lockfiles, and docs that
@@ -95,3 +98,14 @@ regexes = [
   # `phx_` key is a real credential and must still fail the scan.
   '''^phc_CVrz2Nt2hoJSmBQ9duYHDbWSjkdyQkQxKs7GHxDvg27X$''', # pragma: allowlist secret
 ]
+
+# The country knowledge packs (`configs/knowledge-packs/*.json`, ADR-0168). Every
+# record carries a `"key"`, a slug such as `bo-bgld` or `oib-rl-2-2`, and
+# `generic-api-key` fires on that field name alone. Narrow on purpose: only that
+# one rule, only those files, so any other rule still catches a real secret
+# pasted into a pack. A path rule because the scan walks full history and every
+# pack edit mints new fingerprints.
+[[allowlists]]
+description = "Knowledge-pack record keys are slugs, not credentials"
+targetRules = ["generic-api-key"]
+paths = ['''^configs/knowledge-packs/''']

@@ -45,6 +45,8 @@ import { uploadReportFor } from './upload-report-service'
 export interface SettledDocument {
   id: string
   status: string
+  /** A row healed from a wrong verdict, not a fresh arrival: no Fassung notice, no document check. */
+  correction?: boolean
 }
 
 /** Settle after reconciliation moved these rows. Never throws. */
@@ -65,11 +67,12 @@ export async function onDocumentsSettled(organizationId: string, settled: readon
     //
     // A stopped read announces nothing: it is not in the index, so "the new
     // Fassung is here" would be false, and its row is the uploader's own to
-    // act on again. Held back is left out for the same reason.
+    // act on again. Held back is left out for the same reason, and so is a
+    // correction: its Fassung arrived weeks ago, it only read wrong since.
     void announceSettledVersions(
       organizationId,
       settled
-        .filter((row) => row.status !== 'quarantined' && row.status !== 'cancelled')
+        .filter((row) => !row.correction && row.status !== 'quarantined' && row.status !== 'cancelled')
         .map((row) => row.id)
     ).catch((error) => console.warn('[upload-batches] announcing new Fassungen failed:', error))
   } catch (error) {

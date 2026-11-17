@@ -47,8 +47,8 @@ from .schema import SCOPE_FIELD
 from .schema import TEXT_FIELD
 from .schema import Physical
 from .schema import physical_for_scope
+from .scope import ScopeRead
 from .scope import scope_condition
-from .scope import scope_filter
 from .store import QdrantStore
 
 #: Points ranked before grouping: enough for ``documents`` groups of
@@ -130,12 +130,13 @@ def _file_condition(source: PassageSource) -> models.Filter:
     )
 
 
-def _record_by_chunk_id(store: QdrantStore, source: PassageSource) -> Any | None:
+def _record_by_chunk_id(store: QdrantStore, source: PassageSource, office_id: str | None) -> Any | None:
     """The source scope's point for ``source.chunk_id``, or None."""
     if not source.chunk_id:
         return None
     condition = models.FieldCondition(key=CHUNK_ID_FIELD, match=models.MatchValue(value=str(source.chunk_id)))
-    return next(iter(store.scroll(source.scope, None, condition, limit=1)), None)
+    office = ScopeRead((source.scope,), office_id).office()
+    return next(iter(store.scroll(source.scope, None, condition, *office, limit=1)), None)
 
 
 def _containing(records: Sequence[Any], probe: str) -> Any | None:
@@ -147,12 +148,12 @@ def _containing(records: Sequence[Any], probe: str) -> Any | None:
     return None
 
 
-def _record_by_text(store: QdrantStore, source: PassageSource) -> Any | None:
+def _record_by_text(store: QdrantStore, source: PassageSource, office_id: str | None) -> Any | None:
     """The chunk of the source file holding the cited text: its page first, then the whole file."""
     probe = normalized(source.text)[:LOCATE_PROBE_CHARS]
     if len(probe) < LOCATE_MIN_CHARS:
         return None
-    file_filter = _file_condition(source)
+    file_filter = models.Filter(must=[_file_condition(source), *ScopeRead((source.scope,), office_id).office()])
     if source.page:
         on_page = models.FieldCondition(key=READING_ORDER_FIELD, match=models.MatchValue(value=int(source.page)))
         found = _containing(list(store.scroll(source.scope, None, file_filter, on_page, limit=LOCATE_SCAN_CAP)), probe)
@@ -161,11 +162,14 @@ def _record_by_text(store: QdrantStore, source: PassageSource) -> Any | None:
     return _containing(list(store.scroll(source.scope, None, file_filter, limit=LOCATE_SCAN_CAP)), probe)
 
 
-def locate_source(store: QdrantStore, source: PassageSource) -> Any | None:
-    """The stored point the passage is, when it is one: by chunk id, else (a citation) by its text."""
-    record = _record_by_chunk_id(store, source)
+def locate_source(store: QdrantStore, source: PassageSource, *, office_id: str | None) -> Any | None:
+    """The stored point the passage is, when it is one: by chunk id, else (a citation) by its text.
+
+    Read as ``office_id``: another office's point in the source's scope is never the source.
+    """
+    record = _record_by_chunk_id(store, source, office_id)
     if record is None and source.cited:
-        record = _record_by_text(store, source)
+        record = _record_by_text(store, source, office_id)
     return record
 
 
@@ -219,6 +223,7 @@ def find_similar(
     store: QdrantStore,
     scopes: Sequence[str],
     *,
+    office_id: str | None,
     source: PassageSource,
     embed: Callable[[str], Sequence[float]],
     documents: int,
@@ -228,9 +233,13 @@ def find_similar(
 
     ``scopes`` are the office's collections the caller may read (one physical
     collection); the source's own scope need not be one of them. ``embed`` is
-    asked only when the passage is no stored point.
+    asked only when the passage is no stored point. ``office_id`` is the office
+    the read is made as (``scope.ScopeRead``); none for office scopes raises.
     """
-    if documents <= 0 or per_document <= 0 or not scopes:
+    if not scopes:
+        return SimilarResult([], ORIGIN_POINT)
+    read = ScopeRead(tuple(scopes), office_id)
+    if documents <= 0 or per_document <= 0:
         return SimilarResult([], ORIGIN_POINT)
     physicals = {physical_for_scope(scope) for scope in scopes}
     if physicals != {Physical.OFFICE}:
@@ -239,7 +248,7 @@ def find_similar(
         return SimilarResult([], ORIGIN_POINT)
     store.check_identity(scopes[0])
     store.check_identity(source.scope)
-    record = locate_source(store, source)
+    record = locate_source(store, source, office_id=read.office_id)
     query: Any
     lookup: models.LookupLocation | None = None
     if record is not None:
@@ -256,7 +265,7 @@ def find_similar(
         query=query,
         using=DENSE,
         lookup_from=lookup,
-        query_filter=scope_filter(scopes, CURRENT_REVISIONS, _excluded(source)),
+        query_filter=read.filter(CURRENT_REVISIONS, _excluded(source)),
         # The scores are shown as a match percentage: rescored from the original
         # vectors rather than read off the 4-bit quantized copy.
         search_params=models.SearchParams(quantization=models.QuantizationSearchParams(rescore=True)),

@@ -108,7 +108,7 @@ export default function DocumentRolesPreviewPage() {
     <I18nProvider initialLocale="de" fixedLocale>
       <main className="mx-auto flex max-w-3xl flex-col gap-10 p-8">
         <section className="flex flex-col gap-3">
-          <h1 className="text-lg font-semibold tracking-tight">Im Assistenten: Bebauungsplan</h1>
+          <h1 className="text-lg font-semibold">Im Assistenten: Bebauungsplan</h1>
           <div className="rounded-xl border bg-card p-4">
             <DocumentRoleField
               projectId={PROJECT_ID}
@@ -119,7 +119,7 @@ export default function DocumentRolesPreviewPage() {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold tracking-tight">Mehrere Blätter, ein Bauwerk</h2>
+          <h2 className="text-lg font-semibold">Mehrere Blätter, ein Bauwerk</h2>
           <div className="rounded-xl border bg-card p-4">
             <DocumentRoleField
               projectId={PROJECT_ID}
@@ -131,7 +131,7 @@ export default function DocumentRolesPreviewPage() {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold tracking-tight">Modul I · Projektgrundlagen</h2>
+          <h2 className="text-lg font-semibold">Modul I · Projektgrundlagen</h2>
           <ProjectBasisStep projectId={PROJECT_ID} answers={ANSWERS} buildings={BUILDINGS} />
         </section>
       </main>

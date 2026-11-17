@@ -93,7 +93,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      if (url.startsWith('/api/knowledge-base')) {
+      if (url === '/api/platform/knowledge/documents') {
         return Response.json(STATUS)
       }
       if (url.startsWith('/api/platform/knowledge/reingest')) {

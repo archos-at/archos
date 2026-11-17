@@ -47,6 +47,12 @@ export const AGENT_DOCUMENT_MEDIA_TYPE = 'text/markdown'
  * pane, and one line does not turn the document into an appendix to its own
  * front matter.
  *
+ * Under it, one more line that is not chrome: the Art. 50(1) AI Act disclosure
+ * (`branding.aiDisclosure`), that an AI system wrote this and for whom. A
+ * letter to a Behörde is one of these documents, and its reader starts at the
+ * top. It comes from the i18n dictionaries, so an office's branding override,
+ * which can reword the header, cannot remove it.
+ *
  * The block is the disclaimer, and it stays at the FOOT for the reason the
  * marking does: the first line of a filed document is its title, and three
  * sentences of liability above it turn every preview and every paste into a
@@ -70,8 +76,11 @@ export function renderAgentDocumentMarkdown(
     branding.disclaimer,
     branding.footerLine,
   ].join('\n\n')
+  // The Art. 50(1) disclosure under the header line, above the title: the
+  // Commission's Art. 50 guidelines (2026-11-05, point 36) put an agent's AI
+  // label at the top of what it sends, where a letter's reader starts.
   const text =
-    `${branding.headerLine}\n\n${body.trim()}\n\n---\n\n${footer}\n\n` +
+    `${branding.headerLine}\n\n*${branding.aiDisclosure}*\n\n${body.trim()}\n\n---\n\n${footer}\n\n` +
     `<!-- ${branding.aiGeneratorName} -->\n\n\`\`\`\n${marking}\n\`\`\`\n`
   return {
     bytes: new TextEncoder().encode(text),

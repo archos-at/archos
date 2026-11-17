@@ -202,6 +202,17 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'access', urgency: 'normal' },
   },
+  // "A project admin took ownership of what you own" (ADR-0032 decision 5).
+  // One row per resource: a second takeover counts up. Kept as long as an
+  // owner may want to ask who did it and when; the audit log keeps it longer.
+  'resource.ownership_taken': {
+    actionable: false,
+    grouping: 'collapse',
+    retentionDays: 180,
+    gate: 'collaboration',
+    email: IN_APP_ONLY,
+    push: { category: 'access', urgency: 'normal' },
+  },
   /*
     A background run ended. `per-anchor` with the backend job id as the anchor:
     two runs of one job are two pieces of work, each with its own report, so

@@ -75,6 +75,7 @@ COPY pyproject.toml uv.lock ./
 COPY packages/agent/ ./packages/agent/
 COPY packages/knowledge-layer/ ./packages/knowledge-layer/
 COPY packages/ris-adapter/ ./packages/ris-adapter/
+COPY packages/public-sources/ ./packages/public-sources/
 COPY packages/tavily-web-search/ ./packages/tavily-web-search/
 # The backend app, with its entrypoint.py and start_web.py; .dockerignore keeps
 # this Dockerfile out.
@@ -82,9 +83,8 @@ COPY apps/agent-host/ ./apps/agent-host/
 COPY configs/ ./configs/
 COPY scripts/ ./scripts/
 # The spatial engine behind `ifc_measure` (ADR-0045 amendment / roadmap §13b).
-# It is not a uv workspace member — its dependency set (IfcOpenShell, shapely)
-# has nothing to do with the rest of the backend — so it is copied and installed
-# on its own below.
+# It is not a uv workspace member, so IfcOpenShell stays out of the root
+# `uv.lock`; it is copied and installed on its own below.
 COPY packages/ifc-spatial-py/ ./packages/ifc-spatial-py/
 
 # Install dependencies using uv sync. `--all-packages` takes each workspace
@@ -97,6 +97,7 @@ RUN uv sync --frozen --no-dev --no-install-workspace --all-packages
 # Install workspace packages (without CLI for base)
 RUN uv pip install --no-deps -e ./packages/agent \
     && uv pip install --no-deps -e ./packages/tavily-web-search \
+    && uv pip install --no-deps -e ./packages/public-sources \
     && uv pip install --no-deps -e ./packages/ris-adapter \
     && uv pip install --no-deps -e "./packages/knowledge-layer[all]" \
     && uv pip install --no-deps -e ./apps/agent-host \
@@ -105,9 +106,12 @@ RUN uv pip install --no-deps -e ./packages/agent \
 # The spatial engine, installed WITH its dependencies (unlike the workspace
 # packages above, whose deps come from the lockfile). Deliberately a separate
 # layer and deliberately not in `uv.lock`: IfcOpenShell ships prebuilt wheels
-# per platform, it is the only consumer of shapely in this image, and a
-# deployment that never answers a geometric question should be able to drop
-# this one line. `ifc_measure` degrades to a plain refusal when the import
+# per platform, and a deployment that never answers a geometric question
+# should be able to drop this one line. Its dependencies resolve from its
+# pyproject.toml, never from its own uv.lock: what `uv sync` installed above
+# (numpy, shapely, pillow) stays at the root lock's version, the rest takes the
+# newest release the range allows. That is why IfcOpenShell and ifctester are
+# exact there. `ifc_measure` degrades to a plain refusal when the import
 # fails — it never reports a missing engine as an unreadable building.
 # `[ids]` pulls ifctester for the IDS shopping-list export. Optional in the
 # package because the tool degrades to a named refusal without it; installed
@@ -117,7 +121,7 @@ RUN uv pip install -e './packages/ifc-spatial-py[ids]'
 # A requirement no layer installed fails the build, not the pod. Only the "not
 # installed" class: the declared-Python and cryptography mismatches `uv pip
 # check` also lists are accepted in pyproject.toml and are not this.
-RUN /app/.venv/bin/python -c "import agent_host; import knowledge_layer; import ris_adapter.register; import tavily_web_search.register; print('✓ Base packages installed')" \
+RUN /app/.venv/bin/python -c "import agent_host; import knowledge_layer; import ris_adapter.register; import public_sources.fetcher; import tavily_web_search.register; print('✓ Base packages installed')" \
     && /app/.venv/bin/python -c "import ifc_spatial.tools; print('✓ Spatial engine installed')" \
     && ! uv pip check --python /app/.venv/bin/python 2>&1 | grep "not installed"
 

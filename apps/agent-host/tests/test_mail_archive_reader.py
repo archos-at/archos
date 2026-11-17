@@ -1,12 +1,3 @@
-"""The archive walk: positions, the mail tree, and what a message reads as.
-
-Most cases run over stand-ins for libpff's objects, so the order and the paging
-are pinned without a binary fixture in the repository. The last test reads real
-archives when ``PST_FIXTURE_DIR`` names a directory of them (the
-pst-extractor corpus is what ADR-0085's spike used): a check of libpff itself,
-run by hand when its version moves.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -93,7 +84,6 @@ class Message:
     delivery_time: datetime | None = datetime(2026, 9, 30, 8, 16)
     attachments: list[Attachment] = field(default_factory=list)
     recipients: Recipients | None = None
-    #: Further MAPI properties, as ``props`` takes them.
     extra: dict[str, tuple[int, object]] = field(default_factory=dict)
 
     @property
@@ -224,7 +214,6 @@ def test_a_mail_reads_its_headers_recipients_and_attachments():
     mail = pst(Folder("Posteingang", [message])).page(0, 1).messages[0]
     assert mail.sender == reader.Address(name="Anna Berger", address="anna@buero.at")
     assert mail.to == (reader.Address(name="Bauamt", address="bauamt@wien.gv.at"),)
-    # An Exchange DN is not an address; the name stays, the address is empty.
     assert mail.cc == (reader.Address(name="Kollege", address=""),)
     assert mail.sent_at.isoformat() == "2026-09-30T08:15:00+00:00"
     assert (mail.body.source, mail.body.text) == ("html", "Siehe Plan")
@@ -234,11 +223,7 @@ def test_a_mail_reads_its_headers_recipients_and_attachments():
     assert forwarded.embedded_message is True
 
 
-#: One conversation as both sources carry it (``contracts/thread-index.json``): the
-#: BFF's ``threadIndexGuid`` spec reads the same vector, so the archive and an
-#: inbound ``Thread-Index`` header cannot drift apart.
 THREAD_INDEX = json.loads((Path(__file__).resolve().parents[3] / "contracts" / "thread-index.json").read_text())
-#: A conversation index as Outlook writes it: reserved byte, FILETIME, GUID, one child block.
 CONVERSATION_INDEX = bytes.fromhex(THREAD_INDEX["bytesHex"])
 
 
@@ -260,7 +245,6 @@ def test_a_mail_reads_the_properties_a_thread_is_matched_on():
     )
 
     mail = pst(Folder("Gesendete Elemente", [message])).page(0, 1).messages[0]
-    # As stored: the BFF parses the ids and derives the GUID, once for both sources.
     assert (mail.message_id, mail.in_reply_to) == ("<b@buero.at>", "<a@wien.gv.at>")
     assert mail.references == "<root@buero.at>\r\n <a@wien.gv.at>"
     assert mail.conversation_index == THREAD_INDEX["conversationIndexBase64"]
@@ -371,12 +355,6 @@ def test_real_archives_page_through_completely():
 
 @pytest.mark.skipif(not FIXTURES, reason="PST_FIXTURE_DIR names no directory of real archives")
 def test_real_archives_give_the_conversation_the_thread_index_header_carries():
-    """The archive's PR_CONVERSATION_INDEX and an inbound mail's Thread-Index name one conversation.
-
-    Checked where a received message kept its transport headers (Enron's do:
-    50 of 50 matched on 2026-10-22): the GUID (bytes 6 to 21) of both is the
-    same, so the BFF derives one string from an archived and an inbound copy.
-    """
     import re
 
     compared = 0

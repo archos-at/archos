@@ -74,8 +74,6 @@ describe('FileReferenceLink', () => {
     expect(chip).toHaveAttribute('data-file-reference', 'pd8280-2.pdf')
   })
 
-  // The rule the citation marker already holds to: a control that opens
-  // nothing is worse than plain text.
   it('falls back to plain text when the name resolves to nothing', () => {
     renderReference({ href: fileReferenceHref('Konzept.pdf'), resolve: () => null })
     expect(screen.queryByTestId('file-reference')).toBeNull()
@@ -98,8 +96,6 @@ describe('FileReferenceLink', () => {
     expect(preview.context.projectId).toBe('proj-1')
   })
 
-  // Naming a file and asking about it are one act — the same commitment a
-  // citation's peek and a document card already make.
   it('makes the file it opened what the composer is asking about', async () => {
     const user = userEvent.setup()
     renderReference({ href: fileReferenceHref('pd8280-2.pdf') })
@@ -114,8 +110,6 @@ describe('FileReferenceLink', () => {
     })
   })
 
-  // The shelf rides along as `focus_shelf`: a Büroablage file must not be asked
-  // about as though it were project knowledge.
   it('carries the shelf the file came from into the subject', async () => {
     const user = userEvent.setup()
     renderReference({
@@ -126,9 +120,6 @@ describe('FileReferenceLink', () => {
     expect(useChatStore.getState().composerSubject?.shelf).toBe('office_shelf')
   })
 
-  // `stored` is the agent's own report: readable, deliberately never indexed.
-  // Binding it would promise a retrieval that cannot happen, so the document
-  // opens and the composer keeps saying whatever it already said.
   it('opens a never-indexed file without committing the composer to it', async () => {
     const user = userEvent.setup()
     renderReference({
@@ -156,8 +147,6 @@ describe('FileReferenceLink', () => {
     expect(screen.getByTestId('file-reference')).toHaveAccessibleName('Datei öffnen: pd8280-2.pdf')
   })
 
-  // There is no beside on a narrow screen: FilePreviewHost refuses to peek, so
-  // a peek there would be a control that silently did nothing.
   it('opens as an overlay where there is no room for two panes', async () => {
     viewport.isMobile = true
     const user = userEvent.setup()
@@ -186,9 +175,6 @@ describe('FileReferenceLink', () => {
     expect(useFilePreviewStore.getState().file).toBeNull()
   })
 
-  // The panel's action and the chip it hangs off do the same thing, so they
-  // have to promise the same thing — including the half that is about the
-  // composer rather than the viewer.
   it('names the same act on the peek’s own action', async () => {
     const user = userEvent.setup()
     renderReference({ href: fileReferenceHref('pd8280-2.pdf') })
@@ -208,8 +194,6 @@ describe('FileReferenceLink', () => {
     expect(screen.getByRole('button', { name: /Neben der Antwort öffnen/ })).toBeInTheDocument()
   })
 
-  // A held file (ADR-0086) used to say nothing at all: no failure, no „not
-  // read", so the reader could not tell why asking about it found nothing.
   it('says a held file is held back and cited only once someone allows it, with the held glyph', async () => {
     const user = userEvent.setup()
     renderReference({
@@ -222,7 +206,6 @@ describe('FileReferenceLink', () => {
     expect(line).toHaveTextContent(/erst, wenn jemand sie zulässt/)
     expect(line).not.toHaveTextContent(/freigeb/i)
     expect(line.querySelector('[data-mark="held"]')).not.toBeNull()
-    // It is neither a failure nor a file at rest, and it only opens.
     expect(screen.queryByText(new RegExp(String.raw`Lesen fehlgeschlagen|${PRODUCT_NAME} zitiert sie nicht`))).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Neben der Antwort öffnen/ })).toBeInTheDocument()
   })

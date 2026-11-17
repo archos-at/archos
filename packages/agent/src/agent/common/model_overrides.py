@@ -33,6 +33,13 @@ import time
 import types
 from enum import StrEnum
 
+from agent.common import residency
+from agent.common.org_config_shared import read_shared
+from agent.common.org_config_shared import write_shared
+from agent.common.residency import UNREADABLE_POLICY
+from agent.common.residency import ProcessingPolicy
+from agent.common.residency import parse_policy
+
 logger = logging.getLogger(__name__)
 
 MODEL_OVERRIDES_HEADER = "x-grid-model-overrides"
@@ -56,19 +63,6 @@ MODEL_OVERRIDES_HEADER = "x-grid-model-overrides"
 # fails open, the privacy control fails closed (`common/openrouter.py`).
 _POSITIVE_TTL_SECONDS = 10.0
 _NEGATIVE_TTL_SECONDS = 1.0
-# Bounds the write-after-delete race window: a fetch that started BEFORE an
-# admin save (reading the pre-save rows) can complete AFTER the BFF's delete
-# and re-populate L2 with the stale record, which then serves every replica
-# until this TTL expires. 60s caps that staleness; it cannot be zero because
-# L2 is also the cold-start path that keeps a fresh replica off the BFF.
-#
-# RESIDUAL RACE (accepted): delete-then-repopulate as above, plus a replica
-# whose L1 still holds the pre-save entry serves it for up to L1 10s after the
-# save regardless of L2. Worst case after an admin save is therefore ~L1 + L2
-# staleness on a replica that lost the race; the common case is seconds via
-# the delete. Direct-SQL or out-of-band writes skip the delete entirely and
-# always pay the full TTLs — see docs/architecture/org-model-configuration.md.
-_SHARED_TTL_SECONDS = 60.0
 
 # One in-flight resolution per org per replica. The negative TTL above is
 # deliberately ~1s so a transient BFF outage never pins the fleet to the YAML
@@ -93,11 +87,6 @@ def _org_fetch_lock(organization_id: str) -> threading.Lock:
             lock = threading.Lock()
             _inflight_fetches[organization_id] = lock
         return lock
-
-
-def shared_model_config_key(organization_id: str) -> str:
-    """The Dragonfly key the BFF invalidates; keep in step with `lib/model-config/service.ts`."""
-    return f"modelconfig:{organization_id}"
 
 
 _REQUEST_TIMEOUT_SECONDS = 3.0
@@ -192,11 +181,12 @@ def sanitize_model_overrides(data: object) -> dict[str, str]:
 
 
 class _OverridesCacheEntry:
-    __slots__ = ("expires_at", "overrides", "zdr_only")
+    __slots__ = ("expires_at", "overrides", "processing", "zdr_only")
 
-    def __init__(self, overrides: dict[str, str], zdr_only: bool, ttl: float) -> None:
+    def __init__(self, overrides: dict[str, str], zdr_only: bool, ttl: float, processing: ProcessingPolicy) -> None:
         self.overrides = overrides
         self.zdr_only = zdr_only
+        self.processing = processing
         self.expires_at = time.monotonic() + ttl
 
 
@@ -228,7 +218,7 @@ def _log_no_trust_channel_once() -> None:
     )
 
 
-def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool]:
+def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool, ProcessingPolicy]:
     """One HTTP round-trip to the BFF's internal model-overrides endpoint.
 
     Returns ``(overrides, zdr_only)`` — the org's EFFECTIVE model selection
@@ -255,40 +245,11 @@ def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool]:
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):
-        return {}, False
+        return {}, False, UNREADABLE_POLICY
     overrides = payload.get("overrides")
     zdr_only = payload.get("zdrOnly") is True
-    return (sanitize_model_overrides(overrides) if overrides else {}), zdr_only
-
-
-def _read_shared(organization_id: str) -> tuple[dict[str, str], bool] | None:
-    """The org's config from the shared tier, or ``None`` on a miss or a bad value."""
-    from agent.common import cache as shared_cache
-
-    try:
-        value = shared_cache.get_json(shared_model_config_key(organization_id))
-    except Exception:  # noqa: BLE001 - the shared tier is a cache, never a dependency
-        return None
-    if not isinstance(value, dict):
-        return None
-    overrides = value.get("overrides")
-    zdr_only = value.get("zdr_only")
-    if not isinstance(overrides, dict) or not isinstance(zdr_only, bool):
-        return None
-    return sanitize_model_overrides(overrides), zdr_only
-
-
-def _write_shared(organization_id: str, overrides: dict[str, str], zdr_only: bool) -> None:
-    from agent.common import cache as shared_cache
-
-    try:
-        shared_cache.set_json(
-            shared_model_config_key(organization_id),
-            {"overrides": overrides, "zdr_only": zdr_only},
-            _SHARED_TTL_SECONDS,
-        )
-    except Exception:  # noqa: BLE001 - see _read_shared
-        logger.debug("Could not write org model config to the shared cache", exc_info=True)
+    processing = parse_policy(payload.get("processingPolicy"))
+    return (sanitize_model_overrides(overrides) if overrides else {}), zdr_only, processing
 
 
 def _resolve_org_config(organization_id: str | None) -> _OverridesCacheEntry | None:
@@ -332,24 +293,26 @@ def _resolve_org_config_locked(organization_id: str) -> _OverridesCacheEntry:
             annotate_current_span(cache_model_config="hit-coalesced")
             return entry
 
-    shared = _read_shared(organization_id)
+    shared = read_shared(organization_id)
     if shared is not None:
-        overrides, zdr_only = shared
+        overrides, zdr_only, processing = shared
+        overrides = sanitize_model_overrides(overrides)
         ttl = _POSITIVE_TTL_SECONDS
         annotate_current_span(cache_model_config="hit-shared")
     else:
         try:
-            overrides, zdr_only = _fetch_org_config(organization_id)
+            overrides, zdr_only, processing = _fetch_org_config(organization_id)
             ttl = _POSITIVE_TTL_SECONDS
             # The BFF answered, so even ({}, False) is authoritative: an
             # unconfigured org is the DEFAULT state of most orgs, and refusing
             # to cache it sent every replica back to the BFF every L1 TTL for
-            # the majority case.
-            _write_shared(organization_id, overrides, zdr_only)
+            # the majority case. An unreadable processing policy is the one
+            # part that is no answer, and write_shared keeps it off L2.
+            write_shared(organization_id, overrides, zdr_only, processing)
             annotate_current_span(cache_model_config="miss")
         except _NoTrustChannel:
             _log_no_trust_channel_once()
-            overrides, zdr_only = {}, True
+            overrides, zdr_only, processing = {}, True, UNREADABLE_POLICY
             ttl = _POSITIVE_TTL_SECONDS
             annotate_current_span(cache_model_config="no-trust-channel")
         except Exception as exc:  # noqa: BLE001 - models fail open, ZDR fails closed
@@ -358,11 +321,11 @@ def _resolve_org_config_locked(organization_id: str) -> _OverridesCacheEntry:
                 organization_id,
                 type(exc).__name__,
             )
-            overrides, zdr_only = {}, True
+            overrides, zdr_only, processing = {}, True, UNREADABLE_POLICY
             ttl = _NEGATIVE_TTL_SECONDS
             annotate_current_span(cache_model_config="error")
 
-    entry = _OverridesCacheEntry(overrides, zdr_only, ttl)
+    entry = _OverridesCacheEntry(overrides, zdr_only, ttl, processing)
     with _overrides_cache_lock:
         _overrides_cache[organization_id] = entry
         if len(_overrides_cache) > 512:
@@ -392,7 +355,21 @@ def resolve_org_zdr_only(organization_id: str | None) -> bool:
     outside this module go through ``common/openrouter.data_policy_for``.
     """
     entry = _resolve_org_config(organization_id)
+    if residency.active_cell() is not None:  # a cell's promise is zero retention: the org switch cannot lift it
+        return True
     return entry.zdr_only if entry is not None else False
+
+
+def resolve_org_processing_policy(organization_id: str | None, *, cached_only: bool = False) -> ProcessingPolicy | None:
+    """The org's processing policy (purposes, cell); the fail-closed one when it cannot be read.
+
+    ``cached_only`` reads the in-process cache alone and never blocks: None on a miss (``residency``'s async check).
+    """
+    if cached_only:
+        hit = _overrides_cache.get(organization_id or "")
+        return hit.processing if hit is not None and hit.expires_at > time.monotonic() else None
+    entry = _resolve_org_config(organization_id)
+    return entry.processing if entry is not None else UNREADABLE_POLICY
 
 
 def get_model_overrides_from_context() -> dict[str, str]:

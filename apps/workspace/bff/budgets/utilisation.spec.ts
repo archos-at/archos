@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `getBudgetUtilisation` keeps apart what `getBudgetStatus` folds into one
- * `remaining`: each LIMITED window of each applicable scope, with its limit and
- * what is used. `budget-events.ts` turns that into 80 / 100 % events.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BudgetPolicy } from '@/lib/db/schema/budgets'
 

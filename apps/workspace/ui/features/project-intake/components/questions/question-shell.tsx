@@ -7,28 +7,23 @@ import { useTranslations } from '@/i18n'
 import { intakeQuestionsStepCopy } from '@/i18n/namespaces/intake-questions-step'
 import { ASIDE_ACTION_CLASS, PRIMARY_ACTION_CLASS, StepFooter, type StepProgress } from '../setup-frame'
 
-/** Where the shown question sits in the round, and why it is asked („entscheidet die Gebäudeklasse"). */
 export interface QuestionPosition {
   index: number
   total: number
   why: string
 }
 
-/** The step's own way on, drawn in the footer on a desk; on a phone the question's answer takes the footer. */
 export interface RoundFooter {
   progress: StepProgress
   desk: ReactNode
 }
 
-/** What the shell's two actions do; each kind of question fills it from its own draft. */
 export interface QuestionActions {
   canDecide: boolean
   busy: boolean
-  /** Whether there is something to take: a value typed, an option picked. */
   canSubmit: boolean
   submitting: boolean
   onSubmit: () => void
-  /** „Weiß ich nicht", or „Später entscheiden" for a contradiction. */
   skipLabel: string
   skipBusyLabel: string
   skipAria: string
@@ -36,14 +31,6 @@ export interface QuestionActions {
   onSkip: () => void
 }
 
-/**
- * One Rückfrage, the only one on screen. On a desk a card: „Frage 2 von 6 ·
- * why it matters", the question, what it decides, the answer, „Übernehmen und
- * weiter" and „Weiß ich nicht" in the card, and the hand-in under them. On a
- * phone the question fills the screen and its answer becomes the footer's
- * primary action, „Weiß ich nicht" the quiet one under it. Exactly one
- * {@link StepFooter} is drawn for the step: this one, while a question is shown.
- */
 export function QuestionShell({
   testId,
   position,
@@ -60,14 +47,11 @@ export function QuestionShell({
   position: QuestionPosition
   title: string
   description?: string
-  /** A small line under the description (the law a request rests on). */
   meta?: string
-  /** The answer control. */
   children: ReactNode
   actions: QuestionActions
   handIn?: ReactNode
   footer: RoundFooter
-  /** Quiet links under the question on a phone (the folded interview, „Rest später"). */
   after?: ReactNode
 }): JSX.Element {
   const t = useTranslations(intakeQuestionsStepCopy)
@@ -115,7 +99,7 @@ export function QuestionShell({
       </p>
       <h2
         id={`${testId}-title`}
-        className="mt-2 text-[22px] leading-[1.3] font-medium tracking-tight break-words hyphens-auto md:mt-2.5"
+        className="mt-2 text-[22px] leading-[1.3] font-medium break-words hyphens-auto md:mt-2.5"
       >
         {title}
       </h2>

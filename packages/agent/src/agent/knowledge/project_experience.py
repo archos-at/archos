@@ -222,9 +222,10 @@ FetchPages = Callable[[str, str], Iterable[tuple[Any, str]] | None]
 
 def _choose_system_prompt(limit: int) -> str:
     return (
-        "You read the list of documents of one building project in Austria and choose the ones most likely to "
-        "state the building's facts (its Bundesland, Gebäudeklasse, Bauweise, Nutzungen, the Vorhabensart, the OIB "
-        "edition it was planned under) or the decisions the project made and the conditions it had to meet. Each "
+        "You read the list of documents of one building project and choose the ones most likely to "
+        "state the building's facts (its country and Land, building class, Bauweise, Nutzungen, the Vorhabensart, "
+        "the edition of the technical rules it was planned under) or the decisions the project made and the "
+        "conditions it had to meet. Each "
         "line gives a file name, the document's type and tags when known, and the start of its summary. Judge from "
         f"those lines what each document is about. Choose at most {limit} files, most useful first, and copy each "
         "file name exactly as the list writes it. Reply with ONLY a JSON object with the key file_names."
@@ -232,7 +233,7 @@ def _choose_system_prompt(limit: int) -> str:
 
 
 FINGERPRINT_SYSTEM_PROMPT = (
-    "You read the documents of one building project in Austria and record what they state about the building. "
+    "You read the documents of one building project and record what they state about the building. "
     "You are given the keys to answer, each with its options: a token (what you write) and a label (what it "
     "means). Answer a key only when the documents state its value, and give the token of the option that "
     "matches. For every answer give evidence: the file name, the page as its [Seite N] marker gives it, and the "
@@ -243,7 +244,7 @@ FINGERPRINT_SYSTEM_PROMPT = (
 )
 
 DECISION_SYSTEM_PROMPT = (
-    "You read the documents of one building project in Austria and draft the decisions the project made and the "
+    "You read the documents of one building project and draft the decisions the project made and the "
     "constraints it had to meet, so that a later project can learn from them. A decision is a choice the project "
     "made: a construction method, a material, an escape route, a deviation from a norm, a procedure. A constraint "
     "is a condition the project had to meet: an Auflage of a permit, a demand of an authority, a condition of an "

@@ -1,22 +1,25 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useState } from 'react'
-import { Camera, ChevronDown, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
+import { Camera, ChevronDown, CircleAlert, CircleDashed, Clock, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Chip, ChipCount, ChipLabel } from '@/components/ui/chip'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { SegmentMeter, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
+import { SegmentMeter, TONE_INK, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatDayRange } from '@/lib/format'
+import { dossierCopy } from '@/i18n/namespaces/dossier'
+import type { DocumentFindingsResponse } from '@/lib/documents/findings-wire'
+import { CLAUSE_JOIN, formatDayRange } from '@/lib/format'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { cn } from '@/lib/utils'
+import { AsksYouChip } from '@/components/ui/asks-you-chip'
 import type { BulkReingestProgress } from '../hooks/use-bulk-reingest'
-import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { FolderReadState } from './folder-read-state'
+import { DocumentFindingsSection, useOpenOnFindingsLink } from './document-findings-panel'
+import { BRIEF_CHEVRON, BriefDisclosure } from './brief-disclosure'
 import type { MissingDocument } from '@/lib/document-roles/prompt-loader'
 import {
   readShare,
@@ -28,29 +31,16 @@ import {
   type ReadState,
 } from '../lib/folder-knowledge'
 
-/** Read state → the tone its swatch and meter segment are drawn in. */
 export const READ_STATE_TONE: Record<ReadState, MeterTone> = {
-  readable: 'success',
-  reading: 'info',
+  readable: 'ink',
+  reading: 'inkSoft',
   failed: 'destructive',
   held: 'warning',
   unindexed: 'muted',
 }
 
-/**
- * The states Piloti is meant to read, in the order the legend reads them: what
- * Piloti has, then what is moving, then what needs a person. The headline's read
- * count and the legend's counts add up to its „von N", which is the whole point
- * of listing them apart from `unindexed`.
- */
 const MEANT_TO_READ: readonly ReadState[] = ['readable', 'reading', 'failed', 'held']
 
-/**
- * The states the bar draws. `unindexed` is out of the headline's denominator
- * (`readShare`), so it is out of the bar too and named as an aside, unless it is
- * all there is. The legend leaves out `readable`: the headline says how many
- * are read, and a number is said once.
- */
 function meterStates(tally: KnowledgeTally): readonly ReadState[] {
   return tally.total - tally.unindexed > 0 ? MEANT_TO_READ : ['unindexed']
 }
@@ -58,69 +48,27 @@ function meterStates(tally: KnowledgeTally): readonly ReadState[] {
 const meterSegments = (tally: KnowledgeTally) =>
   meterStates(tally).map((state) => ({ key: state, value: tally[state], tone: READ_STATE_TONE[state] }))
 
-/** Whether the documents Piloti never reads are named beside the legend rather than in it. */
 function hasUnindexedAside(tally: KnowledgeTally): boolean {
   return tally.unindexed > 0 && tally.total - tally.unindexed > 0
 }
 
 export interface FolderBriefProps {
   brief: FolderBriefData
-  /** The folder the brief is about, or null at the shelf root. */
   folderName: string | null
-  /** Which shelf's root the null folder is — the words differ, the brief does not. */
   shelfKind: 'project' | 'office'
-  /** Show a slice of the subtree as a flat listing below the brief. */
   onSelect: (selection: BriefSelection) => void
-  /** Walk into a folder below this one. */
   onOpenFolder: (folderId: string) => void
-  /**
-   * Re-read every failed document in the subtree. Absent when the reader may
-   * not write here — a re-read changes the document's state for everybody.
-   */
   onReadAgain?: () => void
   readAgainProgress?: BulkReingestProgress | null
   collapsed: boolean
   onCollapsedChange: (collapsed: boolean) => void
-  /**
-   * What Piloti expects the PROJECT to hold and does not (`useMissingDocuments`)
-   * — the agent's own `documents_missing:` list. Shown at the project root only;
-   * null when unknown, so an unread list is never presented as "nothing missing".
-   */
   missing?: readonly MissingDocument[] | null
-  /**
-   * Load what Piloti put on each document, for a {@link FolderBriefData.partial}
-   * brief (ADR-0102): the workspace then reads the whole shelf once and the
-   * brief is built from it. Absent offers nothing to load.
-   */
   onLoadDetails?: () => void
-  /** The shelf is being read for {@link onLoadDetails}. */
   detailsLoading?: boolean
+  findings?: { projectId: string; response: DocumentFindingsResponse } | null
+  hasSubfolders?: boolean
 }
 
-/**
- * „Was Piloti hier weiß" — the folder, as Piloti understands it.
- *
- * A file manager answers "what is in here" with a list of names. That is the
- * wrong question for a shelf whose point is that an assistant reads it: the
- * planner wants to know whether Piloti has READ what is in here, what it took
- * it to be, and what it could not make sense of — and before this, the only way
- * to find out was to open each folder and each file in turn (feld72, Jour fixe
- * 2026-10-09: answers reported documents missing that had been read).
- *
- * So every level opens with Piloti's account of its whole subtree, built from
- * nothing but what the listing already carries (`folder-knowledge.ts`):
- *
- * 1. How much of it Piloti can cite — one sentence and one bar, every state a
- *    swatch AND a word, each a way into exactly those documents.
- * 2. What it is about — the document types and disciplines Piloti assigned, and
- *    the kinds of content it found, as chips that narrow the listing to them.
- * 3. What needs a person — failures with a single re-read for all of them,
- *    documents the content screen is holding, documents Piloti could not place.
- * 4. Where below it the trouble sits — the deepest folder, one click away.
- *
- * It never shows CONTENT of a document Piloti cannot cite: a quarantined file
- * is counted, never described (`buildFolderBrief`).
- */
 export function FolderBrief({
   brief,
   folderName,
@@ -134,96 +82,101 @@ export function FolderBrief({
   missing,
   onLoadDetails,
   detailsLoading = false,
+  findings,
+  hasSubfolders = false,
 }: FolderBriefProps): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const td = useTranslations(dossierCopy)
+  const { locale } = useLocale()
   const { tally } = brief
-  const phone = usePhoneLayout()
+  const found = folderName === null && findings && findings.response.findings.length > 0 ? findings : null
+  const foundCount = found?.response.findings.length ?? 0
+  useOpenOnFindingsLink(foundCount > 0, collapsed, onCollapsedChange)
   if (tally.total === 0) return null
-  // Nothing to act on, and a phone has no room for a line that only reassures:
-  // when every document is read the disclosure is gone. One unread, failed,
-  // held or unplaced document, or a missing one at the root, brings it back,
-  // folded to its one line.
-  if (phone && briefHasNothingToSay(tally, folderName === null ? missing : null)) return null
 
   const scope = folderName
-    ? t('brief.scopeFolder', { name: folderName })
+    ? t(hasSubfolders ? 'brief.scopeFolderTree' : 'brief.scopeFolder')
     : t(shelfKind === 'office' ? 'brief.scopeOffice' : 'brief.scopeProject')
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
 
-  // ONE ELEMENT THAT OPENS IN PLACE.
-  //
-  // Folded, the brief is one quiet line above the listing: what Piloti has read
-  // is worth a glance, not the top third of every folder. It used to open by
-  // swapping that line for a different element, a card with its own header, so
-  // the thing just clicked vanished and the words reappeared elsewhere in
-  // another size. Now the line IS the card's header in both states: it never
-  // moves, the card's border fades in around it, and the details open below.
-  // The `-mx-3` holds in both states, so the line's text stays on the
-  // listing's edge whether or not a border is drawn around it.
   const open = !collapsed
   const allRead = everythingRead(tally)
+  const quietPages = allRead && !hasUnindexedAside(tally) && tally.pages > 0
+  const pagesLine = t('brief.pagesCount', { count: tally.pages, formatted: tally.pages.toLocaleString(locale) })
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 py-0 transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
-        collapsed && 'border-transparent bg-transparent shadow-none'
+        'gap-0 border-0 bg-sheet py-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        collapsed ? 'bg-transparent shadow-none' : 'mb-4'
       )}
       data-testid="folder-brief"
-      data-state={open ? 'open' : 'closed'}
+      data-state={open ? 'open' : 'closed'} data-surface={open ? 'sunken' : undefined}
       aria-labelledby="folder-brief-title"
       role="region"
     >
       <Collapsible open={open} onOpenChange={(next) => onCollapsedChange(!next)}>
-        <h2 className="m-0">
+        {/* Folded, what it read is the quiet line and what asks the reader a chip of its own after it (`AsksYouChip`): at
+            the end of the grey sentence, 13px of ink had no weight (finding 12). */}
+        <h2 className={cn('m-0', !open && foundCount > 0 && 'flex flex-wrap items-center gap-x-2')}>
           <CollapsibleTrigger asChild>
             <button data-attr="folder-brief-toggle"
               type="button"
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control px-3 py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
-                open ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/60'
+                'hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs',
+                (open || foundCount === 0) && 'w-full',
+                'transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
+                open ? 'text-foreground px-4' : 'text-muted-foreground px-0' /* folded, its glyph on the listing's edge */
               )}
               data-testid="folder-brief-toggle"
             >
               <Sparkles className="size-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
+              <span className="min-w-0" /* wraps, never cuts (a long project's line was cut at 768px); the chevron follows the last word */>
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
-              </span>
-              <ChevronDown
-                className={cn(
-                  'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-                  open && 'rotate-180'
+                {/* All read, the page count is the brief's one figure: on its line, not a row of its own. */}
+                {open && quietPages && <span className="text-muted-foreground tabular-nums">{CLAUSE_JOIN}{pagesLine}</span>}
+                {/* What it found is ink on the quiet line: one more clause, not a second strip (dev, 2026-11-10). */}
+                {open && foundCount > 0 && (
+                  <span className="text-foreground tabular-nums" data-testid="folder-brief-findings-count">
+                    {CLAUSE_JOIN}
+                    {td('findings.count', { count: foundCount })}
+                  </span>
                 )}
-                aria-hidden
-              />
+                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 inline align-[-2px]', open && 'rotate-180')} aria-hidden />
+              </span>
             </button>
           </CollapsibleTrigger>
+          {!open && foundCount > 0 && (
+            <AsksYouChip onPress={() => onCollapsedChange(false)} testId="folder-brief-findings-count">
+              {td('findings.count', { count: foundCount })}
+            </AsksYouChip>
+          )}
         </h2>
 
         <CollapsibleContent id="folder-brief-body">
           {/* All read is the quiet case: no bar. While something is open, a hairline, never a band. */}
-          {(!allRead || hasUnindexedAside(tally) || tally.pages > 0) && (
-            <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5" data-testid="folder-brief-meter">
+          {(!allRead || hasUnindexedAside(tally)) && (
+            <div className="flex flex-col gap-2.5 px-4 pb-3 pt-0.5" data-testid="folder-brief-meter">
               {!allRead && <SegmentMeter className="h-1" label={meterLabel} segments={meterSegments(tally)} />}
               <ReadStateLegend tally={tally} onSelect={onSelect} />
             </div>
           )}
 
-          {/* Ordered by what the reader has to do: what needs them first, open;
-              then what Piloti is missing, what the folder is about and where the
-              trouble sits, each folded to one line that already names its content.
-              Open in full, the brief was taller than a laptop screen and the
-              listing it introduces started below the fold. */}
-          <div className="flex flex-col divide-y border-t" data-testid="folder-brief-sections">
+          {/* Ordered by what the reader has to do: what needs them first, open; then what is missing, what the folder
+              is about and where the trouble sits, each folded to one line (open in full it was taller than a laptop). */}
+          {/* A measure for its sentences, and each action right after its own: across the page „Anzeigen“ stood 1300px
+              from the sentence it acts on (finding 12). */}
+          <div className="flex max-w-[720px] flex-col gap-1" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
               onSelect={onSelect}
               onReadAgain={onReadAgain}
               readAgainProgress={readAgainProgress}
             />
+            {found && <DocumentFindingsSection projectId={found.projectId} response={found.response} />}
             {folderName === null && missing && missing.length > 0 && <MissingSection missing={missing} />}
             {brief.partial ? (
               <DeferredAboutSection tally={tally} onLoadDetails={onLoadDetails} loading={detailsLoading} />
@@ -240,28 +193,14 @@ export function FolderBrief({
 
 type Translate = ReturnType<typeof useTranslations>
 
-/** Every document Piloti is meant to read has been read: nothing reading, failed or held. */
 export function everythingRead(tally: KnowledgeTally): boolean {
   return tally.reading + tally.failed + tally.held === 0 && tally.readable === tally.total - tally.unindexed
-}
-
-/**
- * True when the brief would only reassure: everything is read, nothing waits to
- * be placed in a document type, and the agent misses nothing here (`missing` is
- * the root's list, null in a folder or while unknown).
- */
-export function briefHasNothingToSay(
-  tally: KnowledgeTally,
-  missing: readonly MissingDocument[] | null | undefined
-): boolean {
-  return everythingRead(tally) && tally.unplaced === 0 && (missing?.length ?? 0) === 0
 }
 
 function briefHeadline(tally: KnowledgeTally, t: Translate): string {
   const share = readShare(tally)
   if (share === null) return t('brief.headlineNothingToRead', { count: tally.total })
   const meantToRead = tally.total - tally.unindexed
-  // Beside documents the agent never reads, „all" says what it counts: the knowledge base's.
   if (tally.readable === meantToRead) return t(tally.unindexed > 0 ? 'brief.headlineAllOfKnowledge' : 'brief.headlineAll', { count: meantToRead })
   if (tally.readable === 0) return t('brief.headlineNone', { count: meantToRead })
   return t('brief.headlineSome', { readable: tally.readable, count: meantToRead })
@@ -275,20 +214,19 @@ function legendSentence(tally: KnowledgeTally, t: Translate): string {
   return states.join(', ')
 }
 
-/** Each state the headline does not name (never `readable`), as swatch + count + word, and a way into exactly those documents. */
 function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect: (s: BriefSelection) => void }) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const states = tally.total > tally.unindexed ? MEANT_TO_READ.filter((state) => state !== 'readable' && tally[state] > 0) : []
   if (hasUnindexedAside(tally)) states.push('unindexed')
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+    <div className="-mx-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
       {states.map((state) => (
         <button data-attr={state === 'unindexed' ? 'folder-brief-state-unindexed' : 'files-select'}
           key={state}
           type="button"
           onClick={() => onSelect({ kind: 'state', state })}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
           title={t('brief.showState', { state: t(`brief.slice.${state}`) })}
           data-testid={`folder-brief-state-${state}`}
         >
@@ -309,22 +247,15 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
   )
 }
 
-/**
- * What Piloti took the documents to be: the document types and disciplines it
- * assigned, each family under its own label, the topics it recognised, and the
- * kinds of content in them. Folded to one line by default; the line names the
- * biggest types, so the folder still says what it is without being opened.
- */
 function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (s: BriefSelection) => void }) {
   const t = useTranslations(filesCopy)
   const { documentTypes, disciplines, contents, tally, topics, photos } = brief
   const { locale } = useLocale()
   if (tally.readable === 0) return null
   const contentNames = contents.map(({ label }) => t(`preview.contentTypeNames.${label}`))
-  const summary =
-    documentTypes.length + disciplines.length > 0
-      ? [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t)).join(' · ')
-      : t('brief.noTypes')
+  const kinds = [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t))
+  const more = kinds.length - 4
+  const summary = kinds.length === 0 ? t('brief.noTypes') : [...kinds.slice(0, 4), ...(more > 0 ? [t('brief.aboutMore', { count: more })] : [])].join(CLAUSE_JOIN)
   return (
     <BriefDisclosure id="folder-brief-about" title={t('brief.aboutTitle')} summary={summary}>
       {documentTypes.length === 0 && disciplines.length === 0 ? (
@@ -341,7 +272,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
           {disciplines.length > 0 && (
             <ChipFamily label={t('brief.disciplinesLabel')}>
               {disciplines.map(({ label, count }) => (
-                <TagChip key={label} label={label} count={count} onSelect={onSelect} variant="outline" />
+                <TagChip key={label} label={label} count={count} onSelect={onSelect} variant="secondary" />
               ))}
             </ChipFamily>
           )}
@@ -365,7 +296,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
         </ChipFamily>
       )}
       {contentNames.length > 0 && (
-        <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(' · ') })}</p>
+        <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(CLAUSE_JOIN) })}</p>
       )}
       {photos && (
         <button data-attr="folder-brief-photos"
@@ -382,12 +313,6 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
   )
 }
 
-/**
- * „Worum es hier geht“ before the documents are loaded (ADR-0102). The folder
- * is read page by page, and what Piloti put on each document lives beside the
- * rows rather than in the counts, so the section says that and offers to load
- * them instead of claiming Piloti recognised nothing.
- */
 function DeferredAboutSection({
   tally,
   onLoadDetails,
@@ -406,8 +331,8 @@ function DeferredAboutSection({
         <Button
           type="button"
           size="sm"
-          variant="outline"
-          className="h-7 self-start"
+          variant="secondary"
+          className="self-start"
           onClick={onLoadDetails}
           disabled={loading}
           data-testid="folder-brief-load-details"
@@ -419,65 +344,12 @@ function DeferredAboutSection({
   )
 }
 
-/**
- * One family of chips under its run-in label — „Dokumentart", „Fachbereich",
- * „Themen" — so a type and a discipline are told apart by a word, not only by
- * fill against outline.
- */
 function ChipFamily({ label, testId, children }: { label: string; testId?: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1" data-testid={testId}>
       <p className="text-muted-foreground text-[11px]">{label}</p>
       <div className="flex min-w-0 flex-wrap gap-1.5 pointer-coarse:gap-2">{children}</div>
     </div>
-  )
-}
-
-/**
- * A secondary section of the brief, folded to its title and one line of what
- * it holds. The heading wraps the trigger (the disclosure pattern): a heading
- * inside a button is not one a screen reader can jump to.
- */
-function BriefDisclosure({
-  id,
-  title,
-  summary,
-  children,
-}: {
-  id: string
-  title: string
-  summary: string
-  children: ReactNode
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} asChild>
-      <section aria-labelledby={id} data-testid={id} data-state={open ? 'open' : 'closed'}>
-        <h3 id={id} className="m-0">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="hover:bg-accent/60 focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
-              data-testid={`${id}-toggle`}
-            >
-              <span className="text-muted-foreground shrink-0 text-xs font-medium">{title}</span>
-              {/* What the section holds, while it is shut; open, the section says it itself. */}
-              <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-normal" aria-hidden={open}>
-                {open ? '' : summary}
-              </span>
-              <ChevronDown
-                className={cn(
-                  'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-                  open && 'rotate-180'
-                )}
-                aria-hidden
-              />
-            </button>
-          </CollapsibleTrigger>
-        </h3>
-        <CollapsibleContent className="flex flex-col gap-2.5 px-3 pb-3">{children}</CollapsibleContent>
-      </section>
-    </Collapsible>
   )
 }
 
@@ -508,7 +380,6 @@ function TagChip({
   )
 }
 
-/** Failures, holds and unplaced documents — the things a person has to do something about. */
 function NeedsYouSection({
   brief,
   onSelect,
@@ -521,17 +392,12 @@ function NeedsYouSection({
   readAgainProgress?: BulkReingestProgress | null
 }) {
   const t = useTranslations(filesCopy)
-  // Counted from the tally, which both briefs carry exactly; the attention
-  // lists only NAME documents for an action, and a summary-built brief names
-  // the failed ones alone, up to the summary's limit (ADR-0102). The re-read
-  // button counts what it will send: not a file that failed for a lasting
-  // reason (`offeredForRetry`), which stays in the tally and is not sent.
   const { failed, held, unplaced } = brief.tally
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-2.5 px-3 py-3" aria-labelledby="folder-brief-needs">
-      <h3 id="folder-brief-needs" className="text-muted-foreground text-xs font-medium">
+    <section className="flex flex-col gap-1 px-4 pb-3 pt-2" aria-labelledby="folder-brief-needs" /* its heading 4px over its rows; 24px from the legend above */>
+      <h3 id="folder-brief-needs" className="text-foreground text-name font-semibold" /* a heading by weight: 13/20/600 over 14/440 rows (rank by two channels) */>
         {t('brief.needsTitle')}
       </h3>
       {failed > 0 && (
@@ -546,8 +412,8 @@ function NeedsYouSection({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-7 gap-1.5"
+              variant="secondary"
+              className="gap-1.5"
               onClick={onReadAgain}
               disabled={Boolean(readAgainProgress)}
               data-testid="folder-brief-read-again"
@@ -555,7 +421,9 @@ function NeedsYouSection({
               <RotateCcw className={cn('size-3.5', readAgainProgress && 'animate-spin motion-reduce:animate-none')} aria-hidden />
               {readAgainProgress
                 ? t('brief.readAgainProgress', { done: readAgainProgress.done, count: readAgainProgress.total })
-                : t('brief.readAgainAll', { count: sendable })}
+                : sendable === 2
+                  ? t('brief.readAgainBoth')
+                  : t('brief.readAgainAll', { count: sendable })}
             </Button>
           )}
         </AttentionRow>
@@ -583,6 +451,11 @@ function NeedsYouSection({
   )
 }
 
+const AttentionGlyph = ({ tone }: { tone: MeterTone }): JSX.Element => {
+  const Glyph = tone === 'destructive' ? CircleAlert : tone === 'warning' ? Clock : CircleDashed
+  return <Glyph className={cn('mt-[5px] size-3.5 shrink-0', TONE_INK[tone === 'muted' ? 'ink' : tone])} aria-hidden />
+}
+
 function AttentionRow({
   tone,
   text,
@@ -595,7 +468,6 @@ function AttentionRow({
   tone: MeterTone
   text: string
   hint?: string
-  /** The button's accessible name: three „Anzeigen" in a row are three different things. */
   showLabel: string
   onShow: () => void
   testId: string
@@ -604,33 +476,32 @@ function AttentionRow({
   const t = useTranslations(filesCopy)
   return (
     <div className="flex items-start gap-2" data-testid={testId}>
-      <ToneSwatch tone={tone} className="mt-[7px]" />
-      {/* The sentence and its own action (re-read) share a column, so on a
-          phone the action wraps under the sentence. „Anzeigen" stays at the
-          end of the first line rather than orphaned on a line of its own. */}
+      <AttentionGlyph tone={tone} /* a glyph with the colour and the words: a bare red dot was a hue alone */ />
+      {/* The sentence, then its actions as one group: at the line's end where it fits, together below on a phone. */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-foreground min-w-0 flex-1 basis-48 py-[3px] text-[13px] leading-snug">{text}</p>
-          {children && <div className="flex shrink-0 items-center gap-1.5">{children}</div>}
+          <div className="flex shrink-0 items-center gap-3">
+            {children}
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="shrink-0" /* tonal as the press before it, 12px after it (the group's gap), its fill on the brief's edge */
+              onClick={onShow}
+              aria-label={showLabel}
+              title={showLabel}
+            >
+              {t('brief.show')}
+            </Button>
+          </div>
         </div>
         {hint && <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">{hint}</p>}
       </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="-mr-2 h-7 shrink-0"
-        onClick={onShow}
-        aria-label={showLabel}
-        title={showLabel}
-      >
-        {t('brief.show')}
-      </Button>
     </div>
   )
 }
 
-/** The deepest folders below this one where something waits — the reader goes there, not to an ancestor. */
 function HotspotSection({
   hotspots,
   onOpenFolder,
@@ -644,7 +515,7 @@ function HotspotSection({
     <BriefDisclosure
       id="folder-brief-where"
       title={t('brief.whereTitle')}
-      summary={hotspots.map(({ trail }) => trail.join(' / ')).join(' · ')}
+      summary={hotspots.map(({ trail }) => trail.join(' / ')).join(CLAUSE_JOIN)}
     >
       <ul className="-mx-1.5 flex flex-col">
         {hotspots.map(({ folder, trail, tally }) => (
@@ -652,7 +523,7 @@ function HotspotSection({
             <button data-attr="files-open-folder"
               type="button"
               onClick={() => onOpenFolder(folder.id)}
-              className="hover:bg-accent focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+              className="hover:bg-hover focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
               data-testid={`folder-brief-hotspot-${folder.id}`}
             >
               <CornerDownRight className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
@@ -668,19 +539,8 @@ function HotspotSection({
   )
 }
 
-/** How many expected documents the brief names before it says how many more. */
 const MAX_MISSING_SHOWN = 8
 
-/**
- * „Was Piloti noch fehlt" — the documents the project's intake answers say it
- * should have, that no file has been named as.
- *
- * This is the list the agent reads as `documents_missing:` on every turn, and
- * it was invisible to the people it describes. It explains the complaint that
- * started this surface: an answer calling a document missing that had been
- * uploaded and read. Read is not the same as KNOWN AS — until a file is bound
- * to the role, Piloti cannot tell that this PDF is the Energieausweis.
- */
 function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
   const t = useTranslations(filesCopy)
   const shown = missing.slice(0, MAX_MISSING_SHOWN)
@@ -692,7 +552,7 @@ function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
       <ul className="flex min-w-0 flex-wrap gap-1.5 pointer-coarse:gap-2">
         {shown.map((entry) => (
           <li key={`${entry.role}@${entry.buildingName ?? ''}`} className="min-w-0 max-w-full">
-            <Chip variant="outline" size="sm" title={name(entry)}>
+            <Chip variant="secondary" size="sm" title={name(entry)}>
               <ToneSwatch tone="muted" />
               <ChipLabel>{name(entry)}</ChipLabel>
             </Chip>
@@ -711,7 +571,6 @@ function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
   )
 }
 
-/** „12 Fotos vom 3.–20. Sept. 2026“ — the span the camera clocks say, not the upload dates. */
 function photoLine(photos: PhotoSpan, locale: string, t: Translate): string {
   return t('brief.photos', { count: photos.count, span: formatDayRange(photos.from, photos.to, locale) })
 }

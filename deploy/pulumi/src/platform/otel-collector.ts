@@ -352,6 +352,57 @@ export function posthogTraces(host: string, projectToken: string, environment: s
   };
 }
 
+/** What replaces a log line's message before it leaves for PostHog. */
+export const WITHHELD = "(text withheld)";
+
+/**
+ * A leading `[area]` tag, as RE2 inside an OTTL string. Character classes, not
+ * backslashes: OTTL refuses `\[` as an escape in a quoted string.
+ */
+const AREA_TAG = "[[][A-Za-z0-9 _.:/-]{1,48}[]]";
+
+/**
+ * The log attributes that may leave for PostHog: where a line came from and
+ * what kind of failure it was, never what it was about. `exception.message`
+ * and `exception.stacktrace` are not among them, because both repeat the
+ * message (a Python traceback ends with it).
+ */
+export const POSTHOG_LOG_ATTRIBUTES = [
+  "code.function",
+  "code.function.name",
+  "code.namespace",
+  "code.filepath",
+  "code.file.path",
+  "code.lineno",
+  "code.line.number",
+  "exception.type",
+  "error.type",
+  "http.response.status_code",
+  "http.status_code",
+  "event.name",
+] as const;
+
+/**
+ * The `transform` processor that withholds a log line's text. A body that
+ * starts with an area tag (`[documents] …`, the BFF's convention) keeps the
+ * tag; every other body becomes {@link WITHHELD}. Attributes are kept only
+ * when {@link POSTHOG_LOG_ATTRIBUTES} names them. `error_mode: propagate`:
+ * a statement that cannot run drops the batch rather than export it unredacted.
+ */
+export const POSTHOG_LOG_REDACTION = {
+  error_mode: "propagate",
+  log_statements: [
+    {
+      context: "log",
+      statements: [
+        `keep_keys(log.attributes, [${POSTHOG_LOG_ATTRIBUTES.map((key) => JSON.stringify(key)).join(", ")}])`,
+        `set(log.body, Concat([ExtractPatterns(log.body, "^(?P<tag>${AREA_TAG})")["tag"], "${WITHHELD}"], " ")) where IsString(log.body) and IsMatch(log.body, "^${AREA_TAG}")`,
+        `set(log.body, "${WITHHELD}") where not (IsString(log.body) and IsMatch(log.body, "^${AREA_TAG} [(]text withheld[)]$"))`,
+      ],
+    },
+  ],
+};
+
 /**
  * WARN-and-above logs to PostHog Logs, and the logs signal only: LLM traces
  * reach PostHog through Langfuse's own integration.
@@ -363,6 +414,15 @@ export function posthogTraces(host: string, projectToken: string, environment: s
  * the safe side. The project token is PostHog's public `phc_` key (it ships in
  * the browser bundle), so it is plain config, and a changed token changes the
  * ConfigMap, whose digest restarts the collector.
+ *
+ * **No text leaves for PostHog** ({@link POSTHOG_LOG_REDACTION}). A WARN line
+ * carries whatever its format string interpolated: a document's name, a
+ * project's, a passage of a licensed norm in an error message. PostHog is a
+ * processor for operational logs (configs/subprocessors/posthog.yaml), not for
+ * office content, so the pipeline keeps what says where and how often (the
+ * logger as the scope, severity, code location, exception type, a `[area]`
+ * prefix) and withholds the message itself and every other attribute. The full
+ * line stays in the pod's own log, inside the cluster.
  */
 export function posthogLogs(host: string, projectToken: string): CollectorFragment {
   return {
@@ -371,6 +431,7 @@ export function posthogLogs(host: string, projectToken: string): CollectorFragme
         error_mode: "ignore",
         log_conditions: ["log.severity_number < SEVERITY_NUMBER_WARN"],
       },
+      "transform/posthog_redact": POSTHOG_LOG_REDACTION,
     },
     exporters: {
       "otlp_http/posthog": {
@@ -385,7 +446,7 @@ export function posthogLogs(host: string, projectToken: string): CollectorFragme
     pipelines: {
       "logs/posthog": {
         receivers: [OTLP_RECEIVER],
-        processors: ["filter/warn_and_above"],
+        processors: ["filter/warn_and_above", "transform/posthog_redact"],
         exporters: ["otlp_http/posthog"],
       },
     },

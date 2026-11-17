@@ -16,7 +16,6 @@ import {
 } from '@/features/documents/hooks/use-surfaced-documents'
 import { peekFile, ResolveErrorState, UnresolvedCard } from './document-surface'
 
-/** The `workspace-search` question the files came from (`DocumentAnswerSearch` in `cards/models.py`). */
 export interface DocumentAnswerSearch {
   text: string
   scope: 'office' | 'project' | 'office_shelf'
@@ -30,7 +29,6 @@ interface DocumentAnswerCardProps {
   projectId?: string | null
 }
 
-/** The search the card's link opens: the project's only with the project it was asked in, else the whole office. */
 export function documentAnswerSearchHref(search: DocumentAnswerSearch, projectId: string | null): string {
   let scope: SearchScopeQuery = {}
   if (search.scope === 'office_shelf') scope = { scope: 'office_shelf' }
@@ -38,14 +36,6 @@ export function documentAnswerSearchHref(search: DocumentAnswerSearch, projectId
   return searchHref(scope, { text: search.text })
 }
 
-/**
- * Files the assistant asked the user to look at.
- *
- * Visual: the same raised {@link FileCard} (thumbnail well, name, summary)
- * the Files grid uses — without search ranking chrome. One file is that
- * card plus an automatic peek. Several close matches are a short FileGrid; when they came from the
- * workspace search, the card offers that search with every result.
- */
 export const DocumentAnswerCard: FC<DocumentAnswerCardProps> = ({ title, query: _query, documents, search, projectId }) => {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
@@ -59,9 +49,6 @@ export const DocumentAnswerCard: FC<DocumentAnswerCardProps> = ({ title, query: 
         file: entry.file
           ? {
               ...entry.file,
-              // Live AI summary only. The retrieval snippet is a ranking
-              // leftover (VLM dumps, page/score) — Files search can show it;
-              // chat is "here is the file", not "here is why it ranked".
               summary: entry.file.summary ?? entry.surfaced.summary ?? null,
             }
           : null,
@@ -98,7 +85,7 @@ export const DocumentAnswerCard: FC<DocumentAnswerCardProps> = ({ title, query: 
       ) : (
         <>
           {!single && cells.length > 1 && (
-            <p className="text-muted-foreground mb-2 px-0.5 text-[11px] font-medium tracking-[-0.01em]">
+            <p className="text-muted-foreground mb-2 px-0.5 text-[11px] font-medium">
               {title || t('documentAnswer.choose')}
             </p>
           )}

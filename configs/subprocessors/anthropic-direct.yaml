@@ -1,0 +1,34 @@
+# Latent: the agent runtime supports an `llms:` entry of `_type: anthropic`, and
+# agent.common.config_validation names this key for it. The shipped config routes every
+# model through OpenRouter, so the key alone would show an attempt to bypass the seam.
+id: anthropic-direct
+kind: processor
+status: latent
+order: 170
+name: Anthropic, PBC (direct)
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: none
+data_classes: [model_io]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; ein Deployment, in dem sich Personen anmelden, startet nicht, solange der Schlüssel gesetzt ist.
+  en: Not in use; a deployment people sign in to does not start while the key is set.
+hosts: [api.anthropic.com]
+env: [ANTHROPIC_API_KEY]
+activation_env: [ANTHROPIC_API_KEY]
+evidence:
+  - packages/agent/src/agent/common/config_validation.py
+copy:
+  name:
+    de: Anthropic (direkt, ohne OpenRouter)
+    en: Anthropic (direct, without OpenRouter)
+  data:
+    de: Chat-Nachrichten und Dokumentauszüge, falls ein Modell direkt angebunden wird
+    en: chat messages and document excerpts, if a model is connected directly
+  location:
+    de: USA
+    en: USA

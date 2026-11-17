@@ -1,11 +1,3 @@
-"""``record_values``: checked here before anything is sent, decided by the BFF after.
-
-Three checks run in the process: the quote stands in what this run read of
-that file (NFC, whitespace and case folded), a select token is one of the
-question's options, and the decision model does not read the quote as stating
-something else (ADR-0096's check, ADR-0064 use 12). Only what passes is sent.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -141,7 +133,6 @@ class TestTheQuoteMustStateTheValue:
     async def test_a_select_value_its_quote_contradicts_is_dropped(
         self, signed_run, route, session, pages_read, decider
     ):
-        """ADR-0096: Holzbau quoted as Massivbau scores p(stated) 0.04 and is not suggested."""
         seen = decider({"Massivbau": 0.04})
         fake = route(record=recorded_all())
         text = await record_values(
@@ -202,7 +193,6 @@ class TestTheBffDecides:
         lines = text.splitlines()
         assert "contradiction" in lines[0]
         assert "dismissed this value before" in lines[1]
-        # The third quote was never read (page 1 is not in the log): refused here, never sent.
         assert "not sent" in lines[2]
         assert session.outcomes == {"contradiction": 1}
         assert session.refusals["refused:dismissed"] == 1
@@ -227,7 +217,7 @@ class TestTheBffDecides:
             }
         )
         text = await record_values(session, [_value("building_class@bldg1", 1, "drei oberirdische Geschoße")])
-        assert "the Gebäudeklasse is derived from the inputs you record" in text
+        assert "the building class is derived from the inputs you record" in text
         assert "closest keys" not in text
 
     async def test_a_stale_reading_stops_every_later_record(self, signed_run, route, session, pages_read):
@@ -338,8 +328,6 @@ class TestTheNeedsAnswer:
 
 
 class TestTheDescriptionsCarryTheRules:
-    """The prompt prescribes no procedure, so each tool's description says how it is used (ADR-0060)."""
-
     def test_record_values_says_how_a_value_is_written_and_what_each_outcome_means(self):
         from agent.agents.intake.tools import RECORD_VALUES_DESCRIPTION
 
@@ -363,14 +351,13 @@ class TestTheDescriptionsCarryTheRules:
 
         for phrase in ("undecided, under review or one of several options", "Planart", "names the drawing"):
             assert phrase in RECORD_VALUES_DESCRIPTION, phrase
-        # The route refuses the class: the description says never, and why.
-        assert "Never record the Gebäudeklasse, even where a document states one" in RECORD_VALUES_DESCRIPTION
+        assert "Never record the building class, even where a document states one" in RECORD_VALUES_DESCRIPTION
         assert "unless a document states the class" not in RECORD_VALUES_DESCRIPTION
 
     def test_withdraw_values_says_whose_values_go_and_that_none_is_refused_later(self):
         from agent.agents.intake.tools import WITHDRAW_VALUES_DESCRIPTION
 
-        for phrase in ("recorded in this run", "derived Gebäudeklasse", "not refused", "a later reading may record"):
+        for phrase in ("recorded in this run", "derived building class", "not refused", "a later reading may record"):
             assert phrase in WITHDRAW_VALUES_DESCRIPTION, phrase
 
     def test_intake_needs_says_what_each_state_means(self):

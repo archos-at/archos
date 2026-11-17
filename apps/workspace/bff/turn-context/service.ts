@@ -11,6 +11,8 @@ import { requireResourceAccess } from '@/lib/sharing/access'
 import { loadProjectPromptView } from '@/lib/project-profile/prompt-view'
 import { resolveOrgInstructions } from '@/lib/org-instructions/service'
 import { buildProjectMemoryDigest } from '@/lib/projects/memory-service'
+import { buildPersonalMemoryDigest } from '@/lib/personal-memory/service'
+import { isTemporaryConversation } from '@/lib/conversations/temporary'
 import type { DigestTiming } from '@/lib/projects/memory-recall'
 import { buildProposalDecisionsBlock, composeMemoryContext } from '@/lib/projects/proposal-decisions'
 import { buildReviewDecisionsBlock } from '@/lib/documents/review-decisions'
@@ -24,6 +26,11 @@ import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
+import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
+import { officeStandardsEnabled } from '@/lib/base-knowledge/office/access'
+import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { goldenTurnFor } from '@/lib/base-knowledge/golden/turn'
+import { projectModelKinds } from '@/lib/bim/model-kinds-repository'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
 import type { TurnContextRequest, TurnContextResponse } from './wire'
@@ -58,17 +65,12 @@ async function loadWorkspaceBlock(
   context: VerifiedRequestContext,
   projectAccess: ProjectAccess | null,
   query: string | undefined,
+  solo: Promise<boolean | null>,
 ): Promise<string> {
   const { organizationId, projectId, conversationId, userId } = context
   const [project, audience, inboxWaiting, activeRuns, proposals, officeConventions] = await Promise.all([
     projectId ? advisory('load the project', () => findProjectInOrg(projectId, organizationId)) : Promise.resolve(null),
-    conversationId
-      ? advisory('load the conversation audience', async () =>
-          isSoloAudience(await readConversationAudience(getDb(), organizationId, conversationId), userId)
-            ? ('solo' as const)
-            : ('shared' as const),
-        )
-      : Promise.resolve(null),
+    solo.then((alone) => (alone === null ? null : alone ? ('solo' as const) : ('shared' as const))),
     advisory('count the inbox', () => countPendingInboxItems(organizationId, userId, EVERY_INBOX_TYPE)),
     projectId
       ? advisory('count the project runs', () => countActiveRunsInProject(projectId, organizationId))
@@ -98,6 +100,40 @@ async function loadWorkspaceBlock(
     officeConventions,
   }
   return renderWorkspaceBlock(facts)
+}
+
+/**
+ * Whether the turn's conversation is the asker's alone, read once for the
+ * WORKSPACE block and for personal memory. Null when the turn has no
+ * conversation, and when the audience could not be read.
+ */
+function readSoloAudience(context: VerifiedRequestContext): Promise<boolean | null> {
+  const { organizationId, conversationId, userId } = context
+  if (!conversationId) return Promise.resolve(null)
+  return advisory('load the conversation audience', async () =>
+    isSoloAudience(await readConversationAudience(getDb(), organizationId, conversationId), userId),
+  )
+}
+
+/**
+ * What the agent keeps about the asker alone (ADR-0180), for a turn only the
+ * asker reads: no conversation, or one that is solo for this person. In a
+ * conversation others read, the answer is theirs to read too, so a personal
+ * note in the prompt could surface in front of them: it is not delivered. An
+ * audience that could not be read is not solo (fail closed). Advisory beyond
+ * that: a turn answers without it.
+ */
+async function loadPersonalMemory(context: VerifiedRequestContext, solo: Promise<boolean | null>): Promise<string | null> {
+  if (context.conversationId && (await solo) !== true) return null
+  return advisory('load the personal memory', () =>
+    buildPersonalMemoryDigest({ organizationId: context.organizationId, userId: context.userId }),
+  )
+}
+
+/** The office's own standards for the turn, only where the organization has them (`office-standards`). */
+async function loadOfficeStandards(organizationId: string, projectId: string | null) {
+  if (!(await officeStandardsEnabled(organizationId))) return null
+  return baseKnowledgeForTurn(organizationId, projectId)
 }
 
 /** Today's requester may read this project and this conversation; the project access feeds the WORKSPACE block. */
@@ -136,11 +172,22 @@ export async function loadTurnContext(
   const query = input.query || undefined
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
+  // A golden run's turn has no project: its case states the site and the facts (ADR-0165 amendment). Null for every
+  // other turn, and never awaited ahead of the reads below: it costs an office's turn no time.
+  const goldenTurn = goldenTurnFor(organizationId, conversationId)
+  const solo = readSoloAudience(context)
 
-  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace] = await Promise.all([
+  const [projectContext, orgInstructions, digest, personalMemory, temporary, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, knowledgeContext, projectModels] = await Promise.all([
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
     timed('instructions', () => resolveOrgInstructions(organizationId)),
     timed('memory', () => buildProjectMemoryDigest(projectId ?? undefined, organizationId, { query, timing: digestTiming })),
+    // What the agent keeps about the asker alone (ADR-0180), only where the asker alone reads the answer.
+    timed('personal-memory', () => loadPersonalMemory(context, solo)),
+    // Whether this conversation keeps nothing (ADR-0180). Not advisory, like the
+    // cross-project read below: one indexed probe, and a turn that wrongly
+    // believed it may remember would only be refused at the writer. It gates no
+    // read: a temporary conversation is still given the memories above.
+    timed('temporary', () => isTemporaryConversation(conversationId, organizationId)),
     projectId
       ? timed('decisions', () => advisory('load proposal decisions', () => buildProposalDecisionsBlock(projectId, organizationId)))
       : Promise.resolve(null),
@@ -156,16 +203,34 @@ export async function loadTurnContext(
     // What a person wrote each folder holds, beside the tree the inventory shows.
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     // Who asks, where, and what is open now: the state office work starts from (ADR-0123).
-    timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query))),
+    timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query, solo))),
+    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163);
+    // none for an office without the `office-standards` entitlement.
+    timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null))),
+    // Which country, coverage and editions apply, what binds at the site and why (its chain text),
+    // and what the turn may retrieve (ADR-0168, ADR-0173): one payload for the law.
+    // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge`.
+    goldenTurn.then((golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null)),
+    // Which model files the project holds, so the agent binds its measuring tools only where there is one.
+    projectId
+      ? timed('models', () => advisory('read the project models', () => projectModelKinds(organizationId, projectId, conversationId ?? null)))
+      : Promise.resolve(null),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)
   return {
-    projectContext,
+    projectContext: (await goldenTurn)?.projectContext ?? projectContext,
     projectMemory: composeMemoryContext(digest, decisions, reviewDecisions, folders),
     orgInstructions,
+    personalMemory,
+    temporary,
     drewOnOtherProjects: drewOnOthers,
     referenceProjects,
     workspace,
+    baseKnowledge: baseKnowledge?.block ?? null,
+    baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
+    // Always present (ADR-0175): unreadable is `knowledge_unavailable`, never no context.
+    knowledgeContext,
+    projectModels,
   }
 }

@@ -2,12 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * Every key the formula card reads through a map resolves to a string in both
- * dictionaries. `i18n/key-coverage.spec.ts` checks literal `t('…')` calls
- * only, so this is the same guarantee for the keys `formula-copy.ts` holds.
- */
-
 import { describe, expect, it } from 'vitest'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { getByPath } from '@/i18n/translate'

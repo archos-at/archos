@@ -8,10 +8,14 @@ export interface QuoteProps {
   office?: string;
   /** Portrait (an <img>, 4:5) to the right, portrait-width wide */
   portrait?: ReactNode;
+  /** The photo keeps its own landscape proportions and takes 7 of 12 columns */
+  wide?: boolean;
+  /** Photo credit under the photo: a `.ui-quote-credit-holder` span, then the links side by side */
+  credit?: ReactNode;
   className?: string;
 }
 
-export function Quote({ quote, name, role, office, portrait, className }: QuoteProps) {
+export function Quote({ quote, name, role, office, portrait, wide, credit, className }: QuoteProps) {
   const meta = [role, office].filter(Boolean).join(', ');
   const figure = (
     <figure className="ui-quote">
@@ -28,9 +32,12 @@ export function Quote({ quote, name, role, office, portrait, className }: QuoteP
   if (!portrait) return <div className={className}>{figure}</div>;
 
   return (
-    <div className={joinClasses('ui-quote-wrap', className)}>
+    <div className={joinClasses('ui-quote-wrap', wide ? 'ui-quote-wrap--wide' : undefined, className)}>
       {figure}
-      <div className="ui-quote-portrait">{portrait}</div>
+      <figure className="ui-quote-portrait">
+        {portrait}
+        {credit ? <figcaption className="ui-quote-credit caption">{credit}</figcaption> : null}
+      </figure>
     </div>
   );
 }

@@ -1,11 +1,3 @@
-/**
- * Where a search surface stands, and the scope it asks the route for.
- *
- * The office-wide page can be narrowed to one project from the project facet
- * (`state.projectId`); a project's Dateien and the office shelf are their own
- * scope, folder-aware when a folder is open.
- */
-
 import type { SearchScopeQuery } from '@/lib/search/search-wire'
 import type { SearchUrlState } from './search-url'
 
@@ -25,7 +17,6 @@ export function surfaceScope(surface: SearchSurface, state: Pick<SearchUrlState,
   }
 }
 
-/** The project a saved scope names, for the office-wide page; none for the scoped surfaces, which keep their own. */
 export function projectFromSavedScope(surface: SearchSurface, scope: SearchScopeQuery): string | null {
   return surface.kind === 'office' && scope.scope === 'project' && scope.projectId ? scope.projectId : null
 }

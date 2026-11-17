@@ -73,6 +73,7 @@ import {
   renderToBuffer,
 } from '@react-pdf/renderer'
 import { AI_GENERATOR_NAME, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import { withAiProvenanceXmp } from '@/lib/pdf/xmp-metadata'
 import { attributeOf, type DiagramSvgViewport, type SvgElement, type SvgNode } from './svg'
 
 /**
@@ -678,11 +679,11 @@ export async function renderDiagramPdf(input: DiagramPdfInput): Promise<Uint8Arr
       // same vocabulary, as the research report's PDF. `Subject` carries the
       // reader's own marking line, because that is the field a viewer's
       // document-properties panel actually shows. See `@/lib/ai-provenance`
-      // for why the marking lives in fields meant for something else.
+      // for why the marking lives in fields meant for something else (and XMP).
       keywords={input.provenance}
       subject={input.marking}
       creator={AI_GENERATOR_NAME}
-      producer="Grid"
+      producer={AI_GENERATOR_NAME}
     >
       <Page
         size={landscape ? { width: pageWidth, height: pageHeight } : 'A4'}
@@ -714,5 +715,5 @@ export async function renderDiagramPdf(input: DiagramPdfInput): Promise<Uint8Arr
     </Document>
   )
 
-  return new Uint8Array(await renderToBuffer(document))
+  return withAiProvenanceXmp(new Uint8Array(await renderToBuffer(document)), input.provenance)
 }

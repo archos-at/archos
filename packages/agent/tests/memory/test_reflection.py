@@ -1,5 +1,3 @@
-"""Tests for the async post-answer memory-reflection stage."""
-
 import asyncio
 import dataclasses
 import threading
@@ -7,6 +5,10 @@ import threading
 import pytest
 
 from agent.common import AgentGroup
+from agent.common import bff_http
+from agent.knowledge.personal_memory import VALID_PERSONAL_KINDS
+from agent.knowledge.personal_memory import PersonalMemoryForget
+from agent.knowledge.personal_memory import PersonalMemoryWrite
 from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import VALID_KINDS
 from agent.memory import reflection as R
@@ -22,16 +24,12 @@ class _FakeResponse:
 
 
 class _FakeLLM:
-    """Minimal stand-in for a LangChain chat model: records the prompt, returns canned text."""
-
     def __init__(self, content: str) -> None:
         self._content = content
         self.calls: list = []
         self.bind_kwargs: dict | None = None
 
     def bind(self, **kwargs):
-        # Mirror a LangChain chat model: binding response_format returns a
-        # runnable that still resolves to the canned content on ainvoke.
         self.bind_kwargs = kwargs
         return self
 
@@ -47,15 +45,11 @@ class _ProviderError(Exception):
 
 
 class _NestedStatus:
-    """An SDK error that carries its status on ``response``, not on itself."""
-
     def __init__(self, status_code: int) -> None:
         self.response = type("_Response", (), {"status_code": status_code})()
 
 
 class _RejectingLLM:
-    """A model whose provider refuses the bound ``response_format`` with a 400."""
-
     def __init__(self, content: str, *, status_code: int = 400, nested: bool = False) -> None:
         self._content = content
         self._status_code = status_code
@@ -89,13 +83,7 @@ def _sanitize(raw, **kwargs):
 
 
 class TestBuildUserPrompt:
-    """The reflection prompt must cap the (growing) memory digest, like it already
-    caps the query and answer, so the background LLM call's token cost stays
-    bounded as project memory accumulates."""
-
     def test_large_digest_is_truncated(self):
-        # Filler digit absent from the prompt template, so counting it isolates
-        # exactly the digest's contribution.
         digest = "9" * (R._MAX_DIGEST_CHARS + 5000)
         prompt = R._build_user_prompt("q", "a", digest)
         assert "… (project memory truncated)" in prompt
@@ -112,12 +100,16 @@ class TestBuildUserPrompt:
 
 
 class TestFindingVocabulary:
-    """The wire schema spells its enums out; the client owns the same vocabulary.
-    Nothing checks the two against each other at import, so a rename on either
-    side would just start dropping findings — pin them."""
-
     def test_kinds_match_the_write_clients_vocabulary(self):
-        assert set(R._ReflectionFinding.model_fields["kind"].annotation.__args__) == VALID_KINDS
+        kinds = set(R._ReflectionFinding.model_fields["kind"].annotation.__args__)
+        assert kinds == VALID_KINDS | VALID_PERSONAL_KINDS
+
+    def test_the_prompt_and_the_schema_name_the_same_fields(self):
+        fields = set(R._ReflectionFinding.model_fields)
+        assert fields == {"about", "kind", "content", "confidence", "importance", "supersedes", "topic"}
+        example = R.REFLECTION_SYSTEM_PROMPT[R.REFLECTION_SYSTEM_PROMPT.rindex('{"findings"') :]
+        assert all(f'"{field}":' in example for field in fields)
+        assert set(R.ReflectionOutput.model_json_schema()["$defs"]["_ReflectionFinding"]["required"]) == fields
 
     def test_confidences_match_the_write_clients_vocabulary(self):
         assert set(R._ReflectionFinding.model_fields["confidence"].annotation.__args__) == VALID_CONFIDENCES
@@ -136,8 +128,6 @@ class TestSanitizeFindings:
         assert items[0].confidence == "medium"  # defaulted
 
     def test_folds_case_and_whitespace_in_the_enums(self):
-        """A reply that came back without native structured output writes what it
-        pleases; ``"Decision"`` is the same value, not a different one."""
         raw = [{"kind": " Decision ", "content": "Flat roof chosen.", "confidence": "HIGH"}]
         items = _sanitize(raw)
         assert (items[0].kind, items[0].confidence) == ("decision", "high")
@@ -147,10 +137,7 @@ class TestSanitizeFindings:
         assert _sanitize(raw)[0].confidence == "medium"
 
     def test_a_model_proposed_scope_is_ignored(self):
-        # The autonomous stage NEVER writes org-wide memory (audit finding S1),
-        # so it carries no scope at all — an extra key the model invents is not
-        # a reason to drop an otherwise good finding either.
-        raw = [{"kind": "preference", "content": "Client prefers metric drawings.", "scope": "organization"}]
+        raw = [{"kind": "constraint", "content": "Client requires metric drawings.", "scope": "organization"}]
         items = _sanitize(raw)
         assert len(items) == 1
         assert not hasattr(items[0], "scope")
@@ -173,9 +160,6 @@ class TestSanitizeFindings:
         assert [i.content for i in items] == ["Budget capped at 2M."]
 
     def test_keeps_a_correction_that_contradicts_a_digest_entry(self):
-        """A correction is NOT a restatement. The digest guard drops findings already
-        present in memory; a finding that negates one must still get through, or
-        memory can never be updated once a project fact changes."""
         digest = (
             "PROJECT_MEMORY v1\n"
             '- [derived_fact | high | unverified] "Für Bergsteiggasse ist OIB-RL 2.1 nicht '
@@ -194,8 +178,6 @@ class TestSanitizeFindings:
         assert [i.content for i in items] == ["Für Bergsteiggasse ist OIB-RL 2.1 anwendbar (betriebsanlage=true)."]
 
     def test_passes_through_a_supersedes_quote_present_in_the_digest(self):
-        """The correction has to RETIRE what it corrects, or the stale entry stays
-        live next to it and a later turn may read either one."""
         digest = (
             "PROJECT_MEMORY v1\n"
             '- [derived_fact | high | unverified] "OIB-RL 2.1 ist für dieses Projekt nicht anwendbar"'
@@ -214,9 +196,6 @@ class TestSanitizeFindings:
         assert items[0].supersedes == "OIB-RL 2.1 ist für dieses Projekt nicht anwendbar"
 
     def test_drops_a_supersedes_quote_that_is_not_in_the_digest(self):
-        """A supersede quote retires a real row, so a hallucinated or paraphrased
-        one must not reach the resolver — the finding is still recorded, it just
-        doesn't get to archive anything."""
         digest = 'PROJECT_MEMORY v1\n- [decision | high | unverified] "Client chose a flat roof"'
         raw = [
             {
@@ -233,9 +212,6 @@ class TestSanitizeFindings:
         assert items[0].supersedes == ""
 
     def test_drops_a_truncated_supersedes_quote(self):
-        """A quote must name one COMPLETE digest entry. A partial quote passes a
-        substring check but the frontend's ≥0.7 Jaccard resolver would still
-        resolve it — retiring an entry the model never actually quoted."""
         digest = 'PROJECT_MEMORY v1\n- [decision | high | unverified] "Client chose a flat roof"'
         raw = [
             {
@@ -252,8 +228,6 @@ class TestSanitizeFindings:
         assert items[0].supersedes == ""
 
     def test_accepts_a_quote_that_only_differs_in_punctuation_and_case(self):
-        """Verbatim is checked on the normalized entry, so re-wrapping or a lost
-        quote character does not cost the model a legitimate correction."""
         digest = 'PROJECT_MEMORY v1\n- [decision | high | unverified] "Client chose a flat roof"'
         raw = [
             {
@@ -280,9 +254,6 @@ class TestSanitizeFindings:
         assert len(_sanitize(raw)) == R.MAX_NEW_ITEMS
 
     def test_the_cap_counts_what_survived_the_filters(self):
-        """A dropped finding must not cost a real one its slot: the cap used to be
-        applied to the raw list, so five PII entries in front of a good one meant
-        the good one was never even looked at."""
         raw = [{"kind": "derived_fact", "content": f"Reach owner{i}@example.com."} for i in range(R.MAX_NEW_ITEMS)]
         raw.append({"kind": "constraint", "content": "Budget capped at 2M."})
 
@@ -298,15 +269,11 @@ class TestSanitizeFindings:
 
 
 class TestImportance:
-    """Importance is elicited from the same structured call and stored as salience."""
-
     def test_is_carried_through_as_an_integer(self):
         raw = [{"kind": "decision", "content": "Flat roof chosen.", "importance": 9}]
         assert _sanitize(raw)[0].importance == 9
 
     def test_defaults_to_the_neutral_midpoint_when_absent(self):
-        # The fallback path never shows the model the field, so a missing rating
-        # must leave the finding neutral rather than drop it.
         raw = [{"kind": "decision", "content": "Flat roof chosen."}]
         assert _sanitize(raw)[0].importance == R._NEUTRAL_IMPORTANCE
 
@@ -337,10 +304,6 @@ class TestImportance:
 
 
 class TestReflectionSystemPrompt:
-    """The stage sees existing memory and is told not to restate it. That rule alone
-    reads as "this topic is covered, skip it" when the turn actually OVERTURNS an
-    entry — so corrections have to be called out explicitly."""
-
     def test_separates_restatements_from_corrections(self):
         assert "RESTATEMENTS, not CORRECTIONS" in R.REFLECTION_SYSTEM_PROMPT
 
@@ -350,32 +313,32 @@ class TestReflectionSystemPrompt:
         assert "no longer holds" in prompt
         assert "Never skip a correction because its topic already appears in memory" in prompt
 
+    def test_a_personal_note_names_nobody(self):
+        prompt = R.REFLECTION_SYSTEM_PROMPT
+        assert "WITHOUT their name" in prompt
+        assert "Maße immer in Zentimetern." in prompt
+
+    def test_a_state_of_the_workspace_is_never_a_finding(self):
+        assert "NOT a state of the workspace or of this conversation" in R.REFLECTION_SYSTEM_PROMPT
+
     def test_instructs_to_retire_the_entry_it_corrects(self):
         prompt = R.REFLECTION_SYSTEM_PROMPT
         assert "RETIRE WHAT YOU CORRECT" in prompt
         assert "VERBATIM into `supersedes`" in prompt
-        # Bounded on purpose: `supersedes` archives a row, so "related" is not enough.
         assert "must leave `supersedes` as an empty string" in prompt
 
     def test_every_required_field_is_named_in_the_example(self):
-        """The example is the whole contract on the fallback path, where nothing
-        enforces the schema. ``importance`` used to be missing from it, so every
-        finding on that path landed at the neutral midpoint."""
         required = R.ReflectionOutput.model_json_schema()["$defs"]["_ReflectionFinding"]["required"]
         example = R.REFLECTION_SYSTEM_PROMPT[R.REFLECTION_SYSTEM_PROMPT.index('{"findings"') :]
         for field in required:
             assert f'"{field}"' in example
 
     def test_supersedes_is_part_of_the_structured_output_contract(self):
-        """Strict json_schema output requires every field to be declared, or the
-        model has no sanctioned way to return a correction target."""
         assert "supersedes" in R._ReflectionFinding.model_fields
         assert "supersedes" in R.ReflectionOutput.model_json_schema()["$defs"]["_ReflectionFinding"]["required"]
 
 
 class TestSanitizeFindingsPii:
-    """Audit finding S4: reflection must not persist PII/secret-shaped content."""
-
     @pytest.mark.parametrize(
         "content",
         [
@@ -440,22 +403,15 @@ class TestRunMemoryReflection:
             memory_digest="(none)",
         )
 
-        # What it wrote, not merely how much: the id, the kind and the words —
-        # the post-answer stage puts these on the wire, and the chip renders them.
-        assert ids == [{"id": "id-1", "kind": "decision", "content": "Client chose a flat roof."}]
+        assert ids == [{"id": "id-1", "kind": "decision", "content": "Client chose a flat roof.", "about": "project"}]
         assert recorded[0]["scope"] == "project"
         assert recorded[0]["project_id"] == "proj-1"
         assert recorded[0]["kind"] == "decision"
-        # Reflection writes are tagged 'distillation' so the UI can tell them
-        # apart from a deliberate in-turn `remember` ('agent') call.
         assert recorded[0]["provenance_type"] == "distillation"
-        # The existing memory digest and the answer both reach the prompt.
         assert llm.calls, "LLM should have been invoked"
 
     @pytest.mark.asyncio
     async def test_records_a_correction_with_its_supersede_target(self, monkeypatch):
-        """End to end: a turn that overturns an existing entry writes the corrected
-        finding AND tells the frontend which entry it replaces."""
         recorded = []
 
         def fake_insert(**kwargs):
@@ -526,8 +482,6 @@ class TestRunMemoryReflection:
 
     @pytest.mark.asyncio
     async def test_a_provider_that_refuses_response_format_still_records(self, monkeypatch):
-        """The parameter is a preference, not a requirement: a 400 naming it drops
-        to a plain call, which the fenced-JSON extractor still reads."""
         monkeypatch.setattr(R, "insert_memory_item", lambda **k: "id-1")
         llm = _RejectingLLM('```json\n{"findings": [{"kind": "decision", "content": "Flat roof."}]}\n```')
 
@@ -546,8 +500,6 @@ class TestRunMemoryReflection:
 
     @pytest.mark.asyncio
     async def test_a_rejection_is_recognised_on_the_sdks_response_object(self, monkeypatch):
-        """``openai.APIStatusError`` carries ``status_code`` itself; an httpx or
-        requests error carries it on ``response``. Both are the same refusal."""
         monkeypatch.setattr(R, "insert_memory_item", lambda **k: "id-1")
         llm = _RejectingLLM('{"findings": [{"kind": "decision", "content": "Flat roof."}]}', nested=True)
 
@@ -566,9 +518,6 @@ class TestRunMemoryReflection:
 
     @pytest.mark.asyncio
     async def test_a_provider_fault_is_not_retried(self, monkeypatch):
-        """Retrying a timeout or a 500 without ``response_format`` doubles the cost
-        of the slowest case and buys nothing — only a parameter rejection falls
-        through. The stage runner owns the failure."""
         monkeypatch.setattr(R, "insert_memory_item", lambda **k: pytest.fail("should not insert"))
         llm = _RejectingLLM("{}", status_code=503)
 
@@ -661,11 +610,6 @@ class TestRunMemoryReflection:
 
     @pytest.mark.asyncio
     async def test_writes_run_concurrently_and_report_in_order(self, monkeypatch):
-        """Five sequential 5s-timeout round trips inside a 45s stage budget was the
-        whole batch riding on the slowest link. The frame's payload contract is
-        still "in write order", so ordering survives the gather."""
-        # Every write must be in flight before any of them may finish; a
-        # sequential loop deadlocks the barrier and fails with BrokenBarrierError.
         in_flight = threading.Barrier(3, timeout=10)
 
         def blocking(**kwargs):
@@ -696,8 +640,6 @@ class TestRunMemoryReflection:
 
     @pytest.mark.asyncio
     async def test_an_unknown_project_records_nothing(self, monkeypatch):
-        # The client answers None when the target does not exist; that is not an
-        # error and must not reach the frame as a row without an id.
         monkeypatch.setattr(R, "insert_memory_item", lambda **k: None)
         llm = _FakeLLM('{"findings": [{"kind": "constraint", "content": "Budget capped at 2M."}]}')
         ids = await R.run_memory_reflection(
@@ -713,8 +655,6 @@ class TestRunMemoryReflection:
 
 
 class _ScriptedLLM:
-    """Answers each call with the next canned reply: the reflection, then the judge."""
-
     def __init__(self, *replies: str) -> None:
         self._replies = list(replies)
         self.calls: list = []
@@ -728,9 +668,6 @@ class _ScriptedLLM:
 
 
 class TestRestrictedReflection:
-    """ADR-0087: a turn that could read a restricted folder still reflects, and
-    each finding goes through the one restriction decision before it is written."""
-
     _RESTRICTED = "proj-1_r0123456789ab"
     _FINDINGS = (
         '{"findings": [{"kind": "decision", "content": "Honorar LP 5-8 ist pauschal 184.000 EUR.", '
@@ -772,7 +709,6 @@ class TestRestrictedReflection:
             "Flachdach extensiv begrünt.": None,
         }
         assert len(llm.calls) == 2, "one judge call for the whole batch"
-        # AI Act: each finding's verdict goes with its write, for the audit trail.
         assert {content: verdict["verdict"] for content, verdict in self.verdicts.items()} == {
             "Honorar LP 5-8 ist pauschal 184.000 EUR.": "drawn",
             "Flachdach extensiv begrünt.": "none",
@@ -799,10 +735,6 @@ class TestRestrictedReflection:
 
 
 class TestMemoryReflectionAsAStage:
-    """The same behaviours the bespoke scheduler used to guarantee, now going
-    through the post-answer stage runner. This is the migration's own test: what
-    reflection does must be unchanged, only how it is wired and bounded."""
-
     def _facts(self, **overrides):
         base = TurnFacts(
             conversation_id="c",
@@ -848,8 +780,6 @@ class TestMemoryReflectionAsAStage:
 
     @pytest.mark.asyncio
     async def test_org_only_is_noop(self):
-        # No project in scope -> the project-only autonomous stage has nothing to
-        # write, even when an organization is known (audit finding S1).
         outcomes = await self._run(self._facts(project_id=None, organization_id="org-1"), _FakeLLM("{}"))
         assert outcomes["memory_reflection"].status == "skipped"
         assert outcomes["memory_reflection"].reason == "no_project"
@@ -866,8 +796,6 @@ class TestMemoryReflectionAsAStage:
 
     @pytest.mark.asyncio
     async def test_a_stalled_provider_no_longer_holds_the_slot_for_minutes(self, monkeypatch):
-        """The defect the primitive closes: reflection had no asyncio timeout, so
-        a stalled provider held one of four concurrency slots for ~6 minutes."""
 
         async def never_returns(**kwargs):
             await asyncio.sleep(30)
@@ -878,3 +806,288 @@ class TestMemoryReflectionAsAStage:
         )
         outcomes = await self._run(self._facts(), _FakeLLM("{}"))
         assert outcomes["memory_reflection"].status == "timeout"
+
+
+_ENVELOPE = bff_http.SignedEnvelope(header="env-header", signature="env-signature")
+
+
+def _person(**fields):
+    return {"about": "person", "kind": "preference", "content": "Prefers short answers without tables.", **fields}
+
+
+class TestWhomAFindingIsAbout:
+    def test_a_person_finding_is_kept_when_the_turn_can_write_personal_memory(self):
+        [finding] = _sanitize([_person()], can_write_personal=True)
+        assert (finding.about, finding.kind) == ("person", "preference")
+
+    def test_a_person_finding_without_an_envelope_is_dropped_not_moved_to_the_project(self):
+        assert _sanitize([_person()]) == []
+
+    @pytest.mark.parametrize("kind", ["decision", "derived_fact", "role", None])
+    def test_any_other_kind_about_the_person_is_a_profile(self, kind):
+        [finding] = _sanitize([_person(kind=kind)], can_write_personal=True)
+        assert finding.kind == "profile"
+
+    @pytest.mark.parametrize("about", [None, "", "team", "both", 3])
+    def test_a_preference_with_no_usable_about_is_dropped(self, about):
+        entry = {"kind": "preference", "content": "Prefers short answers without tables.", "about": about}
+        assert _sanitize([entry], can_write_personal=True) == []
+
+    @pytest.mark.parametrize("kind", ["decision", "constraint", "open_question", "derived_fact"])
+    def test_a_project_kind_with_no_usable_about_is_the_projects(self, kind):
+        [finding] = _sanitize([{"kind": kind, "content": "Flat roof chosen.", "about": "??"}], can_write_personal=True)
+        assert finding.about == "project"
+
+    def test_a_profile_with_no_usable_about_is_the_persons(self):
+        [finding] = _sanitize([{"kind": "profile", "content": "Leads the permit phase."}], can_write_personal=True)
+        assert finding.about == "person"
+
+    def test_a_profile_said_to_be_about_the_project_is_dropped(self):
+        entry = {"about": "project", "kind": "profile", "content": "Leads the permit phase."}
+        assert _sanitize([entry], can_write_personal=True) == []
+
+    def test_about_is_folded_like_the_other_enums(self):
+        [finding] = _sanitize([_person(about=" Person ")], can_write_personal=True)
+        assert finding.about == "person"
+
+    def test_contact_details_pass_for_the_person_and_not_for_the_project(self):
+        content = "Reachable at huber@example.com."
+        assert _sanitize([_person(kind="profile", content=content)], can_write_personal=True)
+        assert _sanitize([{"about": "project", "kind": "derived_fact", "content": content}]) == []
+
+    def test_a_secret_is_dropped_for_the_person_too(self):
+        assert _sanitize([_person(content="The portal password is hunter2.")], can_write_personal=True) == []
+
+    def test_a_note_already_in_personal_memory_is_not_recorded_again(self):
+        block = 'PERSONAL_MEMORY v1\n- [preference] "Prefers short answers without tables."'
+        assert _sanitize([_person()], can_write_personal=True, personal_memory=block) == []
+
+    def test_a_person_finding_never_supersedes_a_project_entry(self):
+        digest = '- [decision | high | unverified] "Client chose a flat roof."'
+        [finding] = _sanitize(
+            [_person(supersedes="Client chose a flat roof.")], can_write_personal=True, memory_digest=digest
+        )
+        assert finding.supersedes == ""
+
+    def test_a_person_finding_supersedes_a_personal_note_it_was_shown(self):
+        block = 'PERSONAL_MEMORY v1\n- [preference] "Mit \\"Lord\\" ansprechen."'
+        [finding] = _sanitize(
+            [_person(content="Mit Vornamen ansprechen.", supersedes='Mit "Lord" ansprechen.')],
+            can_write_personal=True,
+            personal_memory=block,
+        )
+        assert finding.supersedes == 'Mit "Lord" ansprechen.'
+
+    def test_a_removal_is_a_person_finding_with_no_content(self):
+        block = 'PERSONAL_MEMORY v1\n- [pinned | preference] "Mit Lord ansprechen."'
+        [finding] = _sanitize(
+            [_person(content="", supersedes="Mit Lord ansprechen.")], can_write_personal=True, personal_memory=block
+        )
+        assert (finding.content, finding.supersedes) == ("", "Mit Lord ansprechen.")
+        assert _sanitize([_person(content="", supersedes="Mit Lord ansprechen.")], can_write_personal=True) == []
+
+    def test_a_dropped_person_finding_costs_no_slot(self):
+        raw = [_person()] * 3 + [{"kind": "decision", "content": f"Decision {n}."} for n in range(R.MAX_NEW_ITEMS)]
+        assert len(_sanitize(raw)) == R.MAX_NEW_ITEMS
+
+    def test_the_prompt_shows_the_personal_memory_and_bounds_it(self):
+        prompt = R._build_user_prompt("q", "a", None, "PERSONAL_MEMORY v1\n" + "7" * 5000)
+        assert "## Existing personal memory of the person asking" in prompt
+        assert prompt.count("7") < R._MAX_PERSONAL_CHARS
+        assert "(no personal memory recorded yet)" in R._build_user_prompt("q", "a", None)
+
+
+class TestPersonalFindingsAreWrittenToPersonalMemory:
+    _REPLY = (
+        '{"findings": ['
+        '{"about": "person", "kind": "preference", "content": "Prefers short answers without tables.", '
+        '"confidence": "high", "importance": 4, "supersedes": ""}, '
+        '{"about": "project", "kind": "decision", "content": "Client chose a flat roof.", '
+        '"confidence": "high", "importance": 7, "supersedes": ""}]}'
+    )
+
+    async def _run(self, monkeypatch, *, envelope=_ENVELOPE, restriction=None, judged=None):
+        project, personal = [], []
+
+        def insert_project(**kwargs):
+            project.append(kwargs)
+            return f"p-{len(project)}"
+
+        def insert_personal(**kwargs):
+            personal.append(kwargs)
+            return PersonalMemoryWrite(id=f"n-{len(personal)}", created=True)
+
+        async def decisions(contents, evidence, *, llm):
+            if judged is not None:
+                judged.extend(contents)
+            return [R.RestrictionDecision(None)] * len(contents)
+
+        monkeypatch.setattr(R, "insert_memory_item", insert_project)
+        monkeypatch.setattr(R, "insert_personal_memory_item", insert_personal)
+        monkeypatch.setattr(R, "restriction_decisions", decisions)
+        recorded = await R.run_memory_reflection(
+            llm=_FakeLLM(self._REPLY),
+            query="Bitte künftig kurz antworten. Wir nehmen das Flachdach.",
+            answer="Verstanden.",
+            project_id="proj-1",
+            organization_id="org-1",
+            conversation_id="conv-1",
+            memory_digest=None,
+            restriction=restriction,
+            envelope=envelope,
+        )
+        return recorded, project, personal
+
+    @pytest.mark.asyncio
+    async def test_each_finding_goes_to_its_own_memory(self, monkeypatch):
+        recorded, project, personal = await self._run(monkeypatch)
+
+        assert [row["content"] for row in project] == ["Client chose a flat roof."]
+        assert personal == [
+            {
+                "envelope": _ENVELOPE,
+                "kind": "preference",
+                "content": "Prefers short answers without tables.",
+                "conversation_id": "conv-1",
+                "provenance_type": "distillation",
+                "topic": "",
+            }
+        ]
+        assert [(row["id"], row["about"]) for row in recorded] == [("n-1", "person"), ("p-1", "project")]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("removed", "written"), [("n-0", ["Mit Vornamen ansprechen."]), (None, [])])
+    async def test_a_personal_correction_is_written_only_once_its_note_is_gone(self, monkeypatch, removed, written):
+        forgotten, personal = [], []
+
+        def forget(**kwargs):
+            forgotten.append(kwargs["content"])
+            return PersonalMemoryForget(removed_id=removed, refused=None if removed else "not_found")
+
+        def insert_personal(**kwargs):
+            personal.append(kwargs["content"])
+            return PersonalMemoryWrite(id="n-1", created=True)
+
+        monkeypatch.setattr(R, "forget_personal_memory_item", forget)
+        monkeypatch.setattr(R, "insert_personal_memory_item", insert_personal)
+        finding = R._ReflectionFinding.model_validate(
+            _person(
+                content="Mit Vornamen ansprechen.", supersedes="Mit Lord ansprechen.", confidence="high", importance=3
+            )
+        )
+        await R._write_personal_finding(finding, envelope=_ENVELOPE, conversation_id="conv-1")
+
+        assert forgotten == ["Mit Lord ansprechen."]
+        assert personal == written
+
+    @pytest.mark.asyncio
+    async def test_without_an_envelope_the_person_finding_reaches_no_memory(self, monkeypatch):
+        recorded, project, personal = await self._run(monkeypatch, envelope=None)
+
+        assert personal == []
+        assert [row["content"] for row in project] == ["Client chose a flat roof."]
+        assert [row["about"] for row in recorded] == ["project"]
+
+    @pytest.mark.asyncio
+    async def test_only_the_project_finding_is_judged_for_restriction(self, monkeypatch):
+        from agent.memory.restriction import RestrictionEvidence
+
+        judged: list[str] = []
+        evidence = RestrictionEvidence(scope=("proj_1_r0123456789ab",), read=("proj_1_r0123456789ab",))
+        _recorded, project, _personal = await self._run(monkeypatch, restriction=evidence, judged=judged)
+
+        assert judged == ["Client chose a flat roof."]
+        assert project[0]["restricted_collections"] is None
+
+
+class TestTopics:
+    def test_a_finding_parses_its_topic_trimmed(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt.", "topic": "  Dach "}])
+        assert finding.topic == "Dach"
+
+    def test_a_missing_topic_is_empty(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt."}])
+        assert finding.topic == ""
+
+    def test_a_topic_of_forty_characters_is_kept(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt.", "topic": "T" * 40}])
+        assert finding.topic == "T" * 40
+
+    def test_an_overlong_topic_is_dropped_and_the_finding_kept(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt.", "topic": "T" * 41}])
+        assert (finding.content, finding.topic) == ("Flachdach gewählt.", "")
+
+    def test_the_prompt_asks_for_a_topic_reused_from_memory(self):
+        assert "Reuse a topic already shown in the memory" in R.REFLECTION_SYSTEM_PROMPT
+        assert "not a kind" in R.REFLECTION_SYSTEM_PROMPT
+        assert "in the spelling the memory uses" in R.REFLECTION_SYSTEM_PROMPT
+        assert '`- ["Topic" | kind | confidence | verification]`' in R.REFLECTION_SYSTEM_PROMPT
+
+    def test_the_prompt_writes_the_topic_in_the_persons_language(self):
+        assert "in the language the person wrote in" in R.REFLECTION_SYSTEM_PROMPT
+        assert "topic is one to three words naming the subject, in the language the person wrote in" in (
+            R.REFLECTION_SYSTEM_PROMPT
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_topic_reaches_both_writers(self, monkeypatch):
+        project, personal = [], []
+        reply = (
+            '{"findings": ['
+            '{"about": "project", "kind": "decision", "content": "Flachdach gewählt.", "confidence": "high", '
+            '"importance": 6, "supersedes": "", "topic": "Dach"}, '
+            '{"about": "person", "kind": "preference", "content": "Kurze Antworten.", "confidence": "high", '
+            '"importance": 4, "supersedes": "", "topic": "Stil"}]}'
+        )
+
+        def insert_project(**kwargs):
+            project.append(kwargs)
+            return "p-1"
+
+        def insert_personal(**kwargs):
+            personal.append(kwargs)
+            return PersonalMemoryWrite(id="n-1", created=True)
+
+        monkeypatch.setattr(R, "insert_memory_item", insert_project)
+        monkeypatch.setattr(R, "insert_personal_memory_item", insert_personal)
+
+        await R.run_memory_reflection(
+            llm=_FakeLLM(reply),
+            query="q",
+            answer="a",
+            project_id="proj-1",
+            organization_id="org-1",
+            conversation_id="conv-1",
+            memory_digest=None,
+            envelope=_ENVELOPE,
+        )
+
+        assert [row["topic"] for row in project] == ["Dach"]
+        assert [row["topic"] for row in personal] == ["Stil"]
+
+    @pytest.mark.asyncio
+    async def test_an_overlong_topic_is_written_without_one(self, monkeypatch):
+        project = []
+        reply = (
+            '{"findings": [{"about": "project", "kind": "decision", "content": "Flachdach gewählt.", '
+            '"confidence": "high", "importance": 6, "supersedes": "", "topic": "' + "T" * 41 + '"}]}'
+        )
+
+        def insert_project(**kwargs):
+            project.append(kwargs)
+            return "p-1"
+
+        monkeypatch.setattr(R, "insert_memory_item", insert_project)
+
+        recorded = await R.run_memory_reflection(
+            llm=_FakeLLM(reply),
+            query="q",
+            answer="a",
+            project_id="proj-1",
+            organization_id="org-1",
+            conversation_id="conv-1",
+            memory_digest=None,
+        )
+
+        assert [row["content"] for row in recorded] == ["Flachdach gewählt."]
+        assert project[0]["topic"] == ""

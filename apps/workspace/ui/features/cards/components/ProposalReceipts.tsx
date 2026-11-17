@@ -1,23 +1,12 @@
 'use client'
 
-/**
- * The three receipts: one per kind of proposed change (ADR-0105), each a small
- * body inside the shared {@link ProposalReceipt} frame. A card with a
- * `proposal_id` is drawn by one of these; the card components
- * (`FileOperationProposalCard`, `MemoryProposalCard`, `ProjectProfilePatchCard`)
- * pick it, and keep their older path only for answers without one.
- *
- * Every receipt draws the card's own copy of the proposal until the server's
- * object has been read, then the object, so the first paint is never empty and
- * what a reader decides is what is stored.
- */
-
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { invalidateProjectFacts } from '@/features/chat/hooks/use-project-facts'
 import { buildPatchPreviewRows } from '@/lib/project-profile/patch-preview'
 import type { ProjectProfilePatchOperation } from '@/lib/project-profile/types'
@@ -30,7 +19,6 @@ import { OperationList } from './FileOperationRows'
 import { ProfilePatchTable } from './ProfilePatchTable'
 import { ProposalReceipt } from './ProposalReceipt'
 
-/** Why a decided proposal changed nothing, in the service's own words, one line per failed item. */
 function FailureReasons({ results }: { results: readonly ProposedChangeResult[] | null }) {
   const reasons = (results ?? []).filter((result) => !result.ok && result.reason)
   if (reasons.length === 0) return null
@@ -44,8 +32,6 @@ function FailureReasons({ results }: { results: readonly ProposedChangeResult[] 
     </ul>
   )
 }
-
-// ── Files ────────────────────────────────────────────────────────────────
 
 export function FileOperationReceipt({
   proposalId,
@@ -61,7 +47,6 @@ export function FileOperationReceipt({
   note?: string | null
 }) {
   const t = useTranslations(chatCopy)
-  // A colleague's apply changed files too: the Files list is told either way.
   const server = useServerProposal(proposalId, 'file_operation', (next) => notifyIfAnyApplied(next.results))
   const { proposal } = server
   const verb = proposal?.payload.operation ?? operation
@@ -110,9 +95,6 @@ export function FileOperationReceipt({
   )
 }
 
-// ── Operation ────────────────────────────────────────────────────────────
-
-/** What the call names, by name where this reader may read it (`targets` on the server's view), else by id. */
 function OperationTargets({ targets }: { targets: readonly OperationTargetView[] }) {
   const t = useTranslations(chatCopy)
   if (targets.length === 0) return null
@@ -124,11 +106,6 @@ function OperationTargets({ targets }: { targets: readonly OperationTargetView[]
   )
 }
 
-/**
- * Every input of the action, whole: what it will be called with. A long value
- * is shown in part until the reader unfolds it (`operation-input.ts`), and the
- * receipt keeps „Übernehmen“ waiting until every one has been unfolded.
- */
 function OperationInput({
   rows,
   targets,
@@ -142,7 +119,6 @@ function OperationInput({
 }) {
   const t = useTranslations(chatCopy)
   if (rows.length === 0) return null
-  // A path id is the object the action acts on: named after what it resolved to ("Project"), not "ID".
   const labelOf = (row: OperationInputRow): string => {
     const id = row.ids ?? row.value
     const target = row.source === 'params' && row.key === 'id' ? targets.find((candidate) => candidate.id === id) : undefined
@@ -206,12 +182,10 @@ export function OperationReceipt({
   const shownOperation = proposal?.payload.operation ?? operation
   const shownInput = proposal?.payload.input ?? input
   const targets = proposal?.targets
-  // An id the server named for this reader reads as that name, in the inputs as on „Betrifft“.
   const rows = useMemo(() => {
     const names = new Map((targets ?? []).flatMap((target) => (target.name ? [[target.id, target.name] as const] : [])))
     return operationInputRows(shownInput, (id) => names.get(id))
   }, [shownInput, targets])
-  // Unfolded once is read: folding it again does not make „Übernehmen“ wait again.
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set())
   const [read, setRead] = useState<ReadonlySet<string>>(() => new Set())
   const toggle = (key: string) => {
@@ -251,13 +225,10 @@ export function OperationReceipt({
             return t('cards.operationProposal.dismissed')
         }
       }}
-      // A failed apply says why in the route's own words (`FailureReasons`).
       decidedBody={(decided) => <FailureReasons results={decided.results} />}
     />
   )
 }
-
-// ── Memory ───────────────────────────────────────────────────────────────
 
 export function MemoryReceipt({
   proposalId,
@@ -275,6 +246,7 @@ export function MemoryReceipt({
   supersedes?: string | null
 }) {
   const t = useTranslations(chatCopy)
+  const kindLabels = useMemoryKindLabels()
   const server = useServerProposal(proposalId, 'memory')
   const { proposal } = server
   const note = proposal?.payload ?? { scope: null, kind, content, confidence, supersedes }
@@ -285,7 +257,7 @@ export function MemoryReceipt({
       eyebrow={
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip variant="muted" size="sm">
-            {t(`memoryProposal.kind.${note.kind}`)}
+            {kindLabels.kind(note.kind)}
           </Chip>
           <Chip variant="outline" size="sm">
             {t(`cards.proposalReceipt.memory.confidence.${note.confidence}`)}
@@ -312,7 +284,6 @@ export function MemoryReceipt({
         switch (decided.status) {
           case 'applied':
           case 'partially_applied': {
-            // A row decided before the scope was recorded has none.
             const scope = decided.results?.find((result) => result.ok)?.scope
             return scope ? t(`cards.proposalReceipt.memory.savedIn.${scope}`) : t('cards.proposalReceipt.memory.saved')
           }
@@ -323,9 +294,6 @@ export function MemoryReceipt({
         }
       }}
       decidedBody={(decided) => <FailureReasons results={decided.results} />}
-      // Only an office note has a narrower place to go. The other way round is
-      // refused by the server: a project note does not become the office's by a
-      // click on a proposal that did not ask for it.
       alternative={
         note.scope === 'organization'
           ? {
@@ -339,8 +307,6 @@ export function MemoryReceipt({
   )
 }
 
-// ── Project profile ──────────────────────────────────────────────────────
-
 export function ProfilePatchReceipt({
   proposalId,
   title,
@@ -352,13 +318,9 @@ export function ProfilePatchReceipt({
   title: string
   rationale: string
   patch: readonly ProjectProfilePatchOperation[]
-  /** The chat's project, until the object says which project it is for. */
   projectId?: string | null
 }) {
   const t = useTranslations(chatCopy)
-  // Every answer in the thread binds the profile (`:project[key]`): the value
-  // it asked for appears in each of them now, not on a reload. A colleague's
-  // apply counts too.
   const server = useServerProposal(proposalId, 'project_profile', (next) => {
     if (next.status === 'applied' || next.status === 'partially_applied') invalidateProjectFacts(next.projectId)
   })
@@ -367,8 +329,6 @@ export function ProfilePatchReceipt({
   const shownTitle = proposal?.payload.title ?? title
   const shownRationale = proposal ? proposal.payload.rationale : rationale
 
-  // „Before“ is the profile as it is while the proposal is open. Once decided
-  // the profile holds the change, so the receipt shows the „after“ alone.
   const open = !proposal || proposal.status === 'proposed'
   const profile = useCurrentProfile(open ? (proposal?.projectId ?? projectId) : null)
   const openRows = useMemo(

@@ -35,7 +35,6 @@ describe('UsageSettings', () => {
       />
     )
 
-    // Today: 10 spent against the project's 5, so the meter reads over.
     expect(screen.getAllByTestId('budget-meter-over')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Change limit' })).toBeInTheDocument()
   })

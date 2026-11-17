@@ -1,22 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the first-boot bootstrap against a real Postgres with
- * the migrations applied. Skipped unless TEST_DATABASE_URL is set (CI has
- * no database).
- *
- * The unit spec covers the decision logic with everything mocked. What only a
- * real database can show is the part that decides whether this is safe to run on
- * every boot of every replica: that the advisory lock is actually taken and
- * released (a leaked lock would block every subsequent boot), that the
- * empty-table guard reads committed state, and that what lands is readable
- * through `getPlatformModelDefaults` — the function the runtime merge calls —
- * rather than merely present in the table.
- *
- * The backend, the catalog and the audit sink are stubbed: this is about the
- * database interaction, not about re-testing the network calls.
- */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AGENT_GROUPS } from './agent-groups'
@@ -33,7 +17,6 @@ vi.mock('./backend-defaults', () => ({
   getWorkflowLlmBaseUrls: (): unknown => getWorkflowLlmBaseUrls(),
 }))
 
-// The model the bootstrap seeds, read from the module so a fleet move edits one place.
 const defaultModel = async (): Promise<string> =>
   (await import('./bootstrap-defaults')).BOOTSTRAP_DEFAULT_MODEL
 
@@ -88,13 +71,11 @@ describe.skipIf(!url)('platform default bootstrap against live Postgres', () => 
     const written = await bootstrapPlatformModelDefaults()
     expect(written.sort()).toEqual(AGENT_GROUPS.map((group) => group.id).sort())
 
-    // Readable through the function the runtime merge actually calls.
     await invalidatePlatformModelDefaults()
     const defaults = await getPlatformModelDefaults()
     expect(Object.keys(defaults).sort()).toEqual(AGENT_GROUPS.map((group) => group.id).sort())
     expect(new Set(Object.values(defaults))).toEqual(new Set([await defaultModel()]))
 
-    // The validated catalog snapshot survives the round trip (audit).
     const rows = Array.from(
       await getDb().execute<{ agent_group: string; updated_by: string; model_snapshot: unknown }>(
         sql`SELECT agent_group, updated_by, model_snapshot FROM platform_model_defaults ORDER BY agent_group`,
@@ -104,8 +85,6 @@ describe.skipIf(!url)('platform default bootstrap against live Postgres', () => 
     expect(rows.every((row) => row.updated_by === 'system:bootstrap')).toBe(true)
     expect(rows[0].model_snapshot).toMatchObject({ id: await defaultModel() })
 
-    // A leaked advisory lock would silently disable every later boot, so prove
-    // the session holds none before asserting the second run is a no-op.
     const held = Array.from(
       await getDb().execute<{ count: number }>(
         sql`SELECT count(*)::int AS count FROM pg_locks WHERE locktype = 'advisory'`,

@@ -1,9 +1,3 @@
-/**
- * The post-answer follow-ups rail (`docs/architecture/post-answer-stages.md`
- * §6): it carries no `mt-5` of its own (the message column's `gap-4` is the
- * air), and it makes the one promise the chips have always made — a click
- * fills the composer and does nothing else.
- */
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -52,30 +46,17 @@ describe('FollowUpsRail', () => {
   })
 
   it('renders nothing at all for an empty set', () => {
-    // An eyebrow over an empty row is an unkept promise, and with no frame there
-    // is not even a box left to explain the gap.
     const { container } = render(<FollowUpsRail items={[]} />)
     expect(container.querySelector('[data-testid="follow-ups-rail"]')).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('owns no top margin — the message column’s gap is the air', () => {
-    // A margin here would put the rail further from its answer than the answer
-    // is from the question.
     const { container } = render(<FollowUpsRail items={items} />)
     expect(container.querySelector('.mt-5')).toBeNull()
   })
 })
 
-/**
- * „Als Aktenvermerk schreiben" (ledger 23) — the one chip the CLIENT offers.
- *
- * The condition lives in `lib/file-note-chip` and is tested there; what is
- * tested here is that the offer reaches the rail, keeps the chips' one promise
- * (fill the composer, do nothing else), and — the part a stage-only rail got
- * wrong — that it can appear on a turn the follow-up stage never produced
- * anything for.
- */
 describe('FollowUpsRail — the Aktenvermerk offer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -96,8 +77,6 @@ describe('FollowUpsRail — the Aktenvermerk offer', () => {
   })
 
   it('appears on a turn that produced no follow-up questions at all', () => {
-    // The rail used to be mounted only where a stage had delivered items, so an
-    // offer computed in the browser had no surface to land on.
     render(<FollowUpsRail items={[]} offerFileNote />)
     expect(screen.getByTestId('follow-ups-rail')).toBeInTheDocument()
     expect(screen.getAllByRole('button')).toHaveLength(1)
@@ -109,7 +88,6 @@ describe('FollowUpsRail — the Aktenvermerk offer', () => {
 
     expect(setComposerPrefill).toHaveBeenCalledTimes(1)
     const [prefill] = setComposerPrefill.mock.calls[0] as [string]
-    // A chip that typed its own label would send a sentence fragment.
     expect(prefill).not.toEqual(screen.getByTestId('follow-up-action-aktenvermerk').textContent)
     expect(prefill.trim().endsWith('.')).toBe(true)
     expect(fetch).not.toHaveBeenCalled()

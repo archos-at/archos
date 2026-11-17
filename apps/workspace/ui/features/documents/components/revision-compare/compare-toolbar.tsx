@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * The comparison's controls: the view, the page, the zoom, and asking Piloti.
- * Each is its own component so the dialog can lay them out per width (one row
- * on a desktop, two on a phone) without the controls knowing.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Columns2, Layers, Minus, MoveHorizontal, Plus, Sparkles } from 'lucide-react'
@@ -26,7 +20,6 @@ const MODE_LABEL_KEYS = {
   swipe: 'compare.modeSwipe',
 } as const
 
-/** A control with a tooltip that names it and its key. */
 function Hinted({ hint, keys, children }: { hint: string; keys?: string; children: ReactNode }): JSX.Element {
   return (
     <Tooltip>
@@ -39,11 +32,6 @@ function Hinted({ hint, keys, children }: { hint: string; keys?: string; childre
   )
 }
 
-/**
- * The three views, named at every width: on a phone the words stay and the
- * icons go („Überlagert" says more than a stack of layers), and the key digits
- * show only where there is a keyboard to press them on.
- */
 export function ModeSwitch({ mode, onMode }: { mode: CompareMode; onMode: (mode: CompareMode) => void }): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
@@ -76,15 +64,9 @@ export function ModeSwitch({ mode, onMode }: { mode: CompareMode; onMode: (mode:
   )
 }
 
-/**
- * Previous, a page field, next. The field takes a number and Enter; the
- * count beside it, and an `aria-live` line for screen readers, say where the
- * reader is.
- */
 export function PageNav({ current, count, onPage }: { current: number; count: number; onPage: (page: number) => void }): JSX.Element {
   const t = useTranslations(filesCopy)
   const [draft, setDraft] = useState(String(current))
-  // A page turned from elsewhere (the arrows, a change in the list) resets the field.
   const [shown, setShown] = useState(current)
   if (shown !== current) {
     setShown(current)
@@ -135,10 +117,6 @@ export function PageNav({ current, count, onPage }: { current: number; count: nu
   )
 }
 
-/**
- * Out, the current zoom, in. The middle says „Einpassen" when the whole sheet
- * fits and a percentage of that fit otherwise, and pressing it fits again.
- */
 export function ZoomControl({
   zoom,
   disabled,
@@ -183,13 +161,6 @@ export type MarkState =
   | { kind: 'done'; page: number }
   | { kind: 'missing'; page: number }
 
-/**
- * Asking Piloti to mark the changes. The label always names the page, because
- * a run reads one page: „Seite 2 mit Piloti vergleichen", „Piloti vergleicht
- * Seite 2…", „Seite 2 ist markiert". When the button cannot run, its label is
- * the reason („Seite 3 gibt es nur in einer Fassung"), never a greyed-out
- * action with no word on why.
- */
 export function MarkButton({ state, onMark, className }: { state: MarkState; onMark: () => void; className?: string }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { page } = state
@@ -203,7 +174,7 @@ export function MarkButton({ state, onMark, className }: { state: MarkState; onM
           : t('compare.markPage', { page })
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="sm"
       className={className}
       loading={state.kind === 'loading'}

@@ -27,6 +27,8 @@ import threading
 import time
 from pathlib import Path
 
+from local_fetcher import fetcher_env  # a sibling script, not a package
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 CONFIG = ROOT / "configs" / "config_oib_openrouter.yml"
@@ -206,7 +208,8 @@ def run_once(
     record = out / f"{name or conversation_id}.jsonl"
     log = out / f"{name or conversation_id}.log"
     record.unlink(missing_ok=True)
-    env = {**os.environ, **(extra_env or {}), "REC_OUT": str(record), "PYTHONPATH": tree_pythonpath(out)}
+    env = {**os.environ, **fetcher_env(run_python(), ROOT), **(extra_env or {}), "REC_OUT": str(record)}
+    env["PYTHONPATH"] = tree_pythonpath(out)
     # -P: no working directory on sys.path, as the `nat` console script has none.
     nat = [run_python(), "-P", "-m", "nat.cli.main"]
     cmd = [*nat, "run", "--config_file", str(CONFIG), "--input", question, "--conversation_id", conversation_id]

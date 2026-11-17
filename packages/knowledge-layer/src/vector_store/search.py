@@ -37,13 +37,14 @@ from qdrant_client import models
 
 from .boost import Boost
 from .boost import boosted
-from .boost import likeness_formula
+from .boost import ranking_formula
 from .payload import paragraph_key
 from .schema import DENSE
 from .schema import LEXICAL
 from .schema import PARAGRAPH_FIELD
 from .schema import TEXT_FIELD
 from .schema import physical_for_scope
+from .scope import ScopeRead
 from .scope import scope_filter
 from .store import QdrantStore
 from .store import bm25
@@ -154,6 +155,17 @@ def _alias(store: QdrantStore, scopes: Sequence[str]) -> str:
     return store.alias(scopes[0])
 
 
+def _opened(store: QdrantStore, scopes: Sequence[str], office_id: str | None) -> tuple[ScopeRead, str] | None:
+    """The read over ``scopes`` as ``office_id`` and the alias it queries; None when nothing is stored there yet.
+
+    Raises when a scope is an office's and ``office_id`` is None (``scope.ScopeRead``).
+    """
+    read = ScopeRead(tuple(scopes), office_id)
+    if not scopes or not store.exists(scopes[0]):
+        return None
+    return read, _alias(store, scopes)
+
+
 def _dense_params(ranking: Ranking) -> models.SearchParams | None:
     """The dense channels' search parameters: how the quantized index is read."""
     if not ranking.rescore and ranking.oversampling is None:
@@ -218,7 +230,7 @@ def _fusion(ranking: Ranking, channels: int) -> models.RrfQuery | models.FusionQ
 
 
 def _cosines(
-    store: QdrantStore, alias: str, scopes: Sequence[str], vector: Sequence[float], ids: Sequence[Any]
+    store: QdrantStore, alias: str, read: ScopeRead, vector: Sequence[float], ids: Sequence[Any]
 ) -> dict[str, float]:
     """True cosine of each point to the query, by point id; exact, over these points only."""
     if not ids:
@@ -227,7 +239,7 @@ def _cosines(
         alias,
         query=list(vector),
         using=DENSE,
-        query_filter=scope_filter(scopes, None, models.HasIdCondition(has_id=list(ids))),
+        query_filter=read.filter(None, models.HasIdCondition(has_id=list(ids))),
         search_params=models.SearchParams(exact=True),
         limit=len(ids),
         with_payload=False,
@@ -250,6 +262,7 @@ def hybrid_search(
     store: QdrantStore,
     scopes: Sequence[str],
     *,
+    office_id: str | None,
     vector: Sequence[float],
     lexical_text: str,
     limit: int,
@@ -257,21 +270,30 @@ def hybrid_search(
     exact_terms: Sequence[str] = (),
     candidates: int | None = None,
 ) -> list[Hit]:
-    """The fused ranking over ``scopes``, best first."""
-    if limit <= 0 or not scopes or not store.exists(scopes[0]):
+    """The fused ranking over ``scopes``, read as ``office_id`` (``scope.ScopeRead``), best first.
+
+    A passage of an edition that binds at the turn's site is preferred in every channel, never required
+    (``boost.ranking_formula``).
+    """
+    opened = _opened(store, scopes, office_id)
+    if opened is None or limit <= 0:
         return []
-    alias = _alias(store, scopes)
-    query_filter = scope_filter(scopes, filters)
-    prefetch = _prefetches(
-        scopes,
-        query_filter,
-        vector,
-        lexical_text,
-        exact_terms,
-        candidates or limit,
-        RANKING,
-        store.bm25_length(scopes[0]),
-    )
+    read, alias = opened
+    query_filter = read.filter(filters)
+    formula = ranking_formula(None, _binding_editions())
+    prefetch = [
+        boosted(channel, formula)
+        for channel in _prefetches(
+            scopes,
+            query_filter,
+            vector,
+            lexical_text,
+            exact_terms,
+            candidates or limit,
+            RANKING,
+            store.bm25_length(scopes[0]),
+        )
+    ]
     result = store.client.query_points(
         alias,
         prefetch=prefetch,
@@ -279,9 +301,16 @@ def hybrid_search(
         limit=limit + _tie_slack(limit) if RANKING.cosine_tie_break else limit,
         with_payload=True,
     )
-    cosines = _cosines(store, alias, scopes, vector, [point.id for point in result.points])
+    cosines = _cosines(store, alias, read, vector, [point.id for point in result.points])
     hits = [_hit(point, cosines) for point in result.points]
     return _cosine_ordered_ties(hits)[:limit] if RANKING.cosine_tie_break else hits
+
+
+def _binding_editions() -> frozenset[str]:
+    """The editions that bind at the turn's site (``knowledge_context.binding_editions``); empty outside a turn."""
+    from agent.common.knowledge_context import binding_editions
+
+    return binding_editions()
 
 
 def _tie_slack(limit: int) -> int:
@@ -303,6 +332,7 @@ def grouped_search(
     store: QdrantStore,
     scopes: Sequence[str],
     *,
+    office_id: str | None,
     vector: Sequence[float],
     lexical_text: str,
     group_by: str,
@@ -313,26 +343,26 @@ def grouped_search(
     exact_terms: Sequence[str] = (),
     candidates: int = 200,
 ) -> list[tuple[str, list[Hit]]]:
-    """The fused ranking over ``scopes``, grouped by a payload field, best group first.
+    """The fused ranking over ``scopes`` read as ``office_id``, grouped by a payload field, best group first.
 
-    Cross-project search groups by ``scope``: one call ranks every reachable
-    project's documents together, instead of one search per project merged
-    on scores that are not comparable across indexes.
+    Cross-project search groups by ``scope``: one call ranks every reachable project's documents
+    together, instead of one search per project merged on scores that are not comparable across indexes.
 
-    ``filters`` narrow every channel inside the scope (tags, project facts):
-    a pre-filter, so nothing is fetched to be dropped afterwards. ``boost``
-    rescores each channel by the passage's project's likeness to the current
-    one before the fusion (``boost.py``); the fusion stays the main query, so
-    the ranking stays global on a sharded collection. ``exact_terms`` are the
-    single-collection search's exact-term channels („§ 8“, „REI 90“).
+    ``filters`` narrow every channel inside the scope (tags, project facts): a pre-filter, so nothing
+    is fetched to be dropped afterwards. ``boost`` rescores each channel by the passage's project's
+    likeness to the current one before the fusion, and a binding edition's passage is preferred as in
+    :func:`hybrid_search` (``boost.py``); the fusion stays the main query, so
+    the ranking stays global on a sharded collection. ``exact_terms`` are the single-collection
+    search's exact-term channels („§ 8“, „REI 90“).
     """
-    if groups <= 0 or not scopes or not store.exists(scopes[0]):
+    opened = _opened(store, scopes, office_id)
+    if opened is None or groups <= 0:
         return []
-    alias = _alias(store, scopes)
-    query_filter = scope_filter(scopes, filters)
-    likeness = likeness_formula(boost)
+    read, alias = opened
+    query_filter = read.filter(filters)
+    formula = ranking_formula(boost, _binding_editions())
     prefetch = [
-        boosted(channel, likeness)
+        boosted(channel, formula)
         for channel in _prefetches(
             scopes, query_filter, vector, lexical_text, exact_terms, candidates, RANKING, store.bm25_length(scopes[0])
         )
@@ -351,12 +381,12 @@ def grouped_search(
     cosines: dict[str, float] | None = None
     if RANKING.cosine_tie_break:
         # Ties are ordered before grouping: which project's passage comes first decides the group order.
-        cosines = _cosines(store, alias, scopes, vector, [point.id for point in points])
+        cosines = _cosines(store, alias, read, vector, [point.id for point in points])
         points.sort(key=lambda point: _tie_order(_hit(point, cosines)))
     collected = _group_in_order(points, group_by, groups, group_size)
     kept = [point.id for group in collected.values() for point in group]
     if cosines is None:
-        cosines = _cosines(store, alias, scopes, vector, kept)
+        cosines = _cosines(store, alias, read, vector, kept)
     lexical = _lexical_ids(store, alias, scopes, query_filter, vector, lexical_text, exact_terms, kept)
     return [(key, _stated(group, cosines, lexical)) for key, group in collected.items()]
 

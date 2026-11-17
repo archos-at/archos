@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The internal route the platform MCP gateway asks (ADR-0154, amendment of
- * 2026-11-05): its own secret, the roles from the gateway, 2xx only to admit.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

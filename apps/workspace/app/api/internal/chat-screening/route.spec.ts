@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What the chat socket masks a message with (ADR-0086). The content half of
- * the office's policy, never the name terms, and never "off" because the
- * settings could not be read: the real policy resolution runs here, only
- * storage is stubbed.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))

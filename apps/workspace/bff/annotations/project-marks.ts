@@ -30,7 +30,8 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import type { Document } from '@/lib/db/schema/documents'
 import { canWriteDocument } from '@/lib/documents/can-write'
 import { documentDisplayName } from '@/lib/documents/display-name'
-import { addCalendarDays, calendarDayIn, OFFICE_TIME_ZONE } from '@/lib/format'
+import { officeTimeZone } from '@/lib/organizations/time-zone'
+import { addCalendarDays, calendarDayIn } from '@/lib/format'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { inPool } from '@/lib/utils/in-pool'
 import {
@@ -122,16 +123,17 @@ export async function listProjectAnnotations(
 ): Promise<ProjectMarksResponse> {
   await requireProjectAccess(session, projectId, 'project:view')
   const cursor = query.cursor ? decodeProjectMarkCursor(query.cursor) : null
-  const [reader, hiddenFolderIds] = await Promise.all([
+  const [reader, hiddenFolderIds, timeZone] = await Promise.all([
     shelfReaderFor(session, { scope: 'project', projectId }),
     getHiddenFolderIds(session, projectId),
+    officeTimeZone(session.organizationId),
   ])
   const selection = {
     reader,
     hiddenFolderIds,
     statuses: STATUSES[query.status],
     assigneeUserId: query.assignee === ASSIGNEE_ME ? session.userId : (query.assignee ?? null),
-    due: dueRangeOf(query.due, calendarDayIn(OFFICE_TIME_ZONE, now)),
+    due: dueRangeOf(query.due, calendarDayIn(timeZone, now)),
   }
   const page = await listProjectAnnotationPage(session.organizationId, projectId, {
     ...selection,

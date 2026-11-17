@@ -104,8 +104,36 @@ function isLabelledTag(tag: string): tag is LabelledTag {
  * tag goes through this, so a token never reaches a person raw.
  */
 export function tagLabel(tag: string, t: Translator): string {
-  return isLabelledTag(tag) ? t(`documentTag.${tag}`) : tag
+  if (isLabelledTag(tag)) return t(`documentTag.${tag}`)
+  const token = STORED_GERMAN_TAG_LABELS.get(tag)
+  return token ? t(`documentTag.${token}`) : tag
 }
+
+/**
+ * The label key of each tag still stored in German, until its rename: in German it reads as itself, in English as
+ * its translation. „Worum es hier geht: Grundriss“ in an English workspace was the stored value shown raw (review of
+ * 2026-11-10, finding 21). A free topic has no key and reads as itself.
+ */
+const STORED_GERMAN_TAG_LABELS: ReadonlyMap<string, string> = new Map([
+  ['Bebauungsplan', 'developmentPlan'],
+  ['Flächenwidmungsplan', 'zoningPlan'],
+  ['Grundriss', 'floorPlan'],
+  ['Schnitt', 'section'],
+  ['Ansicht', 'elevation'],
+  ['Detail', 'detail'],
+  ['Gutachten', 'expertReport'],
+  ['Bescheid', 'officialDecision'],
+  ['Norm/Richtlinie', 'standard'],
+  ['Vertrag', 'contract'],
+  ['Foto', 'photo'],
+  ['Sonstiges', 'other'],
+  ['Standsicherheit', 'structuralSafety'],
+  ['Brandschutz', 'fireSafety'],
+  ['Hygiene/Gesundheit/Umweltschutz', 'hygieneHealthEnvironment'],
+  ['Nutzungssicherheit/Barrierefreiheit', 'safetyInUse'],
+  ['Schallschutz', 'soundProtection'],
+  ['Energieeinsparung/Wärmeschutz', 'energyEconomy'],
+])
 
 /** Whether every tag in the list is part of the controlled vocabulary. */
 export function areTagsValid(tags: readonly string[]): boolean {

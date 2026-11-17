@@ -17,7 +17,6 @@ import { hasExcerpt, type DocumentEvidence } from './excerpt-loader'
 import { PageExcerpt } from './page-excerpt'
 import { documentName } from './profile-review'
 
-/** The source a row names: a cited PDF page first, then any document, then whatever there is. */
 export function leadEvidence(evidence: readonly ProfileEvidence[]): ProfileEvidence | null {
   return (
     evidence.find(hasExcerpt) ?? evidence.find((entry) => entry.kind === 'document') ?? evidence[0] ?? null
@@ -26,14 +25,6 @@ export function leadEvidence(evidence: readonly ProfileEvidence[]): ProfileEvide
 
 const CHIP_CLASS = 'h-7 max-w-full rounded-md px-2 text-xs pointer-coarse:h-8'
 
-/**
- * A value's source on its row: „E-02 Schnitt A-A · S. 1". Pointing at it, or
- * focusing it, shows the page the value stands on, the passage marked, with the
- * quote under it („Belegt statt behauptet“); a click (or a tap) pins it, and a
- * pinned peek offers the document itself, opened at that page in the viewer the
- * chat's citations open. The address search, a derivation and the person's own
- * answer are named, with nothing to peek at.
- */
 export function SourcePeek({ evidence, label }: { evidence: readonly ProfileEvidence[]; label: string }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const lead = leadEvidence(evidence)
@@ -48,9 +39,11 @@ function OtherSource({ evidence, more }: { evidence: Exclude<ProfileEvidence, Do
   const [Icon, text, title] =
     evidence.kind === 'geocoder'
       ? [MapPin, t('source.geocoder'), evidence.label]
-      : evidence.kind === 'derivation'
-        ? [Calculator, t('source.derivation'), evidence.citation]
-        : [UserRound, t('source.person'), undefined]
+      : evidence.kind === 'register'
+        ? [MapPin, t('source.register'), evidence.label]
+        : evidence.kind === 'derivation'
+          ? [Calculator, t('source.derivation'), evidence.citation]
+          : [UserRound, t('source.person'), undefined]
   return (
     <Chip variant="muted" className={CHIP_CLASS} title={title}>
       <Icon aria-hidden />
@@ -73,9 +66,6 @@ function DocumentSource({
 }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const peek = useHoverPopover()
-  // The hook pins on a click and unpins on the next; this mirrors it so the
-  // panel offers the viewer only once pinned. A hovered panel holding a chip
-  // with a peek of its own would hand its one slot to that chip and vanish.
   const [clickedPinned, setClickedPinned] = useState(false)
   const pinned = clickedPinned && peek.open
   const name = documentName(lead.fileName)

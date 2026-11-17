@@ -155,6 +155,11 @@ What it decides:
      document it names before an answer states it. A person's folder description
      (migration 0145) is an input and wins over the abstract. Tier 1 ships after tier 0
      and after the eval has a baseline.
+     Since 2026-11-11 the build is a Hatchet run per collection, started by a
+     sweep every minute (ADR-0150, its amendment of that day). The dirty marks
+     and their debounce stay a table of the agent tier, `folder_card_queue`;
+     the claim, the retry counter and the polling loop it also was are the
+     engine's.
      Tier 1 is an organization's entitlement: the `folder-cards` WorkOS flag, off until an
      operator targets the organization. It was first built as an environment variable
      (`GRID_FOLDER_CARDS`); an office capability's switch is a flag, so that is gone. The

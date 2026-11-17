@@ -1,19 +1,8 @@
 'use client'
 
-/**
- * The held mail's text, plain and inert.
- *
- * The server flattened it (HTML is never rendered here, no remote image is
- * ever loaded) and masked what the content check found. React escapes it; a
- * URL is printed as the text it is, never a live link, because a stranger
- * wrote it. The first lines stand open, the rest behind „Ganze E-Mail
- * anzeigen“, quoted earlier mails behind „Zitierten Text anzeigen“, each with
- * the line that introduced it.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { CalendarDays, EyeOff, FileWarning, Scissors } from 'lucide-react'
+import { CalendarDays, ChevronDown, EyeOff, FileWarning, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -46,6 +35,8 @@ function InertText({ text }: { text: string }): JSX.Element {
 }
 
 const PROSE = 'text-foreground max-w-[72ch] whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]'
+
+const DISCLOSURE = 'text-muted-foreground hover:text-foreground h-auto gap-0.5 px-0 text-xs no-underline hover:no-underline [&_svg]:size-3.5 [&_svg]:transition-transform aria-expanded:[&_svg]:rotate-180 motion-reduce:[&_svg]:transition-none'
 
 export function MailText({ state, onRetry }: { state: MailTextState; onRetry: () => void }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
@@ -82,8 +73,9 @@ export function MailText({ state, onRetry }: { state: MailTextState; onRetry: ()
               <InertText text={expanded ? own : preview.head} />
             </p>
             {preview.more && (
-              <Button type="button" variant="link" size="sm" className="h-auto px-0 text-xs" onClick={() => setExpanded((open) => !open)} aria-expanded={expanded}>
+              <Button type="button" variant="link" size="sm" className={DISCLOSURE} onClick={() => setExpanded((open) => !open)} aria-expanded={expanded}>
                 {expanded ? t('text.showLess') : t('text.showAll')}
+                <ChevronDown aria-hidden />
               </Button>
             )}
           </div>
@@ -116,12 +108,12 @@ export function MailText({ state, onRetry }: { state: MailTextState; onRetry: ()
         ))}
         {text.quoted.length > 0 && (
           <div className="flex flex-col items-start gap-2">
-            <Button type="button" variant="link" size="sm" className="h-auto px-0 text-xs" onClick={() => setQuotedOpen((open) => !open)} aria-expanded={quotedOpen}>
+            <Button type="button" variant="link" size="sm" className={DISCLOSURE} onClick={() => setQuotedOpen((open) => !open)} aria-expanded={quotedOpen}>
               {quotedOpen ? t('text.hideQuoted') : t('text.showQuoted', { count: text.quoted.length })}
+              <ChevronDown aria-hidden />
             </Button>
             {quotedOpen &&
               text.quoted.map((quote, index) => (
-                // Someone else's words: the kit's `Quote`, indented and italic, no rule down its edge.
                 <Quote key={index} data-testid="mail-text-quote">
                   {quote.header && <p className="text-muted-foreground mb-1 text-xs not-italic [overflow-wrap:anywhere]">{quote.header}</p>}
                   {/* The quote's muted ink, the prose's measure. */}

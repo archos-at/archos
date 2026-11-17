@@ -373,7 +373,7 @@ jobs:
             . ci/git_auth.sh
             task release:lint
           fi
-      # AGENTS.md: a change a customer can notice ships with its note. The
+      # docs/contributing/obligations.md: a change a customer can notice ships with its note. The
       # escape hatch is the `no-release-note` label, read from the PR as it is
       # NOW rather than from the event payload: a re-run replays the payload, so
       # a label added after the push used to need another commit. Add the
@@ -470,6 +470,18 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
+        # Storage in memory: on the container disk every payload index is a
+        # sync, and a test collection creates about forty (core suite with the
+        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11). The
+        # tmpfs is half the runner's memory and an empty test collection takes
+        # about 300 MiB of it, so the store fixture keeps one module's pair per
+        # process (knowledge_layer_testing/vector_store.py); full, Qdrant
+        # refuses every write with "WAL buffer size exceeds available disk space".
+        options: --tmpfs /qdrant/storage
+        # WARN, not the default INFO: the runner prints the service's log after the
+        # job, and thousands of request lines buried the pytest failure out of reach.
+        env:
+          QDRANT__LOG_LEVEL: WARN
         ports:
           - 6333:6333
     env:
@@ -540,6 +552,12 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
+        # Storage in memory, as in the first Qdrant service of ci.yml.
+        options: --tmpfs /qdrant/storage
+        # WARN, not the default INFO: the runner prints the service's log after the
+        # job, and thousands of request lines buried the pytest failure out of reach.
+        env:
+          QDRANT__LOG_LEVEL: WARN
         ports:
           - 6333:6333
     env:
@@ -555,7 +573,7 @@ jobs:
       - name: agent_host plugin suite
         if: matrix.suite == 'agent_host'
         run: task be:test:api
-      - name: Python package suites (packages/knowledge-layer, ris-adapter, tavily-web-search)
+      - name: Python package suites (packages/knowledge-layer, public-sources, ris-adapter, tavily-web-search)
         if: matrix.suite == 'sources'
         run: task be:test:sources
       - name: Chroma exporter and the one-time migration, end to end
@@ -605,6 +623,12 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
+        # Storage in memory, as in the first Qdrant service of ci.yml.
+        options: --tmpfs /qdrant/storage
+        # WARN, not the default INFO: the runner prints the service's log after the
+        # job, and thousands of request lines buried the pytest failure out of reach.
+        env:
+          QDRANT__LOG_LEVEL: WARN
         ports:
           - 6333:6333
     env:
@@ -653,7 +677,7 @@ jobs:
           EXTRA_JSON: ${{ needs.changes.outputs.py_extra }}
         run: |
           # The named test files that belong to this suite, in its first shard.
-          case "$SUITE" in core) root='^(tests|evals)/' ;; api) root='^apps/agent-host/tests/' ;; sources) root='^packages/(knowledge-layer|ris-adapter|tavily-web-search)/' ;; esac
+          case "$SUITE" in core) root='^(tests|evals)/' ;; api) root='^apps/agent-host/tests/' ;; sources) root='^packages/(knowledge-layer|public-sources|ris-adapter|tavily-web-search)/' ;; esac
           extra=""
           if [ -z "$SHARD" ] || [ "${SHARD%%/*}" = 1 ]; then
             extra="$(jq -r --arg root "$root" '[.[] | select(test($root))] | join(" ")' <<<"$EXTRA_JSON")"
@@ -786,8 +810,14 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       # The website's accessibility gate drives Chromium; this installs its system libraries
-      # (the version is apps/website's playwright devDependency).
-      - run: npx --yes playwright@1.63.0 install-deps chromium
+      # (the version is apps/website's playwright devDependency). Not fatal on its own: the
+      # runner image already carries every library Chromium links against, and what apt still
+      # fetches are nine optional font packages. When the runner cannot resolve the Ubuntu
+      # mirrors (2026-11-11: three runs within an hour), the gate below still runs, and it
+      # fails by itself if Chromium cannot start.
+      - run: >-
+          npx --yes playwright@1.63.0 install-deps chromium
+          || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
       - run: task website:verify
 
   cms:
@@ -844,8 +874,8 @@ jobs:
       # version and checksum together with that digest.
       - name: Install otelcol-contrib (config validation)
         env:
-          OTELCOL_VERSION: "0.163.2"
-          OTELCOL_SHA256: "cc19dd6a1b85ca694ef16655688e597f693d0e24d2baecdd50e2db597819eeff"
+          OTELCOL_VERSION: "0.165.0"
+          OTELCOL_SHA256: "bd6e73d94bf3359ad6fac25529a8ee308adb9b0b8a0e8af034ed3891fbe5aa33"
         run: |
           curl -sSfL -o "$RUNNER_TEMP/otelcol.tar.gz" \
             "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTELCOL_VERSION}/otelcol-contrib_${OTELCOL_VERSION}_linux_amd64.tar.gz"
@@ -944,7 +974,7 @@ jobs:
         run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP/agent-engine.xml"
 
   # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
-  # research run and the BFF's `bff-job`, each end to end, with its retries,
+  # folder card tasks, the research run and the BFF's `bff-job`, each end to end, with its retries,
   # cancel and per-organization cap. Every suite here skips without an engine,
   # so until this job none of them had ever run. Its own job rather than a step
   # of the backend or workspace ones: it needs both toolchains and an engine
@@ -982,6 +1012,14 @@ jobs:
           .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=150
           packages/agent/tests/knowledge/test_ingest_workflow_engine.py
           --junitxml="$RUNNER_TEMP/hatchet-ingest.xml"
+      # Its first test waits for the engine's own cron, up to a minute.
+      - name: Folder card tasks on the engine (Python)
+        if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        timeout-minutes: 8
+        run: >-
+          .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=300
+          packages/agent/tests/knowledge/folder_cards/test_folder_card_workflow_engine.py
+          --junitxml="$RUNNER_TEMP/hatchet-folder-cards.xml"
       - name: Research run on the engine (Python, worker subprocesses)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
         timeout-minutes: 8
@@ -1129,7 +1167,7 @@ jobs:
         with:
           cleanup: false # the runner is discarded; see build-image/action.yml
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

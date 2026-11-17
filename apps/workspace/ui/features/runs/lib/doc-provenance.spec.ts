@@ -2,12 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The family and the badge a run-ledger document wears — the shelf decides
- * the family, the name may only ever ADD a badge, and never promotes an
- * unattributed upload to law.
- */
-
 import { describe, expect, it } from 'vitest'
 import { docProvenance } from './doc-provenance'
 

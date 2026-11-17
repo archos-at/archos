@@ -1,26 +1,3 @@
-/**
- * A streamed answer's text, shown at a steady pace a little behind what has
- * arrived, and whether the answer has settled on screen. The rules are in
- * `../lib/stream-pace.ts`; this is only the clock.
- *
- * The clock is `requestAnimationFrame`, and it runs only while something is
- * held back. It steps every frame but commits only when the reveal crosses a
- * word gap, so a word appears as a whole and the Markdown is re-parsed once
- * per word, not once per frame (the renderer parses only the block that grew).
- *
- * When the turn ends, the held-back rest is finished in 300–500 ms and only
- * then is the answer `settled`: the one signal everything that belongs to a
- * finished answer waits for (the caret, the footer, the Herleitung's
- * collapse). A terminal that does not continue what is shown (a rewrite, a
- * shorter text) settles at once, and so does a hidden page, where no frame
- * would ever come; a timer settles the answer if the frames stop anyway.
- * A turn the reader stopped settles at once at what is shown, and keeps it.
- *
- * Off under vitest (like the store's delta batching), so a spec that renders a
- * streaming answer sees its text at once and a finished one settled; the pace
- * has specs of its own.
- */
-
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   FINISH_MAX_MS,
@@ -36,82 +13,32 @@ import {
 
 const PACING_BY_DEFAULT = process.env.NODE_ENV !== 'test'
 
-/** How long past its planned end a finish may run before a timer settles the answer. */
 export const SETTLE_GRACE_MS = 1000
 
 export interface PacedText {
-  /** What to show of the answer now. */
   text: string
-  /**
-   * The answer is finished AND all of it is on screen. False while it streams
-   * and while the finish reveals the held-back rest; true for an answer that
-   * mounts finished.
-   */
   settled: boolean
-  /**
-   * The reveal has not moved for `IDLE_AFTER_MS` while the answer is unsettled:
-   * the model is thinking between sentences. The caret stands solid while words
-   * advance and breathes only then, as a text editor's does. Flips once per
-   * stall, so it costs a render per pause, not per frame.
-   */
   idle: boolean
 }
 
-/** How long the reveal stands still before the answer counts as idle. */
 export const IDLE_AFTER_MS = 600
 
 const pageHidden = (): boolean => typeof document !== 'undefined' && document.visibilityState === 'hidden'
 
-/**
- * More text than an answer is born with. A live answer mounts on the store
- * flush that brought its first words (35 and 63 characters on the recorded
- * turns); one that mounts with more than this is a turn joined mid-way: a
- * reload's replay, a spectator arriving, a thread opened again.
- */
 export const ARRIVED_AT_MOUNT_CHARS = 400
 
-/**
- * The answers being revealed on this page, by id. One that mounts again while
- * it is still in here (the reader switched threads and came back) had its
- * text on screen already, and is not typed out a second time.
- */
 const onScreen = new Set<string>()
 
-/**
- * Where the reveal of an answer that mounts streaming starts. From nothing,
- * when the reader is watching it be born. From the furthest clean cut of what
- * has arrived, when the text was already there to be read: it had been shown
- * before the remount (`id` in `onScreen`), or the turn was joined mid-way.
- * Re-typing it read as the answer being written again (L27, L28).
- */
 function startingLength(text: string, id: string | undefined, leadChars: number): number {
   const joinedMidway = (id !== undefined && onScreen.has(id)) || text.length - leadChars > ARRIVED_AT_MOUNT_CHARS
   return joinedMidway ? furthestCleanCut(text, 0, text.length) : 0
 }
 
-/** How much `text` put in front of `previous` and nothing else; 0 when it is not that. */
 const prependedLead = (previous: string, text: string): number =>
   previous && text.length > previous.length && !text.startsWith(previous) && text.endsWith(previous)
     ? text.length - previous.length
     : 0
 
-/**
- * `stopped`: the reader pressed Stop (`ChatMessage.stopped`), or the turn
- * failed under the answer. What they saw is what stays: the held-back rest is
- * not typed out after the press, and the shown text is held for as long as
- * this answer is mounted, so the server's cancelled terminal (which carries
- * everything the model had written) does not swap a longer text in under the
- * reader. A reload shows the stored one.
- *
- * `id`: the answer's message id, which lets a remount mid-turn start where
- * the reader was rather than at the first word (`startingLength`).
- *
- * `leadChars`: how much of `text` is a head that arrives whole by design (the
- * masthead's summary, written in ahead of the prose). It is paced like the
- * rest, but not counted toward `ARRIVED_AT_MOUNT_CHARS`: a fresh answer is
- * born with all of it, and counting it read a 300-character summary plus the
- * first words as a turn joined mid-way, shown at once.
- */
 export function usePacedText(
   text: string,
   streaming: boolean,
@@ -120,19 +47,14 @@ export function usePacedText(
   id?: string,
   leadChars = 0
 ): PacedText {
-  // An answer that mounts finished is shown whole; one that mounts streaming
-  // is paced from its first word, or from what had already arrived when the
-  // turn was joined mid-way.
   const paced = enabled && streaming
   const [start] = useState(() => (paced ? startingLength(text, id, leadChars) : text.length))
   const [shown, setShown] = useState(start)
   const [settled, setSettled] = useState(!paced)
   const pace = useRef<PaceState>(initialPace(start))
   const shownRef = useRef(shown)
-  /** The text the shown length counts into. */
   const lastText = useRef(text)
   const latest = useRef(text)
-  /** The text on screen when Stop was pressed, held from then on. */
   const [frozen, setFrozen] = useState<string | null>(null)
 
   const show = (length: number) => {
@@ -145,9 +67,6 @@ export function usePacedText(
     latest.current = text
   })
 
-  // An arrival, or a replacement. A snapshot that rewrites text already shown
-  // keeps the shown length (moved on to a clean cut) and paces only what lies
-  // beyond it; it never takes shown text back to type it out again.
   useLayoutEffect(() => {
     if (!streaming) return
     const previous = lastText.current
@@ -155,11 +74,6 @@ export function usePacedText(
     let next = pace.current
     const lead = prependedLead(previous, text)
     if (lead > 0 && next.shown > 0) {
-      // A head put in front of text already shown (the masthead's summary,
-      // decided in the render after a mid-way mount): the shown text moves
-      // down by it and stays shown. Read as a rewrite, the shown length was
-      // counted from the new start, the prose on screen shrank by the head and
-      // was typed out again.
       next = { ...next, shown: next.shown + lead, arrivals: next.arrivals.map((length) => length + lead) }
     } else if (!text.startsWith(previous.slice(0, shownRef.current))) {
       next = initialPace(keepThroughRewrite(text, shownRef.current))
@@ -167,24 +81,20 @@ export function usePacedText(
     next = noteArrival(next, text.length, performance.now())
     pace.current = next
     show(next.shown)
-    // `show` only writes refs and state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, streaming])
 
-  // A new stream in the same answer starts from what is shown.
   useLayoutEffect(() => {
     if (!streaming) return
     if (enabled) setSettled(false)
   }, [streaming, enabled])
 
-  // On screen until settled: a remount before then starts where it was.
   useEffect(() => {
     if (!id || !enabled) return
     if (settled) onScreen.delete(id)
     else onScreen.add(id)
   }, [id, enabled, settled])
 
-  // Streaming and behind: step every frame, commit at word gaps.
   const behind = enabled && streaming && shown < text.length
   useEffect(() => {
     if (!behind) return
@@ -200,9 +110,6 @@ export function usePacedText(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [behind])
 
-  // Idle: the shown length the reveal stood still at for `IDLE_AFTER_MS`.
-  // Kept as that length rather than a flag, so the next word ends the idle
-  // by itself, without a second render to clear it.
   const [idleAt, setIdleAt] = useState(-1)
   useEffect(() => {
     if (!enabled || settled) return
@@ -210,12 +117,8 @@ export function usePacedText(
     return () => window.clearTimeout(timer)
   }, [shown, settled, enabled])
 
-  // The turn has ended: finish what is held back, then settle. Before paint,
-  // so the frame the terminal lands in already shows the right thing.
   useLayoutEffect(() => {
     if (streaming || settled) return
-    // Stopped: settle at what is shown, now. Typing on after the press reads
-    // as the button not having worked.
     if (stopped) {
       setFrozen(text.slice(0, shownRef.current))
       setSettled(true)
@@ -246,8 +149,6 @@ export function usePacedText(
       show(cut)
       id = requestAnimationFrame(step)
     })
-    // A page hidden mid-finish gets no more frames, and frames can stop for
-    // other reasons too: neither may leave the turn unsettled.
     const onHidden = () => {
       if (pageHidden()) settle()
     }
@@ -258,8 +159,6 @@ export function usePacedText(
       document.removeEventListener('visibilitychange', onHidden)
       window.clearTimeout(timer)
     }
-    // `text` is read through `latest` once the finish runs: a finish is not
-    // restarted by a change to the finished text.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streaming, settled, enabled, stopped])
 
@@ -269,5 +168,4 @@ export function usePacedText(
   return { text: text.slice(0, Math.min(shown, text.length)), settled, idle: idleAt === shown }
 }
 
-/** The longest a finished turn can take to settle once its terminal frame lands. */
 export const MAX_SETTLE_MS = FINISH_MAX_MS + SETTLE_GRACE_MS

@@ -5,10 +5,6 @@ vi.mock('posthog-js', () => ({
   default: { init: vi.fn(), captureException, capture: vi.fn(), identify: vi.fn(), reset: vi.fn() },
 }))
 
-/**
- * `initialized` is module state, so each case loads a fresh copy of the
- * facade: the disabled case must not see the enabled one's init.
- */
 describe('capturePosthogException', () => {
   beforeEach(() => {
     vi.resetModules()

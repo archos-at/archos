@@ -13,5 +13,5 @@ export const POST = platformApiRoute(
     const result = await syncKnowledgeBase()
     return NextResponse.json(result)
   },
-  { permission: PLATFORM_PERMISSIONS.settingsManage }
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite }
 )

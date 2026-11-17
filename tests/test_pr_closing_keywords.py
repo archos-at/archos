@@ -1,5 +1,3 @@
-"""Run the real metadata-only workflow step, not a second copy of its matcher."""
-
 from __future__ import annotations
 
 import os

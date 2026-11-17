@@ -20,6 +20,7 @@ import { servedAsRendition } from './document-delivery'
 import type { DocumentTypeTag } from './tag-vocabulary'
 import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
 import { type AgentDocumentProvenance, INGEST_DISPATCH_FAILED_MESSAGE, type IngestPriority, RENDITION_REQUIRED_MESSAGE, dispatchIngest } from './ingest-dispatch'
+import { isTextHeld } from '@/lib/base-knowledge/text-guard'
 
 export interface UploadDocumentInput {
   projectId: string
@@ -256,6 +257,14 @@ export async function dispatchDocument(
   // it, and sending those bytes to the index would make a document nobody can
   // see in the listing answer questions again. It is read when it comes back.
   if (row.lifecycle === 'archived') {
+    await markDocumentNotIndexed(row.id, input.organizationId)
+    return { jobId: null, status: 'stored' }
+  }
+  // A licensed base-knowledge copy whose office has not stated that its licence
+  // covers AI processing is metadata-only (ADR-0163): kept, never read. Asked
+  // here so a re-read, a re-index or a restore cannot index it either. Only the
+  // office shelf holds base knowledge, so no other row pays the read.
+  if (row.scope === 'office_shelf' && (await isTextHeld(input.organizationId, row.id))) {
     await markDocumentNotIndexed(row.id, input.organizationId)
     return { jobId: null, status: 'stored' }
   }

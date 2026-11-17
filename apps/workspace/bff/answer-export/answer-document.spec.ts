@@ -1,34 +1,13 @@
 /**
  * @vitest-environment node
  */
-/**
- * What the exported document says, and — more importantly — what it refuses to
- * say.
- *
- * The document is asserted at the BLOCK level rather than by unzipping a .docx,
- * because the two questions are different: `docx.spec.ts` asks whether Word can
- * open the package, this file asks whether the package tells the truth. Those
- * are the failures that matter here, in the order they would hurt:
- *
- *   1. citations arriving as bare `[3]` markers with no reference list — the
- *      defect this whole feature exists to fix;
- *   2. a card silently missing, which reads as an answer that never made that
- *      finding;
- *   3. a placeholder standing in for a field the answer does not have, which is
- *      the export inventing content;
- *   4. a hardcoded German heading in an English document (or the reverse).
- *
- * The translators are the REAL dictionaries. A spec with a stub translator
- * would pass with every key missing, which is precisely the bug the last
- * assertion in this file is here to catch.
- */
 
 import { discriminatedOptions } from '@/lib/api/zod-union'
 import { describe, expect, it } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import type { DocBlock } from './blocks'
-import { buildAnswerDocument, type AnswerDocumentInput } from './answer-document'
+import { buildAnswerDocument, EXPORTED_CAPPED_REASONS, type AnswerDocumentInput } from './answer-document'
 import { CARD_EXPORT, isCheck, SKIPPED_FIELDS, skippedNested } from './cards'
 import { answerCardSchema } from '@/shared/cards/schemas'
 import { previewFixtureFor } from '@/features/cards/preview-fixtures'
@@ -39,7 +18,6 @@ const english = translatorFor(answerExportCopy, 'en')
 
 const CREATED_AT = new Date('2026-05-04T09:30:00Z')
 
-/** Flatten blocks to text so a spec can assert on what a reader would see. */
 const text = (blocks: DocBlock[]): string =>
   blocks
     .map((block) => {
@@ -72,7 +50,6 @@ const input = (overrides: Partial<AnswerDocumentInput> = {}): AnswerDocumentInpu
   ...overrides,
 })
 
-/** The stored citation payload, in the versioned wire shape the chat writes. */
 const storedCitations = {
   v: 1,
   sources: [
@@ -84,10 +61,7 @@ const storedCitations = {
       url: 'https://www.oib.or.at/rl2',
       content: 'Die Gehweglänge darf 40 m nicht überschreiten.',
     },
-    // A second chunk of the SAME source, sharing its number: a reference list
-    // wants the source once, not once per retrieved passage.
     { citation_key: 'OIB-RL 2, Pkt. 5.1.1', page: 19, number: 1 },
-    // Retrieved but never cited — no number, so no `[N]` points at it.
     { title: 'ÖNORM B 1600', content: 'Barrierefreies Bauen' },
   ],
 }
@@ -111,8 +85,6 @@ describe('the document’s chrome', () => {
     const blocks = buildAnswerDocument(input(), german, 'de')
 
     expect(blocks[0]).toEqual({ kind: 'heading', level: 1, text: 'Fluchtwege Bauteil B' })
-    // Not "today": an export stamped with the download time dates a year-old
-    // finding to the day somebody happened to open it.
     expect(text(blocks)).toContain('4. Mai 2026')
   })
 
@@ -124,27 +96,15 @@ describe('the document’s chrome', () => {
     )
 
     expect(blocks).toContainEqual({ kind: 'heading', level: 3, text: 'Ergebnis' })
-    // The bullet glyph is added by the .docx renderer; the block model carries
-    // the items, which is what a second output format would read.
     expect(text(blocks)).toContain('Erster Punkt')
     expect(text(blocks)).not.toContain('## Ergebnis')
   })
 })
 
-/**
- * The marking a document carries when Piloti wrote it and nobody checked it.
- *
- * Asserted at the block level like everything else here, and asserted in both
- * directions: an ordinary export must be exactly what it was before this
- * existed, because a marking that appears on every file marks nothing and the
- * one it is meant to warn about becomes indistinguishable again.
- */
 describe('the marking on an unreviewed document', () => {
   it('is absent from an ordinary export', () => {
     const plain = buildAnswerDocument(input(), german, 'de')
 
-    // The flag off and the flag absent are the same document, block for block:
-    // an export nobody opted in for is untouched by this feature.
     expect(plain).toEqual(buildAnswerDocument(input({ agentAuthored: false }), german, 'de'))
     expect(plain[0]).toEqual({ kind: 'heading', level: 1, text: 'Fluchtwege Bauteil B' })
     expect(text(plain)).not.toContain('KI-generiert')
@@ -153,9 +113,6 @@ describe('the marking on an unreviewed document', () => {
   it('opens the document, ahead of its own title', () => {
     const blocks = buildAnswerDocument(input({ agentAuthored: true }), german, 'de')
 
-    // A one-cell table: the border is what separates a statement ABOUT the
-    // document from the document, and it keeps doing that after the reader has
-    // edited the prose around it.
     expect(blocks[0]).toEqual({
       kind: 'table',
       rows: [
@@ -171,10 +128,6 @@ describe('the marking on an unreviewed document', () => {
   })
 
   it('says what the document is and what it is not, in both locales', () => {
-    // Pinned word for word rather than compared against the dictionary: this
-    // sentence is the product's own statement about liability, and a reviewer
-    // has to approve a change to it rather than discover it in a diff of a
-    // dictionary file.
     expect(text(buildAnswerDocument(input({ agentAuthored: true }), german, 'de'))).toContain(
       `Dieses Dokument hat ${PRODUCT_NAME} erstellt; ein Mensch hat es nicht geprüft. Es ist ein Entwurf und kein Nachweis — prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben oder einreichen.`
     )
@@ -187,8 +140,6 @@ describe('the marking on an unreviewed document', () => {
   })
 
   it('marks a document that carries nothing else', () => {
-    // Every other section here is conditional on the stored answer having
-    // something to say. This one is not: the claim is about who wrote the file.
     const blocks = buildAnswerDocument(
       { answer: '', createdAt: CREATED_AT, agentAuthored: true },
       german,
@@ -206,7 +157,6 @@ describe('citations', () => {
     expect(output).toContain('Quellen')
     expect(output).toContain('[1] OIB-RL 2, Pkt. 5.1.1 — OIB-Richtlinie 2 — Brandschutz, S. 18')
     expect(output).toContain('https://www.oib.or.at/rl2')
-    // The marker in the prose stays, because it is what points AT the list.
     expect(output).toContain('40 m nicht überschreiten [1]')
   })
 
@@ -214,8 +164,6 @@ describe('citations', () => {
     const output = text(buildAnswerDocument(input({ citations: storedCitations }), german, 'de'))
 
     expect(output.match(/\[1\] OIB-RL 2/g)).toHaveLength(1)
-    // Retrieved-but-not-cited stays out: nothing in the prose points at it, so
-    // listing it would claim the answer rested on it.
     expect(output).not.toContain('ÖNORM B 1600')
   })
 
@@ -243,8 +191,6 @@ describe('citations', () => {
     const output = text(buildAnswerDocument(input({ answer }), german, 'de'))
 
     expect(output).toContain('[1] OIB-Richtlinie 2, Ausgabe 2023, S. 18')
-    // Lifted out of the prose: two lists of the same sources, with no guarantee
-    // of agreeing, is worse than one.
     expect(output.match(/OIB-Richtlinie 2, Ausgabe 2023, S\. 18/g)).toHaveLength(1)
   })
 
@@ -275,7 +221,6 @@ describe('fields the stored answer does not have', () => {
     expect(output).not.toContain('Frage')
     expect(output).not.toContain('Quellen')
     expect(output).not.toContain('Verlässlichkeit')
-    // Nothing is left standing in for them.
     expect(output).not.toContain('—')
     expect(output).not.toContain('n/a')
   })
@@ -318,6 +263,22 @@ describe('fields the stored answer does not have', () => {
     expect(output).toContain('Begründung des Assistenten: Die Quelle nennt die Länge')
     expect(output).toContain('nicht wortgleich gegen die Quelle prüfbar')
   })
+
+  it.each([
+    ['ungrounded', 'nicht durch Quellen belegt'],
+    ['quote_unverified', 'nicht wortgleich gegen die Quelle prüfbar'],
+    ['law_unsettled', 'verbindliche Fassung des Baurechts steht für diesen Standort noch nicht geprüft fest'],
+  ] as const)('explains the %s cap in its own words', (cappedReason, sentence) => {
+    const output = text(
+      buildAnswerDocument(input({ confidence: { level: 'medium', cappedReason } }), german, 'de')
+    )
+    expect(output).toContain(sentence)
+    expect(EXPORTED_CAPPED_REASONS).toContain(cappedReason)
+  })
+
+  it('names every cap it can export', () => {
+    expect([...EXPORTED_CAPPED_REASONS].sort()).toEqual(['law_unsettled', 'open_point', 'quote_unverified', 'ungrounded'])
+  })
 })
 
 describe('cards', () => {
@@ -348,9 +309,7 @@ describe('cards', () => {
     expect(output).toContain('Türbreiten Stiegenhaus')
     expect(output).toContain('lichte Durchgangsbreite | 90 | 80 | cm | mindestens | Anforderung erfüllt')
     expect(output).toContain('Angabe erforderlich')
-    // The card's own overall Fundstelle, on its own line.
     expect(output).toContain('OIB-Richtlinie 4, Ausgabe Mai 2023')
-    // A table is a table — a card must not arrive as a JSON blob.
     expect(output).not.toContain('{')
     expect(blocks.some((block) => block.kind === 'table')).toBe(true)
   })
@@ -375,8 +334,6 @@ describe('cards', () => {
     const output = text(buildAnswerDocument(input({ cards: [stair] }), german, 'de'))
 
     expect(output).toContain('Position | Ist | Soll | Beurteilung')
-    // The tolerance and "gemessen" ride along with the number: without them our
-    // measurement reads as the architect's own declared figure.
     expect(output).toContain(
       'Steigung | 18.2 ±0.5 cm (gemessen) | <= 18 cm | Anforderung nicht erfüllt'
     )
@@ -396,10 +353,6 @@ describe('cards', () => {
   })
 
   it('exports a matrix’s rows, headed by the columns the card declares', () => {
-    // `rows` as `list[list[str]]`: the walker handled arrays of scalars and
-    // arrays of objects and fell through both, so the retired `typed_table`
-    // exported its column definitions and not one row. No card in today's
-    // catalogue has the shape; a stored or future one still must export.
     const output = text(
       buildAnswerDocument(
         input({
@@ -427,8 +380,6 @@ describe('cards', () => {
     expect(output).toContain('Bauteil | Mindestmaß | Fundstelle')
     expect(output).toContain('Türbreite | 80 cm | OIB 4, Pkt. 2.2')
     expect(output).toContain('Rampenneigung | 6 % | OIB 4, Pkt. 2.3')
-    // The column definitions are the header, so they are not ALSO printed as a
-    // table of their own — the card would otherwise name its columns twice.
     expect(output).not.toContain('Columns')
   })
 
@@ -450,9 +401,6 @@ describe('cards', () => {
   })
 
   it('names a limit as a limit, and its lower bound as a lower bound', () => {
-    // `CalculationLimit.value` is the BOUND, never the measured figure. The flat
-    // dictionary labelled it „Ist“ — so the Schrittmaßregel exported as
-    // „Obergrenze: 65; Ist: 59“, where 59 is the rule and not the stair.
     const range = text(
       buildAnswerDocument(
         input({ cards: [schrittmass({ comparator: 'between', value: 59, upper: 65 })] }),
@@ -465,7 +413,6 @@ describe('cards', () => {
     expect(range).toContain('Obergrenze: 65')
     expect(range).not.toContain('Ist: 59')
 
-    // With a one-sided comparator the same field is simply the bound.
     const capped = text(
       buildAnswerDocument(
         input({ cards: [schrittmass({ comparator: '<=', value: 1.2 })] }),
@@ -518,15 +465,6 @@ describe('cards', () => {
   })
 })
 
-/**
- * The cards a document must NOT carry.
- *
- * The opposite failure to the one above, and the harder one to see: a card that
- * exports fine but does not belong in a record of what was established. The
- * three questions this answer did not answer, printed under „Befunde“ with
- * their items table headed „Anforderungen“, tell a Behörde that the office
- * submitted open questions as requirements.
- */
 describe('the drawing this export cannot draw', () => {
   it('prints the placeholder for a drawing inside a composed tab (ADR-0065)', () => {
     const tab = {
@@ -558,23 +496,16 @@ describe('cards that are the app talking, not the answer', () => {
   it('leaves a delegation notice out of the document entirely', () => {
     const output = text(buildAnswerDocument(input({ cards: [delegation] }), german, 'de'))
 
-    // Not even the heading: work announced but not yet done is the app's
-    // chrome, not a finding under „Befunde“.
     expect(output).not.toContain('Einreichcheck: Bauansuchen Haus A')
     expect(output).not.toContain('Mach den Einreichcheck')
   })
 
   it('omits the findings section altogether when chrome was the only card', () => {
-    // The section heading is built from whether any card produced blocks, so a
-    // card that contributes nothing must not leave „Befunde“ standing empty.
     const output = text(buildAnswerDocument(input({ cards: [delegation] }), german, 'de'))
     expect(output).not.toContain('Befunde')
   })
 
   it('does not report a proposal whose outcome it cannot know', () => {
-    // `metadata.cardInteractions` holds the accept/reject, and the export never
-    // reads it — so a printed patch would state a change to the project brief
-    // that may never have been applied. Same for the memory write.
     const output = text(
       buildAnswerDocument(
         input({
@@ -619,9 +550,6 @@ describe('cards that are the app talking, not the answer', () => {
   })
 
   it('still exports a card of a type this build has never heard of', () => {
-    // Stored cards are re-read on every export and may name a type emitted
-    // before a rename, or by a newer backend. Unknown must mean "walk it", not
-    // "drop it": a finding missing from the file reads as one never made.
     const output = text(
       buildAnswerDocument(
         input({
@@ -637,24 +565,7 @@ describe('cards that are the app talking, not the answer', () => {
   })
 })
 
-/**
- * The guard that keeps the document localized.
- *
- * `createTranslator` answers a missing key with the key itself, so a dictionary
- * gap does not throw — it ships `answerExport.fields.storeys` into a file an
- * architect forwards to a Behörde. One card of every type in the catalogue goes
- * through both locales, and any dot-path that survives is the failure.
- */
 describe('every string in the document comes from a dictionary', () => {
-  /**
-   * Hand-written bodies, keyed by card type.
-   *
-   * Rich on purpose — the point is to push every field name and every enum
-   * value through the dictionaries, which a minimal card would not. It is NOT
-   * the list of card types: that comes off the union below, so a type nobody
-   * wrote a body for still gets exported (from its gallery fixture) rather than
-   * silently sitting this describe block out.
-   */
   const authoredCards: Record<string, unknown>[] = [
     {
       type: 'project_profile_patch',
@@ -750,10 +661,6 @@ describe('every string in the document comes from a dictionary', () => {
         unit: 'm',
         status: 'pass',
       },
-      // `StagingAreaPlan`: two `DimensionCheck`s and an optional third. The
-      // `{label, width_m, length_m}` this used to be is a shape the card has
-      // never had, so the assertion below was checking the walker against
-      // something the backend cannot emit.
       staging_area: {
         width: { label: 'Aufstellfläche Breite', value: 5, required: 5, unit: 'm', status: 'pass' },
         length: {
@@ -789,17 +696,6 @@ describe('every string in the document comes from a dictionary', () => {
     { type: 'ifc_model_picker', title: 'Modelle des Projekts' },
   ]
 
-  /**
-   * One card of every type in the catalogue.
-   *
-   * Derived from `answerCardSchema` rather than typed out. The hand-written array
-   * this replaced could not fail: a card type added to the union simply never
-   * entered it, so "every card in the catalogue" was a claim about a list, not
-   * about the catalogue — and thirteen types were outside it. Anything without
-   * an authored body falls back to the gallery's preview fixture, which
-   * `preview-fixtures.spec.ts` already forces a new type to supply.
-   */
-  /** How the renderer classifies this card — the single source for the split. */
   const kindOf = (card: Record<string, unknown>) =>
     CARD_EXPORT[card.type as keyof typeof CARD_EXPORT]
 
@@ -841,32 +737,11 @@ describe('every string in the document comes from a dictionary', () => {
     expect(unresolved, `unresolved translation keys in the ${locale} document`).toEqual([])
   })
 
-  /**
-   * The vocabularies the walker spells payload members with — read off the
-   * German dictionary, because that is the document being asserted.
-   */
   const vocabularies = answerExportCopy.messages.de.values as Record<
     string,
     Record<string, string | undefined> | undefined
   >
 
-  /**
-   * Every value the card's payload states, each as the spellings the document
-   * is allowed to use for it.
-   *
-   * Two spellings where the value is a member of a closed vocabulary: the word
-   * („verschärft“), or the wire value itself where the walker deliberately
-   * keeps it — `comparator` stays `<=` when it stands in front of a figure.
-   * Which of the two is used is the enum guard's business; this function only
-   * asks whether the value reached the page AT ALL.
-   *
-   * One subtraction, mirroring one the walker makes on purpose: the `label` of
-   * a `DimensionCheck` that is NOT a direct field of the card. Nested, a check
-   * hangs off a named field („Breite“ under „Aufstellfläche“) and that name is
-   * already on the page, so the check's own label would name the same quantity
-   * twice. Nothing measured is subtracted — value, required, unit, status,
-   * tolerance and provenance are all still demanded.
-   */
   const payloadValues = (card: Record<string, unknown>): string[][] => {
     const expected: string[][] = []
     const walk = (path: string, name: string, value: unknown, direct: boolean): void => {
@@ -879,8 +754,6 @@ describe('every string in the document comes from a dictionary', () => {
         const record = value as Record<string, unknown>
         const namedByItsField = isCheck(record) && !direct
         for (const [key, entry] of Object.entries(record)) {
-          // The discriminator is the heading, and a field's UI state (a formula
-          // input's arrow-key step) is no value: the walker skips both.
           if (skippedNested(path, key)) continue
           if (key === 'label' && namedByItsField) continue
           walk(`${path}.${key}`, key, entry, false)
@@ -906,18 +779,8 @@ describe('every string in the document comes from a dictionary', () => {
   }
 
   it('exports every card in the catalogue, so none is silently lost', () => {
-    // Card by card rather than all at once: a card that contributes NOTHING is
-    // invisible in a document full of other cards, and "nothing" is exactly the
-    // failure — a finding the answer made that the exported file does not.
-    //
-    // Except the chrome types, which contribute nothing ON PURPOSE. That
-    // exception is read off `CARD_EXPORT` rather than typed out here, so the
-    // list of cards this assertion excuses cannot drift from the list the
-    // renderer actually drops.
     const withoutCards = text(buildAnswerDocument(input({ cards: [] }), german, 'de')).length
     const findings = everyCardType.filter((card) => kindOf(card) !== 'chrome')
-    // Guards the guard: classifying the catalogue as chrome would make the
-    // loop below run over nothing and pass.
     expect(findings.length).toBeGreaterThan(10)
 
     for (const card of findings) {
@@ -925,8 +788,6 @@ describe('every string in the document comes from a dictionary', () => {
       expect(output.length, `card ${card.type} added nothing to the document`).toBeGreaterThan(
         withoutCards
       )
-      // Where the card carries a heading of its own, that heading is what the
-      // reader looks for in the file.
       const heading = typeof card.title === 'string' ? card.title : ''
       if (heading) {
         expect(output, `card ${card.type} is missing from the document`).toContain(heading)
@@ -934,21 +795,6 @@ describe('every string in the document comes from a dictionary', () => {
     }
   })
 
-  /**
-   * The assertion above, made strict.
-   *
-   * "The card added something" is satisfied by a card that emits its heading
-   * and drops its data — which is exactly what the retired `typed_table` did:
-   * its `rows` were `list[list[str]]`, the walker handled arrays of scalars and
-   * arrays of objects and fell through both, so the card contributed its
-   * `columns` block and not one row. Length grew, the card was "exported", and every value in
-   * it was gone. So the question has to be asked of each VALUE, not of the
-   * card.
-   *
-   * Only `content` cards: a `live` card prints its title and one sentence
-   * saying the numbers cannot travel in a document, which is the whole point of
-   * that classification.
-   */
   it('carries every value a card states, not just the card’s chrome', () => {
     const findings = everyCardType.filter((card) => kindOf(card) === 'content')
     let asserted = 0
@@ -969,8 +815,6 @@ describe('every string in the document comes from a dictionary', () => {
       'these values are stated by a card and absent from the document it produced — ' +
         'the card emitted its chrome and dropped this part of its payload'
     ).toEqual([])
-    // Guards the guard: a `payloadValues` that stopped descending would assert
-    // nothing while still passing.
     expect(asserted).toBeGreaterThan(100)
   })
 

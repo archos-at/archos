@@ -1,0 +1,50 @@
+id: komoot-photon
+kind: processor
+status: conditional
+order: 80
+name: komoot GmbH
+entity_country: DE
+processing_countries: [DE]
+transfer: eea
+contract: none
+data_classes: [address_query]
+purposes: [service_provision]
+holds_tenant_text: true
+deletion:
+  status: unknown
+  de: >-
+    Der öffentliche Photon-Dienst wird ohne Konto und ohne Vertrag genutzt; ob komoot Anfragen protokolliert und wie
+    lange, ist nicht belegt. Eine Löschung bei Vertragsende erreicht sie nicht.
+  en: >-
+    The public Photon service is used without an account or a contract; whether komoot logs queries, and for how long,
+    is not established. Deletion at contract end does not reach them.
+hosts: [photon.komoot.io]
+env: [GEOCODER_URL]
+evidence:
+  - docs/adr/0151-addresses-are-geocoded-by-komoots-public-photon.md
+  - deploy/pulumi/src/config.ts
+agreement:
+  entity: komoot GmbH, Kienberger Allee 4, 12529 Schönefeld, Germany (HRB 19363 CB, Amtsgericht Cottbus)
+  dpa: None offered for the public Photon service, which komoot runs without a contract or an availability promise
+  subprocessors: None published for Photon
+  note: Off in every shipped stack (geocoderUrl is empty by default and neither Pulumi stack sets it). Before a deployment opts in, weigh a self-hosted Photon instead; the server location of the public service is not published.
+  checked: '2026-11-11'
+  sources:
+    - https://www.komoot.com/imprint
+    - https://github.com/komoot/photon
+copy:
+  name:
+    de: komoot GmbH (öffentlicher Photon-Dienst)
+    en: komoot GmbH (public Photon service)
+  purpose:
+    de: Adresssuche beim Anlegen eines Projekts
+    en: Address search when creating a project
+  data:
+    de: Die eingetippte Adresse, während Sie tippen; die Anfrage stellt unser Server, Ihre IP-Adresse erreicht komoot nicht
+    en: The address you type, while you type it; our server makes the request, so your IP address does not reach komoot
+  location:
+    de: Deutschland
+    en: Germany
+  required:
+    de: Nur für die Adresssuche (vom Betreiber abschaltbar)
+    en: Only for address search (the operator can switch it off)

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * The Unterlagen picker: a dialog over the thread, never a pane beside it.
- *
- * Two uses of one list. On the Rechercheplan card (`mode="pick"`) every row
- * can be named as Grundlage — read in full — or as Ausgeschlossen — never
- * used — and the choice travels with the approval. On a running block
- * (`mode="add"`) a row is added to the Grundlage and the run plans it next.
- *
- * The list is whatever the caller can name: the plan card's fence carries the
- * turn's inventory, the block fetches the project's listing. A row's label is
- * its title when it has one, else its file name — the name is what the run is
- * told, the title is what the reader recognises.
- */
-
 import { useMemo, useState, type FC } from 'react'
 import { BookOpen, Ban, Lock, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -35,19 +21,13 @@ import { cn } from '@/lib/utils'
 
 export type DocumentsRole = 'basis' | 'excluded' | null
 
-/** A row the picker lists: a plan document, and whether it may be handed to a run at all. */
 export interface PickerDocument extends PlanDocument {
-  /**
-   * In a folder not every project member may read: shown, so the reader is
-   * not left wondering where it went, and never added (ADR-0087).
-   */
   restricted?: boolean
 }
 
 interface CommonProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** What can be named: the inventory the caller holds. */
   documents: readonly PickerDocument[]
   loading?: boolean
 }
@@ -62,7 +42,6 @@ export type DocumentsDialogProps = CommonProps &
       }
     | {
         mode: 'add'
-        /** Already named: a row already on the Grundlage offers no second add. */
         named: readonly string[]
         onAdd: (doc: PlanDocument) => void | Promise<void>
       }
@@ -70,7 +49,6 @@ export type DocumentsDialogProps = CommonProps &
 
 const fold = (name: string): string => name.trim().toLocaleLowerCase()
 
-// asShelf also reads a ledger stored before the rename (`archiv`).
 const shelfKey = (shelf: string | undefined): Shelf | null => asShelf(shelf) ?? null
 
 export const DocumentsDialog: FC<DocumentsDialogProps> = (props) => {
@@ -215,7 +193,7 @@ export const DocumentsDialog: FC<DocumentsDialogProps> = (props) => {
                 ) : (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     className="h-7 gap-1 px-2 text-xs"
                     onClick={() => {
                       void props.onAdd(doc)

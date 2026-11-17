@@ -87,8 +87,6 @@ describe('citationFromWire', () => {
   })
 
   test('drops unknown to undefined so it renders as no badge, not a hedge', () => {
-    // The one direction a legal signal must not fail in: absence reads as
-    // "not known", never as "not binding".
     expect(citationFromWire({ ...KB_WIRE, binding_status: 'unknown' }).bindingStatus).toBeUndefined()
     expect(citationFromWire(KB_WIRE).bindingStatus).toBeUndefined()
   })
@@ -159,7 +157,6 @@ describe('dedupeBufferedCitations', () => {
     )
     expect(rows).toHaveLength(1)
     expect(rows[0].isCited).toBe(true)
-    // The replayed row must be as rich as the live one.
     expect(rows[0].kind).toBe('building_law')
     expect(rows[0].page).toBe(12)
   })

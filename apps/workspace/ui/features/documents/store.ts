@@ -1,10 +1,3 @@
-/**
- * Documents Store
- *
- * Zustand store for managing document/file upload state.
- * Tracks files across upload → ingestion → success/failure lifecycle.
- */
-
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { DocumentsStore, DocumentsState, TrackedFile } from './types'
@@ -27,15 +20,12 @@ const initialState: DocumentsState = {
 }
 
 import { trackedStatusOfJobFile } from './utils'
+import { jobFileOfRow } from './lib/job-file-match'
 
 export const useDocumentsStore = create<DocumentsStore>()(
   devtools(
     (set) => ({
       ...initialState,
-
-      // --------------------------------------------------------------------------
-      // Collection Management
-      // --------------------------------------------------------------------------
 
       setCurrentCollection: (name) => {
         set({ currentCollectionName: name }, false, 'setCurrentCollection')
@@ -44,10 +34,6 @@ export const useDocumentsStore = create<DocumentsStore>()(
       setCollectionInfo: (info) => {
         set({ collectionInfo: info }, false, 'setCollectionInfo')
       },
-
-      // --------------------------------------------------------------------------
-      // File Tracking
-      // --------------------------------------------------------------------------
 
       addTrackedFile: (file) => {
         set(
@@ -109,10 +95,6 @@ export const useDocumentsStore = create<DocumentsStore>()(
             const dropping = new Set(ids)
             const next = state.trackedFiles.filter((f) => !dropping.has(f.id))
             if (next.length === state.trackedFiles.length) return state
-            // Deliberately NOT tombstoned, unlike removeTrackedFile: dismissing
-            // an upload notice says "I have seen this", and tombstoning would
-            // make the very document that just succeeded disappear from the
-            // next server sync.
             return { trackedFiles: next }
           },
           false,
@@ -165,17 +147,9 @@ export const useDocumentsStore = create<DocumentsStore>()(
         )
       },
 
-      // --------------------------------------------------------------------------
-      // Job Tracking
-      // --------------------------------------------------------------------------
-
       setActiveJobId: (jobId) => {
         set({ activeJobId: jobId }, false, 'setActiveJobId')
       },
-
-      // --------------------------------------------------------------------------
-      // Loading States
-      // --------------------------------------------------------------------------
 
       setCreatingCollection: (loading) => {
         set({ isCreatingCollection: loading }, false, 'setCreatingCollection')
@@ -193,10 +167,6 @@ export const useDocumentsStore = create<DocumentsStore>()(
         set({ isLoadingFiles: loading }, false, 'setLoadingFiles')
       },
 
-      // --------------------------------------------------------------------------
-      // Error Handling
-      // --------------------------------------------------------------------------
-
       setError: (error) => {
         set({ error }, false, 'setError')
       },
@@ -209,30 +179,16 @@ export const useDocumentsStore = create<DocumentsStore>()(
         set({ nameStopped }, false, 'setNameStopped')
       },
 
-      // --------------------------------------------------------------------------
-      // Bulk Operations
-      // --------------------------------------------------------------------------
-
       updateFilesFromJobStatus: (jobStatus) => {
         set(
           (state) => {
             const updatedFiles = state.trackedFiles.map((file) => {
-              // Never overwrite client-side transient states with backend data.
-              // 'canceled' is the user's decision about a file the backend may
-              // still be finishing — it must not be revived by a poll.
               if (file.status === 'deleting' || file.status === 'canceled') return file
 
-              // Scope to the polled job and collection: filename matching
-              // without this would let a session upload overwrite the
-              // status/serverFileId of a same-named file tracked in another
-              // collection (e.g. the project corpus), corrupting later deletes.
               if (file.jobId && file.jobId !== jobStatus.job_id) return file
               if (file.collectionName && file.collectionName !== jobStatus.collection_name) return file
 
-              // Find matching file in job details by server ID or filename
-              const jobFile = jobStatus.file_details.find(
-                (jf) => jf.file_id === file.serverFileId || jf.file_name === file.fileName
-              )
+              const jobFile = jobFileOfRow(file, jobStatus.file_details)
 
               if (!jobFile) return file
 
@@ -256,16 +212,12 @@ export const useDocumentsStore = create<DocumentsStore>()(
       setFilesFromServer: (collectionName, files) => {
         set(
           (state) => {
-            // Get existing files for this collection to preserve jobId
             const existingFilesMap = new Map(
               state.trackedFiles
                 .filter((f) => f.collectionName === collectionName)
                 .map((f) => [f.serverFileId || f.id, f])
             )
 
-            // Separate client-side transient files that the server doesn't know
-            // about yet. These must survive the replace so the UI keeps showing
-            // upload progress cards and pending deletes.
             const serverFileIds = new Set(files.map((f) => f.file_id))
             const serverFileNames = new Set(files.map((f) => f.file_name))
             const tombstoneIds = state.recentlyDeletedIds
@@ -277,8 +229,6 @@ export const useDocumentsStore = create<DocumentsStore>()(
                 !serverFileIds.has(f.serverFileId ?? '') &&
                 !serverFileIds.has(f.id)
             )
-            // Preserve success files we got from polling (have serverFileId) but missing from server
-            // response — e.g. right after job complete, backend may return [] or stale list.
             const preservedSuccessNotOnServer = state.trackedFiles.filter(
               (f) =>
                 f.collectionName === collectionName &&
@@ -291,19 +241,12 @@ export const useDocumentsStore = create<DocumentsStore>()(
             )
             const preservedFiles = [...preservedTransient, ...preservedSuccessNotOnServer]
 
-            // Remove existing files for this collection (except transient ones kept above)
             const otherFiles = state.trackedFiles.filter((f) => f.collectionName !== collectionName)
 
-            // Dedupe against preserved rows (transient + polled success not yet on server).
             const excludedIds = new Set(
               preservedFiles.flatMap((f) => [f.serverFileId ?? '', f.id, f.fileName])
             )
 
-            // Drop server rows whose file_id is tombstoned (stale list after optimistic delete).
-            // Tombstones are client id + serverFileId only, not fileName, so same-name re-upload works.
-
-            // Convert FileInfo to TrackedFile, preserving jobId from existing files
-            // Use the collectionName parameter (sessionId) for consistency with sessionFiles filtering
             const serverFiles: TrackedFile[] = files
               .filter(
                 (f) =>
@@ -317,17 +260,12 @@ export const useDocumentsStore = create<DocumentsStore>()(
                   id: file.file_id, // Use server ID as local ID
                   fileName: file.file_name,
                   fileSize: file.file_size || 0,
-                  // A held attachment is listed `failed` with the verdict as its
-                  // error; read it as held, as the job poll does.
                   status: trackedStatusOfJobFile(file),
                   progress: file.status === 'success' ? 100 : 0,
                   errorMessage: file.error_message,
                   quarantine: file.quarantine ?? null,
                   serverFileId: file.file_id,
                   collectionName, // Use parameter, not file.collection_name, for consistent filtering
-                  // Preserve jobId and uploadedAt from existing tracked file if available.
-                  // The client sets uploadedAt with full time precision on upload;
-                  // the server may return a date-only string (midnight) from the vector store's metadata.
                   jobId: existingFile?.jobId,
                   uploadedAt: existingFile?.uploadedAt || file.uploaded_at,
                 }
@@ -343,10 +281,6 @@ export const useDocumentsStore = create<DocumentsStore>()(
           'setFilesFromServer'
         )
       },
-
-      // --------------------------------------------------------------------------
-      // Banner Tracking (for deduplication)
-      // --------------------------------------------------------------------------
 
       markBannerShown: (jobId, type) => {
         set(
@@ -371,24 +305,11 @@ export const useDocumentsStore = create<DocumentsStore>()(
   )
 )
 
-// --------------------------------------------------------------------------
-// Selectors
-// --------------------------------------------------------------------------
-
-/**
- * Get files that are currently in progress (uploading or ingesting)
- */
 export const selectFilesInProgress = (state: DocumentsState): TrackedFile[] =>
   state.trackedFiles.filter((f) => f.status === 'uploading' || f.status === 'ingesting')
 
-/**
- * Get files that have completed successfully
- */
 export const selectCompletedFiles = (state: DocumentsState): TrackedFile[] =>
   state.trackedFiles.filter((f) => f.status === 'success')
 
-/**
- * Get files that have failed
- */
 export const selectFailedFiles = (state: DocumentsState): TrackedFile[] =>
   state.trackedFiles.filter((f) => f.status === 'failed')

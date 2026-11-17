@@ -1,0 +1,11 @@
+---
+features:
+  - >
+    The project setup now follows where the project is: an Austrian project is
+    set up as before, while a project elsewhere gets no Austrian documents,
+    building class or OIB model check. Until a project's location is set, the
+    model check leaves the OIB rules open instead of judging them.
+  - >
+    Ask in the chat how an existing building's class changes with the planned
+    work: the answer gives the class today and after, what is still missing to
+    decide it, and the document that settles it.

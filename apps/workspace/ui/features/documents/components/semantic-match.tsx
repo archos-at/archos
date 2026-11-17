@@ -1,40 +1,53 @@
 'use client'
 
-import { Quote } from 'lucide-react'
+import type { JSX, ReactNode } from 'react'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 
-/**
- * Match-evidence block for a search result card — the transparent "why it
- * matched" cue the product requires: the passage that matched and the page it
- * came from. The search ranks and shows no score (ADR-0136): the order of the
- * cards is the ranking. A document found by its name or by what it is carries
- * no passage, and then nothing is drawn. Rendered inside both the project and
- * Archiv file cards, so its labels live in the shared `files` namespace.
- * Visually distinct (primary tint) from the plain filename filter so the user
- * always knows they are seeing search results.
- */
-export function SemanticMatch({ snippet, page }: { snippet: string; page: number | null }) {
+const escape = (word: string): string => word.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')
+
+function queryWords(query: string): { words: string[]; stems: string[] } {
+  const words = query
+    .split(/\s+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}-]/gu, ''))
+    .filter((word) => word.length >= 3)
+  return { words: words.map(escape), stems: words.filter((word) => word.length >= 10).map((word) => escape(word.slice(0, 6))) }
+}
+
+export function MarkedSnippet({ text, query }: { text: string; query?: string | null }): JSX.Element {
+  const { words, stems } = query ? queryWords(query) : { words: [], stems: [] }
+  if (words.length === 0) return <>{text}</>
+  const whole = `(?<![\\p{L}])(?:${words.join('|')})[\\p{L}-]*`
+  const pattern = new RegExp(`(${stems.length > 0 ? `${whole}|(?<![\\p{L}])(?:${stems.join('|')})` : whole})`, 'giu')
+  const parts: ReactNode[] = text.split(pattern).map((part, index) =>
+    index % 2 === 1 ? (
+      <mark key={index} className="bg-transparent font-medium text-foreground" data-testid="snippet-match">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  )
+  return <>{parts}</>
+}
+
+export function SemanticMatch({ snippet, page, query }: { snippet: string; page: number | null; query?: string | null }) {
   const t = useTranslations(filesCopy)
   if (snippet === '' && page === null) return null
 
   return (
-    <div
-      className="mt-2 space-y-1.5 rounded-surface border border-primary/20 bg-primary/5 px-2.5 py-2"
-      data-testid="semantic-match"
-    >
+    <div className="mt-1 space-y-0.5" data-testid="semantic-match">
       {snippet !== '' && (
-        <p className="line-clamp-3 text-xs leading-[1.45] text-foreground/80" title={snippet}>
-          <Quote className="mr-1 inline size-3 -translate-y-px text-primary/60" aria-hidden />
-          {snippet}
+        <p className="line-clamp-3 text-xs leading-normal text-muted-foreground" title={snippet}>
+          <MarkedSnippet text={snippet} query={query} />
         </p>
       )}
       {page !== null && (
-        <div className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           <span className="font-medium tabular-nums" data-testid="semantic-page">
             {t('browser.semantic.page', { page: String(page) })}
           </span>
-        </div>
+        </p>
       )}
     </div>
   )

@@ -15,11 +15,16 @@ import json
 from pathlib import Path
 
 
-def _identity_name() -> str:
+def _identity() -> dict:
     # Beside this file, not through importlib.resources: a script that loads this module
     # standalone under a stub package (scripts/build_ris_catalog.py) has no package to ask.
-    identity = json.loads(Path(__file__).with_name("identity.json").read_text(encoding="utf-8"))
-    return str(identity["name"])
+    return json.loads(Path(__file__).with_name("identity.json").read_text(encoding="utf-8"))
 
 
-PRODUCT_NAME = _identity_name()
+PRODUCT_NAME = str(_identity()["name"])
+
+#: The product's own web domains, the current one and the ones it moved from. Its marketing pages are
+#: never a source for law (``common/web_sources.py``), whatever a web search ranks them.
+PRODUCT_DOMAINS: tuple[str, ...] = tuple(
+    str(domain).lower() for domain in (_identity().get("domain"), *_identity().get("formerDomains", ())) if domain
+)

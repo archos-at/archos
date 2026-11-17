@@ -8,6 +8,7 @@ import {
 } from '@/lib/retrieval-scope/collection-scope-request'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
 vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
@@ -16,22 +17,10 @@ vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(),
 }))
 
-// Partial mock, not a replacement. This used to hand-reimplement
-// `computeCollectionScope` — including its own copy of the `s_` prefix rule —
-// which made it a fourth copy of the rule that has since been centralised as
-// `sessionCollectionName`, and left the module's other exports undefined the
-// moment one was added. Spying the real implementations keeps the call
-// assertions while making the double impossible to drift from the module.
 vi.mock('@/lib/retrieval-scope/collection-scope', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/retrieval-scope/collection-scope')>()
   return {
     ...actual,
-    // NOTE: this fake omits the org-wide Archiv collection that the real
-    // `computeCollectionScope` injects, so the expectations below describe a
-    // scope narrower than production's. Left as-is deliberately — widening it
-    // rewrites what six tests assert, which is its own change — but it means
-    // these cases do not cover Archiv injection. `collection-scope.spec.ts`
-    // does.
     computeCollectionScope: vi.fn((_session, ctx) => {
       const scope: string[] = ['oib_knowledge']
       if (ctx.projectId) scope.push(`proj_${ctx.projectId}`)
@@ -113,9 +102,6 @@ describe('buildCollectionScopeFromRequest', () => {
       conversationId: 'conv_1',
     })
     expect(scope).toEqual(['oib_knowledge', 'proj_proj_1', 's_conv_1'])
-    // The collection scope is what a chat request retrieves against, so reaching
-    // it requires `project:chat`, not `project:view` — a reader gets the
-    // project's documents through the documents API, not the agent.
     expect(mockRequireProjectAccess).toHaveBeenCalledWith(baseSession, 'proj_1', [
       'project:chat',
       'project:edit',

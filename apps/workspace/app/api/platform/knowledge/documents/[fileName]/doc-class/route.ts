@@ -26,5 +26,5 @@ export const PATCH = platformApiRoute<{ fileName: string }>(
     await updateKnowledgeBaseDocClass(fileName, docClass)
     return NextResponse.json({ fileName, docClass })
   },
-  { permission: PLATFORM_PERMISSIONS.settingsManage }
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite }
 )

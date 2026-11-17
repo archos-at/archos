@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    When you ask to see a model, a room or a storey, the 3D view now stays in
+    the answer instead of disappearing as the answer finishes. Asking to open a
+    model now keeps the tiles to choose from.

@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/projects/[id]/inbound-mail-address`: a thin adapter. Reading, creating and switching off
- * the address are the address service's, which asks the entitlement and the project rights; a
- * read never mints (`address-service.spec.ts`).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

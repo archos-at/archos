@@ -10,24 +10,7 @@ import { motion, springGlide } from '@/components/motion'
 
 type ToggleGroupContextValue = VariantProps<typeof toggleVariants> & {
   segmented: boolean
-  /** The group's current value (single string or multiple array), or undefined
-   * when nothing is selected — so a segmented item can tell whether IT is the
-   * active one and mount the shared-layout pill. */
   groupValue: string | string[] | undefined
-  /**
-   * This group's shared-layout identity, one per mounted ToggleGroup.
-   *
-   * A `layoutId` names ONE travelling element across the whole tree, so a
-   * constant here made every segmented group on screen the same element. Two
-   * are mounted together on the Tasks tab — the Liste/Zeitplan view switcher
-   * and the status filter row below it — and the pill flew between the two
-   * controls instead of sliding inside the one that was clicked.
-   *
-   * `useId` per instance is what makes the glide local. The sidebar rail hit
-   * this first and keys its own pill by rail width
-   * (`railActivePillId`); this is the same rule applied where the kit, rather
-   * than one consumer, is the thing that has to hold it.
-   */
   pillId: string
 }
 
@@ -43,7 +26,6 @@ const ToggleGroup = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> &
     VariantProps<typeof toggleVariants> & {
-      /** Joined segment cluster (view switcher). */
       segmented?: boolean
     }
 >(
@@ -61,11 +43,6 @@ const ToggleGroup = React.forwardRef<
     },
     ref
   ) => {
-    // Same plumbing as `Tabs`: controlled (`value`) and uncontrolled
-    // (`defaultValue`) alike, so the segmented pill follows clicks exactly the
-    // way Radix's own `data-state` does. No `type="multiple"` consumer exists
-    // today, but the context carries the array form anyway so the check below
-    // stays total.
     type Value = string | string[] | undefined
     const pillId = React.useId()
     const [uncontrolled, setUncontrolled] = React.useState<Value>(defaultValue)
@@ -77,8 +54,6 @@ const ToggleGroup = React.forwardRef<
       },
       [value, onValueChange]
     )
-    // `value` + `onValueChange` re-attached after the spread so the plumbing
-    // above wins; `defaultValue` rides along only while uncontrolled.
     const rootProps = {
       ...props,
       value: resolved,
@@ -93,21 +68,7 @@ const ToggleGroup = React.forwardRef<
           'flex items-center',
           segmented
             ? // A segment cluster HUGS its segments. `flex` alone is
-              // block-level, so the tray stretched to whatever box it was
-              // dropped in and every one of these read as a control with a
-              // dead zone bolted to its right — most of the width of a
-              // max-w-3xl column, in the case of the Tasks filter row.
-              //
-              // `max-w-full` + `overflow-x-auto` is the other half, and it is
-              // the part that was a defect rather than a blemish: four German
-              // filter labels do not fit 390px, and with no scroll container
-              // the cluster simply ran off the card. „Fehlgeschlagen" was cut
-              // in half and unreachable — a filter a phone could see and not
-              // press. The scrollbar is hidden because the cluster is short
-              // and a 15px bar under a 32px control is louder than the thing
-              // it describes; the row still scrolls by drag, wheel and
-              // keyboard, and focusing a segment scrolls it into view.
-              'w-fit max-w-full gap-0 overflow-x-auto rounded-control border border-border bg-card p-0.5 shadow-2xs scrollbar-hide'
+              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-desk p-0.5'
             : 'flex-wrap gap-1.5',
           className
         )}
@@ -124,13 +85,8 @@ const ToggleGroup = React.forwardRef<
 )
 ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
 
-/**
- * The segmented pill's surface per toggle variant — the exact on-state fill
- * each variant wore before (`toggleVariants`), lifted onto the travelling
- * element. Non-segmented groups never render it and are untouched.
- */
 const SEGMENTED_PILL_BG: Record<string, string> = {
-  default: 'bg-accent',
+  default: 'bg-sheet shadow-thumb',
   outline: 'bg-card',
   inverted: 'bg-foreground',
 }
@@ -152,23 +108,14 @@ const ToggleGroupItem = React.forwardRef<
       ref={ref}
       value={value}
       data-slot="toggle-group-item"
+      data-focus-inset={context.segmented ? '' : undefined}
       className={cn(
         toggleVariants({
           variant: context.variant ?? variant,
           size: context.size ?? size,
         }),
-        // Segmented only: the on-state SURFACE moves onto the shared-layout
-        // pill below, so the item's own on-fill and on-shadow are turned off
-        // explicitly (tailwind-merge keeps these over the cva ones) — exactly
-        // like the tabs trigger. Only ink stays here. `relative isolate` +
-        // pill `-z-10` keeps the text above the pill with no wrapper element,
-        // so no consumer needs a relative wrapper of its own.
         context.segmented &&
-          'relative isolate data-[state=on]:bg-transparent data-[state=on]:shadow-none',
-        // Never squeezed: a row of segments that runs out of room scrolls
-        // (the segmented tray is `overflow-x-auto`) or wraps (the plain
-        // group), and a segment that shrank instead cut its own label and
-        // its 44px floor on a phone. A caller that wants it to give way says so.
+          'relative isolate hover:bg-transparent data-[state=off]:hover:bg-hover data-[state=on]:bg-transparent data-[state=on]:shadow-none focus-visible:ring-inset focus-visible:ring-offset-0',
         'shrink-0',
         className
       )}
@@ -179,18 +126,11 @@ const ToggleGroupItem = React.forwardRef<
           layoutId={context.pillId}
           aria-hidden
           data-slot="toggle-pill"
-          // `layoutId` is motion state and never reaches the DOM, so the one
-          // thing a reader (or a test) cannot otherwise see is whether two
-          // groups are sharing an identity. Mirroring it here makes the
-          // collision visible in devtools instead of only in the animation.
           data-pill-id={context.pillId}
           className={cn(
-            'absolute inset-0 -z-10 rounded-[inherit] shadow-2xs',
+            'absolute inset-0 -z-10 rounded-[inherit]',
             SEGMENTED_PILL_BG[resolvedVariant] ?? SEGMENTED_PILL_BG.default
           )}
-          // Unbounded travel across the segment cluster is why this is
-          // `springGlide`; reduced motion is handled by the global
-          // `<MotionConfig reducedMotion="user">` in providers.tsx.
           transition={springGlide}
         />
       )}

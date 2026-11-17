@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The bound on what a client may write into a message's jsonb column (ADR-0037).
- *
- * This is the only thing between an untrusted browser payload and the database, so
- * what these tests pin is that it is a WHITELIST — unknown keys dropped, unions
- * checked, strings capped, arrays truncated — and not a cast.
- */
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -71,8 +64,6 @@ describe('sanitizeProvenance', () => {
   })
 
   it('drops everything it does not know about', () => {
-    // The whole point: a client cannot smuggle a field — or a payload — into the
-    // column by naming it something new.
     const result = sanitizeProvenance({
       answerConfidence: 'high',
       somethingNew: 'x'.repeat(10_000),
@@ -95,9 +86,6 @@ describe('sanitizeProvenance', () => {
   })
 
   it('stores the measurement-grounding cap reasons', () => {
-    // Persisted so a reopened thread still explains why a measured answer sat at
-    // 'medium', why a measured answer with an un-cited legal claim did not, and
-    // why an answer whose only source was attached rather than cited did not.
     for (const reason of [
       'normative_claim_uncited',
       'measurement_only',
@@ -121,7 +109,6 @@ describe('sanitizeProvenance', () => {
   })
 
   it('at the cap, drops the oldest technical steps first and keeps every call row and the last round', () => {
-    // A long turn: per call a status line, its action and its sources, past the cap.
     const calls = Math.ceil(MAX_THINKING_STEPS / 3) + 40
     const steps = Array.from({ length: calls }, (_, n) => [
       step({ id: `status:${n}`, kind: 'status', slot: 'status.retrieval' }),
@@ -131,12 +118,10 @@ describe('sanitizeProvenance', () => {
     const kept = sanitizeThinkingSteps(steps)!
     expect(kept).toHaveLength(MAX_THINKING_STEPS)
     const ids = new Set(kept.map((s) => s.id))
-    // Every call row survives, the last round's included…
     for (let n = 0; n < calls; n += 1) {
       expect(ids.has(`call:${n}`)).toBe(true)
       expect(ids.has(`sources:${n}`)).toBe(true)
     }
-    // …and the status lines that went are the oldest ones; the order stands.
     const excess = steps.length - MAX_THINKING_STEPS
     expect(ids.has(`status:${excess - 1}`)).toBe(false)
     expect(ids.has(`status:${excess}`)).toBe(true)
@@ -183,9 +168,6 @@ describe('sanitizeProvenance', () => {
   })
 
   it('accepts a Date timestamp as well as an ISO string', () => {
-    // The store holds Dates; JSON turns them into strings at exactly one boundary,
-    // and being strict here would silently drop the whole Herleitung if that
-    // boundary ever moved.
     const result = sanitizeProvenance({
       thinkingSteps: [step({ timestamp: new Date('2026-07-30T09:00:00.000Z') })],
     })
@@ -203,29 +185,16 @@ describe('sanitizeProvenance', () => {
 
 describe('the truncation flag survives storage', () => {
   it('keeps a real truncation on the way in', () => {
-    // Dropped here, a reloaded conversation shows an answer whose search was
-    // cut off as though it had run to the end — the record has to keep saying
-    // what the live answer said.
     expect(sanitizeProvenance({ researchTruncated: true })).toEqual({ researchTruncated: true })
   })
 
   it('accepts nothing but literal true', () => {
-    // Untrusted stored JSON, rendered to a reader as a statement about the
-    // evidence: a stray truthy value must not become one.
     expect(sanitizeProvenance({ researchTruncated: 'yes' })).toBeNull()
     expect(sanitizeProvenance({ researchTruncated: 1 })).toBeNull()
     expect(sanitizeProvenance({ researchTruncated: false })).toBeNull()
   })
 })
 
-/**
- * The cutoff's cause and its cost, on the way into the column.
- *
- * These arrive as stable TOKENS and are the one part of the provenance the
- * reader is shown as words the frontend chose. So the column is where the
- * allow-list belongs: a token no build has a sentence for must not sit in a row
- * waiting for a renderer that will fall back to printing the key path.
- */
 describe('why the run stopped, and what it cost', () => {
   it('keeps the cause beside the flag', () => {
     expect(sanitizeProvenance({ researchTruncated: true, truncationReason: 'wall_clock' })).toEqual(
@@ -269,9 +238,6 @@ describe('why the run stopped, and what it cost', () => {
   })
 
   it('writes no key for an empty list — that is not a claim', () => {
-    // "Degraded in zero ways" is the ordinary case. Stored as `[]` it becomes a
-    // statement a later reader has to interpret, and the ordinary case is the
-    // one that must cost nothing.
     expect(sanitizeProvenance({ degradedReasons: [] })).toBeNull()
     expect(sanitizeProvenance({ degradedReasons: ['quantum_flux'] })).toBeNull()
     expect(sanitizeProvenance({ degradedReasons: 'no_report_file' })).toBeNull()
@@ -367,9 +333,6 @@ describe('a stored step is the wire v2 shape and nothing else', () => {
   })
 
   it('refuses the pre-v2 shape: no kind, no step', () => {
-    // Migration 0097 rewrote every stored row. A `functionName` step reaching
-    // this gate is a writer bug, and interpreting it would be the read-time
-    // branch the cut deleted.
     const legacy = {
       id: 's1',
       userMessageId: 'm1',
@@ -570,9 +533,6 @@ describe('the retrieval ledger survives storage', () => {
   ]
 
   it('keeps a bounded ledger on the way in', () => {
-    // Dropped here, a reloaded conversation shows the Herleitung rebuilt from
-    // step names while the live turn read the backend's account — two restores
-    // of one thread disagreeing about what the turn did.
     expect(sanitizeProvenance({ retrievalLedger: wireLedger })?.retrievalLedger).toEqual([
       {
         index: 0,

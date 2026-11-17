@@ -2,17 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Parity guard: the frontend Dokumentart vocabulary must match the backend enum.
- *
- * The canonical doc_class vocabulary lives in the Python backend
- * (`packages/agent/src/agent/knowledge/doc_class_vocabulary.py` — `DOCUMENT_CLASS_LABELS`,
- * whose ordered keys are `DOCUMENT_CLASSES`). The base-knowledge admin UI keeps a
- * hand-written TypeScript mirror (`doc-class.ts`) to render its dropdown + badge.
- * This test reads the Python file at test time and fails if the two ever drift —
- * so the backend stays the single source of truth and a stale TS copy is caught
- * in CI (mirrors `tests/test_tag_vocabulary_parity.py`).
- */
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -29,12 +18,10 @@ import {
   LEGACY_DOC_CLASSES,
 } from './doc-class'
 
-// apps/workspace/bff/knowledge → the repo root is four levels up.
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..')
 const BACKEND_SOURCE = join(REPO_ROOT, 'packages', 'agent', 'src', 'agent', 'knowledge', 'doc_class_vocabulary.py')
 
-/** Pull the ordered keys out of the Python `DOCUMENT_CLASS_LABELS` dict block. */
 function backendDocClassKeys(): string[] {
   const source = readFileSync(BACKEND_SOURCE, 'utf-8')
   const block = source.match(/DOCUMENT_CLASS_LABELS: dict\[str, str\] = \{([\s\S]*?)\}/)
@@ -42,7 +29,6 @@ function backendDocClassKeys(): string[] {
   return [...block![1].matchAll(/^\s*"([^"]+)":/gm)].map((m) => m[1])
 }
 
-/** Pull the ordered keys out of the Python `DOCUMENT_CLASS_LABELS` values. */
 function backendDocClassLabels(): Record<string, string> {
   const source = readFileSync(BACKEND_SOURCE, 'utf-8')
   const block = source.match(/DOCUMENT_CLASS_LABELS: dict\[str, str\] = \{([\s\S]*?)\}/)!

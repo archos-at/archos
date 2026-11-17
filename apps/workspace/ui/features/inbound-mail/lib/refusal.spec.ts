@@ -1,8 +1,3 @@
-/**
- * A refused request as the code the UI words: one of the server's, or
- * `unknown`. The codes that mean the mail changed ask for a read again.
- */
-
 import { describe, expect, it } from 'vitest'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { refusalNeedsReload, refusalOf, refusalTerms } from './refusal'

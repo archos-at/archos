@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 import { projectSiteAddress } from './site-address'
 
-// The legacy fact key is stored data, not a name of ours (migration 0159).
 const LEGACY_ADDRESS_KEY = 'standort_adresse'
 
 const withFacts = (facts: Record<string, unknown>): Pick<Project, 'profile'> => ({
@@ -35,6 +34,20 @@ describe('projectSiteAddress', () => {
   test('prefers site_address when an old row holds both keys', () => {
     const facts = { site_address: 'Erdberger Lände 3, 1030 Wien', [LEGACY_ADDRESS_KEY]: 'Stiftsplatz 1, 3400 Klosterneuburg' }
     expect(projectSiteAddress(withFacts(facts))).toBe('Erdberger Lände 3, 1030 Wien')
+  })
+
+  test('reads an address typed at creation, kept as an assumption until confirmed', () => {
+    const project = withFacts({})
+    project.profile.assumptions = {
+      site_address: {
+        value: ' Hauptstraße 1, 80331 München ',
+        status: 'unconfirmed',
+        reason: 'typed',
+        source: 'onboarding_default',
+        updatedAt: '2026-07-01T00:00:00Z',
+      },
+    }
+    expect(projectSiteAddress(project)).toBe('Hauptstraße 1, 80331 München')
   })
 
   test('is null when there is no address, a blank one, or not a string', () => {

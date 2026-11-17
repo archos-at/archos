@@ -25,6 +25,7 @@ import { toVectorLiteral } from '@/lib/knowledge/embeddings'
 import { executeRows } from '@/lib/db/execute-rows'
 import { OUTSIDE_RESTRICTED_USE } from '@/lib/feedback/repository'
 import { VOTED_TURN_JOINS } from '@/lib/feedback/turn-join'
+import { OUTSIDE_LICENSED_TEXT } from './licensed-text'
 
 /** Hard ceilings on every dashboard list. */
 export const LESSON_LIST_LIMIT = 200
@@ -81,7 +82,7 @@ export async function listUnprocessedDownvotes(limit: number): Promise<Unprocess
     ${VOTED_TURN_JOINS}
     where f.verdict = 'down'
       and r.id is null
-      and ${OUTSIDE_RESTRICTED_USE}
+      and ${OUTSIDE_RESTRICTED_USE} and ${OUTSIDE_LICENSED_TEXT}
       and f.created_at >= now() - make_interval(days => ${SWEEP_WINDOW_DAYS})
     order by f.created_at asc
     limit ${limit}
@@ -597,43 +598,6 @@ export async function expireStaleCandidates(
       }))
     )
     return ids
-  })
-}
-
-/**
- * Retire the least-recently-reported active lessons beyond `maxActive`
- * (capacity eviction, each with its own event). Returns the ids retired.
- */
-export async function evictActiveOverCapacity(maxActive: number, actor: string): Promise<string[]> {
-  const db = getDb()
-  return db.transaction(async (tx) => {
-    const active = await tx
-      .select({ id: platformLessons.id })
-      .from(platformLessons)
-      .where(eq(platformLessons.status, 'active'))
-      .orderBy(desc(platformLessons.lastReportedAt), desc(platformLessons.reportCount))
-    const excess = active.slice(maxActive).map((row) => row.id)
-    if (excess.length === 0) return []
-    const now = new Date()
-    await tx
-      .update(platformLessons)
-      .set({
-        status: 'retired',
-        retiredAt: now,
-        retiredBy: actor,
-        retiredReason: 'evicted_capacity',
-        updatedAt: now,
-      })
-      .where(inArray(platformLessons.id, excess))
-    await tx.insert(platformLessonEvents).values(
-      excess.map((id) => ({
-        lessonId: id,
-        action: 'retired' as const,
-        actor,
-        detail: { reason: 'evicted_capacity' },
-      }))
-    )
-    return excess
   })
 }
 

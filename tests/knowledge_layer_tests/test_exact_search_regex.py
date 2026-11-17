@@ -1,10 +1,3 @@
-"""``knowledge_search(match="regex")``, context lines, the folder pushdown and the capped counts.
-
-The store is a fake that runs the SAME ``qdrant.retrieval.find_text`` over in-memory points, so the
-person's regex, its timeout and its narrowing words are the production code; only the Qdrant client
-is missing. What a live server adds (the tokenizer, the facet) is covered by the store tests.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -70,8 +63,6 @@ def _chunk(file_name: str, content: str, *, page: int = 1, chunk_id: str = "1", 
 
 
 class _Store:
-    """The retriever the tool talks to: ``find_text`` runs the real scan over in-memory points."""
-
     def __init__(self, points: list[Chunk], *, indexed: bool = True, candidates: dict[str, int] | None = None):
         self.points = points
         self.calls: list[dict] = []
@@ -96,7 +87,9 @@ class _Store:
         original = retrieval.get_store
         retrieval.get_store = lambda *a, **k: fake
         try:
-            hits = retrieval.find_text(collection_name, pattern, filters, limit, user_regex=user_regex)
+            hits = retrieval.find_text(
+                collection_name, pattern, filters, limit, user_regex=user_regex, office_id="org_test"
+            )
         finally:
             retrieval.get_store = original
         by_id = {chunk.chunk_id: chunk for chunk in self.points}
@@ -323,14 +316,9 @@ class TestCostlyPatterns:
         fake = SimpleNamespace(scroll=lambda *a, **k: iter([record]), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         with pytest.raises(PatternTooCostly):
-            retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True, office_id="org_test")
 
     def test_a_pattern_cheap_per_chunk_but_costly_over_many_is_stopped_at_the_scan_deadline(self, monkeypatch):
-        """The review's pattern: it names a common word, so the gate passes, and it never matches.
-
-        Each chunk costs it well under the per-chunk limit; sixty of them cost seconds. The scan
-        stops at its own deadline instead of reading on, and says it was the scan.
-        """
         import time
 
         monkeypatch.setattr(retrieval, "USER_REGEX_SCAN_SECONDS", 0.3)
@@ -341,7 +329,7 @@ class TestCostlyPatterns:
 
         started = time.monotonic()
         with pytest.raises(PatternTooCostly) as stopped:
-            retrieval.find_text("proj_1", r"\bbrandschutz\b(.*a){3}Z", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"\bbrandschutz\b(.*a){3}Z", None, 5, user_regex=True, office_id="org_test")
         assert time.monotonic() - started < 1.5
         assert stopped.value.scan is True
 
@@ -351,7 +339,7 @@ class TestCostlyPatterns:
         fake = SimpleNamespace(scroll=lambda *a, **k: iter(records), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         with pytest.raises(PatternTooCostly) as stopped:
-            retrieval.find_text("proj_1", r"T90", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"T90", None, 5, user_regex=True, office_id="org_test")
         assert stopped.value.scan is True
 
     async def test_a_scan_that_ran_out_of_time_is_said_to_be_no_result(self, search_with, monkeypatch):
@@ -371,7 +359,7 @@ class TestCostlyPatterns:
         record = SimpleNamespace(id="1", payload={"text": "Tür T30-2", "chunk_id": "1"})
         fake = SimpleNamespace(scroll=lambda *a, **k: iter([record]), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
-        assert len(retrieval.find_text("proj_1", r"T30-\d", None, 5, user_regex=True)) == 1
+        assert len(retrieval.find_text("proj_1", r"T30-\d", None, 5, user_regex=True, office_id="org_test")) == 1
 
     def test_the_scan_is_narrowed_by_the_words_when_the_index_is_sound(self, monkeypatch):
         seen = []
@@ -379,9 +367,10 @@ class TestCostlyPatterns:
             scroll=lambda scope, flt, *extra: seen.extend(extra) or iter([]), text_index_sound=lambda scope: True
         )
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
-        retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True)
-        assert len(seen) == 1
+        retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True, office_id="org_test")
+        assert len(seen) == 2
         assert seen[0].should[0].match.text == "fluchtweg"
+        assert seen[1].should[1].match.value == "org_test"
 
 
 class TestCappedCounts:
@@ -417,8 +406,6 @@ class TestCappedCounts:
 
 
 class TestLiteralSearchIsRecorded:
-    """A literal search leaves the record the ``file-tools-used`` score counts as navigation (ADR-0127)."""
-
     @pytest.mark.parametrize("mode", ["exact", "regex"])
     async def test_each_literal_search_leaves_one_record(self, search_with, monkeypatch, mode):
         recorded: list[str] = []
@@ -431,8 +418,6 @@ class TestLiteralSearchIsRecorded:
 
 
 class TestDescriptionFollowsMatchModes:
-    """The eval arms' ``match_modes`` knob: the description offers exactly the modes the search accepts."""
-
     async def _description(self, modes):
         config = KnowledgeRetrievalConfig(
             collection_name="oib_knowledge", include_base_collection=True, match_modes=modes
@@ -452,7 +437,6 @@ class TestDescriptionFollowsMatchModes:
 
 
 def _regex_examples(description: str) -> list[str]:
-    """Every backticked regex in the parenthesis after „for a pattern“ in the regex paragraph."""
     import re
 
     paragraph = description[description.index('`match="regex"`') : description.index("Returns: numbered")]

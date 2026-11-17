@@ -157,8 +157,6 @@ describe('splitReportSources', () => {
   })
 
   test('leaves entries without an origin token unlabeled (backward compatible)', () => {
-    // Older reports and replays predate the token; sourceKind must be undefined
-    // and the display text must be preserved verbatim.
     const markdown = ['## Sources', '1. OIB Richtlinie 2 — https://oib.or.at/ri2'].join('\n')
 
     const result = splitReportSources(markdown)

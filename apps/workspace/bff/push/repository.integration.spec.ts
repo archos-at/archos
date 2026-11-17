@@ -97,12 +97,10 @@ describe.skipIf(!url)('push subscriptions against Postgres', () => {
 
   it('moves a browser to whoever registered it last, across people and organizations', async () => {
     await as(ORG, () => repo.upsertSubscription(values(ORG, CAROL, 'shared')))
-    // Bert, in another office, turns notifications on in the same browser.
     expect(await as(OTHER_ORG, () => repo.claimEndpoint(OTHER_ORG, BERT, values(ORG, CAROL, 'shared').endpoint))).toBe(1)
     await as(OTHER_ORG, () => repo.upsertSubscription(values(OTHER_ORG, BERT, 'shared')))
     expect(await as(ORG, () => repo.userIdsWithSubscription(ORG, [CAROL]))).toEqual(new Set())
     expect(await as(OTHER_ORG, () => repo.userIdsWithSubscription(OTHER_ORG, [BERT]))).toEqual(new Set([BERT]))
-    // Claiming one's own endpoint takes nothing.
     expect(await as(OTHER_ORG, () => repo.claimEndpoint(OTHER_ORG, BERT, values(OTHER_ORG, BERT, 'shared').endpoint))).toBe(0)
   })
 
@@ -132,7 +130,6 @@ describe.skipIf(!url)('push subscriptions against Postgres', () => {
     await expect(
       as(ORG, () => repo.upsertSubscription({ ...values(ORG, ANNA, 'http'), endpoint: 'http://fcm.googleapis.com/x' }))
     ).rejects.toThrow()
-    // A host the sender's url.parse reads as 169.254.169.254, whatever wrote it.
     for (const char of [';', '{', '`', '"', "'", '@', ':8443']) {
       await expect(
         as(ORG, () =>

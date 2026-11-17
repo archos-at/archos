@@ -10,12 +10,11 @@ import { readMarkOf, type KnowledgeTally, type ReadMark } from '../lib/folder-kn
 export const READ_MARK_TONE: Record<ReadMark['state'], MeterTone> = {
   failed: 'destructive',
   held: 'warning',
-  reading: 'info',
+  reading: 'inkSoft',
   unplaced: 'muted',
-  allRead: 'success',
+  allRead: 'ink',
 }
 
-/** The dictionary key a mark reads as; every one takes `{count}`. */
 export const READ_MARK_KEY: Record<ReadMark['state'], string> = {
   failed: 'brief.states.failed',
   held: 'brief.states.held',
@@ -24,32 +23,23 @@ export const READ_MARK_KEY: Record<ReadMark['state'], string> = {
   allRead: 'brief.allRead',
 }
 
-/**
- * Where a folder's WHOLE subtree stands with Piloti, as one swatch and a word:
- * „2 fehlgeschlagen", „3 werden gelesen", „Alles gelesen".
- *
- * On every folder tile and row, so the read state of nested folders is visible
- * from the level above them without opening each one — the first thing feld72
- * asked for. Nothing is drawn for an empty folder.
- *
- * `dotOnly` is the tile's form: the swatch alone, its words on hover and for a
- * screen reader. The colour is enough to browse by; spelled out on every tile
- * the state was louder than browsing needs. The list view's row keeps the words, except on a phone, where the row has the room for the name and the swatch.
- */
 export function FolderReadState({
   tally,
   withUnplaced = false,
   dotOnly = false,
+  exceptionsOnly = false,
   className,
 }: {
   tally: KnowledgeTally | undefined
   withUnplaced?: boolean
   dotOnly?: boolean
+  exceptionsOnly?: boolean
   className?: string
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const mark = tally ? readMarkOf(tally, { withUnplaced }) : null
   if (!mark) return null
+  if (exceptionsOnly && (mark.state === 'allRead' || mark.state === 'unplaced')) return null
   const words = t(READ_MARK_KEY[mark.state], { count: mark.count })
   return (
     <span

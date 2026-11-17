@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { DOCUMENT_DRAG_TYPE } from '../hooks/use-document-drag'
-import { FolderBreadcrumbRow, FolderCard, FolderRow } from './folder-navigation'
+import { FolderBreadcrumbRow, FolderCard } from './folder-navigation'
+import { FolderRow } from './folder-table-row'
 import type { FolderItem } from './project-file-workspace'
 
 const FOLDER: FolderItem = { id: 'f-1', parentId: null, name: 'Verträge', path: '/Verträge', ownAccess: null }
@@ -16,8 +17,6 @@ function tile() {
   }
 }
 
-// #1055: clicking into the rename field opened the folder, because the field
-// sat inside the tile's open button and the click bubbled to it.
 describe('renaming a folder in place', () => {
   it('keeps the grid tile closed when the name field is clicked', () => {
     const props = tile()
@@ -51,17 +50,12 @@ describe('renaming a folder in place', () => {
 
   it('keeps the list row closed when the name field is clicked', () => {
     const props = tile()
-    render(<FolderRow folder={FOLDER} editing onEditingChange={() => {}} {...props} />)
+    render(<table><tbody><FolderRow folder={FOLDER} editing onEditingChange={() => {}} {...props} /></tbody></table>)
     fireEvent.click(screen.getByTestId('folder-rename-input-f-1'))
     expect(props.onOpen).not.toHaveBeenCalled()
   })
 })
 
-/**
- * Every way up is a drop target: the back control, „Alle Dateien", each
- * ancestor. A document moves there, desktop files upload there, and a level
- * the reader may only read takes neither and says why.
- */
 describe('the breadcrumb as a drop target', () => {
   const TREE: FolderItem[] = [
     { id: 'f1', parentId: null, name: 'Planung', path: 'Planung' },

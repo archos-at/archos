@@ -10,12 +10,17 @@ identical to the original ``routes.maintenance`` guard (which re-exports these
 names for backwards compatibility).
 """
 
+import asyncio
 import hmac
 import logging
 import os
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import HTTPException
 from fastapi import Request
+
+from agent.project_context import ORGANIZATION_ID_HEADER
 
 logger = logging.getLogger(__name__)
 
@@ -63,3 +68,33 @@ def _require_internal_token(request: Request) -> None:
         matched |= hmac.compare_digest(provided, token)
     if not matched:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+
+def internal_office(request: Request) -> str | None:
+    """The office a plain route reads an office's scope as (ADR-0163), or None.
+
+    A plain FastAPI route has no agent-runtime context, so the structural reads
+    (``knowledge_layer.vector_store.office_read``) find no office and refuse a
+    project or session scope. The office is the signed envelope's organization
+    (``document_search.request_office``) or, for a caller holding the internal
+    token (the BFF), the organization it names in ``ORGANIZATION_ID_HEADER``.
+    A route reads inside ``knowledge_layer.search.reading_as(internal_office(request))``.
+    """
+    from .document_search import request_office
+
+    office = request_office(request)
+    if office:
+        return office
+    try:
+        _require_internal_token(request)
+    except HTTPException:
+        return None
+    return (request.headers.get(ORGANIZATION_ID_HEADER) or "").strip() or None
+
+
+async def read_as_internal_office[T](request: Request, read: Callable[..., T], *args: Any) -> T:
+    """``read(*args)`` on a worker thread, as the office :func:`internal_office` names (``to_thread`` carries it)."""
+    from knowledge_layer.search import reading_as
+
+    with reading_as(internal_office(request)):
+        return await asyncio.to_thread(read, *args)

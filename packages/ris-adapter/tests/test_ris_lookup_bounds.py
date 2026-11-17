@@ -1,11 +1,3 @@
-"""The pipeline's own bounds, asserted where they are enforced.
-
-Every one of them is what the caller no longer pays in charged research calls:
-three candidates, two fetches, six passages across two documents. A bound that
-is only a constant is a bound that drifts, so each is measured through the tool
-rather than read off the module.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -20,7 +12,6 @@ pytestmark = pytest.mark.asyncio
 
 
 def _many_entries(catalog, count: int):
-    """A catalog holding ``count`` fetchable Viennese laws on one topic."""
     from ris_adapter_testing.lookup import LookupHarness
     from ris_adapter_testing.lookup import norm_entry
 
@@ -48,7 +39,6 @@ async def test_a_twelve_hit_catalog_match_reads_at_most_two_documents(lookup, ca
 
 
 async def test_at_most_three_candidates_are_considered(lookup, catalog, monkeypatch):
-    """The miss names what it did not read — and it names at most three."""
     from ris_adapter_testing.lookup import FakePicker
 
     _many_entries(catalog, 12)
@@ -80,7 +70,6 @@ async def test_a_live_search_of_twenty_hits_considers_three(lookup, monkeypatch)
 
     await lookup.run(question="Was verlangt § 63?", jurisdiction="Wien")
 
-    # Three candidates, two fetch attempts — never twenty of either.
     assert len(lookup.client.fetch_calls) <= MAX_FETCHES
 
 
@@ -111,13 +100,6 @@ async def test_passages_come_from_at_most_two_documents(lookup, catalog, monkeyp
 
 
 async def test_a_nine_hundred_kilobyte_law_does_not_reach_the_transcript(lookup, catalog):
-    """The bound that protects the turn: a consolidated law is megabytes.
-
-    `ris_fetch_document` answered this with a 40 000-character cut, which is
-    still 40 000 characters of prose with no citation key in it. Here the
-    document is read in full (and ingested in full) and what the model SEES is
-    one paragraph.
-    """
     huge = "\n".join(f"Titel {n}\n§ {n}. (1) " + "Wort " * 400 for n in range(1, 460))
     assert len(huge) > 900_000
     lookup.set_text(lookup.WIEN_URL, huge)

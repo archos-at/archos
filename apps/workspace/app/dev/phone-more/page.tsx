@@ -4,7 +4,8 @@
  * Dev preview for „Mehr" on a phone: the tab bar with its bottom sheet open, as
  * a tap on „Mehr" leaves it. `?scope=org` shows the destinations above a
  * project (the org bar has no „Mehr" tab; the sheet's list is what an org
- * reader would be offered). 404s outside development.
+ * reader would be offered). Inside a project the sheet's first row is the
+ * project selector. 404s outside development.
  */
 
 import type { JSX } from 'react'
@@ -36,6 +37,15 @@ export default function PhoneMoreDevPage(): JSX.Element {
       <PhoneMoreSheet
         projectId={projectId}
         pathname={pathname}
+        organizationName="Musterarchitektur ZT GmbH"
+        projectName="Wohnbau Seestadt Baufeld D12"
+        projects={[
+          { id: 'demo', name: 'Wohnbau Seestadt Baufeld D12' },
+          { id: 'p-2', name: 'Sanierung Amtshaus Favoriten' },
+          { id: 'p-4', name: 'Bürohaus Lände 3' },
+          { id: 'p-3', name: 'Volksschule Mühlgasse', status: 'paused' },
+        ]}
+        user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
         authRequired
         canAccessOfficeShelf
         canAccessInbox

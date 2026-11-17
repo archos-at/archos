@@ -13,7 +13,7 @@ Two ways to ask, for two kinds of caller:
   yes (no organization, no token, a BFF that is down). The hooks and the listing
   use it: a lost mark is found by the nightly reconcile once the flag answers.
 * :func:`check` raises when the BFF cannot be asked. The builder uses it, so a
-  claimed folder is retried through the queue instead of being dropped on a blip.
+  run fails its attempt and is tried again instead of dropping its folders on a blip.
 """
 
 from __future__ import annotations

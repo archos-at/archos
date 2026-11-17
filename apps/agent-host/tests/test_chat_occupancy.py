@@ -1,5 +1,3 @@
-"""The chat-occupancy route: the number KEDA scales the chat tier on (ADR-0080)."""
-
 from __future__ import annotations
 
 import pytest

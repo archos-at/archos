@@ -1,13 +1,3 @@
-"""An escalated question becomes a run, or says exactly why it could not.
-
-The turn used to submit the job itself and write „Deep research job submitted.
-Job ID: …" into the thread, which was the entire record of the work. It now
-asks the BFF to commission a run (ADR-0062), and every refusal it can meet has
-its own name, because the caller answers each one differently: a full queue is
-a "try later", everything else is a reason to research in process instead of
-leaving the reader with nothing.
-"""
-
 import pytest
 
 from agent.tools.tasks.client import DelegationError
@@ -26,7 +16,6 @@ OK_BODY = {
 
 @pytest.fixture
 def commissioning(monkeypatch):
-    """A turn inside a project, with a signed envelope, and a captured POST."""
     calls: list[tuple[dict, object]] = []
 
     def _post(payload, envelope):
@@ -63,7 +52,6 @@ class TestWhatItAsksFor:
 
         payload, envelope = commissioning[0]
         assert payload == {"op": "research", "projectId": "proj-1", "question": QUESTION}
-        # Echoed byte-for-byte: this tier signs nothing of its own.
         assert (envelope.header, envelope.signature) == ("header", "signature")
         assert (run.run_id, run.run_message_id, run.conversation_id) == ("run-1", "msg-1", "s_conv")
 
@@ -102,8 +90,6 @@ class TestWhatItAsksFor:
         assert "documents" not in commissioning[0][0] and "dataSources" not in commissioning[0][0]
 
     async def test_a_long_question_is_cut_rather_than_refused(self, commissioning):
-        # The question is the run's prompt AND its title. Refusing over a long
-        # sentence would lose the work to enforce a bound the route also holds.
         await commission_research_run("Wie hoch " * 400)
 
         assert len(commissioning[0][0]["question"]) == commission.MAX_QUESTION_CHARS
@@ -116,8 +102,6 @@ class TestWhatItRefuses:
         with pytest.raises(CommissionRefused) as refusal:
             await commission_research_run(QUESTION)
 
-        # A run's own tenancy predicate requires a project: there is no such
-        # thing as a run outside one, so this is refused before anything is sent.
         assert refusal.value.reason == "no_project"
 
     async def test_without_a_signed_envelope_nothing_is_commissioned(self, monkeypatch):
@@ -132,8 +116,6 @@ class TestWhatItRefuses:
     @pytest.mark.parametrize(
         ("status", "reason"),
         [
-            # The authorization ladder answers 404 for a project the caller
-            # cannot reach, on purpose: the two are one case.
             (403, "forbidden"),
             (404, "forbidden"),
             (429, "busy"),
@@ -150,7 +132,6 @@ class TestWhatItRefuses:
         assert refusal.value.reason == reason
 
     async def test_a_conversation_that_drew_on_a_restricted_folder_is_its_own_refusal(self, monkeypatch):
-        """ADR-0087: the BFF's typed 403, told apart from a tenant without deep research."""
         _refusing(
             monkeypatch,
             DelegationError("Aus dieser Unterhaltung …", status=403, code="CONVERSATION_CONFINED"),
@@ -190,6 +171,5 @@ class TestWhatItRefuses:
 
         run = await commission_research_run(QUESTION)
 
-        # The work is commissioned; what is missing is the block, not the run.
         assert run.run_id == "run-1"
         assert run.run_message_id is None

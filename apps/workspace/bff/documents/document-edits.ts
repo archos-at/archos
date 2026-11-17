@@ -284,7 +284,8 @@ export async function deleteDocument(
   if (doc?.scope === 'office_shelf') {
     // Imported here: the office shelf's service imports this module.
     const { deleteOfficeShelfDocument } = await import('@/lib/office-shelf/service')
-    return deleteOfficeShelfDocument(session, documentId, request)
+    await deleteOfficeShelfDocument(session, documentId, request)
+    return
   }
   if (!doc || doc.scope !== 'project' || doc.projectId === null) throw new NotFoundError()
 

@@ -11,7 +11,6 @@ const row = {
   publishedVersionId: null,
 } as const
 
-/** A Piloti document under its namespace, with a version published. */
 const publishedAgent = {
   collectionName: 'proj_abc',
   filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
@@ -28,22 +27,15 @@ describe('collectionFileRef', () => {
   })
 
   it('names the pair for a person’s row whatever its version pointer says', () => {
-    // A human upload owns its chunks from the moment it is ingested, and its
-    // pointer is `null` for every row written before migration 0082. The
-    // published-version clause is about machine-authored rows only.
     expect(collectionFileRef({ ...row, authoredBy: 'user', publishedVersionId: 'ver_1' })).not.toBeNull()
     expect(collectionFileRef({ ...row, authoredBy: 'user', publishedVersionId: null })).not.toBeNull()
   })
 
   it('refuses a row a machine wrote, however ordinary the pair looks', () => {
-    // Same collection, same filename — the collision `generatedFilename` puts
-    // within the model's reach. The pair is not what decides; the row is.
     expect(collectionFileRef({ ...row, authoredBy: 'agent' })).toBeNull()
   })
 
   it('names the pair for a PUBLISHED Piloti document under its namespace', () => {
-    // The one case ADR-0054 added: this row really does own chunks, so a purge
-    // or a folder mirror addressed at it addresses its own passages.
     expect(collectionFileRef(publishedAgent)).toMatchObject({
       collectionName: 'proj_abc',
       filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
@@ -51,27 +43,16 @@ describe('collectionFileRef', () => {
   })
 
   it('refuses an agent draft under the namespace: nothing was ever published', () => {
-    // Only a published version is dispatched, so a draft has no chunks — and
-    // asking the backend to forget a name that was never ingested is at best a
-    // wasted call and at worst somebody else's document.
     expect(collectionFileRef({ ...publishedAgent, publishedVersionId: null })).toBeNull()
   })
 
   it('refuses a published agent row OUTSIDE the namespace', () => {
-    // A document filed before the namespace existed. Its name is
-    // `slug(model's title)-YYYY-MM-DD.ext` in the project's own collection,
-    // which is exactly the name a human upload can carry — the collision this
-    // module was written for. `ingestPublished` refuses to index such a row for
-    // the same reason, so "indexed" and "addressable" stay the same set.
     expect(
       collectionFileRef({ ...publishedAgent, filename: 'brandschutz-gutachten-2026-08-20.pdf' }),
     ).toBeNull()
   })
 
   it('is not fooled by a name that merely mentions piloti', () => {
-    // The prefix is a path segment, not a substring: `piloti-bericht.md` is a
-    // name a person can type, and a `includes('piloti')` test would hand it a
-    // ref it must not have.
     expect(collectionFileRef({ ...publishedAgent, filename: 'piloti-bericht.md' })).toBeNull()
     expect(collectionFileRef({ ...publishedAgent, filename: 'x/piloti/doc_1/a.md' })).toBeNull()
   })
@@ -139,5 +120,18 @@ describe('purgeIngestedChunks — reversible unless said otherwise', () => {
     await purgeIngestedChunks('http://backend:8000', ref, 1000, { permanent: true })
 
     expect(bodyOf()).toEqual({ file_ids: ['EG_Grundriss_Index_B.pdf'], permanent: true })
+  })
+
+  it('does not confirm a purge the backend answered 200 but listed as failed', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const failed = JSON.stringify({ successful: [], not_found: [], failed: [{ file_id: 'x', error: 'boom' }], total_deleted: 0 })
+    vi.stubGlobal('fetch', fetchSpy.mockResolvedValue(new Response(failed, { status: 200 })))
+    await expect(purgeIngestedChunks('http://backend:8000', ref, 1000)).resolves.toBe(false)
+  })
+
+  it('counts a file with nothing indexed as purged: nothing is left', async () => {
+    const none = JSON.stringify({ successful: [], not_found: ['EG_Grundriss_Index_B.pdf'], failed: [], total_deleted: 0 })
+    vi.stubGlobal('fetch', fetchSpy.mockResolvedValue(new Response(none, { status: 200 })))
+    await expect(purgeIngestedChunks('http://backend:8000', ref, 1000)).resolves.toBe(true)
   })
 })

@@ -3,8 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -15,23 +13,23 @@ vi.mock('@/lib/projects/memory-service', () => ({
   organizationExists: vi.fn(),
 }))
 
-// The audit record itself is `memory-judge-audit.spec.ts`'s subject; here, the
-// route hands it over. The schema stays real: the route parses with it.
 vi.mock('@/lib/projects/memory-judge-audit', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/projects/memory-judge-audit')>()),
   recordMemoryJudgeVerdict: vi.fn().mockResolvedValue(undefined),
   recordRefusedMemoryJudgeVerdict: vi.fn().mockResolvedValue(undefined),
 }))
 
-// The cross-project record (ADR-0094): which conversations drew on another project.
 const crossProject = vi.hoisted(() => ({ recorded: new Map<string, string[]>() }))
 vi.mock('@/lib/db', () => ({ getDb: () => ({}) }))
 vi.mock('@/lib/conversations/restricted-use-repository', () => ({
   listRestrictingSourceProjects: vi.fn(async (_db: unknown, _org: string, id: string) => crossProject.recorded.get(id) ?? []),
 }))
-// No restricted folder of another project recorded: the folder rule is cross-project-use.spec's.
 vi.mock('@/lib/conversations/restricted-use', () => ({
   recordedForeignRestrictedFolders: vi.fn(async () => new Map()),
+}))
+const temporary = vi.hoisted(() => ({ conversations: new Set<string>() }))
+vi.mock('@/lib/conversations/temporary-repository', () => ({
+  readConversationTemporary: vi.fn(async (id: string, org: string) => temporary.conversations.has(`${org}/${id}`)),
 }))
 vi.mock('@/lib/projects/repository', () => ({
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org_1', deletedAt: null })),
@@ -71,6 +69,7 @@ afterEach(() => {
   vi.unstubAllEnvs()
   vi.clearAllMocks()
   crossProject.recorded.clear()
+  temporary.conversations.clear()
 })
 
 describe('POST /api/internal/memory — a conversation that drew on another project (ADR-0094)', () => {
@@ -101,6 +100,55 @@ describe('POST /api/internal/memory — a conversation that drew on another proj
     vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem())
 
     const response = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_plain' }, REAL_TOKEN))
+
+    expect(response.status).toBe(201)
+  })
+})
+
+describe('POST /api/internal/memory — a temporary conversation keeps nothing (ADR-0180)', () => {
+  it('refuses with 403 TEMPORARY_CONVERSATION before anything is written, for project and organization scope', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    vi.stubEnv('ALLOW_AGENT_ORG_MEMORY', 'true')
+    temporary.conversations.add('org_1/s_temporary')
+    vi.mocked(organizationExists).mockResolvedValue(true)
+
+    const project = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_temporary' }, REAL_TOKEN))
+    const organization = await POST(
+      makeRequest(
+        { scope: 'organization', organizationId: 'org_1', kind: 'derived_fact', content: 'x', sourceConversationId: 's_temporary' },
+        REAL_TOKEN
+      )
+    )
+
+    expect(project.status).toBe(403)
+    const body = await project.json()
+    expect(body.code).toBe('TEMPORARY_CONVERSATION')
+    expect(body.error).toBe('This conversation is temporary: nothing from it is kept in memory')
+    expect(organization.status).toBe(403)
+    expect((await organization.json()).code).toBe('TEMPORARY_CONVERSATION')
+    expect(createProjectMemoryItemForProject).not.toHaveBeenCalled()
+    expect(createProjectMemoryItem).not.toHaveBeenCalled()
+    expect(recordMemoryJudgeVerdict).not.toHaveBeenCalled()
+  })
+
+  it('writes from a conversation that is not temporary, from one whose row does not exist yet, and from none', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    temporary.conversations.add('org_1/s_temporary')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem())
+
+    const kept = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_not_created_yet' }, REAL_TOKEN))
+    const unnamed = await POST(makeRequest(validProjectPayload, REAL_TOKEN))
+
+    expect(kept.status).toBe(201)
+    expect(unnamed.status).toBe(201)
+  })
+
+  it('judges the flag inside the writing organization: another organization’s temporary conversation refuses nothing here', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    temporary.conversations.add('org_other/s_temporary')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem())
+
+    const response = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_temporary' }, REAL_TOKEN))
 
     expect(response.status).toBe(201)
   })
@@ -166,6 +214,22 @@ describe('POST /api/internal/memory', () => {
     )
   })
 
+  it('says whether the write created a row or refreshed a note that was already held', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    const written = new Date('2026-11-11T09:00:00Z')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValueOnce(
+      makeMemoryItem({ id: 'item-new', projectId: PROJECT_ID, createdAt: written, updatedAt: written })
+    )
+    const created = await (await POST(makeRequest(validProjectPayload, REAL_TOKEN))).json()
+    expect(created.created).toBe(true)
+
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValueOnce(
+      makeMemoryItem({ id: 'item-old', projectId: PROJECT_ID, createdAt: written, updatedAt: new Date('2026-11-12T09:00:00Z') })
+    )
+    const refreshed = await (await POST(makeRequest(validProjectPayload, REAL_TOKEN))).json()
+    expect(refreshed).toMatchObject({ item: { id: 'item-old' }, created: false })
+  })
+
   it('threads the provenanceType through (distillation from the reflection stage)', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem({ id: 'item-d' }))
@@ -182,12 +246,6 @@ describe('POST /api/internal/memory', () => {
     )
   })
 
-  /**
-   * The agent correcting its own memory: it quotes the outdated entry verbatim
-   * out of the digest, and the service resolves that quote to the row it
-   * retires. Without this passing through, reflection can only ever append —
-   * the stale entry stays live next to its own correction.
-   */
   it('threads a supersedes quote through to the write path', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.mocked(createProjectMemoryItemForProject).mockImplementation(
@@ -210,17 +268,9 @@ describe('POST /api/internal/memory', () => {
       expect.objectContaining({ kind: 'derived_fact' }),
       expect.objectContaining({ supersedesContent: 'OIB-RL 2.1 is not applicable here' })
     )
-    // The caller is told which entry was actually retired (null when the quote
-    // resolved to nothing, or to an entry an agent may not touch).
     expect((await response.json()).supersededId).toBe('item-old')
   })
 
-  /**
-   * A duplicate/paraphrase refresh returns an EXISTING row, and that row may
-   * already carry a `supersedesId` from an earlier correction. Deriving the
-   * response from the row would then claim this request retired an entry it
-   * never touched — the id must come from the write itself.
-   */
   it('reports no retirement when the write refreshed a row that was already a correction', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(
@@ -240,7 +290,6 @@ describe('POST /api/internal/memory', () => {
 
   it('denies agent org-scoped writes by default (403), before touching the DB', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
-    // ALLOW_AGENT_ORG_MEMORY unset → default-deny (audit finding S1).
 
     const response = await POST(
       makeRequest(
@@ -255,8 +304,6 @@ describe('POST /api/internal/memory', () => {
     )
 
     expect(response.status).toBe(403)
-    // Distinct machine-readable code so the backend does not mislabel this
-    // deliberate default-deny as a INTERNAL_API_TOKEN mismatch.
     const body = await response.json()
     expect(body.code).toBe('ORG_MEMORY_DISABLED')
     expect(organizationExists).not.toHaveBeenCalled()
@@ -290,9 +337,6 @@ describe('POST /api/internal/memory', () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.stubEnv('ALLOW_AGENT_ORG_MEMORY', 'true')
     vi.mocked(organizationExists).mockResolvedValue(true)
-    // The row the route echoes back must be org-scoped like the write itself —
-    // `makeMemoryItem` defaults to a project row, which would let the fixture
-    // contradict the operation under test.
     vi.mocked(createProjectMemoryItem).mockResolvedValue(
       makeMemoryItem({ id: 'item-2', scope: 'organization', projectId: null })
     )
@@ -318,11 +362,6 @@ describe('POST /api/internal/memory', () => {
   })
 })
 
-/**
- * ADR-0087: a finding from a turn that read a restricted folder is written as
- * restricted project memory. The route checks the shape and the scope; the
- * service checks each name is a current restricted collection of the project.
- */
 describe('restricted memory', () => {
   const RESTRICTED = 'proj_4f9c1d2e3b4a4c5d8e6f7a8b9c0d1e2f_r0123456789ab'
 
@@ -369,9 +408,6 @@ describe('restricted memory', () => {
     expect(values).toMatchObject({ restrictedCollections: [RESTRICTED], restrictionJudge: 'drawn' })
   })
 
-  // The default deployment refuses agent organization memory, and the agent
-  // then offers the finding as a card that writes it open: the judge's "none"
-  // decided that, so it is in the trail although no item exists.
   it("audits the judge's verdict on an organization write the deployment refused", async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.mocked(organizationExists).mockResolvedValue(true)

@@ -1,0 +1,14 @@
+---
+# area: office-knowledge
+features:
+  - >
+    Your office can record the standards, commentaries and authority directives
+    it owns as office base knowledge, with edition, where each applies and when
+    it was last checked; answers draw on them for your office only, cite the
+    edition and warn when the check is overdue.
+operators:
+  - >
+    Office base knowledge is off until an organization gets the
+    office-standards flag (an entitlement; the earlier office-base-knowledge
+    slug is retired); migration 0202 adds its tables. A licensed copy's text
+    is used only once the office states its licence covers AI processing.

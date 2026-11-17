@@ -15,7 +15,7 @@ second one beside it.
 
 | It | Put it in | Entry point in |
 |---|---|---|
-| Retrieves evidence from a corpus or an external service | a Python package under `packages/` ([`packages/AGENTS.md`](../../packages/AGENTS.md#the-python-packages-agent-knowledge-layer-ris-adapter-tavily-web-search)) | the package's own `pyproject.toml` |
+| Retrieves evidence from a corpus or an external service | a Python package under `packages/` ([`packages/AGENTS.md`](../../packages/AGENTS.md#the-python-packages-agent-knowledge-layer-public-sources-ris-adapter-tavily-web-search)) | the package's own `pyproject.toml` |
 | Acts on the user's workspace (files, drafts, the model) | `packages/agent/src/agent/tools/` ([its `AGENTS.md`](../../packages/agent/src/agent/tools/AGENTS.md)) | the root `pyproject.toml` |
 
 Copy the closest existing package rather than inventing a shape:
@@ -87,9 +87,10 @@ YAML `_type`, and an async `@register_function` that yields a `FunctionInfo`.
   may cite builds `GroundingHit` records and calls `render_grounding_block`
   (`packages/agent/src/agent/common/grounding_block.py`, ADR-0061). It never writes
   `Source:` or `Citation:` lines itself.
-- A new kind of evidence is a `SourceKind`, changed in both
-  `packages/agent/src/agent/common/source_kinds.py` and its TypeScript mirror (the rule in
-  [`AGENTS.md`](../../AGENTS.md#two-rules-that-span-services)).
+- A new kind of evidence is a `SourceKind`, added in
+  `packages/agent/src/agent/common/source_kinds.py` only; the `vocabularies` hook
+  generates the UI's copy (the rule in
+  [`code-conventions.md`](../contributing/code-conventions.md#rules-that-span-services)).
 
 ## Binding it to an agent
 
@@ -155,6 +156,6 @@ task be:lint
 Unit-test the client with mocked I/O, and cover both the configured path and
 the missing-key stub. Then run the agent on a question that needs the tool. A
 new retrieval tool changes what shapes an answer, so the answer suite runs
-before and after (the obligation in [`AGENTS.md`](../../AGENTS.md#obligations));
+before and after (the obligation in [`obligations.md`](../contributing/obligations.md));
 the rest of the bar is the
 [definition of done](../contributing/definition-of-done.md).

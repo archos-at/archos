@@ -1,0 +1,17 @@
+---
+# area: projects
+fixes:
+  - >
+    Projects keep the building class they already had while the law at their
+    site cannot be read, and a project with no location recorded is again
+    treated as being in your office's home region until you confirm or change it.
+  - >
+    Calculation cards in earlier answers show their result as they did when
+    they were written, and a check that now only gives a hint no longer shows
+    an old confirmation in the Prüfbuch.
+operators:
+  - >
+    After a country's setup records are published, run the one-time building
+    class derivation once: rederiveBuildingClasses() from the jobs bundle, or
+    node workers/rederive-building-classes.js in the frontend image. It is
+    idempotent, bounded, and changes nothing before the country is released.

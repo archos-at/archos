@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which other projects a lookup may search: what EVERYONE who reads the
- * conversation may open (docs/design/cross-project-escalation.md). A solo chat
- * reaches what its asker may chat in, restricted folders included; a chat
- * shared with named people reaches the closed projects and the active ones
- * every one of them may open, no restricted folder; one visible to the project
- * reaches the closed projects alone; the reach carries the audience it was
- * computed for.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -24,7 +15,6 @@ const INA = 'user_ina'
 const state = vi.hoisted(() => ({
   audience: null as unknown as ConversationAudienceRow,
   chat: [] as Project[],
-  /** Who may open which project: `${userId}:${projectId}`. */
   opens: new Set<string>(),
   checks: 0,
 }))
@@ -35,7 +25,6 @@ vi.mock('@/lib/conversations/restricted-use-repository', () => ({
 }))
 vi.mock('@/lib/projects/service', () => ({
   listChatProjects: vi.fn(async () => state.chat),
-  // The asker's chat projects among the named ones, as the workspace door asks.
   listChatProjectsAmong: vi.fn(async (_session: unknown, named: readonly string[]) =>
     state.chat.filter((found) => named.includes(found.id))
   ),
@@ -116,7 +105,6 @@ describe('audienceReachAmong', () => {
 
     expect(ids(reach.projects)).toEqual(['running', 'archive'])
     expect(reach).toMatchObject({ restrictedFolders: false, key: audienceKey(shared) })
-    // Only the named active projects the asker may chat in are asked about.
     expect(state.checks).toBe(2)
     expect(ids((await audienceReachAmong(session, solo, ['foreign'])).projects)).toEqual(['foreign'])
   })

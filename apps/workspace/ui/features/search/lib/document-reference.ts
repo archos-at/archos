@@ -1,30 +1,9 @@
-/**
- * The composer's `#`: typing `#` and a word searches the workspace for a
- * document to put into the message. Pure, so the trigger and the insertion are
- * tested without a DOM.
- *
- * The trigger is the mention's (`lib/mentions/mention-text.ts`):
- * the fragment runs from a `#` at a word boundary to the caret and closes at
- * whitespace, so `#Fluchtweg` opens the picker and `Nr.#3` or a Markdown
- * heading (`# Titel`, a space after the mark) do not.
- *
- * A pick writes the document's name into the text in the office's quotes,
- * „Grundriss EG“, because the agent retrieves by the name it reads in the
- * question (`features/documents/lib/document-question.ts`); the composer also
- * makes the document the message's subject, as „Piloti fragen" does.
- */
-
-/** The `#…` fragment under the caret. */
 export interface DocumentReferenceQuery {
-  /** Everything after `#` up to the caret (no whitespace). */
   query: string
-  /** Index of the `#`. */
   start: number
-  /** Index just past the fragment (the caret). */
   end: number
 }
 
-/** The longest fragment the trigger reads back; past it the caret is in prose. */
 const MAX_QUERY_LENGTH = 60
 
 const OPENING_MARKS = new Set(['(', '[', '{', '<', '„', '“', '«', '‚', '‘', '‹'])
@@ -45,7 +24,6 @@ export function findDocumentReferenceQuery(text: string, caret: number): Documen
   return null
 }
 
-/** Replace the `#…` fragment with „name“ and a space, and say where the caret goes. */
 export function insertDocumentReference(text: string, range: DocumentReferenceQuery, name: string): { text: string; caret: number } {
   const rest = text.slice(range.end)
   const token = `„${name}“${rest.startsWith(' ') ? '' : ' '}`

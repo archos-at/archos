@@ -7,6 +7,7 @@ import {
   integer,
   boolean,
   bigserial,
+  check,
   index,
   unique,
   uniqueIndex,
@@ -21,6 +22,7 @@ import type {
   BimPropertySets,
   BimQuantitySets,
 } from '@/lib/bim/types'
+import { BIM_MODEL_STATUSES } from '@/lib/bim/types'
 import type { StoredRuleInputs } from '@/lib/bim/rule-inputs'
 
 /**
@@ -71,6 +73,13 @@ export const bimModels = pgTable(
      * extracted, which is then answered by the unnest alone.
      */
     searchKeysIndexed: boolean('search_keys_indexed').notNull().default(false),
+    /**
+     * The extraction run this row waits for or last heard from (0222). `start`
+     * writes a fresh one; `complete` and `fail` match on it, so a run that was
+     * superseded while it parsed changes nothing. NULL on a row no run has
+     * started since the column exists.
+     */
+    runId: uuid('run_id'),
     errorMessage: text('error_message'),
     extractedAt: timestamp('extracted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -80,6 +89,10 @@ export const bimModels = pgTable(
     documentIdx: uniqueIndex('bim_models_document_idx').on(table.documentId),
     projectIdx: index('bim_models_project_idx').on(table.projectId),
     orgStatusIdx: index('bim_models_org_status_idx').on(table.organizationId, table.status),
+    statusKnown: check(
+      'bim_models_status_known',
+      sql`${table.status} IN (${sql.raw(BIM_MODEL_STATUSES.map((status) => `'${status}'`).join(', '))})`
+    ),
   })
 )
 

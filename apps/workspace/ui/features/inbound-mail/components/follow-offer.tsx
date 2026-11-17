@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * „Diesem E-Mail-Verlauf folgen“, offered once a mail's text is filed into a
- * thread and only where a later reply could ever qualify (`followOffered`).
- *
- * It is a standing decision, so it says in one line what it will do and what
- * it will not: replies from confirmed domains already in the conversation are
- * added without a click; attachments still wait here. Pressing it is the
- * decision; the toast it leaves carries the undo.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Check } from 'lucide-react'
@@ -20,9 +10,7 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface FollowOfferProps {
   threadName: string
-  /** Follow the thread; rejects when the server refused. */
   onFollow: () => Promise<void>
-  /** Already following (after the press, or as the server says). */
   following?: boolean
   className?: string
 }
@@ -58,7 +46,7 @@ export function FollowOffer({ threadName, onFollow, following = false, className
         <BusyButton
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           busy={busy}
           busyLabel={t('follow.busy')}
           onClick={() => void follow()}

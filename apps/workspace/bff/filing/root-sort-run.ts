@@ -45,6 +45,7 @@ import {
   MAX_MOVES_PER_SLICE,
   MAX_NEW_FOLDER_DOCUMENTS,
   ROOT_SORT_CHUNK,
+  ROOT_SORT_LIFECYCLE,
   ROOT_SORT_WORKING_STATUSES,
   type KeptMove,
   type RootSortRunStatus,
@@ -225,7 +226,7 @@ export async function applyRootSort(session: AuthorizedSession, runId: string, k
   const scan = await scanRoot(session, shelfOfRun(run))
   const keptMoves = keptMovesOf(run, keep, new Set(scan.folders.map((folder) => folder.id)))
   if (keptMoves.length === 0) throw new BadRequestError('Nothing to move.')
-  const updated = await transition(session, run, ['ready'], { status: 'applying', keptMoves, cursor: 0, progressDone: 0 })
+  const updated = await transition(session, run, ROOT_SORT_LIFECYCLE.sourcesOf('apply'), { status: 'applying', keptMoves, cursor: 0, progressDone: 0 })
   const queued = await enqueueOrRevert(session, updated, ['applying'], { status: 'ready', keptMoves: [], cursor: 0 })
   return viewOf(session, queued)
 }
@@ -234,7 +235,7 @@ export async function applyRootSort(session: AuthorizedSession, runId: string, k
 export async function undoRootSort(session: AuthorizedSession, runId: string): Promise<RootSortRunView> {
   const run = await ownRun(session, runId)
   if (run.movedDocuments.length === 0) throw new BadRequestError('The run moved nothing to undo.')
-  const updated = await transition(session, run, ['applied', 'failed'], { status: 'undoing', cursor: 0, progressDone: 0 })
+  const updated = await transition(session, run, ROOT_SORT_LIFECYCLE.sourcesOf('undo'), { status: 'undoing', cursor: 0, progressDone: 0 })
   const queued = await enqueueOrRevert(session, updated, ['undoing'], { status: run.status, cursor: 0 })
   return viewOf(session, queued)
 }
@@ -242,7 +243,7 @@ export async function undoRootSort(session: AuthorizedSession, runId: string): P
 /** Stop a run before anything moved. A run that is applying finishes what it started. */
 export async function cancelRootSort(session: AuthorizedSession, runId: string): Promise<RootSortRunView> {
   const run = await ownRun(session, runId)
-  const updated = await transition(session, run, ['judging', 'grouping', 'ready'], {
+  const updated = await transition(session, run, ROOT_SORT_LIFECYCLE.sourcesOf('cancel'), {
     status: 'cancelled',
     finishedAt: new Date(),
   })

@@ -27,18 +27,13 @@ import { useFilingSetup, type FilingChoice } from '../filing/use-filing-setup'
 import type { SetupStepProps, SetupStepSlots } from './types'
 
 export interface FilingStepProps extends SetupStepProps, SetupStepSlots {
-  /** Piloti's open filing suggestions, one per target folder; absent, none are drawn. */
   filing?: { entries: readonly FilingFolderSuggestion[]; onSettled: () => void }
-  /** What the step reads and writes; the real API unless the preview or a spec brings its own. */
   client?: FilingSetupClient
-  /** A folder choice to open on, for the `/dev` preview. */
   initialChoice?: readonly File[]
 }
 
-/** What the body shows: the drop area, the tree, the upload on its way, or what is in the project. */
 type Mode = 'empty' | 'chosen' | 'uploading' | 'project'
 
-/** „30,4 MB · Sicherungen und Zwischenstände ausgelassen": what the choice leaves out, by Piloti's reasons when they are all there is. */
 function leftOut(choice: FilingChoice, t: Translator, locale: string): string {
   const size = formatBytes(choice.summary.size, locale)
   if (choice.excluded.size === 0) return t('summary.allIn', { size })
@@ -51,24 +46,6 @@ function leftOut(choice: FilingChoice, t: Translator, locale: string): string {
   return t('summary.left', { size, what })
 }
 
-/**
- * Step 2, Ablage (ticket 26), drawn to the approved mockup (`Ablage.dc.html`).
- *
- * 1. Before a folder is chosen, one calm drop area; the footer's primary
- *    action opens the folder picker. Loose files, picked rather than a folder,
- *    go straight to the upload: there is no tree to confirm.
- * 2. A chosen folder is a card of folders, each switched in or out with its
- *    whole subtree, backups and old states proposed out
- *    (`default-exclusions.ts`). Beside it one summary card: what Piloti reads,
- *    what the office's sensitive-data list keeps on the server (its project
- *    terms in a sheet, ADR-0086), and who opens which folder (its folders in a
- *    sheet, ADR-0088, ADR-0097). The footer's „N Dateien hochladen" hands only
- *    the chosen files to the project's own upload (`onFiles`), whose plan
- *    dialog and tray are the frame's children.
- * 3. While they upload, the step says so and shows the tray.
- * 4. With documents in the project, its folders and the same summary; the
- *    footer goes on to the Erfassung. Piloti's open filing suggestions stay.
- */
 export function FilingStep({
   view,
   projectId,
@@ -111,7 +88,6 @@ export function FilingStep({
   }
 
   const canManage = setup.screening?.canManage ?? false
-  // The folders the choice would create, without the ones switched out.
   const chosenTop = choice ? accessFolders(choice.tree).filter((node) => !isFolderExcluded(choice.excluded, node.path)) : []
   const rows = accessRows(setup.folders, chosenTop)
   const skip = onNext && (
@@ -125,7 +101,7 @@ export function FilingStep({
       {choice && (
         <div className="px-[18px] py-4">
           <p className="text-muted-foreground text-xs">{t('summary.reads')}</p>
-          <p className="mt-0.5 text-[28px] font-medium leading-tight tracking-tight tabular-nums">
+          <p className="mt-0.5 text-[28px] font-medium leading-tight tabular-nums">
             {t('summary.files', { count: choice.summary.files })}
           </p>
           <p className="text-muted-foreground mt-0.5 text-xs" data-testid="filing-summary">
@@ -225,8 +201,6 @@ export function FilingStep({
                 className={PRIMARY_ACTION_CLASS}
                 icon={<Upload aria-hidden />}
                 busy={uploading}
-                // The browser screens names with the project's list before
-                // anything leaves; without it nothing could be sent anyway.
                 blocked={!setup.screening || choice.summary.files === 0}
                 busyLabel={t('actions.uploading')}
                 onClick={upload}

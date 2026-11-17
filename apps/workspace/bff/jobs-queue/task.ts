@@ -22,6 +22,19 @@
  *   is retried by Hatchet after `BFF_JOBS_RETRY_BACKOFF_SECONDS`, doubling, at
  *   most 15 minutes; a kind nobody knows is not retried at all.
  *   `BFF_JOBS_SLICE_TIMEOUT_MS` bounds a run.
+ * - ONE WAIT, HELD TWICE. That delay ({@link retryDelaySeconds}) is computed
+ *   once and goes to both sides, and neither copy can go. Hatchet's
+ *   retry-after is the timer: it starts the next attempt. The row's
+ *   `not_before` is the record: the take refuses a run that comes early (an
+ *   engine that ignores retry-after, a second run), the dispatch sweep waits
+ *   for it before it starts a run of its own (which has a new idempotency key,
+ *   so without it every backoff would get a second run), and it is what the
+ *   sweep recovers from when Hatchet's retry never comes. Hatchet's `backoff`
+ *   cannot compute the delay: it has no base, and its retry count is not the
+ *   row's attempts (it counts the looks for an uncommitted row, and starts at
+ *   0 in a run the sweep dispatched). So `retries` is only a ceiling, and the
+ *   row says when a job is dead. ADR-0150, "The row and the run after a failed
+ *   attempt".
  * - ONE COPY AT A TIME. Hatchet retries a slice past its timeout, and
  *   reassigns a lost worker's run, while the first copy may still run: no
  *   JavaScript can kill it. So the row is held by one attempt (`holderOf`,

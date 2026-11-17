@@ -1,27 +1,7 @@
-/**
- * File Upload Validation
- *
- * Centralized validation logic for all file upload entry points.
- * Provides detailed error information rather than silent filtering.
- *
- * Validation Rules (configurable via AppConfig):
- * - Max file size per individual file (default: 100MB)
- * - Max total size including existing session files (default: 100MB)
- * - Max files total including existing session files (default: 10)
- * - Accepted types (default: .pdf, .docx, .txt, .md)
- *
- * Behavior:
- * - File-level errors (duplicates, invalid types, oversized): Skip those files, upload others
- * - Batch-level errors (total size/count exceeded): Reject entire batch
- */
-
 import type { FileUploadConfig } from '@/shared/context'
 import { IMAGE_EXTENSIONS } from '@/shared/config/file-upload'
 import { isIfcFilename } from '@/lib/bim/types'
 import { ZIP_MIME_TYPES } from './lib/zip-types'
-// The same formatter every file size in the UI renders through. These messages
-// name a size the user can also see on a file card, so a second implementation
-// meant one screen showing "1,5 MB" beside "1.5 MB" in German.
 import {
   DEFAULT_MAX_FILE_SIZE,
   DEFAULT_MAX_TOTAL_SIZE,
@@ -31,124 +11,55 @@ import {
 } from './constants'
 import { formatBytes } from '@/lib/format'
 
-// ============================================================================
-// Types
-// ============================================================================
-
-/** Error codes for file validation failures */
 export type FileValidationErrorCode = 'FILE_TOO_LARGE' | 'INVALID_TYPE' | 'DUPLICATE_FILE'
 
-/** Error codes for batch-level validation failures */
 export type BatchValidationErrorCode = 'TOTAL_SIZE_EXCEEDED' | 'MAX_FILES_EXCEEDED'
 
-/**
- * Machine-readable sub-reason for an INVALID_TYPE rejection, so the UI can show
- * a targeted message. `'image-vlm-unavailable'` = the file is an image and
- * images are off specifically because no vision model is configured (the
- * `image-upload` flag is on but the capability is missing).
- */
 export type FileValidationReason = 'image-vlm-unavailable' | 'duplicate-in-batch' | 'duplicate-existing'
 
-/**
- * The values a localized message needs, already locale-formatted where this
- * module did the formatting (sizes go through the same `formatBytes` every file
- * card renders through, so one screen never shows "1,5 MB" beside "1.5 MB").
- *
- * `message` below stays English and stays the fallback: this module is pure and
- * has non-React callers with no dictionary to reach for. But its strings were
- * being SPLICED INTO a localized sentence — a German reader was told
- * «1 Datei wird hochgeladen, 1 übersprungen ("Plan.pdf" is 210 MB, exceeds 100
- * MB limit)» — so every error now also carries the parts a caller with `t`
- * needs to say the same thing in the reader's language.
- */
 export type ValidationMessageParams = Record<string, string>
 
-/** Detailed error information for a single file */
 export interface FileValidationError {
   file: File
   code: FileValidationErrorCode
-  /** English fallback for callers without a dictionary. See {@link ValidationMessageParams}. */
   message: string
-  /** Optional targeted reason enabling localized, specific copy in the UI. */
   reason?: FileValidationReason
-  /** Parts for the localized message the UI renders from `code`/`reason`. */
   params: ValidationMessageParams
 }
 
-/** Batch-level error (affects the whole batch) */
 export interface BatchValidationError {
   code: BatchValidationErrorCode
-  /** English fallback for callers without a dictionary. See {@link ValidationMessageParams}. */
   message: string
-  /** Parts for the localized message the UI renders from `code`. */
   params: ValidationMessageParams
 }
 
-/** Result of validating a batch of files */
 export interface BatchValidationResult {
-  /** Whether all files passed validation and batch constraints are met */
   valid: boolean
-  /** Whether there is at least one uploadable file and no batch-level blockers */
   canUpload: boolean
-  /** Files that would be valid (empty if batch is invalid) */
   validFiles: File[]
-  /** Individual file errors */
   fileErrors: FileValidationError[]
-  /** Batch-level errors (size/count limits) */
   batchErrors: BatchValidationError[]
-  /** Human-readable summary for UI display */
   summary: string | null
 }
 
-/** Context for validation (existing files in session) */
 export interface ValidationContext {
-  /** Total size of files already in the session (bytes) */
   existingTotalSize: number
-  /** Number of files already in the session */
   existingFileCount: number
-  /**
-   * Names of files already in the session (for duplicate detection).
-   *
-   * Read for a chat's attachments only. On a durable shelf a name that is
-   * already there is a new VERSION (ADR-0054), and the upload surface asks
-   * about it from the server's listing; this set is what this browser's
-   * tracked uploads remember, so refusing on it made the same drop a refusal
-   * in one browser and a silent replacement in another.
-   */
   existingFileNames: Set<string>
-  /**
-   * Durable project / Archiv corpus. Those shelves are bounded by storage
-   * quota, not by the chat-session caps — applying `maxFileCount` here made the
-   * tenth Dateiablage upload fail (#432), and the batch TOTAL SIZE cap, left on
-   * by oversight when that one was lifted, made a 100 MB ceiling reject a real
-   * Einreichung wholesale in an organization with terabytes to spare.
-   *
-   * Both batch caps are therefore session-only. The PER-FILE size limit is not:
-   * that one is about what the ingest pipeline can chew through, which is a
-   * fact about the file rather than about which shelf it lands on.
-   */
   durableCorpus?: boolean
 }
 
-/** Default file upload configuration (used when AppConfig is not available) */
 const DEFAULT_CONFIG: FileUploadConfig = {
   acceptedTypes: DEFAULT_ACCEPTED_FILE_TYPES,
   acceptedMimeTypes: DEFAULT_ACCEPTED_MIME_TYPES,
   maxTotalSizeMB: 100,
   maxFileSize: DEFAULT_MAX_FILE_SIZE,
-  // 0 = no IFC allowance. This fallback is for when AppConfig is absent, and a
-  // config that cannot say whether IFC is enabled must not invent a ceiling.
   maxIfcFileSize: 0,
   maxTotalSize: DEFAULT_MAX_TOTAL_SIZE,
   maxFileCount: DEFAULT_MAX_FILE_COUNT,
   fileExpirationCheckIntervalHours: 0,
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/** Whether a filename carries a gated image extension (.png/.jpg/.jpeg). */
 function isImageFileName(fileName: string): boolean {
   const idx = fileName.lastIndexOf('.')
   if (idx <= 0) return false
@@ -156,11 +67,6 @@ function isImageFileName(fileName: string): boolean {
   return (IMAGE_EXTENSIONS as readonly string[]).includes(ext)
 }
 
-/**
- * Check if a file has a valid extension
- * @param fileName - Name of the file to check
- * @param config - Optional file upload configuration (uses defaults if not provided)
- */
 export function isValidFileExtension(
   fileName: string,
   config: FileUploadConfig = DEFAULT_CONFIG
@@ -172,24 +78,15 @@ export function isValidFileExtension(
   return acceptedExtensions.includes(extension)
 }
 
-/**
- * Check if a MIME type is valid (used during drag operations)
- * @param mimeType - MIME type to check
- * @param config - Optional file upload configuration (uses defaults if not provided)
- */
 export function isValidMimeType(
   mimeType: string,
   config: FileUploadConfig = DEFAULT_CONFIG
 ): boolean {
-  // Empty MIME type is allowed (some files like .md may not have one)
   if (!mimeType) return true
   const normalized = mimeType.toLowerCase()
   return config.acceptedMimeTypes.some((m) => m.toLowerCase() === normalized)
 }
 
-/**
- * Create default validation context (empty session)
- */
 export function createEmptyValidationContext(): ValidationContext {
   return {
     existingTotalSize: 0,
@@ -198,56 +95,20 @@ export function createEmptyValidationContext(): ValidationContext {
   }
 }
 
-// ============================================================================
-// Main Validation Function
-// ============================================================================
-
-/**
- * Validate a batch of files for upload.
- *
- * Performs the following checks:
- * 1. Individual file type validation (extension-based)
- * 2. Individual file size (configurable, default 100MB)
- * 3. Duplicate file detection
- * 4. Total size including existing files (configurable, default 100MB)
- * 5. File count including existing files (configurable, default 10)
- *
- * File-level errors (duplicates, invalid types, oversized) will skip those files
- * but allow other valid files to proceed. Batch-level errors (total size/count
- * exceeded) will reject the entire batch.
- *
- * @param files - Array of files to validate
- * @param context - Optional context with existing session files info
- * @param config - Optional file upload configuration (uses defaults if not provided)
- * @returns Detailed validation result
- */
 export function validateFileUpload(
   files: File[],
   context: ValidationContext = createEmptyValidationContext(),
   config: FileUploadConfig = DEFAULT_CONFIG,
-  /**
-   * The APP's active locale, so a size in an error message is punctuated the
-   * same as the one on the file card beside it. Optional because the specs and
-   * any non-React caller have no locale to give; omitting it falls back to the
-   * runtime default, which is right for them and wrong for a user whose app
-   * language differs from their browser's.
-   */
   locale?: string
 ): BatchValidationResult {
   const fileErrors: FileValidationError[] = []
   const batchErrors: BatchValidationError[] = []
   const potentiallyValidFiles: File[] = []
 
-  // Track new files for batch calculations
   let newFilesTotalSize = 0
   const newFileNames = new Set<string>()
 
-  // -------------------------------------------------------------------------
-  // Pass 1: Validate individual files
-  // -------------------------------------------------------------------------
-
   for (const file of files) {
-    // Check for duplicates within the new batch
     if (newFileNames.has(file.name)) {
       fileErrors.push({
         file,
@@ -259,8 +120,6 @@ export function validateFileUpload(
       continue
     }
 
-    // Check for duplicates against existing session files — a chat's only; see
-    // `ValidationContext.existingFileNames` for why a durable shelf never does.
     if (!context.durableCorpus && context.existingFileNames.has(file.name)) {
       fileErrors.push({
         file,
@@ -272,11 +131,7 @@ export function validateFileUpload(
       continue
     }
 
-    // Check file type (extension)
     if (!isValidFileExtension(file.name, config)) {
-      // When an image is rejected specifically because no VLM is configured
-      // (flag on, capability off), tag it so the UI can explain WHY instead of
-      // a generic "unsupported type" — the base message stays as a fallback.
       const isImageBlockedByVlm =
         config.imageUploadBlockedReason === 'vlm-unavailable' && isImageFileName(file.name)
       fileErrors.push({
@@ -291,10 +146,6 @@ export function validateFileUpload(
       continue
     }
 
-    // Check individual file size. A `.ifc` is measured against the IFC ceiling,
-    // not the document one — a building model is an order of magnitude larger
-    // than the PDFs `maxFileSize` was sized for, and refusing one for being a
-    // big FILE told the user nothing about what to do.
     const sizeCeiling =
       isIfcFilename(file.name) && config.maxIfcFileSize > 0
         ? config.maxIfcFileSize
@@ -313,30 +164,14 @@ export function validateFileUpload(
       continue
     }
 
-    // File passed individual validation
     potentiallyValidFiles.push(file)
     newFilesTotalSize += file.size
     newFileNames.add(file.name)
   }
 
-  // -------------------------------------------------------------------------
-  // Pass 2: Validate batch constraints (including existing files)
-  // -------------------------------------------------------------------------
-
   const totalSize = context.existingTotalSize + newFilesTotalSize
   const totalCount = context.existingFileCount + potentiallyValidFiles.length
 
-  // A batch carrying a model gets the IFC ceiling as its total, or one legal
-  // 150 MB model would clear the per-file check and then fail a 100 MB BATCH
-  // limit it could never satisfy. Lifted per-batch rather than in the config so
-  // a batch of ordinary documents keeps the document limit.
-  //
-  // The session's EXISTING files count too, not just the new ones. `totalSize`
-  // includes `existingTotalSize`, so once a 149 MB model is in the session the
-  // total is over the document limit forever: the next add — even a 20 kB
-  // text file, even a re-drop of the model itself, which pass 1 drops as a
-  // duplicate and so keeps out of `potentiallyValidFiles` — was measured
-  // against 100 MB and told the user "Only 0 B available".
   const carriesIfc =
     potentiallyValidFiles.some((file) => isIfcFilename(file.name)) ||
     [...context.existingFileNames].some((name) => isIfcFilename(name))
@@ -345,16 +180,6 @@ export function validateFileUpload(
       ? config.maxIfcFileSize
       : config.maxTotalSize
 
-  // Check total size constraint. Session attachments only, for exactly the
-  // reason stated on the file-count cap below: a project or Archiv corpus is
-  // bounded by the ORGANIZATION'S QUOTA, which is checked server-side twice —
-  // once before any bytes move and once inside the admitting transaction under
-  // a per-organization lock (ADR-0042). This cap is the leftover session limit,
-  // and leaving it on a durable corpus made it the binding one: a 100 MB batch
-  // ceiling rejects an Einreichung WHOLESALE, as a batch error, in an
-  // organization with terabytes of quota left. The two caps were exempted
-  // inconsistently, not deliberately — nothing argues for bounding a project
-  // upload by a number that has no relationship to what the tenant has bought.
   if (!context.durableCorpus && totalSize > totalCeiling) {
     const availableSpace = Math.max(0, totalCeiling - context.existingTotalSize)
     batchErrors.push({
@@ -367,14 +192,11 @@ export function validateFileUpload(
         total: formatBytes(totalSize, locale),
         available: formatBytes(availableSpace, locale),
         limit: formatBytes(totalCeiling, locale),
-        // Which of the two sentences above: the UI picks the same way.
         crowded: context.existingTotalSize > 0 ? 'yes' : 'no',
       },
     })
   }
 
-  // Check file count constraint. Session attachments only — a project or
-  // Archiv corpus is limited by quota, not by this leftover session cap.
   if (!context.durableCorpus && totalCount > config.maxFileCount) {
     const availableSlots = Math.max(0, config.maxFileCount - context.existingFileCount)
     batchErrors.push({
@@ -392,17 +214,11 @@ export function validateFileUpload(
     })
   }
 
-  // -------------------------------------------------------------------------
-  // Build result
-  // -------------------------------------------------------------------------
-
-  // Batch errors block the entire upload; file errors just skip those files
   const hasBatchErrors = batchErrors.length > 0
   const hasFileErrors = fileErrors.length > 0
   const isValid = !hasBatchErrors && !hasFileErrors && potentiallyValidFiles.length > 0
   const canUpload = !hasBatchErrors && potentiallyValidFiles.length > 0
 
-  // Generate human-readable summary
   let summary: string | null = null
   if (hasFileErrors || hasBatchErrors) {
     const parts: string[] = []
@@ -423,8 +239,6 @@ export function validateFileUpload(
   return {
     valid: isValid,
     canUpload,
-    // Return valid files unless there are batch-level errors
-    // File-level errors just skip those files, allowing partial uploads
     validFiles: hasBatchErrors ? [] : potentiallyValidFiles,
     fileErrors,
     batchErrors,
@@ -432,19 +246,6 @@ export function validateFileUpload(
   }
 }
 
-// ============================================================================
-// Drag-Drop Helper
-// ============================================================================
-
-/**
- * Quick check if dragged files are potentially supported (for drag state feedback).
- * Only checks MIME types - not full validation.
- * Used to show "unsupported file type" indicator during drag.
- *
- * @param dataTransfer - DataTransfer object from drag event
- * @param config - Optional file upload configuration (uses defaults if not provided)
- * @param options.allowZip - A durable shelf unpacks a zip before uploading it
- */
 export function checkDraggedFilesSupported(
   dataTransfer: DataTransfer,
   config: FileUploadConfig = DEFAULT_CONFIG,
@@ -453,8 +254,6 @@ export function checkDraggedFilesSupported(
   const items = Array.from(dataTransfer.items)
   for (const item of items) {
     if (item.kind !== 'file') continue
-    // A zip is unpacked before upload on a durable shelf, so it is welcome
-    // there; everywhere else (a chat attachment) it is not a document.
     if (allowZip && ZIP_MIME_TYPES.includes(item.type.toLowerCase())) continue
     if (!isValidMimeType(item.type, config)) return false
   }

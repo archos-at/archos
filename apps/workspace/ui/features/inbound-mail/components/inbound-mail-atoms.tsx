@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * The E-Mail-Eingang's own atoms: the few shapes its organisms repeat, written
- * once so the list, the detail and the decision bar are made of the same
- * material (`design-language.md`, „Component layers“).
- *
- * - `FactLine` (from the kit, `components/ui/fact-line.tsx`): one fact about a
- *   mail or a part, a glyph and words; `warning` and `danger` colour the
- *   glyph, never the words.
- * - `CheckLine`: a checkbox with its sentence, for the person's explicit yes
- *   („Trotzdem ablegen“). The whole line is the label (the kit's `Label`),
- *   44px under a finger.
- * - `PinnedBar`: the decision's edge, pinned to the bottom of the detail and
- *   padded past the home indicator; the decision bar and the claimed-mail bar
- *   both stand on it.
- * - `QuietPanel`: a block that belongs together inside the detail (the
- *   address, the „Details“ of a mail, a calendar invitation, what can be
- *   restored): a quiet tint and one hairline on the surface radius.
- */
-
 import type { HTMLAttributes, JSX, ReactNode } from 'react'
 import { useId } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -60,13 +41,12 @@ export function CheckLine({
   )
 }
 
-/** The bottom edge of the detail: pinned, on the page's paper, the home indicator's inset below it. */
 export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
   return (
     <div
       className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 border-t px-3 pt-3 backdrop-blur sm:px-4',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+        'bg-sheet/95 supports-[backdrop-filter]:bg-sheet/80 sticky bottom-0 z-10 flex flex-col gap-2 px-4 pt-3 shadow-pinned-foot backdrop-blur sm:px-8',
+        'pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6',
         className
       )}
       {...props}
@@ -74,7 +54,6 @@ export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement
   )
 }
 
-/** A block of the detail that belongs together: a quiet tint, one hairline, the surface radius. */
 export function QuietPanel({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
-  return <div className={cn('bg-muted/40 rounded-surface flex flex-col gap-2 border p-3', className)} {...props} />
+  return <div className={cn('border-edge flex flex-col gap-2 border-l-2 py-0.5 pl-3', className)} {...props} />
 }

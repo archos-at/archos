@@ -6,7 +6,7 @@
  * outside development.
  *
  * Why it exists. Since the org-nav redesign the two scopes deliberately have
- * different SHAPES: inside a project the chrome is the 236px rail; above a
+ * different SHAPES: inside a project the chrome is the 272px rail; above a
  * project it is a slim full-width header and the page gets the whole width.
  * That is a claim about two states that never appear at the same moment in the
  * product, so the only way to review the pair — the rail's geometry, the
@@ -30,6 +30,7 @@ import { AppSidebar } from '@/components/shell/app-sidebar'
 import { OrgHeader } from '@/components/shell/org-header'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
+import { installConnectionHealthFake } from '../_fixtures/connection-health'
 
 const PROJECTS = [
   { id: 'p-1', name: 'Wohnbau Seestadt Baufeld D12' },
@@ -38,6 +39,7 @@ const PROJECTS = [
 
 // The badge shows a count, as it does for anyone with something waiting.
 installInboxBadgeFake(3)
+installConnectionHealthFake()
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   try {

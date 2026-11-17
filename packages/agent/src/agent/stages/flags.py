@@ -75,6 +75,10 @@ class TurnFlags:
     #: unless the BFF says yes: an older BFF, a failed call or a missing field
     #: all read as no.
     folder_cards_allowed: bool = False
+    #: Whether licensed text an office holds may reach the model inside the call (the ``licensed-seam``
+    #: flag, ``common/licensed_text.py``). An entitlement like the one above: off unless the BFF says yes,
+    #: and off means a licensed passage is listed without its text, never that it is sent unguarded.
+    licensed_text_allowed: bool = False
 
 
 #: The evaluation runs on the per-turn critical path, in the same gather as the
@@ -130,6 +134,7 @@ def fetch_turn_flags(*, organization_id: str | None, project_id: str | None = No
         deep_research_allowed=features.get("deepResearch") is not False,
         tasks_allowed=features.get("tasks") is not False,
         folder_cards_allowed=features.get("folderCards") is True,
+        licensed_text_allowed=features.get("licensedSeam") is True,
     )
 
 

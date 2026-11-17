@@ -1,5 +1,3 @@
-"""The crossing from finished graph state to the turn's result and the stage facts."""
-
 import uuid
 
 from langchain_core.messages import AIMessage
@@ -29,8 +27,6 @@ def _result(cards=(), **fields):
 
 
 class TestBuildResult:
-    """Every field of the result is lifted off the state; the frame omits what is at its default."""
-
     def test_the_last_message_is_the_answer_and_cards_are_keyed(self):
         card = {"type": "checklist", "items": []}
         result = _result(cards=[card])
@@ -115,13 +111,11 @@ class TestFinished:
 
 class TestAnswerMessageId:
     def test_it_is_the_persisted_rows_id(self):
-        """The same uuid5 the messages route has always been given (``ON CONFLICT DO NOTHING``)."""
         expected = str(uuid.uuid5(uuid.NAMESPACE_URL, "grid:assistant:conv:turn"))
         assert answer_message_id("conv", "turn") == expected
         assert answer_message_id("conv", None) == str(uuid.uuid5(uuid.NAMESPACE_URL, "grid:assistant:conv:default"))
 
     def test_the_running_turn_names_its_answer_before_it_exists(self, monkeypatch):
-        """ADR-0093: the BFF marks this id at admission; it must be the id the answer is streamed under."""
         from agent import project_context
         from agent.turn.response import turn_answer_message_id
 
@@ -130,13 +124,6 @@ class TestAnswerMessageId:
 
 
 class TestPostAnswerTurnFacts:
-    """The crossing from finished graph state to a stage's inputs.
-
-    Every fact here is one a deterministic gate is allowed to decide on, so a
-    fact that silently fails to cross is a gate that silently cannot enforce its
-    own rule — which is exactly what happened to `research_truncated`.
-    """
-
     def _facts(self, state, **overrides):
         kwargs = {
             "state": state,
@@ -156,7 +143,6 @@ class TestPostAnswerTurnFacts:
         assert self._facts(_state(research_truncated=True)).research_truncated is True
 
     def test_a_conversation_that_drew_on_another_project_crosses(self):
-        """Read while the turn is bound, because reflection runs after it is gone (ADR-0094)."""
         from agent.knowledge.restricted_use import CrossProjectTurn
         from agent.knowledge.restricted_use import bind_cross_project_turn
         from agent.knowledge.restricted_use import reset_cross_project_turn
@@ -184,17 +170,17 @@ class TestPostAnswerTurnFacts:
     def test_memory_writes_cross(self):
         assert self._facts(_state(), remembered_this_turn=("Firma: Grid",)).remembered_this_turn == ("Firma: Grid",)
 
+    def test_the_notes_those_writes_created_cross(self):
+        from agent.knowledge.project_memory import TurnMemoryNote
+
+        note = TurnMemoryNote(id="n-1", kind="decision", content="Flachdach.", scope="project")
+        assert self._facts(_state(), noted_this_turn=(note,)).noted_this_turn == (note,)
+
     def test_an_open_scope_crosses_as_no_restriction(self):
         assert self._facts(_state(collection_scope=["oib_knowledge", "proj_1"])).restriction.restricted is False
         assert self._facts(_state()).restriction.restricted is False
 
     def test_the_restriction_evidence_crosses(self):
-        """ADR-0087: the reflection stage restricts what it writes from this.
-
-        Read is what the turn cited, what it read uncited, and what the
-        conversation's registry holds; listed is the uncapped inventory, else
-        the prompt's rows. A default would let the stage write open memory.
-        """
         restricted_a = "proj_1_r0123456789ab"
         restricted_b = "proj_1_rba9876543210"
         restricted_c = "proj_1_rcccccccccccc"
@@ -220,7 +206,6 @@ class TestPostAnswerTurnFacts:
         assert [doc.name for doc in evidence.documents] == ["Vertrag.pdf"]
 
     def test_restricted_memory_in_the_prompt_crosses_as_notes(self):
-        """The digest's restricted lines and the tool's restricted writes this turn."""
         restricted = "proj_1_r0123456789ab"
         digest = '- [restricted | decision | high | unverified] "Honorar pauschal."'
         facts = post_answer_turn_facts(
@@ -236,7 +221,6 @@ class TestPostAnswerTurnFacts:
         ]
 
     def test_notes_earlier_turns_were_shown_cross_with_their_own_collections(self):
-        """ADR-0087: a restricted note gone from this turn's digest is still evidence."""
         from agent.memory.restriction import RestrictedNote
         from agent.memory.shown_notes import ShownNotes
 

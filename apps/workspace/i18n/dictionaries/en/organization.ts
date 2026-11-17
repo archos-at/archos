@@ -289,6 +289,15 @@ export const organization = {
     members: 'Members',
     membersCapped: '{count}+',
     pendingInvites: 'Pending invitations',
+    homeCountry: 'Office country',
+    homeCountryMissing: {
+      title: "Your office's country is missing",
+      description:
+        "It sets your office's defaults, first the clock that deadlines and days are counted by; until then Austria's applies. Which building law applies to a project is decided by its site, not your seat. You state it once.",
+      placeholder: 'Choose a country',
+      save: 'Set',
+      saveError: 'The country could not be saved.',
+    },
   },
   settings: {
     title: 'Organization settings',
@@ -659,6 +668,8 @@ export const organization = {
     detector: {
       iban: 'IBAN',
       at_svnr: 'Social security number (AT)',
+      de_svnr: 'Social insurance number (DE)',
+      de_tax_id: 'Tax ID (DE)',
       credit_card: 'Credit card number',
     },
     limits:
@@ -728,12 +739,19 @@ export const organization = {
       term: 'Term',
       iban: 'IBAN',
       at_svnr: 'Social security no.',
+      de_svnr: 'Social insurance no. (DE)',
+      de_tax_id: 'Tax ID',
       credit_card: 'Card number',
       other: 'Other rule',
       unscreened: 'Not checked',
     },
   },
   /** What Piloti learned about the office's conventions, to confirm or decline (ADR-0129). */
+  baseKnowledge: {
+    title: 'Office standards',
+    description: 'Your office’s standards, commentaries and directives have a place of their own beside Office filing. Upload them there, sort them into folders, confirm and check them. {productName} answers from them for your office only.',
+    open: 'Open office standards',
+  },
   officeConventions: {
     title: 'What {productName} has learned about the office',
     description: 'Conventions {productName} counted from your projects. Confirm what is right, decline what is not: {productName} never uses a declined line, and always keeps a confirmed one.',

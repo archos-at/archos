@@ -1,5 +1,5 @@
 node_modules/
-bin/
+/bin/
 *.tsbuildinfo
 # Pulumi writes no local secrets, but guard against accidental plaintext dumps.
 Pulumi.*.yaml.bak

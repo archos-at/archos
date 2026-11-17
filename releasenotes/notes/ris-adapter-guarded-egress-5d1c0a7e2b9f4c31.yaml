@@ -1,0 +1,8 @@
+---
+security:
+  - >
+    The RIS adapter's own client, used while the source-routing flag is off,
+    now dials only an address the public-source guard resolved and found
+    public, at every redirect hop. Before, it checked each hop's host name
+    only, so a RIS name answering a cluster address (DNS rebinding) was
+    reachable. A refusal is no longer retried.

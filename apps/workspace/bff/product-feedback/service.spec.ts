@@ -103,7 +103,6 @@ const session: AuthorizedSession = {
   featureFlags: null,
 }
 
-/** An office admin: may manage the organization's settings, so sees the office view. */
 const admin: AuthorizedSession = { ...session, permissions: ['org:settings:manage'] }
 
 const config: PosthogSupportConfig = {
@@ -220,7 +219,6 @@ describe('submitProductFeedback', () => {
       sessionId: 's-0199',
       tags: ['piloti-feedback', 'kind:bug', 'origin:app.piloti.at'],
     })
-    // The session the ticket was opened in is the one later replies must use.
     expect(repository.setProductFeedbackTicket).toHaveBeenCalledWith(REPORT_ID, 'ticket-1', opened?.widgetSessionId)
   })
 
@@ -260,7 +258,6 @@ describe('submitProductFeedback', () => {
     expect(vi.mocked(openFeedbackTicket).mock.calls[0]?.[1].message).toBe(
       `[bug] #${REPORT_ID} /app/projects\nHonorar [maskiert] zu hoch`,
     )
-    // The stored record is what the reporter typed; platform owners read that.
     expect(repository.insertProductFeedback).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Honorar 48.000 EUR zu hoch' }),
     )
@@ -415,7 +412,6 @@ describe('the triage list reads PostHog', () => {
     expect(list.source).toBe('local')
     expect(list.counts).toBeNull()
     expect(list.reports[0]?.ticket).toBeNull()
-    // The offset cursor means nothing to the local log.
     expect(repository.listProductFeedback).toHaveBeenCalledWith(expect.objectContaining({ before: undefined }))
   })
 
@@ -541,7 +537,6 @@ describe('the active support cases', () => {
     const list = await listProductFeedbackForPlatform(session, {})
 
     expect(list.reports.map((report) => report.ticket?.awaiting)).toEqual(['team', 'reporter', null])
-    // A resolved ticket owes nobody: its thread is not read.
     expect(lastVisibleMessageAuthor).toHaveBeenCalledTimes(2)
   })
 
@@ -640,7 +635,6 @@ describe('organization names', () => {
 
     expect(list.reports.map((report) => report.organizationName)).toEqual(['feld72 Architekten', 'Büro Nord'])
     expect(one.organizationName).toBe('feld72 Architekten')
-    // Only the organizations the local join could not name are resolved.
     expect(getOrganizationDisplayNames).toHaveBeenCalledWith(['org_prod'])
   })
 })
@@ -705,7 +699,6 @@ describe("the office view: every case of the caller's organization", () => {
         mine: false,
         status: 'pending',
         ticketNumber: 43,
-        // A colleague's news is theirs; a colleague's ticket is not the admin's to answer.
         hasUpdate: false,
         canReply: false,
       })

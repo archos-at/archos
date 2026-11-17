@@ -1,21 +1,4 @@
 // @disk-inputs: app/**, ui/**
-/**
- * No number in the product shows a slashed zero.
- *
- * Geist Mono draws its default 0 with a slash. In a count it reads as a
- * struck-through zero (Notion #38, the review filter). The fix is the font's
- * own stylistic set, which swaps in the plain 0 and is switched on once, where
- * the mono family is defined: `--font-mono--font-feature-settings` in
- * `ui/styles/tokens.css`. Tailwind puts it on every `font-mono` and on
- * `code`, `kbd`, `pre` and `samp`.
- *
- * Each end can come undone on its own, so each is held here:
- *   - the file the layout loads must still draw a plain 0 under the features
- *     tokens.css declares. The Google Fonts copy strips every stylistic set, and
- *     a `geist` upgrade could move the plain 0 to another set;
- *   - code that sets the mono family by hand (`var(--font-mono)`) skips the
- *     utility, so it must set the feature beside it.
- */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import * as fontkit from 'fontkit'
@@ -24,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 const ROOT = join(__dirname, '..')
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8')
 
-/** The OpenType tags in `--font-mono--font-feature-settings`, e.g. `'ss09'` → `['ss09']`. */
 function monoFeatures(): string[] {
   const declaration = read('ui/styles/tokens.css').match(
     /--font-mono--font-feature-settings:\s*([^;]+);/
@@ -35,7 +17,6 @@ function monoFeatures(): string[] {
   )
 }
 
-/** The file `app/layout.tsx` hands `next/font/local` for `--font-geist-mono`, resolved. */
 function monoFontFile(): string {
   const layout = read('app/layout.tsx')
   const loader =
@@ -45,7 +26,6 @@ function monoFontFile(): string {
   return resolve(ROOT, 'app', src ?? '')
 }
 
-/** Closed outlines of the glyph drawn for `text`: a plain 0 has two (the ring and its counter), a slashed one three. */
 function contours(font: fontkit.Font, text: string, features: string[]): number {
   const [glyph] = font.layout(text, features).glyphs
   return glyph.path.commands.filter((command) => command.command === 'closePath').length

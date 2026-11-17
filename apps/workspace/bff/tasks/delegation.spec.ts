@@ -3,13 +3,17 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => undefined) }))
 vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({
   insertDefinition: vi.fn(),
   insertDefinitionWithRun: vi.fn(),
   insertRun: vi.fn(),
   updateRun: vi.fn(),
+  closeActiveRun: vi.fn(),
+  findRunById: vi.fn(),
 }))
+vi.mock('./run-moves', () => ({ recordSubmission: vi.fn() }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/jobs/service', () => ({
@@ -17,12 +21,10 @@ vi.mock('@/lib/jobs/service', () => ({
   createTaskThread: vi.fn(async () => 's_definition_thread'),
 }))
 vi.mock('@/lib/skills/service', () => ({ resolveSkillSnapshot: vi.fn() }))
-// What the conversation recorded it drew on (ADR-0087): the real refusal runs against it.
 vi.mock('@/lib/conversations/restricted-use', () => ({
   recordedRestrictedFolders: vi.fn(async () => []),
   recordedSourceProjects: vi.fn(async () => []),
 }))
-// The project's folders and the documents a plan names: the real Unterlagen refusal runs against them.
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn(async () => []) }))
 vi.mock('@/lib/documents/repository', () => ({ findProjectDocumentsByFilenames: vi.fn(async () => []) }))
 
@@ -40,6 +42,7 @@ import { AGENT_RUN_INPUT_MAX_CHARS } from '@/lib/jobs/types'
 import { createTaskThread, submitAgentRun } from '@/lib/jobs/service'
 import { resolveSkillSnapshot } from '@/lib/skills/service'
 import * as repository from './repository'
+import { recordSubmission } from './run-moves'
 import {
   commissionResearchRun,
   delegateTask,
@@ -62,10 +65,22 @@ const session = {
 
 const PROJECT = '3f8b0d2e-0000-4000-8000-000000000001'
 
-/** The inserted definition, as the database would hand it back. */
 let insertedDefinition: TaskDefinition
-/** The inserted run, as the database would hand it back. */
 let insertedRun: TaskRun
+
+function storedRunWrites() {
+  vi.mocked(recordSubmission).mockImplementation(async (_id, _org, { status, ...references }) => {
+    const starts = status === 'running' && insertedRun.status === 'queued'
+    insertedRun = { ...insertedRun, ...references, ...(starts ? { status, startedAt: new Date() } : {}) } as TaskRun
+    return insertedRun
+  })
+  vi.mocked(repository.closeActiveRun).mockImplementation(async (_id, _org, patch) => {
+    if (insertedRun.status !== 'queued' && insertedRun.status !== 'running') return null
+    insertedRun = { ...insertedRun, ...patch, finishedAt: new Date() } as TaskRun
+    return insertedRun
+  })
+  vi.mocked(repository.findRunById).mockImplementation(async () => insertedRun)
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -89,6 +104,7 @@ beforeEach(() => {
     return insertedRun
   })
   vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => ({ ...insertedRun, ...patch }) as TaskRun)
+  storedRunWrites()
   vi.mocked(createTaskThread).mockResolvedValue('s_definition_thread')
   vi.mocked(submitAgentRun).mockImplementation(async (spec) => ({
     backendJobId: 'backend-1',
@@ -114,10 +130,7 @@ describe('delegateTask', () => {
     expect(insertedDefinition.requesterEmail).toBe('asker@example.test')
     expect(insertedDefinition.trigger).toBe('once')
     expect(insertedDefinition.plan.goal).toBe('Prüf das Haus A')
-    // Verbatim inside the prompt: the engine's instruction is meta, the goal is
-    // the person's own sentence.
     expect(insertedDefinition.plan.prompt).toContain('Prüf das Haus A')
-    // The attempt is a `delegated` run beside the definition it belongs to.
     expect(insertedRun).toMatchObject({
       definitionId: 'definition-1',
       trigger: 'delegated',
@@ -138,7 +151,8 @@ describe('delegateTask', () => {
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'compliance_check', goal: 'Prüf das Haus A' })
 
     expect(run?.status).toBe('queued')
-    expect(vi.mocked(repository.updateRun).mock.calls[0][2]).toMatchObject({ status: 'queued', startedAt: null })
+    expect(run?.startedAt ?? null).toBeNull()
+    expect(vi.mocked(recordSubmission).mock.calls[0][2]).toMatchObject({ status: 'queued' })
   })
 
   it('runs every kind as a chat output, so the work lands in a real thread', async () => {
@@ -149,14 +163,10 @@ describe('delegateTask', () => {
       projectId: PROJECT,
       userId: 'user_asker',
       output: 'chat',
-      // The run's title heads its block in the thread — the same string the
-      // Aufträge card shows, so both surfaces name one run the same way.
       title: 'Dokument: Schreib den Aktenvermerk',
     })
-    expect(insertedRun.conversationId).toBeNull()
-    // The conversation id comes back from the submission and is recorded, so
-    // the card can link a reader to the work rather than only announce it.
-    const updated = vi.mocked(repository.updateRun).mock.calls[0][2]
+    expect(vi.mocked(repository.insertDefinitionWithRun).mock.calls[0][1]).not.toHaveProperty('conversationId')
+    const updated = vi.mocked(recordSubmission).mock.calls[0][2]
     expect(updated).toMatchObject({
       status: 'running',
       backendJobId: 'backend-1',
@@ -164,12 +174,6 @@ describe('delegateTask', () => {
     })
   })
 
-  /**
-   * A run is one message in the thread that commissioned it (ADR-0062), so
-   * „@Piloti prüf das" answers where it was asked. The old shape minted a
-   * conversation per delegation, which put the answer somewhere the person who
-   * asked had no reason to look.
-   */
   it('lands the run in the thread the person was typing in, and records its message', async () => {
     await delegateTask(session, {
       projectId: PROJECT,
@@ -178,23 +182,17 @@ describe('delegateTask', () => {
       conversationId: 's_live_chat',
     })
 
-    // No thread of its own: the person already has one open.
     expect(createTaskThread).not.toHaveBeenCalled()
     expect(vi.mocked(submitAgentRun).mock.calls[0][0]).toMatchObject({
       conversationId: 's_live_chat',
       runId: 'run-1',
     })
-    expect(vi.mocked(repository.updateRun).mock.calls[0][2]).toMatchObject({
+    expect(vi.mocked(recordSubmission).mock.calls[0][2]).toMatchObject({
       conversationId: 's_live_chat',
       runMessageId: 'msg-run-1',
     })
   })
 
-  /**
-   * A reviewer's send-back on a version nobody filed from a chat has no thread
-   * to answer in, and the definition's own thread is the place for it — never
-   * nowhere, which would leave the revision with no account of itself at all.
-   */
   it('gives a delegation nobody typed the definition’s own thread', async () => {
     await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
 
@@ -204,12 +202,6 @@ describe('delegateTask', () => {
     })
   })
 
-  // A kind that wants a playbook NAMES it, the way a person names one in the
-  // composer. It used to resolve the skill, freeze its body and paste it in
-  // under „Verwende dabei den folgenden Skill verbindlich und vollständig" —
-  // forcing, spelled out in German, reached through a code table instead of a
-  // picker. ADR-0060 says nothing may impose a skill on a turn, and a table in
-  // our own source is no more allowed to than a job or a request is.
   it('names the submission-check skill in the prompt and pastes no body', async () => {
     await delegateTask(session, { projectId: PROJECT, kind: 'submission_check', goal: 'Prüf die Einreichung' })
 
@@ -221,9 +213,6 @@ describe('delegateTask', () => {
   it('freezes no snapshot, so nothing can be delivered without the model asking', async () => {
     await delegateTask(session, { projectId: PROJECT, kind: 'submission_check', goal: 'Prüf die Einreichung' })
 
-    // `emptySkillSnapshot()` is literally `{}` — the honest expression of "this
-    // row was configured with no skill", and what the pair CHECK expects
-    // beside a null `skill_name`.
     expect(insertedDefinition.plan.skill).toEqual({})
     expect(insertedRun.skillSnapshot).toEqual({})
   })
@@ -245,8 +234,6 @@ describe('delegateTask', () => {
       versionId: 'ver-1',
       comment: 'Die Fluchtweglänge stimmt nicht',
     })
-    // The RE-FILING carries the permissions the original filing carried: the
-    // reviewer authorizes the delegation and does not lend their own.
     expect(insertedDefinition.requesterUserId).toBe('user_author')
   })
 
@@ -261,8 +248,6 @@ describe('delegateTask', () => {
       })
 
     it('never hands the submit route a prompt over its input ceiling', async () => {
-      // 52,018 characters: above the backend's ceiling, below the 60,000 the
-      // quote used to be allowed, so it failed at submission with a 422.
       await revise('# Langer Bericht\n\n' + 'Absatz. '.repeat(6_500))
 
       for (const [spec] of vi.mocked(submitAgentRun).mock.calls) {
@@ -278,13 +263,10 @@ describe('delegateTask', () => {
       expect(run?.status).toBe('failed')
       expect(run?.error).toContain('zu lang')
       expect(run?.error).toContain(`Mit ${PRODUCT_NAME} besprechen`)
-      // Nothing of the document is stored on a plan no run will read.
       expect(insertedDefinition.plan.prompt).not.toContain('Absatz.')
     })
 
     it('quotes a document that fills the budget exactly, whole', async () => {
-      // The fence and instruction around a one-character document are the
-      // overhead; everything else the ceiling allows is the budget.
       await revise('x')
       const budget = AGENT_RUN_INPUT_MAX_CHARS - (insertedDefinition.plan.prompt.length - 1)
       vi.mocked(submitAgentRun).mockClear()
@@ -319,9 +301,6 @@ describe('delegateTask', () => {
   })
 
   it('records a submission failure ON the run rather than throwing it at the caller', async () => {
-    // The alternative loses the one case a person most wants explained: the
-    // chat tool and the lifecycle effect would each have to invent their own
-    // way of saying the queue would not take it.
     vi.mocked(submitAgentRun).mockRejectedValue(new JobSubmitError('backend unreachable', 502))
 
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
@@ -331,26 +310,70 @@ describe('delegateTask', () => {
   })
 
   it('does not call a submitted run failed when recording it fails (#723)', async () => {
-    // The backend accepted the job; the database write after it did not land.
-    // The run is running, and saying `failed` would tell the reader it is not.
-    vi.mocked(repository.updateRun).mockRejectedValue(new Error('connect EHOSTUNREACH 10.0.0.1:5432'))
+    vi.mocked(recordSubmission).mockRejectedValue(new Error('connect EHOSTUNREACH 10.0.0.1:5432'))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
 
     expect(run?.status).toBe('running')
     expect(run?.backendJobId).toBeTruthy()
-    expect(vi.mocked(repository.updateRun).mock.calls.map(([, , patch]) => patch.status)).toEqual(['running'])
+    expect(vi.mocked(recordSubmission).mock.calls.map(([, , submission]) => submission.status)).toEqual(['running'])
+    expect(repository.closeActiveRun).not.toHaveBeenCalled()
   })
 
   it('still returns the failed run when recording the failure fails too', async () => {
     vi.mocked(submitAgentRun).mockRejectedValue(new JobSubmitError('backend unreachable', 502))
-    vi.mocked(repository.updateRun).mockRejectedValue(new Error('the database system is shutting down'))
+    vi.mocked(repository.closeActiveRun).mockRejectedValue(new Error('the database system is shutting down'))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
 
     expect(run?.status).toBe('failed')
+  })
+
+  describe('what the submit records follows the run lifecycle', () => {
+    function duringTheSubmit(change: Partial<TaskRun>) {
+      vi.mocked(submitAgentRun).mockImplementation(async (spec) => {
+        insertedRun = { ...insertedRun, ...change } as TaskRun
+        return { backendJobId: 'backend-1', conversationId: spec.conversationId, runMessageId: `msg-${spec.runId}`, queued: change.status === 'running' }
+      })
+    }
+
+    it('never writes a status past the lifecycle: no unconditional update carries one', async () => {
+      await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      const statusWrites = vi.mocked(repository.updateRun).mock.calls.filter(([, , patch]) => 'status' in patch)
+      expect(statusWrites).toEqual([])
+      expect(recordSubmission).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps the ending of a row the kill switch closed during the submit, and still records the job', async () => {
+      duringTheSubmit({ status: 'interrupted', error: 'Abgebrochen.' })
+
+      const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      expect(run).toMatchObject({ status: 'interrupted', error: 'Abgebrochen.', backendJobId: 'backend-1' })
+    })
+
+    it('does not put a run the worker already started back to queued', async () => {
+      const startedAt = new Date('2026-11-11T10:00:00.000Z')
+      duringTheSubmit({ status: 'running', startedAt })
+
+      const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      expect(run).toMatchObject({ status: 'running', startedAt, backendJobId: 'backend-1' })
+    })
+
+    it('keeps the ending that stands when the submit fails on a row already ended', async () => {
+      vi.mocked(submitAgentRun).mockImplementation(async () => {
+        insertedRun = { ...insertedRun, status: 'interrupted', error: 'Abgebrochen.' } as TaskRun
+        throw new JobSubmitError('backend unreachable', 502)
+      })
+
+      const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      expect(run).toMatchObject({ status: 'interrupted', error: 'Abgebrochen.' })
+    })
   })
 
   it('audits the creation as `task.created`, with the trigger named', async () => {
@@ -371,8 +394,6 @@ describe('isDelegatableTaskKind', () => {
     for (const kind of ['compliance_check', 'submission_check', 'document', 'revision']) {
       expect(isDelegatableTaskKind(kind)).toBe(true)
     }
-    // `chat` and `deep-research` describe how a definition delivers a result;
-    // asking for one would be naming a delivery channel where work belongs.
     expect(isDelegatableTaskKind('chat')).toBe(false)
     expect(isDelegatableTaskKind('deep-research')).toBe(false)
   })
@@ -394,17 +415,12 @@ describe('a cadence turns the delegation into a schedule', () => {
       dueAt: null,
     })
     expect(insertedDefinition.nextRunAt).toBeInstanceOf(Date)
-    // No run now: the scheduler owns every fire of a schedule.
     expect(result.run).toBeNull()
     expect(repository.insertDefinitionWithRun).not.toHaveBeenCalled()
     expect(submitAgentRun).not.toHaveBeenCalled()
   })
 
   it('refuses a cadence from a requester without project:skills:manage, creating nothing', async () => {
-    // Production answers the missing permission with NotFoundError, not
-    // ForbiddenError: `requireProjectAccess` hides a project the caller cannot
-    // name a permission on. The first call passed already, so the second one's
-    // 404 is this denial.
     vi.mocked(requireProjectAccess)
       .mockResolvedValueOnce({ role: 'project-admin' } as never)
       .mockRejectedValueOnce(new NotFoundError('Project not found'))
@@ -418,8 +434,6 @@ describe('a cadence turns the delegation into a schedule', () => {
       }),
     ).rejects.toThrow('project:skills:manage')
 
-    // Nothing was written: the refusal is the whole outcome, and its message is
-    // what the model relays.
     expect(repository.insertDefinition).not.toHaveBeenCalled()
     expect(submitAgentRun).not.toHaveBeenCalled()
   })
@@ -440,9 +454,6 @@ describe('a cadence turns the delegation into a schedule', () => {
 
 describe('what a delegated run is told to produce', () => {
   it('never tells a `document` or `revision` run to call the filing tools', async () => {
-    // The BFF files these kinds at completion, in the requester's pinned
-    // session. A run told to call `file_draft` as well would file the document
-    // twice, even though its tools now act as the requester (ADR-0108).
     for (const kind of ['document', 'revision'] as const) {
       vi.clearAllMocks()
       vi.mocked(repository.insertDefinition).mockImplementation(async (values) => {
@@ -459,6 +470,7 @@ describe('what a delegated run is told to produce', () => {
     return insertedRun
   })
   vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => ({ ...insertedRun, ...patch }) as TaskRun)
+  storedRunWrites()
       vi.mocked(submitAgentRun).mockResolvedValue({
         backendJobId: 'b',
         conversationId: null,
@@ -472,9 +484,7 @@ describe('what a delegated run is told to produce', () => {
         subject: kind === 'revision' ? { documentId: 'd', versionId: 'v', comment: 'c' } : undefined,
       })
       expect(insertedDefinition.plan.prompt).not.toContain('file_draft')
-      // The retired name too: a prompt that still teaches it names a tool that no longer exists.
       expect(insertedDefinition.plan.prompt).not.toContain('submit_draft')
-      // The answer IS the document, which is what `completeRunForOutcome` files.
       expect(insertedDefinition.plan.prompt).toContain('Markdown')
     }
   })
@@ -502,9 +512,7 @@ describe('commissionResearchRun — an escalated question becomes a run', () => 
       requesterUserId: 'user_asker',
       projectId: PROJECT,
     })
-    // The question is the prompt, verbatim: a rewritten one is a different run.
     expect(inserted.plan?.prompt).toBe(QUESTION)
-    // The title is the question's first sentence, so a list row names the work.
     expect(inserted.title).toBe('Gilt für das Atrium in Haus A OIB 2 oder OIB 2.3?')
 
     expect(vi.mocked(submitAgentRun).mock.calls[0][0]).toMatchObject({
@@ -512,7 +520,6 @@ describe('commissionResearchRun — an escalated question becomes a run', () => 
       conversationId: THREAD,
       runId: 'run-1',
     })
-    // Never a thread of its own: an escalation always has the one it came from.
     expect(createTaskThread).not.toHaveBeenCalled()
 
     expect(result).toEqual({
@@ -608,7 +615,7 @@ describe('commissionResearchRun — an escalated question becomes a run', () => 
     })
 
     expect(result.status).toBe('failed')
-    expect(vi.mocked(repository.updateRun).mock.calls[0][2]).toMatchObject({
+    expect(vi.mocked(repository.closeActiveRun).mock.calls[0][2]).toEqual({
       status: 'failed',
       error: 'backend unreachable',
     })
@@ -708,7 +715,6 @@ describe('a run’s Unterlagen never name a document from a restricted folder (A
     expect(error).toBeInstanceOf(ConversationConfinedError)
     expect((error as ConversationConfinedError).action).toBe('planDocument')
     expect((error as ConversationConfinedError).message).toContain('Ordner mit eingeschränktem Zugriff')
-    // Restricted folders, archived and held rows included: the lookup is not the reader's listing.
     expect(findProjectDocumentsByFilenames).toHaveBeenCalledWith(PROJECT, 'org_1', ['Abmahnung_Meier_2026.pdf'], {
       includeArchived: true,
       reader: { kind: 'internal', why: 'identity' },

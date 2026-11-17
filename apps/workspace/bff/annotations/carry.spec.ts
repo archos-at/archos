@@ -1,10 +1,3 @@
-/**
- * Where a carried mark goes on to: the end of the chain of documents that
- * replace its own, walked only as far as the reader may open. A link the shelf
- * shows but the reader cannot open (a closed folder) ends the walk at the last
- * document they can; any other failure is not swallowed.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -22,7 +15,6 @@ import { replacingDocumentOf } from './carry'
 const session = { userId: 'user_1', organizationId: 'org_1' } as unknown as AuthorizedSession
 const doc = (id: string) => ({ id }) as unknown as Document
 
-/** B → C → D, as the shelf shows the links. */
 const CHAIN: Record<string, string> = { B: 'C', C: 'D' }
 
 beforeEach(() => {

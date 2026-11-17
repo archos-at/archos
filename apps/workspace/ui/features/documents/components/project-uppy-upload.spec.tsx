@@ -2,8 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 
-// The control reads the server-computed accept-list and size limit from config;
-// the same stub the other document specs use.
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     authRequired: true,
@@ -20,31 +18,19 @@ vi.mock('@/shared/context', () => ({
 
 import { ProjectUppyUpload } from './project-uppy-upload'
 
-/**
- * ONE CONTROL, TWO SOURCES.
- *
- * Folder upload first shipped as a second button beside the upload one, and it
- * cost more than it looked. The action row shares its header width with the
- * section's description, so an extra full-width button squeezed that text into
- * a four-word column — and a peer button overstated the feature, which is an
- * occasional onboarding move rather than the everyday one.
- *
- * It cannot be folded into the same INPUT — one carrying `webkitdirectory` can
- * only choose folders — so the split lives in a menu behind the single button.
- */
 describe('ProjectUppyUpload', () => {
-  it('labels the drop card with the per-file limit the server enforces, in decimal MB', () => {
-    // It used to divide by 1024², so a 100 MB limit read "max. 95 MB".
-    render(<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} variant="dropcard" />)
-    expect(screen.getByTestId('project-upload-dropcard')).toHaveTextContent(
-      /· max\. 100 MB per file$/
-    )
+  it('says at the foot of its menu where else files may go, the formats, and the per-file limit in decimal MB', async () => {
+    const user = userEvent.setup()
+    render(<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} allowFolders />)
+    await user.click(screen.getByTestId('project-upload-trigger'))
+    const note = await screen.findByTestId('project-upload-limits')
+    expect(note).toHaveTextContent('Or drop files anywhere on this page.')
+    expect(note).toHaveTextContent(/PDF, DOCX, TXT, MD.* · max\. 100 MB per file$/)
   })
 
   it('is a plain button where folders are not offered', () => {
     render(<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} />)
 
-    // No second control, and no menu affordance on the one that is there.
     expect(screen.queryByTestId('project-upload-folder-item')).not.toBeInTheDocument()
     expect(screen.getByRole('button')).toBeInTheDocument()
   })
@@ -53,7 +39,6 @@ describe('ProjectUppyUpload', () => {
     const user = userEvent.setup()
     render(<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} allowFolders />)
 
-    // Still exactly one control in the row — that is the point.
     expect(screen.getAllByRole('button')).toHaveLength(1)
 
     await user.click(screen.getByTestId('project-upload-trigger'))
@@ -69,8 +54,6 @@ describe('ProjectUppyUpload', () => {
     )
 
     const folderInput = container.querySelector('[data-testid="project-upload-folder-input"]')
-    // `webkitdirectory` is what makes it a FOLDER picker; without it the menu
-    // item would silently open an ordinary file dialog.
     expect(folderInput).toHaveAttribute('webkitdirectory')
 
     const clicked = vi.fn()

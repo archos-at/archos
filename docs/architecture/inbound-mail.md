@@ -167,8 +167,17 @@ then:
 
 The Worker bounces only a 4xx carrying `x-inbound-verdict: reject`; everything
 else is a retry for the sending server (`contracts/inbound-mail-contract.json`).
-One log line per delivery, ids and codes only; a refusal is a PostHog
-`inbound_mail_refused` with its `reason`.
+One log line per delivery, ids and codes only, with the `stage` it reached
+and, for a refusal of ours, the `error` chain (classes, codes and an object
+store's HTTP status, never a message: `describeError`); a refusal is a PostHog
+`inbound_mail_refused` with its `reason`, `stage` and `error`. The Product
+incidents alert fires on three refusals of ours in an hour on any stack
+([`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts)). The
+Worker logs one line per mail to Cloudflare's Workers Logs (outcome, the BFF's
+status, verdict and `x-request-id`; no address: invocation logs are off), so a
+refusal can be followed from Cloudflare to the BFF's trace by that id. Both
+exist because in 2026-11 dev refused every delivery to one office for two days
+as `unavailable` and neither side recorded why.
 
 ## Reading and holding: the receive job
 
@@ -545,7 +554,7 @@ In the order they run:
 | # | Name | What | Window | Legal hold |
 |---|---|---|---|---|
 | 1 | `staleReceptions` | `receiving` untouched: object erased by key, row deleted | 15 min | project hold: skipped |
-| 2 | `orphanedReceptions` | `received` with no job row: queued again (its run started at once). One whose job is dead is not listed: the row went `dead` after `BFF_JOBS_MAX_ATTEMPTS` failed attempts, or when its worker was lost on the last one (`bff/jobs-queue/task-run.ts`), the pod logged it once (`[bff-jobs] … now dead`), and the mail is queued again once `purgeDeadJobs` deletes the row after `BFF_JOBS_DEAD_RETENTION_DAYS` (14). A Hatchet run that ends without touching the row (out of its retries, its worker gone) leaves it `queued` or held, and the dispatch sweep starts a run for it (`dispatchStrandedJobs`), so that mail has a job and is no orphan. Throughout, the mail keeps its staged message. Listing dead ones first let fifty fill every batch and logged an error for each every run (R11 of the second review) | 5 min | — |
+| 2 | `orphanedReceptions` | `received` with no job row: queued again (its run started at once). One whose job is dead is not listed: the row went `dead` after `BFF_JOBS_MAX_ATTEMPTS` failed attempts, or when its worker was lost on the last one (`bff/jobs-queue/task-run.ts`), the pod logged it once (`[bff-jobs] … now dead`), and the mail is queued again once `purgeDeadJobs` deletes the row after `BFF_JOBS_DEAD_RETENTION_DAYS` (14). A job that fails on its last attempt does not normally die with the mail `received`: `runInboundMailReceive` first holds it unreadable (`holdAfterFailure`, also when its raw message cannot be read), so the mail is `waiting`, visible to a person, and ends by its window; only a failure to hold it at all (the database down) leaves it `received`, and then the re-queue after the purge is the retry. A Hatchet run that ends without touching the row (out of its retries, its worker gone) leaves it `queued` or held, and the dispatch sweep starts a run for it (`dispatchStrandedJobs`), so that mail has a job and is no orphan. Throughout, the mail keeps its staged message. Listing dead ones first let fifty fill every batch and logged an error for each every run (R11 of the second review) | 5 min | — |
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
@@ -591,7 +600,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 
 | Type | Told to | Row | Link | Push | Settled |
 |---|---|---|---|---|---|
-| `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing waits |
+| `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable; its number is what waits now (`lib/inbox/live-counts.ts`), not the row's since-read tally | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
 | `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
 | `inbound_mail.rejected` | the member the From names, when a dismissal ended their mail | per mail | `/files` | results, low | — |
@@ -602,6 +611,20 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
 | `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
+
+**A waiting row says what waits, not what arrived.** A collapsed row's `count`
+is occurrences since the reader last read it (`markReadValues`), right for
+„3 neue Nachrichten“ and wrong for „2 E-Mails warten auf Ablage“: on dev
+(2026-11-06) the row read „Eine E-Mail … wartet“ beside an E-Mail-Eingang
+holding two, because reading it set the count to 0 and the next mail added one,
+and a mail whose filing failed (`filing_failed`, its own row) was never added.
+So the read path (`listInbox`, and the push's `viewInboxItemAs`) replaces the
+count of an `inbound_mail.waiting` row with the project's waiting mails, by
+`projectNoticeState`'s rule (`waitingMailCounts`), once the view is built and
+only when its target is reachable: a redacted row (access revoked) keeps its
+stored tally and reads nothing. Only the words follow it;
+the badge counts rows, and read and unread are as stored. `titleNone` covers a
+row read after its last mail was decided and before the settle resolved it.
 
 **The project's writers** are asked of WorkOS once per organization and
 project every five minutes (`lib/inbound-mail/notice-recipients.ts`,

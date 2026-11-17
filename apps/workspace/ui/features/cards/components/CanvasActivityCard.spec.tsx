@@ -1,40 +1,3 @@
-/**
- * The `canvas_activity` card: what Piloti did on a document, and the reader's
- * answer per mark.
- *
- * What this file holds the card to:
- *
- * 1. **One decision per mark**, a PATCH through the annotations client. The
- *    mark is the record (the card is `live`): nothing is written to the
- *    message. A decision a message stored before that still draws the mark
- *    answered, read-only, and offers nothing again.
- * 2. **The canvas wins.** A mark a colleague answered on the canvas reads as
- *    answered here, and a 409 re-reads instead of recording a decision the
- *    reader never made.
- * 3. **Taking over reads first**, because the API lets a discarded mark be
- *    opened again and a 409 would not stop it.
- * 4. **„Im Dokument zeigen" opens the Prüfansicht at that mark** through
- *    `openReviewAt`, the one way into the review.
- * 5. **What the person asked for reads as done, and can be undone.** A mark set
- *    on request reads like a person's open mark; a change reads in the
- *    reader's words with Piloti's note, and „Rückgängig" PATCHes the inverse
- *    with the status Piloti left as `expectedStatus`, never undoing a
- *    colleague's later move; a deletion only says so.
- * 6. **The server's record wins** (ADR-0109): a row with a `agent_changes`
- *    row draws from it (who it was for, undone and by whom, `canUndo`) and
- *    undoes through `undoChange`; a row without one, or a request that
- *    failed, keeps the card's own copy and its browser-side replay.
- *    `moved-on` and `already-undone` answer calmly, and a live change to one
- *    of the card's marks reads the record again.
- * 7. **Several proposals answer at once**: „Alle übernehmen" and „Übrige
- *    verwerfen" are the per-mark write on each mark still proposed, a mark
- *    somebody decided meanwhile is skipped and its row says who, and
- *    discarding asks first.
- * 8. **Each row tells its thread at a glance**: the reply count and the
- *    newest reply's author and first words, from the live list.
- *
- * Rendered without an `I18nProvider`, so the dictionary falls back to `en`.
- */
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -73,7 +36,6 @@ vi.mock('@/lib/changes/client', async (importOriginal) => ({
   undoChange: vi.fn(),
 }))
 
-// The document's live store, scripted: a test moves `touched` to say a hint named one of the card's marks.
 let mockTouched = 0
 vi.mock('../hooks/use-canvas-document', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../hooks/use-canvas-document')>()
@@ -192,10 +154,6 @@ interface Call {
 
 let calls: Call[] = []
 
-/**
- * The annotations routes: `list` answers GET …/annotations (one value per read,
- * the last repeating), `patch` answers PATCH …/annotations/{id}.
- */
 function stubRoutes({
   list = [[view('ann-7', 7), view('ann-8', 8)]],
   patch = (id: string, body: { status: string }) => ({
@@ -231,7 +189,6 @@ function stubRoutes({
   )
 }
 
-/** An observer that reports the card on screen at once, so its reads start. */
 class SeenObserver {
   constructor(private readonly callback: IntersectionObserverCallback) {}
   observe() {
@@ -272,7 +229,6 @@ describe('CanvasActivityCard — what it says', () => {
     renderCard([REPLY])
     expect(screen.getByText('Replied in the thread of #4')).toBeInTheDocument()
     expect(screen.getByText('„Im Türenbuch als EI2 30-C geführt.“')).toBeInTheDocument()
-    // A reply asks nothing: no take-over, no discard.
     expect(screen.queryByRole('button', { name: /Take over/ })).toBeNull()
   })
 
@@ -318,9 +274,7 @@ describe('CanvasActivityCard — the answer per mark', () => {
     const patch = calls.find((call) => call.method === 'PATCH')
     expect(patch?.url).toBe(`/api/documents/${DOC.id}/annotations/ann-7`)
     expect(patch?.body).toEqual({ status: 'open', expectedStatus: 'proposed' })
-    // Nothing is written to the message: the mark holds the answer.
     expect(setCardDecision).not.toHaveBeenCalled()
-    // The other mark still asks.
     expect(screen.getByRole('button', { name: 'Take over annotation 8' })).toBeInTheDocument()
   })
 
@@ -570,11 +524,8 @@ describe('CanvasActivityCard — into the document', () => {
   })
 })
 
-// ── The server's record (ADR-0109) ──────────────────────────────────────────
-
 const ANN4 = '00000000-0000-4000-8000-0000000000a4'
 
-/** One applied change as the server answers it; tests override what they test. */
 const change = (patch: Partial<AgentChangeView> = {}): AgentChangeView => ({
   id: '00000000-0000-4000-8000-0000000000b1',
   documentId: DOC.id,
@@ -597,7 +548,6 @@ const change = (patch: Partial<AgentChangeView> = {}): AgentChangeView => ({
 
 const RECORDED: CanvasActivityItem = { ...(RESOLVED as Extract<CanvasActivityItem, { action: 'changed' }>), annotation_id: ANN4 }
 
-/** The canvas still holds the recorded mark, resolved, as Piloti left it. */
 const RECORDED_MARK = view(ANN4, 4, { status: 'resolved', authorKind: 'person' })
 
 const UNDO_BUTTON = 'Undo the change to annotation 4'
@@ -614,8 +564,6 @@ describe('CanvasActivityCard — the server’s record wins', () => {
   })
 
   it('draws undo-ability from the record, not from the card’s copy', async () => {
-    // The live list says the mark moved on (open again) — the record still says it may be undone:
-    // the server compares, the card does not guess.
     stubRoutes({ list: [[view(ANN4, 4, { status: 'resolved', authorKind: 'person' })]] })
     turnChanges.mockResolvedValue({ changes: [change({ canUndo: true })] })
     renderCard([RECORDED])
@@ -729,7 +677,6 @@ describe('CanvasActivityCard — the card’s own copy is the fallback', () => {
     renderCard([SET, RESOLVED])
 
     await screen.findByText('for Miriam')
-    // The changed row has no change: the copy's replay is offered as before.
     expect(await screen.findByRole('button', { name: UNDO_BUTTON })).toBeInTheDocument()
     expect(undo).not.toHaveBeenCalled()
   })
@@ -751,7 +698,6 @@ describe('CanvasActivityCard — undo through the record', () => {
 
     expect(undo).toHaveBeenCalledWith(original.id)
     await waitFor(() => expect(screen.getByTestId('canvas-activity-state')).toHaveTextContent('Undone'))
-    // No PATCH replay, and nothing stored on the message.
     expect(calls.some((call) => call.method === 'PATCH')).toBe(false)
     expect(setCardDecision).not.toHaveBeenCalled()
   })
@@ -823,7 +769,6 @@ describe('CanvasActivityCard — live', () => {
     await waitFor(() => expect(turnChanges).toHaveBeenCalledTimes(1))
     await screen.findByText('for Miriam')
 
-    // A colleague undid it on another screen: the hint moves the stamp.
     turnChanges.mockResolvedValue({
       changes: [change({ undoneAt: '2026-10-13T09:00:00.000Z', undoneBy: 'user_anna', undoneByName: 'Anna', canUndo: false })],
     })
@@ -845,7 +790,6 @@ describe('CanvasActivityCard — several proposals at once', () => {
 
     expect(await screen.findByRole('button', { name: TAKE_ALL })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: DISCARD_REST })).toBeInTheDocument()
-    // The per-mark answers stay.
     expect(screen.getByRole('button', { name: 'Take over annotation 7' })).toBeInTheDocument()
   })
 
@@ -930,7 +874,6 @@ describe('CanvasActivityCard — several proposals at once', () => {
 
     const skipped = await screen.findByTestId('canvas-activity-skipped')
     expect(skipped).toHaveTextContent('already handled by Anna')
-    // The mark the batch did take over carries no such note.
     expect(screen.getAllByTestId('canvas-activity-skipped')).toHaveLength(1)
     expect(skipped.closest('li')).toHaveAttribute('data-testid', 'canvas-activity-proposed')
     expect(within(skipped.closest('li') as HTMLElement).getByTestId('canvas-activity-state')).toHaveTextContent('Anna')

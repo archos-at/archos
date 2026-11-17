@@ -35,11 +35,18 @@ type State = { reads: Set<string>; installed: boolean }
 const KEY = Symbol.for('vitest.disk-inputs')
 const state: State = ((globalThis as Record<symbol, State>)[KEY] ??= { reads: new Set(), installed: false })
 
+function isFileUrl(target: unknown): target is { pathname: string } {
+  if (typeof target !== 'object' || target === null) return false
+  const url = target as { protocol?: unknown; pathname?: unknown }
+  return url.protocol === 'file:' && typeof url.pathname === 'string'
+}
+
 /** A read that counts as an input: inside the repository, outside installed packages and build output. */
 export function asInput(target: unknown): string | null {
   let file: string
   if (typeof target === 'string') file = target
-  else if (target instanceof URL && target.protocol === 'file:') file = target.pathname
+  // By shape, not `instanceof URL`: under a vm pool a spec's URL comes from another realm.
+  else if (isFileUrl(target)) file = target.pathname
   else return null
   const absolute = path.resolve(file)
   const relative = path.relative(REPO_ROOT, absolute)

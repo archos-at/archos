@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Characterization of the single-job HTTP contract (slice 01 of the
- * task-model follow-up, PR #659): get returns the row bare, patch returns the
- * updated row bare, delete answers 204.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'

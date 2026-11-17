@@ -1,5 +1,7 @@
 /**
- * BIM repository — the only module that talks to `bim_models` / `bim_elements`.
+ * BIM repository: with `./extraction-repository.ts`, which holds the three
+ * writers of a model's extraction, the only modules that talk to `bim_models` /
+ * `bim_elements`.
  *
  * Repository rules (docs/architecture/bff-service-architecture.md): drizzle
  * only, no HTTP, no object storage, no auth. Every query takes
@@ -16,7 +18,6 @@ import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibili
 import { bimCheckConfirmations, bimElements, bimModels, type BimElementRow, type BimModelRow } from '@/lib/db/schema/bim'
 import { documents } from '@/lib/db/schema/documents'
 import { ifcTypeVariants } from './rules'
-import { buildSearchKeys, buildStoredRuleInputs } from './rule-inputs'
 import type { StoredRuleInputs } from './rule-inputs'
 import { BIM_ELEMENTS_PAGE_LIMIT } from './types'
 import type { BimElement, BimModelStatus, BimModelSummary } from './types'
@@ -39,9 +40,6 @@ import type { BimElement, BimModelStatus, BimModelSummary } from './types'
  * one number.
  */
 export const BIM_ELEMENT_PAGE_LIMIT = BIM_ELEMENTS_PAGE_LIMIT
-
-/** Rows per INSERT when writing an extraction result. */
-const ELEMENT_INSERT_BATCH = 500
 
 export interface BimModelHeader {
   id: string
@@ -203,144 +201,6 @@ export async function listBimModels(
       )
       .orderBy(desc(bimModels.updatedAt))
       .limit(limit)
-  )
-}
-
-/**
- * Create (or reset) the model row for a document and mark it `extracting`.
- *
- * Idempotent on `document_id`: a re-ingest reuses the row rather than leaving
- * two models for one file, and clears the previous error and summary so a
- * failed extraction cannot leave stale facts visible next to a fresh attempt.
- */
-export async function startBimModel(input: {
-  organizationId: string
-  projectId: string | null
-  documentId: string
-}): Promise<string> {
-  const db = getDb()
-  const rows = await withTenant({ organizationId: input.organizationId }, () =>
-    db
-      .insert(bimModels)
-      .values({
-        organizationId: input.organizationId,
-        projectId: input.projectId,
-        documentId: input.documentId,
-        status: 'extracting',
-      })
-      .onConflictDoUpdate({
-        target: bimModels.documentId,
-        set: {
-          status: 'extracting',
-          errorMessage: null,
-          summary: null,
-          schemaVersion: null,
-          elementCount: 0,
-          extractedAt: null,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ id: bimModels.id })
-  )
-  return rows[0].id
-}
-
-export async function failBimModel(
-  modelId: string,
-  organizationId: string,
-  errorMessage: string
-): Promise<void> {
-  const db = getDb()
-  await withTenant({ organizationId }, () =>
-    db
-      .update(bimModels)
-      .set({ status: 'failed', errorMessage: errorMessage.slice(0, 2000), updatedAt: new Date() })
-      .where(and(eq(bimModels.id, modelId), eq(bimModels.organizationId, organizationId)))
-  )
-}
-
-/**
- * Write an extraction result: replace the element rows, then flip the model to
- * `ready` with its summary.
- *
- * One transaction, because a model whose summary says "1 240 elements" while
- * the element table holds the previous extraction's rows is worse than either
- * state alone — every count the agent reports would be drawn from a model that
- * never existed.
- */
-export async function completeBimModel(input: {
-  modelId: string
-  organizationId: string
-  summary: BimModelSummary
-  elements: readonly BimElement[]
-  indexStorageKey: string | null
-  indexStorageBucket: string | null
-}): Promise<void> {
-  const db = getDb()
-  await withTenant({ organizationId: input.organizationId }, () =>
-    db.transaction(async (tx) => {
-      await tx.delete(bimElements).where(eq(bimElements.modelId, input.modelId))
-
-      for (let offset = 0; offset < input.elements.length; offset += ELEMENT_INSERT_BATCH) {
-        const batch = input.elements.slice(offset, offset + ELEMENT_INSERT_BATCH)
-        await tx.insert(bimElements).values(
-          batch.map((element) => ({
-            modelId: input.modelId,
-            globalId: element.globalId,
-            expressId: element.expressId,
-            ifcType: element.ifcType,
-            name: element.name,
-            predefinedType: element.predefinedType,
-            objectType: element.objectType,
-            tag: element.tag,
-            typeName: element.typeName,
-            storeyGlobalId: element.storeyGlobalId,
-            storeyName: element.storeyName,
-            containerKind: element.containerKind,
-            containerName: element.containerName,
-            materials: element.materials,
-            searchKeys: buildSearchKeys(element),
-            classifications: element.classifications,
-            properties: element.properties,
-            quantities: element.quantities,
-          }))
-        )
-      }
-
-      await tx
-        .update(bimModels)
-        .set({
-          status: 'ready',
-          schemaVersion: input.summary.schema,
-          summary: input.summary,
-          elementCount: input.elements.length,
-          // Computed here, inside the same transaction that writes the
-          // elements, so the FIRST person to open the Prüfbuch gets the fast
-          // path too. Extraction already holds every element in memory; the
-          // projection is a map over them and costs nothing next to the parse
-          // that produced them.
-          // `truncatedAt` and NOT a hardcoded `false`. Extraction stops at
-          // `BIM_ELEMENT_LIMIT`, and a projection that claims to cover a
-          // building it only covers part of is the "Prüfbuch judged over part
-          // of a building" failure — reintroduced on the fast path, where it
-          // would be worse than before because the fast path is the one every
-          // reader gets.
-          ruleInputs: buildStoredRuleInputs(input.elements, input.summary.truncatedAt !== null),
-          // Set in the SAME transaction that wrote the elements above, so the
-          // flag cannot claim an index the rows do not have. An older image
-          // extracting a model during a rolling deploy never reaches this line
-          // and leaves the flag false, which reads as "unnest only".
-          searchKeysIndexed: true,
-          indexStorageKey: input.indexStorageKey,
-          indexStorageBucket: input.indexStorageBucket,
-          errorMessage: null,
-          extractedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(
-          and(eq(bimModels.id, input.modelId), eq(bimModels.organizationId, input.organizationId))
-        )
-    })
   )
 }
 

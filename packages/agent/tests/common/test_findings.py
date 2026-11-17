@@ -1,5 +1,3 @@
-"""The findings contract: bounded, fail-soft per row, pinned to the shared fixture."""
-
 import json
 from pathlib import Path
 
@@ -71,8 +69,6 @@ class TestSanitize:
 
 
 class TestARowMayStateWithoutJudging:
-    """A Bericht states its rows; only a Prüfbericht judges them (status null = stated, not failed)."""
-
     def test_a_null_status_survives_and_is_not_counted(self):
         out = sanitize_findings(
             {

@@ -450,6 +450,7 @@ async function searchPage(
   // The tag filters run inside the search, so a project is asked for exactly
   // `limit` documents; `matchesTags` below stays as a backstop.
   const hits = await fetchGroupedSemanticHits(
+    session.organizationId,
     plans.flatMap(collectionsOf).slice(0, BACKEND_SEARCH_MAX_COLLECTIONS),
     request.query,
     request.limit,

@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * One attachment of a held mail, as the person decides it: a checkbox, the
- * first look at it, its name and facts, what the reader must know before
- * filing it (DECISION §9, the case table), and where it would go.
- *
- * Where it goes is the agent's suggestion until the person touches it: the
- * filing chip names the folder and opens the folder picker, the Dokumentart
- * and the name sit beside it, and „Ändern“ edits them. Pressing „Ablegen“
- * is the takeover; there is no separate „Vorschlag übernehmen“.
- *
- * A row that cannot be filed says why in words and offers no checkbox it
- * could not honour: a running or failed scan, malware, a type the office does
- * not file. A clean scan is the normal case and is silent: scanning shows only
- * when it is running or found something.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -30,6 +14,7 @@ import {
   Lock,
   ShieldAlert,
   ShieldQuestion,
+  Tag,
   Timer,
   Undo2,
 } from 'lucide-react'
@@ -45,8 +30,9 @@ import { documentFilesHref, FolderPickerSheet } from '@/features/documents'
 import { fileExtensionLabel } from '@/features/documents/document-kind'
 import { useLocale, useTranslations } from '@/i18n'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
-import { formatBytes, formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
 import { targetForPath, type AttachmentDraft, type FolderOption, type FolderTarget } from '../lib/draft'
 import { folderLeaf, readSuggestion } from '../lib/suggestion'
@@ -62,13 +48,9 @@ export interface AttachmentRowProps {
   entry: AttachmentCase
   draft: AttachmentDraft
   folders: readonly FolderOption[]
-  /** The part's content route, for the thumbnail; null when it may not be drawn. */
   contentUrl: string | null
-  /** Why no suggestion is shown, when there is none. */
   missingSuggestion: 'pending' | 'skipped' | 'none'
-  /** The row has the keyboard's attention (Space previews it). */
   focused?: boolean
-  /** Shown, never decided: the mail is only its member's to file (`onlySenderReleases`). No checkbox, no target. */
   readOnly?: boolean
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
   onPreview?: () => void
@@ -96,7 +78,6 @@ export function AttachmentRow({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const { part, status, selectable } = entry
-  // Filed, the bytes and their name are gone (D6): the document's name is what it is now called.
   const name = part.filedAs?.name ?? part.filename ?? draft.name
   const suggestion = useMemo(() => readSuggestion(part.suggestion), [part.suggestion])
   const destinations = useMemo(
@@ -116,7 +97,7 @@ export function AttachmentRow({
         return (
           <FactLine key="duplicate" icon={Copy} testId="note-duplicate">
             {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
-            {' · '}
+            {CLAUSE_JOIN}
             <Button asChild variant="inline">
               <Link href={documentFilesHref(projectId, note.documentId)}>{t('attachments.open')}</Link>
             </Button>
@@ -179,7 +160,6 @@ export function AttachmentRow({
     switch (status) {
       case 'scan_pending':
         return (
-          // A still glyph: a spinner on every row would be as many loops on one screen (one ambient loop at a time).
           <FactLine icon={Timer} testId="status-scan-pending">
             {t('attachments.status.scan_pending')}
           </FactLine>
@@ -204,7 +184,6 @@ export function AttachmentRow({
         )
       case 'filing':
         return (
-          // Still, like the scan: the detail's own „Wird abgelegt …“ line is the one spinner.
           <FactLine icon={Timer} testId="status-filing">
             {t('attachments.status.filing')}
           </FactLine>
@@ -216,7 +195,7 @@ export function AttachmentRow({
         return (
           <FactLine icon={Undo2} testId={`status-${status}`}>
             {t(`attachments.status.${status}`)}
-            {part.restorableUntil && ` · ${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
+            {part.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
           </FactLine>
         )
       case 'waiting':
@@ -230,7 +209,7 @@ export function AttachmentRow({
   return (
     <Item
       as="li"
-      className={cn('items-start px-3 sm:px-4', !draft.checked && status === 'waiting' && !readOnly && 'bg-muted/20')}
+      className={cn('items-start px-4 [--row-end:16px] [--row-text:96px]', ROW_HAIRLINE)}
       data-cursor={focused || undefined}
       data-testid={`attachment-${part.id}`}
       data-status={status}
@@ -252,7 +231,7 @@ export function AttachmentRow({
         onClick={onPreview}
         disabled={!contentUrl || !onPreview}
         aria-label={t('attachments.preview', { name })}
-        className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
+        className="shrink-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
       >
         <AttachmentThumbnail filename={name} contentType={part.contentType} url={contentUrl} />
       </button>
@@ -282,17 +261,19 @@ export function AttachmentRow({
                     newLabel={folderTarget.kind === 'new' ? t('suggestion.newFolder') : undefined}
                     title={folderLabel(folderTarget, t('suggestion.root'))}
                     onClick={() => setPickerOpen(true)}
-                    className={cn(!draft.suggested.folder && 'border-solid')}
+                    mark={false}
+                    className="bg-background hover:bg-desk"
                     data-testid="attachment-folder"
                   />
                 ) : (
-                  <Button type="button" size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
+                  <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
                     <FolderInput className="size-3.5" aria-hidden />
                     {t('target.chooseFolder')}
                   </Button>
                 ))}
               {draft.documentType && (
-                <Badge variant="secondary" data-testid="attachment-type">
+                <Badge variant="secondary" className="bg-background gap-1" data-testid="attachment-type">
+                  <Tag className="text-muted-foreground size-3" aria-hidden />
                   {tagLabel(draft.documentType, tFiles)}
                 </Badge>
               )}
@@ -301,7 +282,7 @@ export function AttachmentRow({
                   → {draft.name}
                 </span>
               )}
-              <Button type="button" size="sm" variant="ghost" className="text-muted-foreground h-7 px-2 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+              <Button type="button" size="sm" variant="secondary" onClick={() => setEditOpen(true)} data-testid="attachment-change">
                 {t('attachments.change')}
               </Button>
             </div>

@@ -150,9 +150,12 @@ class JobState(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-    #: A person stopped the job before it finished (``claim_queue.CANCELLED``).
-    #: Terminal, and neither a failure nor a success: nothing went wrong, but
-    #: nothing was indexed either. A reader shows it as its own state.
+    #: A person stopped the job before it finished, or a newer upload of its
+    #: document replaced it (``ingest_status_store.cancelled``,
+    #: ``ingest_execution.settle_superseded``). Terminal, and neither a failure
+    #: nor a success: nothing went wrong, and the files it had not finished
+    #: were not indexed. Files that finished before the stop keep ``success``
+    #: and their chunks. A reader shows it as its own state.
     CANCELLED = "cancelled"
 
 
@@ -205,7 +208,7 @@ class QuarantineReason(BaseModel):
     """One reason the upload screen held a file back (ADR-0086, ADR-0113).
 
     A term the office listed, or a detector (``iban``, ``at_svnr``,
-    ``credit_card``); never a matched value. A detector's ``sample`` is masked
+    ``credit_card``, ``de_svnr``, ``de_tax_id``); never a matched value. A detector's ``sample`` is masked
     before it gets here (``AT61 •••• •••• •••• 3201``). ``kind`` is open: a
     detector the job learns first reaches a reader as a kind it does not know,
     which it reads as ``other`` rather than failing the whole verdict.

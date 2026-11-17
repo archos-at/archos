@@ -13,20 +13,6 @@ import { useFilePreviewStore } from '../stores/file-preview-store'
 import { useDocumentActions, type DocumentScope } from './document-actions'
 import type { FileItem } from './project-file-workspace'
 
-/**
- * The peek's actions, in the pill material the chat toolbar uses across the
- * seam: the details, download, full screen and close.
- *
- * ⓘ is where the details went. The peek used to open on a tab row,
- * „Dokument · Details", which put a choice above the document the reader came
- * to look at; the document is the peek now, and its details (what was read,
- * the Fassungen, the properties) take its place while ⓘ is pressed.
- *
- * Full screen goes where the document is at home full screen: a PDF that
- * carries Anmerkungen opens AS the Prüfansicht, with its marks, the room and
- * the tools; the pane says so through the store (`usePeekState`). Anything
- * else (an image, a model, a held upload) opens the enlarged pane.
- */
 export function PeekActions({
   file,
   scope,

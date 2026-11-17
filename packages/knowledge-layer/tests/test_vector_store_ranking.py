@@ -1,12 +1,3 @@
-"""``search.Ranking``: what each knob the parity sweep measures sends to Qdrant.
-
-Offline: the requests are built, not run. The sweep
-(``oib_retrieval.qdrant_parity.variants``) swaps ``search.RANKING`` and
-reads through production, so a knob that silently sent nothing would measure the
-baseline under another name. What each setting does to the ranking is measured
-by ``task be:eval:qdrant-parity -- --variants all`` (``qdrant-gates-2026-10.md``).
-"""
-
 from __future__ import annotations
 
 import math
@@ -31,8 +22,6 @@ def _channels(ranking: search.Ranking, exact_terms: tuple[str, ...] = ()) -> lis
 
 
 def test_production_runs_the_ranking_the_sweep_supports():
-    """Plain RRF at k=60 over plain nearest queries, no weights and no rescoring, ties
-    ordered by cosine: the one setting that cleared the adoption rule (``qdrant-gates-2026-10.md``)."""
     assert search.RANKING == search.Ranking()
     assert search.RANKING.cosine_tie_break
     fusion = search._fusion(search.RANKING, 3)
@@ -70,9 +59,6 @@ def _hit(chunk_id: str, fused: float, cosine: float) -> search.Hit:
 
 
 def test_tied_fused_scores_are_ordered_by_cosine_and_nothing_else_moves():
-    """Equal-weight RRF ties exactly (dense rank 3 alone against BM25 rank 3 alone), and
-    Qdrant returns a tie in no fixed order: 86 of 105 parity queries came back in a
-    different top-60 order on four identical calls."""
     hits = [
         _hit("a", 1 / 61 + 1 / 62, 0.40),
         _hit("b", 1 / 63, 0.30),
@@ -85,9 +71,6 @@ def test_tied_fused_scores_are_ordered_by_cosine_and_nothing_else_moves():
 
 def test_a_tie_straddling_the_cut_is_fetched_whole_before_it_is_cut():
     assert search._tie_slack(60) == 15 and search._tie_slack(3) == 4
-
-
-# ---------------------------------------------------------------- against a real Qdrant (QDRANT_TEST_URL)
 
 
 @pytest.fixture
@@ -111,13 +94,10 @@ def store(monkeypatch):
 
 
 def _at(cosine: float) -> list[float]:
-    """A unit vector at ``cosine`` to the first axis."""
     return [cosine, math.sqrt(1 - cosine * cosine), 0, 0, 0, 0, 0, 0]
 
 
 def test_a_three_way_rrf_tie_comes_back_in_cosine_order(store):
-    """Each channel's single candidate is a different passage, so all three fuse to
-    the same score: dense's (0.99), the exact-term channel's (0.80), BM25's (0.10)."""
     records = [
         ChunkRecord("dense-top", "Dachdeckung mit Ziegeln", _at(0.99), {"file_name": "a.pdf"}),
         ChunkRecord("exact-top", "Punkt 5.1.1 regelt die Dachdeckung", _at(0.80), {"file_name": "b.pdf"}),
@@ -135,13 +115,13 @@ def test_a_three_way_rrf_tie_comes_back_in_cosine_order(store):
             exact_terms=["5.1.1"],
             limit=3,
             candidates=1,
+            office_id="org_test",
         )
         assert len({round(hit.fused, 9) for hit in hits}) == 1, "the three are tied"
         assert [hit.chunk_id for hit in hits] == ["dense-top", "exact-top", "lexical-top"]
 
 
 def test_a_tie_between_projects_puts_the_closer_projects_group_first(store):
-    """Grouped search groups the fused order, so a tie decides which project leads."""
     records = {
         "proj_c": ChunkRecord("dense-top", "Dachdeckung mit Ziegeln", _at(0.99), {"file_name": "a.pdf"}),
         "proj_b": ChunkRecord("exact-top", "Punkt 5.1.1 regelt die Dachdeckung", _at(0.80), {"file_name": "b.pdf"}),
@@ -161,5 +141,6 @@ def test_a_tie_between_projects_puts_the_closer_projects_group_first(store):
             groups=3,
             group_size=1,
             candidates=1,
+            office_id="org_test",
         )
         assert [scope for scope, _ in groups] == ["proj_c", "proj_b", "proj_a"]

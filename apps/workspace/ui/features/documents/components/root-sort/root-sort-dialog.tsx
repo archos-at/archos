@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * „Alle Dateien in Ordner einsortieren…“: the dialog that shows one root sort.
- *
- * The server owns the run (ADR-0121). The dialog starts it, reads it, and sends
- * the person's answers, one request each; it never works through the documents
- * itself. Closing is always safe: the run goes on, and reopening the dialog
- * lands where the server got to. While a run works the dialog re-reads it every
- * two seconds; that poll is the only repeated request it makes.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from '@/components/ui/alert'
@@ -49,30 +39,20 @@ import { isSortConflict, isWorking, phaseOf } from '../../lib/root-sort-phase'
 import { RootSortReview } from './root-sort-review'
 import { RootSortOutcome, RootSortProgress, RootSortStages } from './root-sort-status'
 
-/** How often a working run is read again. */
 const POLL_MS = 2000
-/** Failed moves named in the outcome; the rest are counted. */
 const NAMED_FAILURES = 5
-/**
- * The window the time left is read over. Progress arrives in steps (a call of
- * thirty files finishing, a few moves), several at once and then a pause, so
- * the rate is read over two minutes rather than the upload tray's few seconds.
- */
 const RATE_WINDOW_MS = 120_000
-/** Reads in a row that must find the run's job queued before the dialog says it waits: between two slices it is queued for a moment. */
 const WAITING_READS = 2
 
 export interface RootSortDialogProps {
   shelf: RootSortShelf
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Called once when a run has moved files (or moved them back), so the listing reads the shelf again. */
   onApplied?: () => void
 }
 
 type ActionError = 'conflict' | 'generic'
 
-/** A run that changed what the listing shows: its files moved, or moved back. */
 function changedListing(status: RootSortRunStatus): boolean {
   return status === 'applied' || status === 'undone'
 }
@@ -86,7 +66,6 @@ export function RootSortDialog({
   const t = useTranslations(filesCopy)
   const [summary, setSummary] = useState<RootSortSummary | null>(null)
   const [run, setRun] = useState<RootSortRunView | null>(null)
-  // The last review the dialog saw: kept after the run moves on, to name files that failed to move.
   const [reviewed, setReviewed] = useState<RootSortRunView['review']>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -95,12 +74,10 @@ export function RootSortDialog({
   const [onlyUnsure, setOnlyUnsure] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [waitingReads, setWaitingReads] = useState(0)
-  // Every request answers for the open it was sent in: a reply that comes back after a close is dropped.
   const session = useRef(0)
   const onAppliedRef = useRef(onApplied)
   onAppliedRef.current = onApplied
 
-  // The run as it stands: the one the dialog follows, else the root's latest.
   const current = run ?? summary?.run ?? null
   const phase = phaseOf(summary, run, loadFailed)
   const followedId = current?.id ?? null
@@ -128,7 +105,6 @@ export function RootSortDialog({
       (next) => {
         if (id !== session.current) return
         setSummary(next)
-        // The run may have finished while the dialog was shut, so the listing may predate it.
         if (next.run && changedListing(next.run.status)) onAppliedRef.current?.()
       },
       () => {
@@ -140,7 +116,6 @@ export function RootSortDialog({
     }
   }, [open, shelf, attempt])
 
-  // One timer while a run is worked: re-read it every POLL_MS until it stops working.
   useEffect(() => {
     if (!open || followedId === null || followedStatus === null || !isWorking(followedStatus)) return
     const id = session.current
@@ -193,7 +168,6 @@ export function RootSortDialog({
     return name ? [name] : []
   })
 
-  /** Sends one request for the run and shows what it answers; a stale answer is dropped. */
   const perform = (action: () => Promise<RootSortRunView>): void => {
     const id = session.current
     setBusy(true)
@@ -358,7 +332,7 @@ export function RootSortDialog({
         <DialogFooter className="gap-2">
           {phase === 'intro' && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button type="button" disabled={busy || !canStart} onClick={start}>
@@ -373,7 +347,7 @@ export function RootSortDialog({
                   {t('rootSort.cancel')}
                 </Button>
               )}
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
             </>
@@ -383,7 +357,7 @@ export function RootSortDialog({
               <Button type="button" variant="ghost" disabled={busy} onClick={cancel}>
                 {t('rootSort.cancel')}
               </Button>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button
@@ -402,7 +376,7 @@ export function RootSortDialog({
               {current && current.moved > 0 && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => perform(() => undoRootSortRun(current.id))}
                 >
@@ -416,7 +390,7 @@ export function RootSortDialog({
           )}
           {(phase === 'undone' || phase === 'cancelled') && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button type="button" disabled={busy || !canStart} onClick={start}>
@@ -426,13 +400,13 @@ export function RootSortDialog({
           )}
           {phase === 'failed' && current && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               {current.moved > 0 && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => perform(() => undoRootSortRun(current.id))}
                 >
@@ -446,7 +420,7 @@ export function RootSortDialog({
           )}
           {phase === 'failed' && current === null && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button type="button" onClick={() => setAttempt((count) => count + 1)}>
@@ -455,7 +429,7 @@ export function RootSortDialog({
             </>
           )}
           {phase === 'loading' && (
-            <Button type="button" variant="outline" onClick={close}>
+            <Button type="button" variant="secondary" onClick={close}>
               {t('rootSort.close')}
             </Button>
           )}

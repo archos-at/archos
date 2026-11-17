@@ -1,12 +1,3 @@
-"""Prompt wiring: the norm registry block reaches the deep-research prompt.
-
-Piloti no longer renders the catalog. Its entries are RIS addresses, and
-``ris_lookup`` resolves one out of the question itself (ADR-0060 (d)), so a
-per-turn copy of the list below the KV-cache boundary bought the turn nothing
-and cost it ~1,500 tokens. Deep research, whose researcher orchestrates RIS by
-hand, still gets it — which is why the wiring is still pinned here.
-"""
-
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -88,8 +79,6 @@ def test_the_deep_template_omits_the_registry_block_when_absent():
 
 
 def test_chat_carries_no_catalog_variable_at_all():
-    """Not "renders empty": the variable is gone from the template, so a
-    caller cannot reintroduce 1,500 tokens by passing one."""
     source = CHAT_TEMPLATE.read_text(encoding="utf-8")
 
     assert "ris_catalog" not in source
@@ -114,7 +103,17 @@ def _graph_context(prompts: dict[str, str], project_context: str | None = None) 
     )
 
 
-def test_deep_render_prompt_passes_registry_block():
+@pytest.fixture
+def austria_core():
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"})))
+    yield
+    set_turn_knowledge_context(None)
+
+
+def test_deep_render_prompt_passes_registry_block(austria_core):
     context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK\n{{ ris_catalog }}{% endif %}"})
 
     rendered = context.render_prompt("researcher")
@@ -124,7 +123,13 @@ def test_deep_render_prompt_passes_registry_block():
     assert "NOR12345678" in rendered
 
 
-def test_deep_render_prompt_registry_block_empty_when_registry_missing(monkeypatch, tmp_path):
+def test_without_a_context_that_allows_ris_the_catalogue_is_withheld():
+    context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK{% else %}no-catalog{% endif %}"})
+
+    assert context.render_prompt("researcher") == "no-catalog"
+
+
+def test_deep_render_prompt_registry_block_empty_when_registry_missing(monkeypatch, tmp_path, austria_core):
     monkeypatch.setenv(ENV_NORMS_DIR, str(tmp_path / "empty-norms"))
     reset_registry_cache()
     context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK{% else %}no-catalog{% endif %}"})
@@ -132,3 +137,42 @@ def test_deep_render_prompt_registry_block_empty_when_registry_missing(monkeypat
     rendered = context.render_prompt("researcher")
 
     assert rendered == "no-catalog"
+
+
+_PROBE = "Bauherr sitzt in der Wiener Straße, Grundstück in Linz"
+
+
+@pytest.fixture
+def two_lands(_registry_env):
+    registry = {**_REGISTRY, "entries": [*_REGISTRY["entries"], {**_REGISTRY["entries"][0], "id": "bo-ooe"}]}
+    registry["entries"][1].update(short="OÖ BauO", title="Oö. Bauordnung 1994", federal_state="Oberösterreich")
+    (_registry_env / "at" / "registry.yml").write_text(yaml.safe_dump(registry, allow_unicode=True), encoding="utf-8")
+    reset_registry_cache()
+
+
+def _catalog_with(gate: str, chains: dict) -> str:
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(
+        KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"}), chains=chains)
+    )
+    try:
+        return _graph_context({"researcher": "{{ ris_catalog }}"}, project_context=_PROBE).render_prompt("researcher")
+    finally:
+        set_turn_knowledge_context(None)
+
+
+def test_with_no_site_every_land_renders_and_the_project_text_decides_nothing(two_lands):
+    rendered = _catalog_with("site_unknown", {})
+    assert "BO Wien" in rendered and "OÖ BauO" in rendered
+
+
+def test_the_site_s_land_comes_from_the_context_s_leaf(two_lands):
+    rendered = _catalog_with("core", {"AT-4": ("AT-4", "AT", "EU")})
+    assert "OÖ BauO" in rendered and "BO Wien" not in rendered
+
+
+def test_a_site_placed_by_its_municipality_still_narrows_to_its_land(two_lands):
+    rendered = _catalog_with("core", {"AT:gkz:40101": ("AT:gkz:40101", "AT-4", "AT", "EU")})
+    assert "OÖ BauO" in rendered and "BO Wien" not in rendered

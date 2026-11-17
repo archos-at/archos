@@ -186,14 +186,11 @@ describe('/api/jobs/async/[...path]', () => {
       const res = await POST(req, makeParams(['submit']))
 
       expect(res.status).toBe(403)
-      expect(await res.json()).toEqual({ error: 'feature-disabled', feature: 'deep-research' })
+      expect(await res.json()).toMatchObject({ code: 'feature_disabled', feature: 'deep-research' })
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it('refuses an anonymous deep-research submit — an entitlement is off where nobody signs in', async () => {
-      // It used to skip the gate ("no session to evaluate") while the agent's
-      // per-turn read said ON, so the run was offered and then submitted for
-      // nobody. Both halves now give the entitlement's fixed answer: off.
       process.env.REQUIRE_AUTH = 'false'
       const fetchMock = vi.fn()
       global.fetch = fetchMock

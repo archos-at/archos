@@ -73,6 +73,10 @@ def _span_context(question: str, address: Address, trace: LookupTrace, passages:
         context["federal_state_source"] = address.federal_state_source
     if trace.application:
         context["application"] = trace.application
+    if trace.as_of:
+        # A past day (ADR-0171): which day, and how many hits were versions of other days.
+        context["as_of"] = trace.as_of
+        context["versions_dropped"] = trace.versions_dropped
     if not passages:
         context["empty"] = True
     return context

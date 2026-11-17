@@ -15,25 +15,18 @@ import {
   type ShortcutFlags,
 } from './shortcuts'
 
-/** Everything on — the widest registry a user can be shown. */
 const ALL: ShortcutFlags = {
   canViewOrganization: true,
   showKnowledge: true,
   canAccessOfficeShelf: true,
   canCollaborate: true,
-  // Separate from `canCollaborate` since ADR-0042: the inbox carries operational
-  // alerts as well as collaboration events, so it is reachable on its own gate.
   canAccessInbox: true,
 }
 
-/** The floor — a plain member with no optional feature enabled. */
 const MINIMAL: ShortcutFlags = { canViewOrganization: false }
 
 describe('jumpTargets', () => {
   test('every leader key is unique under every flag combination', () => {
-    // Every combination of the capability flags (derived from `ALL`, so adding a
-    // flag widens the sweep automatically); a collision under any one of them
-    // would silently shadow a destination.
     const flagKeys = Object.keys(ALL) as (keyof ShortcutFlags)[]
     for (let mask = 0; mask < 1 << flagKeys.length; mask++) {
       const flags: ShortcutFlags = {}
@@ -65,23 +58,15 @@ describe('jumpTargets', () => {
   })
 
   test('the inbox jump follows canAccessInbox, not canCollaborate (ADR-0042)', () => {
-    // The decoupling this flag exists for: a tenant WITHOUT collaboration still
-    // reaches the inbox, because that is where its operational alerts land. If
-    // `g i` were still gated on collaboration, the storage warning would be
-    // unreachable by keyboard for exactly the deployments that need it.
     const withoutCollaboration = jumpTargets({ canAccessInbox: true, canCollaborate: false })
     expect(withoutCollaboration.map((target) => target.key)).toContain('i')
     expect(resolveJump('i', { canAccessInbox: true, canCollaborate: false }, null)).toBe('/app/inbox')
 
-    // …and collaboration on its own no longer opens it, so the two flags are
-    // genuinely independent rather than one aliasing the other.
     expect(jumpTargets({ canCollaborate: true }).map((target) => target.key)).not.toContain('i')
     expect(resolveJump('i', { canCollaborate: true }, null)).toBeNull()
   })
 
   test('every rail section a user can see has a jump', () => {
-    // The drift this whole module exists to prevent: a section reachable by
-    // mouse but not by keyboard.
     const jumps = new Set(jumpTargets(ALL).map((target) => target.key))
     for (const section of railSections(ALL)) {
       expect(section.shortcutKey, `rail section "${section.key}" has no jump key`).toBeTruthy()
@@ -90,8 +75,6 @@ describe('jumpTargets', () => {
   })
 
   test('every jump is reachable in the palette too, or is the palette itself', () => {
-    // The inbox is the one rail-only destination (its copy lives in the
-    // collaboration dictionary); everything else should be in both surfaces.
     const palette = new Set(paletteSections(ALL).map((section) => section.shortcutKey))
     const missing = jumpTargets(ALL)
       .map((target) => target.key)

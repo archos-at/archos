@@ -1,28 +1,15 @@
 /**
  * @vitest-environment node
  */
-/**
- * The floor under ADR-0020: **a cache outage degrades, it never fails.**
- *
- * That contract is what lets every call site in `lib/` call `getCached` without
- * a try/catch of its own, and until this file existed nothing asserted it — the
- * caching audit counted the coverage at zero ("No test covers `common/cache.py`
- * or `lib/cache/index.ts` at all",
- * `docs/audit/latency-and-caching-audit-2026-09.md` §4.4, option E6).
- * A regression here is silent by construction: a `throw` from the store surfaces
- * as a 500 on whichever route happens to be first past the broken op, and looks
- * like that route's bug.
- *
- * So the fake below throws on EVERY operation, and each public function is
- * asserted on three axes at once: it returns the fallback, it does not throw,
- * and it warns exactly once. The third matters as much as the first two — a
- * fail-open that says nothing is indistinguishable from a cache that is working,
- * and the counters in this module are the only other thing that would tell you.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const redis = vi.hoisted(() => ({ client: null as unknown }))
+vi.mock('@/lib/redis/connect.js', () => ({ createRedisClient: () => redis.client }))
 import {
   getCached,
+  incrementCounter,
+  RedisStore,
   invalidateCached,
   invalidateCachedPrefix,
   readCacheCounters,
@@ -47,7 +34,6 @@ class ThrowingStore implements CacheStore {
   }
 }
 
-/** A store that reads fine and only fails on the way out. */
 class WriteOnlyFailingStore implements CacheStore {
   async get(): Promise<string | null> {
     return null
@@ -59,7 +45,6 @@ class WriteOnlyFailingStore implements CacheStore {
   async deletePrefix(): Promise<void> {}
 }
 
-/** A store holding a value that is not JSON — a half-written entry. */
 class CorruptStore implements CacheStore {
   async get(): Promise<string | null> {
     return '{"partial":'
@@ -140,15 +125,14 @@ describe('fail-open: a store that throws on every operation', () => {
     expect(warn.mock.calls[0]?.[0]).toContain('[cache] invalidate failed for modelconfig:org_1')
   })
 
-  it('invalidateCachedPrefix resolves and warns once', async () => {
-    await expect(invalidateCachedPrefix('budgetlimits:')).resolves.toBeUndefined()
+  it('invalidateCachedPrefix resolves false and warns once', async () => {
+    await expect(invalidateCachedPrefix('budgetlimits:')).resolves.toBe(false)
 
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]?.[0]).toContain('[cache] prefix invalidate failed for budgetlimits:')
   })
 
   it('every public function survives one broken store, in one pass', async () => {
-    // The whole surface at once: nothing here may reject, whatever the store does.
     const results = await Promise.allSettled([
       getCached('flags:org_1', 1000, async () => ['image-upload']),
       setCached('flags:org_1', ['image-upload'], 1000),
@@ -177,8 +161,6 @@ describe('fail-open: partial failures', () => {
   })
 
   it('an entry that is not JSON takes the same road as an outage', async () => {
-    // `JSON.parse` throws INSIDE the read try/catch. That is deliberate: a
-    // half-written entry is a broken cache, not a broken request.
     setCacheStore(new CorruptStore())
 
     await expect(getCached('directory:org_1', 1000, async () => ['ada'])).resolves.toEqual(['ada'])
@@ -242,5 +224,56 @@ describe('counters', () => {
     resetCacheCounters()
 
     expect(readCacheCounters()).toEqual({ hits: 0, misses: 0, errors: 0 })
+  })
+})
+
+describe('incrementCounter', () => {
+  it('answers null, never throws, for a store that has no counters or cannot be reached', async () => {
+    resetCacheCounters()
+    setCacheStore(new ThrowingStore())
+    expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
+    setCacheStore(Object.assign(new ThrowingStore(), { increment: async () => Promise.reject(new Error('ECONNREFUSED')) }))
+    expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
+    expect(readCacheCounters().errors).toBe(1)
+  })
+
+  it('returns the running total the store keeps', async () => {
+    const totals = new Map<string, number>()
+    const counting: CacheStore = Object.assign(new ThrowingStore(), {
+      increment: async (key: string, by: number) => totals.set(key, (totals.get(key) ?? 0) + by).get(key) as number,
+    })
+    setCacheStore(counting)
+    expect(await incrementCounter('door-quote:k', 0, 1000)).toBe(0)
+    expect(await incrementCounter('door-quote:k', 120, 1000)).toBe(120)
+    expect(await incrementCounter('door-quote:k', 60, 1000)).toBe(180)
+  })
+})
+
+describe('the shared store\'s counter', () => {
+  function client(expireError: Error | null, ttl: number) {
+    const chain = {
+      incrby: () => chain,
+      pexpire: () => chain,
+      exec: async () => [
+        [null, 7],
+        [expireError, expireError ? null : 1],
+      ],
+    }
+    return { multi: () => chain, pttl: vi.fn(async () => ttl), pexpire: vi.fn(async () => 1) }
+  }
+
+  it('sets the expiry itself when the store refuses PEXPIRE NX inside the transaction, so no counter is kept for good', async () => {
+    const refusing = client(new Error('ERR syntax error'), -1)
+    redis.client = refusing
+    expect(await new RedisStore('redis://cache').increment('door-quote:k', 7, 1000)).toBe(7)
+    expect(refusing.pexpire).toHaveBeenCalledWith('door-quote:k', 1000)
+  })
+
+  it('leaves an expiry alone that the transaction set', async () => {
+    const accepting = client(null, 900)
+    redis.client = accepting
+    expect(await new RedisStore('redis://cache').increment('door-quote:k', 7, 1000)).toBe(7)
+    expect(accepting.pttl).not.toHaveBeenCalled()
+    expect(accepting.pexpire).not.toHaveBeenCalled()
   })
 })

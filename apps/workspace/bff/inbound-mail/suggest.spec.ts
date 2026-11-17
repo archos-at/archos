@@ -33,7 +33,6 @@ import {
 const FOLDERS: FilingFolderInput[] = [{ path: 'Tragwerk', description: 'Statik und Tragwerksplanung', docTypes: ['Gutachten'] }]
 const CONTEXT = { maskedSubject: 'AW: Statik Einreichung', folders: FOLDERS, conventions: [], locale: 'de' }
 
-/** The sender's own text: what `read.json` holds, and what must never reach the model. */
 const OWN_TEXT = 'Sehr geehrte Frau Architektin, anbei die Statik. Das Honorar überweisen Sie bitte auf AT61 1904 3002 3457 3201.'
 
 describe('who is asked about', () => {
@@ -50,10 +49,8 @@ describe('who is asked about', () => {
   })
 
   it('never about an impersonation, a member’s address its domain did not sign, or a member’s name on another address', () => {
-    // „Dringend: Kontoänderung Honorarnote“ from Miriam Huber’s address, signature failed.
     expect(suggestionSkipReason(heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_fail' }))).toBe('impersonation')
     expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_policy' }))).toBe('impersonation')
-    // Her name on another address, however well that domain signed.
     expect(
       suggestionSkipReason(heldMail({ senderTrust: 'external_verified', senderUserId: null, senderFlags: ['claims_member_name'] })),
     ).toBe('impersonation')
@@ -93,7 +90,6 @@ describe('what is placed', () => {
 })
 
 describe('what the model reads (D21): names and labels, never the text or the bytes', () => {
-  // The mail as the receive job left it: its text staged in `read.json`, its subject on the row.
   const mail = heldMail({ threadMatch: [], senderName: 'DI Petra Weber' })
   const parts = [textPart({ sha256: 'd'.repeat(64) }), filePart()]
 

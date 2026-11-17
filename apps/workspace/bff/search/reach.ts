@@ -13,6 +13,7 @@
  * - The office shelf: every member reads it.
  */
 
+import { officeTimeZone } from '@/lib/organizations/time-zone'
 import 'server-only'
 import { and, eq, isNull, like, or } from 'drizzle-orm'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
@@ -46,6 +47,8 @@ export interface ReachedProject {
 
 export interface SearchReach {
   organizationId: string
+  /** The office's clock (`officeTimeZone`): which day an upload or a photo fell on. Europe/Vienna when absent. */
+  timeZone?: string
   userId: string
   scope: SearchScope
   projects: readonly ReachedProject[]
@@ -136,7 +139,7 @@ async function folderSubtree(
 
 /** What `session` may read within `scope`. A project they may not view is a 403/404, as on the listing. */
 export async function reachFor(session: AuthorizedSession, scope: SearchScope): Promise<SearchReach> {
-  const base = { organizationId: session.organizationId, userId: session.userId, scope }
+  const base = { organizationId: session.organizationId, userId: session.userId, scope, timeZone: await officeTimeZone(session.organizationId) }
   if (scope.kind === 'project') {
     await requireProjectAccess(session, scope.projectId, 'project:view')
     const project = await findProjectInOrg(scope.projectId, session.organizationId)
@@ -192,6 +195,7 @@ export async function reachForAudience(
     userId: session.userId,
     scope,
     screenedOnly: !audience.restrictedFolders,
+    timeZone: await officeTimeZone(session.organizationId),
   }
   const inScope =
     scope.kind === 'project'

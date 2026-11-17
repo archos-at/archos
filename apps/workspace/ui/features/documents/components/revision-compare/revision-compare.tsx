@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * Two Fassungen of one document, looked at together.
- *
- * The question a reviewer brings is „what moved?", and a drawing answers it
- * better than a description: the wall is somewhere else, the door swings the
- * other way. Three ways to put the pages against each other, because none of
- * them is best for every change:
- *
- *  - **Nebeneinander**: two sheets that scroll and zoom as one, for reading each
- *    on its own terms. Stacks vertically below `md`, which is why a phone
- *    opens in Wischen instead: two stacked half-height sheets are two 0.3 px/mm
- *    drawings, and the swipe gives one sheet the whole height.
- *  - **Überlagert**: the older sheet inked cyan, the newer orange, multiplied.
- *    What did not change lands on itself and goes near-black; what changed keeps
- *    its colour. The colour key lives under the sheet, only here, because only
- *    here do the colours mean something.
- *  - **Wischen**: a divider the reader drags across one sheet, older on the left,
- *    each side tagged on the sheet itself.
- *
- * Both pages are always drawn at ONE scale in a shared box. If each were fitted
- * to the width on its own, a smaller sheet would be stretched and every line
- * would appear to have moved.
- *
- * The changes (Piloti's boxes, or `overlays` another process found) are drawn
- * on the newer sheet and listed beside it, and the two are one thing: a single
- * `activeRegion` lights a box and its row together, from either side.
- *
- * The bytes come through `SourceLoader` (default: pdf.js and the preview
- * routes), which is also how the dev preview and the specs bring their own pages.
- */
-
 import type { CSSProperties, JSX, KeyboardEvent } from 'react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
@@ -87,30 +56,15 @@ export interface RevisionCompareProps {
   older: CompareFile
   newer: CompareFile
   onClose: () => void
-  /**
-   * Changes already known (for example from an earlier run), drawn on the newer
-   * sheet and listed beside it. A run the reader asks for here replaces them.
-   */
   overlays?: readonly CompareRegion[]
-  /** Where the pages come from. Defaults to the app's PDF and image renderers. */
   loadSource?: SourceLoader
-  /** The mode the comparison opens in. Unset: Wischen on a phone, Nebeneinander elsewhere. */
   initialMode?: CompareMode
-  /**
-   * Open the text comparison of the same two Fassungen, for files that cannot
-   * be compared as pictures. Without it, that state's action closes the dialog
-   * back to the Fassung history, where the text comparison is.
-   */
   onOpenTextCompare?: () => void
 }
 
-/** The height of a pane's caption row (`PaneCaption`). */
 const PANE_LABEL = 28
-/** The gap between two panes, side by side or stacked. */
 const PANE_GAP = 12
-/** Room around a sheet inside its scroll frame, each side. */
 const FRAME_PADDING = 16
-/** Where the change list moves from under the sheet to beside it. */
 const WIDE_QUERY = '(min-width: 1024px)'
 
 export function RevisionCompare({
@@ -131,9 +85,6 @@ export function RevisionCompare({
   const descriptionId = useId()
   const keysId = useId()
 
-  // Whatever had focus when the comparison opened gets it back on close. The
-  // surfaces open this without a DialogTrigger, so Radix has nothing of its
-  // own to return to.
   const [opener] = useState<HTMLElement | null>(() =>
     typeof document !== 'undefined' && document.activeElement instanceof HTMLElement ? document.activeElement : null,
   )
@@ -151,10 +102,6 @@ export function RevisionCompare({
   const newerState = usePageSource(newer, loadSource, attempts.newer)
 
   const [mode, setMode] = useState<CompareMode>(() => initialMode ?? (phone ? 'swipe' : 'side'))
-  // Below `lg` the change list is a sheet from the bottom edge, opened from
-  // the toolbar: always on screen under the stage it took 192 to 224px of a
-  // phone's height before anything was drawn, and on a phone on its side it
-  // left the sheets about 70px.
   const [changesOpen, setChangesOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [zoom, setZoom] = useState(FIT_ZOOM)
@@ -171,9 +118,6 @@ export function RevisionCompare({
   const newerSize = usePageSize(newerSource, current)
   const stage = commonStage([olderSize, newerSize].filter((size): size is PageSize => size !== null))
 
-  // Piloti's answers, per page, kept as they arrive: asking about page 2 adds
-  // to page 1 instead of replacing it. The hook holds the last run; this folds
-  // each finished run into the set (React's "adjust state while rendering").
   const visual = useRevisionVisualChanges(newer.id, older.id)
   const [askedPage, setAskedPage] = useState<number | null>(null)
   const [answers, setAnswers] = useState<ReadonlyMap<number, PageAnswer>>(() => new Map())
@@ -216,8 +160,6 @@ export function RevisionCompare({
 
   const sideBySide = mode === 'side' && !stacked
   const paneWidth = sideBySide ? (area.width - PANE_GAP) / 2 : area.width
-  // Every view fits the whole sheet at „Einpassen". Stacked panes (a phone)
-  // share the height, so each fits its half.
   const paneHeight =
     mode !== 'side' ? area.height : stacked ? (area.height - PANE_GAP) / 2 - PANE_LABEL : area.height - PANE_LABEL
   const scale = stage
@@ -228,15 +170,10 @@ export function RevisionCompare({
 
   const goToPage = useCallback((next: number) => setPage(clampPage(next, span.count)), [span.count])
 
-  // „Show this change": pin it, turn to its page, and once its box is drawn,
-  // scroll the newer sheet's frame so the box is in the middle. A ref, not
-  // state, carries the request across the renders it may take (the page size
-  // arrives asynchronously after a page turn).
   const reveal = useRef<number | null>(null)
   const [revealRequest, setRevealRequest] = useState(0)
   const showRegion = (number: number): void => {
     const entry = numbered.find((candidate) => candidate.number === number)
-    // The sheet steps aside so the box it pointed at can be seen.
     setChangesOpen(false)
     activeRegion.pin(number)
     if (entry) goToPage(entry.region.page)
@@ -269,8 +206,6 @@ export function RevisionCompare({
     }
   }, [revealRequest, current, scale, mode, newerSize, reducedMotion])
 
-  // A final notice (failed, not comparable) unmounts the toolbar that held
-  // focus; hand it to the notice's action rather than to <body>.
   useEffect(() => {
     if (!finalNotice) return
     const content = contentRef.current
@@ -304,15 +239,11 @@ export function RevisionCompare({
           : { kind: 'missing', page: current }
   const markButton = <MarkButton state={markState} onMark={() => markPage(current)} className={wide ? undefined : 'w-full'} />
   const changeCount = numbered.length
-  // A refusal belongs to the page it was asked for; turning the page leaves it behind.
   const markError =
     visual.state === 'error' && askedPage === current
       ? { message: t(markErrorKey(visual.errorStatus)), retryable: visual.errorStatus !== 409 }
       : null
   const loadingPage = visual.state === 'loading' ? askedPage : null
-  // On a wide screen the list opens beside the sheet only once it has
-  // something to say; before a run the button sits in the toolbar and the
-  // sheets keep the width.
   const panelOpen = wide && (numbered.length > 0 || groups.length > 0 || loadingPage !== null || markError !== null)
 
   return (
@@ -323,12 +254,8 @@ export function RevisionCompare({
         aria-describedby={`${descriptionId} ${keysId}`}
         onKeyDown={onKeyDown}
         ref={contentRef}
-        // The dialog is a surface, not a control, so it wears no ring (the
-        // global `:focus-visible` rule is unlayered and beats a utility class).
         style={{ outline: 'none', ...(paperVariables() as CSSProperties) }}
         onOpenAutoFocus={(event) => {
-          // Land on the view switch: a visible control, and one that leaves the
-          // arrows to turn the page from the first key press.
           event.preventDefault()
           const content = contentRef.current
           const target =
@@ -341,10 +268,6 @@ export function RevisionCompare({
           event.preventDefault()
           if (opener?.isConnected) opener.focus()
         }}
-        // A phone, upright or on its side, gets the whole screen: the 1rem
-        // inset of a desktop window is 32px of a 393px-high landscape phone.
-        // The full-screen presentation also moves the close button under the
-        // status bar, where a thumb can reach it.
         mobilePresentation="fullscreen"
         className="top-0 left-0 h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 max-sm:rounded-none max-sm:border-0 sm:top-4 sm:left-4 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-none sm:translate-x-0 sm:translate-y-0 phone:inset-0 phone:h-dvh phone:max-h-dvh phone:w-screen phone:rounded-none phone:border-0"
       >
@@ -352,8 +275,6 @@ export function RevisionCompare({
           className={cn(
             'gap-1 border-b px-4 py-3 pr-14 text-left',
             'phone:pt-[max(0.75rem,env(safe-area-inset-top))] phone:pr-[calc(env(safe-area-inset-right)+3.75rem)] phone:pl-[max(1rem,env(safe-area-inset-left))]',
-            // On its side: the two names ARE the header; the title stays for
-            // a screen reader, and the stage gets the line back.
             sideways && 'py-2',
           )}
         >
@@ -491,7 +412,6 @@ export function RevisionCompare({
                   </>
                 )}
                 {mode !== 'overlay' && (
-                  // The overlay's key and fader take the bar; there the mode chips' digits and the tooltips carry the keys.
                   <span className="text-muted-foreground ml-auto hidden text-xs md:inline pointer-coarse:hidden" aria-hidden>
                     {t('compare.keysHintVisible')}
                   </span>
@@ -543,7 +463,6 @@ export function RevisionCompare({
   )
 }
 
-/** One labelled file name in the header, cut in the middle so its index survives. */
 function FileName({ label, name, tail }: { label: string; name: string; tail: number }): JSX.Element {
   return (
     <span className="flex min-w-0 items-baseline gap-1.5">
@@ -553,18 +472,12 @@ function FileName({ label, name, tail }: { label: string; name: string; tail: nu
   )
 }
 
-/** The refusal's status as copy: 409 not read yet, 502/503 not reachable, anything else a plain failure. */
 function markErrorKey(status: number | null): 'compare.markNotRead' | 'compare.markUnavailable' | 'compare.markFailed' {
   if (status === 409) return 'compare.markNotRead'
   if (status === 502 || status === 503) return 'compare.markUnavailable'
   return 'compare.markFailed'
 }
 
-/**
- * The way to the change list below `lg`: its name, how many changes are
- * marked, and a spinner while Piloti reads the page. One tap opens the list as
- * a sheet over the stage; picking a change closes it and shows the box.
- */
 function ChangesButton({
   label,
   count,
@@ -583,7 +496,7 @@ function ChangesButton({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="sm"
       aria-haspopup="dialog"
       aria-expanded={open}

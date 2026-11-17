@@ -17,6 +17,8 @@ from ris_adapter.client import RisError
 from ris_adapter.client import RisHit
 from ris_adapter.client import build_document_url
 from ris_adapter.lookup.address import Address
+from ris_adapter.lookup.as_of import in_force_on
+from ris_adapter.lookup.as_of import parse_day
 from ris_adapter.lookup.trace import LookupTrace
 from ris_adapter.register import _CASE_LAW_SIGNALS
 from ris_adapter.register import _CATALOG_AVAILABLE
@@ -54,8 +56,16 @@ class Candidate:
         return bool(self.url)
 
 
-async def collect_candidates(client, planner, question, address: Address, trace: LookupTrace, catalog_path: str):
-    """At most three documents: the address, else the catalog, else live RIS."""
+async def collect_candidates(
+    client, planner, question, address: Address, trace: LookupTrace, catalog_path: str, as_of: str = ""
+):
+    """At most three documents: the address, else the catalog, else live RIS.
+
+    On a past day (``as_of``) only live version documents in force on it: an
+    address or a catalog pointer names today's consolidation (``as_of.py``).
+    """
+    if as_of:
+        return await live_candidates(client, planner, question, address, trace, as_of)
     addressed = candidate_from_address(address)
     if addressed is not None:
         trace.searched = f"the address you passed ({addressed.citation_url})"
@@ -150,11 +160,15 @@ def candidate_from_hit(hit: RisHit) -> Candidate:
     )
 
 
-async def live_candidates(client, planner, question, address: Address, trace: LookupTrace) -> list[Candidate]:
-    """A live OGD-RIS search, planned by the same LLM ``ris_search`` uses."""
+async def live_candidates(
+    client, planner, question, address: Address, trace: LookupTrace, as_of: str = ""
+) -> list[Candidate]:
+    """A live OGD-RIS search, planned by the same LLM ``ris_search`` uses; on ``as_of``, versions of that day."""
     plan = await search_plan(planner, question, address, trace)
     try:
-        params = _build_search_params(plan["application"], plan["query"], plan["title"], plan["federal_state"], "", "")
+        params = _build_search_params(
+            plan["application"], plan["query"], plan["title"], plan["federal_state"], as_of, ""
+        )
         result = await client.search(application=plan["application"], params=params, page=1, page_size=LIVE_PAGE_SIZE)
     except RisError as exc:
         logger.info("ris_lookup: live RIS search failed (%s)", exc)
@@ -162,7 +176,29 @@ async def live_candidates(client, planner, question, address: Address, trace: Lo
     except Exception:  # a tool must always hand the agent a string, so a miss it is
         logger.exception("ris_lookup: live RIS search failed")
         return []
+    if as_of:
+        return versions_on(result.hits, as_of, trace)
     return [candidate_from_hit(hit) for hit in result.hits[:MAX_CANDIDATES]]
+
+
+def versions_on(hits, as_of: str, trace: LookupTrace) -> list[Candidate]:
+    """The version documents in force on ``as_of``, each read as itself, never the whole law of today."""
+    day = parse_day(as_of)
+    kept = [hit for hit in hits if day is not None and in_force_on(hit.metadata, day)]
+    trace.versions_dropped = len(hits) - len(kept)
+    return [
+        Candidate(
+            title=hit.title,
+            url=hit.fetch_url,
+            citation_url=hit.citation_url or hit.fetch_url,
+            document_number=hit.document_number,
+            application=hit.application,
+            federal_state=hit.metadata.get("Bundesland", ""),
+            origin="live",
+            version_date=hit.metadata.get("In Kraft seit", ""),
+        )
+        for hit in kept[:MAX_CANDIDATES]
+    ]
 
 
 async def search_plan(planner, question: str, address: Address, trace: LookupTrace) -> dict:

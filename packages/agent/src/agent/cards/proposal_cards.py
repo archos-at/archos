@@ -41,6 +41,11 @@ PROPOSAL_ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F
 SERVER_FILLED_CARD_FIELDS = frozenset({"proposal_id"})
 
 
+#: Fields the server stamps while a card validates (``FormulaCard.site_binding``): replaced whatever the model
+#: wrote, and hidden from the shapes like the fields above.
+SERVER_SET_CARD_FIELDS = SERVER_FILLED_CARD_FIELDS | {"site_binding"}
+
+
 class ProjectProfilePatchOperation(CardModel):
     """A JSON Patch operation targeting a project profile section."""
 
@@ -127,6 +132,12 @@ class MemoryProposalCard(CardModel):
         default=None,
         max_length=500,
         description="The earlier note this one corrects, quoted verbatim; accepting the proposal retires it",
+    )
+    # default_factory, not default: an absent topic is an optional field in the generated schema, not a null default.
+    topic: str | None = Field(
+        default_factory=lambda: None,
+        max_length=40,
+        description="The subject the note is filed under on its shelf; the browser sends it with the note",
     )
     proposal_id: str | None = Field(
         default=None,

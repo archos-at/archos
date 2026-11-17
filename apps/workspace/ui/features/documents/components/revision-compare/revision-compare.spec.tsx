@@ -9,13 +9,6 @@ import { regionToPixels } from './lib/regions'
 import { NotComparableError, type CompareRegion, type PageSource, type SourceLoader } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/**
- * The comparison is asserted through what it decides: which mode is on, which
- * page, what it says when it cannot draw. Painting itself needs a canvas, which
- * happy-dom does not have, so the sources here record the pages they were asked
- * for instead of drawing them.
- */
-
 const visual = vi.hoisted(() => ({
   current: null as unknown as UseRevisionVisualChanges,
   run: vi.fn(async () => {}),
@@ -96,7 +89,6 @@ const open = async (
   )
 }
 
-/** The screen the spec pretends to be: a desktop wide enough for the list beside the sheet, unless a test says phone. */
 const screen_ = { wide: true, phone: false }
 
 let restoreObservers: () => void
@@ -285,7 +277,6 @@ describe('RevisionCompare overlays', () => {
     const boxes = screen.getAllByTestId('compare-region')
     expect(boxes.map((box) => box.dataset.region)).toEqual(['1', '3'])
     const expected = regionToPixels(overlays[0] as CompareRegion, SIZE)
-    // 1000 px area, minus the two panes' gutter, at fit-to-width: scale is the same for both axes.
     const scale = parseFloat(boxes[0]?.style.width ?? '0') / expected.width
     expect(scale).toBeGreaterThan(0)
     expect(parseFloat(boxes[0]?.style.left ?? '0')).toBeCloseTo(expected.left * scale)
@@ -510,7 +501,7 @@ describe('RevisionCompare: one active change across sheet and list', () => {
 
   it('turns to the change\'s page and scrolls its box into the middle of the sheet\'s frame', async () => {
     const scrollTo = vi.fn()
-    const original = HTMLElement.prototype.scrollTo
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
     HTMLElement.prototype.scrollTo = scrollTo as unknown as typeof HTMLElement.prototype.scrollTo
     try {
       await open(setup(2, 2), { overlays })
@@ -521,7 +512,8 @@ describe('RevisionCompare: one active change across sheet and list', () => {
       expect(frame.hasAttribute('data-compare-frame')).toBe(true)
       expect(within(frame).getByTestId('compare-region')).toHaveAttribute('data-region', '2')
     } finally {
-      HTMLElement.prototype.scrollTo = original
+      if (original) Object.defineProperty(HTMLElement.prototype, 'scrollTo', original)
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
     }
   })
 })
@@ -602,7 +594,6 @@ describe('RevisionCompare on a phone', () => {
     expect(opener).toHaveTextContent('2')
     fireEvent.click(opener)
     const list = await screen.findByTestId('compare-changes')
-    // Picking a change closes the sheet and turns to the change's page.
     fireEvent.click(within(list).getByRole('button', { name: /Treppe/ }))
     expect(screen.getByTestId('compare-page-of')).toHaveTextContent('Page 2 of 2')
     await waitFor(() => expect(screen.queryByTestId('compare-changes')).not.toBeInTheDocument())

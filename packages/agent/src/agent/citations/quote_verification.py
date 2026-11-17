@@ -11,7 +11,6 @@ from collections.abc import Iterator
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import normalize_url
 from agent.citations.markdown_code import code_spans
@@ -208,7 +207,7 @@ def _quoted_spans(body: str, min_quote_len: int) -> Iterator[tuple[re.Match[str]
 
     Code is not prose and carries nothing to verify (see `code_spans`). It is
     skipped by OFFSET rather than stripped out, so every match still indexes
-    the text `annotate_unverified_quotes` will be handed.
+    the text the quote patch (`quote_patch.splice`) will be handed.
     """
     code = code_spans(body)
     for match in QUOTED_SPAN_RE.finditer(body):
@@ -220,6 +219,21 @@ def _quoted_spans(body: str, min_quote_len: int) -> Iterator[tuple[re.Match[str]
         norm_quote = normalize_for_quote_match(inner)
         if len(norm_quote) >= min_quote_len:
             yield match, inner, norm_quote
+
+
+def _verification_chunks(registry: SourceRegistry) -> list[tuple[str, SourceEntry]]:
+    """Every source's text a quote is matched against, normalised, with its source.
+
+    A licensed source's stored excerpt stops at its quote cap; the turn holds its passage whole
+    (``SourceRegistry.licensed_text``, ADR-0164), so a correct quote from later in it still verifies.
+    """
+    licensed = getattr(registry, "licensed_text", {})
+    return [
+        (norm, source)
+        for source in registry.all_sources()
+        if (text := licensed.get(source.citation_key) or source.chunk_text)
+        if (norm := normalize_for_quote_match(text))
+    ]
 
 
 def verify_quoted_spans(
@@ -252,12 +266,7 @@ def verify_quoted_spans(
     never patches (deep research) passes ``False``.
     """
     body = _answer_body_before_sources(answer_text)
-    normalized_chunks = [
-        (norm, source)
-        for source in registry.all_sources()
-        if source.chunk_text
-        if (norm := normalize_for_quote_match(source.chunk_text))
-    ]
+    normalized_chunks = _verification_chunks(registry)
     if not normalized_chunks:
         return []
 
@@ -290,23 +299,3 @@ def verify_quoted_spans(
             )
         )
     return unverified
-
-
-def annotate_unverified_quotes(answer_text: str, unverified: Sequence[UnverifiedQuote]) -> str:
-    """Insert ``UNVERIFIED_QUOTE_MARKER`` immediately after each unverified span.
-
-    Fail-open and non-destructive: the quoted sentence is never stripped or
-    altered — the marker is inserted after the closing quote mark. Offsets come
-    from ``verify_quoted_spans`` on the SAME ``answer_text``; insertions run
-    right-to-left so earlier offsets stay valid. Idempotent: a span already
-    followed by the marker is left untouched.
-    """
-    if not unverified:
-        return answer_text
-    result = answer_text
-    for uq in sorted(unverified, key=lambda item: item.end, reverse=True):
-        insert_at = uq.end
-        if result[insert_at:].lstrip().startswith(UNVERIFIED_QUOTE_MARKER):
-            continue
-        result = f"{result[:insert_at]} {UNVERIFIED_QUOTE_MARKER}{result[insert_at:]}"
-    return result

@@ -224,20 +224,23 @@ export async function deleteDocumentObjects(doc: StoredObjectRef): Promise<Exter
  * the session delete's rule (`deleteSessionDocument`): the live object must go,
  * or the delete answers 502 and the document stays.
  *
- * A SUPERSEDED version's leftover stays best-effort, as it is there: the row
+ * A SUPERSEDED version's leftover stays best-effort (counted in `versionsLeft`, so a
+ * caller that reports what it removed can say so), as it is there: the row
  * that guards access is the live one, and a version object that survives is an
  * orphan for the project purge's prefix sweep, not a document still reachable.
  */
 export async function eraseDocumentObjectsOrKeepRow(
   doc: Pick<Document, 'id' | 'storageKey' | 'storageBucket'>,
   organizationId: string
-): Promise<void> {
+): Promise<{ versionsLeft: number }> {
+  let versionsLeft = 0
   for (const version of await listDocumentVersionObjects(doc.id, organizationId)) {
     if (version.storageKey === doc.storageKey) continue
-    await deleteDocumentObjects(version).catch(() => undefined)
+    const erased = await deleteDocumentObjects(version).catch(() => ({ ok: false }))
+    if (!erased.ok) versionsLeft += 1
   }
   const objects = await deleteDocumentObjects(doc)
-  if (objects.ok) return
+  if (objects.ok) return { versionsLeft }
   // The reason carries bucket names and upstream text: the log, not the client.
   console.error('[documents] delete aborted, row retained for retry:', doc.id, objects.reason)
   throw new UpstreamError('Deleting the document failed; nothing was removed. Please try again.')

@@ -7,6 +7,7 @@
 import 'server-only'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
+import type { DbExecutor } from '@/lib/db/executor'
 import { documentRevisionAnnouncements } from '@/lib/db/schema/document-revision-announcements'
 import { withTenant } from '@/lib/db/tenant-context'
 
@@ -20,9 +21,11 @@ export interface RevisionAnnouncementKey {
 /**
  * Record that this Fassung is being announced. True when this call took it;
  * false when it was announced before (or a concurrent settle is announcing it).
+ * `executor` is the caller's transaction when the claim must commit with
+ * another write (the notice job of `notifyNewRevision`).
  */
-export async function claimRevisionAnnouncement(key: RevisionAnnouncementKey): Promise<boolean> {
-  const db = getDb()
+export async function claimRevisionAnnouncement(key: RevisionAnnouncementKey, executor?: DbExecutor): Promise<boolean> {
+  const db = executor ?? getDb()
   const claimed = await withTenant({ organizationId: key.organizationId }, () =>
     db
       .insert(documentRevisionAnnouncements)

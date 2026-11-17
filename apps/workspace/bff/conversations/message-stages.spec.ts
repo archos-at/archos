@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The bound on `metadata.stages`.
- *
- * A stage's output is jsonb on a hot table, written by a browser, from a payload
- * a model produced (`docs/architecture/post-answer-stages.md` §7.8). Three
- * untrusted hops, so the column gets the same discipline `sanitizeProvenance`
- * applies: a closed key set, a truncated list, capped strings — and null rather
- * than an empty object when nothing survives, so a caller can skip the write
- * instead of stamping emptiness onto a message.
- *
- * The same function runs on the way OUT of the database as well as in
- * (`server-message-mapper`), so a row written under an older bound is still
- * read under this one.
- */
 import { describe, expect, it } from 'vitest'
 import {
   MAX_FOLLOW_UPS,
@@ -45,8 +31,6 @@ describe('sanitizeFollowUpsStage', () => {
   })
 
   it('truncates past the fourth question', () => {
-    // The set is meant to be taken in at a glance; a fifth is a list, and a list
-    // is not an offer.
     const stage = sanitizeFollowUpsStage({ items: questions(9) })
     expect(stage?.items).toHaveLength(MAX_FOLLOW_UPS)
     expect(stage?.items.at(-1)?.question).toBe('Frage 4?')
@@ -65,9 +49,6 @@ describe('sanitizeFollowUpsStage', () => {
   })
 
   it('is null when nothing usable survives', () => {
-    // Not `{ items: [] }`: an empty offer is an unkept promise, and it would make
-    // "the stage produced nothing" indistinguishable from "the stage produced
-    // something unreadable".
     expect(sanitizeFollowUpsStage({ items: [{ hint: 'nur ein Hinweis' }] })).toBeNull()
     expect(sanitizeFollowUpsStage({ items: 'Wie wird gemessen?' })).toBeNull()
     expect(sanitizeFollowUpsStage(null)).toBeNull()
@@ -84,8 +65,6 @@ const noted = (n: number) =>
 
 describe('sanitizeMemoryReflectionStage', () => {
   it('keeps a well-formed item whole', () => {
-    // All three fields matter to the reader: the words are what the chip shows,
-    // the kind is its icon and label, and the id is what tells two items apart.
     expect(
       sanitizeMemoryReflectionStage({
         items: [{ id: '9d2f6b41', kind: 'constraint', content: 'Das Projekt liegt in Wien.' }],
@@ -93,10 +72,45 @@ describe('sanitizeMemoryReflectionStage', () => {
     ).toEqual({ items: [{ id: '9d2f6b41', kind: 'constraint', content: 'Das Projekt liegt in Wien.' }] })
   })
 
+  it('keeps what an item says about when it was written, where it went and what it replaced', () => {
+    const item = { id: 'n-1', kind: 'decision', content: 'Die Bauherrschaft will ein Flachdach.' }
+    expect(
+      sanitizeMemoryReflectionStage({
+        items: [
+          { ...item, provenance: 'agent', scope: 'organization' },
+          { ...item, id: 'n-2', supersedes: ' Die Bauherrschaft will ein Satteldach. ', restricted: true },
+        ],
+      })?.items,
+    ).toEqual([
+      { ...item, provenance: 'agent', scope: 'organization' },
+      { ...item, id: 'n-2', supersedes: 'Die Bauherrschaft will ein Satteldach.', restricted: true },
+    ])
+  })
+
+  it('reads a value outside the closed sets as the default it is absent for', () => {
+    const [stored] =
+      sanitizeMemoryReflectionStage({
+        items: [
+          {
+            id: 'n-1',
+            kind: 'decision',
+            content: 'Flachdach.',
+            provenance: 'user',
+            scope: 'personal',
+            restricted: 'yes',
+            supersedes: 7,
+            owner: 'user_2',
+          },
+        ],
+      })?.items ?? []
+    expect(stored).toEqual({ id: 'n-1', kind: 'decision', content: 'Flachdach.' })
+  })
+
+  it('has no place for a personal note: its kinds are refused (ADR-0180)', () => {
+    expect(sanitizeMemoryReflectionStage({ items: [{ id: 'p-1', kind: 'profile', content: 'Leitet die Einreichplanung.' }] })).toBeNull()
+  })
+
   it('drops an item whose kind is not one a project_memory row can carry', () => {
-    // Not a display concern: the kind is a closed enum in the database, so a
-    // value outside it describes a row that cannot exist — and letting it
-    // through would put an arbitrary client string into jsonb on a hot table.
     expect(
       sanitizeMemoryReflectionStage({
         items: [
@@ -108,10 +122,6 @@ describe('sanitizeMemoryReflectionStage', () => {
   })
 
   it('drops a malformed item INDIVIDUALLY and keeps its siblings', () => {
-    // The opposite rule to `follow_ups`, and deliberately: a half-set of
-    // suggestion chips is a worse offer than none, but these are things that
-    // were WRITTEN to the reader's project. Losing four of them because a fifth
-    // arrived broken would hide four real writes.
     const stage = sanitizeMemoryReflectionStage({
       items: [
         { kind: 'decision', content: 'ohne id' },
@@ -146,9 +156,6 @@ describe('sanitizeStages', () => {
   })
 
   it('keeps two stages side by side, under their own keys', () => {
-    // §7.7: two stages target the same turn and neither erases the other. One
-    // key each is what makes that true of the stored row as well as of the
-    // store, and it is why a stage's output is not written into `cards`.
     expect(
       sanitizeStages({
         followUps: { items: [{ question: 'Und bei Hanglage?' }] },
@@ -161,8 +168,6 @@ describe('sanitizeStages', () => {
   })
 
   it('drops a stage key this build has never heard of', () => {
-    // An unbounded map of stage ids is how "one more key on a column that
-    // already exists" becomes a column of arbitrary client JSON.
     expect(
       sanitizeStages({
         followUps: { items: [{ question: 'Und bei Hanglage?' }] },

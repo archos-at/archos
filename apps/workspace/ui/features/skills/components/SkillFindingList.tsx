@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * What the reviewer found, as rows.
- *
- * One component, two placements, and that is deliberate: the same row renders
- * under the field a finding is about (where it is revised) and in the check
- * step's summary (where the whole verdict is read). Two renderings of one
- * finding would drift on the first severity retune, and severity here is
- * carried by an icon and a tint — the two things that drift first.
- *
- * `variant="inline"` is the copy that sits under a field: it drops the field
- * label, because the field is directly above it and naming it again is the
- * caption restating the photograph.
- */
-
 import type { FC } from 'react'
 import { AlertTriangle, Lightbulb, XCircle } from 'lucide-react'
 import { useTranslations } from '@/i18n'
@@ -35,14 +21,7 @@ const SEVERITY_TONE = {
 
 export interface SkillFindingListProps {
   findings: readonly SkillReviewFinding[]
-  /** `inline` sits under the field it is about and names no field. */
   variant?: 'inline' | 'full'
-  /**
-   * The draft has moved on since these were raised. They are kept on screen —
-   * hiding them would lose work the author is halfway through acting on — and
-   * marked, because a finding presented as current about text that has changed
-   * is the one lie this surface could tell.
-   */
   stale?: boolean
   className?: string
   'data-testid'?: string

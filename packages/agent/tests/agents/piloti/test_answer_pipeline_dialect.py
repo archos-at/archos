@@ -1,13 +1,3 @@
-"""The dialect validator and the quote stamps, inside the answer pipeline.
-
-``finalize_answer`` holds the answer to the dialect after the citations are
-verified and before hygiene (``common/answer_dialect.py``), and stamps each
-quote line on the text the reader gets (``common/quote_stamps.py``). The live
-settle holds the dialect the same way, so a block the terminal unwraps is not
-drawn first. The stamps then travel: Piloti's state, the conversation state,
-``TurnResult.quote_stamps``, and the persisted row.
-"""
-
 from __future__ import annotations
 
 import json

@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Rollback used to activate any stored version with no check at all, so a
- * version saved before zero data retention was on (or before its model lost
- * its ZDR endpoint) put models OpenRouter refuses back into production. Under
- * ZDR each model must have a ZDR endpoint serving its group — and nothing else
- * about rollback changes.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ForbiddenError } from '@/lib/api/errors'
 
@@ -20,7 +13,6 @@ const session = {
   featureFlags: ['runtime-model-config'] as string[] | null,
 }
 
-// A deployment that signs people in: the gates read the session's WorkOS claim.
 beforeEach(() => {
   vi.stubEnv('REQUIRE_AUTH', 'true')
 })
@@ -34,7 +26,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
 
 const VERSION_ID = '11111111-2222-3333-4444-555555555555'
 
-/** The row the service reads; `activateVersion` hands THIS row to `validate`, then "writes". */
 let storedRow: { id: string; overrides: Record<string, { model: string }> } | null = null
 const written: Array<string | null> = []
 
@@ -46,7 +37,6 @@ vi.mock('@/lib/model-config/service', async (importOriginal) => ({
         written.push(null)
         return null
       }
-      // What the real `activateVersion` throws for a version this org does not hold.
       if (!storedRow) throw new ForbiddenError()
       await params.validate?.(storedRow as never)
       written.push(params.versionId)
@@ -113,8 +103,6 @@ describe('POST /api/organization/model-config/versions/[id]/activate', () => {
   })
 
   it('checks ZDR only: a model outside the catalog or short on context is not a rollback refusal', async () => {
-    // Rollback never validated catalog membership or capabilities; ZDR must not
-    // start doing so under its own name. Only the ZDR list decides here.
     storedRow = { id: VERSION_ID, overrides: { deep_research: { model: 'vendor/retired-from-catalog' } } }
     vi.mocked(fetchZdrEndpoints).mockResolvedValue(zdrIndex({ modelId: 'vendor/retired-from-catalog' }))
     expect((await activate(VERSION_ID)).status).toBe(200)

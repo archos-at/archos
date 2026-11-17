@@ -1,0 +1,7 @@
+---
+# area: office-knowledge
+operators:
+  - >
+    The deploy adds the rulesets table, where country rules such as the building
+    class are kept as data; nothing in the product reads them yet. Rolling it back
+    deletes every ruleset.

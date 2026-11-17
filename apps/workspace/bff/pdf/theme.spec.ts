@@ -1,9 +1,4 @@
 // @disk-inputs: shared/brand/tokens.vars.css
-/**
- * The PDF palette is transcribed from the brand tokens (react-pdf cannot read
- * CSS variables). This holds the transcription to the synced token file, so a
- * brand retune that reaches the app cannot leave the printed documents behind.
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -13,7 +8,6 @@ const vars = readFileSync(join(__dirname, '../../shared/brand/tokens.vars.css'),
 const light = /:root \{([^}]*)\}/.exec(vars)?.[1] ?? ''
 const token = (name: string): string => new RegExp(`--ds-${name}: (#[0-9a-f]{6});`).exec(light)?.[1] ?? 'missing'
 
-/** `amount` of `b` mixed into `a`, as the browser's color-mix in sRGB. */
 function mix(a: string, b: string, amount: number): string {
   const channel = (hex: string, i: number): number => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
   return `#${[0, 1, 2]

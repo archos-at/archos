@@ -1,32 +1,13 @@
-"""The PDF text and table passes hold one page, against the real pdfplumber and PDFium.
-
-Two 26-29 MB plan collections OOM-killed a 12 GiB ingest worker (2026-10-19)
-before ``_extract_text_from_pdf`` returned. pdfplumber caches every parsed
-object on its ``Page`` until the page is closed, the pages hang off the open
-``PDF``, and nothing closed them: a CAD sheet of 20 000 paths stayed resident
-at about 77 MiB until the last page was read. These tests pin the two bounds
-that fixed it, on a generated set of drawing sheets
-(``pdf_fixtures.build_drawing_sheets_pdf``):
-
-- every pdfplumber page is closed before the next one is read, in both passes;
-- a page denser than ``PDF_PAGE_MAX_OBJECTS`` never reaches pdfplumber at all,
-  and keeps its text, read by PDFium.
-
-They count cached pages through the library's own attribute
-(``Page._objects``, what ``Page.close`` deletes) rather than measure RSS, so
-they hold on any machine. Model-free and network-free.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer_testing import pdf_fixtures
 
 _SHEETS = 4
-#: Enough paths that pdfplumber's cache is real, few enough to stay fast.
 _PATHS = 400
 
 
@@ -51,7 +32,7 @@ def test_the_text_pass_closes_each_page_before_reading_the_next(sheets, monkeypa
         seen.append(page)
         return read(page, page_num, previous, pdf_path)
 
-    monkeypatch.setattr(adapter, "_read_pdf_page", _spy)
+    monkeypatch.setattr(pdf_text, "_read_pdf_page", _spy)
 
     pages = adapter._extract_text_from_pdf(sheets)
 
@@ -80,7 +61,7 @@ def test_the_table_pass_closes_each_page_and_skips_the_dense_ones(sheets, monkey
 
 
 def test_a_page_over_the_object_ceiling_is_read_by_pdfium_and_keeps_its_text(sheets, monkeypatch):
-    monkeypatch.setattr(adapter, "PDF_PAGE_MAX_OBJECTS", _PATHS // 2)
+    monkeypatch.setattr(pdf_text, "PDF_PAGE_MAX_OBJECTS", _PATHS // 2)
     layout_reads: list[int] = []
     read = adapter._read_pdf_page
     monkeypatch.setattr(
@@ -99,7 +80,7 @@ def test_a_page_over_the_object_ceiling_is_read_by_pdfium_and_keeps_its_text(she
 
 
 def test_a_ceiling_of_zero_reads_every_page_with_layout(sheets, monkeypatch):
-    monkeypatch.setattr(adapter, "PDF_PAGE_MAX_OBJECTS", 0)
+    monkeypatch.setattr(pdf_text, "PDF_PAGE_MAX_OBJECTS", 0)
 
     pages = adapter._extract_text_from_pdf(sheets)
 
@@ -108,11 +89,15 @@ def test_a_ceiling_of_zero_reads_every_page_with_layout(sheets, monkeypatch):
 
 
 def test_a_pdf_pdfium_cannot_count_is_left_to_the_layout_pass(tmp_path, monkeypatch):
-    monkeypatch.setattr(adapter, "PDF_PAGE_MAX_OBJECTS", 1)
+    monkeypatch.setattr(pdf_text, "PDF_PAGE_MAX_OBJECTS", 1)
     broken = tmp_path / "kaputt.pdf"
     broken.write_bytes(b"not a pdf")
 
     assert adapter._dense_page_texts(str(broken), 1) == {}
+
+
+@pytest.fixture
+def _no_memory_release_between_files(): ...
 
 
 def test_releasing_memory_after_a_file_never_raises():

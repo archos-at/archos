@@ -26,7 +26,7 @@ nobody would review.
 The cost is that the fixture cannot be re-derived from itself. Change the
 embedder, the chunking or the corpus and it is stale, so it carries the model
 name and a corpus fingerprint, and the golden test pins that model against the
-deployed one (``deploy/compose/docker-compose.coolify.yaml``). A stale fixture
+deployed one (``deploy/compose/docker-compose.yaml``). A stale fixture
 then fails CI instead of quietly scoring the wrong embedder.
 
 The chunks here are sampled PAGES rather than production's chunks: page text

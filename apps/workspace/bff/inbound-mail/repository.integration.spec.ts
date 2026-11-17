@@ -28,7 +28,6 @@ const STAMP = Date.now().toString(36)
 const ORG = `org_inbound_repo_${STAMP}`
 const OTHER_ORG = `org_inbound_repo_other_${STAMP}`
 const USER = 'user_01J0REPOSPEC0000000000000A'
-/** A fresh 12-letter base32 token per run, so reruns never meet the global unique index. */
 const token = (seed: string) => (STAMP + seed).replace(/[^a-z2-7]/g, 'a').padEnd(12, 'q').slice(-12)
 
 describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () => {
@@ -104,7 +103,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
   })
 
   afterAll(async () => {
-    // Projects cascade to every row this spec wrote; the purge path is the platform's.
     await withPlatformAccess('test cleanup', () =>
       db.execute(sql`DELETE FROM projects WHERE organization_id IN (${ORG}, ${OTHER_ORG})`),
     )
@@ -258,6 +256,18 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect((await inTenant(() => repo.findMailForReceive(mailId)))?.notifiedAt).not.toBeNull()
     })
 
+    it('counts a project’s waiting mails, as its Postfach row says them, and no other project’s', async () => {
+      const { waitingMailCounts } = await import('./notice-repository')
+      const before = (await inTenant(() => waitingMailCounts([projectId]))).get(projectId) ?? 0
+      const mailId = await received()
+      await inTenant(() => repo.recordRawScan(mailId, { status: 'clean', engine: 'ClamAV 1.5.4/28157', signature: null, scannedAt: new Date() }))
+      await inTenant(() => repo.holdMail(mailId, fields(mailId), [textPart(mailId)]))
+
+      const counts = await inTenant(() => waitingMailCounts([projectId, otherProjectId]))
+      expect(counts.get(projectId)).toBe(before + 1)
+      expect(counts.has(otherProjectId)).toBe(false)
+    })
+
     it('holds an outsider’s mail that claims a member’s name, and refuses the claim on a member’s own address (the database)', async () => {
       const claimed = await received()
       await inTenant(() => repo.recordRawScan(claimed, { status: 'clean', engine: 'ClamAV 1.5.4/28157', signature: null, scannedAt: new Date() }))
@@ -304,7 +314,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
           VALUES (${ORG}, ${USER}, 'S-101_B.pdf', ${`k/inbound/${STAMP}/b`}, ${`coll_inbound_${STAMP}`}, 'completed', 'project',
                   ${projectId}::uuid, ${'b'.repeat(64)}, ${'b'.repeat(64)}, 'clean') RETURNING id`)
       ).id
-      // The same bytes, held by the content gate: never a candidate.
       await one(sql`
         INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, content_hash)
         VALUES (${ORG}, ${USER}, 'Gehalten.pdf', ${`k/inbound/${STAMP}/h`}, ${`coll_inbound_${STAMP}`}, 'quarantined', 'project',
@@ -396,7 +405,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       `${new Date(mail.updatedAt).toISOString()}|${parts.map((part) => `${part.id}:${part.state}`).join(',')}`
     const actor = { decidedBy: PERSON, via: 'app' as const, proposalId: null }
 
-    /** A mail held with its text and one clean attachment, through the receive side's own statements. */
     async function heldMail(): Promise<{ mailId: string; textId: string; fileId: string }> {
       const mailId = crypto.randomUUID()
       await reception(mailId)

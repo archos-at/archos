@@ -1,9 +1,3 @@
-/**
- * The documents a role can be bound to. The plan that is the Bebauungsplan is
- * as often the oldest upload as not, and the first listing page used to be
- * all the picker offered.
- */
-
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'

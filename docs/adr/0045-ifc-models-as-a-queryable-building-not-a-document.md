@@ -163,7 +163,7 @@ prefix:
 | | |
 |---|---|
 | `ifc_op` | which operation ran |
-| `ifc_outcome` | `resolved`, `unresolved:<reason>`, or `service_unavailable` |
+| `ifc_outcome` | `resolved`, `undecidable`, `unresolved:<reason>`, `no_project`, `rejected`, `model_too_large`, `model_unreadable`, `service_unavailable`, or `engine_unavailable` |
 | `ifc_model` / `ifc_elements` | which model, and how big |
 | `ifc_truncated`, `ifc_total_is_lower_bound`, `ifc_catalog_sampled` | whether the answer covered the WHOLE building |
 

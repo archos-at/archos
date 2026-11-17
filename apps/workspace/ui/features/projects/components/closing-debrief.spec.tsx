@@ -1,17 +1,3 @@
-/**
- * The closing debrief (docs/roadmap/office-experience.md, step 3): what a
- * project leaves the office, asked in the close dialog while its memory can
- * still be written. It names the open facts of the fingerprint the ranking
- * reads, offers only the memory other projects search (active decisions and
- * constraints), confirms one so other projects cite it as a person's, records a
- * lesson as a decision, and offers none of that to a reader who may not write
- * the memory.
- *
- * It also shows what the closing extraction read from the documents
- * (docs/design/closed-project-experience.md): the suggested facts, with their
- * evidence, which a person accepts or leaves open, and the source-grounded
- * decisions, which a person confirms or dismisses.
- */
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@/test-utils'
@@ -33,8 +19,6 @@ const wire = (overrides: Parameters<typeof makeMemoryItem>[0]) => ({
   lastReferencedAt: null,
 })
 
-// Built by the intake's own producer, so the debrief is tested on the shape
-// production stores (a building's answers under `@bldg1`).
 const built = (answers: Record<string, ProjectPrimitiveValue>) =>
   buildIntakeProfile(answers, projectIntakeDefinitionV1, { buildings: [{ id: 'bldg1', name: 'Bauwerk 1' }] })
 
@@ -45,7 +29,6 @@ const profile: ProjectProfile = built({
   'C10@bldg1': ['timber'],
 })
 
-/** A value the closing extraction read from a document, as the profile stores it. */
 const suggestion = (value: ProjectPrimitiveValue, reason: string): ProjectAssumption => ({
   value,
   status: 'unconfirmed',
@@ -112,9 +95,6 @@ describe('ClosingDebrief', () => {
     const debrief = screen.getByTestId('closing-debrief')
     expect(within(debrief).getByText('Niederösterreich')).toBeInTheDocument()
     expect(within(debrief).getByText('Holzbau')).toBeInTheDocument()
-    // Uses and kind of work are open in the briefing; the class is derived, not
-    // the briefing's to fill: two missing. The period is the Steckbrief's, shown
-    // beside the debrief, never counted here.
     expect(within(debrief).getAllByText('open')).toHaveLength(2)
     expect(within(debrief).getByText('open (not set in the brief)')).toBeInTheDocument()
     expect(within(debrief).getByText('2 facts missing')).toBeInTheDocument()
@@ -161,7 +141,6 @@ describe('ClosingDebrief', () => {
     render(<ClosingDebrief projectId="p1" profile={profile} canWriteMemory />)
 
     await screen.findByText('Kapselung K₂60 mit Gipsfaserplatten, Prüfbericht liegt vor.')
-    // The pinned constraint is already a person's; only the decision asks.
     const confirms = screen.getAllByRole('button', { name: 'Confirm' })
     expect(confirms).toHaveLength(1)
     await userEvent.click(confirms[0])
@@ -269,8 +248,6 @@ describe('ClosingDebrief', () => {
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Suggestion from the documents')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Neubau')).toBeInTheDocument()
-    // Accepting is what makes it an answer, so the fact is still missing until then:
-    // uses and this suggested kind of work.
     expect(within(debrief).getByText('2 facts missing')).toBeInTheDocument()
 
     await userEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Accept' }))

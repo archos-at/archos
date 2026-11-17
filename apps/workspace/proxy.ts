@@ -32,7 +32,7 @@ const middleware = authkitMiddleware({
       // path-to-regexp (anchored), so '/' matches only the root.
       '/',
       // Liveness probe — must return 200 even when auth is required, so the
-      // container / Coolify / Traefik health check never redirects to login.
+      // container or proxy health check never redirects to login.
       '/api/healthz',
       // The backend health proxy (its route is `publicApiRoute`): the deploy's
       // smoke check calls it without a session, and so does the client's

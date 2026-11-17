@@ -104,12 +104,6 @@ describe('inferDocumentKind', () => {
     })
   })
 
-  /**
-   * The bug this rule exists for: `plan` matches ANYWHERE in a filename, so a
-   * `.md` called `Projektplan` drew a floor-plan card — outer walls, interior
-   * partitions and a door swing over a file that is prose. The format is the
-   * one signal that cannot be wrong about this, so it is read first.
-   */
   describe('format beats every other signal', () => {
     it('never draws a drawing for a format whose bytes cannot be one', () => {
       expect(inferDocumentKind({ filename: 'Projektplan.md' })).toBe('text')
@@ -166,13 +160,8 @@ describe('extChipTint', () => {
     }
   })
 
-  it('groups extensions sensibly and is case-insensitive', () => {
-    expect(extChipTint('PDF')).toEqual(extChipTint('docx'))
-    expect(extChipTint('dwg')).toEqual(extChipTint('ifc'))
-    expect(extChipTint('jpg')).toEqual(extChipTint('png'))
-    expect(extChipTint('pdf')).not.toEqual(extChipTint('dwg'))
-    // Unknown extensions get the neutral tint.
-    expect(extChipTint('zzz')).toEqual(extChipTint(''))
+  it('gives every format the same quiet tint: a format is not a provenance signal', () => {
+    for (const ext of ['PDF', 'docx', 'dwg', 'ifc', 'jpg', 'png', 'zzz', '']) expect(extChipTint(ext)).toEqual(extChipTint('pdf'))
   })
 })
 
@@ -205,7 +194,6 @@ describe('fileFormatMessage', () => {
     expect(label(tDe, { filename: 'Haus.ifc' })).toBe('IFC-Modell')
     expect(label(tEn, { filename: 'Haus.ifc' })).toBe('IFC model')
     expect(label(tDe, { filename: 'Katasterauszug.dxf', contentType: 'application/dxf' })).toBe('CAD-Datei (DXF)')
-    // A DXF a CAD machine typed as an image is still a CAD file, never "Bild (VND.DXF)".
     expect(label(tDe, { filename: 'Lageplan', contentType: 'image/vnd.dxf' })).toBe('CAD-Datei (DXF)')
     expect(label(tEn, { filename: 'Katasterauszug.dxf' })).toBe('CAD file (DXF)')
   })

@@ -23,7 +23,6 @@ interface CapturedQuery {
 
 const captured: CapturedQuery[] = []
 
-/** Answers each query with one row per name it asked for that ends in an even number. */
 const proxyDb = drizzle(async (sql, params) => {
   captured.push({ sql, params })
   const asked = params.filter((value): value is string => typeof value === 'string' && /^f\d+\.pdf$/.test(value))
@@ -59,7 +58,6 @@ describe('findRevisionCounterparts', () => {
 
     expect(captured).toHaveLength(3)
     expect(captured.flatMap(namesIn).sort()).toEqual([...names].sort())
-    // A name in the last batch resolves like one in the first.
     expect(rows.map((row) => row.filename)).toContain(`f${FILENAME_LOOKUP_MAX_NAMES * 2 + 48}.pdf`)
     expect(rows).toHaveLength((FILENAME_LOOKUP_MAX_NAMES * 2 + 50) / 2)
   })

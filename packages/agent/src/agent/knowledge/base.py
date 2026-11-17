@@ -473,7 +473,7 @@ class BaseIngestor(ABC):
         """
 
     @abstractmethod
-    def get_job_status(self, job_id: str) -> IngestionJobStatus:
+    def get_job_status(self, job_id: str) -> IngestionJobStatus | None:
         """
         Get the current status of an ingestion job.
 
@@ -483,7 +483,7 @@ class BaseIngestor(ABC):
             job_id: The job ID returned from submit_job.
 
         Returns:
-            IngestionJobStatus with current state.
+            IngestionJobStatus with current state; None for a job nothing knows any more, never a made-up failure.
         """
 
     #: Whether ``prepare_job``/``run_prepared`` work, so a
@@ -558,8 +558,8 @@ class BaseIngestor(ABC):
         Args:
             name: Collection name to delete.
 
-        Returns:
-            True if deleted successfully, False otherwise.
+        Returns True when something was removed, False when nothing of the file
+        was there. Raises when a store fails, so a failure is never "not found".
         """
 
     @abstractmethod
@@ -645,24 +645,24 @@ class BaseIngestor(ABC):
             collection_name: Collection containing the files.
             permanent: Passed to :meth:`delete_file` for each file.
 
-        Returns:
-            Dict with 'successful' (list), 'failed' (list), 'total_deleted' (int).
+        Returns: 'successful', 'not_found' (nothing was there), 'failed' (raised:
+        points may remain) and 'total_deleted'.
         """
-        successful = []
-        failed = []
+        successful, not_found, failed = [], [], []
 
         for file_id in file_ids:
             try:
                 if self.delete_file(file_id, collection_name, permanent=permanent):
                     successful.append(file_id)
                 else:
-                    failed.append({"file_id": file_id, "error": "Not found or already deleted"})
+                    not_found.append(file_id)
             except Exception as e:
                 failed.append({"file_id": file_id, "error": str(e)})
 
         return {
             "message": f"Deleted {len(successful)} of {len(file_ids)} files",
             "successful": successful,
+            "not_found": not_found,
             "failed": failed,
             "total_deleted": len(successful),
         }

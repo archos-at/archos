@@ -23,6 +23,7 @@ import type { DocumentWireRow } from '@/features/documents/lib/file-item'
 import type { ProjectFolderRow } from '@/lib/projects/folder-service'
 import type { ListedDocument } from './shelf-listing'
 import { summarizeDocumentVersions } from './lifecycle'
+import { entryIdsForDocuments } from '@/lib/base-knowledge/store/repository'
 import type { DocumentVersionState } from './lifecycle-types'
 
 /**
@@ -115,12 +116,17 @@ export function toDocumentWireRow(
 export async function toDocumentWireRows(
   organizationId: string,
   rows: ListedDocument[],
-): Promise<Array<ReturnType<typeof toDocumentWireRow>>> {
-  const versions = await summarizeDocumentVersions(
-    organizationId,
-    rows.map((row) => row.id),
-  )
-  return rows.map((row) => toDocumentWireRow(row, versions.get(row.id)))
+  /** The office shelf's listing: its rows can be the office's standards (ADR-0163), a project's never are. */
+  { officeShelf = false }: { officeShelf?: boolean } = {},
+): Promise<Array<ReturnType<typeof toDocumentWireRow> & { baseKnowledgeEntryId: string | null }>> {
+  const ids = rows.map((row) => row.id)
+  // Which rows are the office's standards: only the office shelf holds any (ADR-0163).
+  const shelfIds = officeShelf ? ids : []
+  const [versions, entries] = await Promise.all([
+    summarizeDocumentVersions(organizationId, ids),
+    entryIdsForDocuments(organizationId, shelfIds),
+  ])
+  return rows.map((row) => ({ ...toDocumentWireRow(row, versions.get(row.id)), baseKnowledgeEntryId: entries.get(row.id) ?? null }))
 }
 
 /**

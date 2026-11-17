@@ -30,9 +30,7 @@ import { describe, expect, it } from 'vitest'
 import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
 
 
-/** `{file.errorMessage}` as a child, not as a prop value (`message={…}`). */
 const ERROR_MESSAGE_CHILD = /(?<!=)\{\s*[\w.?]+\.errorMessage\s*\}/
-/** `toast.error(body?.error ?? …)`, `toast.error(data.error)`. */
 const TOAST_OF_BODY = /toast\.(?:error|warning|info|message)\(\s*\w+\??\.error\b/
 
 const ERROR_MESSAGE_CHILD_ALLOWED: Record<string, string> = {
@@ -43,7 +41,6 @@ const ERROR_MESSAGE_CHILD_ALLOWED: Record<string, string> = {
 }
 
 const TOAST_OF_BODY_ALLOWED: Record<string, string> = {
-  'features/platform/components/norm-registry.tsx': 'platform staff surface, off the project path: known debt',
 }
 
 function sourceFiles(dir: string): string[] {

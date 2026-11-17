@@ -103,11 +103,9 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   it('queues a failed attempt behind its backoff, then makes the last one dead with ids only', async () => {
     const jobId = await enqueue({ id: 'fail', mode: 'fail-always', projectId: 'p-1' })
 
-    // Hatchet is told the category and the class; the row keeps the message.
     await expect(run(jobId)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 30, message: 'attempt-failed: Error' })
     expect(await rowOf(jobId)).toMatchObject({ status: 'queued', attempts: 1 })
 
-    // The retry is the same run; the backoff is over by the time it comes.
     await context.withPlatformAccess('test: the backoff is over', () =>
       db.execute(sql`UPDATE bff_job_queue SET not_before = now() WHERE job_id = ${jobId}::uuid`),
     )
@@ -118,6 +116,32 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
       payload: { projectId: 'p-1' },
       last_error: 'scripted failure of fail on attempt 2',
     })
+  })
+
+  it('a failed attempt waits once: the row holds the wait for the take and the sweep, Hatchet only times the retry', async () => {
+    const jobId = await enqueue({ id: 'wait-once', mode: 'fail-always' })
+    const due = () =>
+      context.withPlatformAccess('test: the stranded rows', () =>
+        repo.listJobsToDispatch({ graceSeconds: 120, staleSeconds: 600, limit: 500 }),
+      )
+    const backoffEnded = (ago: string) =>
+      context.withPlatformAccess('test: move the backoff', () =>
+        db.execute(sql`UPDATE bff_job_queue SET created_at = now() - interval '1 hour', not_before = now() - ${ago}::interval WHERE job_id = ${jobId}::uuid`),
+      )
+
+    await expect(run(jobId)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 30 })
+
+    await context.withPlatformAccess('test: an old row, mid-backoff', () =>
+      db.execute(sql`UPDATE bff_job_queue SET created_at = now() - interval '1 hour', not_before = now() + interval '10 minutes' WHERE job_id = ${jobId}::uuid`),
+    )
+    await expect(run(jobId, 1)).resolves.toMatchObject({ outcome: 'skipped' })
+    expect(await rowOf(jobId)).toMatchObject({ status: 'queued', attempts: 1 })
+    expect((await due()).map((row) => row.jobId)).not.toContain(jobId)
+    await backoffEnded('60 seconds')
+    expect((await due()).map((row) => row.jobId)).not.toContain(jobId)
+    await backoffEnded('5 minutes')
+    const stranded = (await due()).find((row) => row.jobId === jobId)
+    expect(stranded?.claimedAt).toBeInstanceOf(Date)
   })
 
   it('makes a kind nobody knows dead at once, without a retry', async () => {
@@ -133,7 +157,6 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
       await expect(run(missing, retry)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 10, message: 'not-committed' })
     }
     expect(await run(missing, task.UNCOMMITTED_LOOKS)).toEqual({ job_id: missing, outcome: 'skipped' })
-    // Hatchet has the retries for the looks on top of the row's attempts.
     expect(task.bffJobTaskSpec(ENV).retries).toBe(2 + task.UNCOMMITTED_LOOKS)
   })
 
@@ -159,7 +182,6 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   it('never runs a slice twice at once: a retry of the same run leaves the row to the attempt still running', async () => {
     const jobId = await enqueue({ id: 'hung', mode: 'ok', ms: 1_500 })
 
-    // Attempt 0 runs past its timeout: Hatchet retries the run while it still runs.
     const first = run(jobId, 0)
     await until(() => claimed(jobId))
     const retry = await run(jobId, 1)

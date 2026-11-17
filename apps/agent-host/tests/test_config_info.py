@@ -1,5 +1,3 @@
-"""Tests for the /v1/config/llm-defaults introspection route."""
-
 from types import SimpleNamespace
 
 import pytest
@@ -40,32 +38,20 @@ def test_returns_llm_defaults_without_token_in_dev(client, monkeypatch):
     assert llms["chat_llm"] == "deepseek/deepseek-v4-flash"
     assert llms["card_llm"] == "deepseek/deepseek-v4-flash"
     assert llms["weird_llm"] is None
-    # The env-configured ingestion VLM default is surfaced under a synthetic
-    # `vlm` key so the model-config UI's ingest_vlm group shows a workflow
-    # default (it is not a `llms:` entry).
     assert isinstance(llms["vlm"], str) and llms["vlm"]
 
 
 def test_reports_the_base_url_each_llm_targets(client, monkeypatch):
-    """The BFF refuses to seed a platform default unless the deployment actually
-    targets the platform catalog's provider, so the endpoint each LLM talks to is
-    part of the contract — not just the model id."""
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     base_urls = client.get("/v1/config/llm-defaults").json()["baseUrls"]
 
     assert base_urls["chat_llm"] == "https://openrouter.ai/api/v1"
     assert base_urls["card_llm"] == "https://openrouter.ai/api/v1"
-    # An LLM config without a base_url reports None rather than being omitted:
-    # "unknown endpoint" must be distinguishable from "no such LLM".
     assert base_urls["weird_llm"] is None
-    # The ingestion VLM has its own credential plane (VLM_BASE_URL) and is
-    # routinely a different provider from the `llms:` block.
     assert isinstance(base_urls["vlm"], str) and base_urls["vlm"]
 
 
 def test_vlm_default_reflects_env(monkeypatch):
-    """The synthetic `vlm` default mirrors VLM_MODEL (resolved at
-    route-registration time)."""
     monkeypatch.setenv("VLM_MODEL", "vendor/vision-x")
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     app = FastAPI()
@@ -89,13 +75,9 @@ def test_requires_matching_token_when_configured(client, monkeypatch):
 
 
 def test_reports_the_reasoning_effort_each_llm_ships_with(client, monkeypatch):
-    """The platform owner can override the thinking level per agent group, so the
-    admin surface must be able to name what clearing that override returns to."""
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     efforts = client.get("/v1/config/llm-defaults").json()["reasoningEfforts"]
 
     assert efforts["chat_llm"] == "none"
     assert efforts["card_llm"] == "medium"
-    # An LLM config without the field reports None rather than being omitted:
-    # "role ships no effort" must be distinguishable from "no such LLM".
     assert efforts["weird_llm"] is None

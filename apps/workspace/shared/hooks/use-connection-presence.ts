@@ -197,8 +197,26 @@ export function useConnectionPresence(
     }
   }, [enablePing, pingIntervalMs, runPing])
 
+  // A person asked to try again („Erneut versuchen"): ping now rather than at
+  // the next interval.
+  useEffect(() => {
+    if (!enablePing || typeof window === 'undefined') return
+    const check = (): void => {
+      void runPing()
+    }
+    window.addEventListener(CHECK_EVENT, check)
+    return () => window.removeEventListener(CHECK_EVENT, check)
+  }, [enablePing, runPing])
+
   // Drop any pending debounce transition on unmount.
   useEffect(() => clearDebounce, [clearDebounce])
 
   return presence
+}
+
+const CHECK_EVENT = 'connection-presence:check'
+
+/** Ask every mounted presence hook to ping now: the connection row's „Erneut versuchen". */
+export function requestConnectionCheck(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(CHECK_EVENT))
 }

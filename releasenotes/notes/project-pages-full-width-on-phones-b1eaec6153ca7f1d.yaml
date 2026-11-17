@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    On a phone, every page of a project (the chat, the files, the mail and the
+    settings) uses the whole width of the screen again. It was squeezed into a
+    narrow strip beside an empty column.

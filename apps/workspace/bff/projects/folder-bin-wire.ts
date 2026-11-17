@@ -45,6 +45,12 @@ export const binEntrySchema = z.object({
   documents: z.number(),
   folders: z.number(),
   canRestore: z.boolean(),
+  /**
+   * Why a pending entry cannot be restored by this reader, so the bin can say it rather than leave a hole where
+   * the press was: the folder is the reader's to read only, the project is closed, or the reader may not file in it.
+   * Absent where restoring is possible or the entry is not pending (its status line says why).
+   */
+  restoreBlocked: z.enum(['folder_read_only', 'project_closed', 'no_write']).nullable().optional(),
   /** The document this entry holds when one document was sent to the bin on its own; `null` for a deleted folder. */
   document: z.object({ id: z.string(), name: z.string() }).nullable(),
 })

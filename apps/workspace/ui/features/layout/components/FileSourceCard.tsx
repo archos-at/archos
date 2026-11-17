@@ -1,14 +1,7 @@
-/**
- * FileSourceCard Component
- *
- * Displays a single uploaded file source with status and delete action.
- * Shows file title, upload time, description, and current status.
- */
-
 'use client'
 
 import { type FC, useState, useEffect } from 'react'
-import { Check, FileText, ShieldAlert, Trash2, X } from 'lucide-react'
+import { Ban, Check, FileText, ShieldAlert, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
@@ -24,61 +17,32 @@ import type { TrackedFile } from '@/features/documents/types'
 import type { QuarantineVerdict } from '@/lib/upload-screening/quarantine'
 import { formatBytes } from '@/lib/format'
 
-/**
- * File source status types.
- *
- * `held`: the content check held the file back (ADR-0086). Not an error:
- * nothing failed, and the card says why in the quarantine sentence.
- * `stored`: kept and never read, so the chat cannot answer from it; neutral.
- */
-export type FileSourceStatus = 'uploading' | 'ingesting' | 'available' | 'held' | 'stored' | 'error' | 'deleting'
+export type FileSourceStatus =
+  | 'uploading'
+  | 'ingesting'
+  | 'available'
+  | 'held'
+  | 'stored'
+  | 'error'
+  | 'deleting'
+  | 'canceled'
 
 export interface FileSourceCardProps {
-  /** Unique identifier for the file */
   id: string
-  /** File title/name */
   title: string
-  /** File size in bytes */
   fileSize?: number | null
-  /** When the file was uploaded (optional - not displayed if null/undefined) */
   uploadedAt?: Date | string | null
-  /** Optional description of the file */
   description?: string
-  /** Current status of the file */
   status: FileSourceStatus
-  /** Error message when status is 'error'. Never set for 'held': that file says why through `quarantine`. */
   errorMessage?: string
-  /** Why the content check held the file, when status is 'held' (`quarantineVerdictOf`, ADR-0113). */
   quarantine?: QuarantineVerdict | null
-  /**
-   * The failure happened while the file was being read, so `errorMessage` is a
-   * stored ingest failure: it is said in the reader's language, raw text behind
-   * „Details". Otherwise it is the upload's own message, shown as it is.
-   */
   failedWhileReading?: boolean
-  /**
-   * The file was refused because the document it would replace is held
-   * (ADR-0086): `errorMessage` is then that sentence, not a verdict.
-   */
   replacesHeld?: TrackedFile['replacesHeld']
-  /** Hours after upload before the file may expire (0 = no expiry shown) */
   expirationIntervalHours?: number
-  /**
-   * Callback when delete is clicked. Omitted, the row has no delete control:
-   * the chat's file dialog lists project files without deleting them, because
-   * a project document is deleted in the project's Files.
-   */
   onDelete?: (id: string) => void
-  /**
-   * Opens a read-only preview of the file. When provided AND the file is
-   * `available`, the icon+content become a button so tapping the row previews it
-   * (matching the "tap a file → preview" model). Omitted or non-available files
-   * stay inert — there is nothing to preview yet.
-   */
   onOpen?: (id: string) => void
 }
 
-/** Status configuration for styling */
 const STATUS_CONFIG: Record<
   FileSourceStatus,
   { labelKey: string; textClass: string; showSpinner: boolean }
@@ -118,11 +82,13 @@ const STATUS_CONFIG: Record<
     textClass: 'text-muted-foreground',
     showSpinner: true,
   },
+  canceled: {
+    labelKey: 'fileSourceCard.statusCanceled',
+    textClass: 'text-muted-foreground',
+    showSpinner: false,
+  },
 }
 
-/**
- * Format upload timestamp for display
- */
 const formatDateTime = (date: Date | string, locale?: string): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date
   return dateObj.toLocaleString(locale, {
@@ -133,10 +99,6 @@ const formatDateTime = (date: Date | string, locale?: string): string => {
   })
 }
 
-/**
- * Compute the milliseconds remaining until expiration.
- * Returns null if inputs are invalid or interval is 0.
- */
 const computeMsRemaining = (
   uploadedAt: Date | string | null | undefined,
   intervalHours: number
@@ -148,13 +110,8 @@ const computeMsRemaining = (
   return expiresAtMs - Date.now()
 }
 
-/** Expiry state exposed to the component for localized formatting. */
 type ExpiryInfo = { expired: boolean; minutes: number }
 
-/**
- * Compute expiry state from milliseconds remaining.
- * Returns null when expiration doesn't apply.
- */
 const computeExpiryInfo = (msRemaining: number | null): ExpiryInfo | null => {
   if (msRemaining === null) return null
   if (msRemaining <= 0) return { expired: true, minutes: 0 }
@@ -163,9 +120,6 @@ const computeExpiryInfo = (msRemaining: number | null): ExpiryInfo | null => {
   return { expired: false, minutes: totalMinutes }
 }
 
-/**
- * Hook that returns live expiry state, re-evaluated every minute.
- */
 const useExpiryInfo = (
   uploadedAt: Date | string | null | undefined,
   intervalHours: number,
@@ -181,10 +135,8 @@ const useExpiryInfo = (
       return
     }
 
-    // Compute immediately
     setInfo(computeExpiryInfo(computeMsRemaining(uploadedAt, intervalHours)))
 
-    // Re-evaluate every 60 seconds
     const id = setInterval(() => {
       setInfo(computeExpiryInfo(computeMsRemaining(uploadedAt, intervalHours)))
     }, 60_000)
@@ -195,16 +147,8 @@ const useExpiryInfo = (
   return info
 }
 
-/**
- * The card's arrival and the deleting dim: the rise lands on `springDrawer`,
- * opacity is the `motionQuick` tween (opacity never springs). Instant under
- * reduced motion.
- */
 const cardTransition: Transition = { ...springDrawer, opacity: motionQuick }
 
-/**
- * Card component for displaying an uploaded file source.
- */
 export const FileSourceCard: FC<FileSourceCardProps> = ({
   id,
   title,
@@ -234,12 +178,10 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
 
   const isProcessing = status === 'uploading' || status === 'ingesting'
   const isDeleting = status === 'deleting'
-  const deleteDisabled = isBusy || isProcessing || isDeleting
-  // Only an available file has something to preview; before that there is no
-  // persisted document behind the row.
+  const isCanceled = status === 'canceled'
+  const deleteDisabled = !isCanceled && (isBusy || isProcessing || isDeleting)
   const canOpen = !!onOpen && status === 'available'
 
-  // Icon + textual content, shared by the openable-button and inert-div layouts.
   const rowBody = (
     <>
       {/* File Icon or Spinner */}
@@ -289,6 +231,7 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
             )}
             {status === 'error' && <X className="size-3 text-error" aria-hidden="true" />}
             {status === 'held' && <ShieldAlert className="size-3 text-warning" aria-hidden="true" />}
+            {isCanceled && <Ban className="size-3 text-muted-foreground" aria-hidden="true" />}
             <span className={cn(config.showSpinner ? 'text-sm' : 'text-xs', config.textClass)}>
               {label}
             </span>
@@ -339,11 +282,10 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'group border-border flex items-start justify-between rounded-surface border bg-card p-3 transition-colors duration-quick ease-out shadow-xs',
+        'group flex items-start justify-between rounded-surface bg-card p-3 transition-colors duration-quick ease-out shadow-xs',
         status === 'error' && 'ring-1 ring-error/40'
       )}
       initial={{ opacity: 0, y: 8 }}
-      // Deleting state dims the card (was `opacity-50`; motion owns inline opacity now)
       animate={{ opacity: isDeleting ? 0.5 : 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={cardMotion}
@@ -367,28 +309,27 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            // `focus-visible:opacity-100` already gave the keyboard a way in;
-            // `pointer-coarse:opacity-100` is the same admission for a finger.
-            // Hover is the only trigger a touch device cannot generate, so without
-            // it this row's delete was a control that existed, took a tab stop, and
-            // could never be seen on a phone.
             className="ml-2 size-8 flex-shrink-0 rounded-control text-muted-foreground opacity-0 transition-opacity duration-quick ease-out hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
             onClick={handleDelete}
             disabled={deleteDisabled}
             aria-label={
-              deleteDisabled
-                ? t('fileSourceCard.deleteDisabled', { title })
-                : t('fileSourceCard.delete', { title })
+              isCanceled
+                ? t('fileSourceCard.dismiss', { title })
+                : deleteDisabled
+                  ? t('fileSourceCard.deleteDisabled', { title })
+                  : t('fileSourceCard.delete', { title })
             }
             title={
-              isProcessing
-                ? t('fileSourceCard.waitUpload')
-                : deleteDisabled
-                  ? t('fileSourceCard.cannotDeleteBusy')
-                  : t('fileSourceCard.deleteFile')
+              isCanceled
+                ? t('fileSourceCard.dismiss', { title })
+                : isProcessing
+                  ? t('fileSourceCard.waitUpload')
+                  : deleteDisabled
+                    ? t('fileSourceCard.cannotDeleteBusy')
+                    : t('fileSourceCard.deleteFile')
             }
           >
-            <Trash2 className="size-4" aria-hidden="true" />
+            {isCanceled ? <X className="size-4" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
           </Button>
         )}
       </div>
@@ -396,14 +337,8 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
   )
 }
 
-/**
- * Loading placeholder that mirrors a real {@link FileSourceCard}'s shape — an
- * icon block plus two text lines inside the same rounded card — so the file list
- * loads with the skeleton vocabulary used by the grid file surfaces, instead of
- * a lone centered spinner.
- */
 export const FileSourceCardSkeleton: FC = () => (
-  <div className="border-border flex items-center gap-3 rounded-surface border bg-card p-3 shadow-xs">
+  <div className="flex items-center gap-3 rounded-surface bg-card p-3 shadow-xs">
     <Skeleton className="size-8 shrink-0 rounded-control" />
     <div className="flex min-w-0 flex-1 flex-col gap-2">
       <Skeleton className="h-3.5 w-1/2" />

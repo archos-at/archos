@@ -1,6 +1,6 @@
 /**
  * The process's one MeterProvider for the Node tiers (the gateway in
- * `server.js`, bff-jobs, the scheduler and the purger). It exports OTLP to the
+ * `server.js`, bff-jobs and the purger). It exports OTLP to the
  * collector, which forwards the readings to PostHog Metrics beside the Python
  * tiers' `grid.*` meters and the cluster's own.
  *

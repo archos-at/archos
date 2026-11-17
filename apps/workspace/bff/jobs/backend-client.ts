@@ -13,6 +13,7 @@
  *   - any other non-2xx / network failure → SubmitError → `error` run.
  */
 
+import type { KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import 'server-only'
 // The leaf, not `@/lib/backend-proxy`: that module pulls
 // `@workos-inc/authkit-nextjs`, which the session-less scheduler fire path (and
@@ -98,6 +99,8 @@ export interface JobSubmitPayload {
   project_memory: string | null
   /** The organization's memory-reflection flag, evaluated here like the WS handshake does. */
   memory_reflection_enabled: boolean
+  /** The run's conversation is temporary (ADR-0180): the worker reflects nothing from its report. Sent only when true. */
+  temporary_conversation?: boolean
   organization_id: string
   user_id: string | null
   project_id: string | null
@@ -109,6 +112,12 @@ export interface JobSubmitPayload {
    * a person is waiting on, `bulk` for a scheduled fire. Absent is interactive.
    */
   priority?: JobPriority
+  /**
+   * The knowledge context of the run's project (ADR-0173, ADR-0175): the same
+   * JSON a chat turn's `knowledgeContext` carries, its chain text included.
+   * The worker binds it as a turn does; malformed reads as `knowledge_unavailable`.
+   */
+  knowledge_context: KnowledgeContext
 }
 
 /** The agents a background run may name instead of its output kind's (`agent_host/registry.py`). */

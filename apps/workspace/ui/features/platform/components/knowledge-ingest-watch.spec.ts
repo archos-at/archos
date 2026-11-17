@@ -17,6 +17,7 @@ function file(fileName: string, state: KnowledgeFile['state']): KnowledgeFile {
     chunkCount: state === 'ingested' ? 3 : 0,
     ingestedSha256: null,
     currentSha256: null,
+    countryId: null,
     ingestedAt: null,
     summary: null,
     docClass: 'other',
@@ -44,7 +45,6 @@ function status(...files: KnowledgeFile[]): KnowledgeBaseStatus {
   }
 }
 
-/** A fetch whose answers the test hands out one by one. */
 function deferredFetch() {
   const pending: ((value: KnowledgeBaseStatus) => void)[] = []
   const fetchStatus = vi.fn(
@@ -83,8 +83,6 @@ describe('useIngestWatch', () => {
   })
 
   test('a tick awaiting the status when the component unmounts schedules nothing', async () => {
-    // Regression: the cleanup only cleared the timer, so a tick already awaiting
-    // its fetch set state and armed a new timer after unmount.
     const { fetchStatus, resolveNext } = deferredFetch()
     const onStatus = vi.fn()
     const { result, unmount } = renderHook(() => useIngestWatch(fetchStatus, onStatus, []))
@@ -106,8 +104,6 @@ describe('useIngestWatch', () => {
   })
 
   test('a second upload while a tick is in flight joins the one loop', async () => {
-    // Regression: each upload started its own loop over a shared watched set,
-    // and the first loop to finish cleared the other's files.
     const { fetchStatus, resolveNext } = deferredFetch()
     const { result } = renderHook(() => useIngestWatch(fetchStatus, vi.fn(), []))
 
@@ -117,10 +113,7 @@ describe('useIngestWatch', () => {
     })
     expect(fetchStatus).toHaveBeenCalledTimes(1)
 
-    // Second upload lands while tick 1 is still awaiting its answer.
     act(() => result.current.watch(['b.pdf']))
-    // Tick 1 answers with a.pdf done: it belongs to the superseded loop, so it
-    // neither ends the watch nor arms a second timer.
     await act(async () => {
       resolveNext(status(file('a.pdf', 'ingested')))
       await vi.advanceTimersByTimeAsync(0)
@@ -135,7 +128,6 @@ describe('useIngestWatch', () => {
       resolveNext(status(file('a.pdf', 'ingested'), file('b.pdf', 'pending')))
       await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
     })
-    // One loop: one more fetch per interval, not two.
     expect(fetchStatus).toHaveBeenCalledTimes(3)
 
     await act(async () => {

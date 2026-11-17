@@ -70,7 +70,10 @@ insertTranscript at caret ◀──────────
 | Concern | Owning code |
 |---|---|
 | The button and its states | `apps/workspace/ui/features/dictation/components/DictationButton.tsx` (`DictationButton`, presentational `DictationControl`) |
-| Recording, the 45 s stop, the silence gate | `apps/workspace/ui/features/dictation/hooks/use-dictation.ts` |
+| The phases and every move between them, the 45 s stop, the silence gate | `apps/workspace/ui/features/dictation/lib/dictation-machine.ts` (an XState machine, ADR-0179) |
+| The microphone, the recorder and the request the machine drives | `apps/workspace/ui/features/dictation/hooks/use-dictation.ts` |
+| The bounds that keep the button from getting stuck: two minutes for a microphone that does not answer (a second press cancels sooner), two seconds for a recorder that does not report its stop, one second for a permission query that does not answer | `MICROPHONE_ANSWER_LIMIT_MS` and `STOP_LIMIT_MS` in `apps/workspace/ui/features/dictation/lib/dictation-machine.ts`; `PERMISSION_QUERY_LIMIT_MS` in `apps/workspace/ui/features/dictation/lib/recording-support.ts` |
+| A recorder that hangs: a WebM recording is taken in one-second slices so a forced finish still holds what was said (MP4 is not sliced: Safari's slices have not been through the transcription); a forced finish with no audio on a recording the meter heard speech in says it could not be saved (`dictation.errors.notSaved`) | `RECORDER_TIMESLICE_MS` and `sliced` in `apps/workspace/ui/features/dictation/hooks/use-dictation.ts`; the `forced` state and `heardSpeech` in `apps/workspace/ui/features/dictation/lib/dictation-machine.ts` |
 | Which browsers can dictate, and why not | `apps/workspace/ui/features/dictation/lib/recording-support.ts` |
 | Where the text goes | `apps/workspace/ui/features/dictation/lib/insert-transcript.ts` |
 | Bounds shared by both sides | `apps/workspace/bff/dictation/contract.ts` |

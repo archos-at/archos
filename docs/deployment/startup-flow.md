@@ -145,7 +145,7 @@ admin re-indexes it. It ingests nothing itself. See [`oib-sync.md`](../technical
 ## Row-level security roles and migrations (ADR-0041)
 
 This is step 6 of the sequence above, spelled out. Migrations no longer run from
-the `frontend` container in any stack — compose, Coolify or Kubernetes. The
+the `frontend` container in any stack, Compose or Kubernetes. The
 one-shot `migrate` service runs, in order:
 
 1. `node scripts/ensure-rls-roles.mjs` — creates `app_rw` and

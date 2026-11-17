@@ -1,5 +1,3 @@
-"""A listing from what the writers really put on a chunk (``ingest.listing``)."""
-
 from __future__ import annotations
 
 from datetime import UTC
@@ -14,7 +12,6 @@ from knowledge_layer.vector_store import enrichment
 
 
 def _pdf_payloads(file_name: str) -> list[dict]:
-    """The payloads the PDF text path writes for a two-page file, enrichment included."""
     pages = [{"page_number": n, "text": "Bescheid über die Baubewilligung " * 30, "tables": []} for n in (1, 2)]
     documents = text_documents_for_pages(pages, file_name, 12_345)
     stamp_chunk_metadata(documents, doc_class="permit", provenance={}, chunk_size=1024, file_name=file_name)

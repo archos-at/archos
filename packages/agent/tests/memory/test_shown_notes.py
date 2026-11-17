@@ -1,11 +1,3 @@
-"""The restricted memory a conversation's turns were shown (ADR-0087).
-
-The digest is re-ranked per turn and capped, so a restricted note can leave the
-prompt and stay in the history. These pin the record that keeps it as evidence:
-bounded without forgetting silently, persisted per conversation, and written by
-the turn that was shown it.
-"""
-
 from __future__ import annotations
 
 from agent.citations.registry import SourceRegistry
@@ -67,7 +59,6 @@ class TestTheTurnWritesWhatItWasShown:
         async with turn_registries(
             "conv-shown-3", SourceRegistry(), memory_digest=digest, shown_notes=earlier, restricted_scope=(A,)
         ) as registries:
-            # What earlier turns were shown is visible to this turn's tools.
             assert turn_shown_notes() == earlier
             record_turn_memory_write("Vertragsstrafe 0,1 %", restricted=True)
         assert registries.shown_notes == earlier

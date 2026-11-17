@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * The rail's head: the way home to all projects (the wordmark, or the icon on
- * the icon rail) and the control that folds the rail. The wordmark is the
- * `Logo` component, which reads the name from one place (`PRODUCT_NAME`).
- */
-
 import Link from 'next/link'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 
@@ -18,47 +12,56 @@ import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 
 export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   const t = useTranslations(navCopy)
-  const { state, toggleSidebar, isMobile } = useSidebar()
-  const collapsed = state === 'collapsed'
+  const { isMobile } = useSidebar()
 
-  return (
-    // Icon rail: the mark over the fold control, 18px down. Expanded: the wordmark
-    // in the org header's own row and inset (`brand-slot.ts`), so it does not move
-    // when the overview gives way to a project.
-    <div className={cn(iconRail ? 'flex flex-col items-center pt-[18px]' : [BRAND_ROW, BRAND_INSET_RAIL])}>
-      <Link
-        href="/app/projects"
-        aria-label={t('allProjects')}
-        className={cn(
-          'focus-visible:ring-ring/60 rounded-control focus-visible:outline-none focus-visible:ring-2',
-          iconRail
-            ? 'flex h-7 items-center justify-center'
-            : 'text-foreground'
-        )}
-      >
-        <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
-      </Link>
-      {!isMobile && (
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
-          className={cn(
-            'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 flex items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2',
-            // Icon rail: exactly a nav tile (36px square), so it lands on the same
-            // column and the same grid as the items below instead of reading as a
-            // loose glyph floating in the header's dead space. It was `h-9 w-10` —
-            // a 40px width that matched nothing else in the rail.
-            iconRail ? 'mt-2 size-9' : 'ml-auto size-7'
-          )}
-        >
-          {collapsed ? (
-            <ChevronsRight className="size-4" aria-hidden />
-          ) : (
-            <ChevronsLeft className="size-4" aria-hidden />
-          )}
-        </button>
+  const home = (
+    <Link
+      href="/app/projects"
+      aria-label={t('allProjects')}
+      data-focus-inset=""
+      className={cn(
+        'rounded-control',
+        iconRail ? 'flex size-9 items-center justify-center' : 'text-foreground'
       )}
+    >
+      <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
+    </Link>
+  )
+
+  if (iconRail) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className={cn(BRAND_ROW, 'justify-center')}>{home}</div>
+        <RailFoldButton />
+      </div>
+    )
+  }
+  return (
+    <div className={cn(BRAND_ROW, BRAND_INSET_RAIL)}>
+      {home}
+      {!isMobile && <RailFoldButton className="ml-auto" />}
     </div>
+  )
+}
+
+export function RailFoldButton({ className }: { className?: string }) {
+  const t = useTranslations(navCopy)
+  const { state, toggleSidebar } = useSidebar()
+  const collapsed = state === 'collapsed'
+  return (
+    <button
+      type="button"
+      data-slot="rail-fold"
+      data-focus-inset=""
+      onClick={toggleSidebar}
+      aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
+      className={cn(
+        'text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none',
+        collapsed ? 'size-9' : 'size-7 pointer-coarse:size-11',
+        className
+      )}
+    >
+      {collapsed ? <ChevronsRight className="size-4" aria-hidden /> : <ChevronsLeft className="size-4" aria-hidden />}
+    </button>
   )
 }

@@ -25,6 +25,14 @@ punished exactly the decoupling that keeps a change's test selection small
 ([`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md)).
 A dynamic `import()` is an expression and counts.
 
+**Comments are not counted either**: a line that holds only a `//`, `/* … */`
+or `#` comment, and a Python docstring (a function's own docstring is also left
+out of its sixty lines). An explanation is not logic. While it counted, a file
+sitting at its baseline could take a new comment only by losing an old one, and
+on 2026-11-11 three doc blocks were squeezed to one line each to make room for
+a five-line fix: the ratchet was being satisfied by deleting explanation. It is
+a ratchet on code. A line of code with a trailing comment counts, as code.
+
 It is a ratchet. `ci/size_baseline.json` records every file and function that
 was over when the check arrived, at its size then:
 
@@ -32,9 +40,11 @@ was over when the check arrived, at its size then:
 - One **in the baseline** may not grow past its recorded count. Adding to a
   giant means taking the same lines out of it, or moving the part you touch
   into a module of its own first.
-- When one **shrinks**, the check fails until the baseline follows: run
-  `.venv/bin/python scripts/check_file_size.py --update`, which lowers and
-  removes entries and never raises or adds one. A split stays split.
+- When one **shrinks**, the check passes and notes the slack. Lock the gain in
+  with `task baselines:tighten` (every ratchet's `--update`, which lowers and
+  removes entries and never raises or adds one), in the same PR or a later one.
+  Until then the slack could be spent again; that is the price of not failing a
+  good change.
 - A **move or rename** re-keys entries, so the baseline conflicts or reports
   the old path as gone and the new one as new. Regenerate it with
   `--rebaseline` and check its diff shows only the move.
@@ -52,6 +62,34 @@ choice: generated files (the card schemas' `src/shared/cards/generated.ts`,
 `*.generated.*`, `*.d.ts`), tests,
 specs, fixtures and test helpers, migrations, and copy (the i18n dictionaries,
 the site's `src/data/` and `src/i18n/`). The list is `EXCLUDED` in the script.
+
+## Comments
+
+Write code that needs no comment. A comment goes stale without a diff, no check
+reads it, and it gives an agent a place to justify a workaround that the next
+agent then copies ([the rule and its sources](working-style.md#code-is-memory-a-comment-is-a-liability)).
+Fix the code instead: a clearer name, a smaller function, a type, or a check
+whose message names the rule.
+
+- **Three lines per file are free**: room for a one-line contract, a dated
+  measurement, a vendor bug with its link, or a legal constraint. Never a
+  paragraph, never "why this workaround is acceptable", never history ("used
+  to …"), never a pointer to a doc by name that will move.
+- **A file already over three may not grow.** A new comment there is paid for
+  by deleting another. A shrink passes; `task baselines:tighten` locks it in.
+- **Lines a tool reads do not count**: lint and type suppressions (`noqa`,
+  `eslint-disable`, `@ts-expect-error`), test-environment pragmas, JSDoc types
+  in plain JavaScript, bundler hints, `@disk-inputs`.
+- A design rationale longer than a line belongs in an ADR or the area's doc,
+  linked from the code only if the code would mislead without it.
+
+The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
+run by the `comments` pre-commit hook on the files you commit and by CI's
+**Repo checks** job on all of them. It counts what
+`scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
+comment, and Python docstrings. On 2026-11-16, when it arrived, the tree held
+323,379 such lines in 7,452 files over the allowance; the audit that removes
+them is planned in the brand-free sweep.
 
 ## No brand names
 
@@ -235,3 +273,45 @@ suggestions off for a whole deployment. It is still a variable, documented in
 [`environment-variables.md`](../deployment/environment-variables.md), and
 becomes a flag the next time filing suggestions are touched. Registering a flag:
 [`workos-provisioning.md`](../deployment/workos-provisioning.md).
+
+## Rules that span services
+
+**One coarse `SourceKind` drives all rendering** (`building_law | office |
+project | web | measurement`), defined in
+`packages/agent/src/agent/common/source_kinds.py`. Add a kind there only: the
+`vocabularies` pre-commit hook (`scripts/generate_vocabularies.py`) generates
+the UI's `SOURCE_KINDS` and `SHELVES` into
+`apps/workspace/shared/vocabularies.generated.ts`, and
+`apps/workspace/bff/source-kinds.ts` holds what the UI makes of each kind. The
+fine `norm_registry` lanes are a sub-label within a kind, and the lane-to-kind
+table is still a mirror, held by `test_collection_scope_parity.py`. `doc_class`
+is human-set and beats every filename guess.
+
+**Correlated debt in shared code belongs in the change that tripped over it.**
+YAGNI forbids unused features, not known defects on the path you are walking. If
+B needs A to be generic and A is not, lift A here as its own commits. The test:
+would you work around it, switch on your type, or leave a descriptor field
+unread? Then it is correlated. The register:
+[`adding-a-shareable-resource-type.md`](../architecture/adding-a-shareable-resource-type.md).
+
+**A workspace primitive is one HTTP API with a typed client**
+([ADR-0055](../adr/0055-api-first-workspace-primitives.md)). The UI, the agent's
+tools, tasks and any later integration are equal clients of it; no service
+function is reached from a second path, and no contract is written twice.
+
+**The agent door offers what only we have** (ADR-0122 and its amendment). One
+MCP server at `/api/mcp` is the agent surface; Claude, Cursor and our own agent
+are clients of it, and the UI is another. Each tool is an operation in
+`apps/workspace/bff/agent-api/catalog/` that names a route the UI already calls;
+the route stays the gate, so authz, rate limit and body schema apply unchanged.
+Writes need the person's yes. The door offers the office's workspace (its data
+and the actions on it), our domain knowledge (the legal corpus, BIM/IFC analysis
+of the office's models) and our agent itself (`agent-ask-*`). It does not offer
+what a calling agent already has or what is how our agent works: a service we
+only proxy (web search, geocoding), product configuration (models, keys,
+budgets, screening and retention policies, settings), model work whose result is
+no office artifact, a person's own screen state. Such an operation stays
+catalogued with `withheld: { category, reason }`; deleting the line offers it
+again. The operator console is for a separate platform server, never the office
+door. A new capability is a route plus an operation, not a Python tool.
+[`agent-surface.md`](../architecture/agent-surface.md).

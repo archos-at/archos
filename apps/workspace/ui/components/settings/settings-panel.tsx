@@ -8,14 +8,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
-/**
- * One block of a project settings section: a titled card, the material the
- * organization tier's sections are built from, so the two settings tiers read
- * as one product.
- *
- * The title is a level-2 heading because the section frame already owns the
- * page's `h1` ("Settings").
- */
 export function SettingsPanel({
   title,
   description,
@@ -25,7 +17,6 @@ export function SettingsPanel({
 }: {
   title: ReactNode
   description?: ReactNode
-  /** A control that acts on the whole block, top right from `sm` up. */
   action?: ReactNode
   children?: ReactNode
   'data-testid'?: string
@@ -44,11 +35,6 @@ export function SettingsPanel({
   )
 }
 
-/**
- * The opening line of a section whose content brings its own cards (the
- * project brief, the memory list), where wrapping it in a {@link SettingsPanel}
- * would put a card inside a card.
- */
 export function SettingsSectionIntro({
   title,
   description,

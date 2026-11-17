@@ -60,6 +60,7 @@ import httpx
 from fastapi import APIRouter
 from fastapi import Header
 from fastapi import HTTPException
+from fastapi import Request
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -72,6 +73,7 @@ from agent.common.cost_tracking import BudgetSnapshot
 from agent.common.cost_tracking import record_completion_usage
 from agent.common.cost_tracking import track_llm_costs
 from agent.common.credential_resolution import ResolvedCredential
+from agent.common.licensed_text import licensed_document_scope
 from agent.common.openrouter import limited_async_http_client
 from agent.knowledge import get_available_documents_async
 from agent.knowledge import revision_compare as compare
@@ -197,6 +199,26 @@ async def _pages(
     return older_jpeg, newer_jpeg
 
 
+def _licence_of(collection: str, older: str, newer: str):
+    """The licence the comparison runs under: either file's, the stricter one. Refuses an unattested licensed copy.
+
+    A page of the office's licensed copy reaches a model only when the office attested AI processing
+    (ADR-0164, design 4.7); a comparison of it otherwise answers 403 and reads nothing.
+    """
+    from agent.tools.look.place import document_licence
+
+    terms = [
+        licence for licence in (document_licence(collection, older), document_licence(collection, newer)) if licence
+    ]
+    licensed = [licence for licence in terms if licence.licensed]
+    if any(not licence.ai_processing for licence in licensed):
+        raise HTTPException(
+            status_code=403,
+            detail="A licensed copy whose office has not confirmed AI processing is not compared by a model",
+        )
+    return licensed[0] if licensed else None
+
+
 def _data_url(jpeg: bytes) -> str:
     return f"data:image/jpeg;base64,{base64.b64encode(jpeg).decode('ascii')}"
 
@@ -290,6 +312,27 @@ async def _ingested_or_409(collection_name: str, older: str, newer: str) -> None
         raise HTTPException(status_code=409, detail=f"Not ingested in collection '{collection_name}': {missing!r}")
 
 
+async def _changed_pages(collection: str, request: RevisionPagesRequest, office: str | None) -> RevisionPagesResponse:
+    """The two Fassungen's stored chunks, read as ``office`` (ADR-0163; ``to_thread`` carries the context), diffed."""
+    from knowledge_layer.search import reading_as
+
+    try:
+        with reading_as(office):
+            older_chunks, newer_chunks = await asyncio.gather(
+                asyncio.to_thread(_stored_chunks, collection, request.older),
+                asyncio.to_thread(_stored_chunks, collection, request.newer),
+            )
+    except Exception:  # noqa: BLE001 - an outage is said as one, never as "nothing changed"
+        logger.warning("Changed pages of two Fassungen could not be read", exc_info=True)
+        raise HTTPException(status_code=503, detail="The index could not be read") from None
+    diff = revision_diff.diff_revisions(older_chunks or [], newer_chunks or [])
+    return RevisionPagesResponse(
+        pages=list(revision_diff.changed_pages(diff)),
+        newer_page_count=diff.newer_page_count,
+        comparable=diff.has_text or diff.has_drawing,
+    )
+
+
 def add_revision_compare_routes(router: APIRouter) -> None:
     """Register the Fassung comparison endpoint."""
 
@@ -317,7 +360,7 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         boxes on the newer page in ``0..1`` page coordinates, at most twelve, and the changes in words.
         """
         await _ingested_or_409(collection_name, request.older, request.newer)
-
+        licence = await asyncio.to_thread(_licence_of, collection_name, request.older, request.newer)
         cred = await asyncio.to_thread(_vision_settings, x_grid_organization_id)
         if not cred.api_key:
             raise HTTPException(status_code=503, detail="No vision model is configured")
@@ -333,7 +376,7 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         # Booked to the organization and the person (a notice: whoever uploaded the Fassung) the BFF names,
         # so the ledger, the budget gate the notice checks, and the invoice see this call (ADR-0130).
         identity = {"organization_id": x_grid_organization_id, "user_id": x_grid_user_id}
-        with track_llm_costs(identity=identity, budget=BudgetSnapshot()):
+        with track_llm_costs(identity=identity, budget=BudgetSnapshot()), licensed_document_scope(licence):
             reply, trace_id = await _ask_model(cred, older_jpeg, newer_jpeg, request.page, request.purpose)
         result = compare.parse_compare(reply, request.page)
         await asyncio.to_thread(_remember, key, result)
@@ -345,23 +388,15 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         tags=["documents"],
         summary="Which pages of the newer Fassung changed, read from the index without a model call",
     )
-    async def post_revision_pages(collection_name: str, request: RevisionPagesRequest) -> RevisionPagesResponse:
+    async def post_revision_pages(
+        collection_name: str, request: RevisionPagesRequest, http_request: Request
+    ) -> RevisionPagesResponse:
         """The newer Fassung's changed and new pages, from the chunks both Fassungen have in the index.
 
         ``409`` when either file is not ingested in this collection, ``503`` when the index cannot be read.
+        Read as the office the BFF names (``internal_office``, ADR-0163).
         """
+        from .internal_auth import internal_office
+
         await _ingested_or_409(collection_name, request.older, request.newer)
-        try:
-            older_chunks, newer_chunks = await asyncio.gather(
-                asyncio.to_thread(_stored_chunks, collection_name, request.older),
-                asyncio.to_thread(_stored_chunks, collection_name, request.newer),
-            )
-        except Exception:  # noqa: BLE001 - an outage is said as one, never as "nothing changed"
-            logger.warning("Changed pages of two Fassungen could not be read", exc_info=True)
-            raise HTTPException(status_code=503, detail="The index could not be read") from None
-        diff = revision_diff.diff_revisions(older_chunks or [], newer_chunks or [])
-        return RevisionPagesResponse(
-            pages=list(revision_diff.changed_pages(diff)),
-            newer_page_count=diff.newer_page_count,
-            comparable=diff.has_text or diff.has_drawing,
-        )
+        return await _changed_pages(collection_name, request, internal_office(http_request))

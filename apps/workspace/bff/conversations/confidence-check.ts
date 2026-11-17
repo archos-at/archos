@@ -5,7 +5,11 @@
  * One model call grades the final answer against everything the turn
  * registered. `judged`: the chip shows the level and names the statements the
  * answer relies on that the evidence does not back or contradicts. `unavailable`:
- * the check could not run and the turn has no level, which the chip says.
+ * the check could not run and the turn has no level, which the chip says; its
+ * `unavailableReason` says why (`claim_judge.Unavailable`: no model, a timeout,
+ * an error, an unparseable or an empty reply, with the call's elapsed time and
+ * prompt size). Nobody sees the reason as a level: it is for operators and the
+ * eval, read off the stored message.
  *
  * Like the claim stamps it lands in message provenance (jsonb, written by the
  * browser and by the agent tier), so the key set is closed and every string is
@@ -17,6 +21,7 @@ export type ConfidenceCheckStatus = (typeof CHECK_STATUSES)[number]
 
 const LEVELS = ['low', 'medium', 'high'] as const
 const PROBLEMS = ['unbacked', 'contradicted'] as const
+const CAUSES = ['no_judge', 'timeout', 'error', 'unparseable', 'no_reply'] as const
 
 export interface ConfidenceFinding {
   /** The statement as the answer words it, shortened to one line. */
@@ -28,10 +33,24 @@ export interface ConfidenceFinding {
   source: string
 }
 
+/** Why an `unavailable` check gave no level (`ConfidenceUnavailable` on the wire). */
+export interface ConfidenceUnavailableReason {
+  cause: (typeof CAUSES)[number]
+  /** `error`: the exception's class name. */
+  errorType?: string
+  finishReason?: string
+  /** The reply stopped at the check's output budget. */
+  truncated?: boolean
+  elapsedMs?: number
+  evidenceChars?: number
+  answerChars?: number
+}
+
 export interface ConfidenceCheck {
   status: ConfidenceCheckStatus
   level?: (typeof LEVELS)[number]
   findings: ConfidenceFinding[]
+  unavailableReason?: ConfidenceUnavailableReason
 }
 
 /** The check names at most eight; more is a runaway producer. */
@@ -56,6 +75,34 @@ function sanitizeFinding(input: unknown): ConfidenceFinding | undefined {
   return { statement, problem, reason: cap(input.reason, 300) ?? '', source: cap(input.source, 200) ?? 'none' }
 }
 
+const count = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined
+
+/**
+ * The reason, bounded. The wire and the agent tier's metadata spell it in
+ * snake case (`unavailable_reason`), the browser's provenance in camel case;
+ * both read, camel case is written.
+ */
+function sanitizeUnavailableReason(input: unknown): ConfidenceUnavailableReason | undefined {
+  if (!isRecord(input)) return undefined
+  const cause = oneOf(input.cause, CAUSES)
+  if (!cause) return undefined
+  const errorType = cap(input.errorType ?? input.error_type, 100)
+  const finishReason = cap(input.finishReason ?? input.finish_reason, 40)
+  const elapsedMs = count(input.elapsedMs ?? input.elapsed_ms)
+  const evidenceChars = count(input.evidenceChars ?? input.evidence_chars)
+  const answerChars = count(input.answerChars ?? input.answer_chars)
+  return {
+    cause,
+    ...(errorType && { errorType }),
+    ...(finishReason && { finishReason }),
+    ...(input.truncated === true && { truncated: true }),
+    ...(elapsedMs !== undefined && { elapsedMs }),
+    ...(evidenceChars !== undefined && { evidenceChars }),
+    ...(answerChars !== undefined && { answerChars }),
+  }
+}
+
 /** The check, bounded, or undefined when it is no such object. */
 export function sanitizeConfidenceCheck(input: unknown): ConfidenceCheck | undefined {
   if (!isRecord(input)) return undefined
@@ -68,5 +115,7 @@ export function sanitizeConfidenceCheck(input: unknown): ConfidenceCheck | undef
         .filter((finding): finding is ConfidenceFinding => finding !== undefined)
     : []
   const level = oneOf(input.level, LEVELS)
-  return status === 'judged' && level ? { status, level, findings } : { status: 'unavailable', findings: [] }
+  if (status === 'judged' && level) return { status, level, findings }
+  const unavailableReason = sanitizeUnavailableReason(input.unavailableReason ?? input.unavailable_reason)
+  return { status: 'unavailable', findings: [], ...(unavailableReason && { unavailableReason }) }
 }

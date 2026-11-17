@@ -9,7 +9,7 @@
  * | `editor`         | a person                              | write drafts, send them to review                         |
  * | `agent`          | an AI agent, through the API or MCP   | what an editor may, without the admin panel               |
  * | `website`        | the website's server (API key)        | read what is live                                         |
- * | `social-handoff` | the Buffer hand-off (API key)         | read approved social posts, mark them scheduled or failed |
+ * | `social-handoff` | the Buffer hand-off (API key)         | claim an approved social post, mark it scheduled or failed |
  */
 
 export const ROLES = ['admin', 'publisher', 'editor', 'agent', 'website', 'social-handoff'] as const;

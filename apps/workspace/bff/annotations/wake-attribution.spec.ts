@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which Piloti replies a wake wrote: the same person's wake on the same mark
- * that began before the reply and had not ended before it.
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

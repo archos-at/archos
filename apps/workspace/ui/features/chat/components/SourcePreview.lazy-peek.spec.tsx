@@ -1,12 +1,3 @@
-/**
- * Source chips pay for their popover only once a reader engages one.
- *
- * An answer's "Belegt durch" row and a Herleitung full of source cards used to
- * mount a Radix Popover per chip up front. These cases pin the lazy mount per
- * chip KIND (info, document, card) and, above all, that engagement does not
- * remount the button: the focus stays and the tap still clicks.
- */
-
 import { render, screen, waitFor, within, fireEvent } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
@@ -34,7 +25,6 @@ const jsonResponse = (data: unknown) => ({ ok: true, json: async () => data })
 
 const fetchMock = vi.fn((input: RequestInfo | URL) => {
   const url = String(input)
-  // The cited document, resolved by name.
   if (url === '/api/documents/by-name') {
     return Promise.resolve(
       jsonResponse({
@@ -74,7 +64,6 @@ const ref = (overrides: Partial<CitationSource>): CitationRef => {
   return { document, locus: document.loci[0] }
 }
 
-/** A legal web source with a tier: the info chip, no fetch involved. */
 const lawRef = (n: number): CitationRef =>
   ref({
     id: `law-${n}`,
@@ -191,8 +180,6 @@ describe('source chips mount their peek lazily', () => {
       name: 'Preview source: Brandschutzkonzept',
     })
 
-    // Engagement lands between the finger and the click — the window in which
-    // a remounted button would swallow the tap.
     fireEvent.pointerDown(chip, { pointerType: 'touch' })
     expect(popoverMounts.current).toBe(1)
     expect(chip.isConnected).toBe(true)

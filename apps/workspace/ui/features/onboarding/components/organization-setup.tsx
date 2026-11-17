@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * The first screen a new customer sees after signing in: name the
- * organization, become its admin, go in.
- *
- * It used to open with a 5xl headline over a rotating starfield, three feature
- * tiles and the same three-step list twice, once as a promise and once as a
- * receipt. The design language asks for the opposite (no decoration, one focal
- * point, 20px page titles), and the screen asks one question, so it is now
- * built like the question it is: a narrow column, one field, one ink button,
- * and three quiet lines saying what happens next. Everything else it said was
- * restating the button.
- *
- * Presentational on purpose: the route (`app/app/onboarding/organization`)
- * owns the fetches, and `/dev/onboarding` renders every state from fixtures.
- * Sign-out stays in the header in every state: signed in with the wrong
- * account, or waiting on an invitation, must never be a dead end (UX-17).
- */
-
 import * as React from 'react'
 import { z } from 'zod'
 import { Check, Compass, Lock, LogOut, UserPlus, type LucideIcon } from 'lucide-react'
@@ -35,18 +17,16 @@ import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { onboardingCopy } from '@/i18n/namespaces/onboarding'
 import type { JSX } from 'react'
+import { HOME_COUNTRIES, type HomeCountry } from '@/lib/organizations/home-country'
+
+const isHomeCountry = (value: string): value is HomeCountry => (HOME_COUNTRIES as readonly string[]).includes(value)
 
 export interface OrganizationSetupProps {
-  /** The signed-in account, shown beside sign-out. */
   email?: string | null
-  /** The platform creates organizations itself; this person needs an invite. */
   selfServeDisabled: boolean
-  /** Set once the organization exists: the screen becomes the hand-off. */
   createdName: string | null
-  /** A translated failure from the last attempt. */
   error: string | null
-  /** Resolves when created; rejects are the caller's to turn into `error`. */
-  onCreate: (name: string) => Promise<void>
+  onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
   onSignOut: () => void
 }
 
@@ -99,7 +79,7 @@ function SetupHeading({ eyebrow, title, children }: { eyebrow: string; title: st
   return (
     <div>
       <SectionLabel as="p">{eyebrow}</SectionLabel>
-      <h1 className="mt-2 text-xl font-medium tracking-tight">{title}</h1>
+      <h1 className="mt-2 text-xl font-medium">{title}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{children}</p>
     </div>
   )
@@ -110,19 +90,24 @@ function SetupForm({
   onCreate,
 }: {
   error: string | null
-  onCreate: (name: string) => Promise<void>
+  onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
 }): JSX.Element {
   const t = useTranslations(onboardingCopy)
 
   const schema = z.object({
     name: z.string().trim().min(1, t('validation.nameRequired')).max(100, t('validation.nameTooLong')),
+    homeCountry: z.string().refine(isHomeCountry, t('validation.homeCountryRequired')),
   })
 
   const form = useAppForm({
-    defaultValues: { name: '' },
+    defaultValues: { name: '', homeCountry: '' },
     validators: { onChange: schema },
-    onSubmit: async ({ value }) => onCreate(value.name.trim()),
+    onSubmit: async ({ value }) => {
+      if (!isHomeCountry(value.homeCountry)) return
+      await onCreate({ name: value.name.trim(), homeCountry: value.homeCountry })
+    },
   })
+  const countryOptions = HOME_COUNTRIES.map((code) => ({ value: code, label: t(`form.homeCountries.${code}`) }))
 
   const next: { icon: LucideIcon; label: string }[] = [
     { icon: Lock, label: t('next.private') },
@@ -164,6 +149,17 @@ function SetupForm({
               />
             )}
           </form.AppField>
+          <form.AppField name="homeCountry">
+            {(field) => (
+              <field.SelectField
+                label={t('form.homeCountryLabel')}
+                placeholder={t('form.homeCountryPlaceholder')}
+                description={t('form.homeCountryHint')}
+                options={countryOptions}
+                required
+              />
+            )}
+          </form.AppField>
           <form.AppForm>
             <form.SubmitButton className="w-full">{t('form.submit')}</form.SubmitButton>
           </form.AppForm>
@@ -200,7 +196,7 @@ function InviteOnly({ onSignOut }: { onSignOut: () => void }): JSX.Element {
         {t('inviteOnly.description')}
       </SetupHeading>
       <p className="text-muted-foreground mt-4 text-sm leading-relaxed">{t('inviteOnly.wrongAccount')}</p>
-      <Button type="button" variant="outline" className="mt-6" onClick={onSignOut}>
+      <Button type="button" variant="secondary" className="mt-6" onClick={onSignOut}>
         <LogOut className="size-4" aria-hidden />
         {tc('actions.signOut')}
       </Button>
@@ -213,7 +209,7 @@ function SetupDone({ name }: { name: string }): JSX.Element {
   return (
     <div role="status" aria-live="polite">
       <EmptyStateDisc icon={Check} />
-      <h1 className="mt-5 text-xl font-medium tracking-tight">{t('success.title')}</h1>
+      <h1 className="mt-5 text-xl font-medium">{t('success.title')}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">
         {t('success.description', { name })}
       </p>

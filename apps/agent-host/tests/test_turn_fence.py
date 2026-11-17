@@ -1,5 +1,3 @@
-"""The running turn's clock on its conversation marker (ADR-0080, "the owner fences itself")."""
-
 from __future__ import annotations
 
 import pytest
@@ -106,7 +104,6 @@ def test_a_ttl_the_margin_does_not_fit_in_is_refused():
 
 
 def test_the_default_ttl_leaves_a_window_longer_than_a_renewal_interval():
-    """The shipped defaults, not a test's: a blip of a couple of renewal rounds must not cancel an answer."""
     from agent_host import chat_socket
     from agent_host import conversation_bus
 

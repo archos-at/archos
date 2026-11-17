@@ -15,6 +15,8 @@
  */
 
 import 'server-only'
+import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { isTemporaryConversation } from '@/lib/conversations/temporary'
 import type { JobOutput } from '@/lib/db/schema/jobs'
 import { buildRequestContextWireHeaders, encodeBudgetHeader } from '@/lib/request-context'
 import type { PlanDocuments } from '@/lib/runs/plan-documents'
@@ -55,6 +57,17 @@ export interface BackgroundRunSubmission {
 export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise<{ jobId: string; queued: boolean }> {
   const { subject, context, conversationId } = run
   const budgetHeader = context.budget ? encodeBudgetHeader(context.budget) : null
+  // A run is no chat turn and never calls the turn context, so it carries the
+  // law of its project itself (ADR-0175): its knowledge context, chain text
+  // included. It never throws: a read that fails is the gate's
+  // `knowledge_unavailable`, so the run fails closed and is still submitted.
+  // Its failed read is the run's, never the turn alert's (ADR-0173).
+  const knowledgeContext = await knowledgeContextForTurn(subject.organizationId, subject.projectId, undefined, null, 'run')
+  // A temporary conversation keeps nothing (ADR-0180 rule 2): said at submit, so
+  // the worker skips its reflection before paying for the model call. A failed
+  // read does not stop the run: the memory routes' refusal holds either way,
+  // as it does for a conversation switched to temporary after this.
+  const temporary = await isTemporaryConversation(conversationId, subject.organizationId).catch(() => false)
 
   const payload: JobSubmitPayload = {
     input: run.prompt,
@@ -73,6 +86,7 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
     project_context: context.projectContext,
     project_memory: context.projectMemory,
     memory_reflection_enabled: context.memoryReflectionEnabled,
+    ...(temporary ? { temporary_conversation: true } : {}),
     organization_id: subject.organizationId,
     user_id: subject.userId,
     project_id: subject.projectId,
@@ -80,6 +94,7 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
     budget_header: budgetHeader,
     model_overrides: context.modelOverrides,
     priority: run.priority,
+    knowledge_context: knowledgeContext,
   }
 
   // The worker keeps this envelope with the job and echoes it to the BFF from

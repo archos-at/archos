@@ -1,9 +1,3 @@
-"""The intake API client: the bodies are the contract's, the envelope is echoed, a refusal is text.
-
-The contract is ``apps/workspace/tests/fixtures/project-intake.schema.json``,
-exported from ``lib/project-intake/types.ts``. There is no Pydantic twin.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -83,7 +77,6 @@ class TestTheWireContract:
         assert not list(validator(intake_schema, REQUEST).iter_errors(body))
 
     def test_the_needs_answer_the_tests_use_is_the_contracts(self, intake_schema):
-        """The double the suite answers with is a body the BFF could send."""
         errors = sorted(validator(intake_schema, "InternalIntakeNeedsResponse").iter_errors(NEEDS_BODY), key=str)
         assert not errors, [error.message for error in errors]
 

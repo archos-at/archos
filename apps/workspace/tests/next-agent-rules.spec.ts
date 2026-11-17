@@ -2,14 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `next dev` rewrites `AGENTS.md` when it detects a coding agent, unless
- * `agentRules` is off (`node_modules/next/dist/server/lib/start-server.js`,
- * `syncAgentRulesForDev`). It upserted a managed block whose `##` heading
- * differed from the committed `#`, so every dev start in an agent session left
- * a tracked file dirty, and the diff landed in unrelated commits. With the
- * switch off Next only ever removes its block, which is gone already.
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'

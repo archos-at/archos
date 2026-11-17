@@ -10,27 +10,18 @@ import { cn } from '@/lib/utils'
 interface FileSearchFieldProps {
   value: string
   onChange: (value: string) => void
-  /** Commit the query. Enter always does this; the run button is optional. */
   onSubmit: () => void
   onClear: () => void
   placeholder: string
   searchLabel: string
   resetLabel: string
-  /**
-   * Draw a button that commits the query, and what to call it. Omit for a field
-   * that reads as a plain filter — Enter still submits, so this decides how
-   * VISIBLE the semantic run is, never whether it is reachable.
-   */
   runButton?: { label: string; isSearching: boolean }
-  /** Sizing for the form. Defaults to filling its row (the sticky band). */
   className?: string
-  /** The `size` of the buttons in the field's row, so the field stands as tall as they do. */
   size?: ControlSize
 }
 
 interface FileSearchBannerProps {
   isSearching: boolean
-  /** Pre-formatted banner line ("Searching…" / "N results for …"). */
   bannerText: string
   resetSemanticLabel: string
   onResetSemantic: () => void
@@ -39,22 +30,11 @@ interface FileSearchBannerProps {
 
 type FileSearchBarProps = Omit<FileSearchFieldProps, 'runButton'> &
   FileSearchBannerProps & {
-    /** Whether the explicit-run semantic search is available (shows the run button). */
     canSearch: boolean
     runLabel: string
-    /** Whether semantic mode is showing its result banner. */
     semanticActive: boolean
   }
 
-/**
- * The search control itself: the shared {@link SearchField} molecule plus the
- * button that commits the query to the semantic search.
- *
- * Separate from {@link FileSearchBar} because the field and its result banner
- * no longer always sit together — the Files browser puts the field in the page
- * header, beside the view toggles and Upload, and leaves the banner over the
- * listing the hits belong to.
- */
 export function FileSearchField({
   value,
   onChange,
@@ -85,7 +65,7 @@ export function FileSearchField({
         label={searchLabel}
         clearLabel={resetLabel}
         size={size}
-        inputClassName="pr-10 md:pr-9"
+        inputClassName="pr-10 md:pr-9 border-field-border bg-sheet shadow-none hover:border-foreground/60 focus-visible:border-foreground dark:bg-background"
         clearClassName={cn(
           'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
           size === 'sm' ? 'size-7' : 'size-9'
@@ -113,11 +93,6 @@ export function FileSearchField({
   )
 }
 
-/**
- * What the committed search found, stated above the results it describes —
- * "Searching…", "N results for …", or the failure, with the way back to the
- * plain listing.
- */
 export function FileSearchBanner({
   isSearching,
   bannerText,
@@ -127,7 +102,7 @@ export function FileSearchBanner({
 }: FileSearchBannerProps) {
   return (
     <div
-      className="flex min-h-9 shrink-0 items-center gap-2 border-b border-primary/20 bg-primary/5 px-4 py-2 text-xs animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none"
+      className="flex min-h-9 shrink-0 items-center gap-2 bg-primary/5 px-4 py-2 text-xs animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none"
       role="status"
       data-testid={bannerTestId}
     >
@@ -141,9 +116,9 @@ export function FileSearchBanner({
       <span className="min-w-0 flex-1 truncate text-foreground">{bannerText}</span>
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
-        className="h-7 shrink-0 gap-1.5 px-2 text-muted-foreground transition-colors duration-snap ease-out hover:text-foreground motion-reduce:transition-none"
+        className="shrink-0 gap-1.5"
         onClick={onResetSemantic}
       >
         <X className="size-3.5" aria-hidden />
@@ -153,11 +128,6 @@ export function FileSearchBanner({
   )
 }
 
-/**
- * The sticky search band above a listing — field and banner in one strip. The
- * Archiv library uses it; the Files browser does not any more (its field is in
- * the page header, so a band would be a second search on the same screen).
- */
 export function FileSearchBar({ semanticActive, canSearch, runLabel, ...props }: FileSearchBarProps) {
   return (
     <>
@@ -165,7 +135,7 @@ export function FileSearchBar({ semanticActive, canSearch, runLabel, ...props }:
           surface: the list has to stay faintly visible scrolling under it.
           `shrink-0` on both bands says the same thing the chip row now says:
           chrome above a listing never absorbs the listing's overflow. */}
-      <div className="sticky top-0 z-10 shrink-0 border-b bg-background px-4 py-2.5">
+      <div className="sticky top-0 z-10 shrink-0 bg-background px-4 py-2.5">
         <FileSearchField
           {...props}
           runButton={canSearch ? { label: runLabel, isSearching: props.isSearching } : undefined}

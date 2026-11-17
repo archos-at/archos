@@ -1,0 +1,12 @@
+-- Book the tokens a call WROTE to the provider's prompt cache.
+--
+-- `cached_tokens` is what a call read from the cache (0.05-0.1x the input
+-- price). A write costs more than a plain input token: 1.25x on Claude and on
+-- GPT-5.6+, whose automatic caching now bills its writes too (OpenRouter's
+-- prompt caching guide, `usage.prompt_tokens_details.cache_write_tokens`).
+-- Without the write count nobody can tell whether a cache breakpoint pays for
+-- itself, or whether a one-shot call is paying the write surcharge for an entry
+-- nothing reads (docs/design/international/research/token-budget-2026-11.md,
+-- change 2). Zero for every row written before the agent sent the field, which
+-- is what those rows' writes are known to be: unknown, booked as none.
+ALTER TABLE "llm_usage_events" ADD COLUMN IF NOT EXISTS "cache_write_tokens" integer DEFAULT 0 NOT NULL;

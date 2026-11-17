@@ -1,9 +1,3 @@
-"""``run_agent_job`` as its phases: what each one decides, and that the terminal paths always run.
-
-Module under test: ``agent_host.jobs.agent_job`` (claim, run, release),
-``agent_job_setup`` (prepare) and ``job_outcome`` (persist, finish, failure).
-"""
-
 from __future__ import annotations
 
 import base64
@@ -35,7 +29,6 @@ def _request(**overrides: Any) -> JobRequest:
 
 
 def test_the_request_carries_exactly_the_payload_keys():
-    """A parameter added to ``run_agent_job`` and not to ``JobRequest`` would fail every job at its first line."""
     params = set(inspect.signature(run_agent_job).parameters) - agent_job._PROCESS_KNOBS
     assert params == {f.name for f in fields(JobRequest)}
 
@@ -49,7 +42,6 @@ def test_the_request_reads_who_the_job_runs_for():
 
 @pytest.fixture
 def statuses(monkeypatch) -> list[str]:
-    """The job store's guarded status writes, answered "already terminal" when the list starts with one."""
     written: list[str] = []
 
     async def update(_store, _job_id, status, **_kwargs):
@@ -65,7 +57,6 @@ def statuses(monkeypatch) -> list[str]:
 
 @pytest.fixture
 def released(monkeypatch) -> list[str]:
-    """Record the release and the checkpoint purge, which run on every path."""
     seen: list[str] = []
 
     monkeypatch.setattr(agent_job, "_purge_deep_checkpoint", lambda job_id: seen.append(f"purge:{job_id}"))
@@ -137,8 +128,6 @@ async def test_a_failure_in_prepare_is_recorded_and_the_job_released(monkeypatch
 
 
 class _Provider:
-    """A provider whose every dial returns a new provider, recording the order."""
-
     def __init__(self, applied: tuple[str, ...] = ()) -> None:
         self.applied = applied
 
@@ -198,8 +187,6 @@ def test_the_scope_headers_are_base64url_so_german_text_survives(monkeypatch):
 
 
 class _Store:
-    """An event store that keeps what it is given."""
-
     def __init__(self) -> None:
         self.events: list[dict] = []
 
@@ -213,7 +200,6 @@ class _Store:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("agent_type", ["research_agent", "deep_research_agent"])
 async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatch, statuses, released, agent_type):
-    """The happy path end to end, with only the agent runtime's config and builder and the agent itself faked."""
     from contextlib import asynccontextmanager
 
     from agent.agents.deep_researcher.anatomy import ReportAnatomy
@@ -272,5 +258,78 @@ async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatc
     assert (seen["turn"]["conversation_id"], seen["turn"]["answer"]) == ("c-1", "Die Traufhöhe beträgt 9 m.")
     assert seen["notify"] == "success"
     assert released == ["urls:job-1", "purge:job-1"]
-    # Deep research closes its phase progress before the status changes.
     assert (agent_type == "deep_research_agent") == any(e.get("type") == "job.phase" for e in store.events)
+
+
+def test_reflection_follows_the_flag_for_an_ordinary_conversation():
+    identity = {"identity": {"project_id": "proj-1", "conversation_id": "conv-1"}}
+    assert job_outcome.reflection_enabled(_request(memory_reflection_enabled=True, usage_context=identity)) is True
+    assert job_outcome.reflection_enabled(_request(memory_reflection_enabled=False, usage_context=identity)) is False
+    assert job_outcome.reflection_enabled(_request(memory_reflection_enabled=True)) is True
+
+
+def test_reflection_is_skipped_by_name_for_a_temporary_conversation(caplog):
+    request = _request(
+        memory_reflection_enabled=True,
+        usage_context={"identity": {"project_id": "proj-1"}, "temporary_conversation": True},
+    )
+    with caplog.at_level("INFO", logger=job_outcome.logger.name):
+        assert job_outcome.reflection_enabled(request) is False
+
+    skips = [record for record in caplog.records if "memory reflection skipped" in record.getMessage()]
+    assert [record.levelname for record in skips] == ["INFO"]
+    assert skips[0].getMessage() == "Job job-1: memory reflection skipped: temporary_conversation"
+
+
+def test_a_disabled_reflection_logs_no_skip_for_a_temporary_conversation(caplog):
+    request = _request(memory_reflection_enabled=False, usage_context={"temporary_conversation": True})
+    with caplog.at_level("INFO", logger=job_outcome.logger.name):
+        assert job_outcome.reflection_enabled(request) is False
+    assert not [record for record in caplog.records if "memory reflection skipped" in record.getMessage()]
+
+
+@pytest.mark.parametrize("value", ["true", 1, None, False])
+def test_only_a_literal_true_marks_the_run_temporary(value):
+    request = _request(memory_reflection_enabled=True, usage_context={"temporary_conversation": value})
+    assert job_outcome.reflection_enabled(request) is True
+
+
+@pytest.mark.asyncio
+async def test_persist_hands_the_skip_to_the_report_passes_so_no_reflection_model_is_built(monkeypatch):
+    seen: dict[str, Any] = {}
+
+    async def passes(**kwargs: Any):
+        seen.update(kwargs)
+        from agent_host.jobs.runner import CardGenerationResult
+        from agent_host.jobs.runner import ReportAnatomy
+
+        return CardGenerationResult(cards=None), ReportAnatomy(), None
+
+    monkeypatch.setattr(job_outcome, "_run_report_passes", passes)
+    monkeypatch.setattr(job_outcome, "_transparency", lambda *args, **kwargs: {})
+    monkeypatch.setattr(job_outcome, "extract_verified_sources", lambda result: None)
+    monkeypatch.setattr(job_outcome, "extract_skills_activated", lambda result: None)
+    request = _request(
+        memory_reflection_enabled=True,
+        memory_reflection_llm="card_llm",
+        usage_context={"identity": {"project_id": "proj-1"}, "temporary_conversation": True},
+    )
+    scope = SimpleNamespace(card_snapshot=[], agent_event_callback=SimpleNamespace(), event_store=SimpleNamespace())
+    models = SimpleNamespace(llm=object(), org_credential=None, zdr=True, fn_config=SimpleNamespace(type="chat"))
+    run = SimpleNamespace(memory_digest=None)
+
+    await job_outcome.persist(
+        scope, request, run, "report", agent_cls=object, models=models, builder=object(), config=None
+    )
+
+    assert seen["reflection_enabled"] is False
+
+
+def test_the_workflow_span_says_the_conversation_is_temporary_and_only_then():
+    run = SimpleNamespace(trace_id=1)
+    temporary = _request(usage_context={"temporary_conversation": True})
+    workflow, _ = agent_job_setup.trace_metadata(temporary, run)
+    assert workflow.provided_metadata["temporary_conversation"] is True
+
+    workflow, _ = agent_job_setup.trace_metadata(_request(usage_context={"identity": {}}), run)
+    assert "temporary_conversation" not in workflow.provided_metadata

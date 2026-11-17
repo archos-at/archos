@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * Featured skills: what Piloti curates for every organization, at the TOP of
- * the Skills tab.
- *
- * These are written once in Platform → Skills and offered to the whole fleet,
- * and they are the point of the page rather than an appendix to it — an
- * organization gets more out of switching one of ours on than out of writing
- * its first one from a blank editor. So they lead, as cards, above the org's
- * own; the first draft of this buried them behind a chevron, which was the same
- * misjudgement in the other direction as the one that put the pipeline's
- * machinery in the main grid.
- *
- * The action is a switch, not a copy. Cloning a platform skill produced a
- * second skill frozen at the moment it was copied: an org ended up maintaining
- * an instruction it never wrote, and every improvement we shipped afterwards
- * went to a skill it was no longer using. Switching one on keeps a single
- * living copy — ours — and an org that turns it off is back where it started.
- *
- * The pipeline's own machinery never reaches this component. It is not curated,
- * so the server does not list it and would 404 any attempt to switch it (see
- * `lib/skills/service.ts`): how deep research writes its report is not an
- * organization's decision, and it is not shown as though it were.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { BookOpen, ChevronDown } from 'lucide-react'
@@ -44,11 +20,8 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 interface CuratedSkillsProps {
   skills: SkillListItem[]
   categories: SkillCategoryListItem[]
-  /** Whether this member may switch one on (org:skills:manage). */
   canManage: boolean
-  /** Open the skill drawer. */
   onSelect: (skill: SkillListItem) => void
-  /** Reflect the new state in the list the toolbox holds. */
   onToggled: (name: string, enabled: boolean) => void
 }
 
@@ -60,17 +33,11 @@ export function CuratedSkills({
   onToggled,
 }: CuratedSkillsProps): JSX.Element | null {
   const t = useTranslations(skillsCopy)
-  /** Names mid-flight, so a switch cannot be flipped twice. */
   const [pending, setPending] = useState<string[]>([])
   if (skills.length === 0) return null
 
   const activeCount = skills.filter((skill) => skill.enabled).length
 
-  /**
-   * Optimistic, reverted on failure. A switch that waits for a round trip
-   * before it moves is a switch you press twice — and this one is cheap to
-   * undo, which is exactly the case optimism is for.
-   */
   const toggle = async (skill: SkillListItem, enabled: boolean) => {
     setPending((current) => [...current, skill.name])
     onToggled(skill.name, enabled)
@@ -90,7 +57,7 @@ export function CuratedSkills({
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2
           id="featured-skills-heading"
-          className="text-foreground text-sm font-medium tracking-[-0.01em]"
+          className="text-foreground text-sm font-medium"
         >
           {t('curated.heading')}
         </h2>
@@ -108,7 +75,7 @@ export function CuratedSkills({
         <div key={group.category?.id ?? '__unsorted__'} className="flex flex-col gap-3">
           {group.category && (
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="text-foreground text-sm font-medium tracking-[-0.01em]">
+              <h3 className="text-foreground text-sm font-medium">
                 {group.category.name}
               </h3>
               <span className="text-muted-foreground text-xs tabular-nums">
@@ -151,9 +118,6 @@ function CuratedSkillCard({
 }: CuratedSkillCardProps): JSX.Element {
   const t = useTranslations(skillsCopy)
   return (
-    // The same card as an org skill, on purpose: a curated skill is not a
-    // lesser thing to be listed, it is the same kind of object with a
-    // different author. What distinguishes it is the tray's one word.
     <RaisedCard key={skill.name}>
       <RaisedCardBody className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-3">

@@ -1,39 +1,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * An upload racing a chat discard.
- *
- * Discarding a chat is two steps that cannot be one: erase the attachments'
- * EXTERNAL state (SeaweedFS objects, retrieval chunks — neither reachable by a
- * foreign key), then delete the conversation row, whose `ON DELETE CASCADE`
- * takes the document rows with it.
- *
- * Between those two steps there used to be a hole. An upload that had already
- * passed `createConversation` — the conversation was still perfectly alive when
- * it did — went on to write its object and insert its row AFTER the purge had
- * finished walking. The cascade then removed that row, and its object and its
- * chunks stayed: private bytes in the tenant's bucket, private text in the
- * retrieval index, nothing naming either, no listing showing them, and the only
- * handle that could ever drive a retry deleted by the very statement that was
- * supposed to be cleaning up.
- *
- * The fix is a state, not a lock: the discard marks the conversation as
- * deleting BEFORE it purges anything, and the upload re-reads that mark
- * immediately before the object write. This file drives the interleaving by
- * hand — the upload is suspended inside its quota check, the discard is allowed
- * to run up to and including the mark, and only then is the upload released.
- *
- * Both services are the REAL ones, and so is `@/lib/sharing/access`: a test that
- * mocked the guard would assert nothing about whether the guard is reached
- * before `PutObjectCommand`, which is the entire claim.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 
 vi.mock('server-only', () => ({}))
-// No legal hold in play here; the gate itself is `compliance/holds` and the
-// predicate is SQL (`legal-hold.integration.spec.ts`).
 vi.mock('@/lib/compliance/repository', () => ({
   isCoveredByActiveHold: vi.fn().mockResolvedValue(false),
 }))
@@ -43,7 +14,6 @@ const ORG_ID = 'org_1'
 const USER_ID = 'user_me'
 const PROJECT_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
 
-/** The one row both flows contend over, held in memory so the race is visible. */
 interface ConversationRow {
   id: string
   organizationId: string
@@ -62,8 +32,6 @@ vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn().mockResolvedValue({ role: 'project-editor' }),
 }))
 
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -145,14 +113,10 @@ vi.mock('@/lib/storage/bucket', () => ({
 
 vi.mock('@/lib/bim/service', () => ({ deleteBimDerivedObjects: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
-// The upload-screening policy (ADR-0086) the name gate reads: an office on
-// Piloti's suggested list. Unreadable settings refuse the upload outright.
 vi.mock('@/lib/organizations/service', () => ({
   getOrgSettings: vi.fn(async () => ({ displayName: null, defaultLocale: 'de', settings: {} })),
   writeDedicatedOrgSetting: vi.fn(),
 }))
-// The type and size gates, mocked where they live: `admitUpload`
-// (`@/lib/documents/upload-admission`) imports them from there.
 vi.mock('@/lib/documents/upload-type', () => ({ assertUploadTypeAllowed: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/storage/upload-limit', () => ({ assertFileSizeAllowed: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/documents/document-dispatch', () => ({
@@ -160,7 +124,6 @@ vi.mock('@/lib/documents/document-dispatch', () => ({
 }))
 vi.mock('@/lib/documents/reconcile-status', () => ({ reconcileDocumentStatuses: vi.fn() }))
 
-/** The suspension point: the upload parks here until the test releases it. */
 const quotaGate = { release: () => {} }
 const assertWithinStorageQuota = vi.fn(
   (..._args: unknown[]) =>
@@ -177,13 +140,10 @@ vi.mock('@/lib/storage/admission', () => ({
   admitOrDiscard: (...args: unknown[]) => admitOrDiscard(...args),
   admitReplacementOrDiscard: vi.fn(),
 }))
-// The version record is not this file's subject (it is `lifecycle.spec.ts`'s
-// and the session service spec's); the claim here ends at the object write.
 vi.mock('@/lib/documents/lifecycle', () => ({
   nextVersionNumber: vi.fn().mockResolvedValue(2),
   recordUploadedVersionOrDiscard: vi.fn().mockResolvedValue({ id: 'version_1' }),
 }))
-// A first upload: the replace probe finds nothing to supersede.
 vi.mock('@/lib/documents/repository', () => ({
   findDocumentInOrg: vi.fn().mockResolvedValue(null),
   findLiveDocumentByFilename: vi.fn().mockResolvedValue(null),
@@ -218,7 +178,6 @@ function file(): File {
   return new File([new Uint8Array([1, 2, 3])], 'brandschutz.pdf', { type: 'application/pdf' })
 }
 
-/** Resolves once the given mock has been called at least once. */
 async function until(predicate: () => boolean): Promise<void> {
   for (let i = 0; i < 200 && !predicate(); i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -244,55 +203,29 @@ beforeEach(() => {
   admitOrDiscard.mockResolvedValue(undefined)
   listSessionDocumentsForCleanup.mockResolvedValue([])
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }))
-  // The suite-wide setup replaces `global.crypto` with a `getRandomValues`-only
-  // stand-in, and the upload mints its document id with `randomUUID`.
   vi.stubGlobal('crypto', { ...globalThis.crypto, randomUUID: () => 'doc-1' })
 })
 
 describe('an upload that races a conversation delete', () => {
-  /**
-   * The regression, driven step by step.
-   *
-   * Without the fix this test fails on its first assertion: the upload gets no
-   * second look at the conversation, so `PutObjectCommand` is sent while the
-   * discard is mid-purge, and the row that would have named that object is
-   * removed moments later by the cascade.
-   */
   it('is refused after the discard finished, before any byte is written', async () => {
-    // (1) The upload starts on a live conversation and parks inside its quota
-    //     check — i.e. it has already passed `createConversation`, which is the
-    //     only authorization the old code performed.
     const upload = uploadSessionDocument(session, { conversationId: CONVERSATION_ID, file: file() }, new Request('http://x'))
     const settled = upload.catch((error: unknown) => error)
     await until(() => assertWithinStorageQuota.mock.calls.length > 0)
     expect(s3Send).not.toHaveBeenCalled()
 
-    // (2) The discard runs to completion. It marks the conversation FIRST, and
-    //     the purge below finds nothing because the upload has not landed.
     await deleteConversation(session, CONVERSATION_ID)
     expect(markConversationDeleting).toHaveBeenCalled()
     expect(deleteConversationInOrg).toHaveBeenCalled()
 
-    // (3) Release the upload. It must now refuse rather than write.
     quotaGate.release()
     const outcome = await settled
 
-    // The row is gone by now, so the honest answer is 404 rather than the 409 a
-    // still-purging conversation gets. What matters is which side of the write
-    // the refusal lands on.
     expect(outcome).toBeInstanceOf(NotFoundError)
     const puts = s3Send.mock.calls.filter((call) => call[0] instanceof PutObjectCommand)
     expect(puts).toHaveLength(0)
-    // And nothing was recorded, so no row can be orphaned by the cascade.
     expect(admitOrDiscard).not.toHaveBeenCalled()
   })
 
-  /**
-   * The narrower window: the mark lands while the purge is still running, which
-   * is the whole reason it is set BEFORE the purge rather than after it. Here
-   * the discard is suspended inside `purgeSessionDocuments` and the upload is
-   * released underneath it.
-   */
   it('is refused while the purge is still walking the attachments', async () => {
     let releasePurge = (): void => {}
     listSessionDocumentsForCleanup.mockImplementation(
@@ -308,7 +241,6 @@ describe('an upload that races a conversation delete', () => {
 
     const discard = deleteConversation(session, CONVERSATION_ID)
     await until(() => listSessionDocumentsForCleanup.mock.calls.length > 0)
-    // The conversation row still EXISTS at this instant — only the mark is set.
     expect(conversation?.deletedAt).toBeInstanceOf(Date)
     expect(deleteConversationInOrg).not.toHaveBeenCalled()
 
@@ -351,19 +283,11 @@ describe('a discard whose cleanup fails', () => {
 
     await expect(deleteConversation(session, CONVERSATION_ID)).rejects.toThrow(/attachments failed/)
 
-    // The row survives — deleting it would cascade away the document rows that
-    // are the only handle on the object still sitting in the bucket.
     expect(deleteConversationInOrg).not.toHaveBeenCalled()
     expect(conversation).not.toBeNull()
     expect(conversation?.deletedAt).toBeInstanceOf(Date)
   })
 
-  /**
-   * And the retry has to be able to authorize. A conversation carrying the
-   * deleting mark is a 404 to `resolveResourceAccess`, so without the narrow
-   * creator path in `authorizeConversationDelete` the retained rows would be
-   * unreachable — which is the same outcome as not retaining them.
-   */
   it('lets the creator run the delete again once the store recovers', async () => {
     conversation = { ...conversation!, deletedAt: new Date('2026-08-13T09:00:00Z') }
     listSessionDocumentsForCleanup.mockResolvedValue([])

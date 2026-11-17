@@ -3,10 +3,12 @@
  *
  * ## Why this is cacheable at all
  *
- * A `ready` model is immutable: `completeBimModel` writes the element rows
- * once and nothing edits them afterwards — a new revision is a new row with a
- * new id. So a catalogue run is a pure function of
- * `(modelId, buildingClass, mainUse)`, and the same three inputs can
+ * One extraction is immutable: `completeBimModel` writes the element rows once
+ * and nothing edits them until the next extraction. That one can land under the
+ * SAME model id — a same-name re-upload keeps the document, and `startBimModel`
+ * upserts on it — and it moves `updatedAt` in the transaction that replaces the
+ * rows. So a catalogue run is a pure function of
+ * `(modelId, updatedAt, buildingClass, mainUse, basis)`, and the same five inputs can
  * only ever produce the same verdicts. Recomputing is always *correct*; it is
  * just expensive.
  *
@@ -18,14 +20,14 @@
  * cached it — the route is a POST, so no HTTP cache applies, and the client
  * hook is a bare `useEffect` with no dedupe. Opening the Prüfbuch tab, then
  * exporting BCF, then having a chat card render the same requirements, was
- * three full passes over the same immutable rows.
+ * three full passes over the same unchanged rows.
  *
  * ## Why an LRU and not a table
  *
  * Persisting `bim_checks` per revision is the right long-term shape and is
  * still open on the roadmap. This is the cheap 90%: no migration, no
  * invalidation logic to get wrong (an entry can never go stale, because its
- * key names an immutable model), and it disappears with the pod. The cap is on
+ * key names one extraction), and it disappears with the pod. The cap is on
  * ENTRY COUNT rather than bytes because a rule result set is bounded by
  * construction — `VISIBLE_VERDICTS` caps the rows per rule and the catalogue
  * has a fixed number of rules — so entries are kilobytes, not megabytes.
@@ -55,25 +57,39 @@ const TTL_MS = 60 * 60 * 1000
 
 const cache = new Map<string, Entry>()
 
+/** One extraction of a model: `updatedAt` moves with the rows it replaces. */
+export interface ComplianceCacheModel {
+  id: string
+  updatedAt: Date
+}
+
 /**
  * The cache key.
  *
- * `modelId` alone is not enough: the same revision judged at Gebäudeklasse 4
+ * `model.id` alone is not enough: the same revision judged at Gebäudeklasse 4
  * and at 5 produces different fire-resistance verdicts, and serving one for
  * the other is exactly the class of silent wrong answer this subsystem exists
- * to avoid. Both facts are part of the identity of the result.
+ * to avoid. Both facts are part of the identity of the result, and so is the
+ * rules' basis at the site (`basisKey`): a verdict where a rule's edition binds
+ * is a hint where another edition does.
  */
-function key(modelId: string, buildingClass: number | null, mainUse: string | null): string {
-  return `${modelId}|${buildingClass ?? ''}|${mainUse ?? ''}`
+function key(
+  model: ComplianceCacheModel,
+  buildingClass: number | null,
+  mainUse: string | null,
+  basis: string
+): string {
+  return `${model.id}|${model.updatedAt.getTime()}|${buildingClass ?? ''}|${mainUse ?? ''}|${basis}`
 }
 
 export function readComplianceCache(
-  modelId: string,
+  model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
+  basis: string,
   now: number = Date.now()
 ): CachedCompliance | null {
-  const id = key(modelId, buildingClass, mainUse)
+  const id = key(model, buildingClass, mainUse, basis)
   const entry = cache.get(id)
   if (!entry) return null
   if (now - entry.storedAt > TTL_MS) {
@@ -88,13 +104,14 @@ export function readComplianceCache(
 }
 
 export function writeComplianceCache(
-  modelId: string,
+  model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
+  basis: string,
   value: CachedCompliance,
   now: number = Date.now()
 ): void {
-  const id = key(modelId, buildingClass, mainUse)
+  const id = key(model, buildingClass, mainUse, basis)
   cache.delete(id)
   cache.set(id, { value, storedAt: now })
   while (cache.size > MAX_ENTRIES) {

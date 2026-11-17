@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Datenbasis model — where the composer's count is allowed to be decided,
- * and the only place it is.
- *
- * Two of these tests are regressions for bugs the old naked-integer trigger
- * shipped: the knowledge layer being invisible to the count while riding every
- * turn, and the Büroablage preset rendering "0".
- */
 
 import { describe, expect, test } from 'vitest'
 
@@ -47,11 +39,6 @@ describe('buildSourceBasis', () => {
   test('folds the knowledge layer in as always-on entries', () => {
     const basis = build()
 
-    // The invisible participant, finally represented: `knowledge_layer` is
-    // stripped from `availableDataSources` by the API client yet appended to
-    // every turn's wire payload, so the picker that never drew it was lying by
-    // omission — and the two things it omitted are exactly the ones architects
-    // care about.
     expect(basis.always.map((e) => e.id)).toEqual([KNOWLEDGE_PROJECT_ID, KNOWLEDGE_OFFICE_ID])
     expect(basis.always.every((e) => e.state === 'always')).toBe(true)
     expect(basis.always.map((e) => e.signal)).toEqual(['project', 'office'])
@@ -73,8 +60,6 @@ describe('buildSourceBasis', () => {
       hasValidToken: false,
     })
 
-    // Different fact, different state: "off" is a choice the reader made, and
-    // "unavailable" is a door shut to them. The old row drew both the same way.
     expect(basis.external[0].state).toBe('unavailable')
     expect(basis.external[0].unavailableReason).toBe(LABELS.signInRequired)
   })
@@ -90,16 +75,10 @@ describe('summariseBasis', () => {
     const summary = summariseBasis(build(), null)
 
     expect(summary.kind).toBe('all')
-    // THE COUNT. Two toggles plus the two knowledge-layer strata the wire
-    // always carries: the old trigger said "2" while three ids went out.
     expect(summary.consultedCount).toBe(4)
   })
 
   test('the Büroablage preset says "Büroablage" — never zero', () => {
-    // The worst moment in the old control. `computePresetSourceIds('office', …)`
-    // legitimately returns [] (the office archive is retrieved through the
-    // knowledge layer, not a toggleable source), so the composer answered a
-    // deliberate choice with "Datengrundlage 0".
     const summary = summariseBasis(build({ enabledIds: [] }), 'office')
 
     expect(summary.kind).toBe('preset')
@@ -137,8 +116,6 @@ describe('summariseBasis', () => {
       2
     )
 
-    // All three selectable sources are on, so this is "all" — force the subset
-    // shape by leaving one off.
     const partial = summariseBasis(
       build({
         sources: [WEB, RIS, OFFICE_SHELF, { id: 'projekt_x', name: 'Projektablage' }],
@@ -172,7 +149,6 @@ describe('hasNoExternalSources', () => {
   test('is true only once every switchable source is off', () => {
     expect(hasNoExternalSources(build())).toBe(false)
     expect(hasNoExternalSources(build({ enabledIds: [] }))).toBe(true)
-    // Nothing to switch off is not the same as having switched everything off.
     expect(hasNoExternalSources(build({ sources: [], enabledIds: [] }))).toBe(false)
   })
 })

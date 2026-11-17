@@ -139,7 +139,7 @@ export async function countGrantsForResource(
     .from(resourceShares)
     .where(and(eq(resourceShares.resourceType, resourceType), eq(resourceShares.resourceId, resourceId)))
   // Raw sql<number> is a compile-time assertion only — the driver returns a
-  // string for count(). Coerce at the repository boundary (AGENTS.md).
+  // string for count(). Coerce at the repository boundary (code-conventions.md).
   return Number(row?.count ?? 0)
 }
 

@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * What the thread area shows for a chat the reader may no longer read
- * (ADR-0088): a folder it drew on is no longer one of theirs, since it was
- * shared with them.
- *
- * It replaces the transcript and the composer. Nothing of the chat is rendered
- * and nothing is fetched for it: not its messages, cards or attachments, and
- * not its title, which is model-written from the content and so is replaced by
- * the neutral one. It never names the folder either: the reader may not be
- * cleared for it.
- */
-
 import type { FC } from 'react'
 import { Lock } from 'lucide-react'
 

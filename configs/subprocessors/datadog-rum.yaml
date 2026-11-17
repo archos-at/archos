@@ -1,0 +1,36 @@
+# Latent: a deployment overlay could inject Datadog's browser SDK as the DD_RUM
+# global (apps/workspace/shared/utils/rum.ts). No env var switches it on, so no
+# boot check can see it; the page never loads the SDK from this repository.
+id: datadog-rum
+kind: processor
+status: latent
+order: 160
+name: Datadog, Inc.
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: none
+data_classes: [telemetry]
+purposes: [operations]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; dieses Repository lädt das Datadog-SDK nicht.
+  en: Not in use; this repository does not load the Datadog SDK.
+hosts: []
+env: []
+activation_env: []
+no_boot_check: the SDK would be injected into the page by a deployment overlay, which sets no env var a process can read
+no_signal: the SDK would be injected by a deployment overlay; no host, variable or package of ours names it
+evidence:
+  - apps/workspace/shared/utils/rum.ts
+copy:
+  name:
+    de: Datadog RUM
+    en: Datadog RUM
+  data:
+    de: Browser-Performance-/Nutzungstelemetrie, falls vom Deployment eingebunden
+    en: browser performance/usage telemetry, if injected by the deployment
+  location:
+    de: USA
+    en: USA

@@ -23,7 +23,9 @@ from agent.project_context import PROJECT_MEMORY_HEADER
 from agent.project_context import compose_project_context
 
 from .run_envelope import envelope_headers_for_run
+from .run_result import TEMPORARY_CONVERSATION_KEY
 from .run_result import extract_result
+from .run_result import is_temporary_conversation
 from .runner import WORKER_IDENTITY_HEADERS
 from .runner import _b64url_encode_text
 from .runner import _create_llm_provider
@@ -209,6 +211,7 @@ async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
         )
     )
     _inject_scope_headers(state, request, fn_config)
+    bind_knowledge(request)
     user_info = await _inject_identity_headers(state, request)
     memory_digest = await _inject_memory_header(state, request)
     return RunContext(
@@ -221,6 +224,19 @@ async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
         memory_digest=memory_digest,
         project_context=compose_project_context(request.project_context, memory_digest),
     )
+
+
+def bind_knowledge(request: JobRequest) -> None:
+    """Bind the run's knowledge context, as a chat turn binds its own (ADR-0175).
+
+    A run carries no turn context, so the payload is the only place it comes from: its gate, its chain
+    text and every edition's role. Absent reads as ``knowledge_unavailable`` (``parse_knowledge_context``):
+    the run fails closed, never as Austria.
+    """
+    from agent.common.knowledge_context import parse_knowledge_context
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(parse_knowledge_context(request.knowledge_context))
 
 
 def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> None:
@@ -335,6 +351,9 @@ def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
             "parent_workflow_name": request.parent_function_name,
         }
     )
+    if is_temporary_conversation(request.usage_context):
+        # ADR-0180: nothing is kept from this run, said on its trace (the reflection is skipped).
+        workflow.provided_metadata[TEMPORARY_CONVERSATION_KEY] = True
     if not request.parent_span_id or request.parent_span_id == "root":
         return workflow, None
     parent = TraceMetadata(

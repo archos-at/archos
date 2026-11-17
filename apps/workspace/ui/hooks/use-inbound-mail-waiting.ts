@@ -151,6 +151,25 @@ export function useInboundMailWaiting(
   return state
 }
 
+/**
+ * The number as the shell last read it, without reading it: for a surface that
+ * repeats what the rail already says (the chat's start), so it costs no request
+ * and stays silent wherever the rail does (the feature off, no right to decide).
+ */
+export function useInboundMailWaitingShown(projectId: string | null): InboundMailWaiting {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      if (!projectId) return () => {}
+      const entry = entryFor(projectId)
+      entry.listeners.add(listener)
+      return () => entry.listeners.delete(listener)
+    },
+    [projectId],
+  )
+  const snapshot = useCallback(() => (projectId ? entryFor(projectId).state : UNKNOWN), [projectId])
+  return useSyncExternalStore(subscribe, snapshot, () => UNKNOWN)
+}
+
 /** Forget every entry. Specs only. */
 export function resetInboundMailWaitingForTests(): void {
   entries.clear()

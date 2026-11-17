@@ -7,12 +7,12 @@
  * account numbers, credentials), never the contextual identifiers ("the tower
  * project in Linz") — those are the LLM layers' job.
  *
- * Bought, not built (AGENTS.md): the pattern corpus is `@redactpii/node`, the
+ * Bought, not built (working-style.md): the pattern corpus is `@redactpii/node`, the
  * maintained zero-dependency successor of the 786k-download `redact-pii`.
  * What we evaluated and did not take: Microsoft Presidio is the strongest
  * library in this space but is Python + spaCy models — a native/model
  * toolchain in the image for a pre-scrub whose heavy lifting the LLM layers do
- * anyway (the carve-out AGENTS.md names). The Python reflection stage keeps
+ * anyway (the carve-out working-style.md names). The Python reflection stage keeps
  * its own small denylist (`reflection.py::_PII_PATTERNS`) because it DROPS
  * findings rather than redacting spans — a different decision needing no
  * span-accurate replacement.

@@ -158,14 +158,14 @@ function HeaderRow({
         {drawing ? 'DXF' : 'PDF'}
       </span>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
+        <h3 className="truncate text-[15px] font-semibold leading-tight text-foreground">
           {document.displayName}
         </h3>
         <p className="mt-1 truncate text-[11.5px] text-muted-foreground">
           {drawing ? 'DXF · Maßstab 1:500 · Bereit' : 'PDF · Bereit'}
         </p>
       </div>
-      <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 px-3">
+      <Button type="button" variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5 px-3">
         <Download className="size-3.5" aria-hidden />
         Herunterladen
       </Button>

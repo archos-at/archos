@@ -1,5 +1,4 @@
 import type { ProjectLifecycleView, ProjectStatus } from '@/lib/projects/project-status'
-import type { ApplicableStandard } from '@/lib/oib/applicable-standards'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 
 export interface OverviewDocument {
@@ -15,23 +14,17 @@ export interface ProjectOverviewData {
   id: string
   name: string
   collectionName: string
-  /** `active`, `paused` or `closed` (ADR-0098). */
   status: ProjectStatus
-  /** Where it stands in its lifecycle, for the status card and the close dialog. */
   lifecycle: ProjectLifecycleView
   createdAt: string
   profileDisplay: {
     title?: string
     summary?: string
-    /** UI locale the stored `summary` was generated in (drives stale-language regen). */
     summaryLocale?: string
     keyFacts?: Array<{ label: string; value: string }>
     missingInfo?: string[]
   } | null
-  /** Raw structured profile — the brief fact sheet is derived from this at render time. */
   profile: ProjectProfile | null
-  applicableStandards: ApplicableStandard[]
-  briefComplete: boolean
   documentCount: number
   totalFileSize: number
   recentDocuments: OverviewDocument[]

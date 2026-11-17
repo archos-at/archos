@@ -55,6 +55,7 @@ import { CITATIONS_PAYLOAD_VERSION } from '@/features/chat/lib/citations'
 import { modernizeLane } from '@/lib/source-kinds'
 import { LEGACY_BINDING_STATUS } from '@/features/chat/lib/wire-citation'
 import type { WireCitationSource } from '@/features/chat/types'
+import { citationLineOf, type CitationLineWire } from '@/shared/citation-line'
 import { sanitizeProvenance, type MessageProvenance } from './message-provenance'
 import { toProjectStatus, type ProjectStatus } from '@/lib/projects/project-status'
 import { sanitizeAnswerMeta } from './message-answer-meta'
@@ -68,6 +69,8 @@ import { sanitizeFindings } from './message-findings'
  */
 const BACKEND_ANSWER_KEYS = [
   'sources',
+  // The turn read an office's licensed text (ADR-0164): stored as `licensedText`, read by the lessons distiller.
+  'licensed_text',
   // Retrieved-but-uncited document identities (no prose) for the
   // "Gelesen, nicht zitiert" disclosure — same lift as `sources`.
   'read_sources',
@@ -203,7 +206,8 @@ export type StoredCitationSource = Partial<
     | 'score'
     | 'snippet'
   >
-> & {
+> &
+  CitationLineWire & {
   /** Whether the answer cited this source, as opposed to merely retrieving it. */
   is_cited?: boolean
   /** The other project a cross-project lookup found it in (ADR-0094). */
@@ -289,6 +293,10 @@ function normalizeSource(input: unknown): StoredCitationSource | null {
     // name and opens nothing, because the document is not in this chat's project.
     project: storedProject(input.project),
     ...(typeof input.is_cited === 'boolean' ? { is_cited: input.is_cited } : {}),
+    // What the citation's line states (edition, role, route, dates, public address), each field kept
+    // only when it is what the shared schema allows. Without this an answer whose client was gone
+    // mid-turn, and every research report, would be stored with a citation no surface can word.
+    ...citationLineOf(input),
   }
 
   const identifying =
@@ -522,6 +530,18 @@ export function normalizeAgentAnswerMetadata(
     const findings = sanitizeFindings(metadata.findings)
     if (findings) out.findings = findings
   }
+  if (metadata.licensed_text === true) out[LICENSED_TEXT_KEY] = true
 
   return out
 }
+
+/**
+ * The answer row's mark of a turn that read an office's licensed text (ADR-0164, design E44), written by the
+ * server (`chat_socket.persist_turn_result`) and never by the browser: the lessons distiller takes no vote on
+ * such an answer.
+ */
+export const LICENSED_TEXT_KEY = 'licensedText'
+
+/** Whether the backend's metadata for an answer says its turn read licensed text. */
+export const readLicensedText = (metadata: Record<string, unknown> | undefined): boolean =>
+  metadata?.licensed_text === true

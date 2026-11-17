@@ -47,7 +47,7 @@ export type DocClass = (typeof DOC_CLASSES)[number]
  * entries equal these, which `base-knowledge.spec.tsx` pins.
  */
 export const DOC_CLASS_LABELS: Record<DocClass, string> = {
-  oib_guideline: 'OIB-Richtlinie (verbindlich)',
+  oib_guideline: 'OIB-Richtlinie',
   oib_guide: 'OIB-Leitfaden',
   oib_explanatory_note: 'OIB-Erläuterung',
   oib_definitions: 'OIB-Begriffsbestimmungen',

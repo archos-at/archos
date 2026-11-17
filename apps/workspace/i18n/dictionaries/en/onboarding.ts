@@ -3,6 +3,7 @@ export const onboarding = {
   validation: {
     nameRequired: 'Organization name is required.',
     nameTooLong: 'Organization name must be at most 100 characters.',
+    homeCountryRequired: 'Choose the country your office is in.',
   },
   inviteOnly: {
     eyebrow: 'Invitation required',
@@ -30,6 +31,15 @@ export const onboarding = {
     nameLabel: 'Organization name',
     namePlaceholder: 'Musterarchitektur ZT GmbH',
     nameHint: 'Usually your office or practice name.',
+    homeCountryLabel: 'Country of your office',
+    homeCountryPlaceholder: 'Choose a country',
+    homeCountryHint: 'Where your office is seated. It does not decide which building law applies to a project: the site does.',
+    homeCountries: {
+      AT: 'Austria',
+      DE: 'Germany',
+      CH: 'Switzerland',
+      LI: 'Liechtenstein',
+    },
     submit: 'Create organization',
     invitedHint:
       'Expecting to join an existing organization? Ask its admin for an invitation instead — invited members skip this step.',

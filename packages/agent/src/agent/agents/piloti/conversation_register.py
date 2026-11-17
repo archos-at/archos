@@ -25,7 +25,9 @@ from agent.agents.piloti.clarify import build_clarifier
 from agent.agents.piloti.conversation import ConversationGraph
 from agent.agents.piloti.history import warm_token_encoder
 from agent.agents.piloti.models import ConversationState
+from agent.agents.piloti.turn_tools import set_project_models
 from agent.auth.request_identity import skip_clarifier_requested
+from agent.citations.office_lines import set_turn_office_labels
 from agent.common import AgentGroup
 from agent.common import filter_tools_by_sources
 from agent.common import format_tool_unavailability_error
@@ -35,6 +37,9 @@ from agent.common import get_langchain_llm
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.fenced_checkpointer import FencedCheckpointer
+from agent.common.knowledge_context import set_turn_knowledge_context
+from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
+from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
@@ -54,6 +59,7 @@ from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import without_restricted
 from agent.knowledge.scoping import get_scoped_collections_from_context
 from agent.memory.shown_notes import ShownNotes
+from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.observability.turn_outcome import record_turn_facts
 from agent.project_context import RequestContext
 from agent.stages import schedule_post_answer_stages
@@ -282,6 +288,7 @@ def _turn_state(
         workspace_block=context.workspace,
         deep_research_allowed=context.deep_research_allowed,
         tasks_allowed=context.tasks_allowed,
+        licensed_text_allowed=context.licensed_text_allowed,
         confined=context.confined,
     )
 
@@ -315,6 +322,7 @@ def _finished(
         query_text=inputs.query_text,
         cards=cards,
         remembered_this_turn=registries.memory_writes,
+        noted_this_turn=registries.memory_notes,
         registry_collections=registries.source_collections,
         restricted_memory_writes=registries.restricted_memory_writes,
         earlier_restricted_notes=registries.shown_notes,
@@ -451,6 +459,13 @@ async def _prepare_turn(
     set_turn_documents(inventory.all_documents or inventory.available_documents)
     set_norm_families(inventory.norm_families)
     set_inventory_drops(inventory.inventory_drops)
+    set_project_models(context.project_models)  # which model files the project holds, for the tools bound
+    # Which country, coverage and editions apply (each edition's role, for the citation wire), and what
+    # the turn may retrieve (ADR-0173); bound every turn, so a turn never reads the last turn's gate.
+    set_turn_knowledge_context(context.knowledge_context)
+    # The office's own copies, for the citation line of a passage read from one (ADR-0163); reset every turn.
+    set_turn_office_labels(context.base_knowledge_labels)
+    record_trace_metadata(**knowledge_trace_metadata(turn_knowledge_context()))
     state = _turn_state(inputs, context, inventory, header_scope, request=request, skip_clarifier=skip_clarifier)
     yield _Turn(agent, state, session_registry, context, inputs, request, runtime, shown_notes)
 
@@ -471,6 +486,9 @@ async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterato
         memory_digest=turn.context.stage_facts.memory_digest,
         shown_notes=turn.shown_notes,
         restricted_scope=turn.context.restricted_scope,
+        temporary=turn.context.temporary,
+        personal_memory=turn.context.personal_memory,
+        answer_message_id=message_id if turn.context.stage_facts.ws_parent_id else None,
     ) as registries:
         answering = answer_turn(
             turn.agent,

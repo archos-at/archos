@@ -1,11 +1,3 @@
-/**
- * What is still open on a document, where an architect scans a folder: the
- * card's footer and the list's row carry the live Anmerkungen the listing
- * counted, how many are the reader's, and a press that opens the review of
- * that document (the page's own URL with `doc` and `review=1`, which the
- * shelf already answers), never the file preview the row itself opens.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -51,7 +43,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** jsdom counts every focus as keyboard focus, which is the case the tooltip opens for. */
 function focusVisible() {
   const matches = Element.prototype.matches
   vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
@@ -82,7 +73,7 @@ describe('the open Anmerkungen on a file card', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('4 open annotations, 2 for you')
   })
 
-  it('keeps the size and the date in the footer, the chip beside them rather than in their place', () => {
+  it('keeps the size and the date in the footer, and the chip on the sheet beside what is in progress', () => {
     render(
       <FileCard
         file={doc({ fileSize: 1_900_000, marks: { open: 4, proposed: 0, forYou: 2 } })}
@@ -92,7 +83,8 @@ describe('the open Anmerkungen on a file card', () => {
       />,
     )
     const footer = screen.getByTestId('file-card-footer')
-    expect(within(footer).getByTestId('open-marks')).toBeInTheDocument()
+    expect(within(footer).queryByTestId('open-marks')).toBeNull()
+    expect(screen.getByTestId('open-marks')).toBeInTheDocument()
     expect(footer).toHaveTextContent('1.9 MB')
     expect(footer.querySelector('time')).not.toBeNull()
   })

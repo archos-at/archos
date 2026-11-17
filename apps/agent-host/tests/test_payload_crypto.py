@@ -1,10 +1,3 @@
-"""Tests for at-rest encryption of DB-claimed job payloads (security).
-
-The queue row persists the run_agent_job payload (which carries the user auth
-token) durably in Postgres, so with a KEK set it must be AES-256-GCM encrypted
-and round-trip exactly; without a KEK it falls back to plaintext (dev).
-"""
-
 from __future__ import annotations
 
 import base64
@@ -48,13 +41,10 @@ def test_invalid_kek_length_rejected(monkeypatch):
 
 def test_legacy_raw_json_still_readable(monkeypatch):
     monkeypatch.delenv("JOB_PAYLOAD_KEK", raising=False)
-    # A row written before the wrapper existed is bare JSON.
     assert payload_crypto.deserialize('{"input_text": "x"}') == {"input_text": "x"}
 
 
 def test_wrapped_plaintext_rejected_with_kek(monkeypatch):
-    # A dev-format (json:) row under a KEK deployment: pre-KEK legacy or a
-    # DB-write attacker's forgery — either way it must never execute.
     monkeypatch.delenv("JOB_PAYLOAD_KEK", raising=False)
     stored = payload_crypto.serialize(_PAYLOAD)
     assert stored.startswith("json:")

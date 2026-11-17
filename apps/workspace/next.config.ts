@@ -48,6 +48,10 @@ export const nextConfig: NextConfig = {
       ...LEGACY_ROUTES.map(({ from, to }) => ({ source: from, destination: to, permanent: true })),
       { source: '/app/archiv', destination: '/app/office-shelf', permanent: true },
       { source: '/app/archiv/:path*', destination: '/app/office-shelf/:path*', permanent: true },
+      // The norm catalog and the base-knowledge page became one place per country, and the corpus upkeep
+      // without a country moved to maintenance.
+      { source: '/app/platform/norms', destination: '/app/platform/countries', permanent: true },
+      { source: '/app/platform/knowledge', destination: '/app/platform/maintenance', permanent: true },
     ]
   },
 
@@ -209,10 +213,18 @@ export const nextConfig: NextConfig = {
       // emits the last one (see next.config headers "Header Overriding
       // Behavior"), so the more specific SAMEORIGIN replaces DENY here rather
       // than both being emitted. The route handler
-      // (streamKnowledgeBaseDocument) sets the same two headers on its Response
-      // as defense-in-depth.
+      // (`streamCorpusPdf`, lib/knowledge/source-pdf.ts) sets the same two headers
+      // on its Response as defense-in-depth.
       {
         source: '/api/knowledge-base/documents/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+        ],
+      },
+      // The platform operator's read of the same PDFs, framed by the same viewer.
+      {
+        source: '/api/platform/knowledge/documents/:fileName',
         headers: [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },

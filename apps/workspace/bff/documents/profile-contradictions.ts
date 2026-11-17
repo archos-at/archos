@@ -28,6 +28,7 @@ import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definiti
 import type { ProjectIntakeQuestion } from '@/lib/project-profile/intake-types'
 import { formatIntakeAnswer } from '@/lib/project-profile/intake-vocabulary'
 import { normalizeProfileToken } from '@/lib/project-profile/legacy-names'
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 import type { Dossier, DossierFactKey } from './dossier'
 
 /** What a document can state that the Steckbrief holds too. */
@@ -187,17 +188,8 @@ const STATE_ABBREVIATIONS: Readonly<Record<string, string>> = {
   bgld: 'burgenland',
 }
 
-const AUSTRIAN_STATES: ReadonlySet<string> = new Set([
-  'vienna',
-  'lower_austria',
-  'upper_austria',
-  'styria',
-  'carinthia',
-  'salzburg',
-  'tyrol',
-  'vorarlberg',
-  'burgenland',
-])
+/** The Länder the records hold, by token (`SITE_SUBDIVISIONS`): one list, read from the country's record. */
+const STATES: ReadonlySet<string> = new Set(SITE_SUBDIVISIONS.options.map((option) => option.token))
 
 function tokensOf(text: string, words: ReadonlyArray<[RegExp, string]>): string[] {
   const folded = fold(text)
@@ -209,7 +201,7 @@ export function federalStateToken(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const folded = fold(value).replace(/^bundesland /, '').replace(/\.$/, '')
   const token = STATE_ABBREVIATIONS[folded] ?? normalizeProfileToken('federal_state', folded.replace(/ /g, '_'))
-  return AUSTRIAN_STATES.has(token) ? token : null
+  return STATES.has(token) ? token : null
 }
 
 /** A profile value as the token the intake stores, legacy German tokens included. */

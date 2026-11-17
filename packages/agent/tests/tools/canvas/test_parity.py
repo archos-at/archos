@@ -1,11 +1,3 @@
-"""What the person asks for, Piloti does in their name: ``mark`` with ``open``, ``update``, ``delete``.
-
-The BFF decides whether the asker may (``lib/annotations/agent.ts``, the route
-spec holds that). What is under test here is this tier's half: what the model
-can and cannot send, what it is told back, and what lands on the card, so the
-person sees each change with what it was before.
-"""
-
 from __future__ import annotations
 
 import io
@@ -189,7 +181,6 @@ class TestADelete:
         assert registry.snapshot() == []
 
 
-#: What the BFF answers while the organization has Piloti propose only (``AgentActsOffError``, ``agent.ts``).
 def _acts_off() -> CanvasRequestError:
     return CanvasRequestError(
         "This organization has Piloti propose only.", status=403, code="PILOTI_ACTS_OFF", reason="piloti-acts-off"
@@ -197,8 +188,6 @@ def _acts_off() -> CanvasRequestError:
 
 
 class TestAnOfficeThatHasAgentProposeOnly:
-    """``piloti-acts`` off: the BFF refuses what Piloti would apply, and the model is told what to do instead."""
-
     async def test_an_open_mark_is_refused_with_the_way_to_propose_it(self, monkeypatch, calls, registry) -> None:
         answering(monkeypatch, calls, _acts_off())
 
@@ -234,7 +223,6 @@ class TestAnOfficeThatHasAgentProposeOnly:
 
         assert result.startswith("Not changed")
         assert "only propose" in result and "themselves" in result and "do not retry" in result
-        # Not the missing-permission sentence: the person may well do it, Piloti may not do it for them.
         assert "may not change anything on this document" not in result and "set themselves" not in result
         assert registry.snapshot() == []
 
@@ -247,7 +235,6 @@ class TestAnOfficeThatHasAgentProposeOnly:
         finally:
             reset_thread_reply(token)
 
-        # Nothing was said in the thread, so the turn's answer still goes there.
         assert record.posted == set()
 
     async def test_a_reply_is_not_an_act(self, monkeypatch, calls, registry) -> None:
@@ -287,7 +274,6 @@ class TestAnOfficeThatHasAgentProposeOnly:
 
 
 def test_a_check_of_what_is_fixed_is_answered_in_each_thread_and_changes_no_status() -> None:
-    """„Piloti prüfen lassen, was behoben ist“: a verdict per mark, in its thread; closing it stays the person's."""
     assert "check whether something is fixed asks for no change" in DESCRIPTIONS["update"]
     reply = DESCRIPTIONS["reply"]
     assert "„In <Fassung> behoben:“" in reply

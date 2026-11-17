@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * The filing bar: Piloti's filing suggestions decided per target folder, one
- * line each, where every file a line would move is in view. It sits above the
- * grid and the list of a folder, in the upload tray, and on the setup page's
- * „Ablage“, so one component draws the per-folder decision everywhere.
- *
- * A line is a proposal (one per target folder): the folder's path in full,
- * „neu“ where the move creates it, how many files the one confirm moves, and
- * the answer, „Belassen“ and „Verschieben“ (or „Anlegen und verschieben“).
- * Hovering or focusing a line lights the cards and rows it would move
- * (`useLightWhile`), so nothing moves that the person did not see.
- *
- * Quiet: the card surface, one hairline, no shadow. Above a folder it appears
- * only when a target folder in view collects two files or more
- * ({@link filingBarEntries}); with one file per folder the chip on the file is
- * the shorter way.
- */
-
 import { useId, useMemo, useState, type JSX } from 'react'
 import { NewMark } from '@/components/ui/filing-chip'
 import {
@@ -41,9 +23,7 @@ export function FilingBar({
   className,
 }: {
   entries: readonly FilingFolderSuggestion[]
-  /** A line was decided: re-read the suggestions (and the listing). */
   onSettled: () => void
-  /** Name the files under each folder: for a page that shows no cards to light (the setup page). */
   showNames?: boolean
   className?: string
 }): JSX.Element | null {
@@ -111,7 +91,7 @@ function FilingBarLine({
           <>
             {decision.error && <SuggestionNote tone="error">{decision.error}</SuggestionNote>}
             <SuggestionButton
-              variant="ghost"
+              variant="secondary"
               loading={decision.busy?.action === 'dismiss'}
               aria-disabled={decision.busy !== null}
               onClick={decision.dismiss}
@@ -120,7 +100,7 @@ function FilingBarLine({
               {t('filing.keep')}
             </SuggestionButton>
             <SuggestionButton
-              variant="outline"
+              variant="secondary"
               loading={decision.busy?.action === 'apply'}
               aria-disabled={decision.busy !== null}
               onClick={decision.apply}
@@ -138,12 +118,6 @@ function FilingBarLine({
   )
 }
 
-/**
- * The bar of a view: the provider's suggestions that move a document in it
- * (`documentIds`), when one target folder collects at least `minFiles` of them.
- * Draws nothing outside a provider or when there is nothing to decide per
- * folder; `className` places it.
- */
 export function FilingViewBar({
   documentIds,
   minFiles = 2,

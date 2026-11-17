@@ -1,5 +1,3 @@
-"""The record channel (ADR-0125): workspace calls read off this turn's transcript, never off the source registry."""
-
 from __future__ import annotations
 
 import json
@@ -80,12 +78,10 @@ def test_the_ids_this_turn_filed_are_read_off_the_text_the_tool_gave_the_model()
 
     filed = "6f7a8b9c-0d1e-4f2a-9b3c-4d5e6f7a8b9c"
     structured = {"decision": "propose", "proposalId": filed.upper(), "operation": "folder-create", "summary": "Neu."}
-    # The tool's own wording, so a change to it breaks here and not in production.
     text = _show_proposal(structured, {"input": {}}, "Proposed — the person decides. Nothing was changed.", {})
     messages = [
         HumanMessage("Leg an."),
         *_call("c1", "folder-create", text),
-        # A read that mentions an id files nothing.
         *_call("c2", "inbox-list", '{"items": [{"text": "Proposal 0b0b0b0b-0000-4000-8000-000000000000"}]}'),
     ]
     assert filed_proposal_ids(messages) == frozenset({filed})
@@ -159,7 +155,6 @@ def _estate(tool: str, args: dict, result: str, status: str = "success") -> list
 
 
 def test_an_estate_ls_or_glob_is_a_listing_record_and_a_drafts_listing_is_not():
-    """ADR-0133 slice 6: Piloti lists with `ls` and `glob`, read like `list_files` was."""
     (record,) = records_from_messages(_estate("ls", {"path": "/project/Einreichung/"}, TREE))
     assert (record.operation, record.outcome) == ("ls", "read")
     (found,) = records_from_messages(_estate("glob", {"pattern": "*Index*"}, "1 file matches"))

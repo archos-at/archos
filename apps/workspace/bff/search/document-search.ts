@@ -178,7 +178,7 @@ async function contentHits(
   const named = collections.slice(0, BACKEND_SEARCH_MAX_COLLECTIONS)
   const started = performance.now()
   try {
-    const hits = await fetchGroupedSemanticHits(named, text, CONTENT_FILES_PER_COLLECTION, PASSAGE_CHARS, {
+    const hits = await fetchGroupedSemanticHits(reach.organizationId, named, text, CONTENT_FILES_PER_COLLECTION, PASSAGE_CHARS, {
       ...(filters ? { filters } : {}),
       purpose: 'workspace_search',
     })

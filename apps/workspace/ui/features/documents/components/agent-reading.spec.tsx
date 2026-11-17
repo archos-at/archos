@@ -5,13 +5,6 @@ import type { FileItem } from '../file-types'
 import { AgentReading } from './agent-reading'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/**
- * What Piloti made of a citable document: the facts line, the type and
- * discipline chips it assigned, and the way to correct them. The editor it
- * opens is specced on its own in `document-tags-editor.spec.tsx`; here it is
- * only checked that the reading opens it, closes it and lets go of it when
- * the reader moves to another file.
- */
 const fileFixture = (overrides: Partial<FileItem> = {}): FileItem => ({
   id: 'doc-1',
   filename: 'plan.pdf',
@@ -90,8 +83,8 @@ describe('AgentReading', () => {
         <AgentReading file={fileFixture({ tags: ['Grundriss', 'Brandschutz'] })} canManage />
       )
 
-      expect(screen.getByTestId('agent-reading-type')).toHaveTextContent('Grundriss')
-      expect(screen.getByText('Brandschutz')).not.toHaveAttribute('data-testid')
+      expect(screen.getByTestId('agent-reading-type')).toHaveTextContent('Floor plan')
+      expect(screen.getByText('Fire safety')).not.toHaveAttribute('data-testid')
     })
 
     it('names a type stored as a token by its label', () => {
@@ -144,7 +137,7 @@ describe('AgentReading', () => {
     it('shows no Correct or Assign to a viewer who cannot manage the document', () => {
       render(<AgentReading file={fileFixture({ tags: ['Grundriss'] })} canManage={false} />)
 
-      expect(screen.getByText('Grundriss')).toBeInTheDocument()
+      expect(screen.getByText('Floor plan')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull()
       expect(screen.queryByRole('button', { name: 'Assign' })).toBeNull()
       expect(screen.queryByTestId('agent-reading-editor')).toBeNull()

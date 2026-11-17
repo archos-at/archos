@@ -20,7 +20,7 @@ const NAMESPACE = objectName("namespace", LEGACY_PROJECT);
  *   - a readiness probe on PING alone stays green on week-old signatures;
  *   - a scanner any pod may call, or one only the frontend may call while the
  *     bff-jobs pool scans what arrives;
- *   - Compose and Pulumi running different images or files (deploy/AGENTS.md);
+ *   - Compose and Pulumi running different images or files (deploy/README.md, "Rules for changes");
  *   - the BFF and the probe disagreeing on how old is too old.
  */
 
@@ -189,6 +189,13 @@ describe("clamav", () => {
     expect(livenessScript()).toContain("zPING");
     expect(livenessScript()).not.toContain("VERSION");
     expect(clamd.startupProbe.exec.command).toEqual(["sh", "-c", livenessScript()]);
+  });
+
+  it("lets pulumi up go on without waiting for fresh signatures, and gives the app tiers a URL, not the Deployment", async () => {
+    const metadata = await resolve(find("kubernetes:apps/v1:Deployment", "clamav").inputs.metadata);
+    expect(metadata.annotations).toEqual({ "pulumi.com/skipAwait": "true" });
+    // A constant: an Output of the Deployment would order the frontend after its readiness.
+    expect(readFileSync(join(__dirname, "clamav.ts"), "utf8")).toContain("url: pulumi.output(`tcp://${name}:${CLAMAV.port}`)");
   });
 
   it("rolls the pod when either config file changes", async () => {

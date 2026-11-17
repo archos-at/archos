@@ -6,7 +6,7 @@ request that makes the change. Three tiers read them
 
 | Tier | Where | What it shows |
 |---|---|---|
-| Customers | the app, `/app/whats-new` (user menu, "Neuerungen"), signed-in members only | every note of the customer sections, in German and English, grouped by week, filterable by product area, fixes folded |
+| Customers | the app, `/app/whats-new` (user menu, "Neuerungen"), signed-in members only | every note of the customer sections, in German and English, a timeline of weeks (the newest open, an older one behind its summary and counts), each section grouped by product area, filterable by area, fixes folded. Judge a layout change on real density: `/dev/whats-new?data=real` |
 | Public | the website, `/changelog/` and `/en/changelog/`, plus an RSS feed below each (`rss.xml`) | the weekly summary from `releasenotes/summaries.yaml`, and nothing else. A week without one is not listed |
 | Internal | the repository only | `security`, `incident` and `operators` notes |
 

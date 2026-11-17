@@ -14,6 +14,8 @@ import {
   type ComputeNeedsOptions,
 } from './needs'
 import { needSchema, type Need } from './types'
+import { BUILDING_CLASS_INPUTS } from './derivations.oracle'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const at = '2026-10-14T08:00:00.000Z'
 
@@ -23,6 +25,7 @@ function profileWith(
   unknowns: string[] = []
 ): ProjectProfile {
   const profile = emptyProjectProfile()
+  profile.facts.country = { value: 'at', confidence: 'confirmed', source: 'onboarding', updatedAt: at }
   for (const [key, value] of Object.entries(facts)) {
     profile.facts[key] = { value, confidence: 'confirmed', source: 'onboarding', updatedAt: at }
   }
@@ -39,7 +42,7 @@ function profileWith(
   return profile
 }
 
-const active: ComputeNeedsOptions = { mode: 'active', dismissed: [] }
+const active: ComputeNeedsOptions = { mode: 'active', dismissed: [], records: AT_SETUP_RECORDS }
 
 function needs(profile: ProjectProfile, options: Partial<ComputeNeedsOptions> = {}): Need[] {
   return computeNeeds(profile, projectIntakeDefinitionV1, { ...active, ...options })
@@ -63,13 +66,10 @@ describe('computeNeeds', () => {
     expect(found.get('building_type@bldg1')).toMatchObject({
       baseKey: 'building_type',
       buildingId: 'bldg1',
-      decisive: true,
+      decisive: false,
     })
-    // The building questions wait for C1. The federal state does not wait for the
-    // country: Piloti is Austria's, and a document names the Land first.
     expect(found.has('storeys_above_ground@bldg1')).toBe(false)
-    expect(found.get('federal_state')).toMatchObject({ type: 'single_select', state: 'open' })
-    // Only questions that write a value; every need is one the contract accepts.
+    expect(found.get('federal_state')).toMatchObject({ type: 'single_select', state: 'open', decisive: true })
     for (const need of list) expect(() => needSchema.parse(need), need.key).not.toThrow()
     expect(
       list.every((need) => !need.options?.some((option) => option.label.startsWith('noch offen')))
@@ -88,7 +88,6 @@ describe('computeNeeds', () => {
     const keys = new Map(opened.map((need) => [need.key, need.decisive]))
     expect(keys.get('storeys_above_ground@bldg1')).toBe(true)
     expect(keys.get('escape_level_m@bldg1')).toBe(true)
-    // Listed before, so not opened by it; and nothing opened twice.
     expect(keys.has('building_type@bldg1')).toBe(false)
     expect(new Set(opened.map((need) => need.key)).size).toBe(opened.length)
     expect(opened.findIndex((need) => !need.decisive)).toBeGreaterThan(opened.findLastIndex((need) => need.decisive))
@@ -167,7 +166,6 @@ describe('computeNeeds', () => {
     expect(
       byKey(needs(profileWith(building, {}, ['escape_level_m@bldg1']))).has('escape_level_m@bldg1')
     ).toBe(false)
-    // An explicit list replaces the profile's.
     expect(
       byKey(needs(profileWith(building, {}, ['escape_level_m@bldg1']), { unknownKeys: [] })).has(
         'escape_level_m@bldg1'
@@ -185,7 +183,6 @@ describe('computeNeeds', () => {
       'attached',
       'terraced',
     ])
-    // B3_weise: `open` is the offene Bebauungsweise, `noch_offen` the deferral.
     expect(found.get('development_pattern')?.options?.map((option) => option.token)).toEqual([
       'open',
       'semi_detached',
@@ -209,7 +206,6 @@ describe('computeNeeds', () => {
       'units_over_400@bldg1',
     ])
     expect(list.slice(0, 3).map((need) => need.key)).toEqual(decisive)
-    // Open and read by the derivation, but no value of them changes the class here.
     expect(byKey(list).get('uses@bldg1')?.decisive).toBe(false)
     expect(byKey(list).has('access_three_sides@bldg1')).toBe(false)
   })
@@ -224,7 +220,6 @@ describe('computeNeeds', () => {
         'units_under_400@bldg1': true,
       })
     )
-    // No unit above 400 m²: at 7 to 11 m it is GK 4 whatever the count, so only the Fluchtniveau decides.
     expect(list.filter((need) => need.decisive).map((need) => need.key)).toEqual([
       'escape_level_m@bldg1',
     ])
@@ -242,7 +237,6 @@ describe('computeNeeds', () => {
         { 'escape_level_m@bldg1': 6 }
       )
     )
-    // FN ≤ 7 with 300 m²: GK 2 whatever the units, so nothing is decisive any more.
     expect(list.filter((need) => need.decisive)).toEqual([])
     expect(byKey(list).get('escape_level_m@bldg1')).toMatchObject({
       state: 'suggested',
@@ -334,8 +328,22 @@ describe('gebaeudeklasseInputsFor', () => {
       { ...building, 'storeys_above_ground@bldg1': 3 },
       { 'storeys_above_ground@bldg1': 9, 'escape_level_m@bldg1': 6.5 }
     )
-    const inputs = buildingClassInputsFor(profile, projectIntakeDefinitionV1, 'bldg1')
+    const inputs = buildingClassInputsFor(profile, projectIntakeDefinitionV1, 'bldg1', [...BUILDING_CLASS_INPUTS])
     expect(inputs).toMatchObject({ building_type: 'building', storeys_above_ground: 3, escape_level_m: 6.5 })
     expect('gfa_above_ground' in inputs && inputs.bgf_oberirdisch === undefined).toBe(true)
+  })
+
+  it('keeps a confirmed class input on the list only where the site selects a classification', () => {
+    const austrian = profileWith({ ...building, 'storeys_above_ground@bldg1': 3 })
+    expect(byKey(needs(austrian)).get('storeys_above_ground@bldg1')?.state).toBe('confirmed')
+    const german = profileWith({ ...building, 'storeys_above_ground@bldg1': 3 })
+    german.facts.country = { value: 'de', confidence: 'confirmed', source: 'onboarding', updatedAt: at }
+    expect(byKey(needs(german)).has('storeys_above_ground@bldg1')).toBe(false)
+  })
+
+  it('marks nothing decisive for a project placed abroad: the intake knows no law there', () => {
+    const profile = profileWith(building)
+    profile.facts.country = { value: 'de', confidence: 'confirmed', source: 'onboarding', updatedAt: at }
+    expect(needs(profile).filter((need) => need.decisive)).toEqual([])
   })
 })

@@ -833,10 +833,7 @@ describe("config checksum", () => {
  * catalogue is the source, and a divergence fails the build.
  */
 describe("compose stacks match the identity catalogue", () => {
-  const COMPOSE_FILES = [
-    "../compose/docker-compose.yaml",
-    "../compose/docker-compose.coolify.yaml",
-  ];
+  const COMPOSE_FILES = ["../compose/docker-compose.yaml"];
 
   /**
    * Pull the identity JSON out of a compose file's `printf` and parse it.

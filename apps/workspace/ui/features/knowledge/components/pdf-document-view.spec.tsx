@@ -13,20 +13,9 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 
 vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
-// `vi.hoisted` runs before the imports, but a type annotation is erased, so
-// naming the shared shape here costs nothing at runtime.
 const state = vi.hoisted((): FakePdfState => ({ fail: false, pages: [], destroyed: 0 }))
 
 vi.mock('../lib/pdfjs-runtime', () => fakePdfjsRuntime(state))
-
-/**
- * The viewer's own wiring: does the page it was pointed at actually get its
- * text read, the cited passage located, and a mark placed over it at the right
- * coordinates — and does it fall back to the browser's viewer when pdf.js
- * cannot start. The matching itself is covered by `passage-highlight.spec.ts`
- * and the geometry by `pdf-text-chunks.spec.ts`; this is the seam between them
- * and the DOM.
- */
 
 const restoreObservers = { current: () => {} }
 
@@ -42,8 +31,6 @@ beforeEach(() => {
 afterEach(() => {
   restoreObservers.current()
   vi.restoreAllMocks()
-  // The clipboard test replaces `navigator`; leaving it replaced would hand the
-  // next test in this file a navigator that is mostly a mock.
   vi.unstubAllGlobals()
 })
 
@@ -51,8 +38,6 @@ describe('PdfDocumentView', () => {
   it('holds a page-shaped sheet while loading, replaced by the first page', async () => {
     state.pages = [{ items: [] }]
     render(<PdfDocumentView src="/api/doc.pdf" title="doc.pdf" />)
-    // Synchronously, before the fake runtime resolves: the reader sees a page
-    // already, not a spinner in an empty frame.
     const sheet = screen.getByTestId('pdf-page-placeholder')
     expect(sheet.style.aspectRatio).toBe(`1 / ${Math.SQRT2}`)
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(1))
@@ -85,7 +70,6 @@ describe('PdfDocumentView', () => {
     state.pages = [{ items: [] }, { items: [] }, { items: [] }]
     render(<PdfDocumentView src="/api/doc.pdf" title="doc.pdf" />)
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(3))
-    // Each page is a named stop for assistive technology, not an anonymous box.
     expect(screen.getByRole('group', { name: 'Page 3' })).toBeTruthy()
     expect(await screen.findByText('Page 1 of 3')).toBeTruthy()
   })
@@ -105,13 +89,10 @@ describe('PdfDocumentView', () => {
     )
 
     const mark = await screen.findByTestId('passage-mark')
-    // The run's baseline sits 100 from the page top; the box starts one glyph
-    // height above it and spans the run's own width, at fit-to-width scale 1.
     expect(mark.style.left).toBe('72px')
     expect(mark.style.top).toBe('88px')
     expect(mark.style.width).toBe('180px')
     expect(mark.style.height).toBe('12px')
-    // Placed on page 2, not on the page that merely came first.
     expect(mark.closest('[data-page]')?.getAttribute('data-page')).toBe('2')
   })
 
@@ -131,9 +112,6 @@ describe('PdfDocumentView', () => {
   })
 
   it('wears the fuzzy dress when the match is a guess, and not when it is the passage', async () => {
-    // Every anchor word inflects differently from the page, so only the
-    // word-overlap window finds this — and a window is a guess the reader
-    // should be able to see as one.
     state.pages = [
       {
         items: [
@@ -183,7 +161,6 @@ describe('PdfDocumentView', () => {
     )
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(1))
     expect(screen.queryByTestId('passage-mark')).toBeNull()
-    // A page it could not mark is still a page it opened — no error surface.
     expect(screen.queryByRole('button', { name: 'Go to passage' })).toBeNull()
   })
 
@@ -201,12 +178,6 @@ describe('PdfDocumentView', () => {
     expect(screen.getByRole('button', { name: 'Go to passage' })).toBeTruthy()
   })
 
-  /**
-   * A frame of the browser's own viewer used to stand in for a failed load,
-   * which on Android Chrome (no inline PDF renderer) is a blank box. The
-   * failure is said on the stage instead, with a retry and the browser's viewer
-   * as an explicit way out — still at the cited page.
-   */
   it('says it could not open the document, offers the browser at the right page, and retries', async () => {
     state.fail = true
     state.pages = [{ items: [] }]
@@ -249,21 +220,10 @@ describe('PdfDocumentView', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(1))
   })
 
-  /**
-   * Regression: matching used to sit in the same effect as rasterisation, whose
-   * deps include the zoom-driven width. Every zoom click therefore re-ran the
-   * match, re-announced the hit, and dragged a reader who had deliberately
-   * scrolled elsewhere back to the citation — replaying the arrival pulse at
-   * them. Zoom changes how big the passage is drawn, nothing else.
-   */
   it('does not re-reveal the passage when the reader zooms', async () => {
     state.pages = [{ items: [run('Die Frist betraegt vier Wochen', 700, 180)] }]
-    // Spied before render. The opening settles on an animation frame once page
-    // 1's shape lands (`scrollToRects(hit, false)`), and under load that frame
-    // can fire after the mark is on screen: a spy put on the frame only then
-    // caught the settle and read it as a zoom re-reveal.
     const scrollTo = vi.fn()
-    const original = HTMLElement.prototype.scrollTo
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
     HTMLElement.prototype.scrollTo = scrollTo
     try {
       render(
@@ -283,26 +243,17 @@ describe('PdfDocumentView', () => {
       fireEvent.click(screen.getByLabelText('Zoom in'))
       await waitFor(() => expect(screen.getByText('125%')).toBeTruthy())
 
-      // The mark survives the zoom — it is still the answer to the click.
       expect(screen.getByTestId('passage-mark')).toBeTruthy()
-      // But the frame is not yanked back to it.
       expect(scrollTo).not.toHaveBeenCalled()
 
-      // The spy is wired correctly: asking to go back DOES scroll. Without this,
-      // "not called" would pass just as well against a broken assertion.
       fireEvent.click(screen.getByRole('button', { name: 'Go to passage' }))
       expect(scrollTo).toHaveBeenCalled()
     } finally {
-      HTMLElement.prototype.scrollTo = original
+      if (original) Object.defineProperty(HTMLElement.prototype, 'scrollTo', original)
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
     }
   })
 
-  /**
-   * The reason the viewer draws its own pages is not only the highlight: a
-   * canvas is a picture of a document, and a reader who tries to select a
-   * sentence out of a picture gets nothing, silently. The text layer is what
-   * makes the rendered page behave like the document it is showing.
-   */
   it('puts the page\'s own text over the bitmap, where it can be selected', async () => {
     state.pages = [{ items: [run('Die Frist betraegt vier Wochen', 700, 180)] }]
     render(<PdfDocumentView src="/api/doc.pdf" title="doc.pdf" />)
@@ -318,19 +269,10 @@ describe('PdfDocumentView', () => {
 
     fireEvent.click(screen.getByLabelText('Zoom in'))
 
-    // The runs are positioned in page units and sized off this variable, so the
-    // zoom is one number — and the same nodes, so a live selection survives it.
     await waitFor(() => expect(layer.style.getPropertyValue('--total-scale-factor')).toBe('1.25'))
     expect(screen.getByTestId('pdf-text-layer')).toBe(layer)
   })
 
-  /**
-   * The page number comes from retrieval, which counts sheets. A Bescheid with a
-   * cover sheet numbers its own pages one lower, and before the search widened,
-   * that one-off cost the reader the whole feature in silence: the viewer opened
-   * at the wrong page with nothing marked, indistinguishable from a passage that
-   * could not be found at all.
-   */
   it('looks one page either side when the cited page does not hold the passage', async () => {
     state.pages = [
       { items: [run('Vorbemerkungen zum Verfahren', 740, 160)] },
@@ -351,8 +293,6 @@ describe('PdfDocumentView', () => {
   })
 
   it('looks a second page out once both neighbours have come up empty', async () => {
-    // A title sheet and a table of contents: the document's own numbering is
-    // two behind the sheet count retrieval reported.
     state.pages = [
       { items: [run('Titelblatt', 740, 160)] },
       { items: [run('Inhaltsverzeichnis', 740, 100)] },
@@ -389,15 +329,10 @@ describe('PdfDocumentView', () => {
     )
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(5))
 
-    // Four pages out is not a numbering offset, it is a different passage that
-    // happens to read alike — and pointing at it would be a confident lie.
     await waitFor(() => expect(screen.queryByTestId('passage-mark')).toBeNull())
   })
 
   it('says which page the reader is on, not how long the document is', async () => {
-    // The band across the middle of the frame decides. Only page 2 is in it, so
-    // page 2 is what the reader is reading — "3 pages" was a fact about the
-    // file, and never the one a reader in the middle of a Bescheid wants.
     restoreObservers.current()
     restoreObservers.current = installLayoutObservers({
       frameWidth: FAKE_FRAME_WIDTH,
@@ -409,12 +344,6 @@ describe('PdfDocumentView', () => {
     expect(await screen.findByText('Page 2 of 3')).toBeTruthy()
   })
 
-  /**
-   * The reader clicked a Fundstelle and nothing lit up. Silence let them
-   * conclude what they liked from that — that the passage is not in the
-   * document, that the viewer is broken, that they had missed it. It is none of
-   * those, and the viewer is the only party that knows.
-   */
   it('says so when every page it could look at has come up empty', async () => {
     state.pages = [
       { items: [run('Vorbemerkungen zum Verfahren', 740, 160)] },
@@ -435,8 +364,6 @@ describe('PdfDocumentView', () => {
   })
 
   it('stays quiet about a passage it has not finished looking for', async () => {
-    // Page 3 is out of the band, so its text has not been read yet. Saying
-    // "not found" here would be a claim the viewer cannot support.
     restoreObservers.current()
     restoreObservers.current = installLayoutObservers({
       frameWidth: FAKE_FRAME_WIDTH,
@@ -460,12 +387,6 @@ describe('PdfDocumentView', () => {
     expect(screen.queryByText('Passage not found in the document')).toBeNull()
   })
 
-  /**
-   * What the reader does with the text they can now select. The browser already
-   * copies words; what it cannot do is attach the document and the page they
-   * came from, which is the difference between a paragraph in a Stellungnahme
-   * and a quotation somebody can check.
-   */
   it('offers to copy a selection as a citation, with the page it came from', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
@@ -492,8 +413,6 @@ describe('PdfDocumentView', () => {
   })
 
   it('offers nothing to a viewer that was given no way to cite', async () => {
-    // The Files pane opens documents this way. Selecting still works — it is the
-    // browser's own — but there is no citation to build, so no offer is made.
     state.pages = [{ items: [run('Die Frist betraegt vier Wochen', 700, 180)] }]
     render(<PdfDocumentView src="/api/doc.pdf" title="doc.pdf" />)
     await selectRenderedText('Die Frist betraegt vier Wochen')
@@ -502,11 +421,6 @@ describe('PdfDocumentView', () => {
     expect(screen.queryByTestId('pdf-quote-bar')).toBeNull()
   })
 
-  /**
-   * „Im Büro behandelt" on a selection: the words and the page go to whoever
-   * opened the viewer, which decides who may be searched. The Files pane cites
-   * nothing, so it gets this offer alone, without the copy beside it.
-   */
   it('offers similar passages for a selection, with its words and page, and no citation where none is built', async () => {
     const onFindSimilar = vi.fn()
     state.pages = [{ items: [] }, { items: [run('Die Frist betraegt vier Wochen', 700, 180)] }]
@@ -550,7 +464,6 @@ describe('PdfDocumentView', () => {
     expect(mark.style.height).toBe('40%')
     expect(mark.style.getPropertyValue('--passage-tint')).toBe('var(--source-project)')
     expect(screen.getByText('Grundriss EG')).toBeTruthy()
-    // The same way back a located passage gets.
     expect(screen.getByRole('button', { name: 'Go to passage' })).toBeTruthy()
   })
 
@@ -709,7 +622,6 @@ describe('PdfDocumentView', () => {
       const field = await screen.findByRole('searchbox', { name: 'Search term' })
       fireEvent.change(field, { target: { value: 'fluchtweg' } })
 
-      // Case does not matter: the PDF's spelling is not the reader's.
       await waitFor(() => expect(screen.getByTestId('pdf-search-count')).toHaveTextContent('1 of 2'))
       expect(screen.getAllByTestId('search-mark')).toHaveLength(2)
       expect(document.querySelectorAll('[data-testid="search-mark"][data-active]')).toHaveLength(1)
@@ -751,8 +663,6 @@ describe('PdfDocumentView', () => {
       expect(within(toolbar).getByRole('button', { name })).toBeTruthy()
     }
     expect(within(toolbar).getByRole('textbox', { name: 'Go to page, of 2' })).toBeTruthy()
-    // No separator role in the pill: a split's resize handle is the separator
-    // on the screens this viewer is mounted in.
     expect(within(toolbar).queryByRole('separator')).toBeNull()
   })
 
@@ -789,7 +699,6 @@ describe('pointOnPage', () => {
 })
 
 describe('PdfDocumentView touch gestures', () => {
-  /** Fingers on the glass, the shape `TouchEvent.touches` has. */
   const fingers = (...points: Array<[number, number]>) =>
     points.map(([clientX, clientY], identifier) => ({ identifier, clientX, clientY }))
 
@@ -802,14 +711,12 @@ describe('PdfDocumentView touch gestures', () => {
 
     fireEvent.touchStart(frame, { touches: fingers([100, 100], [200, 100]) })
     fireEvent.touchMove(frame, { touches: fingers([50, 100], [250, 100]) })
-    // Live: the stack is scaled on the compositor, and nothing is laid out.
     expect(content.style.transform).toContain('scale(2)')
     expect(screen.getByText('100%')).toBeTruthy()
 
     fireEvent.touchEnd(frame, { touches: fingers([50, 100]) })
     fireEvent.touchEnd(frame, { touches: [] })
     expect(await screen.findByText('200%')).toBeTruthy()
-    // Whatever the layout could not show exactly settles back to rest.
     await waitFor(() => expect(content.style.transform).toBe(''))
   })
 
@@ -818,7 +725,6 @@ describe('PdfDocumentView touch gestures', () => {
     render(<PdfDocumentView src="/api/doc.pdf" title="doc.pdf" />)
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(1))
     const frame = screen.getByTestId('pdf-scroll')
-    // As a phone delivers it: one finger, then the second, then the spread.
     fireEvent.touchStart(frame, { touches: fingers([100, 100]) })
     fireEvent.touchStart(frame, { touches: fingers([100, 100], [200, 100]) })
     fireEvent.touchMove(frame, { touches: fingers([50, 100], [250, 100]) })
@@ -870,8 +776,6 @@ describe('PdfDocumentView touch gestures', () => {
     state.pages = [{ items: [] }]
     render(<PdfDocumentView src="/api/doc.pdf" title="doc.pdf" />)
     await waitFor(() => expect(document.querySelectorAll('[data-page]')).toHaveLength(1))
-    // The page overlay (peer cursors, pins) is z-20 inside the frame; the
-    // frame is its own stacking context, under the toolbar.
     expect(screen.getByTestId('pdf-scroll')).toHaveClass('isolate')
   })
 })

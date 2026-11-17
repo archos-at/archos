@@ -55,6 +55,7 @@ from agent.common.steering import SteerNote
 from agent.common.steering import bind_steer_inbox
 from agent.common.steering import unbind_steer_inbox
 from agent.common.tool_calls import FETCH_FAILED_MARKER
+from agent.common.tool_errors import FAILURE_IS_NOT_A_FACT
 from agent.knowledge import restricted_use as ru
 from agent.knowledge.restricted_use import WITHHELD_NOTICE
 from agent.knowledge.restricted_use import RestrictedUse
@@ -351,5 +352,5 @@ class TestWhatAFailedCallSays:
                 "Error: the call was rejected. document: Field required; clause: Input should be a valid "
                 "string (got 3). Fix the arguments and call again."
             ),
-            "boom": "Error: RuntimeError: store rejected the filter",
+            "boom": f"Error: RuntimeError: store rejected the filter. {FAILURE_IS_NOT_A_FACT}",
         }

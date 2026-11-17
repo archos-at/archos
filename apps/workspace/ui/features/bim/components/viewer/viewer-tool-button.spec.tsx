@@ -1,7 +1,3 @@
-/**
- * The phone's tool: the name is ON the control, because a finger has no tooltip.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { Home } from 'lucide-react'
@@ -11,7 +7,6 @@ describe('ViewerToolButton', () => {
   it('writes the caption under the glyph, and keeps the long name as the accessible name', () => {
     render(<ViewerToolButton label="Ganzes Modell einpassen" caption="Einpassen" icon={Home} />)
     const button = screen.getByRole('button', { name: 'Ganzes Modell einpassen' })
-    // Visible text a finger can read — not a `title`, which iOS never shows.
     expect(button).toHaveTextContent('Einpassen')
     expect(button).not.toHaveAttribute('title')
   })

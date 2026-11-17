@@ -261,6 +261,10 @@ export const SKIPPED_FIELDS = new Set([
   // `document_grid`'s link to the workspace search: a place in the app, which a
   // file that has left the product cannot open. `query` already prints the words.
   'search',
+  // The formula card's server stamp of which editions bind at the site: it
+  // decides whether a check shows a verdict or a hint, and the check's own
+  // text already says which. A reader of the export needs that, not the stamp.
+  'site_binding',
 ])
 
 /**

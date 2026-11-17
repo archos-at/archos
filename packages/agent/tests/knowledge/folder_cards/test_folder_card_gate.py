@@ -1,5 +1,3 @@
-"""The ``folder-cards`` flag as the Python tier reads it (ADR-0127): per organization, from the BFF, kept briefly."""
-
 import pytest
 
 from agent.knowledge.folder_cards import gate

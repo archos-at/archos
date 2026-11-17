@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A project's Offene Punkte as one Protokoll (`./project-export.ts`), and the
- * service's pure parts (`./project-marks.ts`): what a `due` filter means on
- * the office's day, the cursor's round trip, and how the marks of several
- * documents become one file made of the document Protokoll's own entries.
- * The routes, the gate and the bound are in
- * `app/api/projects/[id]/annotations/route.spec.ts`.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -125,6 +117,16 @@ describe('the project Protokoll', () => {
     expect(text.indexOf('Nr. 4 ·')).toBeLessThan(text.indexOf(`### Vorschläge von ${PRODUCT_NAME}, nicht geprüft`))
     expect(text.indexOf(`### Vorschläge von ${PRODUCT_NAME}`)).toBeLessThan(text.indexOf('## Schnitt A-A.pdf'))
     expect(text).toContain('**Zuständig:** Bernd Huber')
+  })
+
+  it('marks the file composite when the agent’s proposals are in it, and not when only the office’s marks are', () => {
+    const header = { projectName: 'Wohnhaus Lend', selection: 'Offene Anmerkungen', exportedAt: new Date(), exportedBy: 'Anna Berger' }
+    const withAgent = groupByDocument(marks)
+    expect(withAgent.some((group) => group.selection.proposals.length > 0)).toBe(true)
+    expect(buildProjectProtocol(header, withAgent, t, 'de').aiProvenance).toEqual({ composite: true })
+
+    const officeOnly = groupByDocument(marks.filter((annotation) => annotation.authorKind === 'person'))
+    expect(buildProjectProtocol(header, officeOnly, t, 'de').aiProvenance).toBeNull()
   })
 
   it('says so when nothing is in the selection', () => {

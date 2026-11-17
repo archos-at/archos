@@ -1,0 +1,13 @@
+---
+features:
+  - >
+    A project's address can now be confirmed against the Austrian address
+    register, kept in our own database, so what you type is never sent to
+    anyone else. A match names the Gemeinde and Bundesland; an address the
+    register does not hold stays unconfirmed, with its candidates shown.
+operators:
+  - >
+    A cell confirms addresses only once the BEV register is imported into it,
+    twice a year, with the register import script in apps/workspace
+    (docs/deployment/address-register.md). Without an import every typed
+    address stays unconfirmed, as before.

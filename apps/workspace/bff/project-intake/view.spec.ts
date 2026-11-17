@@ -1,19 +1,10 @@
-/**
- * The review's shape (ADR-0111), from the real intake definition: every value
- * under a key a question writes, in that question's module and with its
- * label and display; a value with alternatives listed again as a
- * contradiction; the derived class shown once, in the derivations, not again
- * in its module (but among the contradictions when contested); the questions
- * are the decisive needs nothing filled; and a key no question writes is not
- * shown.
- */
-
 import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import type { Need } from './types'
 import { buildIntakeView, readingDocumentProgress, readingSite } from './view'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const NOW = '2026-10-14T09:00:00.000Z'
 const PROJECT = '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
@@ -84,6 +75,7 @@ const input = () => ({
   unreadDocuments: 3,
   canDecide: true,
   canComplete: false,
+  records: AT_SETUP_RECORDS,
 })
 
 const view = () => buildIntakeView(input())
@@ -118,7 +110,6 @@ describe('buildIntakeView', () => {
     const result = view()
     expect(result.groups.flatMap((group) => group.items).map((item) => item.key)).not.toContain('building_class@bldg1')
     expect(result.derivations.map((derivation) => derivation.buildingId)).toEqual(['bldg1'])
-    // …and carried there, so the review has a row to confirm it through.
     expect(result.derivations[0]?.suggestion).toMatchObject({ key: 'building_class@bldg1', state: 'suggested' })
   })
 
@@ -182,28 +173,11 @@ describe('buildIntakeView', () => {
     expect(derivation.missing.length).toBeGreaterThan(0)
   })
 
-  // Step 5, Steckbrief: the rule set's Ampel reads what a person confirmed, never a suggestion.
-  it('computes the applicable Richtlinien from the confirmed values only', () => {
-    const highRise = { value: 25, status: 'unconfirmed' as const, reason: 'r', source: 'agent_suggested' as const, updatedAt: NOW }
-    const suggested = buildIntakeView({
-      ...input(),
-      profile: { ...profile, assumptions: { ...profile.assumptions, 'escape_level_m@bldg1': highRise } },
-    })
-    expect(suggested.applicableStandards?.map((standard) => standard.code)).not.toContain('OIB 2.3')
-
-    const confirmed = buildIntakeView({
-      ...input(),
-      profile: {
-        ...profile,
-        facts: {
-          ...profile.facts,
-          'escape_level_m@bldg1': { value: 25, confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
-        },
-      },
-    })
-    expect(confirmed.applicableStandards).toContainEqual(
-      expect.objectContaining({ code: 'OIB 2.3', status: 'required' })
-    )
+  it('carries the law the service read, and derives no list of its own (ADR-0175)', () => {
+    expect(buildIntakeView(input())).not.toHaveProperty('applicableLaw')
+    expect(buildIntakeView(input())).not.toHaveProperty('applicableStandards')
+    const law = { gate: 'core' as const, uses: [{ workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, designation: 'X', editionLabel: null, applicability: null, sourceUrl: null }], factLabels: {} }
+    expect(buildIntakeView({ ...input(), applicableLaw: law }).applicableLaw).toEqual(law)
   })
 })
 
@@ -305,6 +279,30 @@ describe('step 3, Erfassung: the reading’s live milestones', () => {
       source: null,
       confirmed: false,
     })
+  })
+
+  it('says an address register placed it, with the Gemeinde the register named (ADR-0172)', () => {
+    const register = { kind: 'register' as const, addressId: 'at-bev:5734380', label: 'Herrengasse 16, 8010 Graz', referenceDate: '2025-10-01', resolvedAt: NOW }
+    const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'user_confirmed' as const, updatedAt: NOW, evidence: [register] })
+    const profile: ProjectProfile = {
+      ...empty,
+      facts: { federal_state: fact('styria'), site_address: fact('Herrengasse 16, 8010 Graz'), municipality: fact('Graz') },
+    }
+    expect(readingSite(row, profile, projectIntakeDefinitionV1)).toEqual({
+      federalState: 'Steiermark',
+      municipality: 'Graz',
+      address: 'Herrengasse 16, 8010 Graz',
+      source: 'register',
+      confirmed: true,
+    })
+  })
+
+  it('reads no Gemeinde from a municipality fact no register confirmed', () => {
+    const profile: ProjectProfile = {
+      ...empty,
+      facts: { municipality: { value: 'Graz', confidence: 'confirmed', source: 'user_confirmed', updatedAt: NOW } },
+    }
+    expect(readingSite(row, profile, projectIntakeDefinitionV1).municipality).toBeNull()
   })
 
   it('is on every view', () => {

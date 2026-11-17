@@ -1,0 +1,34 @@
+# Latent: configurable, not used. A deployment people sign in to refuses to
+# start while one of `activation_env` is set (agent.common.data_flow_register).
+# An env slot is documented; wandb is not in the lockfile.
+id: wandb
+kind: processor
+status: latent
+order: 140
+name: Weights & Biases, Inc.
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: none
+data_classes: [telemetry]
+purposes: [operations]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; ein Deployment, in dem sich Personen anmelden, startet nicht, solange der Dienst konfiguriert ist.
+  en: Not in use; a deployment people sign in to does not start while the service is configured.
+hosts: [api.wandb.ai]
+env: [WANDB_API_KEY]
+activation_env: [WANDB_API_KEY]
+evidence:
+  - deploy/.env.example
+copy:
+  name:
+    de: Weights & Biases
+    en: Weights & Biases
+  data:
+    de: Evaluierungsläufe; derzeit mit keinem Codepfad verbunden
+    en: evaluation runs; not wired to any code path today
+  location:
+    de: USA
+    en: USA

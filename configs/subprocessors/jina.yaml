@@ -1,0 +1,34 @@
+# Latent: configurable, not used. A deployment people sign in to refuses to
+# start while one of `activation_env` is set (agent.common.data_flow_register).
+# The Jina rerank provider was removed; the env slot is still documented.
+id: jina
+kind: processor
+status: latent
+order: 130
+name: Jina AI GmbH
+entity_country: DE
+processing_countries: [DE]
+transfer: eea
+contract: none
+data_classes: [model_io]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; ein Deployment, in dem sich Personen anmelden, startet nicht, solange der Dienst konfiguriert ist.
+  en: Not in use; a deployment people sign in to does not start while the service is configured.
+hosts: [api.jina.ai]
+env: [JINA_API_KEY]
+activation_env: [JINA_API_KEY]
+evidence:
+  - packages/knowledge-layer/src/search/cross_encoder.py
+copy:
+  name:
+    de: Jina AI
+    en: Jina AI
+  data:
+    de: Dokumentauszüge zur Neusortierung von Suchtreffern; derzeit mit keinem Codepfad verbunden
+    en: document excerpts for re-ranking search hits; not wired to any code path today
+  location:
+    de: Deutschland
+    en: Germany

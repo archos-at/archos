@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The mail's own text as a part to file: a checkbox, and where it goes.
- *
- * A filed text is a section of an E-Mail-Verlauf, one document per
- * conversation, and each filed mail adds a Fassung. So the choice is which
- * thread: one the server recognised and pre-selected (D11: only a signed
- * reference from a confirmed domain earns that), another candidate offered
- * unchecked with the reason it is not pre-selected, or a new thread whose name
- * the person confirms. Appending where the sender could not vouch for the
- * reference needs the person's yes („Gehört trotzdem zu diesem
- * E-Mail-Verlauf“). Threads the viewer may not read are counted, never named.
- */
-
 import type { JSX } from 'react'
 import { useId, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FolderInput, Mail, MailCheck, ShieldAlert, ShieldQuestion, Timer } from 'lucide-react'
@@ -50,7 +37,6 @@ export interface MessageRowProps {
   draft: MessageDraft
   folders: readonly FolderOption[]
   copy: DraftCopy
-  /** The terms the name check stopped the thread name for (a `name_stop` refusal), offering „Trotzdem ablegen“; null when it did not. */
   threadNameStop: string[] | null
   onChange: (change: Partial<Omit<MessageDraft, 'partId'>>) => void
 }
@@ -73,10 +59,9 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
     [folders]
   )
 
-  // A text that is not waiting any more says what became of it.
   if (part && part.state !== 'waiting') {
     return (
-      <Item className="items-start px-3 sm:px-4" data-testid="message-row" data-status={part.state}>
+      <Item className="items-start px-4" data-testid="message-row" data-status={part.state}>
         <Mail className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm font-medium">{t('message.label')}</p>
@@ -99,7 +84,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
   }
 
   return (
-    <Item className="items-start px-3 sm:px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
+    <Item className="items-start px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
       <div className="flex h-5 items-center pointer-coarse:h-11">
         <Checkbox
           checked={selectable && draft.checked}
@@ -110,9 +95,10 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {/* What the checkbox does, not a second „E-Mail-Text“ under the text's own label. */}
         <p className="flex items-center gap-1.5 text-sm font-medium">
           <MailCheck className="text-muted-foreground size-4" aria-hidden />
-          {t('message.label')}
+          {t('message.file')}
         </p>
         {part?.riskFlags.includes('unreadable') && (
           <FactLine icon={AlertTriangle} tone="warning">
@@ -130,7 +116,6 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
           </FactLine>
         )}
         {view.rawScan === 'pending' && (
-          // A still glyph, as the original's scan in the header: the detail's „Wird abgelegt …“ is its one spinner.
           <FactLine icon={Timer} testId="message-scan-pending">
             {t('message.rawScan.pending')}
           </FactLine>
@@ -208,7 +193,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-xs">{t('message.folderLabel')}</span>
               {target.folder.path === '' ? (
-                <Button type="button" size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)}>
+                <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)}>
                   <FolderInput className="size-3.5" aria-hidden />
                   {t('suggestion.root')}
                 </Button>

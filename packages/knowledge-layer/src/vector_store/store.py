@@ -557,7 +557,7 @@ class QdrantStore:
         filters: dict[str, Any] | None,
         order_by: str,
         limit: int,
-        *,
+        *extra: models.Condition | models.Filter,
         descending: bool = False,
         fields: Sequence[str] | None = None,
     ) -> list[models.Record]:
@@ -573,7 +573,7 @@ class QdrantStore:
         direction = models.Direction.DESC if descending else models.Direction.ASC
         page, _next = self.client.scroll(
             self.alias(scope),
-            scroll_filter=scope_filter([scope], filters),
+            scroll_filter=scope_filter([scope], filters, *extra),
             limit=limit,
             order_by=models.OrderBy(key=order_by, direction=direction),
             with_payload=list(fields) if fields is not None else True,

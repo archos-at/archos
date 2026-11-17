@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Section nav for a settings tier: a sticky rail beside the content on `lg` and
- * up, a horizontally scrolling strip below that.
- *
- * Written once for the organization tier and lifted here when the project
- * settings needed the same thing, so the two tiers move between their sections
- * the same way and a token retune reaches both. The caller decides which
- * sections exist and in which order; this only draws them and works out which
- * one is current.
- *
- * Labels are always visible: a settings surface is visited rarely and should
- * not ask anyone to decode icons. Switching `replace`s the URL, because the
- * sections are a switcher, not a stack: Back leaves the tier in one step instead
- * of walking every section that was looked at.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
@@ -24,46 +8,30 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, springGlide } from '@/components/motion'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
+import { CountPill } from '@/components/ui/count-pill'
 
 export interface SectionNavItem {
   key: string
   href: string
   icon: LucideIcon
   label: string
+  count?: number | null
+  countLabel?: string
 }
 
 export interface SectionNavProps {
-  /** Accessible name of the `<nav>`. */
   label: string
-  /** Visible sections, in reading order. */
   items: readonly SectionNavItem[]
-  /**
-   * The tier's root href. It matches only exactly, because a prefix test would
-   * light it up on every section beneath it.
-   */
   rootHref: string
-  /** Shared-layout id of the active pill; one per tier, so two navs never trade it. */
   pillId: string
-  /**
-   * `rail` (default): a sticky rail beside the content from `lg`, a strip
-   * below. `tabs`: the strip at every width, above the content, for a tier
-   * whose pages are wide dashboards rather than forms.
-   */
   orientation?: 'rail' | 'tabs'
-  /**
-   * Where the desktop rail sticks. The organization tier scrolls the whole
-   * shell, under its header; a project section scrolls its own body, under
-   * nothing.
-   */
   railTopClassName?: string
+  pathname?: string
+  track?: boolean
+  compactOnPhone?: boolean
   'data-testid'?: string
 }
 
-/**
- * Sections match their own route and anything nested under it, on a path
- * boundary: a bare `startsWith` would also mark `/x/access` active on a sibling
- * such as `/x/access-log`.
- */
 export function isSectionActive(pathname: string | null, href: string, rootHref: string): boolean {
   if (!pathname) return false
   if (href === rootHref) return pathname === href
@@ -77,9 +45,13 @@ export function SectionNav({
   pillId,
   orientation = 'rail',
   railTopClassName = 'lg:top-24',
+  pathname: pathnameOverride,
+  track = false,
+  compactOnPhone = false,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
-  const pathname = usePathname()
+  const currentPathname = usePathname()
+  const pathname = pathnameOverride ?? currentPathname
 
   return (
     <nav aria-label={label} data-testid={testId}>
@@ -90,6 +62,8 @@ export function SectionNav({
         pillId={pillId}
         isActive={(href) => isSectionActive(pathname, href, rootHref)}
         className={cn(orientation === 'rail' && 'lg:hidden')}
+        track={track}
+        compactOnPhone={compactOnPhone}
       />
 
       {/* Desktop: a sticky rail beside the content. */}
@@ -111,54 +85,49 @@ export function SectionNav({
   )
 }
 
-/**
- * The strip: sections in a row that scrolls inside its own container, so the
- * page body never scrolls horizontally. The edge that hides sections fades
- * (`HorizontalScroll`), so the cut reads as "more this way" instead of as the
- * end of the list; entries are 44px tall under a finger; and the current one is
- * brought into view. Lifted out of `SectionNav` so a tier with a rail of its own
- * (the platform's grouped one) gets the same strip.
- */
 export function SectionStrip({
   label,
   items,
   pillId,
   isActive,
   className,
+  track = false,
+  compactOnPhone = false,
 }: {
   label: string
   items: readonly SectionNavItem[]
   pillId: string
   isActive: (href: string) => boolean
   className?: string
+  track?: boolean
+  compactOnPhone?: boolean
 }): JSX.Element {
   const pathname = usePathname()
   const stripRef = useRef<HTMLDivElement>(null)
 
-  // The current section in view. A strip that opens on its sixth entry used
-  // to show the first three and leave the reader to guess where they were.
-  // `scrollLeft`, not `scrollIntoView`: the latter also scrolls every scrolling
-  // ancestor, and on a phone that is the page.
   useEffect(() => {
     const strip = stripRef.current
     const scroller = strip?.firstElementChild
     const current = strip?.querySelector<HTMLElement>('[aria-current="page"]')
     if (!(scroller instanceof HTMLElement) || !current) return
-    const target = current.offsetLeft - (scroller.clientWidth - current.offsetWidth) / 2
-    scroller.scrollLeft = Math.max(0, target)
+    const right = current.offsetLeft + current.offsetWidth
+    if (right > scroller.scrollLeft + scroller.clientWidth) scroller.scrollLeft = right - scroller.clientWidth
+    else if (current.offsetLeft < scroller.scrollLeft) scroller.scrollLeft = current.offsetLeft
   }, [pathname])
 
   return (
     <div ref={stripRef} className={className}>
-      <HorizontalScroll aria-label={label} cue className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className="flex gap-1 pb-2">
+      {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
+      <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ul className={cn('flex', track ? 'mb-2 w-fit rounded-control bg-desk p-0.5' : 'gap-1 pb-2')}>
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
               <SectionNavLink
                 item={item}
                 active={isActive(item.href)}
                 pillId={pillId}
-                variant="strip"
+                variant={track ? 'track' : 'strip'}
+                compactOnPhone={compactOnPhone}
               />
             </li>
           ))}
@@ -173,32 +142,34 @@ function SectionNavLink({
   active,
   pillId,
   variant,
+  compactOnPhone = false,
 }: {
   item: SectionNavItem
   active: boolean
   pillId: string
-  variant: 'strip' | 'rail'
+  compactOnPhone?: boolean
+  variant: 'strip' | 'track' | 'rail'
 }): JSX.Element {
   const Icon = item.icon
+  const onTrack = variant === 'track'
   return (
     <Link
       href={item.href}
       replace
       aria-current={active ? 'page' : undefined}
+      data-focus-inset={onTrack ? '' : undefined}
+      title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
-        // `relative isolate` + pill `-z-10` is the app-sidebar rail pattern:
-        // the active surface glides on `springGlide` below the ink.
         'duration-quick focus-visible:ring-ring/60 relative isolate items-center rounded-control text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2',
-        // The strip's entries sit 4px apart, so under a finger each grows to
-        // 44px rather than borrowing a catchment from its neighbour.
-        variant === 'strip'
-          ? 'inline-flex gap-1.5 px-3 py-1.5 pointer-coarse:min-h-11 pointer-coarse:px-3.5'
-          : 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11',
+        onTrack ? 'focus-visible:ring-inset' : 'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        variant === 'rail'
+          ? 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11'
+          : cn('inline-flex gap-1.5 px-3 pointer-coarse:min-h-11 pointer-coarse:px-3.5', onTrack ? 'py-1 md:@max-[44rem]/section:px-2.5' : 'py-1.5'),
         active
           ? 'text-secondary-foreground font-medium'
           : cn(
-              'text-muted-foreground hover:bg-accent',
-              variant === 'rail' && 'hover:text-foreground'
+              'text-muted-foreground',
+              'hover:bg-hover hover:text-foreground'
             )
       )}
     >
@@ -207,12 +178,25 @@ function SectionNavLink({
           layoutId={pillId}
           aria-hidden
           data-slot="section-nav-pill"
-          className="bg-secondary absolute inset-0 -z-10 rounded-[inherit]"
+          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-sheet shadow-thumb' : 'bg-selected')}
           transition={springGlide}
         />
       )}
-      <Icon className="size-4 shrink-0" aria-hidden />
-      {item.label}
+      {/* Beside the rail in a narrow section (a tablet) the places keep their names and give up their glyphs: glyphs
+          alone were four boxes to guess, and a strip that scrolled cut „Papierkorb“ off (review of 2026-11-10, finding 2). */}
+      <Icon className={cn('size-4 shrink-0', onTrack && 'md:@max-[44rem]/section:hidden')} aria-hidden />
+      {/* A phone names only the open place. */}
+      <span className={cn(compactOnPhone && !active && 'phone:sr-only')}>{item.label}</span>
+      {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
+          when it lands. `undefined` is a tab without a count. */}
+      {item.count === null && (
+        <CountPill tone="muted" aria-hidden className={cn(onTrack ? !active && 'bg-background' : 'bg-background')}>
+          <span className="invisible before:content-['8']" />
+        </CountPill>
+      )}
+      {item.count != null && item.count > 0 && (
+        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active !== onTrack && 'bg-background')} />
+      )}
     </Link>
   )
 }

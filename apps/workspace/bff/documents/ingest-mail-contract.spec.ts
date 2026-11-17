@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A filed mail's two ingest records, pinned across the BFF ↔ backend seam
- * (ADR-0137): `mail_thread` on a Fassung of an E-Mail-Verlauf, `mail_origin`
- * on an attachment filed with a message (`lib/mail-thread/ingest-facts`).
- *
- * Both Python models are `extra="forbid"`, so a key the BFF spells differently
- * is not a quiet loss but a 422 on every filed mail, and an absent record is a
- * Verlauf indexed as an ordinary document or an attachment that forgot its
- * mail: also quiet. So the wire names are read out of the Python sources rather
- * than restated, as `ingest-document-type-contract.spec.ts` does for
- * `document_type`, and this spec fails when one side is edited alone. The
- * behaviour of the backend's half is `apps/agent-host/tests/test_ingest_mail.py`.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -25,40 +12,34 @@ import {
 import { SENDER_TRUSTS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { MAIL_THREAD_LOCALES } from '@/lib/mail-thread/mail-thread-vocabulary'
 
-/** Repo root, from this spec's own location. */
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
 const read = (...path: string[]): string => readFileSync(join(REPO_ROOT, ...path), 'utf8')
 
 const SERVICE = read('apps', 'workspace', 'bff', 'documents', 'ingest-dispatch.ts')
-/** The ingest request and the mail models it nests, which live beside it. */
 const REQUESTS = [
   read('apps', 'agent-host', 'src', 'agent_host', 'models', 'mail_facts.py'),
   read('apps', 'agent-host', 'src', 'agent_host', 'models', 'requests.py'),
 ].join('\n')
 
-/** The body of a top-level Python class, up to the next top-level definition. */
 const pythonClass = (name: string): string => {
-  const body = new RegExp(`^class ${name}\\(BaseModel\\):\\n([\\s\\S]*?)(?=^\\S)`, 'm').exec(
+  const body = new RegExp(`^class ${name}\\([A-Za-z, ]+\\):\\n([\\s\\S]*?)(?=^\\S)`, 'm').exec(
     REQUESTS
   )
   expect(body, `class ${name} not found in the request models`).not.toBeNull()
   return body![1]!
 }
 
-/** The field names a Pydantic model declares, in order. */
 const fieldsOf = (name: string): string[] =>
   [...pythonClass(name).matchAll(/^ {4}([a-z_]+): /gm)]
     .map((match) => match[1]!)
     .filter((field) => field !== 'model_config')
 
-/** The values of a `Literal[...]` alias in the request models. */
 const literal = (alias: string): string[] => {
   const found = new RegExp(`^${alias} = Literal\\[([^\\]]+)\\]`, 'm').exec(REQUESTS)
   expect(found, `${alias} not found in the request models`).not.toBeNull()
   return [...found![1]!.matchAll(/"([^"]+)"/g)].map((match) => match[1]!)
 }
 
-/** The wire key `dispatchIngest` writes `extras.<field>` under. */
 const sentKey = (field: string): string => {
   const sent = new RegExp(`\\{\\s*(\\w+):\\s*extras\\.${field}\\s*\\}`).exec(SERVICE)
   expect(sent, `dispatchIngest no longer sends extras.${field}`).not.toBeNull()

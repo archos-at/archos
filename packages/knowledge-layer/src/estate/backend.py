@@ -10,7 +10,7 @@ and what a read or a search returns.
 
 **Tenant and scope come from the turn, never from an argument.** The rows are the
 turn's inventory (``browse._turn_rows``), the collections its signed scope names
-(``search_scope.resolve_scoped_collections``, narrowed to the turn's shelves), read
+(``search_scope.scoped_collections_for_site``, narrowed to the turn's shelves), read
 from the per-turn context like every other knowledge-layer tool. The same
 backend instance therefore serves every turn of every tenant.
 
@@ -165,13 +165,13 @@ class EstateBackend(BackendProtocol):
         """The collections this turn may read, with their shelves, narrowed to the turn's shelves."""
         from knowledge_layer.browse.tool import _session_collection
         from knowledge_layer.search import resolve_base_collection
-        from knowledge_layer.search import resolve_scoped_collections
         from knowledge_layer.search import restrict_scope_to_turn
+        from knowledge_layer.search import scoped_collections_for_site
 
         config = self.search_config
         return list(
             restrict_scope_to_turn(
-                resolve_scoped_collections(config, _session_collection(), resolve_base_collection(config))
+                scoped_collections_for_site(config, _session_collection(), resolve_base_collection(config))
             )
         )
 

@@ -36,7 +36,6 @@ const session: Omit<AuthorizedSession, 'featureFlags'> & { featureFlags: string[
   featureFlags: null,
 }
 
-// Next 15 route handlers receive params as a Promise; the route awaits it.
 const context = { params: Promise.resolve({ skillId: 'skill-1' }) }
 
 function req(body?: unknown): Request {
@@ -48,8 +47,6 @@ function req(body?: unknown): Request {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // A signed-in deployment: the session's WorkOS claim is the skills gate, and
-  // a session without the claim is the default (off).
   vi.stubEnv('REQUIRE_AUTH', 'true')
   session.featureFlags = null
   mockSession.mockResolvedValue(session as unknown as AuthorizedSession)
@@ -64,7 +61,7 @@ describe('PATCH /api/skills/[skillId]', () => {
     session.featureFlags = []
     const res = await PATCH(req({ description: 'New.' }), context)
     expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'feature-disabled', feature: 'skills' })
+    expect(await res.json()).toMatchObject({ code: 'feature_disabled', feature: 'skills' })
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 

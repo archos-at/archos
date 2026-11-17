@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Building2, LayoutDashboard, Sparkles, UserRound } from 'lucide-react'
+import { Brain, Building2, ServerCog, Sparkles, UserRound } from 'lucide-react'
 
 import {
   railSections,
@@ -13,39 +13,24 @@ import {
   type PhoneTabLabel,
 } from './phone-tabs'
 
-/**
- * What "Mehr" lists on a phone: the destinations the bottom tab bar does NOT
- * carry, and nothing it does.
- *
- * The drawer behind "Mehr" used to be the whole rail, so it repeated Frag
- * Piloti, Dateien, Übersicht and Postfach under the bar that already had them.
- * This is derived from the bar's own tab list (`projectPhoneTabs`,
- * `orgPhoneTabs`) and from the rail's own section list (`railSections`, the
- * same gates), so a destination added to the bar leaves this list by itself and
- * the two can never drift. `phone-more.spec.ts` pins it per scope.
- *
- * Two groups: `places` (rail sections without a tab: Automatisierung, the
- * Büroablage) and `account` (the avatar menu's links, gated as the menu gates
- * them). Actions (theme, language, tour, feedback, sign out) are the sheet's
- * own and not destinations.
- */
-
 export interface MoreDestination {
   key: string
   href: string
   icon: ComponentType<{ className?: string }>
   label: PhoneTabLabel
-  group: 'places' | 'account'
+  group: 'project' | 'organization' | 'account' | 'help'
 }
 
 export interface MoreFlags extends PhoneTabFlags {
   showSkills: boolean
+  canAccessOfficeStandards?: boolean
   canViewOrganization: boolean
   canManageOrganization: boolean
   canManagePlatform: boolean
 }
 
-/** The destination keys the bar carries, so a section with a tab never appears twice. */
+const GROUP_ORDER: readonly MoreDestination['group'][] = ['project', 'organization', 'account', 'help']
+
 function carried(tabs: readonly PhoneTab[]): ReadonlySet<string> {
   return new Set(tabs.filter((tab) => tab.href !== null).map((tab) => tab.key))
 }
@@ -60,10 +45,10 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       group: 'account',
     },
     {
-      key: 'whats-new',
-      href: '/app/whats-new',
-      icon: Sparkles,
-      label: { namespace: 'nav', key: 'userMenu.whatsNew' },
+      key: 'memory',
+      href: '/app/memory',
+      icon: Brain,
+      label: { namespace: 'nav', key: 'userMenu.memory' },
       group: 'account',
     },
   ]
@@ -80,15 +65,21 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
     list.push({
       key: 'platform',
       href: '/app/platform',
-      icon: LayoutDashboard,
+      icon: ServerCog,
       label: { namespace: 'nav', key: 'userMenu.platform' },
       group: 'account',
     })
   }
+  list.push({
+    key: 'whats-new',
+    href: '/app/whats-new',
+    icon: Sparkles,
+    label: { namespace: 'nav', key: 'userMenu.whatsNew' },
+    group: 'help',
+  })
   return list
 }
 
-/** The destinations "Mehr" lists inside a project (`projectId`) or above one (`null`). */
 export function moreDestinations(projectId: string | null, pathname: string, flags: MoreFlags): MoreDestination[] {
   const account = accountDestinations(flags)
   if (projectId === null) return account
@@ -97,6 +88,7 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
   const sectionFlags: ProjectSectionFlags = {
     showSkills: flags.showSkills,
     canAccessOfficeShelf: flags.canAccessOfficeShelf,
+    canAccessOfficeStandards: flags.canAccessOfficeStandards,
     canAccessInbox: flags.canAccessInbox,
   }
   const places = railSections(sectionFlags)
@@ -107,13 +99,12 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
         href: section.href ?? sectionHref(section, base),
         icon: section.icon,
         label: section.label ?? { namespace: 'nav', key: `sections.${section.i18nKey}` },
-        group: 'places',
+        group: section.group === 'org' ? 'organization' : 'project',
       })
     )
-  return [...places, ...account]
+  return [...places, ...account].sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group))
 }
 
-/** Which listed destination is the page the reader is on. */
 export function isCurrentDestination(destination: MoreDestination, pathname: string): boolean {
   return pathname === destination.href || pathname.startsWith(`${destination.href}/`)
 }

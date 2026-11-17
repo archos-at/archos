@@ -71,7 +71,9 @@ export function backoffWithJitter(
  * failures spread over an hour of healthy connection, a timer that outlived the
  * effect that made it.
  *
- * The chat socket (`adapters/api/turn-socket.ts`) reconnects on one too.
+ * The chat socket reconnects on the same schedule, with the rung count in its
+ * statechart's context (`adapters/api/turn-socket-machine.ts`); its spec holds
+ * the machine's rung rule to this ladder.
  * `use-connection-recovery.ts` is a poller with a running delay, not a ladder.
  *
  * The reset rule is the whole point, and it is one sentence: **evidence that it

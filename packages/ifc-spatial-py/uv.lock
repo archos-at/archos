@@ -192,8 +192,8 @@ ids = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ifcopenshell", specifier = ">=0.8.5" },
-    { name = "ifctester", marker = "extra == 'ids'", specifier = ">=0.8" },
+    { name = "ifcopenshell", specifier = "==0.8.5" },
+    { name = "ifctester", marker = "extra == 'ids'", specifier = "==0.8.5" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pillow", specifier = ">=10.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },

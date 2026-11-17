@@ -1,16 +1,8 @@
-/**
- * The frame a drawing arrives in follows the drawing's LAID-OUT height, not
- * the height it has on the frame it mounts. happy-dom has no layout, so the
- * drawn content's height and the observer that reports it are stubbed: the
- * content mounts at one height and settles at another a frame later, which is
- * what a view does when it measures its nodes and lays them out.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import { AnimatePresence } from 'motion/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { DRAWING_SKELETON_HEIGHT, DrawingCaption, DrawingReveal } from './drawing-skeleton'
 
-/** `useMotionToken` reads the media query itself, so the query is the switch. */
 function preferReducedMotion(reduce: boolean): void {
   vi.spyOn(window, 'matchMedia').mockImplementation(
     (query: string) =>
@@ -27,7 +19,6 @@ function preferReducedMotion(reduce: boolean): void {
   )
 }
 
-/** The drawn content's height, as layout would report it. */
 let contentHeight = 0
 const observers = new Set<() => void>()
 
@@ -45,6 +36,7 @@ class ReportingResizeObserver {
 
 const originalResizeObserver = globalThis.ResizeObserver
 const originalRect = HTMLElement.prototype.getBoundingClientRect
+const ownRect = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect')
 
 beforeEach(() => {
   preferReducedMotion(false)
@@ -62,14 +54,10 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   globalThis.ResizeObserver = originalResizeObserver
-  HTMLElement.prototype.getBoundingClientRect = originalRect
+  if (ownRect) Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', ownRect)
+  else Reflect.deleteProperty(HTMLElement.prototype, 'getBoundingClientRect')
 })
 
-/**
- * Every height the frame was given, in order. Recorded at the write, because
- * an instant tween writes two heights in one task and the element only shows
- * the last (and happy-dom reports no CSSOM write to a MutationObserver).
- */
 function recordHeights(frame: HTMLElement): string[] {
   const seen: string[] = [frame.style.height]
   const style = frame.style
@@ -86,15 +74,12 @@ function recordHeights(frame: HTMLElement): string[] {
   return seen
 }
 
-/** Mount undrawn, then draw content that lays out a frame after it mounts. */
 async function drawWithLateLayout() {
   const { container, rerender } = render(<DrawingReveal drawn={false} />)
   const frame = container.querySelector('div.relative') as HTMLElement
   expect(frame.style.height).toBe(`${DRAWING_SKELETON_HEIGHT}px`)
   const heights = recordHeights(frame)
 
-  // Mounts at its pre-layout height (below the skeleton's, as a mindmap
-  // does), then lays out on the next frame.
   contentHeight = 101
   rerender(
     <DrawingReveal drawn>
@@ -115,12 +100,9 @@ async function drawWithLateLayout() {
 describe('DrawingReveal', () => {
   test('grows from the skeleton to the laid-out height, never toward the height the drawing mounted at', async () => {
     const { frame, heights } = await drawWithLateLayout()
-    // Only ever growing: aiming at the pre-layout 101px first made the frame
-    // dip under the skeleton and come back up.
     heights.slice(1).forEach((height, at) => expect(height).toBeGreaterThanOrEqual(heights[at]!))
     expect(heights.length).toBeGreaterThan(2)
     expect(heights.at(-1)).toBe(222)
-    // Let go to `auto` and the clip once it stands.
     expect(frame.className).not.toContain('overflow-hidden')
   })
 

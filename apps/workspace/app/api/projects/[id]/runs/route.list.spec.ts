@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/projects/[id]/runs` — a project's task runs, one keyset page at a
- * time (ADR-0131). It absorbed one task's run history (`/jobs/[jobId]/runs`,
- * `?limit&offset`): the task is now the `taskId` filter, and a page continues
- * by `cursor`, never by offset.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'

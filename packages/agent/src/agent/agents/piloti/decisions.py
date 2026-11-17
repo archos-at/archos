@@ -438,6 +438,7 @@ def prefetch_calls(
     focus_shelf: str | None = None,
     previous_message: str | None = None,
     reference_projects: int = 0,
+    austrian_law: bool = False,
 ) -> list[dict[str, Any]]:
     """The tool calls round 0 runs, as the agent's tools node reads them.
 
@@ -451,17 +452,16 @@ def prefetch_calls(
     when the question is NOT itself a family overview, the chosen
     families' overviews — ``knowledge_search`` recognises ``OIB-Richtlinie n``
     as a family query and returns every member's scope and Gliederung. Nothing
-    for the model corpus (a measurement needs the model, not a search) and
-    nothing when the decision said no evidence is needed.
+    for the model corpus (a measurement needs the model, not a search), nothing
+    when the decision said no evidence is needed, and no family read unless
+    the turn's knowledge context allows Austria's corpus (``austrian_law``, ADR-0175; False unless the caller says so).
 
     When the decision did NOT run, a question that names an OIB family
     („Was weißt du über die OIB 2?") still prefetches its own search: that
     is the evidence question by construction, and without this a missed
     decision silently took the prefetch with it and the model paid a whole
-    round for the same search. How often it misses is the endpoint's latency:
-    p50 2.7 s against the 1.5 s budget, 10 of 12 over, on 2026-09-23; a median
-    0.54 s, p90 0.62 s over two suites on 2026-09-24, with no change to the
-    call in between (ADR-0064's amendment). A two-word first message („OIB
+    round for the same search. How often it misses is the endpoint's latency
+    (measured in ADR-0064's amendment, 2026-09-23/24). A two-word first message („OIB
     2") is never decided at all (``register._decide_turn``).
     Only on a FIRST message (``previous_message is None``): without the
     decision's ``self_contained`` answer a later message may be a follow-up
@@ -481,13 +481,13 @@ def prefetch_calls(
     is a call the model makes itself.
     """
     if not decisions.decided:
-        return [] if previous_message is not None else _undecided_prefetch(question)
+        return [] if previous_message is not None or not austrian_law else _undecided_prefetch(question)
     if not decisions.wants_evidence or not decisions.searchable:
         return []
     query = prefetch_query(question)
     if not query:
         return []
-    calls = _corpus_prefetch(decisions, query, focus_file_name, question, focus_shelf)
+    calls = _corpus_prefetch(decisions, query, focus_file_name, question, focus_shelf, austrian_law)
     if reference_projects > 0 and decisions.wants_reference:
         calls.append(
             {
@@ -529,7 +529,12 @@ def literal_terms(question: str) -> list[str]:
 
 
 def _corpus_prefetch(
-    decisions: TurnDecisions, query: str, focus_file_name: str | None, question: str, focus_shelf: str | None = None
+    decisions: TurnDecisions,
+    query: str,
+    focus_file_name: str | None,
+    question: str,
+    focus_shelf: str | None = None,
+    austrian_law: bool = False,
 ) -> list[dict[str, Any]]:
     """The chosen corpus's own search, and the chosen families' overviews for a law question.
 
@@ -560,7 +565,7 @@ def _corpus_prefetch(
             {"name": GREP, "args": {"pattern": term, "output_mode": "content", **scope}}
             for term in literal_terms(question)
         )
-    if decisions.corpus == "baurecht" and family_query_number(query) is None:
+    if decisions.corpus == "baurecht" and austrian_law and family_query_number(query) is None:
         calls.extend(
             {"name": KNOWLEDGE_SEARCH, "args": {"query": f"OIB-Richtlinie {key}"}}
             for key in decisions.chosen_families()

@@ -1,33 +1,9 @@
 'use client'
 
-/**
- * The material every floating control in the viewport is made of.
- *
- * One atom, one definition. Before this, the dock, the rail, the status chip
- * and the legend each spelled their own `bg-background/85 backdrop-blur`, so
- * they drifted: four opacities, three radii, two shadow tokens, and a dark
- * mode that only two of them had been checked in. A viewport whose chrome does
- * not agree with itself reads as unfinished no matter how good the render is.
- *
- * The material is paper held just off the canvas: a translucent card, a
- * hairline, and the popover elevation — the same recipe as the app's own
- * surfaces, so the controls read as belonging to Grid rather than to the
- * renderer.
- *
- * `supports-[backdrop-filter]` is not decoration. Where blur is unavailable
- * (older Firefox, some Linux compositors) a 70%-opaque panel over a shaded
- * model is unreadable, so those browsers get an opaque one instead.
- */
-
 import { forwardRef, type HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface ViewerSurfaceProps extends HTMLAttributes<HTMLDivElement> {
-  /**
-   * `raised` is chrome that floats over the model — the dock, the rail.
-   * `flat` is chrome that sits INSIDE another surface (a section inside the
-   * rail) and must not restate the elevation, or the stack reads as a pile.
-   */
   tone?: 'raised' | 'flat'
 }
 
@@ -38,16 +14,10 @@ export const ViewerSurface = forwardRef<HTMLDivElement, ViewerSurfaceProps>(
         ref={ref}
         data-slot="viewer-surface"
         className={cn(
-          'rounded-2xl border border-border',
+          'rounded-2xl',
           tone === 'raised'
-            // The alpha pair is load-bearing: these panels FLOAT over the 3D
-            // canvas and `backdrop-blur-md` needs something to blur; the
-            // `supports-` step is the no-blur fallback.
             ? 'bg-card/80 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/70'
-            // Flat sits INSIDE another surface and states no chrome of its own:
-            // a lone border with nothing behind it over the 3D canvas is a
-            // ghost box, so the border goes transparent with the background.
-            : 'border-transparent bg-transparent',
+            : 'bg-transparent',
           className
         )}
         {...props}

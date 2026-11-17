@@ -1,12 +1,3 @@
-"""Both Compose files route Postgres the way Kubernetes does (ADR-0083).
-
-The pooled DSNs go through ``pgbouncer``; LISTEN, the session locks and the
-owner's migrations go straight to ``postgres``. Every Python tier on Postgres
-must be given both direct DSNs, because ``require_direct_dsns`` refuses to start
-a process without them: a service added here that forgets one does not degrade,
-it fails to boot. This reads the files, so the check runs without Docker.
-"""
-
 from __future__ import annotations
 
 import re
@@ -16,7 +7,7 @@ import pytest
 import yaml
 
 COMPOSE_DIR = Path(__file__).resolve().parents[1] / "deploy" / "compose"
-FILES = ["docker-compose.yaml", "docker-compose.coolify.yaml"]
+FILES = ["docker-compose.yaml"]
 
 POOLED = ("NAT_JOB_STORE_DB_URL", "CHECKPOINT_DB", "SUMMARY_DB")
 DIRECT = ("LISTEN_DB_URL", "LOCK_DB_URL")
@@ -32,20 +23,17 @@ def _pair(item: str) -> tuple[str, str]:
 
 
 def _environment(services: dict, service: str) -> dict[str, str]:
-    """A service's environment, with what it inherits through ``extends`` underneath."""
     definition = services[service]
     inherited: dict[str, str] = {}
     parent = (definition.get("extends") or {}).get("service")
     if parent:
         inherited = _environment(services, parent)
     raw = definition.get("environment") or []
-    # A list item without `=` is a pass-through of the host's variable.
     own = {k: str(v) for k, v in raw.items()} if isinstance(raw, dict) else dict(_pair(item) for item in raw)
     return {**inherited, **own}
 
 
 def _host(value: str) -> str:
-    """The host of a DSN, through a compose ``${VAR:-default}`` wrapper."""
     match = re.search(r"@([a-z0-9-]+):5432/", value)
     assert match, f"no host in {value}"
     return match.group(1)

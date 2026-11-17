@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * Platform → Feedback: every report members sent, across organizations, and
- * the one control that matters for each — where it is in triage.
- *
- * Triage lives in PostHog Support. The server opens a ticket for every report,
- * and the status shown and set here is that ticket's, read live and named as
- * PostHog names it (`new`, `open`, `pending`, `on_hold`, `resolved`); each row
- * links to its ticket. When PostHog cannot be read, or Support is not
- * configured, the list is the local log (`source: 'local'`): read-only, no
- * status filter, and an alert says where statuses are managed. Reports whose
- * ticket failed to open are listed apart ("not in PostHog yet"), so nothing a
- * member sent is out of sight.
- *
- * The page opens on the active support cases: every ticket that is not
- * resolved, whoever has it, because the question an owner arrives with is
- * "what is still open, who has it, and are we the ones who owe an answer?".
- * Each row says who the ticket is assigned to, when something last happened on
- * it and whose move it is, and offers „Übernehmen" (assign it to the reader in
- * PostHog) when it is not the reader's yet. A second chip row narrows to the
- * reader's own tickets or the unassigned ones; „Alle" and „Erledigt" bring the
- * resolved back. Answering stays in PostHog: the row links its ticket there.
- * An inbox row lands here with `?report=<id>`; that report is
- * pinned to the top and marked, whatever the filter says, so the link always
- * shows what it promised. A link to a report that no longer exists (or that
- * this reader cannot see) says so, instead of silently showing the list.
- *
- * Filters refetch, and a slow answer for the previous filter must not land on
- * top of the current one: only the newest request writes. While a refetch is
- * in flight the rows on screen stay, marked busy, rather than blinking out.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import {
@@ -90,7 +59,6 @@ export interface FeedbackTriageClient {
   list: (filters: ListFeedbackFilters) => Promise<ProductFeedbackListResponse>
   get: (id: string) => Promise<ProductFeedbackReportView | null>
   triage: (id: string, status: SupportTicketStatus) => Promise<ProductFeedbackReportView>
-  /** Assign a ticket to the reader in PostHog (the Slack alert's „Übernehmen"). */
   claim?: (ticketId: string) => Promise<ProductFeedbackReportView>
 }
 
@@ -123,21 +91,13 @@ type AssigneeFilter = ProductFeedbackAssigneeFilter | 'all'
 
 const ASSIGNEE_FILTERS: readonly AssigneeFilter[] = ['all', 'mine', 'unassigned']
 
-/** A ticket the reader can take: still open, and not theirs already. */
 function claimable(ticket: ProductFeedbackTicketView): boolean {
   return ticket.status !== 'resolved' && !ticket.assignee?.isViewer
 }
 
 export interface FeedbackTriageProps {
-  /** Whether the reader holds the manage permission; view-only otherwise. */
   canTriage: boolean
-  /** The report an inbox row linked to, pinned and marked. */
   focusReportId?: string | null
-  /**
-   * A ticket to take on arrival: the Slack alert's „Übernehmen" button lands
-   * with `?claim=<ticket id>`. The ticket is assigned to the reader in PostHog
-   * and its report pinned like a linked one.
-   */
   claimTicketId?: string | null
   client?: FeedbackTriageClient
 }
@@ -154,15 +114,12 @@ export function FeedbackTriage({
   const [assignee, setAssignee] = React.useState<AssigneeFilter>('all')
   const [data, setData] = React.useState<ProductFeedbackListResponse | null>(null)
   const [focused, setFocused] = React.useState<ProductFeedbackReportView | null>(null)
-  /** The linked report could not be found (deleted, or not visible to this reader). */
   const [focusMissing, setFocusMissing] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [loadingMore, setLoadingMore] = React.useState(false)
   const [error, setError] = React.useState(false)
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const [claimingId, setClaimingId] = React.useState<string | null>(null)
-  // Only the newest list request may write: switching filters quickly must
-  // not let the answer for the previous filter overwrite the current one.
   const requestId = React.useRef(0)
 
   const filters = React.useMemo<ListFeedbackFilters>(
@@ -240,10 +197,8 @@ export function FeedbackTriage({
     setLoadingMore(true)
     try {
       const next = await client.list({ ...filters, cursor: data.nextCursor })
-      // A filter change while the page was loading made this page stale.
       if (id !== requestId.current) return
       setData((current) =>
-        // The unticketed reports belong to the first page; later pages only add tickets.
         current
           ? { ...next, reports: [...current.reports, ...next.reports], unticketed: current.unticketed }
           : next
@@ -286,7 +241,6 @@ export function FeedbackTriage({
     }
   }
 
-  /** Take a row's ticket: PostHog assigns it to the reader, and the row shows it. */
   async function claimRow(report: ProductFeedbackReportView): Promise<void> {
     const ticketId = report.ticket?.id
     if (!ticketId || !client.claim) return
@@ -319,7 +273,6 @@ export function FeedbackTriage({
     ? ACTIVE_SUPPORT_TICKET_STATUSES.reduce((sum, option) => sum + counts[option], 0)
     : undefined
   const canClaim = canTriage && Boolean(client.claim)
-  // The local log has no triage state: the status filter would be a lie there.
   const local = data?.source === 'local'
   const live = data?.source === 'posthog'
   const nothingShown = !focused && reports.length === 0
@@ -428,7 +381,7 @@ export function FeedbackTriage({
           <Alert variant="destructive">
             <AlertDescription>
               <p>{t('platform.loadError')}</p>
-              <Button variant="outline" size="sm" onClick={() => void load()}>
+              <Button variant="secondary" size="sm" onClick={() => void load()}>
                 {t('platform.retry')}
               </Button>
             </AlertDescription>
@@ -499,7 +452,7 @@ export function FeedbackTriage({
 
         {data?.nextCursor && (
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => void loadMore()}
             loading={loadingMore}
             className="self-center"
@@ -520,7 +473,6 @@ function StatusFilterChip({
 }: {
   active: boolean
   onClick: () => void
-  /** Absent until the PostHog counts are known. */
   count?: number
   children: React.ReactNode
 }): JSX.Element {
@@ -534,7 +486,6 @@ function StatusFilterChip({
   )
 }
 
-/** A text link that leaves Piloti (PostHog), styled like the row's mail link. */
 function ExternalTextLink({
   href,
   testId,
@@ -570,11 +521,9 @@ function ReportRow({
 }: {
   report: ProductFeedbackReportView
   focused?: boolean
-  /** Whether the status select shows: the reader may triage and the list is PostHog's. */
   canTriage: boolean
   busy: boolean
   onStatusChange: (status: SupportTicketStatus) => void
-  /** Whether „Übernehmen" may show: the reader may triage and the list is PostHog's. */
   canClaim?: boolean
   claiming?: boolean
   onClaim?: () => void
@@ -732,10 +681,6 @@ function ReportRow({
   )
 }
 
-/**
- * The case on one row: who has the ticket, whose move it is, when something
- * last happened, and „Übernehmen" when the reader can take it.
- */
 function CaseLine({
   ticket,
   canClaim,
@@ -787,7 +732,7 @@ function CaseLine({
       </span>
       {canClaim && onClaim ? (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="ml-auto"
           loading={claiming}

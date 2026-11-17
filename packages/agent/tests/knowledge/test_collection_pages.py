@@ -1,37 +1,25 @@
-"""A document's stored chunks read back in the order the chunker cut them, against a real Qdrant.
-
-Module under test: ``agent.knowledge.collection_pages``.
-
-Point ids are the chunker's random node ids, so a scroll returns one page's
-chunks in no meaningful order. The Fassung compare reads both files this way
-and lines them up page by page; two identical Fassungen with several chunks on
-a page must diff as unchanged. Each chunk carries its place in the file
-(``chunk_ordinal``, written at ingest and by the import from Chroma), and the
-readers order by page, then by it. A point written before the field existed
-sorts after the numbered ones of its page, by chunk id: stable, never random.
-"""
-
 from __future__ import annotations
 
 import pytest
 from knowledge_layer_testing import vector_store as qt
+from knowledge_layer_testing.vector_store import reads_as_an_office  # noqa: F401 - a read names its office
 
 from agent.knowledge.collection_pages import read_chunks
 from agent.knowledge.collection_pages import read_pages
 from agent.knowledge.revision_diff import chunk_from_store
 from agent.knowledge.revision_diff import diff_revisions
 
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 LINES = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i in range(12)]
 
 
 def _ingested_records(file_name: str, lines: list[str], page: str = "1"):
-    """The records ingestion writes for ``lines``: one LlamaIndex Document each, cut and embedded by the adapter."""
     from knowledge_layer.ingest import LlamaIndexIngestor
     from llama_index.core import Document
 
     ingestor = object.__new__(LlamaIndexIngestor)
     ingestor._embed_model = qt.FakeEmbedder()
-    # The embedding cache keys on the embedder's identity.
     ingestor.embed_model_name, ingestor.embed_base_url = "fake/embedder", "http://embedder.test"
     documents = [
         Document(text=line, metadata={"file_name": file_name, "page_label": page, "content_type": "text"})
@@ -68,7 +56,6 @@ def test_read_pages_orders_by_page_then_by_the_chunk_s_place(qdrant_store):  # n
     page_ten = _ingested_records("bericht.pdf", ["10a", "10b"], page="10")
     for offset, record in enumerate(page_ten):
         record.ordinal = 3 + offset
-    # Written page ten first and in reverse, so neither write order nor point id can pass for the order.
     qt.write("proj_pages", list(reversed(page_ten)) + list(reversed(page_two)))
 
     assert read_pages("proj_pages", "bericht.pdf") == [
@@ -97,7 +84,6 @@ def test_a_point_without_an_ordinal_sorts_after_the_numbered_ones_of_its_page_by
 
 
 def test_the_section_structure_read_passage_sorts_by_comes_before_the_ordinal(qdrant_store):  # noqa: ARG001
-    """A tenant section („Zeilen 12-30“) carries its place itself, which orders points written without an ordinal."""
     sections = [
         qt.record("Abschnitt 2, Teil 2", "notizen.md", section_order=2, line_start=40, section_part=2),
         qt.record("Abschnitt 2, Teil 1", "notizen.md", section_order=2, line_start=40, section_part=1),
@@ -128,7 +114,6 @@ def test_a_file_the_store_holds_no_chunk_of_reads_as_none(qdrant_store):  # noqa
 
 @pytest.mark.parametrize("reader", [read_chunks, read_pages])
 def test_an_unreachable_store_raises_rather_than_reading_as_no_chunks(reader, qdrant_store, monkeypatch):  # noqa: ARG001
-    """„Nicht im Index“ is a claim about the document; an outage is not evidence for it (read_passage does the same)."""
     from knowledge_layer.vector_store import store as store_module
 
     qt.write("proj_down", _ingested_records("da.pdf", LINES[:1]))
@@ -141,13 +126,7 @@ def test_an_unreachable_store_raises_rather_than_reading_as_no_chunks(reader, qd
         reader("proj_down", "da.pdf")
 
 
-# ---------------------------------------------------------------------------
-# The text read back is the document's: no breadcrumb, no overlap twice
-# ---------------------------------------------------------------------------
-
-
 def _fixture_hits(name: str):
-    """A fixture file cut by the ingest job's own chunkers, as the structural fetch returns its points."""
     import sys
     from pathlib import Path
 
@@ -172,7 +151,6 @@ def test_read_pages_reads_the_overlap_and_the_breadcrumb_once(monkeypatch):
 
     text = "\n".join(page_text for _page, page_text in read_pages("proj", "Besprechungsprotokoll.pdf"))
 
-    # Before: twice (both parts of section 3 hold it) and three times (the heading in every breadcrumb).
     assert text.count("Kopfbolzendübeln") == 1
     assert text.count("Verbunddecke") == 1
     assert "›" not in text

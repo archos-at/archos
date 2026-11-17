@@ -1,10 +1,3 @@
-/**
- * A project's Offene Punkte page: the marks grouped by document, each row the
- * review list's own and a link into that document's review at the mark; the
- * filters read the list again through the typed client; a failed read says so
- * and reads again; the Protokoll carries the filters on screen.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -22,6 +15,7 @@ import { render, screen, within } from '@/test-utils'
 import { captureDownloads } from '@/test-utils/downloads'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import type { ProjectMarksResponse, ProjectMarkView } from '@/lib/annotations/project-types'
+import { SectionActionsInline } from '@/components/shell/project-section-frame'
 import { OpenPointsPanel } from './open-points-panel'
 
 const mark = (overrides: Partial<ProjectMarkView> = {}): ProjectMarkView => ({
@@ -79,7 +73,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   nav.params = new URLSearchParams()
   fetchMock.mockReset()
-  // The page reads its first page again on mount; unless a spec says otherwise, the list is as the server read it.
   fetchMock.mockImplementation(async () => answer(PAGE))
   vi.stubGlobal('fetch', fetchMock)
   Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:protokoll'), revokeObjectURL: vi.fn() })
@@ -88,9 +81,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 const show = (initial: ProjectMarksResponse | null = PAGE) =>
-  render(<OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={initial} />)
+  render(
+    <SectionActionsInline>
+      <OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={initial} />
+    </SectionActionsInline>
+  )
 
-/** The query of a link's `back`, the page closing its review returns to. */
 const backOf = (href: string | null) => new URL(href ?? '', 'https://piloti.test').searchParams.get('back')
 const HERE = '/app/projects/proj_1/files/open-points'
 
@@ -120,7 +116,6 @@ describe('OpenPointsPanel', () => {
   it('reads the first page again on mount, quietly: Back from a review shows what was closed there', async () => {
     fetchMock.mockImplementation(async () => answer({ marks: [PAGE.marks[2]], nextCursor: null }))
     show()
-    // The server's page is painted at once, with no spinner, until the fresh read replaces it.
     expect(screen.getAllByTestId('open-point-row')).toHaveLength(3)
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/proj_1/annotations', { method: 'GET' })
     await vi.waitFor(() => expect(screen.getAllByTestId('open-point-row')).toHaveLength(1))
@@ -145,7 +140,6 @@ describe('OpenPointsPanel', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/proj_1/annotations?assignee=me', { method: 'GET' })
 
     await user.click(screen.getByTestId('open-points-due-overdue'))
-    // The history entry is replaced in place: no navigation, so no server render of the page.
     expect(replaceState).toHaveBeenLastCalledWith(null, '', `${HERE}?assignee=me&due=overdue`)
     expect(nav.replace).not.toHaveBeenCalled()
     await vi.waitFor(() =>
@@ -172,7 +166,6 @@ describe('OpenPointsPanel', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     fetchMock.mockImplementation(async () => answer({ marks: [], nextCursor: null }))
 
-    // The review's and Files' word for the same predicate (`isForReader`), never „Me".
     expect(screen.getByTestId('open-points-assignee-me')).toHaveTextContent('For you')
     await user.click(screen.getByTestId('open-points-assignee-me'))
 
@@ -212,7 +205,6 @@ describe('OpenPointsPanel', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/proj_1/annotations?cursor=abc', { method: 'GET' })
     await vi.waitFor(() => expect(screen.getAllByTestId('open-point-row')).toHaveLength(4))
-    // The page's mark of Schnitt joins Schnitt's group, not a second one.
     expect(screen.getAllByTestId('open-points-document')).toHaveLength(2)
   })
 
@@ -235,7 +227,6 @@ describe('OpenPointsPanel', () => {
 
     expect(fetchMock).toHaveBeenLastCalledWith('/api/projects/proj_1/annotations/export?due=overdue&format=md')
     await vi.waitFor(() => expect(downloads).toEqual([{ href: 'blob:protokoll', download: 'Offene Punkte – Lend.md' }]))
-    // The CSAT trigger every export fires: the kind and the format, never a name, and only once the file is saved.
     expect(capturePosthog).toHaveBeenCalledTimes(1)
     expect(capturePosthog).toHaveBeenCalledWith('report_exported', { kind: 'open_points', format: 'md' })
 
@@ -265,7 +256,11 @@ describe('filing the project’s Protokoll', () => {
     return uploads
   }
   const showFiling = () =>
-    render(<OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={PAGE} filing={{ projectName: 'Lend' }} />)
+    render(
+      <SectionActionsInline>
+        <OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={PAGE} filing={{ projectName: 'Lend' }} />
+      </SectionActionsInline>
+    )
 
   it('files the Protokoll the filters show into the project root, through the upload, named after the project and the day', async () => {
     const uploads = filed(false)
@@ -281,7 +276,6 @@ describe('filing the project’s Protokoll', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/proj_1/annotations/export?due=overdue&format=pdf')
     const form = uploads[0]!
     expect(form.get('projectId')).toBe('proj_1')
-    // The root: every member reads it, which is why it is offered only for what every member may read.
     expect(form.get('folderId')).toBeNull()
     expect((form.get('file') as File).name).toMatch(/^Open points – Lend – \d{4}-\d{2}-\d{2}\.pdf$/)
     await vi.waitFor(() =>

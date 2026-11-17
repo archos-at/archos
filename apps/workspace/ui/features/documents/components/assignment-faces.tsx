@@ -13,11 +13,6 @@ export function AssignmentFaces({
   className,
 }: {
   assignees: readonly FileAssignee[] | undefined
-  /**
-   * The faces and nothing else, for a host that names the people itself (the
-   * preview's contact row). Nobody assigned is then an empty disc rather than
-   * the word „Unvergeben", which that host already says as its title.
-   */
   faceOnly?: boolean
   className?: string
 }) {
@@ -33,9 +28,6 @@ export function AssignmentFaces({
     )
   }
   if (!assignees || assignees.length === 0) {
-    // On a phone the word does not fit a 2-up card's footer („Unv…"), and a cut
-    // word says nothing. There it is the dashed empty disc the preview uses,
-    // with the word kept for assistive technology and the long-press title.
     return (
       <span
         className={cn('flex min-w-0 items-center text-xs text-muted-foreground', className)}
@@ -59,7 +51,7 @@ export function AssignmentFaces({
   }))
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)} title={people.map((p) => p.name).join(', ')}>
-      <AvatarStack people={people} size="sm" max={3} />
+      <AvatarStack people={people} size="sm" max={3} tone="neutral" /* Dateien: a face is no verdict, so no hue */ />
     </span>
   )
 }

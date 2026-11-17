@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The server's repeat of the name gate (ADR-0086), when the office's policy
- * cannot be read.
- *
- * It is the authority for a client that skipped the browser's check, so it
- * must not decide with Piloti's suggested list: a file that matches only a
- * term the office added would pass that list and be stored. It refuses.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/organizations/service', () => ({
@@ -40,6 +32,7 @@ describe('assertUploadNameAllowed', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: { uploadScreening: officePolicy },
     })
     await expect(assertUploadNameAllowed('org-1', { filename: 'Notizen Huber.pdf' }, false)).rejects.toBeInstanceOf(
@@ -66,6 +59,7 @@ describe('assertUploadNameAllowed into a project (migration 0158)', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: { uploadScreening: officePolicy },
     })
   })

@@ -1,22 +1,24 @@
 /**
- * The maintenance sweeps the scheduler container used to POST to the BFF every
- * 30 s, as functions the `bff-jobs` worker's Hatchet cron tasks call in process
- * (ADR-0150, `./tasks.ts`). Each runs the BFF function its route used to call,
- * under the platform scope the route's `crossTenant` declaration gave it (the
- * task wrapper opens it), and logs only when it changed something.
+ * The maintenance sweeps, as functions the `bff-jobs` worker's Hatchet cron
+ * tasks call in process (ADR-0150, `./tasks.ts`). Each runs a BFF function
+ * under the platform scope the task wrapper opens, and logs only when it
+ * changed something.
  *
- * A failure throws. Hatchet records it on the run, with its attempt and error,
- * which is what the scheduler's failure streaks approximated in the log; the
- * next cron run tries again.
+ * A failure throws. Hatchet records it on the run, with its attempt and error
+ * class; the next cron run tries again.
  */
 
 import 'server-only'
+import { endLostAsks } from '@/lib/agent-asks/service'
 import { exportUsageToPosthog } from '@/lib/analytics/usage-export'
 import { enqueueDueReminders } from '@/lib/annotations/due-reminders'
+import { sweepOrphanedCollaborationRows } from '@/lib/collaboration/cleanup'
+import { pruneExpiredInboxItems } from '@/lib/collaboration/retention'
 import { reconcileStalePending } from '@/lib/documents/stale-pending'
 import { recoverStuckProcessing } from '@/lib/documents/stuck-processing'
 import { sweepInboundMail, type InboundMailSweepResult, type SweepCounts } from '@/lib/inbound-mail/sweep'
 import { sweepStaleMailImports } from '@/lib/mail-import/job'
+import { runScheduledLessonSweep } from '@/lib/platform-lessons/service'
 import { sweepCollectionPlacement } from '@/lib/projects/placement-sweep'
 import { reconcileStaleRuns } from '@/lib/runs/reconcile'
 import { recoverStuckFilings } from '@/lib/tasks/filing-sweep'
@@ -30,6 +32,7 @@ import {
   readTraceRetentionDays,
 } from '../../workers/langfuse-traces.js'
 import {
+  conversationExists,
   conversationIsHeld,
   findConversationsAwaitingTraceErasure,
   markConversationTracesErased,
@@ -37,7 +40,7 @@ import {
   pruneOldRuns,
 } from '../../workers/maintenance-sql.js'
 import { report } from './log'
-import { isFristReminderHour } from './office-clock'
+import { runSourceMonitor } from '@/lib/base-knowledge/platform/monitor'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 /** Most rounds one run of a sweep that drains a backlog takes; the next cron run continues. */
@@ -95,6 +98,12 @@ export function projectMailLines(result: InboundMailSweepResult): string[] {
   return lines
 }
 
+/** End the asks of every organization whose turn never reported its end, by the rule a read applies (`endLostAsks`). */
+export async function sweepLostAsks(): Promise<void> {
+  const ended = await endLostAsks()
+  if (ended > 0) report(`agent asks: ended ${ended} ask(s) whose turn never reported its end`)
+}
+
 export async function reconcileRuns(): Promise<void> {
   const counts = await reconcileStaleRuns()
   if (counts.closed > 0 || counts.healed > 0 || counts.failed > 0) report(`run reconcile: ${JSON.stringify(counts)}`)
@@ -104,6 +113,15 @@ export async function sweepUploads(): Promise<void> {
   const counts = await sweepUploadBatches(new Date())
   if (counts.sealed > 0 || counts.completed > 0 || counts.failed > 0 || counts.audited > 0) {
     report(`upload sweep: ${JSON.stringify(counts)}`)
+  }
+}
+
+/** The public-source monitor (ADR-0174): opens a change request for a changed source; off behind `source-monitors`. */
+export async function sweepSourceMonitors(): Promise<void> {
+  const outcome = await runSourceMonitor()
+  if (outcome.run && (outcome.run.changed > 0 || outcome.run.failed > 0 || outcome.run.opened > 0)) {
+    const { checked, changed, failed, opened } = outcome.run
+    report(`source monitor: ${JSON.stringify({ checked, changed, failed, opened })}`)
   }
 }
 
@@ -142,11 +160,15 @@ const CONVERSATION_TRACES_PER_RUN = 100
 const CONVERSATION_TRACES_BUDGET_MS = 120_000
 
 /**
- * Erase the Langfuse traces of the chats the BFF erased in the delete request,
- * which the purger never sees (`findConversationsAwaitingTraceErasure`: erased
- * within 35 days, at least 15 minutes ago, not stamped, not under a legal
- * hold). The hold is asked again right before each deletion, and each erased
- * chat is stamped so it is done once. Not configured is a no-op.
+ * Erase the Langfuse traces of the chats that are erased and still have them
+ * (`findConversationsAwaitingTraceErasure`: erased within 35 days, at least 15
+ * minutes ago, not stamped, not under a legal hold). That is a chat the BFF
+ * erased in the delete request, which the purger never sees, and a chat whose
+ * queue row ended `failed` after the chat itself was erased: the purger's trace
+ * step failed on every attempt, and nothing else would go back for them. The
+ * hold is asked again right before each deletion, and for a `failed` row so is
+ * whether the chat is really gone; each erased chat is stamped so it is done
+ * once, and such a `failed` row is closed `purged`. Not configured is a no-op.
  */
 export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const { config } = readLangfuseConfig(env)
@@ -158,6 +180,7 @@ export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.e
   for (const row of await findConversationsAwaitingTraceErasure(db, CONVERSATION_TRACES_PER_RUN)) {
     if (Date.now() - started >= CONVERSATION_TRACES_BUDGET_MS) break
     if (await conversationIsHeld(db, row)) continue
+    if (row.status === 'failed' && (await conversationExists(db, row))) continue
     await eraseSessionTraces(client, row.entity_id)
     await markConversationTracesErased(db, row.id)
     erased += 1
@@ -177,17 +200,47 @@ export async function sweepDownloadLogRetention(): Promise<void> {
 }
 
 /**
- * The daily Frist reminder: at 06:45 in Vienna, queue one job per organization
- * with marks due (`enqueueDueReminders`). The task runs at minute 45 of every
- * hour and only the office's 06:45 does anything (`./office-clock.ts`); a
- * repeat the same day queues nothing new, because each job's id is the
- * organization and the office's day. Answers whether it ran.
+ * Collaboration retention: the inbox items past their type's keep (spec IB-15,
+ * `lib/collaboration/retention.ts`) and the grants, mention requests and inbox
+ * items whose conversation or document is gone (`sweepOrphanedCollaborationRows`:
+ * no foreign key can cascade into a polymorphic target, and the purger's own
+ * cascade is a second statement of it). Each call deletes one batch per table,
+ * so this asks again until a round finds nothing, up to a bound.
  */
-export async function sweepFristReminder(now: Date = new Date()): Promise<boolean> {
-  if (!isFristReminderHour(now)) return false
+export async function sweepCollaborationRetention(): Promise<void> {
+  const deleted = { expired: 0, grants: 0, requests: 0, inboxItems: 0 }
+  for (let round = 0; round < MAX_ROUNDS; round += 1) {
+    const [retention, orphans] = await Promise.all([pruneExpiredInboxItems(), sweepOrphanedCollaborationRows()])
+    if (retention.deleted + orphans.grants + orphans.requests + orphans.inboxItems === 0) break
+    deleted.expired += retention.deleted
+    deleted.grants += orphans.grants
+    deleted.requests += orphans.requests
+    deleted.inboxItems += orphans.inboxItems
+  }
+  if (Object.values(deleted).some((count) => count > 0)) report(`collaboration retention: ${JSON.stringify(deleted)}`)
+}
+
+/**
+ * The platform lessons' clock (`lib/platform-lessons/service.ts`). A down-vote
+ * kicks distillation from the request (`after()`), which a pod that dies loses,
+ * and the register's upkeep (retiring a lesson that stayed quiet, expiring old
+ * candidates, re-embedding) is due by date, not by vote. One bounded sweep.
+ */
+export async function sweepPlatformLessons(): Promise<void> {
+  const result = await runScheduledLessonSweep()
+  if (result.processed > 0) report(`platform lessons: ${JSON.stringify(result)}`)
+}
+
+/**
+ * The daily Frist reminder: queue one job per organization with marks due
+ * (`enqueueDueReminders`). The task's cron is 06:45 on the office's clock
+ * (`./tasks.ts`, `CRON_TZ`). A repeat the same day, a retry or a run somebody
+ * triggers by hand, queues nothing new, because each job's id is the
+ * organization and the office's day.
+ */
+export async function sweepFristReminder(now: Date = new Date()): Promise<void> {
   const counts = await enqueueDueReminders(now)
   if (counts.queued > 0) report(`Frist reminder for ${counts.day}: ${JSON.stringify(counts)}`)
-  return true
 }
 
 /** The PostHog usage export; while it is behind on history, it asks again at once, up to a bound. */

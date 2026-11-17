@@ -270,7 +270,7 @@ The agent loads prompts from `packages/agent/src/agent/agents/deep_researcher/pr
 | `writer.j2` | Final synthesis and citation contract for the writer subagent |
 | `source_registry.j2` | Template for the verified source list shown to the writer |
 
-All prompts identify the agent as Piloti, a colleague in an Austrian planning
+All prompts identify the agent as Piloti, a colleague in a planning
 office; the legal corpus (OIB, RIS) is one of its sources. They carry domain
 conventions for regulation-anchored citations, while remaining usable for
 general research requests.

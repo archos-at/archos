@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Who may be served a permit record, judged from the document's live folder
- * against the project's folder tree, never from the restriction stored on the
- * record (`live-access.ts`).
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

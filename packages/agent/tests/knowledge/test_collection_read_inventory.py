@@ -1,24 +1,3 @@
-"""Every registered tool says how it keeps a restricted folder's content from the model unadmitted (ADR-0088).
-
-The admission (``restricted_use.admit_tool_results``) works on what a tool call
-REPORTS it read (``note_collections_read``) and, as a backstop, on restricted
-collection names in the result's text. A new tool that returns a restricted
-folder's content without reporting it, and without naming the collection,
-would pass both. So every agent-runtime function this deployment registers is classified
-here, and the classification names the test that pins it: a new tool fails
-this file until somebody decides which kind it is and points at the proof.
-
-The kinds:
-
-- ``reports``: returns content of the collections it reads and reports each
-  one, directly or through ``render_grounding_block``;
-- ``lists_nothing_restricted``: names files, never one of a restricted folder
-  (listing is not use);
-- ``no_collection_content``: returns nothing read from a collection;
-- ``external``: returns content from outside the corpus (law, the web);
-- ``agent``: an agent or workflow; its tools are classified one by one.
-"""
-
 from __future__ import annotations
 
 import importlib.metadata
@@ -30,9 +9,7 @@ from nat.cli.type_registry import GlobalTypeRegistry
 
 _ROOT = Path(__file__).resolve().parents[4]
 
-#: tool type -> (kind, the test that pins it, or why nothing needs to)
 TOOLS: dict[str, tuple[str, str]] = {
-    # Evidence and reading tools: what they return is reported.
     "knowledge_retrieval": (
         "reports",
         "tests/knowledge_layer_tests/test_restricted_reads.py::test_exact_search_reports_every_collection_its_match_table_names",
@@ -41,24 +18,18 @@ TOOLS: dict[str, tuple[str, str]] = {
         "reports",
         "tests/knowledge_layer_tests/test_restricted_reads.py::test_read_passage_reports_a_restricted_passage_and_it_is_admitted",
     ),
-    # `look` (ADR-0128) renders through knowledge_layer.view_image, which reports the collection it read.
     "look": (
         "reports",
         "packages/agent/tests/tools/look/test_register.py::test_a_look_reports_the_collection_it_read",
     ),
-    # Other projects (ADR-0094): the BFF records what it hands out before it
-    # answers, and the tool admits exactly that for the turn.
     "project_lookup": (
         "reports",
         "packages/agent/tests/tools/cross_project/test_project_lookup.py::test_project_lookup_admits_what_the_bff_handed_out_and_shuts_the_turns_doors",
     ),
-    # A DXF measured as a site (ADR-0153): the BFF's scoped lookup answers for a
-    # restricted folder only when the whole audience may read it, and the read is reported.
     "dxf_measure": (
         "reports",
         "packages/agent/tests/tools/drawings/test_dxf_measure.py::test_a_read_reports_its_collection_so_a_restricted_folder_is_admitted",
     ),
-    # Listings: never a restricted folder's file.
     "list_files": (
         "lists_nothing_restricted",
         "tests/knowledge_layer_tests/test_restricted_reads.py::test_list_files_never_lists_a_restricted_file_when_the_inventory_failed",
@@ -72,32 +43,19 @@ TOOLS: dict[str, tuple[str, str]] = {
         "resolves names only against the turn's inventory rows, which conversation_register loads "
         "from without_restricted(scope)",
     ),
-    # Nothing read from a collection reaches the result.
     "ask_user": ("no_collection_content", "asks the reader; returns the reader's answer"),
     "emit_card": ("no_collection_content", "pushes a card the model composed from what it already read"),
     "describe_card": ("no_collection_content", "returns a card type's schema"),
     "file_draft": ("no_collection_content", "files the conversation's own draft; returns the filing outcome"),
     "create_task": ("no_collection_content", "queues work; returns the task it created"),
-    # The asker's viewer (ADR-0144): returns one sentence naming the document the
-    # model named, after the BFF admitted it for the turn; no content of it.
     "show_in_viewer": (
         "no_collection_content",
         "packages/agent/tests/tools/viewer/test_register.py::TestADocumentThePersonMayNotSee",
     ),
-    # The review canvas, a function group: Anmerkungen rows and room presence of
-    # a document the BFF admits against the conversation's audience and the
-    # turn's signed scope before it answers (lib/annotations/agent.ts,
-    # ADR-0093). Looking at the page is `look`, above.
     "document_canvas": (
         "no_collection_content",
         "returns Anmerkungen and room presence the BFF admitted for the turn; no page content of a collection",
     ),
-    # Piloti's own MCP server (ADR-0122). Its operations return workspace records
-    # (projects, members, document metadata, proposals), never passages: reading a
-    # passage stays with knowledge_search and read_passage, which report. OPEN
-    # CONDITION, not yet pinned by a test here: the server's catalog must not expose
-    # a route that returns a restricted folder's file content to a turn that has not
-    # been admitted for it (ADR-0088); the BFF owns that gate, as for project_lookup.
     "workspace_tools": (
         "no_collection_content",
         "returns workspace records and proposals, not passages; the BFF catalog owns the restricted-folder gate",
@@ -115,21 +73,17 @@ TOOLS: dict[str, tuple[str, str]] = {
     "data_source_registry": ("no_collection_content", "configuration only"),
     "deep_research_skills": ("no_collection_content", "configuration only"),
     "deep_research_sandbox": ("no_collection_content", "configuration only"),
-    # Outside the corpus.
     "ris_search": ("external", "the Austrian legal information system"),
     "ris_catalog_lookup": ("external", "the RIS catalog"),
     "ris_fetch_document": ("external", "the Austrian legal information system"),
     "ris_lookup": ("external", "the Austrian legal information system"),
+    "law_lookup": ("external", "a public law source, read through its source record"),
     "tavily_web_search": ("external", "the web"),
-    # Agents and workflows: their tools are the rows above.
     "research_agent": ("agent", "Piloti; admits every tool round in its tools node"),
     "research_workflow": ("agent", "wraps research_agent"),
     "chat_deepresearcher_agent": ("agent", "the chat workflow around Piloti"),
     "deep_research_agent": ("agent", "a restricted collection is never signed into a run's scope (ADR-0087)"),
     "deep_research_workflow": ("agent", "wraps deep_research_agent"),
-    # The intake agent (ADR-0111) reads through read_document, list_files, knowledge_search and
-    # read_passage; its own reader keeps to the project's main collection and refuses a restricted
-    # folder's even when one is signed in.
     "project_intake_agent": (
         "agent",
         "packages/agent/tests/agents/intake/test_reading.py::test_a_restricted_folders_collection_is_never_read",
@@ -140,7 +94,6 @@ _KINDS = {"reports", "lists_nothing_restricted", "no_collection_content", "exter
 
 
 def _registered_tool_types() -> set[str]:
-    """Every registered agent-runtime function AND function group: a group's tools reach the model like any other."""
     for entry_point in importlib.metadata.entry_points(group="nat.plugins"):
         entry_point.load()
     registry = GlobalTypeRegistry.get()

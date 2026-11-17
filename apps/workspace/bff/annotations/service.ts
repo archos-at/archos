@@ -115,6 +115,7 @@ import {
 import { auditMarkDecided } from './mark-audit'
 import { keepMentions, mentionsAgent, newlyMentioned, noLongerMentioned } from './mentions'
 import { enforceMentionBounds } from '@/lib/mentions/service'
+import { ANNOTATION_LIFECYCLE } from './lifecycles'
 import type { AnnotationChange } from './room-types'
 import { auditSuppressedWake, enqueueWake, replyTrigger, wakeOutcomeOf, wakesEnabled, type EnqueuedWake } from './wake'
 import { delegationEventId, wakeTurnId } from './wake-ids'
@@ -689,14 +690,12 @@ export function transition(
   const closed = { closedBy: userId, closedAt: now }
   const reopened = { closedBy: null, closedAt: null }
   const acceptance = record.acceptedBy ? {} : { acceptedBy: userId, acceptedAt: now }
-  if (from === 'proposed' && to === 'open') return { status: 'open', ...reopened, ...acceptance }
-  if (from === 'proposed' && to === 'dismissed') return { status: 'dismissed', ...closed }
-  if (from === 'open' && to === 'resolved') return { status: 'resolved', ...closed }
-  if (from === 'resolved' && to === 'open') return { status: 'open', ...reopened }
-  if (from === 'dismissed' && to === 'open') {
-    return { status: 'open', ...reopened, ...(record.authorKind === 'piloti' ? acceptance : {}) }
+  if (!ANNOTATION_LIFECYCLE.canTransition(from, to)) {
+    throw new ConflictError(`An Anmerkung cannot go from ${from} to ${to}.`)
   }
-  throw new ConflictError(`An Anmerkung cannot go from ${from} to ${to}.`)
+  if (to !== 'open') return { status: to, ...closed }
+  const accepts = from === 'proposed' || (from === 'dismissed' && record.authorKind === 'piloti')
+  return { status: 'open', ...reopened, ...(accepts ? acceptance : {}) }
 }
 
 /** Run work that must never fail the write behind it: a throw or a rejection is a warning. */

@@ -1,11 +1,3 @@
-"""The size ratchet refuses a new giant, refuses growth, and makes the baseline follow every shrink.
-
-`scripts/check_file_size.py` holds source files to 600 lines and Python
-functions to 60, with `ci/size_baseline.json` recording what was over when the
-check arrived. These run it on a scratch repository, so the real tree's
-baseline is not what they depend on.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -24,7 +16,6 @@ def checker():
     spec = importlib.util.spec_from_file_location("check_file_size", ROOT / "scripts" / "check_file_size.py")
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    # A dataclass resolves its annotations through sys.modules, so register before running the module.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
@@ -39,7 +30,6 @@ def repo(tmp_path, monkeypatch):
 
 
 def add(repo: Path, path: str, text: str) -> None:
-    """Write ``path`` and stage it: the check reads `git ls-files`, as a commit would."""
     target = repo / path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
@@ -104,10 +94,9 @@ def test_a_shrink_asks_for_the_baseline_to_follow_and_update_only_lowers_it(chec
 
     assert checker.main([]) == 1
     err = capsys.readouterr().err
-    assert "src/big.py: down from 700 to 680 lines, so lower its baseline entry" in err
-    assert "src/split.py: under the limit or gone, so remove its baseline entry" in err
+    assert "src/new.py: 601 lines" in err
+    assert "down from" not in err and "remove its baseline entry" not in err
 
-    # --update tightens what is recorded and still refuses the new giant: it never adds an entry.
     assert checker.main(["--update"]) == 1
     assert json.loads((repo / "ci" / "size_baseline.json").read_text())["files"] == {"src/big.py": 680}
 
@@ -140,7 +129,6 @@ def test_typescript_imports_and_the_blanks_between_them_are_not_counted(checker)
         "export { lazy }\n"
     )
 
-    # Kept: the blank after the last import, the dynamic import, the local export list.
     assert checker.counted_lines("x.tsx", source) == 3
 
 
@@ -160,6 +148,57 @@ def test_python_imports_and_the_blanks_between_them_are_not_counted(checker):
     )
 
     assert checker.counted_lines("x.py", source) == 3
+
+
+def test_typescript_comment_lines_are_not_counted_and_code_beside_a_comment_is(checker):
+    source = (
+        "/**\n"
+        " * What this does.\n"
+        " */\n"
+        "// one line\n"
+        "const a = 1 // counted: code with a trailing comment\n"
+        "/* closed on its line */\n"
+        "/* opens\n"
+        "   and ends */ const b = 2\n"
+        "const url = 'https://example.org' // not a comment line\n"
+        "\n"
+    )
+
+    assert checker.counted_lines("x.ts", source) == 4
+
+
+def test_python_comments_and_docstrings_are_not_counted_and_other_strings_are(checker):
+    source = (
+        '"""Module docstring.\n'
+        "\n"
+        'Two more lines."""\n'
+        "# a comment\n"
+        "def f():\n"
+        '    """What f does."""\n'
+        "    # why\n"
+        '    text = """\n'
+        "# inside a string: code\n"
+        '"""\n'
+        "    return text  # counted\n"
+    )
+
+    assert checker.counted_lines("x.py", source) == 5
+
+
+def test_a_function_is_measured_without_its_docstring(checker):
+    body = "    x = 1\n" * 58
+    documented = 'def f():\n    """One.\n\n    Two.\n    """\n' + body
+
+    assert checker.function_lengths(documented) == {"f": 59}
+
+
+def test_an_added_comment_does_not_grow_a_baselined_file(checker, repo):
+    add(repo, "src/big.ts", "const a = 1\n" * 700)
+    checker.main(["--rebaseline"])
+
+    add(repo, "src/big.ts", "/**\n * Why this file is like this.\n */\n// and a line\n" + "const a = 1\n" * 700)
+
+    assert checker.main([]) == 0
 
 
 def test_an_added_import_does_not_grow_a_baselined_file(checker, repo):

@@ -259,19 +259,19 @@ describe("the program constructs in the split topology", () => {
     );
   });
 
-  it("points the frontend, and only the frontend, at komoot's public Photon by default (ADR-0151)", () => {
+  it("gives no workload a geocoder by default: address search is off until a stack opts in (ADR-0159)", () => {
     // No geocoder workload of our own any more: no StatefulSet, no policy.
     expect(named("kubernetes:apps/v1:StatefulSet")).not.toContain("geocoder");
     expect(named("kubernetes:networking.k8s.io/v1:NetworkPolicy")).not.toContain("geocoder-frontend-only");
     const envOf = (name: string) =>
       RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === name)?.inputs.spec?.template?.spec
         .containers[0].env ?? [];
-    expect(envOf("frontend").find((e) => e.name === "GEOCODER_URL")?.value).toBe("https://photon.komoot.io");
+    expect(envOf("frontend").map((e) => e.name)).not.toContain("GEOCODER_URL");
     // A request-path feature: the jobs pool never geocodes (`BFF_JOBS_WITHHELD`).
     const jobs = envOf("bff-jobs");
     expect(jobs.length).toBeGreaterThan(0);
     expect(jobs.map((e) => e.name)).not.toContain("GEOCODER_URL");
-    expect(STACK.geocoderUrl).toBe("https://photon.komoot.io");
+    expect(STACK.geocoderUrl).toBe("(none: geocoderUrl is empty)");
   });
 
   it("leaves the malware scanner off by default, and the frontend without its URL (ADR-0157)", () => {

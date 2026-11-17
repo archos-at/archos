@@ -1,10 +1,3 @@
-/**
- * A thread keeps its newest line in view: after „@Piloti …" the work line
- * and then the answer landed below the fold of the thread's scroll area, and
- * the reader had to find them. A reader at the end, or one who just sent
- * something, is taken to the new line; one who scrolled up to read is not.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@/test-utils'
 import { atEnd, useFollowEnd } from './use-follow-end'
@@ -12,7 +5,6 @@ import { atEnd, useFollowEnd } from './use-follow-end'
 const motion = vi.hoisted(() => ({ reduced: false }))
 vi.mock('@/hooks/use-reduced-motion', () => ({ useReducedMotion: () => motion.reduced }))
 
-/** The scroll area's geometry, which happy-dom does not lay out. */
 const box = { scrollHeight: 300, clientHeight: 300, scrollTop: 0 }
 const scrollTo = vi.fn()
 const saved = new Map<string, PropertyDescriptor | undefined>()
@@ -51,7 +43,6 @@ function Thread({ lines }: { lines: number }) {
   return <div ref={ref} onScroll={onScroll} data-testid="thread" />
 }
 
-/** A reader scrolls to `top`, by hand. */
 const scrollBy = (top: number) => {
   box.scrollTop = top
   fireEvent.scroll(screen.getByTestId('thread'))

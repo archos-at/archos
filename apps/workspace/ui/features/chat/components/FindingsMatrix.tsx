@@ -1,25 +1,3 @@
-/**
- * The Befundmatrix: one row per requirement the report read against the
- * project, over the prose and under the masthead.
- *
- * A planning office commissions a Prüfung, and the table every Gutachten
- * carries is this one: the requirement, the value, where it is written, and
- * whether it is met. The prose under it is the audit trail. The list is the
- * backend's (`message-findings.ts`); this renders it and nothing else.
- *
- * ON A PHONE the table is not a table. Four columns in a 320px column wrapped
- * "Fundstelle" to five lines and the status off to a sideways scroll, the two
- * cells a reader came for. Below 30rem of its OWN container (the answer column,
- * not the viewport) each row becomes a card: the requirement as the title, the
- * status right under it, then value and Fundstelle each under their column's
- * name. One DOM, two layouts: the same rows, the same click, the same tests.
- *
- * Colour never travels alone: every status carries its word, and the count
- * line above the table says the same in numbers. A row with a comment or a
- * reference opens on click; the `[N]` link jumps to the answer's own sources
- * row, the same anchor the prose markers use.
- */
-
 import { useState, type FC } from 'react'
 import { ChevronDown, CircleCheck, CircleHelp, CircleMinus, CircleX } from 'lucide-react'
 import { Chip } from '@/components/ui/chip'
@@ -57,7 +35,6 @@ const referenceText = (
   return parts.join(' · ')
 }
 
-/** How a row stands against the previous report's row of the same requirement. */
 export type FindingChange = 'new' | 'changed' | 'same'
 
 export function changeOf(finding: Finding, previous: Findings | undefined): FindingChange {
@@ -69,7 +46,6 @@ export function changeOf(finding: Finding, previous: Findings | undefined): Find
     : 'same'
 }
 
-/** Requirements the previous report had and this one dropped. */
 export function droppedFrom(previous: Findings | undefined, current: Findings): string[] {
   if (!previous) return []
   const now = new Set(current.items.map((item) => item.requirement))
@@ -78,12 +54,6 @@ export function droppedFrom(previous: Findings | undefined, current: Findings): 
     .filter((requirement) => !now.has(requirement))
 }
 
-/**
- * The stacked form's classes. Every one is spelled out in full because Tailwind
- * finds a class by scanning the source for it: a prefix concatenated at runtime
- * would ship no CSS. The variant is a container query on the matrix's own width
- * (`@container/matrix`), so a half-width desktop pane stacks as a phone does.
- */
 const STACKED_CELL =
   '@max-[30rem]/matrix:flex @max-[30rem]/matrix:items-baseline @max-[30rem]/matrix:gap-3 @max-[30rem]/matrix:py-0 @max-[30rem]/matrix:pr-0 @max-[30rem]/matrix:before:w-[30%] @max-[30rem]/matrix:before:shrink-0 @max-[30rem]/matrix:before:text-xs @max-[30rem]/matrix:before:text-muted-foreground @max-[30rem]/matrix:before:content-[attr(data-label)]'
 
@@ -127,7 +97,7 @@ const FindingRow: FC<{
         className={cn(
           'border-border/60 border-t align-top',
           '@max-[30rem]/matrix:flex @max-[30rem]/matrix:flex-col @max-[30rem]/matrix:gap-1.5 @max-[30rem]/matrix:rounded-surface @max-[30rem]/matrix:border @max-[30rem]/matrix:p-3',
-          expandable && 'hover:bg-muted/40 cursor-pointer'
+          expandable && 'hover:bg-hover cursor-pointer'
         )}
         onClick={expandable ? () => setOpen((value) => !value) : undefined}
         data-testid="finding-row"
@@ -136,9 +106,6 @@ const FindingRow: FC<{
         <td className={cn('text-foreground py-2 pr-3 text-sm', '@max-[30rem]/matrix:p-0 @max-[30rem]/matrix:font-medium')}>
           <span className="flex items-start gap-1.5">
             {expandable ? (
-              // A real control: the row's own click is a pointer convenience, and
-              // a row nobody could reach with a keyboard or a screen reader hid
-              // the comment that says WHY a requirement is met or not.
               <button
                 type="button"
                 aria-expanded={open}
@@ -232,19 +199,14 @@ const FindingRow: FC<{
 export const FindingsMatrix: FC<{
   findings: Findings
   anchorPrefix?: string
-  /** The previous report's findings on the same subject, for the change marks. */
   previous?: Findings
-  /** Commission a run to clear an open finding; absent when the thread cannot. */
   onCommission?: (finding: Finding) => Promise<boolean>
 }> = ({ findings, anchorPrefix, previous, onCommission }) => {
   const t = useTranslations(chatCopy)
-  // A closed project commissions nothing (ADR-0090): the thread hides „Klären“, and this says why.
   const closedProject = useCurrentProject()?.status === 'closed'
   const openFindings = findings.items.some((finding) => finding.status !== undefined && OPEN_STATUSES.has(finding.status))
   const counts = findingCounts(findings)
   const dropped = droppedFrom(previous, findings)
-  // Befunde when the report judged, Ergebnisse when it only stated: the same
-  // table, the honest word for it, and no empty status column.
   const judged = hasFindingStatuses(findings)
   const label = judged ? t('findings.label') : t('findings.labelResults')
   const summary = (Object.keys(counts) as FindingStatus[])

@@ -66,66 +66,15 @@ import {
   DecisionTarget,
 } from './upload-decision-atoms'
 
-/**
- * „Wollen Sie aktualisieren?" — asked once, with the answer visible.
- *
- * A folder upload is the one gesture in this product that can quietly change
- * work somebody else did. It replaces documents by name, re-files them into the
- * folders the tree implies, and — before this dialog existed — did all of that
- * the moment the picker closed, with no statement of what it was about to
- * touch. A person dropping a fortnight's worth of an Einreichung had no way to
- * find out whether they were adding eight files or overwriting five hundred.
- *
- * So the plan is shown BEFORE anything moves. The decision that changes the
- * outcome is which files come in as a new Fassung of a document already here
- * (CONTEXT.md, „Fassung"): a file of the same name (ADR-0054) or one whose name
- * continues a document under another name (ADR-0099). Both are a new Fassung of
- * one document and the timeline shows both (ADR-0099), so the dialog asks them
- * in ONE block, in one row shape and one wording, each group saying why Piloti
- * thinks so (gleicher Name, Namensreihe). Everything else on this surface is a
- * statement, not a question: which folders were matched, which will be created,
- * what is being skipped because the bytes are identical, which documents move
- * because the tree files them elsewhere, which files the project already holds
- * under another name, and which files it cannot hold two of.
- *
- * Where a document has been renamed here, the row carries BOTH names. The plan
- * speaks in the names the drop uses and the corpus speaks in the names people
- * gave it; asking somebody to approve replacing a document they cannot find in
- * their own file list is not asking.
- *
- * One scroll region: the header and the footer stay put, the body scrolls, and
- * the master box of forty proposals sticks to the top of it while its rows go
- * past. No list scrolls inside another, and the confirm button is on screen at
- * any height.
- *
- * Loose FILES come through here too (`kind: 'files'`), but only when one of
- * them would touch a document that is already on the shelf, or continue one.
- * One such file gets the question in its own words and its own light layout:
- * „Neue Fassung von „X“?", or, when the bytes are identical, „Unverändert –
- * bereits vorhanden".
- */
 export interface FolderUploadDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Null while the drop is still being read and hashed. */
   plan: FolderUploadPlan | null
-  /** The folder the reader is standing in, named. Null is the project root. */
   currentFolderName: string | null
-  /** Confirm. `includeUpdates` is the reader's answer about the files of the same name. */
   onConfirm: (includeUpdates: boolean) => void | Promise<void>
-  /** In flight — the plan is being applied (folders created, files queued). */
   pending?: boolean
-  /** A dropped or picked folder, or loose files that met existing documents. */
   kind?: UploadDecisionKind
-  /**
-   * The reader's answer for one file the upload screening held back
-   * (ADR-0086). Absent: the exclusions are listed without a way to release.
-   */
   onReleaseChange?: (file: File, released: boolean) => void
-  /**
-   * The reader's answer to „Als neue Fassung von X ablegen" for one file
-   * (ADR-0099). Absent: the offers are listed without a way to answer.
-   */
   onRevisionChange?: (change: RevisionChange) => void
 }
 
@@ -142,28 +91,9 @@ export function FolderUploadDialog({
 }: FolderUploadDialogProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const contentRef = useRef<HTMLDivElement>(null)
-  /**
-   * Default ON.
-   *
-   * The gesture is "bring this folder in", and a reader who dragged a corrected
-   * set across expects the corrections to land. Defaulting to off would make the
-   * common case a silent no-op that looks like a successful upload — the worse
-   * of the two ways to be wrong, because nothing on screen afterwards would say
-   * the new files are not here.
-   */
   const [includeUpdates, setIncludeUpdates] = useState(true)
-  /** The one file's answer, given and waiting for the plan to carry it before it is confirmed. */
   const [soleAnswer, setSoleAnswer] = useState<boolean | null>(null)
 
-  /**
-   * A new drop starts from the default again.
-   *
-   * The dialog is mounted for the life of the page, so without this the answer
-   * given to one folder would silently decide the next one — a reader who
-   * declined the updates in a Statik folder in the morning would find the
-   * afternoon's corrected drawings quietly not uploaded. Keyed off `plan`
-   * becoming null, which is what every new drop does before it has a plan.
-   */
   useEffect(() => {
     if (plan) return
     setIncludeUpdates(true)
@@ -177,24 +107,12 @@ export function FolderUploadDialog({
 
   const destination = currentFolderName ?? t('folders.allFiles')
   const isFolder = kind === 'folder'
-  /**
-   * One loose file that is already here, new bytes or the same ones: asked in
-   * its own words, without the counts a batch needs.
-   */
   const single =
     !isFolder && plan?.files.length === 1 && (plan.files[0].action === 'update' || plan.files[0].action === 'unchanged')
       ? plan.files[0]
       : null
-  /** One loose file that continues a document under another name: the same light layout, two named outcomes. */
   const sole = !isFolder && plan ? soleProposal(plan.files) : null
 
-  /*
-   * The one file's answer is a choice AND a confirm. The choice goes into the
-   * plan first (`onRevisionChange`), and the confirm waits until the plan the
-   * dialog is shown carries it: the caller applies the plan it last rendered,
-   * and checks it against the settled one, so confirming in the same tick would
-   * send the answer the reader just changed.
-   */
   useEffect(() => {
     if (soleAnswer === null || !sole || sole.revisionOf.chosen !== soleAnswer) return
     setSoleAnswer(null)
@@ -216,22 +134,12 @@ export function FolderUploadDialog({
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <DialogContent
         ref={contentRef}
-        // One scroll region between a fixed header and a fixed footer. On a
-        // phone the batch fills the screen: a floating card there is mostly
-        // margin, and the decision is what needs the height.
-        // The batch is a little wider: a German confirm label that names both
-        // counts, and a file name beside its box, both need the room.
         className={cn(
-          // The container holds the focus on open only to keep it off the first box,
-          // so it draws no ring; `!` because the global `:focus-visible` rule is unlayered.
           'flex flex-col gap-0 overflow-hidden p-0 outline-none! max-sm:px-0',
           batch || sole ? 'sm:max-w-xl' : 'sm:max-w-lg',
         )}
         fullScreenOnMobile={batch}
         closeLabel={t('folderUpload.close')}
-        // The dialog itself takes the focus, not its first box: a master box
-        // wearing the focus ring on open looks more decided than the rows it
-        // decides, and a keyboard reader's first Tab still lands on it.
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           contentRef.current?.focus()
@@ -252,10 +160,6 @@ export function FolderUploadDialog({
 
         <DialogBody>
           {!plan || !counts ? (
-            // Reading the tree and hashing the plausible duplicates. Named rather
-            // than left as a bare spinner: on a large folder this is seconds long
-            // and "comparing with what is already here" is exactly what it is
-            // doing.
             <div className="flex items-center gap-3 py-6 text-sm text-muted-foreground" data-testid="folder-upload-planning">
               <Spinner size="sm" />
               {t('folderUpload.planning')}
@@ -288,29 +192,16 @@ export function FolderUploadDialog({
               onAnswer={answerSole}
             />
           ) : single && nothingToDo ? (
-            // Identical and already where it belongs: a statement, so one way out.
             <Button onClick={() => onOpenChange(false)} data-testid="folder-upload-close">
               {t('folderUpload.close')}
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+              <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
                 {t('folderUpload.cancel')}
               </Button>
               <Button
-                // The one file's question IS the update question, so its button answers yes.
                 onClick={() => void onConfirm(single ? true : includeUpdates)}
-                /*
-                 * Nothing to send is not a reason to hide the dialog's answer — the
-                 * reader still wants to read "everything here is already up to
-                 * date" — but it is a reason not to offer a button that would do
-                 * nothing.
-                 *
-                 * "Nothing" includes the moves. A re-sync of a folder somebody has
-                 * since reorganised in Piloti uploads not one byte and still has
-                 * work to do, and a disabled button there would say the tree is
-                 * already reproduced when it is not.
-                 */
                 disabled={pending || nothingToDo}
                 data-testid="folder-upload-confirm"
               >
@@ -327,7 +218,6 @@ export function FolderUploadDialog({
 
 type Translate = ReturnType<typeof useTranslations>
 
-/** The dialog's title, the sentence under it and its glyph, for whichever case this drop is. */
 function describeHeader({
   t,
   plan,
@@ -374,7 +264,6 @@ function describeHeader({
   }
 }
 
-/** The one file's question: a clear match, a choice between documents, or a file not newer than the one there. */
 function describeSole(t: Translate, sole: ProposedFile): { title: string; description: string } {
   const { of, candidates, newer } = sole.revisionOf
   const file = sole.file.name
@@ -393,7 +282,6 @@ function describeSole(t: Translate, sole: ProposedFile): { title: string; descri
   }
 }
 
-/** What the confirm button says: how many files go, and how many of them as a new Fassung. */
 function confirmLabel({
   t,
   counts,
@@ -415,16 +303,10 @@ function confirmLabel({
     : t('folderUpload.confirm', { count: counts.uploading })
 }
 
-/** The scrolling middle of the dialog. Nothing in it scrolls on its own. */
 function DialogBody({ children }: { children: JSX.Element }): JSX.Element {
   return <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">{children}</div>
 }
 
-/**
- * The one same-name file, when there is more to say than its title: where the
- * document ends up, when that is not where it is now, and that it is archived,
- * because the new Fassung stays out of sight with it.
- */
 function SingleNotes({ single, destination }: { single: PlannedFile; destination: string }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const moves = single.refiledFromFolderId !== undefined
@@ -446,7 +328,6 @@ function SingleNotes({ single, destination }: { single: PlannedFile; destination
   )
 }
 
-/** The one file that could continue several documents: which one, before it can be filed as a new Fassung. */
 function SoleCandidatePick({
   file,
   disabled,
@@ -464,13 +345,6 @@ function SoleCandidatePick({
   )
 }
 
-/**
- * The one file's two outcomes, each named: filed as the next Fassung, or
- * uploaded as a document of its own. A file not newer than the document it
- * would continue leads with the second; one that could continue several cannot
- * be filed until the reader has said which. No third „Abbrechen" beside two
- * long labels: the close button and Escape leave without uploading.
- */
 function SoleFooter({
   file,
   busy,
@@ -485,14 +359,13 @@ function SoleFooter({
   const t = useTranslations(filesCopy)
   const { chosen, newer, candidates } = file.revisionOf
   const needsPick = candidates.length > 1 && !chosen
-  // Without a handler the answer cannot change, so only the outcome already chosen can be confirmed.
   const revisionBlocked = needsPick || (!canChange && !chosen)
   const separateBlocked = !canChange && chosen
   const leadWithRevision = newer
   return (
     <>
       <Button
-        variant={leadWithRevision ? 'outline' : 'default'}
+        variant={leadWithRevision ? 'secondary' : 'default'}
         onClick={() => onAnswer(false)}
         disabled={busy || separateBlocked}
         data-testid="folder-upload-sole-separate"
@@ -500,7 +373,7 @@ function SoleFooter({
         {t('folderUpload.single.confirmSeparate')}
       </Button>
       <Button
-        variant={leadWithRevision ? 'default' : 'outline'}
+        variant={leadWithRevision ? 'default' : 'secondary'}
         onClick={() => onAnswer(true)}
         disabled={busy || revisionBlocked}
         data-testid="folder-upload-sole-revision"
@@ -511,7 +384,6 @@ function SoleFooter({
   )
 }
 
-/** Everything a batch says and asks, top to bottom: the numbers, the one decision, then what is only stated. */
 function BatchPlan({
   plan,
   counts,
@@ -561,8 +433,6 @@ function BatchPlan({
             count={counts.foldersCreated}
             label={t('folderUpload.counts.foldersCreated')}
             testId="folder-upload-count-folders"
-            // The other half of the folder story, and the half that says the
-            // matching worked: a re-sync creates nothing and matches everything.
             secondary={
               counts.foldersMatched > 0 ? t('folderUpload.counts.foldersMatched', { count: counts.foldersMatched }) : undefined
             }
@@ -637,17 +507,6 @@ function BatchPlan({
   )
 }
 
-/**
- * One number, its glyph and what it means.
- *
- * `StatCard` is the kit's stat tile and is the wrong size here: `p-5` and a
- * `text-2xl` figure, four of them, inside a dialog that also has to hold a
- * decision and a file list. Its icon slot also wraps whatever it is given in a
- * fixed muted disc, so a toned glyph would be a disc inside a disc. The atom
- * that matters — the tinted well — IS the kit's (`StatCardIcon`); what is local
- * is the cell around it, which is layout. The label wraps rather than cut off:
- * half a phone's width is too narrow for „unverändert, übersprungen" on one line.
- */
 function PlanCount({
   icon,
   tone,
@@ -675,25 +534,6 @@ function PlanCount({
   )
 }
 
-/**
- * Which files come in as a new Fassung of a document already here
- * (CONTEXT.md, „Fassung"): ONE block, whichever way Piloti recognised them.
- *
- * - **Gleicher Name** (ADR-0054): one box for all of them, because the same
- *   name replaces the live document whatever the reader says about one file;
- *   unticked, they are skipped.
- * - **Namensreihe** (ADR-0099): a publisher export brings forty at once, so the
- *   clear matches are one decision (`groupRevisionProposals`) under a master box
- *   that sticks to the top while its rows, grouped by folder, go past; each
- *   row can be overridden, and unticked it comes in as a document of its own.
- * - The ones that need the reader (several documents could be meant, or the
- *   file is not newer than the one there) apart, never ticked for them, each
- *   with the documents to choose from.
- *
- * Every row has the same shape: the file name first, cut in the middle so its
- * index and date survive, then where it goes. One sentence says what all of it
- * does.
- */
 function RevisionSection({
   plan,
   updates,
@@ -776,7 +616,6 @@ function RevisionSection({
   )
 }
 
-/** The clear matches: a sticky master bar with the count, then the rows, one run per folder. */
 function DetectedProposals({
   proposals,
   disabled,
@@ -847,7 +686,6 @@ function DetectedProposals({
   )
 }
 
-/** One file's box: „Als neue Fassung von X ablegen". */
 function ProposalBox({
   file,
   disabled,
@@ -869,11 +707,6 @@ function ProposalBox({
   )
 }
 
-/**
- * The documents a file may continue, to choose from. Nothing shows as chosen
- * until the reader chooses: a value in the field over an unticked box looked
- * decided when it was not. Choosing ticks the file (`useUploadDecision`).
- */
 function CandidatePick({
   file,
   disabled,
@@ -906,14 +739,6 @@ function CandidatePick({
   )
 }
 
-/**
- * What the office's upload screening held back, and why (ADR-0086).
- *
- * A statement and a question at once: these files stay on this computer, and
- * each one can be released by the person who knows what it is — the Bauvertrag
- * in a folder called „Verträge". A released file stays in the list, ticked, so
- * the release can be taken back before anything is sent.
- */
 function ScreeningSection({
   plan,
   pending,
@@ -960,7 +785,6 @@ function ScreeningSection({
   )
 }
 
-/** Names, because a count nobody can check is a number to be believed. */
 function FileNameList({ files }: { files: readonly PlannedFile[] }): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
@@ -979,16 +803,6 @@ function FileNameList({ files }: { files: readonly PlannedFile[] }): JSX.Element
   )
 }
 
-/**
- * The whole plan, file by file, behind a disclosure.
- *
- * Collapsed because a summary that is five hundred rows long is not a summary,
- * and open-able because a person about to replace somebody's drawings is
- * entitled to see exactly which ones. `<details>` rather than a Collapsible:
- * nothing here needs to animate, and the native element keeps its keyboard and
- * screen-reader behaviour for free. Opened, it is part of the dialog's one
- * scroll, not a second window inside it.
- */
 function PlanDetails({
   plan,
   includeUpdates,
@@ -1027,22 +841,14 @@ function PlanDetails({
   )
 }
 
-/** What one row will actually do, given the reader's answers. */
 type EffectiveAction = Exclude<PlannedAction, 'update'> | 'revision' | 'skipped'
 
-/**
- * A same-name update the reader keeps, and a new file whose offer is ticked,
- * both come in as a new Fassung and say so; an update switched off is skipped.
- * A list still labelled „Neue Fassung" under an unticked box describes an
- * upload that is not going to happen.
- */
 function effectiveAction(file: PlannedFile, includeUpdates: boolean): EffectiveAction {
   if (file.action === 'update') return includeUpdates ? 'revision' : 'skipped'
   if (file.action === 'new' && file.revisionOf?.chosen) return 'revision'
   return file.action
 }
 
-/** What this row will do, in one word. */
 function ActionTag({ file, includeUpdates }: { file: PlannedFile; includeUpdates: boolean }): JSX.Element {
   const t = useTranslations(filesCopy)
   const effective = effectiveAction(file, includeUpdates)

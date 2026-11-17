@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CAPPED_REASONS } from '@/lib/conversations/message-provenance'
 
 vi.mock('./repository', () => ({
   EXPORT_ROW_CAP: 3,
@@ -37,7 +38,6 @@ import { getCitationExport } from './service'
 import type { CitationEvent } from '@/lib/db/schema/citation-events'
 import type { QualityScope } from '@/lib/quality/scope'
 
-/** The last 7 days ending on the frozen "today", every organization and project. */
 const LAST_7: QualityScope = {
   from: '2026-07-22',
   to: '2026-07-28',
@@ -107,8 +107,6 @@ describe('getCitationExport', () => {
     expect(bundle.windowStart).toBe('2026-07-22T00:00:00.000Z')
     expect(bundle.windowEnd).toBe('2026-07-29T00:00:00.000Z')
     expect(bundle.generatedAt).toBe('2026-07-28T12:00:00.000Z')
-    // An agent reading the file cold must be able to interpret every kind,
-    // and what the scope it was taken in includes.
     expect(Object.keys(bundle.glossary)).toEqual(
       expect.arrayContaining(['answer_ungrounded', 'scope'])
     )
@@ -133,24 +131,13 @@ describe('getCitationExport', () => {
   })
 
   it('explains every confidence reason the emitter can write', async () => {
-    // The five `CappedReason` values in agents/piloti/markers.py. The glossary
-    // used to say there were two, so an agent reading `measurement_only` had
-    // nothing to interpret it with.
     const { glossary } = await getCitationExport(LAST_7)
-    for (const reason of [
-      'ungrounded',
-      'quote_unverified',
-      'normative_claim_uncited',
-      'measurement_only',
-      'citation_fallback',
-    ]) {
+    for (const reason of CAPPED_REASONS) {
       expect(glossary[`confidence.${reason}`]).toBeTruthy()
     }
   })
 
   it('carries every field its glossary describes', async () => {
-    // The glossary described retrieval_precision counts and registry_empty's
-    // unavailable tools, but the export carried neither.
     listEventsForExport.mockResolvedValue([
       event({
         id: 'p',
@@ -190,8 +177,6 @@ describe('getCitationExport', () => {
   })
 
   it('names organizations outside the dashboard top list', async () => {
-    // The name used to come from the snapshot's organization list, so a turn
-    // from an organization outside it exported with organization: null.
     listEventsForExport.mockResolvedValue([
       event({ organizationId: 'org_far', kind: 'citations_removed', severity: 'warn' }),
     ])
@@ -231,7 +216,6 @@ describe('getCitationExport', () => {
       sourceCount: 4,
       citedCount: 1,
     })
-    // The whole point: WHICH source failed, and WHY.
     expect(turn.problems[0].failedSources).toEqual([
       { target: 'https://example.test/a', reason: 'url_not_in_registry' },
       { target: 'OIB-RL6.pdf, p.12', reason: 'url_not_in_registry' },
@@ -270,12 +254,10 @@ describe('getCitationExport', () => {
 
     const bundle = await getCitationExport(LAST_7)
     expect(bundle.turns.map((turn) => turn.turnId)).toEqual(['turn_bad'])
-    // The window's counts still cover every turn.
     expect(bundle.summary.turns).toBe(2)
   })
 
   it('reports a defect turn that never wrote a baseline row', async () => {
-    // registry_empty fails before verification, so it has no turn_verified row.
     listEventsForExport.mockResolvedValue([
       event({
         id: 'only',
@@ -291,7 +273,6 @@ describe('getCitationExport', () => {
   })
 
   it('flags truncation instead of silently returning a prefix', async () => {
-    // EXPORT_ROW_CAP is mocked to 3; the repository returns cap + 1.
     listEventsForExport.mockResolvedValue([
       event({ id: '1', turnId: 't1', kind: 'citations_removed', severity: 'warn' }),
       event({ id: '2', turnId: 't2', kind: 'citations_removed', severity: 'warn' }),

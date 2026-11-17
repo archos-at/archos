@@ -24,6 +24,9 @@ from typing import Any
 from agent.common.source_kinds import SHELF_QUALIFIERS
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
+from agent.knowledge.inventory_notes import INVENTORY_ORDER as _INVENTORY_ORDER
+from agent.knowledge.inventory_notes import focus_paragraph
+from agent.knowledge.inventory_notes import in_flight_paragraph
 
 _listing_shelf: ContextVar[Shelf | None] = ContextVar("listing_shelf", default=None)
 
@@ -63,15 +66,7 @@ _norm_families: ContextVar[tuple[Any, ...]] = ContextVar("norm_families", defaul
 
 # User-facing shelves first; base last so the OIB corpus cannot evict them.
 _USER_SHELF_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
-_INVENTORY_ORDER: tuple[Shelf, ...] = (*_USER_SHELF_ORDER, Shelf.BASE)
 
-#: How many in-flight filenames the prompt names before it counts the rest.
-#:
-#: Same rule as every other block here: carry the shape, not the list. A bulk
-#: upload can have hundreds of files in flight, and the model needs to know
-#: THAT rather than WHICH — past a handful the names stop informing the answer
-#: and start being paid for on every turn.
-_IN_FLIGHT_MAX_NAMED = 5
 
 _SHELF_BLURBS: dict[Shelf, str] = {
     Shelf.BASE: (
@@ -663,28 +658,9 @@ def render_inventory_block(
         )
         lines.append("")
 
-    pending = [name for name in (in_flight or []) if name]
-    if pending:
-        shown = pending[:_IN_FLIGHT_MAX_NAMED]
-        rest = len(pending) - len(shown)
-        tail = f", und {rest} weitere" if rest > 0 else ""
-        lines.append(
-            "**Still being read.** These files were uploaded but their indexing has not "
-            f"finished, so they are NOT in the inventory above and a search will not find "
-            f"them yet: {', '.join(f'`{name}`' for name in shown)}{tail}. If the question "
-            "depends on one of them, say plainly that it is still being processed and "
-            "answer what you can without it — do not present an answer that omits it as "
-            "though the file had been read."
-        )
-        lines.append("")
-
-    if focused is not None:
-        other = [SHELF_QUALIFIERS[s] for s in _INVENTORY_ORDER if s != focused]
-        lines.append(
-            f"This question asked only about **{SHELF_QUALIFIERS[focused]}**. "
-            f"Other shelves ({', '.join(other)}) exist on this request but are not listed."
-        )
-        lines.append("")
+    for paragraph in (in_flight_paragraph(in_flight), focus_paragraph(focused)):
+        if paragraph:
+            lines.extend((paragraph, ""))
 
     dropped = get_inventory_drops()
     for shelf in show:

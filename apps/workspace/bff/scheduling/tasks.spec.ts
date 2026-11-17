@@ -34,12 +34,16 @@ describe('the scheduling tasks', () => {
       'upload-sweep': '* * * * *',
       'folder-placement-sweep': '* * * * *',
       'conversation-trace-erasure': '* * * * *',
+      'source-monitor': '*/15 * * * *',
+      'agent-ask-expiry': '*/5 * * * *',
       'schedule-repair': '*/5 * * * *',
       'task-runs-prune': '41 * * * *',
       'usage-export': '*/10 * * * *',
       'trace-retention': '17 2 * * *',
       'download-log-retention': '37 2 * * *',
-      'frist-reminder': '45 * * * *',
+      'collaboration-retention': '23 * * * *',
+      'platform-lessons-sweep': '53 * * * *',
+      'frist-reminder': 'CRON_TZ=Europe/Vienna 45 6 * * *',
     })
     for (const sweep of sweeps) {
       expect(sweep.concurrency).toEqual({

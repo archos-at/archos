@@ -25,6 +25,7 @@ import {
 import type { AskDocument, AskState, AskView, CreateAskRequest } from '@/lib/agent-asks/ask-wire'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { AI_GENERATED_META } from '@/lib/agent-api/ai-generated-meta'
 
 export const TASK_STATE_OF: Readonly<Record<AskState, TaskState>> = {
   submitted: TaskState.TASK_STATE_SUBMITTED,
@@ -102,7 +103,9 @@ export function artifactsOf(view: AskView): Artifact[] {
           name: ANSWER_ARTIFACT_NAME,
           description: PRODUCT_NAME + '’s answer.',
           parts: [textPart(view.answer.text), ...evidenceParts(view.answer)],
-          metadata: undefined,
+          // Art. 50(2) AI Act: the answer is a model's text, marked as the MCP
+          // door marks it (`_meta.aiGenerated`), in the artifact's own metadata.
+          metadata: { ...AI_GENERATED_META },
           extensions: [],
         },
       ]

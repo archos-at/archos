@@ -17,7 +17,6 @@ import {
   keyHint,
 } from './secret-store'
 
-// 32 zero bytes, base64 — a valid AES-256 KEK for tests only.
 const TEST_KEK = Buffer.alloc(32, 7).toString('base64')
 
 describe('llm-credentials secret store (local-aes-gcm)', () => {
@@ -40,7 +39,6 @@ describe('llm-credentials secret store (local-aes-gcm)', () => {
 
   it('binds the ciphertext to org + credential (AAD)', () => {
     const envelope = encryptLocal('org_1', 'cred-1', 'sk-super-secret')
-    // Replaying another tenant's ciphertext must fail the GCM tag check.
     expect(() => decryptLocal('org_2', 'cred-1', envelope)).toThrow()
     expect(() => decryptLocal('org_1', 'cred-other', envelope)).toThrow()
   })

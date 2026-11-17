@@ -1,12 +1,3 @@
-"""`POST /v1/ingest` carries the Fassung a person chose at upload (ADR-0099).
-
-The upload dialog offers „Als neue Fassung von X ablegen"; the BFF checks the
-person may change X and sends X's file name as `revision_of`. The route's part is
-to let it reach the job config untouched, where the ingest job writes the link
-once the new file has been read. The BFF twin is `dispatch.spec.ts`, which
-asserts the same `revision_of` key on the request body.
-"""
-
 from unittest.mock import MagicMock
 
 import httpx
@@ -105,7 +96,6 @@ def test_the_request_model_defaults_to_no_choice(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_bff_that_has_not_rolled_yet_still_sends_the_old_key(app, mock_ingestor):
-    """`fassung_of` was the key until migration 0165; the job config carries the new one."""
     response = await _ingest(app, {**BODY, "fassung_of": "Grundriss_EG_Index_B.pdf"})
 
     assert response.status_code == 202

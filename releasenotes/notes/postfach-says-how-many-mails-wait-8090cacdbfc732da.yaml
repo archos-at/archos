@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    The inbox's notice that e-mails to a project wait for filing now says how
+    many wait. It used to count only those that arrived since you last opened
+    it, so it could read "One e-mail" while two were waiting.

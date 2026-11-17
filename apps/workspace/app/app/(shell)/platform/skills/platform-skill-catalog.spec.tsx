@@ -23,8 +23,6 @@ const client = vi.hoisted(() => ({
 }))
 vi.mock('@/adapters/api/skills-client', () => client)
 
-// The category manager is its own surface; here it only needs to be able to
-// say "something changed", which is one of the paths that reloads the list.
 vi.mock('@/features/skills/components/skill-category-manager', () => ({
   SkillCategoryManager: ({ onChanged }: { onChanged: () => void }) => (
     <button type="button" onClick={onChanged}>
@@ -79,7 +77,6 @@ describe('PlatformSkillCatalog', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Delete “oib-fire-check”' }))
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete skill' }))
-    // While the server works, the confirm is still on screen and busy.
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true')
 
     reject(new Error('500'))

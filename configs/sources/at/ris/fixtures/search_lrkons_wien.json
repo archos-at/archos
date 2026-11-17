@@ -1,0 +1,754 @@
+{
+ "OgdSearchResult": {
+  "OgdDocumentResults": {
+   "Hits": {
+    "@pageNumber": "1",
+    "@pageSize": "10",
+    "#text": "1031"
+   },
+   "OgdDocumentReference": [
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40000225",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-04-15",
+        "Geaendert": "2026-07-20",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/P0/LWI40000225"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Titel": "Wiener Stadtentwicklungs-, Stadtplanungs- und Baugesetzbuch (Bauordnung für Wien – BO für Wien)<br/><br/>StF.: LGBl. Nr. 11/1930",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930 zuletzt geändert durch LGBl. Nr. 28/2026 ",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Norm",
+         "ArtikelParagraphAnlage": "§ 0",
+         "Paragraphnummer": "0",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "NovellenPublikationsorgan": "LGBl. Nr.",
+         "NovellenBgblnummer": "28/2026",
+         "NovellenBeziehung": "zuletzt geändert durch",
+         "Inkrafttretensdatum": "2014-01-01",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "GBl. der Stadt Wien Nr. 1/1935\r\nGBl. der Stadt Wien Nr. 33/1936\r\nLGBl. Nr. 17/1947\r\nLGBl. Nr. 45/1949\r\nLGBl. Nr. 16/1955\r\nLGBl. Nr. 28/1956\r\nLGBl. Nr. 7/1960\r\nLGBl. Nr. 16/1961\r\nLGBl. Nr. 3/1964\r\nLGBl. Nr. 10/1964\r\nLGBl. Nr. 9/1967\r\nLGBl. Nr. 13/1968\r\nLGBl. Nr. 6/1970\r\nLGBl. Nr. 15/1970\r\nLGBl. Nr. 25/1971\r\nLGBl. Nr. 16/1972\r\nLGBl. Nr. 18/1976\r\nLGBl. Nr. 11/1981\r\nLGBl. Nr. 30/1984\r\nLGBl. Nr. 13/1985\r\nLGBl. Nr. 01/1986\r\nLGBl. Nr. 12/1986\r\nLGBl. Nr. 19/1986\r\nLGBl. Nr. 28/1987\r\nLGBl. Nr. 29/1987\r\nLGBl. Nr. 07/1990\r\nLGBl. Nr. 15/1991\r\nLGBl. Nr. 32/1991\r\nLGBl. Nr. 37/1991\r\nLGBl. Nr. 08/1992\r\nLGBl. Nr. 28/1992\r\nLGBl. Nr. 31/1992\r\nLGBl. Nr. 34/1992\r\nLGBl. Nr. 48/1992, CELEX-Nr.: 389L0106\r\nLGBl. Nr. 49/1993\r\nLGBl. Nr. 11/1994\r\nLGBl. Nr. 02/1995\r\nLGBl. Nr. 37/1995\r\nLGBl. Nr. 78/1995\r\nLGBl. Nr. 10/1996\r\nLGBl. Nr. 21/1996\r\nLGBl. Nr. 42/1996\r\nLGBl. Nr. 43/1996\r\nLGBl. Nr. 44/1996\r\nLGBl. Nr. 45/1996\r\nLGBl. Nr. 55/1996\r\nLGBl. Nr. 40/1997\r\nLGBl. Nr. 46/1998\r\nLGBl. Nr. 61/1998\r\nLGBl. Nr. 14/2001\r\nLGBl. Nr. 36/2001, CELEX-Nr.: 396L0082\r\nLGBl. Nr. 37/2001\r\nLGBl. Nr. 90/2001\r\nLGBl. Nr. 91/2001\r\nLGBl. Nr. 18/2002\r\nLGBl. Nr. 20/2002\r\nLGBl. Nr. 10/2003\r\nLGBl. Nr. 33/2004\r\nLGBl. Nr. 41/2005\r\nLGBl. Nr. 10/2006\r\nLGBl. Nr. 61/2006\r\nLGBl. Nr. 19/2007\r\nLGBl. Nr. 31/2007\r\nLGBl. Nr. 42/2007\r\nLGBl. Nr. 24/2008, CELEX-Nr.: 32002L0091\r\nLGBl. Nr. 41/2008\r\nLGBl. Nr. 25/2009, CELEX-Nrn.: 393L0076, 395L0016, 396L0082, 32001L0042 und 32002L0091\r\nLGBl. Nr. 46/2010\r\nLGBl. Nr. 64/2012, CELEX-Nr.: 32010L0031\r\nLGBl. Nr. 35/2013\r\nLGBl. Nr. 46/2013\r\nLGBl. Nr. 25/2014, CELEX-Nrn.: 32010L0031 und 32012L0018\r\nLGBl. Nr. 8/2015, CELEX-Nrn.: 32012L0018\r\nLGBl. Nr. 21/2016\r\nLGBl. Nr. 27/2016, CELEX-Nr.: 32014L0061\r\nLGBl. Nr. 37/2018\r\nLGBl. Nr. 69/2018\r\nLGBl. Nr. 71/2018\r\nLGBl. Nr. 60/2020\r\nLGBl. Nr. 61/2020, CELEX-Nr.: 32018L0844\r\nLGBl. Nr. 70/2021, CELEX-Nr.: 32012L0018\r\nLGBl. Nr. 37/2023\r\nLGBl. Nr. 39/2025\r\nLGBl. Nr. 45/2025, CELEX-Nr.: 32023L2413\r\nLGBl. Nr. 3/2026\r\nLGBl. Nr. 25/2026, CELEX-Nr.: 32024L1275\r\nLGBl. Nr. 28/2026, CELEX-Nrn.: 32023L1791 und 32023L2413",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube\r\n",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/P0/LWI40000225"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000225/LWI40000225.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000225/LWI40000225.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000225/LWI40000225.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000225/LWI40000225.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40000064",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-04-15",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A1/LWI40000064"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 1",
+         "Artikelnummer": "1",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "Inkrafttretensdatum": "2014-01-01",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A1/LWI40000064"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000064/LWI40000064.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000064/LWI40000064.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000064/LWI40000064.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000064/LWI40000064.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40000065",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-04-15",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A2/LWI40000065"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 2",
+         "Artikelnummer": "2",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "Inkrafttretensdatum": "2014-01-01",
+         "Ausserkrafttretensdatum": "2018-12-21",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A2/LWI40000065"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000065/LWI40000065.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000065/LWI40000065.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000065/LWI40000065.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000065/LWI40000065.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40013089",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2018-12-27",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A2/LWI40013089"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930 zuletzt geändert durch LGBl. Nr. 69/2018 ",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 2",
+         "Artikelnummer": "2",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "NovellenPublikationsorgan": "LGBl. Nr.",
+         "NovellenBgblnummer": "69/2018",
+         "NovellenBeziehung": "zuletzt geändert durch",
+         "Inkrafttretensdatum": "2018-12-22",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A2/LWI40013089"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013089/LWI40013089.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013089/LWI40013089.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013089/LWI40013089.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013089/LWI40013089.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40000066",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-04-15",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40000066"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 3",
+         "Artikelnummer": "3",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "Inkrafttretensdatum": "2014-01-01",
+         "Ausserkrafttretensdatum": "2014-07-15",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40000066"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40010014",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-07-21",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40010014"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930 zuletzt geändert durch LGBl. Nr. 25/2014 ",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 3",
+         "Artikelnummer": "3",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "NovellenPublikationsorgan": "LGBl. Nr.",
+         "NovellenBgblnummer": "25/2014",
+         "NovellenBeziehung": "zuletzt geändert durch",
+         "Inkrafttretensdatum": "2014-07-16",
+         "Ausserkrafttretensdatum": "2018-12-21",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40010014"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40010014/LWI40010014.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40010014/LWI40010014.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40010014/LWI40010014.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40010014/LWI40010014.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40013090",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2018-12-27",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40013090"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930 zuletzt geändert durch LGBl. Nr. 69/2018 ",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 3",
+         "Artikelnummer": "3",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "NovellenPublikationsorgan": "LGBl. Nr.",
+         "NovellenBgblnummer": "69/2018",
+         "NovellenBeziehung": "zuletzt geändert durch",
+         "Inkrafttretensdatum": "2018-12-22",
+         "Ausserkrafttretensdatum": "2024-03-12",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40013090"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013090/LWI40013090.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013090/LWI40013090.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013090/LWI40013090.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40013090/LWI40013090.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40016486",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2023-12-19",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40016486"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930 zuletzt geändert durch LGBl. Nr. 37/2023 ",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 3",
+         "Artikelnummer": "3",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "NovellenPublikationsorgan": "LGBl. Nr.",
+         "NovellenBgblnummer": "37/2023",
+         "NovellenBeziehung": "zuletzt geändert durch",
+         "Inkrafttretensdatum": "2024-03-13",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A3/LWI40016486"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40016486/LWI40016486.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40016486/LWI40016486.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40016486/LWI40016486.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40016486/LWI40016486.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40000067",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-04-15",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A4/LWI40000067"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 4",
+         "Artikelnummer": "4",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "Inkrafttretensdatum": "2014-01-01",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A4/LWI40000067"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000067/LWI40000067.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000067/LWI40000067.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000067/LWI40000067.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000067/LWI40000067.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "Data": {
+      "Metadaten": {
+       "Technisch": {
+        "ID": "LWI40000068",
+        "Applikation": "LrKons",
+        "Organ": "LReg Wien",
+        "ImportTimestamp": {
+         "@xsi:nil": "true",
+         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        }
+       },
+       "Allgemein": {
+        "Veroeffentlicht": "2014-04-15",
+        "Geaendert": "2024-11-15",
+        "DokumentUrl": "https://ogd.ris.bka.gv.at/eli/lgbl/WI/1930/11/A5/LWI40000068"
+       },
+       "Landesrecht": {
+        "Kurztitel": "Bauordnung für Wien",
+        "Bundesland": "Wien",
+        "LrKons": {
+         "Kundmachungsorgan": "LGBl. Nr. 11/1930",
+         "Typ": "Gesetz",
+         "Dokumenttyp": "Paragraph",
+         "ArtikelParagraphAnlage": "Art. 5",
+         "Artikelnummer": "5",
+         "StammnormPublikationsorgan": "LGBl. Nr.",
+         "StammnormBgblnummer": "11/1930",
+         "Inkrafttretensdatum": "2014-01-01",
+         "Ausserkrafttretensdatum": "2014-07-15",
+         "Abkuerzung": "BO für Wien",
+         "Indizes": {
+          "item": [
+           "10 Bau- und Bodenrecht sowie Recht der Technik (B)",
+           "10/10 Baurecht sowie Straßen- und Wegerecht"
+          ]
+         },
+         "Aenderung": "",
+         "Schlagworte": "Bauordnung, Bau, Stadtentwicklung, Stadtplanung, Baugesetz, BO, Bauen, Arbeit, Bauklasse, Haus, Wohnhaus, Pflegeheim, Krankenhaus, Krankenanstalt, Pensionistenwohnhaus, Garage, Tiefgarage, Wohnheim, Wohnhausanlage, Stadtbild, Flächenwidmung, Flächenwidmungsplan, Land, Grünland, Bauland, Industrieland, Parkanlagen, Sportanlagen, Kleingarten, Kleingartensiedlung, Sportplatz, Spielplatz, Grundfläche, Badehütte, Freibad, Erholungsgebiet, Friedhof, Friedhöfe, Steinbruch, Schottergrube, Sandgrube, Lehmgrube, Tongrube",
+         "Gesetzesnummer": "20000006",
+         "GesamteRechtsvorschriftUrl": "https://ogd.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+         "Eli": "https://ris.bka.gv.at/eli/lgbl/WI/1930/11/A5/LWI40000068"
+        }
+       }
+      },
+      "Dokumentliste": {
+       "ContentReference": {
+        "ContentType": "MainDocument",
+        "Name": "Hauptdokument",
+        "Urls": {
+         "ContentUrl": [
+          {
+           "DataType": "Xml",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000068/LWI40000068.xml"
+          },
+          {
+           "DataType": "Html",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000068/LWI40000068.html"
+          },
+          {
+           "DataType": "Rtf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000068/LWI40000068.rtf"
+          },
+          {
+           "DataType": "Pdf",
+           "Url": "https://ogd.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000068/LWI40000068.pdf"
+          }
+         ]
+        }
+       }
+      }
+     }
+    }
+   ]
+  }
+ }
+}

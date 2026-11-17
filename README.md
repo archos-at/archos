@@ -82,7 +82,7 @@ live default model is set by an admin in the platform, not in the YAML.
 
 ```bash
 task verify       # the full merge gate (lint, tests, type checks)
-task verify:fast  # the same, without the production builds
+task verify:fast  # the same checks, for what your change can break
 task workspace:test      # UI tests
 task be:test      # backend tests
 task lint:repo    # pre-commit across the repo, the scope CI lints

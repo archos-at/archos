@@ -1,50 +1,5 @@
 'use client'
 
-/**
- * Fassungen und Freigabe: ONE section for what a document has been and where it
- * stands now. It sits in the preview rail, which is 248px of content.
- *
- *  - **The header says where the document stands, in one line**, and is about
- *    the NEWEST Fassung only: „Fassung 2 · In Prüfung", the approval track with
- *    its four stages named, the next step with a person („Nächster Schritt:
- *    Freigabe durch Sabine Gruber"), and which Fassung Piloti answers from. When
- *    that is an older one, the header says so by number („Piloti antwortet
- *    weiter aus Fassung 1."), so the header and the rows below can no longer
- *    contradict each other (`lib/revision-standing.ts`).
- *  - **The body is one timeline, newest first, numbered „Fassung 3, 2, 1"**
- *    across the uploads under this name (`document_versions`, ADR-0054) and the
- *    older documents linked under other names (ADR-0099). The index or date the
- *    office gave a Fassung is a secondary tag; „aktuell" marks only the one
- *    Piloti answers from (`lib/documents/revision-timeline.ts`).
- *  - **Every fact once.** The state is in the header; the date and the person
- *    on a row's act line; a file name only where the row is another document.
- *    One visible action per row (Öffnen), the rest behind its ⋯.
- *
- * ## An upload is not a fake approval
- *
- * A person's upload is born published, without a review. It gets no state word
- * and no track, and its act is „Hochgeladen", never „Freigegeben" or
- * „Veröffentlicht". A Fassung a newer document replaced is „Ersetzt", without a
- * green track.
- *
- * ## Shut by default, and it opens itself when something is asked of the reader
- *
- * The header is always visible; the body is a disclosure. It opens ITSELF when a
- * decision is this reader's to take (`lifecycleNeedsReader`), when Piloti has an
- * unconfirmed suggestion, or when this document is an older Fassung. It opens on
- * the attention EDGE, once, so a reader who closes it is not fought.
- *
- * ## Controls only where the surface can honour them
- *
- * Review controls need the reader's lifecycle permissions, which the Files
- * workspace resolves and the Archiv sheet and the chat peek do not. Without
- * `viewer` the same section shows the timeline and the suggestion and no
- * controls. Linking and unlinking is `canManage`, a different permission.
- *
- * Data handling is `useDocumentLifecycle`; this component composes it with the
- * Fassung facts the listing already carries.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, History } from 'lucide-react'
@@ -111,34 +66,19 @@ import { mailThreadClient } from './mail-thread/client'
 
 export interface DocumentRevisionsProps {
   file: FileItem
-  /** The project, so a Fassung a mail brought links to its E-Mail-Verlauf (D36); absent off a project (the Archiv). */
   projectId?: string
-  /** May this reader link and unlink Fassungen (a write on the folder)? */
   canManage: boolean
-  /**
-   * What this reader may do to the document's versions. Absent on the surfaces
-   * that did not resolve it (the Archiv sheet, the chat peek): the section then
-   * shows the timeline and the suggestion, and no review controls.
-   */
   viewer?: DocumentLifecycleViewer
-  /** Names the pane already knows (the document's assignees), by user id. */
   names?: Readonly<Record<string, string>>
-  /** Injected by the dev preview and the specs; the browser gets the real one. */
   client?: DocumentLifecycleClient
-  /** Where the visual comparison gets its pages. Injected by the specs and the dev preview. */
   compareSource?: SourceLoader
-  /** A link was confirmed or taken back: the facts of BOTH documents, so a listing can move both cards. */
   onRevisionChanged?: (fileId: string, revision: RevisionLinks) => void
-  /** Open another document of the shelf in this preview: an older Fassung, or the newer one. Absent where the surface cannot. */
   onOpenDocument?: (fileId: string) => void
-  /** The document's editorial state changed here, so the listing behind the pane can move its badge. */
   onLifecycleChanged?: (summary: DocumentLifecycleSummary) => void
-  /** The document's live Anmerkungen and the way into them, for the approve confirm (`DocumentReviewControls`). */
   openMarks?: DocumentReviewControlsProps['openMarks']
   className?: string
 }
 
-/** Row states worth a word on an OLDER row. Every older row is replaced; saying „Ersetzt" five times is a stripe, not information. */
 const NOTABLE_ROW_STATES: ReadonlySet<DocumentVersionView['state']> = new Set([
   'draft',
   'in_review',
@@ -147,7 +87,6 @@ const NOTABLE_ROW_STATES: ReadonlySet<DocumentVersionView['state']> = new Set([
   'rejected',
 ])
 
-/** The i18n leaf per track stage, in `LIFECYCLE_STAGES` order. */
 const STAGE_LABEL_KEYS = [
   'lifecycle.states.draft',
   'lifecycle.states.inReview',
@@ -172,17 +111,12 @@ export function DocumentRevisions({
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
 
-  // The rail is reused across files; a decision just made belongs to one.
   const [facts, setFacts] = useState<RevisionLinks | null>(file.revision ?? null)
   const [busy, setBusy] = useState(false)
-  // A decision answered after the rail moved to another file belongs to the old one.
   const currentId = useRef(file.id)
   currentId.current = file.id
   useEffect(() => setFacts(file.revision ?? null), [file.id, file.revision])
 
-  // The uploads under this very name are read where they can matter: for a
-  // reader who may decide on them, and for a document the listing already knows
-  // has more than one.
   const lifecycleEnabled = viewer !== undefined || (file.versionCount ?? 1) > 1
   const { listing, loading, failed, pending, reviewers, act } = useDocumentLifecycle({
     documentId: file.id,
@@ -193,19 +127,9 @@ export function DocumentRevisions({
   })
 
   const [textComparison, setTextComparison] = useState<TextComparison | null>(null)
-  // Which mail brought a Fassung (D36) opens that mail in its E-Mail-Verlauf.
   const openMailOrigin = useOpenMailOrigin(projectId ?? '', mailThreadClient)
-  // The rows of the last render, for the comparison's callback: it runs after
-  // the dialog closes, and needs the numbers the reader has just seen.
   const rowsRef = useRef<readonly TimelineRow[]>([])
 
-  /**
-   * Two Fassungen that cannot be laid over each other (text, Markdown, CSV):
-   * the comparison dialog offers their TEXT instead, and this shows the line
-   * comparison under the row it was asked from, the same view the uploads
-   * under one name get. Two documents have no shared version chain, so their
-   * texts are read one by one (`GET /api/documents/{id}/text`).
-   */
   const compareDocumentsAsText = useCallback(
     async (older: CompareFile, newer: CompareFile) => {
       const fileId = file.id
@@ -251,15 +175,11 @@ export function DocumentRevisions({
   const newest = newestVersion(versions)
   const lifecycle = listing?.lifecycle ?? 'active'
 
-  // What the section asks of the reader without being opened.
   const attention =
     suggestion !== null ||
     supersededBy !== null ||
     (viewer !== undefined && listing !== null && lifecycleNeedsReader(newest, lifecycle, viewer))
   const [open, setOpen] = useState(attention)
-  // Opens on the attention EDGE, once. Re-asserting `open` on every render
-  // would make the disclosure un-closable while a decision is outstanding, and
-  // a reader who has read the round and wants the rail back is entitled to it.
   const openedForAttention = useRef(attention)
   useEffect(() => {
     if (!attention || openedForAttention.current) return
@@ -273,8 +193,6 @@ export function DocumentRevisions({
       setBusy(true)
       try {
         const answer = await requestRevisionLink(fileId, olderId, linked)
-        // The link changes both cards: the newer one's „ersetzt …" and the
-        // older one's „ersetzt durch …".
         onRevisionChanged?.(fileId, answer.newer)
         onRevisionChanged?.(olderId, answer.older)
         if (currentId.current === fileId) setFacts(answer.newer)
@@ -302,8 +220,6 @@ export function DocumentRevisions({
           })
         }
       } catch {
-        // One failed comparison is a line under its row, never a thrown render:
-        // the timeline itself is still the useful half of this section.
         if (currentId.current === fileId) setTextComparison({ rowKey, status: 'failed' })
       }
     },
@@ -336,23 +252,17 @@ export function DocumentRevisions({
     newestRead,
   })
 
-  // Every source of a name the pane has: the listing's own resolution of the
-  // people who acted, the assignees, and the reviewer candidates.
   const listedNames = new Map((listing?.people ?? []).map((person) => [person.userId, person.name]))
   const assigneeNames = new Map(Object.entries(names ?? {}))
   const candidateNames = new Map(reviewers.map((person) => [person.userId, person.name]))
   const person = (userId: string | null) =>
     resolvePerson(userId, viewer?.userId, listedNames, assigneeNames, candidateNames)
 
-  /** „Hochgeladen von Anna Berger · 14.08.2026": the person and the date, once. */
   const actLine = (act: VersionAct): string => {
-    // A person uploads; Piloti, or a colleague asking for a draft, creates.
     const key = act.key === 'uploaded' && file.authoredBy === 'agent' ? 'created' : act.key
     const who = person(act.actor)
     const name =
       who.kind === 'you' ? t('preview.revision.rail.byYou') : who.kind === 'name' ? who.name : t('preview.revision.rail.bySomeone')
-    // The person and the date break as one: „Eingereicht von / Anna Berger · 03.09.2026",
-    // never a dangling „·" at a line end or a surname alone on the next line.
     return t('preview.revision.rail.act', {
       act: t(`lifecycle.versions.${key}`),
       name: keepTogether(`${name} · ${formatDate(act.when, locale)}`),
@@ -371,7 +281,6 @@ export function DocumentRevisions({
   const changeCaption = changeCaptionFor(changeSummary, rows, t)
   const firstChangeKey = rows.find((row) => rowChange(row, changeSummary) !== null)?.key ?? null
 
-  // A lone row that says nothing the header does not is not a timeline.
   const showTimeline = rows.length > 1 || rows.some((row) => rowHasContent(row, changeSummary !== null))
   const offersApprove =
     viewer !== undefined && listing !== null && availableLifecycleGestures(newest, lifecycle, viewer).includes('approve')
@@ -382,12 +291,7 @@ export function DocumentRevisions({
   const renderVersionRow = (row: VersionRow, index: number): JSX.Element => {
     const { version } = row
     const everArrived = version.state === 'published' || version.state === 'superseded'
-    // An earlier upload whose bytes no passing verdict judged (its own,
-    // migration 0131, or the item's) is its uploader's and the reviewers' to
-    // open (ADR-0086): the routes refuse it to everyone else, so nothing here
-    // offers what would be a 404. A screened earlier upload opens for all.
     const openable = version.bytesReadable !== false
-    // The newest carries its whole story; an older row, only its last act.
     const acts = row.newest && versionActs(version).length > 0 ? versionActs(version) : [latestAct(version)]
     const predecessorNumber = row.predecessor ? numberOfVersion(rows, row.predecessor.id) : null
     const menu: ActionMenuEntry[] = []
@@ -434,7 +338,6 @@ export function DocumentRevisions({
         last={index === rows.length - 1}
         dataset={{ kind: 'version', version: String(version.versionNumber), state: version.state, number: String(row.number) }}
         action={
-          // The current Fassung is the document in front of the reader.
           row.current || !openable ? null : (
             <RowAction asChild>
               <a
@@ -491,9 +394,6 @@ export function DocumentRevisions({
       </RowAction>
     ) : null
 
-  // The Fassung before this one, compared in ONE tap from its row: the on-site
-  // question is „what changed since the last one", and the ⋯ menu made it
-  // three taps and a guess at where the comparison lives.
   const previousKey = rows.find((candidate) => candidate.kind === 'linked')?.key ?? null
 
   const renderLinkedRow = (row: LinkedRow, index: number): JSX.Element => {
@@ -571,8 +471,6 @@ export function DocumentRevisions({
     return renderLinkedRow(row, index)
   }
 
-  // Shown in the header only when there is no timeline to carry it: a lone
-  // Fassung's who-and-when, said once.
   const headerAct = !showTimeline && newest ? actLine(latestAct(newest)) : null
 
   return (
@@ -648,8 +546,6 @@ export function DocumentRevisions({
                 revisionNumber={standing.number ?? undefined}
                 publishBare
                 openMarks={openMarks}
-                // The signature line of the approve confirm: the viewer's own
-                // name where the surface knows one, else the moment alone.
                 actingName={viewer.userId ? (assigneeNames.get(viewer.userId) ?? listedNames.get(viewer.userId) ?? null) : null}
               />
               {offersApprove && (
@@ -706,12 +602,6 @@ export function DocumentRevisions({
   )
 }
 
-/**
- * The header: „Fassung 2 · In Prüfung", the labelled track, the next step with
- * a person, and which Fassung Piloti answers from. Every line is about the
- * newest Fassung; the one exception is the answer sentence, which names the
- * older Fassung by number when that is the one Piloti still uses.
- */
 function RevisionHeader({
   standing,
   person,
@@ -783,7 +673,6 @@ const NEXT_STEP_KEYS: Record<NextStep['kind'], { who: string; you: string }> = {
   publish: { who: 'next.publish', you: 'next.publishYou' },
 }
 
-/** „Nächster Schritt: Freigabe durch Sabine Gruber", „… Ihre Freigabe", or „… Freigabe" when nobody in particular. */
 function nextStepText(
   step: NextStep,
   person: (userId: string | null) => ReturnType<typeof resolvePerson>,
@@ -793,9 +682,7 @@ function nextStepText(
   const keys = NEXT_STEP_KEYS[step.kind]
   const rail = (key: string, params?: Record<string, string | number>) => t(`preview.revision.rail.${key}`, params)
   if (step.you) return rail(keys.you)
-  // Publishing waits for whoever may publish; nobody in particular is asked.
   if (step.kind === 'publish') return rail(keys.who)
-  // A round that names nobody the reader can see is still a Freigabe.
   if (step.people.length === 0) return step.kind === 'approve' ? rail('next.approveOpen') : rail(keys.who, { who: rail('someone') })
   const named = [
     ...new Set(
@@ -825,19 +712,16 @@ function answerText(standing: RevisionStanding, t: Translator): string {
   }
 }
 
-/** Non-breaking spaces: a name (and its date) wraps as one piece in a 248px rail. */
 function keepTogether(text: string): string {
   return text.replace(/ /g, '\u00a0')
 }
 
-/** The change summary a row carries: the document's own on the row that stands for it, a linked document's own on its row. */
 function rowChange(row: TimelineRow, summary: RevisionLinks['changeSummary']): string | null {
   if (row.kind === 'linked') return row.entry.changeSummary
   if (row.kind === 'head' || (row.kind === 'version' && row.newest)) return summary?.text ?? null
   return null
 }
 
-/** „Geändert gegenüber Fassung 2:", by number where the Fassung it is measured against is in the timeline. */
 function changeCaptionFor(summary: RevisionLinks['changeSummary'], rows: readonly TimelineRow[], t: Translator): string | null {
   if (summary === null) return null
   const basis = summary.basis
@@ -851,7 +735,6 @@ function changeCaptionFor(summary: RevisionLinks['changeSummary'], rows: readonl
     : t('preview.revision.changedSince', { name: basis.filename })
 }
 
-/** Whether a lone row has something to say that the header does not already say. */
 function rowHasContent(row: TimelineRow, hasChange: boolean): boolean {
   if (row.kind === 'version') {
     return isPendingVersion(row.version) || Boolean(row.version.reviewComment) || (row.newest && hasChange)

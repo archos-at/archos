@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    The model check places a project by the Land its address search found, as
+    the project setup does: an Austrian project whose Land was never entered
+    by hand no longer gets every OIB rule left open.

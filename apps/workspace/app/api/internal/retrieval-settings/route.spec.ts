@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))

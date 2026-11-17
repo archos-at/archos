@@ -23,8 +23,8 @@ operators:
     still index, without a preview. Compose and Pulumi ship it by default.
   - >
     Deploy the frontend before the backend, or expect office uploads made while
-    only the backend is new to fail retryably. docs/deployment/cd.md and
-    docs/deployment/coolify.md have the rollout steps.
+    only the backend is new to fail retryably. docs/deployment/cd.md has the
+    rollout steps.
   - >
     Each picture embedded in a Word or presentation file costs a VLM caption
     call at ingestion. Existing documents keep their old chunks until someone

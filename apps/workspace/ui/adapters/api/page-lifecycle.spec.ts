@@ -24,6 +24,7 @@ const fakeGlobals = () => {
 }
 
 const pageshow = (persisted: boolean) => Object.assign(new Event('pageshow'), { persisted })
+const pagehide = (persisted: boolean) => Object.assign(new Event('pagehide'), { persisted })
 
 describe('browserPageLifecycle', () => {
   it('reads visibility and the network live', () => {
@@ -67,6 +68,31 @@ describe('browserPageLifecycle', () => {
     win.dispatchEvent(pageshow(false))
     expect(resume).not.toHaveBeenCalled()
     win.dispatchEvent(pageshow(true))
+    expect(resume).toHaveBeenCalledExactlyOnceWith('pageshow')
+  })
+
+  it('raises nothing for the pagehide of a page that is being discarded while still visible', () => {
+    const { win, globals } = fakeGlobals()
+    const suspend = vi.fn()
+    const page = browserPageLifecycle(globals)
+    page.subscribe({ resume: vi.fn(), suspend })
+    win.dispatchEvent(pagehide(false))
+    expect(suspend).not.toHaveBeenCalled()
+    expect(page.visible).toBe(true)
+  })
+
+  it('is away from the pagehide into the back/forward cache until the pageshow out of it', () => {
+    const { win, globals } = fakeGlobals()
+    const resume = vi.fn()
+    const suspend = vi.fn()
+    const page = browserPageLifecycle(globals)
+    page.subscribe({ resume, suspend })
+    // Frozen in the cache, whatever `visibilityState` still says.
+    win.dispatchEvent(pagehide(true))
+    expect(suspend).toHaveBeenCalledOnce()
+    expect(page.visible).toBe(false)
+    win.dispatchEvent(pageshow(true))
+    expect(page.visible).toBe(true)
     expect(resume).toHaveBeenCalledExactlyOnceWith('pageshow')
   })
 

@@ -26,46 +26,22 @@ import { AnimatePresence, iconSwapTransition, motion, motionBase, useMotionToken
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
+import { formatByteProgress, formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { FilingViewBar } from './filing-bar'
 import { HIGHLIGHT_OUTLINE_INSET } from '@/components/ui/highlight'
 
-/**
- * The upload surface.
- *
- * What it replaces was a flat list under a bar that read
- * `progress > 0 ? progress : 15` — a literal constant standing in for a
- * measurement nobody had taken. It sat at 15% for the whole upload and then at
- * whatever the ingest job had last reported for the whole indexing pass, which
- * is why it "always got stuck on the same thing".
- *
- * The rule this surface is built on: **a percentage is only ever drawn for
- * bytes actually in flight.** Everything else — waiting for a slot, waiting for
- * the backend to read a document — is shown as motion plus an elapsed time.
- * That is not a smaller promise, it is the true one, and it is the difference
- * between a user who trusts the number and a user who has learned to ignore it.
- *
- * The batch bar tracks BYTES rather than file count, because a batch is usually
- * one enormous model and a dozen small PDFs, and a count-based bar would leap
- * to 92% and then appear to hang for a minute.
- */
-
 interface UploadTrayProps {
   files: TrackedFile[]
   onRetry: (id: string) => void
-  /** Abort one in-flight upload. Omitted where cancellation is not wired up. */
   onCancel?: (id: string) => void
-  /** Abort everything still in flight. */
-  onCancelAll?: () => void
-  /** Take rows off the tray. Dismissing a NOTICE — never a document delete. */
+  onCancelAll?: () => void /* abort everything still in flight */
   onDismiss?: (ids: string[]) => void
-  /** Open one of the shelf's documents in the preview, where the surface has one. */
   onOpenDocument?: (documentId: string) => void
+  className?: string /* its plane where it lies: in Dateien a sheet on the column (`UPLOAD_TRAY_SHEET`) */
 }
 
-/** Phases that belong on a live upload surface. */
 const VISIBLE_PHASES = new Set<UploadPhase>([
   'queued',
   'uploading',
@@ -77,28 +53,10 @@ const VISIBLE_PHASES = new Set<UploadPhase>([
   'canceled',
 ])
 
-/**
- * How long a wholly successful batch keeps its summary before retiring itself.
- *
- * Success should be confirmed and then get out of the way; a panel announcing
- * "12 documents added" an hour later is clutter the user has to clear by hand.
- * A batch with anything failed, held or canceled in it never auto-retires —
- * those rows carry an action or a reason, and dismissing one unread would lose
- * it. A held file in particular says why it was held, and the uploader is the
- * one person who can ask for it to be let through.
- */
 const SUCCESS_LINGER_MS = 6_000
 
-/** Characters of a file name kept whole at its end: `_Rev_C_Freigabe.pdf`. */
 const ROW_NAME_TAIL = 20
 
-/**
- * Whether the browser believes it has a connection. `navigator.onLine` is only
- * a belief (a captive portal reads as online), but its one confident answer is
- * the useful one: `false` means the radio is off or out of range, and a tray
- * that says „Wird hochgeladen" over a dead link is the lie this exists to end.
- * The server snapshot is online, so the first paint never flashes the notice.
- */
 function subscribeOnline(onChange: () => void): () => void {
   window.addEventListener('online', onChange)
   window.addEventListener('offline', onChange)
@@ -114,8 +72,7 @@ function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, readOnline, serverOnline)
 }
 
-export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument }: UploadTrayProps) {
-  // Height and opacity are not covered by MotionConfig's reduced motion.
+export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument, className }: UploadTrayProps) {
   const foldTransition = useMotionToken(motionBase)
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
@@ -123,8 +80,6 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
 
   const visible = useMemo(() => files.filter((file) => VISIBLE_PHASES.has(uploadPhase(file))), [files])
   const summary = useMemo(() => summarizeTransfer(visible), [visible])
-  // The batch's documents, for the filing bar: filing is the job here, so it
-  // shows even for one file.
   const documentIds = useMemo(
     () => visible.flatMap((file) => (file.serverFileId ? [file.serverFileId] : [])),
     [visible]
@@ -132,12 +87,9 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
 
   const isTransferring = summary.stage === 'transferring'
   const isOnline = useOnline()
-  // Offline only matters while bytes are meant to be moving.
   const isWaitingForNetwork = isTransferring && !isOnline
   const { bytesPerSecond, etaSeconds } = useTransferRate(summary.uploadedBytes, summary.remainingBytes, isTransferring)
 
-  // When the batch stopped moving bytes and handed over to the backend — the
-  // anchor for the elapsed timer that stands in for a percentage nobody has.
   const [processingSince, setProcessingSince] = useState<number | null>(null)
   useEffect(() => {
     setProcessingSince((current) => {
@@ -152,32 +104,13 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
     return () => onDismiss(visible.map((file) => file.id))
   }, [onDismiss, visible])
 
-  /**
-   * Whether somebody is currently reading or using the tray.
-   *
-   * The self-retire above unmounts the whole section. If the pointer is resting
-   * on it, a panel disappears from under the cursor and whatever was below jumps
-   * up into the click that was already on its way; if the KEYBOARD is in it — on
-   * the collapse control, on a row's retry — focus is dropped to the document
-   * body, which is the same "you lost your place" bug the preview dialog had.
-   * Six seconds is a promise about an unattended panel, not about one being
-   * used, so the timer holds while it is and starts over when it is let go.
-   */
   const [isHeld, setIsHeld] = useState(false)
-  // A tray that empties while the pointer or focus is in it (its own
-  // „Ausblenden“) gets no mouseleave or blur from the detached node, so the
-  // hold would outlive it and stop the next clean batch from retiring.
   useEffect(() => {
     if (visible.length === 0) setIsHeld(false)
   }, [visible.length])
 
   const isQuietSuccess =
     summary.isSettled && summary.failed === 0 && summary.held === 0 && summary.canceled === 0
-  // The timer reads the latest dismiss through a ref and restarts only when
-  // the batch's standing changes, never on a new `files` array. A parent that
-  // re-renders the same settled rows (a poll, a store write) used to hand a new
-  // `dismissAll` each time, which cleared the timer before it fired, so a clean
-  // batch sat on screen until dismissed by hand.
   const dismissAllRef = useRef(dismissAll)
   useEffect(() => {
     dismissAllRef.current = dismissAll
@@ -189,14 +122,6 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
     return () => clearTimeout(timer)
   }, [canRetire])
 
-  /**
-   * Recovery for the whole batch at once. Three of twelve failing is the common
-   * shape of an upload problem (a flaky link, a backend blip), and clearing it
-   * one row at a time is work the interface can do on the user's behalf.
-   *
-   * Failed rows only. A held row is not a failure: the server refuses a
-   * re-upload onto it, so retrying it would turn a reason into a 409.
-   */
   const retryAll = useMemo(() => {
     const failed = visible.filter((file) => uploadPhase(file) === 'failed' && mayRetryUpload(file))
     if (failed.length === 0) return null
@@ -212,10 +137,6 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
     ? t('uploads.detail.offline')
     : trayDetail(summary, { bytesPerSecond, etaSeconds, processingElapsed, locale, t })
 
-  // The tray arrives and leaves as a fold, not a snap: it sits above the
-  // listing, and a panel that appears or retires in one frame throws every row
-  // below it by the panel's whole height. `initial={false}`: a tray already
-  // there on first render (a reload mid-batch) does not animate in.
   return (
     <AnimatePresence initial={false}>
       {visible.length > 0 && (
@@ -228,12 +149,10 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
       transition={foldTransition}
       aria-label={t('uploads.region')}
       data-testid="upload-tray"
-      className="shrink-0 overflow-hidden border-b bg-card"
+      className={cn('shrink-0 overflow-hidden border-b bg-card', className)}
       onMouseEnter={() => setIsHeld(true)}
       onMouseLeave={() => setIsHeld(false)}
       onFocusCapture={() => setIsHeld(true)}
-      // `relatedTarget` is where focus is GOING; a move between two controls
-      // inside the tray must not read as leaving it.
       onBlurCapture={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsHeld(false)
       }}
@@ -245,26 +164,19 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           truncated to an ellipsis while three buttons sat beside them at full
           size. The summary now holds a readable floor and the actions drop to a
           second line when they no longer fit beside it. */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 phone:gap-2">
         <TrayGlyph summary={summary} offline={isWaitingForNetwork} />
 
         <button data-attr="files-toggle-expanded"
           type="button"
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}
-          // `min-h-11` and NOT the `-my-2.5 py-2.5` trick this used to carry.
-          // That trick let the button claim the tray's own padding without
-          // moving anything, which was right while the row could not wrap — and
-          // wrong the moment it could: `flex-wrap` above puts the actions on a
-          // second line separated by `gap-3` (12px), and a 10px overhang eats
-          // most of that gap, so a tap aimed at "Retry all" lands on the summary
-          // instead. A hit box has to stay inside its own flex line.
-          className="min-w-40 flex-1 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+          className="min-w-32 flex-1 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
         >
           {/* Polite, not assertive: the phase changes two or three times per
               batch and each one is worth hearing, but the byte counter beneath
               it updates every second and must never be announced. */}
-          <p aria-live="polite" className="truncate text-sm font-medium leading-tight text-foreground">
+          <p aria-live="polite" className="text-pretty text-sm font-medium leading-tight text-foreground" /* wraps, never cuts: „2 Dokumente werden hochgeladen“ lost its end at 768px */>
             {headline}
           </p>
           {/* Two lines, not one: on a phone the sentence that says why nothing
@@ -282,18 +194,18 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
             160px floor and the expander does not fit 390px, and the
             expander is what wrapped. */}
         {hasHeaderActions && (
-          <div className="order-3 flex basis-full items-center justify-end gap-2 sm:order-2 sm:basis-auto">
+          <div className={cn('flex items-center justify-end gap-3', summary.isSettled ? 'order-3 basis-full sm:order-2 sm:basis-auto' : 'order-2')}>
           {isTransferring && onCancelAll && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={onCancelAll}>
+            <Button type="button" variant="ghost" size="sm" className="-mx-2 shrink-0" onClick={onCancelAll}>
               {t('uploads.actions.cancelAll')}
             </Button>
           )}
           {summary.isSettled && retryAll && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
-              className="h-7 shrink-0 gap-1.5 px-2 text-xs"
+              className="shrink-0 gap-1.5"
               onClick={retryAll}
             >
               <RotateCcw className="size-3.5" aria-hidden />
@@ -301,7 +213,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
             </Button>
           )}
           {summary.isSettled && dismissAll && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={dismissAll}>
+            <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={dismissAll}>
               {t('uploads.actions.dismissAll')}
             </Button>
           )}
@@ -312,7 +224,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}
           aria-label={isExpanded ? t('uploads.actions.collapse') : t('uploads.actions.expand')}
-          className="order-2 flex size-7 shrink-0 sm:order-3 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11"
+          className="order-2 flex size-7 shrink-0 sm:order-3 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:-m-2 pointer-coarse:size-11"
         >
           <ChevronDown
             className={cn(
@@ -344,10 +256,6 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            // A tween, not a spring: this is an accordion height, and a spring
-            // on a layout property overshoots PAST `auto` and clips the last
-            // row on the way in. `design-language.md` §"Fixed
-            // choreography" puts height changes on `--motion-base`.
             transition={foldTransition}
             className="max-h-[42dvh] overflow-y-auto overscroll-contain"
           >
@@ -374,24 +282,11 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
   )
 }
 
-/**
- * The batch's state as one mark.
- *
- * A ring rather than a bar: the header already carries a bar, and the ring says
- * "this whole thing" where the bar says "this much of it". Determinate while
- * bytes move; a rotating arc while the backend reads, which is a shape that
- * cannot be mistaken for a position.
- */
 function TrayGlyph({ summary, offline }: { summary: TransferSummary; offline: boolean }) {
   const radius = 8
   const circumference = 2 * Math.PI * radius
 
   if (summary.isSettled) {
-    // Any failure at all takes the mark, even alongside successes. A green
-    // check over "1 added · 1 failed" is the glyph contradicting the sentence
-    // beside it, and the glyph is what gets read at a glance. A held file
-    // takes it next, in the warning colour: nothing failed, but the batch is
-    // not done either while somebody has to look at one of its files.
     const hasFailure = summary.failed > 0
     const hasHeld = !hasFailure && summary.held > 0
     return (
@@ -401,8 +296,6 @@ function TrayGlyph({ summary, offline }: { summary: TransferSummary; offline: bo
         data-tone={hasFailure ? 'destructive' : hasHeld ? 'warning' : 'success'}
         className={cn(
           'flex size-5 shrink-0 items-center justify-center rounded-full',
-          // The mark lands rather than appears: a short rise from the ring's
-          // size, so "done" is something that happened. Still under reduced motion.
           'animate-in zoom-in-75 fade-in-0 duration-base ease-entrance motion-reduce:animate-none',
           hasFailure
             ? 'bg-danger-subtle text-error'
@@ -453,22 +346,12 @@ function TrayGlyph({ summary, offline }: { summary: TransferSummary; offline: bo
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeDasharray={`${filled} ${circumference}`}
-        // `duration-deliberate` is the ceiling of the motion scale; the 500ms
-        // this replaces was off it entirely, so the ring still lagged visibly
-        // behind the byte count beside it.
         className="stroke-primary transition-[stroke-dasharray] duration-deliberate ease-out motion-reduce:transition-none"
       />
     </svg>
   )
 }
 
-/**
- * One horizontal track.
- *
- * `percent === null` and `sweeping` are not two ways of saying the same thing:
- * a sweep means "working, no position exists", an empty track means "nothing is
- * happening here". Conflating them is how an idle row ends up animating.
- */
 function TrackBar({
   percent,
   sweeping,
@@ -488,9 +371,6 @@ function TrackBar({
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
-      // An indeterminate progressbar omits `aria-valuenow` — that is exactly
-      // what the ARIA spec reserves it for, and it is the accessible half of
-      // the same honesty the visual makes.
       {...(percent === null ? {} : { 'aria-valuenow': percent })}
       className={cn('relative h-[3px] w-full overflow-hidden bg-foreground/8', className)}
     >
@@ -498,13 +378,6 @@ function TrackBar({
         <span className="animate-progress-sweep block h-full w-1/3 rounded-full bg-primary/60 motion-reduce:animate-none" />
       ) : (
         <span
-          // `scaleX` from the left edge, NOT `width`. This bar re-renders on
-          // every progress event — a `transition-[width]` here asked the
-          // browser to re-lay-out the tray on each tick for the whole life of
-          // an upload, which is the one thing
-          // `design-language.md` §"Binding constraints" rules out
-          // ("transform and opacity only"). At 3px tall the `rounded-r`
-          // cap's horizontal squash under the scale is sub-pixel.
           className="block h-full w-full origin-left rounded-r-full bg-primary transition-transform duration-quick ease-out motion-reduce:transition-none"
           style={{ transform: `scaleX(${percent / 100})` }}
         />
@@ -523,9 +396,6 @@ function UploadRow({
   const t = useTranslations(filesCopy)
   const tc = useTranslations(commonCopy)
   const { locale } = useLocale()
-  // The landing's spring is for the 4px drop; the fade is a tween (the
-  // icon-swap pair: opacity never springs), and all of it is instant under
-  // reduced motion. The fold is the tray's own height token.
   const landing = useMotionToken(iconSwapTransition)
   const fold = useMotionToken(motionBase)
 
@@ -533,18 +403,9 @@ function UploadRow({
   const percent = uploadPercent(file)
   const mark = ingestionMarkOfPhase(phase)
   const canCancel = (phase === 'uploading' || phase === 'queued') && onCancel !== undefined
-  // Stopping a read in progress: the bytes are on the server, so this is a
-  // request to the backend, never an abort of a transport. Keyed on
-  // `ingesting` (not the `processing` phase, which also covers `deleting`)
-  // and on a document id, since there is nothing to stop before the server
-  // holds the file.
   const canStopReading = file.status === 'ingesting' && !!file.serverFileId && onCancel !== undefined
   const isFailed = phase === 'failed'
-  // Held back by the content check (ADR-0086). Never retried: the server
-  // refuses a re-upload onto it, and nothing went wrong to repeat.
   const isHeldBack = phase === 'held'
-  // The held document the uploader may ask the reviewers about: this row's own,
-  // or the one it would replace when this person uploaded that one too.
   const reviewableId =
     file.serverFileId ?? (file.replacesHeld?.ownUpload ? file.replacesHeld.documentId : null) ?? null
   const heldVerdict = isHeldBack ? quarantineVerdictOf(file) : null
@@ -552,22 +413,14 @@ function UploadRow({
   const canDismiss = (phase === 'canceled' || isFailed || isHeldBack) && onDismiss !== undefined
   const canRetry = isFailed && mayRetryUpload(file)
   const showsSizeInline = phase === 'uploading' || phase === 'queued'
-  // A line of the tray's filing bar would move this file.
   const lit = useFilingHighlighted(file.serverFileId)
 
   return (
-    // NOT `layout`. A layout animation runs as a scale transform, so a row
-    // whose height changed (a reason appearing under it) was drawn squashed
-    // for the length of the animation, text included. The row's own height
-    // is constant through every live phase now, and the one part that grows
-    // (the reason block below) folds open on its own.
     // eslint-disable-next-line grid/motion-vocabulary -- a dismissed row folds away so the rows below slide up instead of jumping; instant under reduced motion
     <motion.li
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0 }}
-      // A dropped file LANDING is one of the three cases that earn a spring:
-      // continuation of the gesture the user made a moment ago, over 4px.
       transition={landing}
       data-testid="upload-row"
       data-phase={phase}
@@ -612,9 +465,6 @@ function UploadRow({
             shimmer per row made a batch of twelve twelve loops. */}
         <span
           className={cn(
-            // The server's „unchanged" answer is a sentence, not a status word,
-            // so it may take more than the column. The column holds the
-            // longest status word („Zurückgehalten") beside its glyph.
             unchanged ? 'sm:min-w-28' : 'sm:w-28',
             'flex shrink-0 items-center text-xs font-medium tabular-nums sm:justify-end'
           )}
@@ -706,7 +556,7 @@ function UploadRow({
               {canRetry && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="mt-2 hidden gap-1.5 pointer-coarse:inline-flex"
                   onClick={() => onRetry(file.id)}
@@ -770,7 +620,7 @@ function RowAction({
       aria-label={label}
       title={label}
       className={cn(
-        'flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11',
+        'flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11',
         className
       )}
     >
@@ -779,7 +629,6 @@ function RowAction({
   )
 }
 
-/** The right-hand status word for a row — a percentage ONLY where one exists. */
 function phaseLabel(phase: UploadPhase, percent: number | null, t: ReturnType<typeof useTranslations>): string {
   switch (phase) {
     case 'uploading':
@@ -801,7 +650,6 @@ function phaseLabel(phase: UploadPhase, percent: number | null, t: ReturnType<ty
   }
 }
 
-/** What the batch is doing, in one sentence. */
 function trayHeadline(summary: TransferSummary, t: ReturnType<typeof useTranslations>): string {
   if (summary.stage === 'transferring') {
     const count = summary.queued + summary.uploading
@@ -812,7 +660,6 @@ function trayHeadline(summary: TransferSummary, t: ReturnType<typeof useTranslat
       count: summary.processing,
     })
   }
-  // A stored file was added too, it is only not read; the row says „Abgelegt“.
   const added = summary.ready + summary.stored
   if (added > 0 && summary.failed > 0) {
     return t('uploads.heading.mixed', { ready: added, failed: summary.failed })
@@ -834,14 +681,6 @@ function trayHeadline(summary: TransferSummary, t: ReturnType<typeof useTranslat
   return t('uploads.heading.canceled')
 }
 
-/**
- * The second line — the numbers.
- *
- * While bytes move it is a measurement: how much of how much, how fast, how
- * much longer. While the backend reads it is a duration and a plain statement
- * that no estimate exists, which is more useful than a number that would have
- * to be made up.
- */
 function trayDetail(
   summary: TransferSummary,
   context: {
@@ -855,12 +694,7 @@ function trayDetail(
   const { bytesPerSecond, etaSeconds, processingElapsed, locale, t } = context
 
   if (summary.stage === 'transferring') {
-    const parts = [
-      t('uploads.detail.bytes', {
-        done: formatBytes(summary.uploadedBytes, locale),
-        total: formatBytes(summary.totalBytes, locale),
-      }),
-    ]
+    const parts = [t('uploads.detail.bytes', formatByteProgress(summary.uploadedBytes, summary.totalBytes, locale))]
     if (bytesPerSecond !== null) parts.push(formatTransferRate(bytesPerSecond, locale))
     if (etaSeconds !== null && etaSeconds > 0) {
       parts.push(t('uploads.detail.eta', { time: formatDurationShort(etaSeconds, locale) }))

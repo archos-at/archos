@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * A project's intake on the setup page: the review as the API last answered it,
- * the calls that change it, and the polling that keeps it current while Piloti
- * reads.
- *
- * Every call answers with the review as it stands after it (ADR-0055), so the
- * page never patches its own copy: it replaces it. A reading is polled every
- * five seconds, and for a while after documents were handed in, because the
- * server starts a reading when an upload batch has settled and the page cannot
- * see that moment.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslations } from '@/i18n'
@@ -23,27 +11,22 @@ import {
 import type { IntakeDecision, IntakeView } from '@/lib/project-intake/types'
 
 export const INTAKE_POLL_MS = 5000
-/** How long after a hand-in the page keeps asking whether a reading began. */
 export const INTAKE_WATCH_MS = 3 * 60 * 1000
 
 export interface UseIntakeOptions {
   projectId: string
   initial: IntakeView
-  /** The typed client; the real one unless a spec brings its own. */
   client?: ProjectIntakeClient
 }
 
 export interface UseIntake {
   view: IntakeView
-  /** A call is in flight: the controls wait. */
   busy: boolean
-  /** The last refresh failed. The view on screen is the last good one. */
   stale: boolean
   decide: (decisions: IntakeDecision[]) => Promise<boolean>
   reread: () => Promise<void>
   complete: () => Promise<boolean>
   refresh: () => Promise<void>
-  /** Documents were handed in: ask for a while whether a reading began. */
   watch: () => void
 }
 

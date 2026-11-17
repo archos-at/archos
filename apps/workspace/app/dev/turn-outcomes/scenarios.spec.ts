@@ -1,15 +1,9 @@
 /**
  * @vitest-environment node
  */
-/**
- * The `/dev/turn-outcomes` scripts are real v2 turns: every body passes the
- * wire contract, and folded and projected the way the store does it, each
- * scenario ends the way its note says. A preview that drifted off the
- * contract would show a turn no backend can send.
- */
 import { describe, expect, it } from 'vitest'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvent, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvent, type TurnView } from '@/lib/turns/turn-fold'
 import { projectTurn } from '@/features/chat/lib/turn-projection'
 import type { ChatMessage } from '@/features/chat/types'
 import {
@@ -23,7 +17,6 @@ import {
 
 const TURN = 'turn-q'
 
-/** The bodies of a scenario as the server sends them: the script, then the continuation, in time order. */
 const bodiesOf = (id: ScenarioId): TimedBody[] => {
   const scenario = SCENARIOS[id]
   const script = [...scenario.script].sort((a, b) => a.at - b.at)
@@ -74,7 +67,6 @@ const play = (id: ScenarioId): { view: TurnView; messages: ChatMessage[] } => {
 }
 
 describe('/dev/turn-outcomes scenarios', () => {
-  // `error_preack` is the server that never answers: its script is silence.
   it.each(SCENARIO_IDS.filter((id) => id !== 'error_preack'))('%s: every body is a v2 event', (id) => {
     expect(eventsOf(id).length).toBeGreaterThan(0)
   })

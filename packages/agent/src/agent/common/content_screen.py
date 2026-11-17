@@ -150,6 +150,21 @@ from agent.common.card_numbers import context_window
 from agent.common.card_numbers import has_word
 from agent.common.card_numbers import mask_card
 from agent.common.card_numbers import wrapped_card_layout
+from agent.common.de_numbers import TAX_ID_LABELS
+from agent.common.de_numbers import de_svnr_at
+from agent.common.de_numbers import de_tax_id_at
+from agent.common.de_numbers import mask_de_svnr
+from agent.common.de_numbers import mask_de_tax_id
+from agent.common.screen_chars import _HORIZONTAL_SPACE
+from agent.common.screen_chars import _LINE_BREAKS
+from agent.common.screen_chars import WHITESPACE
+from agent.common.screen_chars import _digit_at
+from agent.common.screen_chars import _digit_touches
+from agent.common.screen_chars import _digits_at
+from agent.common.screen_chars import _is_letter
+from agent.common.screen_chars import _is_mark
+from agent.common.screen_chars import _is_word_char
+from agent.common.screen_chars import _skip_separator
 from agent.common.svnr_numbers import SVNR_LABELS
 from agent.common.svnr_numbers import mask_at_svnr
 from agent.common.svnr_numbers import printed_as_svnr
@@ -157,9 +172,9 @@ from agent.common.svnr_numbers import valid_at_svnr
 
 logger = logging.getLogger(__name__)
 
-Detector = Literal["iban", "at_svnr", "credit_card"]
+Detector = Literal["iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id"]
 #: Detectors in the order their findings are reported.
-DETECTORS: tuple[str, ...] = ("iban", "at_svnr", "credit_card")
+DETECTORS: tuple[str, ...] = ("iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 #: Bounds the request model enforces too (``agent_host.models.requests.ScreeningPolicy``).
 MAX_TERMS = 200
@@ -176,6 +191,8 @@ PLACEHOLDERS: dict[str, str] = {
     "iban": "[IBAN entfernt]",
     "at_svnr": "[SV-Nummer entfernt]",
     "credit_card": "[Kartennummer entfernt]",
+    "de_svnr": "[RV-Nummer entfernt]",
+    "de_tax_id": "[Steuer-ID entfernt]",
     "term": "[Begriff entfernt]",
 }
 
@@ -183,53 +200,11 @@ _PLACEHOLDER_RE = re.compile("|".join(re.escape(placeholder) for placeholder in 
 
 
 # ------------------------------------------------------------------- characters
+# WHITESPACE, the digit and separator readers: agent.common.screen_chars.
 
-#: Unicode's ``White_Space`` property, all 25 code points. The one definition of
-#: whitespace on both sides (the TypeScript twin lists the same, and its spec
-#: holds the list to ``\p{White_Space}``).
-WHITESPACE = (
-    "\t\n\x0b\x0c\r \x85\xa0\u1680"
-    "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a"
-    "\u2028\u2029\u202f\u205f\u3000"
-)
-_LINE_BREAKS = "\n\x0b\x0c\r\x85\u2028\u2029"
-#: Whitespace that keeps a line: what may join the groups of a card number.
-_HORIZONTAL_SPACE = "".join(char for char in WHITESPACE if char not in _LINE_BREAKS)
 _SPACE_RUN = re.compile(f"[{WHITESPACE}]+")
 
 _FOLD_TABLE = str.maketrans({"ς": "σ", "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
-
-
-def _is_mark(char: str) -> bool:
-    return unicodedata.category(char)[0] == "M"
-
-
-def _is_letter(char: str) -> bool:
-    """A letter: general category ``L*``."""
-    return unicodedata.category(char)[0] == "L"
-
-
-def _is_word_char(char: str) -> bool:
-    """A letter or a number: general category ``L*`` or ``N*``."""
-    return unicodedata.category(char)[0] in "LN"
-
-
-def _digit_at(text: str, index: int) -> str | None:
-    """The ASCII digit for a Unicode decimal digit (``Nd``) at ``index``, else ``None``."""
-    if index >= len(text):
-        return None
-    value = unicodedata.decimal(text[index], None)
-    return None if value is None else str(value)
-
-
-def _skip_separator(text: str, index: int, marks: str) -> int:
-    """``index`` moved past one separator: a run of whitespace, or one of ``marks``."""
-    if index < len(text) and text[index] in WHITESPACE:
-        while index < len(text) and text[index] in WHITESPACE:
-            index += 1
-    elif index < len(text) and text[index] in marks:
-        index += 1
-    return index
 
 
 def _split_words(text: str) -> list[str]:
@@ -573,11 +548,6 @@ def _iban_in_groups(text: str, start: int, soft: frozenset[int], width: int) -> 
     return compact, index
 
 
-def _digit_touches(text: str, index: int, soft: frozenset[int]) -> bool:
-    """Whether a digit stands at ``index`` right against what came before, without even an invisible character."""
-    return _digit_at(text, index) is not None and index not in soft
-
-
 def _iban_char(text: str, index: int, *, digits_only: bool) -> str | None:
     """The IBAN character at ``index``: a digit as ASCII, or (past the check digits) an ASCII letter upper-cased."""
     digit = _digit_at(text, index)
@@ -591,17 +561,6 @@ def mask_iban(compact: str) -> str:
     """Country and check digits, then masked groups, then the last four."""
     hidden = math.ceil(max(len(compact) - 8, 0) / 4)
     return " ".join([compact[:4], *([MASK] * hidden), compact[-4:]])
-
-
-def _digits_at(text: str, index: int, count: int) -> str | None:
-    """``count`` digits from ``index`` on, as ASCII; ``None`` unless every one is a digit."""
-    digits = ""
-    for offset in range(count):
-        digit = _digit_at(text, index + offset)
-        if digit is None:
-            return None
-        digits += digit
-    return digits
 
 
 def _svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
@@ -755,7 +714,38 @@ def _overlaps_card(card: tuple[str, int, int], others: list[tuple[str, int, int]
     return any(card[1] < end and start < card[2] for _, start, end in others)
 
 
-_DETECTOR_SPANS = {"iban": _iban_spans, "at_svnr": _svnr_spans, "credit_card": _card_spans}
+def _de_svnr_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
+    resume = 0
+    for start in _starts(text, soft, _SVNR_START, _SVNR_AT):
+        if start < resume:
+            continue
+        found = de_svnr_at(text, start, soft)
+        if found is not None:
+            compact, resume = found
+            yield Span("de_svnr", start, resume, sample=mask_de_svnr(compact))
+
+
+def _de_tax_id_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
+    """Tax identification numbers, only on a page that names one: eleven digits are often something else."""
+    if not _page_says(text, TAX_ID_LABELS):
+        return
+    resume = 0
+    for start in _starts(text, soft, _SVNR_START, _SVNR_AT):
+        if start < resume:
+            continue
+        found = de_tax_id_at(text, start, soft)
+        if found is not None:
+            digits, resume = found
+            yield Span("de_tax_id", start, resume, sample=mask_de_tax_id(digits))
+
+
+_DETECTOR_SPANS = {
+    "iban": _iban_spans,
+    "at_svnr": _svnr_spans,
+    "credit_card": _card_spans,
+    "de_svnr": _de_svnr_spans,
+    "de_tax_id": _de_tax_id_spans,
+}
 
 
 #: A single-word term this long (folded) still matches with one space or hyphen inside it…
@@ -892,7 +882,11 @@ def _outside_ibans(spans: list[Span]) -> list[Span]:
         at = bisect_right(starts, span.start) - 1
         return at >= 0 and span.end <= ibans[at].end
 
-    return [span for span in spans if span.kind not in ("at_svnr", "credit_card") or not inside(span)]
+    return [span for span in spans if span.kind not in _NUMBER_KINDS or not inside(span)]
+
+
+#: The detectors whose digits an IBAN can hold: never reported inside one.
+_NUMBER_KINDS = ("at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 
 def _overlaps_any(span: Span, regions: list[tuple[int, int]]) -> bool:

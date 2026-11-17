@@ -25,12 +25,14 @@ import { ProjectProfileSchema } from '@/lib/project-profile/types'
 import { intakeDecisionsRequestSchema, startIntakeRequestSchema } from '@/lib/project-intake/types'
 import { confirmCleanupSchema, proposeCleanupSchema } from '@/lib/projects/cleanup-wire'
 import { createProjectSchema } from '@/lib/projects/create-project-schema'
+import { projectSiteSetBodySchema } from '@/lib/site-resolution/wire'
 import { addMemberSchema, listMembersQuerySchema } from '@/lib/projects/project-members-wire'
 import {
   createMemorySchema,
   listMemoryQuerySchema,
   patchMemorySchema,
 } from '@/lib/projects/project-memory-wire'
+import { memoryTopicRenameSchema } from '@/lib/memory-topics/wire'
 import { projectPeriodSchema, projectPersonSchema } from '@/lib/projects/project-record-types'
 import {
   deleteProjectSchema,
@@ -41,6 +43,7 @@ import {
 } from '@/lib/projects/project-wire'
 import { projectScreeningOverrideSchema } from '@/lib/upload-screening/project-policy'
 import type { AgentOperation } from '../operation'
+import { generatedAt } from '../ai-generated-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const projectParams = z.object({ id: z.string().describe('The project id, from project-list.') })
@@ -123,6 +126,8 @@ export const projectsOperations = [
     description:
       'Creates a project in the organization and returns it with its id. Give a name; optionally the address (typed `address`), ' +
       'a description, and `setup`: `piloti` (default) has ' + PRODUCT_NAME + ' read the documents afterwards, `self` leaves the profile to the intake wizard. ' +
+      'State the site with `country` (`at`, `de`, `ch`, `other`) and, in Austria, `federalState`; without them, an Austrian postal code ' +
+      'and place in a typed address suggest the Land for the person to confirm. ' +
       'To add a past project as a reference, pass `closing` with the outcome and months. Call project-same-address-list first to avoid a duplicate. ' +
       'Next: upload documents, then project-intake-get to follow the reading.',
     method: 'POST',
@@ -153,18 +158,6 @@ export const projectsOperations = [
     path: '/api/projects/[id]/overview',
     params: projectParams,
     load: () => import('@/app/api/projects/[id]/overview/route'),
-  },
-  {
-    name: 'project-standards-get',
-    domain: 'projects',
-    summary: 'The OIB standards that apply to a project',
-    description:
-      'Which standards apply, from the project’s brief: `{ standards: [{ code, title, status, reason, decidingFact? }], briefComplete }`. `status` is `required`, `likely` or ' +
-      '`check`; a `check`’s `decidingFact` is the profile key that settles it (project-profile-patch). `briefComplete: false`: the brief is thin, six generic verdicts answered. Orientation only.',
-    method: 'GET',
-    path: '/api/projects/[id]/standards',
-    params: projectParams,
-    load: () => import('@/app/api/projects/[id]/standards/route'),
   },
   {
     name: 'project-status-set',
@@ -253,7 +246,7 @@ export const projectsOperations = [
     summary: 'List a project’s memory items',
     description:
       'The facts, decisions and notes ' + PRODUCT_NAME + ' keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). ' +
-      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. Item ids feed project-memory-update and project-memory-delete.',
+      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts the caller’s active items. Item ids feed project-memory-update and project-memory-delete.',
     method: 'GET',
     path: '/api/projects/[id]/memory',
     params: projectParams,
@@ -265,7 +258,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Add a memory item',
     description:
-      'Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence` and `pinned`. ' +
+      'Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic`. ' +
       'Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.',
     method: 'POST',
     path: '/api/projects/[id]/memory',
@@ -278,7 +271,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Edit a memory item',
     description:
-      'Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. ' +
+      'Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. ' +
       'Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.',
     method: 'PATCH',
     path: '/api/projects/[id]/memory/[itemId]',
@@ -299,6 +292,19 @@ export const projectsOperations = [
     params: memoryItemParams,
     destructive: true,
     load: () => import('@/app/api/projects/[id]/memory/[itemId]/route'),
+  },
+  {
+    name: 'project-memory-topic-rename',
+    domain: 'projects',
+    summary: 'Rename or merge a memory topic',
+    description:
+      'Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.',
+    method: 'PATCH',
+    path: '/api/projects/[id]/memory/topics',
+    params: projectParams,
+    body: memoryTopicRenameSchema,
+    idempotent: true,
+    load: () => import('@/app/api/projects/[id]/memory/topics/route'),
   },
   {
     name: 'project-profile-get',
@@ -325,6 +331,21 @@ export const projectsOperations = [
     body: ProjectProfileSchema,
     ifMatchHeader: true,
     load: () => import('@/app/api/projects/[id]/profile/route'),
+  },
+  {
+    name: 'project-site-set',
+    domain: 'projects',
+    summary: 'Set a project’s site',
+    description:
+      'Pass `addressId` from site-resolve: the address, country, state and municipality become confirmed facts with the register ' +
+      'as evidence. Or `typed`: kept unconfirmed unless exactly one register address matches. Replaces the previous site. ' +
+      'Needs project:edit. Answers `{ resolution, profileVersion }`.',
+    method: 'POST',
+    path: '/api/projects/[id]/site',
+    params: projectParams,
+    body: projectSiteSetBodySchema,
+    idempotent: true,
+    load: () => import('@/app/api/projects/[id]/site/route'),
   },
   {
     name: 'project-profile-patch',
@@ -569,6 +590,7 @@ export const projectsOperations = [
     path: '/api/projects/[id]/generate-summary',
     params: projectParams,
     body: generateSummaryRequestSchema,
+    generatedContent: generatedAt('summary'),
     idempotent: true,
     load: () => import('@/app/api/projects/[id]/generate-summary/route'),
   },

@@ -3,7 +3,7 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 # Local disk storage of uploads when no S3 bucket is configured (`bun run dev`).
-media/
+/media/
 .env
 .env.*
 !.env.example

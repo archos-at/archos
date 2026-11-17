@@ -12,49 +12,17 @@ import type { FolderAccessLevel } from '../lib/file-shelf'
 import { refusalOf, shelfRefusalOf, throwUnlessOk } from '../lib/move-refusal'
 
 export interface FolderTreeOptions {
-  /** The shelf's folder collection (`/api/projects/{id}/folders`, `/api/office-shelf/folders`). */
   foldersUrl: string
-  /** The tree as the server already read it, for the first paint. */
   initialFolders?: readonly FolderItem[]
-  /**
-   * What the reader may do at the shelf's root for the first paint (ADR-0088).
-   * Absent means `write`; every listing read refreshes it from `rootAccess`.
-   * Only a project's listing reports it; the Archiv's root is `write` here and
-   * `canManage` decides.
-   */
   initialRootAccess?: FolderAccessLevel
-  /** What deleting a folder needs to name: how much is inside it. */
   files: readonly FileItem[]
-  /**
-   * How many documents are filed directly in a folder, when the caller knows
-   * it better than `files` (a paged level holds one folder's first pages, the
-   * shelf summary counts every folder, ADR-0102). Absent: counted in `files`.
-   */
   documentCountIn?: (folderId: string) => number
   selectedFolderId: string | null
   onSelectFolder: (id: string | null) => void
-  /** Re-read the documents after a change that moved some (a delete re-files them). */
   reloadFiles: (quiet?: boolean) => Promise<unknown>
-  /**
-   * The shelf's Papierkorb (a project's, ADR-0088). With it, a delete moves the
-   * folder there with its contents and the toast links to it; without it (the
-   * Archiv), a delete re-files the contents into the parent.
-   */
   binHref?: string
 }
 
-/**
- * One shelf's folder tree: read it, and the four things a reader does to it.
- *
- * Every sentence is a `files` key. The Archiv has folders now, and a second set
- * of strings for „Ordner löschen" in another namespace would be the first thing
- * to drift.
- *
- * Rename and move re-read the tree rather than patching it: `path` is
- * materialised on every row, so changing one folder rewrites everything beneath
- * it, and guessing that here would be a second implementation of the server's
- * rule.
- */
 export function useFolderTree({
   foldersUrl,
   initialFolders,
@@ -71,23 +39,10 @@ export function useFolderTree({
   const router = useRouter()
   const [folders, setFolders] = useState<FolderItem[]>(() => [...(initialFolders ?? [])])
   const [isLoading, setIsLoading] = useState(initialFolders === undefined)
-  /**
-   * Whether any read has answered yet (the seed counts). A rename or a move
-   * re-reads the tree; the tiles already on screen stay there while it does,
-   * so only a tree that was never read is a reason to draw a skeleton.
-   */
   const [hasAnswer, setHasAnswer] = useState(initialFolders !== undefined)
   const [error, setError] = useState(false)
-  /** What the reader may do at the root (ADR-0088); each folder carries its own `access`. */
   const [rootAccess, setRootAccess] = useState<FolderAccessLevel>(initialRootAccess)
 
-  /*
-   * Reads cross: a create re-reads, a rename right after it re-reads, and a
-   * live hint (`useShelfLive`) re-reads too. Only the newest read may commit,
-   * or an older answer landing last takes the folder just made off the screen.
-   * And a re-read that fails keeps the tree it had: emptying it made every
-   * folder vanish over one dropped request, and the next hint reads again.
-   */
   const generation = useRef(0)
   const answered = useRef(initialFolders !== undefined)
   const load = useCallback(() => {
@@ -117,7 +72,6 @@ export function useFolderTree({
       })
   }, [foldersUrl])
 
-  // The seeded first render is already the answer: skip the mount load once.
   const seeded = useRef(initialFolders !== undefined)
   useEffect(() => {
     if (seeded.current) {
@@ -179,10 +133,6 @@ export function useFolderTree({
     [foldersUrl, folders, parentName, t, load]
   )
 
-  /**
-   * Say what belongs in a folder (migration 0145); `null` clears it. Patched
-   * from the server's answer, since a description moves no path.
-   */
   const describe = useCallback(
     async (folderId: string, description: string | null) => {
       const response = await fetch(`${foldersUrl}/${folderId}`, {
@@ -203,21 +153,10 @@ export function useFolderTree({
     [foldersUrl, t]
   )
 
-  /** Folder moves of this tab still on the wire; a live re-read waits for them, as for documents. */
   const inFlight = useRef(0)
   const isMoving = useCallback(() => inFlight.current > 0, [])
-  /** The undo is the same move back, and offers no undo of its own. */
   const undo = useRef<(folderId: string, parentId: string | null) => Promise<void>>(async () => {})
 
-  /**
-   * A folder dragged onto another folder (or onto a way up in the path), or
-   * moved from its menu. Optimistic on the PARENT (the tile moves in the frame
-   * the finger let go) and then re-read for the paths. The pane refuses a move
-   * into a folder's own subtree before the drop; what the server still refuses
-   * (a sibling of the same name there, a folder only readable, an IFC model
-   * bound for a restricted folder, a folder deleted meanwhile) is said by name,
-   * and the toast of a move that went through offers it back.
-   */
   const move = useCallback(
     async (draggedFolderId: string, parentId: string | null, { undoable = true }: { undoable?: boolean } = {}) => {
       const folder = folders.find((candidate) => candidate.id === draggedFolderId)
@@ -259,8 +198,6 @@ export function useFolderTree({
                   ? t('folders.moveRefusedGone')
                   : t('folders.moveFolderError')
         )
-        // Someone else's change is why it failed (a folder gone, a name taken
-        // meanwhile): the tree on screen is behind, so read it again.
         if (refusal === 'gone' || refusal === 'nameTaken') void load()
       } finally {
         inFlight.current -= 1
@@ -270,15 +207,6 @@ export function useFolderTree({
   )
   undo.current = (folderId, parentId) => move(folderId, parentId, { undoable: false })
 
-  /**
-   * NAME WHAT HAPPENS TO THE WORK. A folder is a label somebody put on a set of
-   * documents, and the one question in this reader's head is "does this delete
-   * my files?" — so the confirm answers it, instead of a generic "this cannot
-   * be undone" that would be frightening and, on both shelves, false. On a
-   * shelf with a Papierkorb the contents go into it with the folder and can be
-   * restored; on the Archiv they are re-filed into the parent, with the count
-   * and where they will be.
-   */
   const remove = useCallback(
     async (folderId: string) => {
       const folder = folders.find((f) => f.id === folderId)
@@ -316,8 +244,6 @@ export function useFolderTree({
         return false
       }
       const answer = (await response.json().catch(() => ({}))) as { documentsMoved?: number; purgeAfter?: string }
-      // The selection cannot stay on a folder that no longer exists — it would
-      // filter the grid to nothing and read as an empty shelf.
       if (selectedFolderId === folderId) onSelectFolder(folder.parentId ?? null)
       await Promise.all([load(), reloadFiles(true)])
       if (binHref) {
@@ -340,7 +266,6 @@ export function useFolderTree({
     [foldersUrl, binHref, t, locale, router, folders, files, documentCountIn, selectedFolderId, onSelectFolder, load, reloadFiles]
   )
 
-  /** `isLoading` is any read in flight (the upload plan waits for it); this is only the first. */
   const isFirstLoad = isLoading && !hasAnswer
 
   return { folders, rootAccess, isLoading, isFirstLoad, error, load, create, rename, describe, move, remove, isMoving }

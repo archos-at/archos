@@ -1,26 +1,6 @@
 'use client'
 
-/**
- * The decision about one mail, pinned to the bottom of the detail: „Verwerfen“
- * on the left, the one primary action on the right, and between them only
- * what the press still needs.
- *
- * The primary label is computed from the draft and says exactly what will
- * happen („2 Dateien und den E-Mail-Text ablegen“, „In E-Mail-Verlauf
- * „Stellplatznachweis“ ablegen (wird Fassung 4)“, „Nichts ablegen“). Above it:
- * the sender confirmation where filing needs it („Domain nicht bestätigt.
- * Trotzdem ablegen“), what still blocks the press, and the one consequence a
- * person would not guess (without the text, the original is erased).
- *
- * A mail only another member may file never gets this bar: a colleague reads
- * `ClaimedMailBar`, which offers „Verwerfen …“ alone.
- *
- * On a phone the bar is the bottom edge: the two buttons stack full width
- * with the primary nearest the thumb, and the home indicator's inset pads it.
- * Busy is not disabled: a pressed button keeps its focus and its width.
- */
-
-import type { JSX } from 'react'
+import { useId, type JSX } from 'react'
 import { Info, ShieldAlert } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { useTranslations } from '@/i18n'
@@ -32,12 +12,6 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 export interface DecisionBarProps {
   summary: DraftSummary
   acknowledgeSender: boolean
-  /**
-   * The mail reads as someone posing as another (`riskLevel: 'impersonation'`):
-   * „Verwerfen“ is the primary press, and filing is offered only once the
-   * person opened „Trotzdem ablegen …“ (`filingOpen`), as the secondary one,
-   * behind a yes that says they checked the mail is real.
-   */
   impersonation?: boolean
   filingOpen?: boolean
   onAcknowledgeSender: (value: boolean) => void
@@ -45,6 +19,8 @@ export interface DecisionBarProps {
   onDismiss: () => void
   filing: boolean
   dismissing: boolean
+  yieldPrimary?: boolean
+  choiceInView?: boolean
   className?: string
 }
 
@@ -63,7 +39,6 @@ function blockerText(blocker: DraftBlocker, t: (key: string, vars?: Record<strin
   }
 }
 
-/** The primary label for a draft, as the bar shows it; shared with the keyboard's „Wie gezeigt ablegen“. */
 export function primaryLabel(summary: DraftSummary, t: (key: string, vars?: Record<string, string | number>) => string): string {
   if (summary.files > 0 && summary.text) return t('bar.fileBoth', { count: summary.files })
   if (summary.files > 0) return t('bar.fileFiles', { count: summary.files })
@@ -82,14 +57,17 @@ export function DecisionBar({
   onDismiss,
   filing,
   dismissing,
+  yieldPrimary = false,
+  choiceInView = false,
   className,
 }: DecisionBarProps): JSX.Element {
+  const summaryId = useId()
   const t = useTranslations(inboundMailCopy)
   const nothing = summary.files === 0 && !summary.text
+  const onlyDismiss = nothing && !impersonation
   const blockers = summary.blockers.filter((blocker) => blocker.kind !== 'sender')
   const blocked = !nothing && summary.blockers.length > 0
   const busy = filing || dismissing
-  // An impersonation offers no filing until the person opened „Trotzdem ablegen …“.
   const offersFiling = !impersonation || filingOpen
   const messages = blockers.map((blocker) => blockerText(blocker, t)).filter((text): text is string => text !== null)
 
@@ -120,32 +98,49 @@ export function DecisionBar({
       )}
       {/* DOM order is the phone's stacking order: „Verwerfen“ first, the primary last, nearest the thumb.
           For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
-      <div className={cn('flex flex-col gap-2 sm:flex-row sm:items-center', offersFiling ? 'sm:justify-between' : 'sm:justify-end')}>
-        <BusyButton
-          type="button"
-          variant={impersonation ? 'default' : 'ghost'}
-          busy={dismissing}
-          busyLabel={t('bar.dismissBusy')}
-          onClick={onDismiss}
-          blocked={filing}
-          className={cn('w-full sm:w-auto', impersonation && 'order-last')}
-          data-testid="decision-dismiss"
-        >
-          {t('bar.dismiss')}
-        </BusyButton>
+      {/* Paired at the end of the bar, „Verwerfen“ the tonal secondary beside the primary (D4), as in the selection bar:
+          a bare word beside the primary floated on the phone's full-width stack. */}
+      {/* What one press files, said once beside the presses: the primary itself is the verb („Ablegen“). The label that
+          said it all („In E-Mail-Verlauf „Stellplatznachweis“ ablegen (wird Fassung 4)“) ran 380px wide and out-shouted
+          the mail; the sentence keeps it legible, and the press's description reads it to a screen reader. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        {offersFiling && !onlyDismiss && (
+          <p id={summaryId} className={cn('text-muted-foreground text-meta min-w-0 sm:mr-auto sm:truncate', choiceInView && 'hidden')} data-testid="decision-summary" title={primaryLabel(summary, t)}>
+            {primaryLabel(summary, t)}
+          </p>
+        )}
+        {/* While a batch bar is up its „Verwerfen“ is the one on screen: two raised „Verwerfen“ for two scopes, and a
+            reader foot of two identical white presses, was round 3. This mail is dismissed from the bar once ticked. */}
+        {!onlyDismiss && !(yieldPrimary && !impersonation) && (
+          <BusyButton
+            type="button"
+            size="sm"
+            variant={impersonation && !yieldPrimary ? 'default' : 'secondary'}
+            busy={dismissing}
+            busyLabel={t('bar.dismissBusy')}
+            onClick={onDismiss}
+            blocked={filing}
+            className={cn('w-full sm:w-auto', impersonation && 'order-last')}
+            data-testid="decision-dismiss"
+          >
+            {t('bar.dismiss')}
+          </BusyButton>
+        )}
         {offersFiling && (
           <BusyButton
             type="button"
-            variant={impersonation ? 'outline' : 'default'}
-            busy={filing}
-            busyLabel={t('bar.busy')}
+            size="sm"
+            variant={impersonation || yieldPrimary ? 'secondary' : 'default'}
+            busy={onlyDismiss ? dismissing : filing}
+            busyLabel={onlyDismiss ? t('bar.dismissBusy') : t('bar.busy')}
             onClick={nothing ? onDismiss : onFile}
-            blocked={dismissing}
+            blocked={onlyDismiss ? filing : dismissing}
             disabled={blocked}
-            className="w-full min-w-0 sm:w-auto sm:max-w-[min(32rem,100%)] [&_*]:truncate"
+            className="w-full min-w-0 shrink-0 sm:w-auto"
+            aria-describedby={onlyDismiss ? undefined : summaryId}
             data-testid="decision-file"
           >
-            {primaryLabel(summary, t)}
+            {onlyDismiss ? t('bar.dismiss') : t('bar.file')}
           </BusyButton>
         )}
       </div>

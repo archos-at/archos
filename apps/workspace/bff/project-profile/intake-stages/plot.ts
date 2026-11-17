@@ -12,7 +12,7 @@ export const PLOT_STAGE: ProjectIntakeStage = {
     'Widmung, Bebauungsplan-Kernset, Standortrisiken und Erschließung. Jede Kennzahl einzeln offen lassbar.',
   questions: [
     // The Grundbuch's name for the plot and its area: what the location
-    // register asks the Grundbuchauszug for (ticket 26, „Standort-
+    // register asks the Grundbuchauszug for (ticket 31, „Standort-
     // informationen aus den Unterlagen", `lib/project-intake/location-register.ts`).
     {
       id: 'B0_ez',

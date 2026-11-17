@@ -17,7 +17,7 @@ if (empty(host)) {
 }
 let isProd := host == inputs.default_host
 
-let res := postHogGetTicket({'ticket_id': ticketId, 'include_first_customer_message_text': true})
+let res := postHogGetTicket({'ticket_id': ticketId})
 if (res.status != 200) {
   throw Error(f'Failed to fetch ticket ({res.status}): {res.body}')
 }
@@ -38,25 +38,10 @@ let ticketUrl := f'https://eu.posthog.com/project/{project.id}/support/tickets/{
 let claimUrl := f'https://{host}/app/platform/feedback?claim={ticketId}'
 let where := isProd ? '' : f' · 🧪 {host}'
 
-// The report's first message starts with "[kind] #<report id> <path>" for
-// PostHog's inbox; Slack shows the member's words without it. PostHog hands the
-// first message back with its line breaks folded into spaces, so this works on
-// words: drop "[kind]", "#<id>" and a following "/path".
-fun withoutHeader(text) {
-  if (empty(text) or not match(text, '^\\[[a-z]+\\] #')) {
-    return text ?? ''
-  }
-  let rest := ''
-  let i := 0
-  for (let word in splitByString(' ', text)) {
-    i := i + 1
-    let isPath := i == 3 and substring(word, 1, 1) == '/'
-    if (i > 2 and not isPath) {
-      rest := empty(rest) ? word : f'{rest} {word}'
-    }
-  }
-  return rest
-}
+// The member's words stay in PostHog. Slack is a US processor that the
+// data-flow register (configs/subprocessors/slack.yaml) lists for ids, the kind
+// and links only, so no alert quotes a report or a reply: the team opens the
+// ticket to read it.
 
 // The alerts that mention `needle`, newest first: every top-level message in the
 // channel whose blocks carry it. With the ticket id that is every alert of the
@@ -104,16 +89,16 @@ if (event.event == 'product_feedback_ticket_opened') {
     print(f'Ticket {ticketId} has an alert for {host} already')
     return
   }
-  let words := substring(withoutHeader(ticket.first_customer_message_text), 1, 2500)
-  let quote := empty(words) ? f'({copy.no_text})' : words
   let noContact := props.allow_contact == false ? f' · ⚠️ {copy.no_contact}' : ''
   let pageTeam := kind == 'bug' and isProd
   let blocks := []
   if (kind == 'bug') {
     blocks := arrayPushBack(blocks, {'type': 'header', 'text': {'type': 'plain_text', 'text': f'{title} #{number}'}})
-    blocks := arrayPushBack(blocks, {'type': 'section', 'text': {'type': 'mrkdwn', 'text': pageTeam ? f'<!here>\n>>> {quote}' : f'>>> {quote}'}})
+    if (pageTeam) {
+      blocks := arrayPushBack(blocks, {'type': 'section', 'text': {'type': 'mrkdwn', 'text': '<!here>'}})
+    }
   } else {
-    blocks := arrayPushBack(blocks, {'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*{title} #{number}*\n>>> {quote}'}})
+    blocks := arrayPushBack(blocks, {'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*{title} #{number}*'}})
   }
   blocks := arrayPushBack(blocks, {'type': 'context', 'elements': [{'type': 'mrkdwn', 'text': f'{host}{noContact}'}]})
   let buttons := [
@@ -135,14 +120,12 @@ if (event.event == 'product_feedback_ticket_opened') {
 }
 
 if (event.event == 'product_feedback_reply_sent') {
-  let words := substring(ticket.last_message_text ?? '', 1, 2500)
-  let quote := empty(words) ? f'({copy.no_text})' : words
   let message := {
     'channel': inputs.channel,
     'username': 'Piloti Feedback',
     'text': f'↩️ {copy.reporter_replied} #{number}{where}',
     'blocks': [
-      {'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*↩️ {copy.reporter_replied} #{number}*{where}\n>>> {quote}'}},
+      {'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*↩️ {copy.reporter_replied} #{number}*{where}'}},
       {'type': 'actions', 'elements': [
         {'type': 'button', 'style': 'primary', 'text': {'type': 'plain_text', 'text': copy.reply_in_posthog}, 'url': ticketUrl}
       ]}

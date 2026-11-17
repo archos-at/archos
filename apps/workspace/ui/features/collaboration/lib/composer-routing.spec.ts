@@ -11,7 +11,6 @@ import {
   type AddresseeMode,
 } from './composer-routing'
 
-// `display` carries no leading '@' — mention-text adds it when matching.
 const anna: DraftMention = { targetId: 'u-anna', display: 'Anna' }
 const piloti: DraftMention = { targetId: AGENT_MENTION_ID, display: 'Piloti' }
 
@@ -65,8 +64,6 @@ describe('resolveAddressee', () => {
   })
 
   test('deleting the token drops the mention (MN-3)', () => {
-    // The mention was picked, then the text edited to remove it. Reconciliation
-    // is what makes the send match what the user can see.
     const { mentions, routing } = resolve({ text: 'hallo', mentions: [anna] })
     expect(mentions).toEqual([])
     expect(routing).toEqual({ kind: 'fast' })
@@ -86,9 +83,6 @@ describe('resolveAddressee', () => {
     })
 
     test('…and even when mention state was populated behind the flag', () => {
-      // The divergence this module closes. `mentions` can be seeded by a prefill
-      // without consulting canCollaborate; the send used to take the ruled path
-      // on that state while the line — gated on the flag — said nothing at all.
       const { routing, mentions } = resolve({
         text: '@Anna hallo',
         mentions: [anna],
@@ -100,9 +94,6 @@ describe('resolveAddressee', () => {
   })
 
   test('reconciliation is unaffected by surrounding whitespace', () => {
-    // The line reconciled the raw text and the send the trimmed text. Neutral
-    // today because whitespace is boundary-equivalent to string bounds — pinned
-    // so a change to boundary handling fails here, not silently in a send.
     const padded = resolve({ text: '  @Anna hallo  ', mentions: [anna] })
     const tight = resolve({ text: '@Anna hallo', mentions: [anna] })
     expect(padded.routing).toEqual(tight.routing)
@@ -110,7 +101,6 @@ describe('resolveAddressee', () => {
   })
 
   test('the line and the send can never disagree', () => {
-    // The invariant the twenty-one component tests were standing in for.
     const allowed: Record<AddresseeMode, SendKind[]> = {
       people: ['mentions'],
       thread: ['awaiting'],
@@ -135,8 +125,6 @@ type SendKind = 'fast' | 'mentions' | 'awaiting'
 
 describe('sendMessageOptions', () => {
   test('the fast path has NO options, so the call stays one argument', () => {
-    // Load-bearing: three component tests assert toHaveBeenCalledWith(text), and
-    // an explicit undefined would route plain messages through the ruling path.
     expect(sendMessageOptions({ kind: 'fast' })).toBeUndefined()
   })
 

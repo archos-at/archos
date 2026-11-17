@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
 import { SubagentGroups } from '@/features/chat/components/reasoning/SubagentGroups'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
 
 const DEEP = 'sa_deep'

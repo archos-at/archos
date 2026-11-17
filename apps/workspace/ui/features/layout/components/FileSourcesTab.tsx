@@ -1,11 +1,3 @@
-/**
- * FileSourcesTab Component
- *
- * Content for the "File Sources" tab in the DataSourcePanel.
- * Displays a list of uploaded file sources with their status.
- * Integrates with file upload system for real-time progress tracking.
- */
-
 'use client'
 
 import { type FC, useCallback, useEffect, useRef, useState } from 'react'
@@ -34,11 +26,9 @@ import { researchCopy } from '@/i18n/namespaces/research'
 import { quarantineVerdictOf } from '@/lib/upload-screening/quarantine'
 
 interface FileSourcesTabProps {
-  /** Callback when a file is deleted */
   onDeleteFile?: (id: string) => void
 }
 
-/** Dismissable inline error alert used for upload failures. */
 const UploadErrorAlert: FC<{ message: string; onClose: () => void; className?: string }> = ({
   message,
   onClose,
@@ -65,13 +55,8 @@ const UploadErrorAlert: FC<{ message: string; onClose: () => void; className?: s
   )
 }
 
-/**
- * Tab content showing list of uploaded file sources.
- * Connected to the file upload store for real-time updates.
- */
 export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   const t = useTranslations(researchCopy)
-  // Get current conversation and ensureSession for session management
   const currentConversationId = useChatStore((state) => state.currentConversation?.id)
   const ensureSession = useChatStore((state) => state.ensureSession)
   const ensureConversationExists = useChatStore((state) => state._ensureConversationExists)
@@ -81,10 +66,8 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   )
   const [projectCollectionName, setProjectCollectionName] = useState<string | undefined>(undefined)
 
-  // Check if file uploads are available (knowledge layer)
   const knowledgeLayerAvailable = useLayoutStore((state) => state.knowledgeLayerAvailable)
 
-  // Get file upload configuration from app config
   const { fileUpload: fileUploadConfig } = useAppConfig()
 
   useEffect(() => {
@@ -119,10 +102,10 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   const targetCollectionName = isProjectTarget ? projectCollectionName : currentConversationId
   const targetProjectId = isProjectTargetReady ? projectId : undefined
 
-  // File upload hook - provides target files and handles validation internally
   const {
     uploadFiles,
     deleteFile,
+    dismissFiles,
     sessionFiles: targetFiles,
     isUploading,
     isPolling,
@@ -134,21 +117,12 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
     conversationProjectId: projectId,
   })
 
-  // The documents store's currentCollectionName tells us WHICH session is actively being processed.
-  // isUploading/isPolling are global flags, so we must scope to the current session to avoid
-  // showing a spinner for uploads belonging to a different session.
   const activeCollection = useDocumentsStore((state) => state.currentCollectionName)
   const isLoadingFiles = useDocumentsStore((state) => state.isLoadingFiles)
   const loadedSessionId = useDocumentsStore((state) => state.loadedSessionId)
   const isThisSessionProcessing =
     activeCollection === targetCollectionName && (isUploading || isPolling)
 
-  // Show spinner when:
-  // 1. Actively loading files from server, OR
-  // 2. Upload/polling in progress but files haven't appeared, OR
-  // 3. Session is known to have files but we haven't loaded for it yet
-  //    (covers the render-to-useEffect gap on session switch; stops once
-  //    loadFilesForSession completes — even if the result is empty)
   const sessionId = targetCollectionName
   const hasLoadedForSession = loadedSessionId === sessionId
   const sessionExpectsFiles =
@@ -156,16 +130,13 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   const isAwaitingFiles =
     isLoadingFiles || (isThisSessionProcessing && targetFiles.length === 0) || sessionExpectsFiles
 
-  // The destination, in the shared vocabulary the composer now states too.
   const destination = useUploadDestination(isProjectTarget ? 'project' : 'session')
   const uploadTargetLabel = destination.label
   const uploadDisabled = isUploading || (isProjectTarget && !projectCollectionName)
 
-  // Delete confirmation modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [fileIdToDelete, setFileIdToDelete] = useState<string | null>(null)
 
-  // Read-only preview opened by tapping an available file row.
   const [previewFile, setPreviewFile] = useState<TrackedFile | null>(null)
   const handleOpenPreview = useCallback(
     (fileId: string) => {
@@ -175,10 +146,6 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
     [targetFiles]
   )
 
-  /**
-   * Handle file upload with session auto-creation.
-   * Validation is handled internally by uploadFiles.
-   */
   const handleUpload = useCallback(
     async (files: File[]) => {
       if (isProjectTarget && !projectCollectionName) {
@@ -192,49 +159,37 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
           console.error('Failed to create session for upload')
           return
         }
-        // The server row BEFORE the bytes, with the chat's title, project and
-        // subject, which the send path would write (`ensureServerConversation`,
-        // idempotent per id). An attachment is authorized on its conversation
-        // (`collaborator`). `/api/session/documents/upload` would create a
-        // missing row too, but only with the project, so it is the fallback.
         await ensureConversationExists()
       }
-      // Pass the (possibly just-created) session explicitly: the hook's
-      // memoized collectionName still reflects the previous render, so the
-      // first upload in a fresh session would otherwise abort.
       await uploadFiles(files, { collectionOverride: sessionId })
     },
     [ensureSession, ensureConversationExists, isProjectTarget, projectCollectionName, uploadFiles]
   )
 
-  // Hidden file input ref
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Handle Add File button click
   const handleAddFileClick = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
 
-  // Handle file input change
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || [])
       if (files.length > 0) {
         handleUpload(files)
       }
-      // Reset input so same file can be selected again
       e.target.value = ''
     },
     [handleUpload]
   )
 
-  // Opens the delete confirmation modal
   const handleDeleteClick = useCallback((id: string) => {
     setFileIdToDelete(id)
     setIsDeleteModalOpen(true)
   }, [])
 
-  // Actually performs the delete after confirmation
+  const handleDismiss = useCallback((id: string) => dismissFiles([id]), [dismissFiles])
+
   const handleConfirmDelete = useCallback(async () => {
     if (fileIdToDelete) {
       await deleteFile(fileIdToDelete)
@@ -243,7 +198,6 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
     }
   }, [fileIdToDelete, deleteFile, onDeleteFile])
 
-  // Handles modal close/cancel
   const handleModalOpenChange = useCallback((open: boolean) => {
     setIsDeleteModalOpen(open)
     if (!open) {
@@ -256,7 +210,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
       <span className="text-xs font-medium text-muted-foreground">{t('fileSourcesTab.uploadTo')}</span>
       <div className="flex gap-2">
         <Button
-          variant={uploadTarget === 'project' ? 'default' : 'outline'}
+          variant={uploadTarget === 'project' ? 'default' : 'secondary'}
           size="sm"
           onClick={() => setUploadTarget('project')}
           disabled={!projectCollectionName}
@@ -264,7 +218,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
           {t('fileSourcesTab.targetProject')}
         </Button>
         <Button
-          variant={uploadTarget === 'session' ? 'default' : 'outline'}
+          variant={uploadTarget === 'session' ? 'default' : 'secondary'}
           size="sm"
           onClick={() => setUploadTarget('session')}
         >
@@ -287,12 +241,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   ) : null
 
   if (targetFiles.length === 0) {
-    // When files are expected (loading, uploading, or session known to have files),
-    // always show the spinner — never flash "No Files" during transitions.
     if (isAwaitingFiles) {
-      // Skeleton rows that mirror the real FileSourceCard shape — matching the
-      // grid file surfaces' skeleton vocabulary instead of a lone centered
-      // spinner. The status text stays for screen readers / assertions.
       return (
         <div className="flex flex-1 flex-col gap-2" aria-busy="true">
           <span className="sr-only">{t('fileSourcesTab.checkingFiles')}</span>
@@ -393,10 +342,6 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
             fileSize={file.fileSize}
             uploadedAt={file.uploadedAt}
             status={mapToDisplayStatus(file.status)}
-            // A held file says why through its verdict; its message is never
-            // shown, so the legacy `quarantined:` text cannot reach the card.
-            // A row held because it would replace a held file has no verdict:
-            // its message is this app's own sentence (`quarantinedReplace`).
             errorMessage={
               file.status === 'held' && !file.replacesHeld ? undefined : (file.errorMessage ?? undefined)
             }
@@ -404,11 +349,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
             failedWhileReading={failedWhileReading(file)}
             replacesHeld={file.replacesHeld}
             expirationIntervalHours={fileUploadConfig.fileExpirationCheckIntervalHours}
-            // A project document is deleted in the project's Files, where the
-            // delete runs the legal-hold check and erases every version. This
-            // dialog lists what the chat can see; it only deletes the chat's own
-            // attachments.
-            onDelete={isProjectTarget ? undefined : handleDeleteClick}
+            onDelete={file.status === 'canceled' ? handleDismiss : isProjectTarget ? undefined : handleDeleteClick}
             onOpen={handleOpenPreview}
           />
         ))}

@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The recursion lock (ADR-0124): Piloti never asks Piloti.
- *
- * In-product Piloti reaches the catalog only through its own door, where every
- * write becomes a proposal (ADR-0122), and a turn an ask started is such a turn.
- * So the lock is held where proposals are filed and applied: an ask is refused
- * when it is proposed (nothing is filed) and when an old one is applied
- * (nothing is called). Before both, Piloti never sees an ask (`canSee` in
- * `policy.ts`), so `agent-ask-get`, a read, cannot run either. The A2A door's
- * half, refusing Piloti's credential, is in `app/api/a2a/route.spec.ts`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

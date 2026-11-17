@@ -2,19 +2,29 @@
  * Server-side reconciliation of document ingestion status.
  *
  * The BFF upload route marks a document 'pending' after handing it to the
- * Python backend's `/v1/ingest` endpoint, but ingestion runs asynchronously
- * in the backend and nothing pushes the terminal state back into Postgres —
- * left alone, every uploaded document stays 'pending' forever. This module
- * closes the loop lazily: whenever document rows are read, in-flight rows are
- * checked against the backend ingestion job status (primary) or the
- * collection's file list (fallback for rows without a recorded job id, e.g.
- * uploads from before the job id was persisted, or after a backend restart
- * wiped the in-memory job registry) and terminal states are written back.
+ * Python backend's `/v1/ingest` endpoint, and ingestion runs asynchronously
+ * in the backend, which never writes the outcome into Postgres itself. This
+ * module is what does: given document rows, it checks the in-flight ones
+ * against the backend ingestion job status (primary) or the collection's file
+ * list (fallback for rows without a recorded job id, e.g. uploads from before
+ * the job id was persisted, or after a backend restart wiped the in-memory job
+ * registry) and writes terminal states back.
+ *
+ * Three kinds of caller hand it rows, and all of them write through here: every
+ * read of a document list (`'read'`), the ingest worker's settle push when a
+ * job ends (`'push'`, `./settle-push`, ADR-0150), and the two sweeps that ask
+ * for rows nobody is looking at (`'sweep'`, `./stale-pending` and
+ * `@/lib/upload-batches/sweep`). The push says WHEN to look, never what the job
+ * did: the status is asked for here either way.
+ *
+ * Who else may set `documents.status`, and under which guard:
+ * `./status-writers.spec.ts`.
  */
 
 import { fetchInChunks, type BackendJobFile, type BackendJobStatus } from './status-batch'
 import {
   extractIngestJobId,
+  isForgottenJobFailure,
   isLostJob,
   isRecheckableCancellation,
   isRecheckableInterruption,
@@ -23,7 +33,7 @@ import {
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
 import type { SettledBy } from '@/lib/analytics/ingest-events'
-import { announceSettledIngests } from './announce-settled'
+import { announceSettledIngests, announceSettledShelves } from './announce-settled'
 import { timingOf, type IngestTiming } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
@@ -47,8 +57,6 @@ import {
   type ReadingCoverage,
 } from './dossier'
 import { setDocumentReconciledStatus } from './repository'
-import { documentShelf } from './shelf'
-import { publishShelfChanged } from './shelf-live'
 import { projectReadings } from '@/lib/search/facets-projector'
 import { listCollectionDocumentsForProjection } from '@/lib/search/facets-repository'
 import { parseIngestFailureCategory, type IngestFailureFacts } from './retry-policy'
@@ -839,25 +847,6 @@ async function projectReplacedDocuments(
 }
 
 /**
- * One `shelf.changed` per shelf the settled rows are on. A row type that does
- * not carry its shelf (`projectId`, `scope`) announces nothing; the listing
- * and the per-document status read both carry it.
- */
-function announceSettledShelves(
-  organizationId: string,
-  rows: readonly ReconcilableDocument[],
-  settledIds: ReadonlySet<string>
-): void {
-  const shelves = new Map<string, NonNullable<ReturnType<typeof documentShelf>>>()
-  for (const row of rows) {
-    if (!settledIds.has(row.id) || !('projectId' in row)) continue
-    const shelf = documentShelf(row as { projectId: string | null; scope?: string })
-    if (shelf) shelves.set(shelf.kind === 'project' ? shelf.projectId : 'office_shelf', shelf)
-  }
-  for (const shelf of shelves.values()) publishShelfChanged(organizationId, shelf)
-}
-
-/**
  * Reconcile in-flight document rows with the backend's ingestion state and
  * persist any terminal transition (and re-check a recent `interrupted:`
  * failure or `cancelled` row, see `INTERRUPTED_REASON_PREFIX` in `lost-job.ts`), then merge
@@ -908,7 +897,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
     (row) => IN_FLIGHT_STATUSES.has(row.status) && row.status !== LOCALLY_OWNED_STATUS
   )
   const now = Date.now()
-  const interrupted = rows.filter((row) => isRecheckableInterruption(row, now))
+  const interrupted = rows.filter((row) => isRecheckableInterruption(row, now, settledBy === 'push'))
   const cancelled = rows.filter((row) => isRecheckableCancellation(row, now))
   if (inFlight.length > 0 || interrupted.length > 0 || cancelled.length > 0) {
     // One batch call for every job id asked about (previously one GET per row).
@@ -994,6 +983,23 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
     )
   }
 
+  // A `Job ID not found` failure was a forgotten job, not a verdict: only an indexed file heals it.
+  await Promise.all(
+    rows.filter(isForgottenJobFailure).map(async (row) => {
+      const ref = collectionFileRef(row)
+      if (!ref) return
+      const files = await loadCollectionFilesCached(row.collectionName)
+      if (!files || files.ambiguousNames.has(ref.filename)) return
+      const jobId = extractIngestJobId(row.metadata)
+      const resolution = resolveFromCollection(files, ref, jobId)
+      if (resolution?.status !== 'completed') return
+      if (await setDocumentReconciledStatus(row.id, organizationId, resolution, { status: row.status, jobId })) {
+        moved.add(row.id)
+      }
+      resolutions.set(row.id, resolution)
+    })
+  )
+
   // Rows that came to rest settle their upload, audit a quarantine and tell
   // its reviewers (ADR-0086). Only the rows this read moved: a concurrent read
   // that lost the race settles nothing. Never throws. A quarantine whose audit
@@ -1003,7 +1009,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   if (settled.length > 0) {
     await onDocumentsSettled(
       organizationId,
-      settled.map(([id, resolution]) => ({ id, status: resolution.status }))
+      settled.map(([id, resolution]) => ({ id, status: resolution.status, ...(isForgottenJobFailure(rows.find((row) => row.id === id)) ? { correction: true } : {}) }))
     )
     // The badge flipped for everyone reading the shelf, and a colleague's
     // upload held until its screening passed is on their shelf from now on

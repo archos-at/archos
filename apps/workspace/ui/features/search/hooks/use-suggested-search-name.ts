@@ -9,7 +9,6 @@ import { useSearchLabels } from './use-search-labels'
 
 const UNNAMED = (): null => null
 
-/** The name the save dialog opens with, from the words and the chips of this search. */
 export function useSuggestedSearchName(state: SearchUrlState, projectName: (id: string) => string | null = UNNAMED): string {
   const labels = useSearchLabels()
   return useMemo(

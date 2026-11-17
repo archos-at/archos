@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The PostHog usage export: which hours a run sends, what each event carries,
- * and that the cursor moves only after PostHog took the events, so an hour is
- * neither lost nor counted twice.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -70,6 +65,7 @@ const row = (over: Partial<UsageHourRow> = {}): UsageHourRow => ({
   promptTokens: 1000,
   completionTokens: 200,
   cachedTokens: 100,
+  cacheWriteTokens: 40,
   reasoningTokens: 50,
   totalTokens: 1200,
   costUsd: 0.012,
@@ -92,6 +88,7 @@ const outcomeRow = (over: Partial<UsageOutcomeRow> = {}): UsageOutcomeRow => ({
   promptTokens: 150000,
   completionTokens: 1800,
   cachedTokens: 105000,
+  cacheWriteTokens: 31000,
   reasoningTokens: 300,
   costUsd: 0.2025,
   priceUsd: 0.2025,
@@ -116,7 +113,6 @@ describe('exportWindow', () => {
   const now = new Date('2026-10-20T08:05:00Z')
 
   it('stops at the last hour that closed ten minutes ago', () => {
-    // 08:05 is inside 08:00's settle time, so 07:00–08:00 is not closed yet.
     expect(exportWindow(new Date('2026-10-20T05:00:00Z'), now)).toEqual({
       from: new Date('2026-10-20T05:00:00Z'),
       to: new Date('2026-10-20T07:00:00Z'),
@@ -183,6 +179,7 @@ describe('usageOutcomeProperties', () => {
       calls: 4,
       prompt_tokens: 150000,
       cached_tokens: 105000,
+      cache_write_tokens: 31000,
       cost_usd: 0.2025,
     })
     expect(usageOutcomeProperties(outcomeRow()).job_id).toBeUndefined()

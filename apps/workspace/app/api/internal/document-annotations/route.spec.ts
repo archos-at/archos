@@ -1,30 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Piloti's hands on Anmerkungen (`POST /api/internal/document-annotations`).
- *
- * What is pinned here: the document is the conversation's subject unless the
- * turn names one, and a named one is admitted only inside the collections the
- * turn's envelope signs (anything else is an unknown document); with neither,
- * a typed 422 the tool relays; a held upload reaches no model; a subject in a
- * restricted folder is admitted against the conversation first; and what
- * Piloti finds on its own is born a proposal, on behalf of the asker, under the
- * asker's own access rules.
- *
- * And parity: what the asker asks for, Piloti does as the asker could, through
- * the REAL service (`set`, `update`, `delete` run `lib/annotations/service.ts`
- * over a fake repository): a mark asked for is born open with the asker behind
- * it, a change posts Piloti's note in the thread, a stale `expectedStatus` is
- * a 409 with no note, and nothing the asker could not do goes through. Every
- * row the fake holds is checked against the CHECKs of migration 0138.
- *
- * Parity is the organization's choice (`piloti-acts`, an entitlement, off by
- * default): with it off, `create`, `update` and `delete` are refused with
- * `piloti-acts-off` before anything is read or written, and proposals,
- * replies, reads and the room run as ever. The flag is read the real way, off
- * the pinned session's flags in a deployment that signs people in.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -43,9 +19,6 @@ vi.mock('@/lib/realtime/document-channel', () => ({
   publishToDocumentRoom: vi.fn(async () => undefined),
   roomSnapshot: vi.fn(),
 }))
-// The read, propose and reply paths are pinned at the agent seam; the parity
-// paths (`create`, `update`, `delete`) run the real service, whose own calls
-// stay real inside it.
 vi.mock('@/lib/annotations/service', async (original) => ({
   ...(await original<typeof import('@/lib/annotations/service')>()),
   listAnnotationsForAgent: vi.fn(),
@@ -67,7 +40,6 @@ vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
   withTenant: (_scope: unknown, run: () => unknown) => run(),
 }))
-// The change record (ADR-0109) and the attention a write asks for, at their seams.
 vi.mock('@/lib/changes/repository', () => ({ insertAgentChanges: vi.fn(async () => []) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
 vi.mock('@/lib/annotations/attention', () => ({
@@ -124,7 +96,6 @@ import { POST } from './route'
 const SECRET = 'test-internal-token-annotations'
 const DOC_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_DOC = '22222222-2222-4222-8222-222222222222'
-/** The asker's pinned session; its flags are WorkOS's answer for the organization. */
 const SESSION = { userId: 'user_1', organizationId: 'org_1', featureFlags: ['piloti-acts'] } as Partial<AuthorizedSession> as AuthorizedSession
 const CONTEXT = {
   organizationId: 'org_1',
@@ -159,7 +130,6 @@ const PROPOSAL = {
 beforeEach(() => {
   vi.clearAllMocks()
   process.env.INTERNAL_API_TOKEN = SECRET
-  // Flags come from WorkOS (the session's claim), as wherever people sign in.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   SESSION.featureFlags = ['piloti-acts']
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
@@ -377,7 +347,6 @@ describe('POST /api/internal/document-annotations', () => {
         [DOC_ID, 'org_1', agent, { op: 'presence', state: 'here' }],
         [DOC_ID, 'org_1', agent, { op: 'cursor', cursor: { page: 1, x: 0.4, y: 0.5 }, label: 'Hier' }],
         [DOC_ID, 'org_1', agent, { op: 'presence', state: 'here' }],
-        // A box past the page's edge is clamped onto it.
         [DOC_ID, 'org_1', agent, { op: 'highlight', box: { page: 1, x: 0.8, y: 0.1, w: expect.closeTo(0.2), h: 0.2 }, label: 'Fluchtweg 1,10 m' }],
       ])
     })
@@ -421,16 +390,11 @@ describe('POST /api/internal/document-annotations', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Parity: what the asker asks for, Piloti does as the asker could.
-// ---------------------------------------------------------------------------
-
 const MARK_ID = '44444444-4444-4444-8444-444444444444'
 const NOW = new Date('2026-10-13T08:00:00.000Z')
 const DOC_ROW = { id: DOC_ID, scope: 'project', projectId: 'proj_1', publishedVersionId: null } as Partial<Document> as Document
 const NOTE = 'Erledigt: Die lichte Breite ist im Schnitt B-B mit 1,25 m kotiert.'
 
-/** The fake repository's rows, by id. */
 let marks: Map<string, AnnotationRecord>
 
 const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
@@ -468,10 +432,6 @@ const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
   ...patch,
 })
 
-/**
- * The CHECKs of migrations 0138 and 0139 that an author, a status move or a
- * delegation touches, as predicates over a row: what the database would refuse.
- */
 function violatedChecks(row: DocumentAnnotationRow): string[] {
   const broken: string[] = []
   if (row.status === 'proposed' && row.authorKind !== 'piloti') broken.push('only_piloti_proposes')
@@ -488,7 +448,6 @@ function violatedChecks(row: DocumentAnnotationRow): string[] {
   return broken
 }
 
-/** A repository over {@link marks}: compare-and-swap on status, as the SQL is. */
 function fakeRepository() {
   vi.mocked(findDocumentAnnotation).mockImplementation(async (_org, _doc, id) => marks.get(id) ?? null)
   vi.mocked(listDocumentAnnotations).mockImplementation(async () => [...marks.values()])
@@ -564,7 +523,6 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
     const born = marks.get(body.created[0].id)
     expect(born).toMatchObject({ status: 'open', authorKind: 'piloti', acceptedBy: 'user_1' })
     expect(violatedChecks(born ?? record())).toEqual([])
-    // The document's people hear Piloti set it for the asker, who asked and is not told.
     await vi.waitFor(() =>
       expect(onMarksSet).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -603,7 +561,6 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
         addressesAgent: false,
         mentions: [],
       },
-      // Piloti's own reply never wakes Piloti.
       undefined
     )
     expect(vi.mocked(updateDocumentAnnotation).mock.calls[0][3]).toBe('open')
@@ -627,7 +584,6 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
       after: { assigneeUserId: 'user_anna', assigneeName: 'Anna Berger', dueOn: '2026-10-20' },
       noted: true,
     })
-    // A Zuständige must be able to answer the mark: asked as the document-write permission, never a role.
     expect(userHoldsProjectPermission).toHaveBeenCalledWith(
       { organizationId: SESSION.organizationId },
       'proj_1',
@@ -744,7 +700,6 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
   it("refuses to delete a mark somebody else set, or a proposal nobody took over, as it would refuse the asker", async () => {
     expect((await post({ op: 'delete', annotationId: MARK_ID })).status).toBe(403)
 
-    // A proposal is dismissed, never deleted: it has no person behind it yet.
     marks.set(MARK_ID, record({ authorKind: 'piloti', status: 'proposed', createdBy: 'user_1' }))
     expect((await post({ op: 'delete', annotationId: MARK_ID })).status).toBe(403)
 
@@ -779,13 +734,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
   })
 })
 
-// ---------------------------------------------------------------------------
-// The change record (ADR-0109): every change Piloti applies is a row with the
-// turn that made it, written after the service committed it.
-// ---------------------------------------------------------------------------
-
 const ANSWER = '66666666-6666-4666-8666-666666666666'
-/** The turn's half of every row. */
 const TURN = {
   organizationId: 'org_1',
   documentId: DOC_ID,
@@ -876,7 +825,6 @@ describe('POST /api/internal/document-annotations — what a turn changed is rec
         after: { status: 'resolved', assigneeUserId: 'user_anna' },
       },
     ])
-    // The note is part of the change, not a reply of its own.
     expect(onAgentWrote).not.toHaveBeenCalled()
   })
 
@@ -992,7 +940,6 @@ describe('POST /api/internal/document-annotations — what a turn changed is rec
 
 describe('POST /api/internal/document-annotations — what a turn changed is in the audit trail', () => {
   const audited = (): AuditEventInput[] => vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input)
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
@@ -1118,10 +1065,6 @@ describe('POST /api/internal/document-annotations — what a turn changed is in 
     warn.mockRestore()
   })
 })
-
-// ---------------------------------------------------------------------------
-// `piloti-acts` off: the office has Piloti propose only.
-// ---------------------------------------------------------------------------
 
 describe('POST /api/internal/document-annotations — an office that has Piloti propose only', () => {
   beforeEach(() => {

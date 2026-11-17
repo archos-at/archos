@@ -12,6 +12,7 @@
  */
 
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
+import { refuseLicensedFileForAgent } from '@/lib/base-knowledge/door-guard'
 import { replaceVersionContent, toDocumentVersionView } from '@/lib/documents/lifecycle'
 import { readVersionContent } from '@/lib/documents/version-content'
 import { replaceContentRequestSchema } from '@/lib/documents/lifecycle-types'
@@ -29,15 +30,18 @@ type Params = { id: string; versionId: string }
  * opened through the document's file route, which knows its content type.
  */
 export const GET = apiRoute<Params>(
-  async ({ session, params }) =>
-    new Response(await readVersionContent(session, params.id, params.versionId), {
+  async ({ session, params }) => {
+    // A version of a licensed copy is the whole norm: not sent to an agent (ADR-0159).
+    await refuseLicensedFileForAgent(session, params.id)
+    return new Response(await readVersionContent(session, params.id, params.versionId), {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         // Rendered in a tab, never downloaded as an attachment: the reader
         // pressed „Öffnen" to read what this version says.
         'Content-Disposition': 'inline',
       },
-    }),
+    })
+  },
   {
     authz: {
       enforcedBy:

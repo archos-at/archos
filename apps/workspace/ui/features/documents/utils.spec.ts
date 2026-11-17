@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'vitest'
+import { useDocumentsStore } from './store'
 import {
   mapBackendStatus,
   mapToDisplayStatus,
@@ -49,6 +50,19 @@ describe('utils', () => {
 
     test('defaults unknown status to uploading', () => {
       expect(mapToDisplayStatus('unknown' as never)).toBe('uploading')
+    })
+
+    test('a cancelled upload the server does not list is drawn cancelled, never uploading', () => {
+      const store = useDocumentsStore.getState()
+      store.clearTrackedFiles()
+      store.addTrackedFile({ id: 'row-1', fileName: 'a.pdf', fileSize: 1, status: 'uploading', progress: 0, collectionName: 'chat-1' })
+      store.updateTrackedFile('row-1', { status: 'canceled' })
+      store.setFilesFromServer('chat-1', [])
+
+      const [row] = useDocumentsStore.getState().trackedFiles
+      expect(row.status).toBe('canceled')
+      expect(mapToDisplayStatus(row.status)).toBe('canceled')
+      store.clearTrackedFiles()
     })
 
     test('a held file is held, never an error and never a spinner', () => {

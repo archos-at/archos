@@ -70,7 +70,6 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { SYSTEM_ACTORS } from '@/lib/audit/service'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
-import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
@@ -108,7 +107,6 @@ import {
 import { recordOriginal } from './receive-original'
 import { progressOf, rememberAuthentication, reusableAuthentication, scanAttachments, type ReceiveProgress } from './receive-progress'
 import {
-  dropMail,
   findAddressToken,
   findFiledMessages,
   findMailForReceive,
@@ -126,7 +124,8 @@ import {
 } from './repository'
 import { mailScreeningFor, type MailScreening } from './screening'
 import { authenticateSender, dateHeaderOf, isTransientReason, judgeSender, type SenderVerdict } from './sender-auth'
-import { eraseStagedObjects, putStagedObject, readStagedObject } from './staging'
+import { putStagedObject, readStagedObject } from './staging'
+import { dropAutomaticMail } from './receive-drop'
 import { suggestionSkipReason } from './suggest'
 import { announceHeldMail, classified, inboundMailJobId, queueSenderFiling } from './receive-sender'
 
@@ -159,12 +158,41 @@ export async function runInboundMailReceive(
   } catch (error) {
     const dependency = dependencyOf(error)
     const next = dependency ? nextFaultTry(dependency, payload, new Date()) : null
-    if (!dependency || !next) throw error
+    if (!dependency || !next) {
+      // The last attempt must not leave the mail `received`: nothing would read it again (see `holdAfterFailure`).
+      if (attempt.last && (await holdAfterFailure(payload.mailId))) return { done: true, payload }
+      throw error
+    }
     const tries = dependency === 'dkim_dns' ? next.payload.dkimFaults : next.payload.faults
     console.warn(
       `[inbound-mail] mail ${payload.mailId}: the ${dependency} did not answer (${tries} of ${next.budget}); again at ${next.notBefore.toISOString()}`,
     )
     return { done: false, payload: next.payload, notBefore: next.notBefore }
+  }
+}
+
+/**
+ * The last attempt failed before the mail was held (its raw message cannot be
+ * read, a step before the read threw): hold it unreadable, as the run does for
+ * a failure while reading. Otherwise the job dies with the mail still
+ * `received`, and the sweep queues it again every time the queue purges the dead
+ * row (sweep 2), for ever. A held mail is visible to the person and ends by its
+ * window. False when the mail is not `received` any more, or this could not hold it.
+ */
+async function holdAfterFailure(mailId: string): Promise<boolean> {
+  try {
+    const mail = await findMailForReceive(mailId)
+    if (!mail || mail.status !== 'received' || !mail.rawStorageKey) return false
+    const key = mail.rawStorageKey
+    const raw = await readStagedObject(mail.stagingBucket, key).catch(() => null)
+    console.error(`[inbound-mail] mail ${mail.id} could not be received; holding it as unreadable`)
+    const held = await holdUnreadable(mail, raw ?? new Uint8Array(), false, { progress: progressOf(mail.receiveProgress) })
+    const domain = inboundMailDomain()
+    if (held && domain) await afterHold(mail.id, domain, raw)
+    return held
+  } catch (error) {
+    console.error(`[inbound-mail] mail ${mailId} could not be held after its last attempt (${errorName(error)})`)
+    return false
   }
 }
 
@@ -197,7 +225,7 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   if (mail.rawScanStatus === 'pending') await recordRawScan(mail.id, await scanForStorage(raw))
 
   const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
-  if (automatic.outcome === 'drop') return drop(mail, automatic.reason, attempt)
+  if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason, attempt)
   // A forward: who wrote the original (`./receive-original`). Never a reason to drop: anyone can write its Message-ID.
   await recordOriginal(mail, raw, domain)
 
@@ -215,33 +243,6 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
     held = await holdUnreadable(mail, raw, automatic.automatic, evidence)
   }
   if (held) await afterHold(mail.id, domain, raw)
-}
-
-// ---------------------------------------------------------------------------
-// Step 3: automatic mail nobody needs to see
-// ---------------------------------------------------------------------------
-
-async function drop(mail: InboundMailRow, reason: NonNullable<InboundMailRow['droppedReason']>, attempt: JobAttempt): Promise<void> {
-  const deferred = await isCoveredByActiveHold(mail.organizationId, 'project', mail.projectId)
-  if (!deferred && mail.rawStorageKey) {
-    const left = await eraseStagedObjects(mail.stagingBucket, [mail.rawStorageKey])
-    // The key may only go with its object: retry, and on the last attempt let
-    // the deferred-erasure sweep finish it.
-    if (left.length > 0 && !attempt.last) throw new Error(`the raw message of mail ${mail.id} could not be erased`)
-    if (left.length > 0) return void (await dropMail(mail.id, { reason, erasureDeferred: true }))
-  }
-  if (!(await dropMail(mail.id, { reason, erasureDeferred: deferred }))) return
-  recordAuditEventAfterCommit({
-    organizationId: mail.organizationId,
-    actor: { userId: SYSTEM_ACTORS.inboundMail, email: null },
-    action: 'inbound_mail.received',
-    targetType: 'inbound_mail',
-    targetId: mail.id,
-    alsoTargets: [{ type: 'project', id: mail.projectId }],
-    metadata: { projectId: mail.projectId, dropped: reason },
-    idempotencyKey: `inbound_mail.received:${mail.id}`,
-  })
-  captureServer({ event: 'inbound_mail_dropped', distinctId: null, organizationId: mail.organizationId, properties: { reason } })
 }
 
 // ---------------------------------------------------------------------------

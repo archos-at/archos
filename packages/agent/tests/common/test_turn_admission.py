@@ -1,12 +1,3 @@
-"""Interactive-turn admission control (ADR-0040 layer L3).
-
-Exercised against the per-process fallback (no ``REDIS_URL``), which runs the
-same acquire/release/lease logic the Lua script does. What matters here is the
-behaviour, not the transport: slots are held for the duration of a turn, the
-per-org pool is separate from the global one, a slot is always returned, and a
-store that cannot answer admits rather than refuses.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +14,6 @@ from agent.common.turn_admission import admit_turn_async
 
 @pytest.fixture(autouse=True)
 def _clean_slots(monkeypatch: pytest.MonkeyPatch):
-    """A fresh slot table per test, with no shared store behind it."""
     monkeypatch.delenv("REDIS_URL", raising=False)
     turn_admission.reset_local_slots()
     yield
@@ -42,7 +32,6 @@ def test_admits_turns_up_to_the_per_org_pool(monkeypatch: pytest.MonkeyPatch) ->
         stack.enter_context(admit_turn("org_1"))
         stack.enter_context(admit_turn("org_1"))
 
-        # The third concurrent turn for this tenant has nowhere to run.
         with pytest.raises(TurnAdmissionError):
             stack.enter_context(admit_turn("org_1"))
 
@@ -53,7 +42,6 @@ def test_releases_the_slot_when_a_turn_finishes(monkeypatch: pytest.MonkeyPatch)
     with admit_turn("org_1"):
         pass
 
-    # A pool that only ever fills up is a pool that stops working after one turn.
     with admit_turn("org_1"):
         pass
 
@@ -64,8 +52,6 @@ def test_releases_the_slot_when_a_turn_raises(monkeypatch: pytest.MonkeyPatch) -
     with pytest.raises(ValueError), admit_turn("org_1"):
         raise ValueError("the agent blew up mid-turn")
 
-    # An answer that failed must not leave its capacity stranded — that is how a
-    # pool silently shrinks to nothing over a day.
     with admit_turn("org_1"):
         pass
 
@@ -74,7 +60,6 @@ def test_one_tenant_cannot_exhaust_another(monkeypatch: pytest.MonkeyPatch) -> N
     _limits(monkeypatch, total=10, per_org=1)
 
     with admit_turn("org_busy"):
-        # The whole point of a per-org pool: a noisy tenant is contained.
         with admit_turn("org_quiet"):
             pass
 
@@ -99,9 +84,6 @@ def test_a_refused_org_slot_returns_the_global_one(monkeypatch: pytest.MonkeyPat
                 with admit_turn("org_busy"):
                     pass
 
-        # Each refusal above took a global slot first. If it were not handed
-        # back, a tenant sitting at its own limit would drain the shared pool
-        # with turns that never ran — and everyone else would be refused.
         with admit_turn("org_other"):
             pass
 
@@ -128,9 +110,6 @@ def test_stale_slots_are_reclaimed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0)
 
     with admit_turn("org_1"):
-        # A replica OOM-killed mid-turn never releases its slot. With a lease,
-        # the next acquire reclaims it; with a bare counter the pool would
-        # shrink by one, permanently, every time it happened.
         with admit_turn("org_1"):
             pass
 
@@ -139,12 +118,9 @@ def test_falls_back_to_per_replica_pools_without_a_shared_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _limits(monkeypatch, total=10, per_org=1)
-    # `eval_script` returns None when there is no store to talk to.
     monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: None)
 
     with admit_turn("org_1"):
-        # Still bounded — just per replica, which is the documented trade rather
-        # than a silent absence of any limit.
         with pytest.raises(TurnAdmissionError):
             with admit_turn("org_1"):
                 pass
@@ -158,8 +134,6 @@ def test_admits_when_the_check_itself_breaks(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(turn_admission.cache, "eval_script", _boom)
 
-    # Admission control is protective, not load-bearing: a bug in it must never
-    # be the reason chat stops answering.
     with admit_turn("org_1"):
         with admit_turn("org_1"):
             pass
@@ -170,8 +144,6 @@ async def test_async_manager_enforces_the_same_pools(monkeypatch: pytest.MonkeyP
     _limits(monkeypatch, total=10, per_org=1)
 
     async with admit_turn_async("org_1"):
-        # The async manager exists so the store round trips leave the event loop,
-        # not to relax anything: same pools, same refusal.
         with pytest.raises(TurnAdmissionError):
             async with admit_turn_async("org_1"):
                 pass
@@ -206,17 +178,6 @@ async def test_async_manager_returns_the_slot_when_the_turn_raises(
 async def test_cancelling_mid_acquire_does_not_strand_the_slot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A client that hangs up during the store round trip must not cost a slot.
-
-    `asyncio.to_thread` cannot cancel its worker: the thread runs on and takes
-    the slot regardless. If nothing hands that slot back, it is held by a turn
-    that will never run until the lease expires — 15 minutes by default — and a
-    few flaky connections shrink the pool to nothing.
-
-    Made deterministic by blocking the acquire inside the worker thread, so the
-    cancellation is guaranteed to land while the acquisition is genuinely in
-    flight, and the worker is then released to go and take the slot.
-    """
     _limits(monkeypatch, total=10, per_org=1)
 
     entered = threading.Event()
@@ -241,8 +202,6 @@ async def test_cancelling_mid_acquire_does_not_strand_the_slot(
     with contextlib.suppress(asyncio.CancelledError):
         await task
 
-    # Only now does the worker finish and actually take the slot — the exact
-    # ordering that a release racing the acquire would fail to clean up.
     release_worker.set()
 
     monkeypatch.setattr(turn_admission, "_acquire_all", real_acquire_all)
@@ -258,21 +217,12 @@ async def test_cancelling_mid_acquire_does_not_strand_the_slot(
 def test_a_slot_taken_locally_is_returned_after_the_store_recovers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A store flap between acquire and release must not strand a slot.
-
-    Acquire while the store is unreachable (local table), then release once it
-    answers again. `eval_script` then returns a ZREM count of 0 rather than
-    None, so a release that only fell back on `None` would leave the local slot
-    held for the whole 900s lease — and every flap would shrink the replica pool
-    by one, permanently.
-    """
     _limits(monkeypatch, total=10, per_org=1)
 
     monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: None)
     manager = admit_turn("org_1")
     manager.__enter__()
 
-    # The store comes back: every call now answers, including the release.
     monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: 0)
     manager.__exit__(None, None, None)
 
@@ -283,11 +233,6 @@ def test_a_slot_taken_locally_is_returned_after_the_store_recovers(
 
 @pytest.mark.asyncio
 async def test_a_turn_longer_than_the_lease_keeps_its_slot(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A running turn renews its lease, so no turn is too long for it.
-
-    Taken once, a 900 s lease was reclaimed under a 40-minute deep-research
-    turn and the tenant's next turn was admitted past the limit.
-    """
     _limits(monkeypatch, total=10, per_org=1)
     monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0.3)
 
@@ -306,7 +251,7 @@ async def test_renewal_stops_when_the_turn_ends(monkeypatch: pytest.MonkeyPatch)
     _limits(monkeypatch, total=10, per_org=1)
     monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0.3)
     renewals: list[list[str]] = []
-    monkeypatch.setattr(turn_admission, "_renew_all", lambda held, _member: renewals.append(held))
+    monkeypatch.setattr(turn_admission, "_renew_all", lambda held, _member, *_: renewals.append(held))
 
     async with admit_turn_async("org_1"):
         await asyncio.sleep(0.25)
@@ -318,7 +263,6 @@ async def test_renewal_stops_when_the_turn_ends(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_a_reclaimed_slot_is_not_taken_back_by_its_renewal(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Renewing a slot the lease already reclaimed would push the pool past its limit."""
     _limits(monkeypatch, total=10, per_org=1)
     monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: None)
     member = "turn-a"
@@ -349,7 +293,6 @@ def test_active_turns_ignores_leases_that_aged_out(monkeypatch: pytest.MonkeyPat
 
 
 def test_active_turns_is_unknown_when_the_store_is_configured_but_down(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A fleet-wide count must never degrade to this replica's share: it would read as a quiet fleet."""
     monkeypatch.setenv("REDIS_URL", "redis://unreachable:6379/0")
     monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: None)
     assert turn_admission.active_turns() is None
@@ -366,3 +309,64 @@ def test_active_turns_reads_the_fleet_count_from_the_store(monkeypatch: pytest.M
     monkeypatch.setattr(turn_admission.cache, "eval_script", fake_eval)
     assert turn_admission.active_turns() == 7
     assert seen == [([turn_admission._GLOBAL_KEY], turn_admission.TURN_LEASE_SECONDS)]
+
+
+@pytest.mark.asyncio
+async def test_a_turn_that_is_over_gives_back_the_slot_its_workflow_still_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _limits(monkeypatch, total=10, per_org=1)
+    monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0.3)
+    slots = turn_admission.TurnSlots()
+    admitted, finish = asyncio.Event(), asyncio.Event()
+
+    async def workflow() -> None:
+        turn_admission.bind_turn_slots(slots)
+        async with admit_turn_async("org_1"):
+            admitted.set()
+            await finish.wait()  # a teardown nobody waits for any more
+
+    running = asyncio.create_task(workflow())
+    await admitted.wait()
+    assert await turn_admission.return_turn_slots(slots) == 1
+    await asyncio.sleep(0.5)  # past a lease: a renewal would have re-stamped it, a released slot stays free
+
+    with admit_turn("org_1"):
+        pass
+    finish.set()
+    await running
+    assert slots.held == {}
+
+
+@pytest.mark.asyncio
+async def test_a_workflow_whose_turn_is_over_takes_no_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    _limits(monkeypatch, total=10, per_org=1)
+    slots = turn_admission.TurnSlots()
+    assert await turn_admission.return_turn_slots(slots) == 0
+
+    async def late_workflow() -> None:
+        turn_admission.bind_turn_slots(slots)
+        async with admit_turn_async("org_1"):
+            pass
+
+    with pytest.raises(TurnAdmissionError):
+        await asyncio.create_task(late_workflow())
+    with admit_turn("org_1"):  # and the slot it reached for went back at once
+        pass
+
+
+def test_a_renewal_that_races_its_turn_s_release_is_not_reported_as_reclaimed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _limits(monkeypatch, total=10, per_org=1)
+    monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: None)
+    held, refusal = turn_admission._acquire_all("org_1", "turn-a")
+    assert refusal is None
+    turn_admission._release_all(held, "turn-a")
+    monkeypatch.setattr(turn_admission.cache, "eval_script", lambda *_a, **_k: 0)
+
+    with caplog.at_level("WARNING", logger=turn_admission.__name__):
+        turn_admission._renew_all(held, "turn-a", lambda: True)  # its turn gave it back
+        assert not caplog.records
+        turn_admission._renew_all(held, "turn-a")  # nobody gave it back: the lease ran out under it
+    assert any("reclaimed while the turn still ran" in record.getMessage() for record in caplog.records)

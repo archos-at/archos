@@ -6,27 +6,16 @@ import type { ContentTransform } from './content-transform'
 import { anchoredTransform, clampZoom, doubleTapZoom, rubberBandZoom, twoFingerTapZoom } from './pdf-zoom'
 import { classifyTap, type TapRecord } from './tap-gestures'
 
-/** One wheel notch on a mouse is ~100px of delta; a trackpad pinch sends many small ones. */
 const WHEEL_SENSITIVITY = 0.002
 const MAX_WHEEL_DELTA = 100
-/** How long the wheel has to rest before its zoom becomes layout. */
 const WHEEL_COMMIT_MS = 160
 
-/** Safari's trackpad pinch: not a wheel event, a proprietary gesture event. */
 interface SafariGestureEvent extends UIEvent {
   scale: number
   clientX: number
   clientY: number
 }
 
-/**
- * What a finished zoom gesture asks of the viewer.
- *
- * `target` is the zoom to lay out; `shown` is the zoom on screen at that moment
- * (a pinch held past an end shows more than it may keep; a double tap shows the
- * old zoom and asks for a new one). The anchor is a point of the page stack,
- * in the stack's own pixels at the drawn zoom, and where on screen it is.
- */
 export interface ZoomCommit {
   target: number
   shown: number
@@ -36,42 +25,18 @@ export interface ZoomCommit {
   contentY: number
 }
 
-/** A press on one of these is the control's, never a tap on the sheet. */
 const CONTROL_SELECTOR = 'button, a, input, textarea, select, label, [role="slider"], [data-zoom-tap="off"]'
 
 const onControl = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest(CONTROL_SELECTOR) !== null
 
 interface Held {
-  /** The zoom the stack is laid out at when the gesture took hold. */
   zoom: number
-  /** The point taken hold of, in the stack's untransformed pixels. */
   point: { x: number; y: number }
-  /** Where the stack's top-left corner was on screen then, and the frame's scroll. */
   origin: { x: number; y: number }
   scroll: { left: number; top: number }
 }
 
-/**
- * Pinch, double tap and Ctrl/Cmd + wheel zoom for one scroll frame.
- *
- *  - **Two fingers** on a touch screen, from TOUCH events: the one input that
- *    every touch browser delivers, and the one whose `touchmove` can be
- *    cancelled so the frame does not scroll under a pinch. The old path read
- *    pointer events AND Safari's `gesture*` events, and iOS fires both for one
- *    pinch, so two handlers wrote the zoom from two different bases.
- *    `gesture*` is now only listened to for a trackpad pinch with no finger on
- *    the glass (Safari on a Mac, an iPad's trackpad).
- *  - **Double tap** zooms in one step towards the finger, and back to the fit
- *    from the ceiling; a **two-finger tap** zooms one step out.
- *  - **Ctrl / Cmd + wheel**: a mouse with a modifier, and a trackpad pinch in
- *    Chromium and Firefox, which arrives as exactly this.
- *
- * While a gesture runs the stack is only TRANSFORMED (see `ContentTransform`):
- * the viewer lays out the new zoom once, on release, through `onCommit`. One
- * finger is never touched: the frame keeps `touch-action: pan-x pan-y`, so a
- * single finger scrolls natively, with the platform's own momentum.
- */
 export function useZoomGestures(
   frameRef: RefObject<HTMLElement | null>,
   options: {
@@ -98,7 +63,6 @@ export function useZoomGestures(
     const frame = frameRef.current
     if (!frame || !enabled) return
 
-    /** Take hold of the stack at a screen point, from rest. */
     const hold = (clientX: number, clientY: number): Held | null => {
       const content = contentRef.current
       if (!content) return null
@@ -112,14 +76,11 @@ export function useZoomGestures(
       }
     }
 
-    /** Show the held stack at `shown`, its held point under (`clientX`, `clientY`). */
     const show = (held: Held, shown: number, clientX: number, clientY: number): void => {
       transform.preview(
         anchoredTransform({
           scale: shown / held.zoom,
           point: held.point,
-          // A native scroll that started before the second finger landed keeps
-          // moving the frame; the stack's corner moves with it.
           origin: {
             x: held.origin.x - (frame.scrollLeft - held.scroll.left),
             y: held.origin.y - (frame.scrollTop - held.scroll.top),
@@ -139,8 +100,6 @@ export function useZoomGestures(
         contentY: held.point.y,
       })
     }
-
-    // ---- Touch: pinch, double tap, two-finger tap ------------------------
 
     let pinch: (Held & { distance: number; last: { raw: number; x: number; y: number } | null }) | null = null
     let press: TapRecord | null = null
@@ -200,12 +159,9 @@ export function useZoomGestures(
           press.x = now.x
           press.y = now.y
         }
-        // Non-passive only for as long as two fingers are down: a cancellable
-        // `touchmove` on a scroller makes every scroll wait for the main thread.
         frame.addEventListener('touchmove', onPinchMove, { passive: false })
         return
       }
-      // A third finger is nobody's gesture.
       press = null
     }
 
@@ -222,7 +178,6 @@ export function useZoomGestures(
       press = null
       const tap = classifyTap(ended, lastTap, event.timeStamp)
       lastTap = tap.kind === 'single' ? { ...ended, time: event.timeStamp } : null
-      // A scroll, a hold or a lone tap asks nothing of the zoom.
       if (tap.kind !== 'double' && tap.kind !== 'two-finger') return
       const held = hold(ended.x, ended.y)
       if (!held) return
@@ -236,8 +191,6 @@ export function useZoomGestures(
       endPinch()
       press = null
     }
-
-    // ---- Wheel ---------------------------------------------------------
 
     let wheel: (Held & { raw: number; at: { x: number; y: number } }) | null = null
     let wheelTimer: number | null = null
@@ -264,17 +217,13 @@ export function useZoomGestures(
       wheelTimer = window.setTimeout(endWheel, WHEEL_COMMIT_MS)
     }
 
-    // ---- Safari's trackpad pinch -----------------------------------------
-
     let trackpad: (Held & { raw: number; at: { x: number; y: number } }) | null = null
     let fingersDown = 0
     const countFingers = (event: TouchEvent): void => {
       fingersDown = event.touches.length
     }
     const onGestureStart = (event: Event): void => {
-      // Always: on iOS this is what would zoom the whole page instead.
       event.preventDefault()
-      // A finger on the glass means the touch path has this one.
       if (fingersDown > 0) return
       const gesture = event as SafariGestureEvent
       const held = hold(gesture.clientX, gesture.clientY)

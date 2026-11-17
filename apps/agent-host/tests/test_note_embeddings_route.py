@@ -1,16 +1,3 @@
-"""The note-embeddings route (`POST /v1/note-embeddings`) answers with vectors.
-
-It is the only seam that embeds project memory and platform lessons, and it
-fails open: any error is answered as "no embedder" and every caller falls back
-to its lexical path, silently. It imported a class the knowledge layer never
-had (`LlamaIndexRetrieverAdapter`), so every call took that fallback, no memory
-item was ever embedded and every recall ran on tokens alone, while each layer
-reported itself healthy. The cross-project decisions ranking found it (October
-2026). These tests drive the route with the knowledge layer's own builders
-patched to a fake model, so the import, the key chain and the fingerprint are
-the real ones.
-"""
-
 import pytest
 from fastapi import APIRouter
 from fastapi import FastAPI

@@ -1,16 +1,3 @@
-"""Ingestion that tells the truth about what it did.
-
-- a PDF page pdfplumber cannot parse costs that page, not every page after it:
-  the page is counted, the file keeps what could be read, and fails only when
-  too much is missing (``_extract_text_from_pdf``, ``unreadable_pdf_verdict``);
-- ``chunks_created`` is the number of nodes stored, not the number of
-  Documents handed to the splitter;
-- a job this process holds is found by its dispatch key while it is live
-  (``find_live_job``), which is what makes ``POST /v1/ingest`` idempotent;
-- a status row a dead process left at ``processing`` is answered as failed,
-  reason ``interrupted``, through ``get_job_status``.
-"""
-
 import time
 from datetime import UTC
 from datetime import datetime
@@ -30,10 +17,6 @@ from agent.knowledge.schema import IngestionJobStatus
 from agent.knowledge.schema import JobState
 from agent.knowledge.schema import stable_file_id
 
-# ---------------------------------------------------------------------------
-# Per-page PDF reading
-# ---------------------------------------------------------------------------
-
 
 class _Page:
     def __init__(self, number: int, broken: bool) -> None:
@@ -45,8 +28,7 @@ class _Page:
             raise ValueError("unparseable content stream")
         return f"Seite {self._number}"
 
-    def close(self):
-        """pdfplumber's ``Page.close``: the text pass closes every page it read."""
+    def close(self): ...
 
 
 class _Pdf:
@@ -62,7 +44,6 @@ class _Pdf:
 
 @pytest.fixture()
 def fake_pdf(monkeypatch):
-    """``pdfplumber.open`` over pages numbered 1..n, the ones in ``broken`` raising."""
     import pdfplumber
     from knowledge_layer.ingest import captioned_tables
 
@@ -120,11 +101,6 @@ def test_a_plain_page_list_has_nothing_to_report():
     assert unreadable_pdf_verdict([{"page_number": 1, "text": "x"}]) is None
 
 
-# ---------------------------------------------------------------------------
-# End to end through _run_ingestion
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture()
 def stores(tmp_path):
     from agent.knowledge import configure_summary_db
@@ -148,7 +124,6 @@ def live_ingestor(tmp_path, monkeypatch, qdrant_store):
 
 @pytest.fixture()
 def quiet_pdf_pipeline(monkeypatch):
-    """No images, no rendered pages, no VLM: only the text stage speaks."""
     import knowledge_layer.ingest.processing as processing_module
 
     from agent.common.credential_resolution import ResolvedCredential
@@ -196,7 +171,6 @@ def test_chunks_created_counts_the_nodes_stored(tmp_path, live_ingestor, stores)
 
     stored = len(chunk_texts("proj_count", {"file_name": "statik.txt"}))
     assert status.file_details[0].status == FileStatus.SUCCESS
-    # One Document, several nodes: the count is the nodes the store holds.
     assert stored > 1
     assert status.file_details[0].chunks_created == stored
     assert status.metadata["total_chunks"] == stored
@@ -231,14 +205,8 @@ def test_too_many_unreadable_pages_fail_the_file(tmp_path, monkeypatch, live_ing
     assert status.status == JobState.FAILED
 
 
-# ---------------------------------------------------------------------------
-# Live jobs: found by dispatch key, and not trusted after their owner is gone
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture()
 def held_ingestor(tmp_path):
-    """An ingestor whose pool never runs anything, so a submitted job stays pending."""
     ing = LlamaIndexIngestor({})
     ing._ingest_pool = MagicMock()
     return ing
@@ -291,6 +259,15 @@ def test_a_job_a_dead_process_left_processing_reads_interrupted(tmp_path, monkey
         ingest_status_store._initialized.discard(url)
 
 
+def test_a_job_nothing_knows_any_more_is_unknown_not_failed(tmp_path, monkeypatch, held_ingestor):
+    url = f"sqlite:///{tmp_path / 'jobs.db'}"
+    monkeypatch.setenv("SUMMARY_DB", url)
+    try:
+        assert held_ingestor.get_job_status("pruned-long-ago") is None
+    finally:
+        ingest_status_store._initialized.discard(url)
+
+
 def test_startup_settles_and_each_beat_vouches_for_live_jobs_only(monkeypatch, held_ingestor):
     calls: list[object] = []
     monkeypatch.setattr(ingest_status_store, "fail_interrupted", lambda: calls.append("sweep") or 0)
@@ -303,11 +280,6 @@ def test_startup_settles_and_each_beat_vouches_for_live_jobs_only(monkeypatch, h
     held_ingestor._beat()
 
     assert calls == ["sweep", ["live", "queued"]]
-
-
-# ---------------------------------------------------------------------------
-# A status write that did not land is written again by the heartbeat
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture()
@@ -347,13 +319,11 @@ def _tracked_job(ingestor, job_id: str, state: JobState) -> IngestionJobStatus:
 def _finish(ingestor, job: IngestionJobStatus) -> None:
     with ingestor._lock:
         job.status = JobState.COMPLETED
-        # Naive UTC, as the adapter writes it; recent, so retention keeps it.
         job.completed_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
         job.file_details[0].status = FileStatus.SUCCESS
 
 
 def test_a_lost_terminal_write_is_retried_until_it_lands(status_db, monkeypatch, held_ingestor):
-    """The chunks are indexed; the row must not age into `failed: interrupted`."""
     job = _tracked_job(held_ingestor, "job-1", JobState.PROCESSING)
     held_ingestor._persist(job)
     _finish(held_ingestor, job)
@@ -375,7 +345,6 @@ def test_a_lost_terminal_write_is_retried_until_it_lands(status_db, monkeypatch,
 
 
 def test_a_job_settled_while_its_owner_could_not_beat_is_written_back(status_db, held_ingestor):
-    """Another replica read the stale row as interrupted; the owner, alive, restores it within one beat."""
     job = _tracked_job(held_ingestor, "job-1", JobState.PROCESSING)
     held_ingestor._persist(job)
     _age_row(status_db, "job-1")
@@ -396,7 +365,6 @@ def test_a_live_job_whose_first_write_never_landed_is_written_by_the_beat(status
 
 
 def test_a_job_no_longer_tracked_is_not_retried(monkeypatch, held_ingestor):
-    """Retention bounds the retry set: a pruned job has nothing left to write."""
     monkeypatch.setattr(ingest_status_store, "heartbeat", lambda ids: None)
     puts: list[str] = []
     monkeypatch.setattr(ingest_status_store, "put", lambda status: puts.append(status.job_id) or False)
@@ -408,7 +376,6 @@ def test_a_job_no_longer_tracked_is_not_retried(monkeypatch, held_ingestor):
 
 
 def test_a_retry_writes_the_job_as_it_is_now(status_db, monkeypatch, held_ingestor):
-    """The retry stores the latest status, never the one whose write failed."""
     job = _tracked_job(held_ingestor, "job-1", JobState.PROCESSING)
     real_put = ingest_status_store.put
     monkeypatch.setattr(ingest_status_store, "put", lambda status: False)
@@ -421,9 +388,74 @@ def test_a_retry_writes_the_job_as_it_is_now(status_db, monkeypatch, held_ingest
     assert ingest_status_store.get("job-1").status == JobState.COMPLETED
 
 
-# ---------------------------------------------------------------------------
-# A job that runs in another process than the one that took it
-# ---------------------------------------------------------------------------
+def _hatchet_run_job(ingestor, job_id: str, *, told_to_stop: bool) -> IngestionJobStatus:
+    job = _tracked_job(ingestor, job_id, JobState.PROCESSING)
+    ingestor._claim_guards[job_id] = lambda: not told_to_stop
+    ingest_status_store.put(job)
+    return job
+
+
+def test_a_persons_cancel_is_not_turned_back_to_processing_by_the_stopped_runs_heartbeat(status_db, held_ingestor):
+    _hatchet_run_job(held_ingestor, "job-1", told_to_stop=True)
+    assert ingest_status_store.settle_cancelled("job-1") is True
+
+    held_ingestor._beat()
+
+    assert ingest_status_store.get("job-1").status == JobState.CANCELLED
+    assert held_ingestor._unpersisted == set()
+
+
+def test_a_persons_cancel_is_not_turned_back_to_processing_by_the_stopped_runs_progress(status_db, held_ingestor):
+    job = _hatchet_run_job(held_ingestor, "job-1", told_to_stop=True)
+    ingest_status_store.settle_cancelled("job-1")
+
+    held_ingestor._update_file_status(job, 0, FileStatus.SUCCESS, chunks_created=3)
+
+    assert ingest_status_store.get("job-1").status == JobState.CANCELLED
+
+
+def test_a_stopped_run_that_finishes_still_writes_completed_over_cancelled(status_db, held_ingestor):
+    job = _hatchet_run_job(held_ingestor, "job-1", told_to_stop=True)
+    ingest_status_store.settle_cancelled("job-1")
+    _finish(held_ingestor, job)
+
+    held_ingestor._persist(job)
+
+    stored = ingest_status_store.get("job-1")
+    assert stored.status == JobState.COMPLETED
+    assert stored.file_details[0].status == FileStatus.SUCCESS
+
+
+def test_a_stopped_run_that_then_fails_leaves_the_row_cancelled(tmp_path, status_db, monkeypatch, held_ingestor):
+    upload = tmp_path / "a.txt"
+    upload.write_text("x", encoding="utf-8")
+    prepared = held_ingestor.prepare_job([str(upload)], "proj_1")
+
+    def stopped_then_broken() -> None:
+        ingest_status_store.settle_cancelled(prepared.job_id)
+        raise RuntimeError("the embedder is away")
+
+    monkeypatch.setattr(held_ingestor, "_ensure_initialized", stopped_then_broken)
+    answers = iter([True])  # the PROCESSING write is the owner's; every later question finds the run stopped
+
+    held_ingestor.run_prepared(prepared, still_owner=lambda: next(answers, False))
+
+    stored = ingest_status_store.get(prepared.job_id)
+    assert stored.status == JobState.CANCELLED
+    assert stored.error_message.startswith("cancelled:")
+    assert held_ingestor._unpersisted == set()
+
+
+def test_an_owner_hatchet_runs_whose_row_another_replica_settled_writes_again_and_wins(status_db, held_ingestor):
+    _hatchet_run_job(held_ingestor, "job-1", told_to_stop=False)
+    _age_row(status_db, "job-1")
+    settled = ingest_status_store.get("job-1")
+    assert (settled.status, settled.metadata["failure_reason"]) == (JobState.FAILED, "interrupted")
+
+    held_ingestor._beat()
+
+    assert ingest_status_store.get("job-1").status == JobState.PROCESSING
+    assert ingest_status_store.heartbeat(["job-1"]) == 1
 
 
 def test_a_prepared_job_is_vouched_for_by_the_process_that_runs_it(tmp_path, monkeypatch):
@@ -435,8 +467,6 @@ def test_a_prepared_job_is_vouched_for_by_the_process_that_runs_it(tmp_path, mon
     try:
         prepared = accepting.prepare_job([str(upload)], "proj_1", config={"organization_id": "org-1"})
 
-        # Recorded for every replica to read, but not this process's to beat for:
-        # Hatchet may hand it to any worker.
         assert accepting._live_job_ids() == []
         assert accepting.get_job_status(prepared.job_id).status == JobState.PENDING
         assert prepared.organization_id == "org-1"
@@ -448,8 +478,6 @@ def test_a_prepared_job_is_vouched_for_by_the_process_that_runs_it(tmp_path, mon
 
         assert ran == [prepared.job_id]
         assert running._live_job_ids() == [prepared.job_id]
-        # The file's id is derived, so the process that runs the job and the one
-        # that prepared it name the file alike.
         assert [(d.file_name, d.file_id) for d in running._jobs[prepared.job_id].file_details] == [
             ("a.txt", stable_file_id("proj_1", "a.txt"))
         ]

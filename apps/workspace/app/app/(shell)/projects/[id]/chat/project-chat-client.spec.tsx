@@ -1,16 +1,3 @@
-/**
- * `?session=` hydration on the project chat route.
- *
- * Task rows link to `/app/projects/<id>/chat?session=<conversationId>`, and a
- * finished `chat`-output run IS its conversation — usually a job-produced one
- * the sessions panel deliberately hides. `useSessionUrl` (inside MainLayout)
- * only resolves ids from the personal list, so without hydration here such a
- * link reads as stale, gets stripped, and lands on whatever thread was last
- * active. These tests pin that this client selects the deep-linked thread
- * itself — for job threads and ordinary ones — while never activating another
- * project's session (UX-8) and never inventing a thread for an unknown id.
- */
-
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render } from '@/test-utils'
 import { ProjectChatClient } from './project-chat-client'
@@ -64,9 +51,6 @@ const conversation = (overrides: Partial<Conversation> = {}): Conversation => ({
   ...overrides,
 })
 
-// Fixture for the store fields this client selects. `satisfies` keeps every
-// field checked against the real store while the `vi.fn()` methods keep their
-// mock types for reconfiguration.
 const chatState = {
   currentConversation: null as Conversation | null,
   currentUserId: 'user-1' as string | null,
@@ -110,9 +94,6 @@ describe('ProjectChatClient ?session= hydration', () => {
   })
 
   test('selects a job-output conversation the sessions panel hides', () => {
-    // The red-team case: a task row's "continue in chat" link names the
-    // conversation a finished run wrote into, which carries a jobId and is
-    // therefore absent from the personal list `useSessionUrl` consults.
     const jobThread = conversation({ id: 'conv-job', jobId: 'job-1' })
     chatState.conversations = [jobThread]
     mockSearchParams = new URLSearchParams('session=conv-job')
@@ -148,11 +129,8 @@ describe('ProjectChatClient ?session= hydration', () => {
 
     const { rerender } = render(<ProjectChatClient {...clientProps} />)
     expect(chatState.selectConversation).not.toHaveBeenCalled()
-    // Until it resolves, the thread shows it loading: not the greeting, not
-    // whatever was open before.
     expect(chatState.pendingMessagesFor).toBe('conv-late')
 
-    // The project load lands: the id resolves and is selected.
     chatState.conversations = [conversation({ id: 'conv-late' })]
     chatState.serverConversationsLoaded = true
     rerender(<ProjectChatClient {...clientProps} />)
@@ -167,21 +145,11 @@ describe('ProjectChatClient ?session= hydration', () => {
 
     render(<ProjectChatClient {...clientProps} />)
 
-    // Selecting nothing keeps the wrong thread from opening here;
-    // `useSessionUrl` clears the stale param.
     expect(chatState.selectConversation).not.toHaveBeenCalled()
-    // …and the thread is not left showing a skeleton for a link that resolved
-    // to nothing.
     expect(chatState.pendingMessagesFor).toBeNull()
   })
 })
 
-/**
- * `?doc=<id>&review=1&mark=<id>` is a link INTO a document's review („Link
- * kopieren" on a thread). `doc` there is the review's address: it must not
- * become the composer's subject, and once the pane has taken the link it
- * leaves the URL so a reload does not read it as an ask.
- */
 describe('ProjectChatClient review links', () => {
   const DOC = '00000000-0000-4000-8000-0000000000d1'
 
@@ -199,7 +167,6 @@ describe('ProjectChatClient review links', () => {
 
     expect(showDocumentBeside).toHaveBeenCalledWith(DOC, expect.objectContaining({ projectId: 'p1' }))
     expect(chatState.setComposerPrefill).not.toHaveBeenCalled()
-    // `review` and `mark` are the pane's to take; the page leaves them.
     expect(mockReplace).not.toHaveBeenCalled()
   })
 
@@ -207,7 +174,6 @@ describe('ProjectChatClient review links', () => {
     mockSearchParams = new URLSearchParams(`session=s1&doc=${DOC}&review=1&mark=ann-7`)
     const { rerender } = render(<ProjectChatClient {...clientProps} />)
 
-    // The pane opened the review and stripped its two params.
     mockSearchParams = new URLSearchParams(`session=s1&doc=${DOC}`)
     rerender(<ProjectChatClient {...clientProps} />)
 

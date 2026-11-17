@@ -1,10 +1,3 @@
-"""The project-experience route answers with the reading in its contract shape, and never non-200 for a fault in it.
-
-The retriever, its summary model, its chunks and the document list are patched at the knowledge
-layer's factory, which the route imports at call time. The model is a fake that answers the three
-calls in turn, so the route, the reading and the wire shape are the real ones.
-"""
-
 import json
 from types import SimpleNamespace
 from typing import Any
@@ -38,14 +31,11 @@ class _FakeLLM:
 
 
 class _FakeIngestor:
-    """Like ``LlamaIndexIngestor``: the one that holds the summary model."""
-
     def __init__(self, llm: Any):
         self.summary_llm = llm
 
 
-class _FakeRetriever:
-    """Like ``LlamaIndexRetriever``: no summary model, so a route asking it gets none."""
+class _FakeRetriever: ...
 
 
 def _body() -> dict[str, Any]:
@@ -111,7 +101,6 @@ async def test_a_body_without_the_collection_is_a_validation_error(app) -> None:
 
 
 async def test_a_body_without_the_files_it_may_read_is_a_validation_error(app) -> None:
-    # The BFF names the files every member may open; a body without them reads nothing.
     body = _body()
     del body["fileNames"]
 
@@ -174,3 +163,21 @@ async def test_a_knowledge_backend_that_cannot_be_reached_is_answered_as_extract
     assert response.status_code == 200
     assert response.json()["error"] == "extraction_failed"
     assert response.json()["documentsRead"] == []
+
+
+async def test_the_project_is_read_as_its_office(app, monkeypatch) -> None:
+    from knowledge_layer.vector_store import office_for
+
+    from agent.knowledge import collection_pages
+
+    _patch_knowledge(monkeypatch, _FakeLLM({"file_names": ["Baubeschreibung.pdf"]}, {"values": []}, {"decisions": []}))
+    offices: list[object] = []
+
+    def read(collection: str, file_name: str) -> Any:
+        offices.append(office_for(["proj_1"]))  # the office a project scope would be read as
+        return CHUNKS.get(file_name)
+
+    monkeypatch.setattr(collection_pages, "read_pages", read)
+    await _post(app, _body())
+
+    assert offices and set(offices) == {"org_1"}

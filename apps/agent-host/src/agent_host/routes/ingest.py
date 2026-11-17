@@ -158,8 +158,8 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     config.update(_filing_choice_config(request))
     config.update(_mail_config(request))
     config.update(_tenant_config(request, organization_id))
-    # The project's facts for the chunks' payload (`qdrant.writes.enrichment`), as
-    # plain data so they ride the durable queue's JSON payload unchanged.
+    # The licence mark and the project's facts for the chunks' payload (`writes.enrichment`), as plain data.
+    config.update(request.licence_mark())
     if request.project_facts is not None:
         config["project_facts"] = request.project_facts.facts.to_store()
         config["project_status"] = request.project_facts.status

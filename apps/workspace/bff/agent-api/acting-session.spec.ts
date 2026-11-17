@@ -2,15 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Only the dispatcher may enter the acting session (ADR-0122).
- *
- * `runAsActingSession` makes `getUserSession()` answer with a session no
- * cookie proved, so every route's `authz` trusts whoever bound it. The
- * dispatcher binds a session `lib/agent-api/principal.ts` resolved from a
- * verified credential; a second caller would be a way past every gate, and
- * nothing at runtime could tell the two apart. So the rule is checked here.
- */
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -23,7 +14,6 @@ import { actingProposalId, actingReaderIsAgent, currentActingSession, runAsActin
 import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
 
 
-/** The files allowed to name it: where it is defined, and the one caller. */
 const ALLOWED = new Set(['lib/agent-api/acting-session.ts', 'lib/agent-api/dispatch.ts'])
 
 function sourceFiles(dir: string): string[] {
@@ -52,7 +42,6 @@ describe('the acting session', () => {
       expect(currentActingSession()).toBe(session)
       expect(actingReaderIsAgent()).toBe(true)
     }, 'agent')
-    // A person applying a proposal reads the route's words in their own language.
     await runAsActingSession(session, async () => expect(actingReaderIsAgent()).toBe(false))
     expect(currentActingSession()).toBeUndefined()
   })

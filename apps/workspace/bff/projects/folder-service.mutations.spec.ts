@@ -13,7 +13,6 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-// No folder has its own access list (ADR-0088): every write is allowed.
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('@/lib/authz/folder-access-repository', () => ({
   listProjectDocumentCollections: vi.fn(async () => []),
@@ -28,12 +27,10 @@ vi.mock('@/lib/authz/projects', () => ({
 
 const db = vi.hoisted(() => ({
   folders: [] as Array<Record<string, unknown>>,
-  /** Every write the code performed, in order. */
   calls: [] as string[],
 }))
 
 vi.mock('@/lib/db', () => {
-  /** A transaction handle that records the ORDER of what it was asked to do. */
   const tx = {
     update: (table: { id?: string }) => {
       const target = table.id === 'documents.id' ? 'documents' : 'folders'
@@ -63,7 +60,6 @@ vi.mock('@/lib/db', () => {
         from: () => ({
           where: () => ({
             limit: async () => db.folders.filter((f) => f.__match === 'one').map((f) => f.row),
-            // Awaited without `limit`: the folder's child folders, of which there are none.
             then: (resolve: (value: unknown) => unknown) => Promise.resolve([]).then(resolve),
           }),
         }),
@@ -97,10 +93,6 @@ vi.mock('@/lib/db/schema/project-folders', () => ({
   },
 }))
 
-// The backend mirror runs after the transaction (ADR-0049). Both of its
-// dependencies are stubbed here rather than reached: the real repository pulls
-// the auth stack into a `node`-environment spec, and the point of this file is
-// the ORDER of the writes, not the fetch.
 vi.mock('@/lib/projects/repository', () => ({
   findProjectInOrg: vi.fn().mockResolvedValue({ id: 'proj-1', collectionName: 'proj_abc' }),
 }))
@@ -115,10 +107,6 @@ const SESSION = { organizationId: 'org-1', userId: 'user-1' } as never
 
 let fetchSpy: ReturnType<typeof vi.fn>
 
-/**
- * The other half of the mirror's caller-side join: a RENAME is the common case,
- * and it moves the path of every document filed in the folder or beneath it.
- */
 describe('updateProjectFolder', () => {
   beforeEach(() => {
     fetchSpy = vi.fn().mockResolvedValue({ ok: true })

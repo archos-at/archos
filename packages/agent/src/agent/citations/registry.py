@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC
+from datetime import datetime
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
@@ -30,6 +32,27 @@ def _merge_regions(entry: SourceEntry, regions: list[SourceRegion]) -> None:
             return
         if region not in entry.regions:
             entry.regions.append(region)
+
+
+def _merge_passage(existing: SourceEntry, entry: SourceEntry) -> None:
+    """Fold a second chunk of the same page into the entry that arrived first: its body, the first stated
+    Punkt, the best score, its boxes and reading, and the record its producer stated."""
+    if entry.chunk_text:
+        if not existing.chunk_text:
+            existing.chunk_text = entry.chunk_text
+        elif entry.chunk_text not in existing.chunk_text:
+            existing.chunk_text = f"{existing.chunk_text}\n\n{entry.chunk_text}"
+    if existing.clause is None and entry.clause:
+        existing.clause = entry.clause
+    existing.work_id = existing.work_id or entry.work_id
+    existing.edition_id = existing.edition_id or entry.edition_id
+    existing.public_url = existing.public_url or entry.public_url
+    existing.revision_date = existing.revision_date or entry.revision_date
+    if entry.score is not None and (existing.score is None or entry.score > existing.score):
+        existing.score = entry.score
+    _merge_regions(existing, entry.regions)
+    if entry.read and entry.read not in (existing.read or ""):
+        existing.read = f"{existing.read}\n{entry.read}" if existing.read else entry.read
 
 
 class SourceRegistry:
@@ -62,6 +85,19 @@ class SourceRegistry:
         # document's evidence entirely.
         self._citation_key_files: set[tuple[str | None, str, int | None]] = set()
         self._all: list[SourceEntry] = []
+        #: This turn's licensed passages whole, by citation key, for quote verification only (ADR-0164). Held in
+        #: memory for the turn: the session cache stores ``_all``, never this, and the next turn starts it empty.
+        self.licensed_text: dict[str, str] = {}
+
+    def keep_licensed_text(self, key: str, body: str) -> None:
+        """File a licensed passage under its citation key; a page's chunks share one key, so they are joined."""
+        held = self.licensed_text.get(key)
+        self.licensed_text[key] = body if not held else held if body in held else f"{held}\n\n{body}"
+
+    def for_turn(self) -> SourceRegistry:
+        """This registry, for a new turn: licensed text is not carried between turns, not even for verification."""
+        self.licensed_text.clear()
+        return self
 
     @staticmethod
     def _identity(entry: SourceEntry) -> tuple[str | None, str, int | None]:
@@ -84,6 +120,10 @@ class SourceRegistry:
         entry so we never have duplicate entries and lookups find the tool URL.
         """
         added = False
+        if entry.retrieved_at is None and (entry.url or entry.public_url):
+            # Read live over the network: the day of this turn, kept through the session cache (an entry
+            # restored from it already carries its day).
+            entry.retrieved_at = datetime.now(UTC).date().isoformat()
         if entry.url:
             raw = entry.url
             normalized = normalize_url(raw)
@@ -117,18 +157,7 @@ class SourceRegistry:
                 # survives, and the page keeps the best score any chunk earned.
                 for existing in self._citation_keys:
                     if self._identity(existing) == dedup_key:
-                        if entry.chunk_text:
-                            if not existing.chunk_text:
-                                existing.chunk_text = entry.chunk_text
-                            elif entry.chunk_text not in existing.chunk_text:
-                                existing.chunk_text = f"{existing.chunk_text}\n\n{entry.chunk_text}"
-                        if existing.clause is None and entry.clause:
-                            existing.clause = entry.clause
-                        if entry.score is not None and (existing.score is None or entry.score > existing.score):
-                            existing.score = entry.score
-                        _merge_regions(existing, entry.regions)
-                        if entry.read and entry.read not in (existing.read or ""):
-                            existing.read = f"{existing.read}\n{entry.read}" if existing.read else entry.read
+                        _merge_passage(existing, entry)
                         break
         if added:
             self._all.append(entry)

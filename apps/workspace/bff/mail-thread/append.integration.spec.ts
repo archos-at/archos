@@ -46,7 +46,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
   let reader: typeof import('@/lib/documents/document-reader')
   let projectId: string
   let addressId: string
-  /** A folder the reader in the origins case may not open (passed as hidden, as `getHiddenFolderIds` would). */
   let restrictedFolder: string
 
   const inTenant = <T>(run: () => Promise<T>): Promise<T> =>
@@ -60,7 +59,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
   const stagingKey = (mailId: string, name: string) =>
     `org/${ORG}/project/${projectId}/_inbound-mail/${mailId}/${name}`
 
-  /** A document of the project, screened (`completed` with no verdict), with one Fassung. */
   async function document(
     filename: string,
     folderId: string | null = null
@@ -75,7 +73,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
     return { id, versionId: version.id }
   }
 
-  /** A waiting mail with its text and one attachment, each claimed on a `file` decision of the person's. */
   async function heldMail(): Promise<{
     mailId: string
     textPart: string
@@ -122,7 +119,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
   }
 
   type Commit = import('./write-repository').AppendCommit
-  /** A commit as `append.ts` builds it: a new thread, its first entry, what came with it. */
   function newThreadCommit(
     mail: Awaited<ReturnType<typeof heldMail>>,
     thread: { id: string; documentId: string; versionId: string },
@@ -222,7 +218,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
   })
 
   afterAll(async () => {
-    // The project cascades to every row this spec wrote; the purge path is the platform's.
     await withPlatformAccess('test cleanup', () =>
       db.execute(sql`DELETE FROM projects WHERE organization_id = ${ORG}`)
     )
@@ -321,6 +316,24 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
       })
     })
 
+    it('files a text the agent placed: its suggestion goes with it (inbound_mail_parts_suggestion_with_bytes)', async () => {
+      const mail = await heldMail()
+      await rows(sql`
+        UPDATE inbound_mail_parts SET suggestion = ${JSON.stringify({ folderId: null, folderPath: 'Korrespondenz', newFolder: true, documentType: null, reason: 'Korrespondenz' })}::jsonb
+         WHERE id = ${mail.textPart}::uuid`)
+      const thread = await document('Vorbemessung.md')
+      const commit = newThreadCommit(
+        mail,
+        { id: crypto.randomUUID(), documentId: thread.id, versionId: thread.versionId },
+        { documentId: null, versionId: null }
+      )
+
+      expect(await inTenant(() => write.commitAppend(commit))).toBe('committed')
+      expect(
+        await one(sql`SELECT state, suggestion, mail_thread_entry_id FROM inbound_mail_parts WHERE id = ${mail.textPart}::uuid`)
+      ).toEqual({ state: 'filed', suggestion: null, mail_thread_entry_id: commit.entry.id })
+    })
+
     it('links what came with it, freezes what the section prints, and links a waiting attachment filed later once (D36)', async () => {
       const mail = await heldMail()
       const thread = await document('Pending.md')
@@ -380,7 +393,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
       expect(await inTenant(() => write.commitAppend(commit))).toBe('committed')
 
       expect(await inTenant(() => write.isOriginalFiledByAnother(projectId, original, crypto.randomUUID()))).toBe(true)
-      // A retry of the same mail's filing renders its section as before.
       expect(await inTenant(() => write.isOriginalFiledByAnother(projectId, original, mail.mailId))).toBe(false)
       expect(await inTenant(() => write.isOriginalFiledByAnother(projectId, `other-${original}`, crypto.randomUUID()))).toBe(false)
     })

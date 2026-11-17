@@ -1,18 +1,3 @@
-"""Counts of the literal search on chunks cut the way ingestion cuts them: one place in the document, one match.
-
-The office-file eval's fixture used to seed one chunk per page, with no overlap and no breadcrumb,
-and every count looked right on it. These tests cut the same documents with the REAL chunkers
-(``adapter.text_chunks_for_pages``, through ``fixture_files.chunk_specs``, and ``clause_documents``)
-and run the REAL ``qdrant.retrieval.find_text`` over them in memory, so the two ways a stored chunk
-holds text twice are in the data:
-
-* the overlap: a word in the 96-token overlap of a section is in two chunks;
-* the breadcrumb: a section's heading is restated at the head of every chunk of the section, and
-  of its subsections, and a Punkt chunk opens with the Richtlinie's label and its ancestors.
-
-Each count below was wrong before ``chunk_positions`` (the number it was is in the test).
-"""
-
 from __future__ import annotations
 
 import re
@@ -51,7 +36,6 @@ REPORT = "Brandschutzkonzept_Hubergasse14.pdf"
 
 
 def _as_chunks(name: str) -> list[Chunk]:
-    """The fixture file's chunks as the adapter hands them to the search: text, metadata, ordinal."""
     file = next(f for f in PROJECT.files if f.name == name)
     chunks = []
     for spec in fixture_files.chunk_specs(PROJECT, file):
@@ -73,7 +57,6 @@ def _as_chunks(name: str) -> list[Chunk]:
 
 
 def _clause_chunks() -> list[Chunk]:
-    """A small Richtlinie through ``clause_documents``, the OIB corpus's chunker."""
     from knowledge_layer.ingest import clause_documents
 
     pages = [
@@ -104,7 +87,6 @@ def _clause_chunks() -> list[Chunk]:
 
 
 def _legacy(content: str, *, page: int, chunk_id: str) -> Chunk:
-    """A point written before ``chunk_ordinal`` existed: per-page splitter output, no ordinal."""
     return Chunk(
         chunk_id=chunk_id,
         content=content,
@@ -122,8 +104,6 @@ def _counts(chunks: list[Chunk], phrase: str) -> list[tuple[str, int, list[int]]
 
 
 class TestTheFixtureHoldsTextTwice:
-    """The premise: without these, the counts below would pass on develop too."""
-
     def test_the_protocol_has_a_section_cut_in_two_with_an_overlap(self):
         parts = [c for c in _as_chunks(PROTOCOL) if c.metadata.get("clause_id") == "3"]
         assert [c.metadata["section_part"] for c in parts] == [1, 2]
@@ -138,25 +118,19 @@ class TestTheFixtureHoldsTextTwice:
 
 class TestOnePlaceOneMatch:
     def test_a_word_in_the_overlap_counts_once(self):
-        # develop: 2×, p. 2 (part 1 and part 2 both hold the sentence).
         assert _counts(_as_chunks(PROTOCOL), "Kopfbolzendübel") == [(PROTOCOL, 1, [2])]
 
     def test_a_heading_word_counts_once_where_the_heading_stands(self):
-        # develop: 3×, p. 2, 3 (both parts and the subsection's breadcrumb).
         assert _counts(_as_chunks(PROTOCOL), "Verbunddecke") == [(PROTOCOL, 1, [2])]
 
     def test_a_chapter_heading_is_not_counted_in_its_subsections(self):
-        # develop: 8×, p. 3, 7, 8, 9. The text says it on pages 3 (heading 2.1 and twice in the body),
-        # 7 (the chapter heading) and 9 (the Aufzug body).
         assert _counts(_as_chunks(REPORT), "Rettungsweg") == [(REPORT, 5, [3, 7, 9])]
 
     def test_the_count_of_the_planted_word_is_unchanged(self):
         assert _counts(_as_chunks(REPORT), "Fluchtweg") == [(REPORT, 3, [3, 7, 11])]
 
     def test_a_clause_counts_the_guideline_label_and_its_ancestors_never(self):
-        # develop: 4× (Punkt 2 and the ancestor line of 2.1, 2.2, 2.3).
         assert _counts(_clause_chunks(), "Bauprodukten") == [("oib-rl_2_ausgabe_mai_2023.pdf", 1, [2])]
-        # The label line „oib-rl_2…“ heads every Punkt; it is the pipeline's, not the Richtlinie's text.
         assert _counts(_clause_chunks(), "ausgabe_mai") == []
 
     def test_a_chunk_whose_only_match_is_the_overlap_is_no_passage(self):
@@ -177,7 +151,6 @@ class TestOnePlaceOneMatch:
         assert "›" not in heading
 
     def test_a_stemmed_hit_in_the_breadcrumb_alone_is_not_kept(self):
-        # The stemmed index matched the breadcrumb; the counting pattern finds it there and nowhere else.
         returned = [c for c in _as_chunks(PROTOCOL) if "Verbunddecke" in c.content]
         assert len(returned) == 3
         groups = group_matches(returned, phrase_pattern(["Verbunddecke"]), store_decides=True)
@@ -239,14 +212,7 @@ class TestThePrefixIsCutOnlyWhereTheChunkerWroteIt:
         assert _counts(parts, "Feuerwiderstand") == [("Altbestand.pdf", 1, [1])]
 
 
-# ---------------------------------------------------------------------------
-# Through the tool: the table, the distinct strings and the Herleitung row
-# ---------------------------------------------------------------------------
-
-
 class _Store:
-    """``find_text`` runs the real scan (``qdrant.retrieval.find_text``) over in-memory points."""
-
     def __init__(self, points: list[Chunk]):
         self.points = points
 
@@ -262,7 +228,9 @@ class _Store:
         original = retrieval.get_store
         retrieval.get_store = lambda *a, **k: fake
         try:
-            hits = retrieval.find_text(collection_name, pattern, filters, limit, user_regex=user_regex)
+            hits = retrieval.find_text(
+                collection_name, pattern, filters, limit, user_regex=user_regex, office_id="org_test"
+            )
         finally:
             retrieval.get_store = original
         by_id = {c.chunk_id: c for c in self.points}
@@ -317,7 +285,6 @@ class TestThroughTheTool:
         snippets = text[text.index("## Lines around the matches") :]
         assert "›" not in snippets
         assert snippets.count("> 3 Rettungswege und Aufzug") == 1
-        # The documents' own lines sit in the passages' fence.
         opened, closed = snippets.index("<document_content>\n"), snippets.index("\n</document_content>")
         assert opened < snippets.index("> 3 Rettungswege und Aufzug") < closed < snippets.index("This is an index")
 
@@ -328,7 +295,6 @@ class TestThroughTheTool:
         assert "- `Kopfbolzendübeln`: 1× in" in text
 
     async def test_a_capped_scan_that_read_only_breadcrumbs_is_not_a_no(self, search_with, monkeypatch):
-        # Not reachable before the count read only a chunk's own text: then every capped scan had a match.
         from knowledge_layer.browse import tool as browse
 
         monkeypatch.setattr(browse, "MAX_MATCH_CHUNKS", 2)
@@ -339,7 +305,6 @@ class TestThroughTheTool:
 
 
 def test_the_adapter_hands_the_search_each_chunks_place_in_its_file(monkeypatch):
-    """``chunk_ordinal`` is store-only metadata; without it on the hit no overlap could be found."""
     from knowledge_layer.search import LlamaIndexRetriever
     from knowledge_layer.vector_store import Hit
     from knowledge_layer.vector_store import retrieval as adapter_retrieval

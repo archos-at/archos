@@ -1,11 +1,3 @@
-/**
- * The rail edge is a resize handle, not a toggle wearing a resize cursor.
- *
- * Every case here fails against the vendored shadcn rail this replaces: that
- * one had exactly one behaviour (click → toggle) behind a `w-resize` cursor, so
- * a drag moved nothing and the width was a constant nobody could reach.
- */
-
 import { useEffect } from 'react'
 import { render, screen, fireEvent } from '@/test-utils'
 import { describe, test, expect, beforeEach, vi } from 'vitest'
@@ -27,12 +19,10 @@ function Fixture(): React.JSX.Element {
   )
 }
 
-/** The `<button>` the reader grabs. */
 function rail(): HTMLElement {
   return screen.getByRole('separator', { name: 'Resize sidebar' })
 }
 
-/** The element the provider publishes `--sidebar-width` on. */
 function wrapper(): HTMLElement {
   return document.querySelector('[data-slot="sidebar-wrapper"]') as HTMLElement
 }
@@ -45,7 +35,6 @@ function sidebarState(): string | null {
   return document.querySelector('[data-slot="sidebar"]')!.getAttribute('data-state')
 }
 
-/** One press-drag-release, in page coordinates. */
 function drag(from: number, to: number): void {
   fireEvent.pointerDown(rail(), { button: 0, clientX: from })
   fireEvent.pointerMove(window, { clientX: to })
@@ -59,19 +48,19 @@ beforeEach(() => {
 describe('SidebarRail - pointer', () => {
   test('drags the rail to a new width and publishes it', () => {
     render(<Fixture />)
-    expect(publishedWidth()).toBe('236px')
+    expect(publishedWidth()).toBe('272px')
 
-    drag(236, 316)
+    drag(272, 352)
 
-    expect(publishedWidth()).toBe('316px')
+    expect(publishedWidth()).toBe('352px')
   })
 
   test('persists the dragged width, so the next session opens at it', () => {
     render(<Fixture />)
 
-    drag(236, 316)
+    drag(272, 352)
 
-    expect(window.localStorage.getItem(WIDTH_KEY)).toBe('316')
+    expect(window.localStorage.getItem(WIDTH_KEY)).toBe('352')
   })
 
   test('restores the persisted width on mount', () => {
@@ -87,9 +76,7 @@ describe('SidebarRail - pointer', () => {
 
     render(<Fixture />)
 
-    // Not `NaNpx`, which resolves to nothing and leaves the gap and the rail
-    // disagreeing about where the page begins.
-    expect(publishedWidth()).toBe('236px')
+    expect(publishedWidth()).toBe('272px')
   })
 
   test('treats a cleared key as no stored width, not as zero', () => {
@@ -97,7 +84,7 @@ describe('SidebarRail - pointer', () => {
 
     render(<Fixture />)
 
-    expect(publishedWidth()).toBe('236px')
+    expect(publishedWidth()).toBe('272px')
   })
 
   test('clamps a stored width into the bounds', () => {
@@ -111,7 +98,7 @@ describe('SidebarRail - pointer', () => {
   test('clamps the drag at both bounds', () => {
     render(<Fixture />)
 
-    drag(236, 900)
+    drag(272, 900)
     expect(publishedWidth()).toBe('420px')
 
     drag(420, 405)
@@ -123,15 +110,13 @@ describe('SidebarRail - pointer', () => {
 
   test('collapses when the drag goes past the floor, keeping the width it had', () => {
     render(<Fixture />)
-    drag(236, 300)
+    drag(272, 300)
 
     fireEvent.pointerDown(rail(), { button: 0, clientX: 300 })
     fireEvent.pointerMove(window, { clientX: 120 })
 
     expect(sidebarState()).toBe('collapsed')
 
-    // Back out over the threshold in the same gesture: the rail returns to the
-    // width the drag is asking for, not to the default.
     fireEvent.pointerMove(window, { clientX: 260 })
     fireEvent.pointerUp(window, { clientX: 260 })
 
@@ -155,44 +140,44 @@ describe('SidebarRail - pointer', () => {
   test('a press that does not travel is still the toggle', () => {
     render(<Fixture />)
 
-    fireEvent.pointerDown(rail(), { button: 0, clientX: 236 })
-    fireEvent.pointerMove(window, { clientX: 238 })
-    fireEvent.pointerUp(window, { clientX: 238 })
+    fireEvent.pointerDown(rail(), { button: 0, clientX: 272 })
+    fireEvent.pointerMove(window, { clientX: 274 })
+    fireEvent.pointerUp(window, { clientX: 274 })
     fireEvent.click(rail())
 
     expect(sidebarState()).toBe('collapsed')
-    expect(publishedWidth()).toBe('236px')
+    expect(publishedWidth()).toBe('272px')
   })
 
   test('a completed drag does not also toggle on the click that ends it', () => {
     render(<Fixture />)
 
-    fireEvent.pointerDown(rail(), { button: 0, clientX: 236 })
-    fireEvent.pointerMove(window, { clientX: 316 })
-    fireEvent.pointerUp(window, { clientX: 316 })
+    fireEvent.pointerDown(rail(), { button: 0, clientX: 272 })
+    fireEvent.pointerMove(window, { clientX: 352 })
+    fireEvent.pointerUp(window, { clientX: 352 })
     fireEvent.click(rail())
 
     expect(sidebarState()).toBe('expanded')
-    expect(publishedWidth()).toBe('316px')
+    expect(publishedWidth()).toBe('352px')
   })
 
   test('ignores a non-primary button', () => {
     render(<Fixture />)
 
-    fireEvent.pointerDown(rail(), { button: 2, clientX: 236 })
-    fireEvent.pointerMove(window, { clientX: 316 })
+    fireEvent.pointerDown(rail(), { button: 2, clientX: 272 })
+    fireEvent.pointerMove(window, { clientX: 352 })
 
-    expect(publishedWidth()).toBe('236px')
+    expect(publishedWidth()).toBe('272px')
   })
 
   test('releases the cursor and the selection lock it takes for the drag', () => {
     render(<Fixture />)
 
-    fireEvent.pointerDown(rail(), { button: 0, clientX: 236 })
+    fireEvent.pointerDown(rail(), { button: 0, clientX: 272 })
     expect(document.body.style.cursor).toBe('col-resize')
     expect(document.body.style.userSelect).toBe('none')
 
-    fireEvent.pointerUp(window, { clientX: 236 })
+    fireEvent.pointerUp(window, { clientX: 272 })
 
     expect(document.body.style.cursor).toBe('')
     expect(document.body.style.userSelect).toBe('')
@@ -206,8 +191,6 @@ describe('SidebarRail - keyboard', () => {
 
     fireEvent.click(rail())
 
-    // From the icon column there is no width to change yet, only a rail to
-    // bring back — offering "resize" there is the same broken promise as before.
     expect(sidebarState()).toBe('collapsed')
     expect(rail()).toHaveAttribute('title', 'Drag or click to expand the sidebar')
   })
@@ -215,7 +198,7 @@ describe('SidebarRail - keyboard', () => {
   test('is a tab stop that reports the width it controls', () => {
     render(<Fixture />)
 
-    expect(rail()).toHaveAttribute('aria-valuenow', '236')
+    expect(rail()).toHaveAttribute('aria-valuenow', '272')
     expect(rail()).toHaveAttribute('aria-valuemin', '64')
     expect(rail()).toHaveAttribute('aria-valuemax', '420')
     expect(rail()).not.toHaveAttribute('tabindex')
@@ -225,14 +208,14 @@ describe('SidebarRail - keyboard', () => {
     render(<Fixture />)
 
     fireEvent.keyDown(rail(), { key: 'ArrowRight' })
-    expect(publishedWidth()).toBe('252px')
+    expect(publishedWidth()).toBe('288px')
 
     fireEvent.keyDown(rail(), { key: 'ArrowRight', shiftKey: true })
-    expect(publishedWidth()).toBe('316px')
+    expect(publishedWidth()).toBe('352px')
 
     fireEvent.keyDown(rail(), { key: 'ArrowLeft' })
-    expect(publishedWidth()).toBe('300px')
-    expect(window.localStorage.getItem(WIDTH_KEY)).toBe('300')
+    expect(publishedWidth()).toBe('336px')
+    expect(window.localStorage.getItem(WIDTH_KEY)).toBe('336')
   })
 
   test('Home and End go to the bounds', () => {
@@ -257,7 +240,6 @@ describe('SidebarRail - keyboard', () => {
 
     fireEvent.keyDown(rail(), { key: 'ArrowRight' })
     expect(sidebarState()).toBe('expanded')
-    // The width it had before the collapse, not the default.
     expect(publishedWidth()).toBe('200px')
   })
 
@@ -271,13 +253,12 @@ describe('SidebarRail - keyboard', () => {
     )
 
     fireEvent.keyDown(rail(), { key: 'ArrowLeft' })
-    expect(publishedWidth()).toBe('252px')
+    expect(publishedWidth()).toBe('288px')
 
-    // And the drag: away from the edge is wider on both sides.
     fireEvent.pointerDown(rail(), { button: 0, clientX: 1000 })
     fireEvent.pointerMove(window, { clientX: 940 })
     fireEvent.pointerUp(window, { clientX: 940 })
-    expect(publishedWidth()).toBe('312px')
+    expect(publishedWidth()).toBe('348px')
   })
 
   test('leaves keys it does not own to the page', () => {
@@ -286,14 +267,12 @@ describe('SidebarRail - keyboard', () => {
     const event = fireEvent.keyDown(rail(), { key: 'PageDown' })
 
     expect(event).toBe(true)
-    expect(publishedWidth()).toBe('236px')
+    expect(publishedWidth()).toBe('272px')
   })
 })
 
 describe('useSidebar width', () => {
   test('a controlled `open` still restores the dragged width', () => {
-    // The collapse restore returns early when `open` is a prop; the width the
-    // reader dragged is not the caller's to withhold.
     window.localStorage.setItem(WIDTH_KEY, '408')
 
     render(
@@ -325,42 +304,27 @@ describe('useSidebar width', () => {
         <Probe />
       </SidebarProvider>
     )
-    drag(236, 316)
+    drag(272, 352)
 
-    expect(seen.at(-1)).toBe(316)
+    expect(seen.at(-1)).toBe(352)
   })
 })
 
-describe('Sidebar - the phone drawer', () => {
-  function OpenOnMount(): null {
-    const { setOpenMobile } = useSidebar()
-    useEffect(() => setOpenMobile(true), [setOpenMobile])
-    return null
-  }
-
-  beforeEach(() => {
+describe('Sidebar - on a phone', () => {
+  test('renders nothing, so no unreachable drawer stays in the tree', () => {
     mobile.value = true
-    return () => {
+    try {
+      const { container } = render(
+        <SidebarProvider>
+          <Sidebar collapsible="icon">
+            <nav>Chat</nav>
+          </Sidebar>
+        </SidebarProvider>
+      )
+      expect(container.querySelector('[data-slot="sidebar"]')).toBeNull()
+      expect(screen.queryByText('Chat')).toBeNull()
+    } finally {
       mobile.value = false
     }
-  })
-
-  test('has a visible, finger-sized way out that closes it', () => {
-    render(
-      <SidebarProvider>
-        <OpenOnMount />
-        <Sidebar>
-          <nav>Chat</nav>
-        </Sidebar>
-      </SidebarProvider>
-    )
-
-    const close = document.querySelector<HTMLElement>('[data-slot="sidebar-close"]')!
-    expect(close).toBeVisible()
-    expect(close).toHaveClass('size-11')
-    expect(close).toHaveAccessibleName(/navigation/i)
-
-    fireEvent.click(close)
-    expect(document.querySelector('[data-mobile="true"]')).toBeNull()
   })
 })

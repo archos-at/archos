@@ -29,6 +29,7 @@ import { bool, nodeGroup, num } from "./config/readers";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
 import { malwareScanConfig } from "./config/malware-scan";
+import { publicSourceFetcherConfig } from "./config/public-source-fetcher";
 import { type InboundMailConfig, inboundMailConfig } from "./config/inbound-mail";
 import {
   type BffJobsConfig,
@@ -206,6 +207,13 @@ export interface DeployConfig {
     /** `clamav/clamav` with its signatures baked in, pinned by digest (refused otherwise). */
     image: string;
   };
+
+  /**
+   * The sandboxed fetcher of public legal and geodata sources (ADR-0162,
+   * `app/public-source-fetcher.ts`): RIS and later sources, fetched from a pod
+   * that reaches public hosts and nothing in the cluster.
+   */
+  publicSourceFetcher: { replicas: number };
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant
@@ -582,6 +590,7 @@ export function loadConfig(): DeployConfig {
     },
 
     malwareScan,
+    publicSourceFetcher: publicSourceFetcherConfig(cfg),
 
     ...loadWorkers(cfg),
 
@@ -622,12 +631,16 @@ export function loadConfig(): DeployConfig {
   };
 }
 
-/** komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`. */
+/**
+ * komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`.
+ * Not the default any more (ADR-0159): every keystroke of an address search goes to it, and it is a
+ * processor no register lists. A stack opts in by setting `geocoderUrl` to it.
+ */
 export const PUBLIC_GEOCODER_URL = "https://photon.komoot.io";
 
-/** `geocoderUrl`: an http(s) URL, or empty for no address search. A typo is refused, not served as "off". */
+/** `geocoderUrl`: an http(s) URL, or empty (the default) for no address search. A typo is refused, not served as "off". */
 function loadGeocoderUrl(cfg: pulumi.Config): string {
-  const url = (cfg.get("geocoderUrl") ?? PUBLIC_GEOCODER_URL).trim();
+  const url = (cfg.get("geocoderUrl") ?? "").trim();
   if (url !== "" && !/^https?:\/\/[^\s/]+/.test(url)) {
     throw new Error(`${pulumi.getProject()}:geocoderUrl must be an http(s) URL or empty (got "${url}").`);
   }

@@ -64,6 +64,13 @@ import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-th
 
 /** What an upload names besides the file, on either shelf. */
 export interface ShelfUploadInput {
+  /**
+   * Runs once the row and its version exist and before the dispatch, for a
+   * caller that must record something the dispatch then reads: the base-knowledge
+   * upload records its proposal here, so the dispatch finds the copy's text held
+   * (ADR-0163). Not called for a re-upload of unchanged bytes, which dispatches nothing.
+   */
+  beforeDispatch?: (documentId: string) => Promise<void>
   file: File
   folderId: string | null
   originPath?: string | null
@@ -569,6 +576,7 @@ export async function uploadToShelf(
     contentHash,
   })
 
+  await input.beforeDispatch?.(documentId)
   const { jobId, status } = await dispatchDocument({
     organizationId: session.organizationId,
     projectId: shelf.kind === 'project' ? shelf.projectId : null,

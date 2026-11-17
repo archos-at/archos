@@ -1,12 +1,3 @@
-"""The ``ifc_query`` tool's argument handling and rendering.
-
-The tool is the seam where a language model's free-form intent becomes a typed
-query. Two things can go wrong there and neither is visible from the endpoint's
-own tests: a malformed argument silently becoming a query that means something
-else, and a correct answer being rendered in a way that invites the model to
-recompute it. Both are exercised here without a running frontend.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -40,7 +31,6 @@ class TestBuildQuery:
         result = build(operation="count_walls")
         assert isinstance(result, str)
         assert "unknown operation" in result
-        # The valid set is spelled out so the model can correct itself in one turn.
         assert "aggregate" in result
 
     def test_filters_are_parsed_from_json(self):
@@ -48,9 +38,6 @@ class TestBuildQuery:
         assert result == {"op": "elements", "filter": {"ifcTypes": ["IfcWall"]}, "limit": 25, "offset": 0}
 
     def test_malformed_filters_fail_loudly_rather_than_matching_everything(self):
-        # Silently dropping an unparseable filter would turn "external walls on
-        # the ground floor" into "every element in the building", and the count
-        # would be confidently wrong.
         result = build(operation="elements", filters="ifcTypes=IfcWall")
         assert isinstance(result, str)
         assert "must be a JSON object" in result
@@ -75,7 +62,6 @@ class TestBuildQuery:
         assert build(operation="aggregate") == {"op": "aggregate", "filter": {}, "metric": "count", "limit": 25}
 
     def test_sum_without_a_quantity_is_refused(self):
-        # `sum` over nothing would return null and read as "zero square metres".
         result = build(operation="aggregate", metric="sum")
         assert isinstance(result, str)
         assert "needs a 'quantity'" in result
@@ -97,17 +83,12 @@ class TestBuildQuery:
         }
 
     def test_compare_sends_no_model_id(self):
-        # The endpoint resolves the other revision from `compare_with`; a UUID
-        # carried through a conversation is a reliable hallucination source.
         assert build(operation="compare") == {"op": "compare", "limit": 20000}
 
     def test_unknown_metric_is_refused(self):
         assert "metric must be one of" in build(operation="aggregate", metric="median")
 
     def test_takeoff_refuses_a_grouping_it_cannot_do(self):
-        # `byMaterial = group_by == "material"` turned every other value into
-        # `false` with no error, so a request for a per-storey Massenermittlung
-        # returned the whole building's and the agent reported it as one floor's.
         answer = build(operation="takeoff", quantity="NetSideArea", group_by="storey")
         assert isinstance(answer, str)
         assert "can only group by 'material'" in answer
@@ -121,9 +102,6 @@ class TestBuildQuery:
         }
 
     def test_grouping_by_property_is_refused_here_rather_than_by_a_400(self):
-        # The endpoint requires a companion `groupProperty {set, name}` that
-        # this tool has no parameter for, so every attempt was rejected and the
-        # agent had no argument it could correct.
         answer = build(operation="aggregate", metric="count", group_by="property")
         assert isinstance(answer, str)
         assert "operation='properties'" in answer
@@ -136,14 +114,6 @@ class TestBuildQuery:
 
 class TestRender:
     def test_a_resolved_query_files_the_model_it_read_under_the_turns_round(self):
-        """The Herleitung hangs on a round the documents it returned.
-
-        An ``ifc_query`` round is announced as a retrieval („Sucht im
-        Gebäudemodell") and used to return no document, so the layer drew as a
-        search that found nothing. The model file is that document, and the
-        operation is its locus. An UNRESOLVED result read no file and files
-        nothing.
-        """
         from agent.common import turn_status
 
         token = turn_status.begin_lane_capture()
@@ -223,20 +193,6 @@ class TestRender:
 
 
 class TestTheFiveWaysAModelIsNotResolved:
-    """Which reasons are worth a second call, and which the reply closes.
-
-    `no_models` and `extraction_failed` are facts about the PROJECT: no
-    argument to this tool changes them, and the route's own sentence („Für
-    dieses Projekt ist kein IFC-Modell hinterlegt.") reads like one operation's
-    miss, so the agent used to spend its remaining rounds on `overview`,
-    `types`, `elements` and `health` in turn. `not_ready` is a fact about the
-    TURN: the model exists and its extraction finishes later, and the render
-    names it under „noch nicht abfragbar", which is an invitation to retry with
-    that name. `ambiguous` and `no_match` are the opposite: a second call with
-    a different `model_name` is the right move, and the listed alternatives are
-    what it is made from.
-    """
-
     NO_MODELS = {
         "resolved": False,
         "reason": "no_models",
@@ -277,17 +233,12 @@ class TestTheFiveWaysAModelIsNotResolved:
         assert "returns this same result" in rendered
 
     def test_extraction_failed_says_the_same_and_still_names_the_model(self):
-        """The reason is as final as `no_models`, and WHICH model failed is
-        what the user needs to hear."""
         rendered = _render(self.EXTRACTION_FAILED)
 
         assert "haus-a.ifc (failed, 0 elements)" in rendered
         assert "This one call is the answer" in rendered
 
     def test_not_ready_closes_the_turn_and_still_names_the_model(self):
-        """The listing says „noch nicht abfragbar" beside a filename, which
-        reads as an invitation to call again with that name. Extraction does
-        not finish inside one turn, so the reply says what this turn can do."""
         rendered = _render(self.NOT_READY)
 
         assert "haus-a.ifc (extracting, 0 elements)" in rendered
@@ -297,9 +248,6 @@ class TestTheFiveWaysAModelIsNotResolved:
         assert "without any claim about the building" in rendered
 
     def test_not_ready_also_covers_the_model_whose_extraction_failed(self):
-        """The route sends `not_ready` for both states (`internal-access.ts`),
-        so the sentence says what to do and leaves WHICH state to the route's
-        own message."""
         failed = {
             **self.NOT_READY,
             "message": "Dieses IFC-Modell konnte nicht gelesen werden.",
@@ -311,8 +259,6 @@ class TestTheFiveWaysAModelIsNotResolved:
         assert "not ready to be queried yet" in rendered
 
     def test_not_ready_is_not_told_that_no_model_is_stored(self):
-        """A model IS stored. Saying otherwise sends the user looking for an
-        upload that already happened."""
         from agent.tools.bim.failures import NO_MODEL_TEXT
 
         assert NO_MODEL_TEXT not in _render(self.NOT_READY)
@@ -330,8 +276,6 @@ class TestTheFiveWaysAModelIsNotResolved:
         assert "This one call is the answer" not in rendered
 
     def test_the_do_not_retry_wording_has_one_source(self):
-        """`NO_PROJECT_TEXT` and this one are the two finals, and they read the
-        same way on purpose: one call, then tell the user."""
         from agent.tools.bim.failures import NO_MODEL_TEXT
 
         assert NO_MODEL_TEXT in _render(self.NO_MODELS)
@@ -362,7 +306,6 @@ class TestTheFiveWaysAModelIsNotResolved:
                 },
             }
         )
-        # Geschoß, the Austrian spelling the rest of the product uses.
         assert "Storeys: Erdgeschoss (12 elements)" in rendered
         assert "Element types: IfcWall (5), IfcSpace (4)" in rendered
 
@@ -386,11 +329,6 @@ class TestTheFiveWaysAModelIsNotResolved:
         assert "IfcWall „Aussenwand Nord“ · Erdgeschoss · GlobalId 0GridFixtureWall0001" in rendered
 
     def test_a_partial_whole_model_answer_is_not_advice_to_narrow_the_query(self):
-        # For `elements` a truncated result IS a long list and "narrow the
-        # query" is right. For a Raumbuch there is no list to narrow — the
-        # NUMBERS were computed over a window of the model, and telling the
-        # agent to aggregate harder invites it to quote a partial sum as a
-        # total, which is the failure the flag exists to prevent.
         from agent.tools.bim.register import _truncation_note
 
         assert "only part of the model" in _truncation_note("schedule")
@@ -464,28 +402,15 @@ class TestTheFiveWaysAModelIsNotResolved:
 
 
 class TestElementLinks:
-    """The path that turns a named element in an answer into a clickable chip.
-
-    The frontend recognises exactly one shape (`features/bim/lib/model-link.ts`
-    parses it, `element-question.ts` matches it), so these assertions are the
-    Python half of a two-sided contract. A drifted parameter name here does not
-    fail anything — it just quietly renders as a plain link that opens a model
-    with nothing selected.
-    """
-
     def test_the_path_matches_what_the_frontend_parses(self):
         assert _element_link("p1", "haus-a.ifc", "1kTvXnbbzCWw8lcMd1dR4o") == (
             "/app/projects/p1/model?model=haus-a.ifc&element=1kTvXnbbzCWw8lcMd1dR4o&hl=info%3A1kTvXnbbzCWw8lcMd1dR4o"
         )
 
     def test_a_space_in_the_file_name_is_encoded(self):
-        # An unencoded space truncates the query string at the first parameter,
-        # so the link would open the model with no element selected.
         assert "model=haus%20a.ifc" in _element_link("p1", "haus a.ifc", "g1")
 
     def test_no_project_or_no_element_yields_no_link(self):
-        # Callers append the result unconditionally; an empty string is how this
-        # says "there is nothing to link to" without producing a broken href.
         assert _element_link(None, "haus-a.ifc", "g1") == ""
         assert _element_link("p1", "haus-a.ifc", None) == ""
 
@@ -493,17 +418,10 @@ class TestElementLinks:
         assert _element_link("p1", None, "g1") == "/app/projects/p1/model?element=g1&hl=info%3Ag1"
 
     def test_a_failing_element_opens_red_rather_than_neutral(self):
-        # Every link this tool emitted was `info` (blue) whatever the row said,
-        # so a wall that FAILS a requirement opened in the same colour as one
-        # the user merely asked to look at. The viewer supports four verdict
-        # colours and the whole set was collapsed to one.
         assert _element_link("p1", None, "g1", "fail") == "/app/projects/p1/model?element=g1&hl=fail%3Ag1"
         assert _element_link("p1", None, "g1", "warning").endswith("hl=warning%3Ag1")
 
     def test_an_unknown_status_falls_back_instead_of_reaching_the_url(self):
-        # The frontend parser DROPS a highlight whose status it cannot read
-        # (`STATUSES.has` in `model-link.ts`), so an invalid tone would not
-        # mis-colour the element — it would leave it unhighlighted entirely.
         assert _element_link("p1", None, "g1", "rot").endswith("hl=info%3Ag1")
 
     def test_an_element_list_carries_a_link_per_row(self):
@@ -546,8 +464,6 @@ class TestElementLinks:
         assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0GridFixtureWall0001" in rendered
 
     def test_no_project_context_renders_no_link_line(self):
-        # A session with no project cannot address a model page. Emitting a
-        # path with an empty id would produce a link to a 404.
         rendered = _render(
             {
                 "resolved": True,
@@ -561,14 +477,6 @@ class TestElementLinks:
 
 
 class TestComplianceOperation:
-    """The rule catalogue's tool surface.
-
-    The catalogue's whole value rests on the third state — "nicht entscheidbar"
-    — surviving the trip through the tool intact, and on a fact the agent did
-    not supply being OMITTED rather than defaulted. A default Gebäudeklasse
-    would turn a GK5 building's missing R 90 into a pass.
-    """
-
     def test_compliance_takes_project_facts_not_element_filters(self):
         assert build(operation="compliance", building_class=4, main_use="Wohnen") == {
             "op": "compliance",
@@ -577,38 +485,23 @@ class TestComplianceOperation:
         }
 
     def test_a_fact_that_was_not_supplied_is_omitted_rather_than_defaulted(self):
-        # The rules that need it then stand down WITH their reason, which is the
-        # honest outcome; a default would silently pick the mildest class.
         assert build(operation="compliance") == {"op": "compliance"}
 
     def test_an_out_of_range_building_class_is_dropped_not_clamped(self):
-        # Clamping 9 to 5 would invent a requirement the project never stated.
         assert build(operation="compliance", building_class=9) == {"op": "compliance"}
 
     def test_compliance_refuses_filters_rather_than_dropping_them(self):
-        # It used to drop them, which is the one thing the tool description
-        # promises never happens ("an unknown key is REJECTED, not ignored").
-        # A rule run asked for with `{"storeys": ["Erdgeschoss"]}` came back as
-        # a run over the WHOLE building, and the agent reported it as the
-        # ground floor's — a wrong verdict, arrived at silently.
         answer = build(operation="compliance", filters='{"ifcTypes": ["IfcWall"]}', building_class=2)
         assert isinstance(answer, str)
         assert "takes no filters" in answer
 
     def test_every_whole_model_operation_refuses_a_filter(self):
-        # One list, one rule. Each of these reads the model entire; a filter
-        # handed to any of them was silently discarded, and the answer that
-        # came back described a different question than the one asked.
         for operation in ("overview", "types", "health", "schedule", "profile", "compare", "properties"):
             answer = build(operation=operation, filters='{"storeys": ["Erdgeschoss"]}')
             assert isinstance(answer, str), operation
             assert "takes no filters" in answer, operation
 
     def test_an_unknown_main_use_is_omitted_rather_than_rejected(self):
-        # The description promises an unrecognised value makes the rules stand
-        # down. It did not: the value reached a `.strict()` object whose field
-        # is an enum, so the WHOLE compliance run came back 400 — on a value
-        # the description presents as merely imprecise.
         assert build(operation="compliance", main_use="Wohngebäude") == {"op": "compliance"}
 
     def test_the_german_main_use_a_profile_or_model_still_says_is_passed_as_the_english_one(self):
@@ -619,8 +512,6 @@ class TestComplianceOperation:
         assert build(operation="compliance", main_use="lager") == {"op": "compliance", "mainUse": "storage"}
 
     def test_every_main_use_the_catalogue_knows_is_passed_through(self):
-        # Mirrors `BIM_MAIN_USE` in lib/bim/query.ts. A value dropped here
-        # is a rule that stands down for no reason.
         for value in (
             "residential",
             "office",
@@ -681,19 +572,11 @@ class TestComplianceOperation:
             },
             "p1",
         )
-        # The reading is what makes the row checkable, and the link is what
-        # makes it fixable — and it opens RED, because this row is a breach.
         assert "Breite 0.7 m — Schwellwert ≥ 0,80 m" in rendered
         assert "element=0GridFixtureDoor00001" in rendered
         assert "hl=fail%3A0GridFixtureDoor00001" in rendered
 
     def test_a_rule_that_left_work_behind_prints_the_id_the_card_asks_for(self):
-        # `ifc_compliance.rule_ids` is documented as "rule ids from ifc_query
-        # operation='compliance'", and this renderer printed one nowhere except
-        # inside the shopping list's `entscheidet:` clause — which only covers
-        # rules with a MISSING property. For a rule that cleanly fails there
-        # was no valid id to put in the card, so the agent had to invent one
-        # (the card then renders it unresolved) or send an empty list.
         rendered = _render(
             {
                 "resolved": True,
@@ -717,9 +600,35 @@ class TestComplianceOperation:
         assert "Rule oib4-door-clear-width" in rendered
         assert "3 not met" in rendered
 
+    def test_a_hinted_rule_carries_its_reason_on_its_line(self):
+        reason = "Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV"
+        rendered = _render(
+            {
+                "resolved": True,
+                "op": "compliance",
+                "model": {"filename": "haus-a.ifc"},
+                "summary": f"OIB-Richtlinie 4, Ausgabe Mai 2023 3 — Türen: {reason}",
+                "compliance": [
+                    {
+                        "ruleId": "oib4-door-clear-width",
+                        "titleDe": "Türen — lichte Durchgangsbreite",
+                        "richtlinie": "OIB-Richtlinie 4, Ausgabe Mai 2023",
+                        "failed": 0,
+                        "undecidable": 12,
+                        "hint": reason,
+                        "failures": [],
+                    }
+                ],
+            },
+            "p1",
+        )
+
+        assert (
+            f"- Rule oib4-door-clear-width: Türen — lichte Durchgangsbreite — 0 not met, 12 undecidable — {reason}"
+            in rendered
+        )
+
     def test_a_clean_rule_is_not_offered_as_a_card_row(self):
-        # A rule with nothing outstanding is not work, and listing its id would
-        # invite a card whose whole content is "this one was fine".
         rendered = _render(
             {
                 "resolved": True,
@@ -743,9 +652,6 @@ class TestComplianceOperation:
         assert "oib3-room-height" not in rendered
 
     def test_an_undecidable_rule_is_work_too(self):
-        # "The model does not publish the value" is the state this whole
-        # catalogue exists to surface; a rule that reaches it must be
-        # offerable as a card row even with zero failures.
         rendered = _render(
             {
                 "resolved": True,
@@ -770,9 +676,6 @@ class TestComplianceOperation:
         assert "34 undecidable" in rendered
 
     def test_the_open_items_come_back_as_a_bcf_download(self):
-        # The list of open requirements is the answer; the BCF file is what the
-        # architect DOES with it, and a chat answer that cannot hand it over
-        # leaves the loop open.
         rendered = _render(
             {
                 "resolved": True,
@@ -791,8 +694,6 @@ class TestComplianceOperation:
         )
 
     def test_the_bcf_link_carries_no_fact_the_run_did_not_have(self):
-        # A Gebäudeklasse in the URL that the catalogue never applied would
-        # build the archive against thresholds nobody chose.
         rendered = _render(
             {"resolved": True, "op": "compliance", "model": {"filename": "haus.ifc"}, "summary": "…"},
             "p1",
@@ -809,8 +710,6 @@ class TestComplianceOperation:
         assert "checks/export" not in rendered
 
     def test_only_the_compliance_operations_offer_the_export(self):
-        # An element lookup that offered a compliance export would be inviting
-        # the model to hand over a file for a question nobody asked.
         rendered = _render(
             {
                 "resolved": True,
@@ -828,32 +727,18 @@ class TestComplianceOperation:
         from agent.tools.bim.register import _TOOL_DESCRIPTION
 
         assert "BCF export of the open issues:" in _TOOL_DESCRIPTION
-        # Naming the tools is what makes "BCF" mean something to the reader.
         assert "ArchiCAD, Revit, Solibri or BIMcollab" in _TOOL_DESCRIPTION
 
     def test_the_tool_description_forbids_declaring_the_building_compliant(self):
         from agent.tools.bim.register import _TOOL_DESCRIPTION
 
         assert "Never turn a compliance result into a statement that the building complies" in (_TOOL_DESCRIPTION)
-        # And it must name what the catalogue cannot see, so the agent does not
-        # present a partial check as a whole one.
         assert "escape-route lengths" in _TOOL_DESCRIPTION
 
 
 class TestTheDescriptionDescribesTheRealTool:
-    """The description is the only spec the model reads.
-
-    A parameter documented in it that the function does not have is not a typo
-    — it is an instruction the model follows to produce a call that silently
-    does something else. ``by_material=true`` shipped for exactly that reason:
-    the real switch is ``group_by="material"``, so every cost-estimate takeoff
-    an obedient model asked for came back ungrouped, and nothing failed.
-    """
-
     @staticmethod
     def _description_and_parameters() -> tuple[str, list[str]]:
-        # `IfcQueryInput` IS the wire schema: the agent runtime hands it to LangChain as the
-        # tool's `args_schema`, so its fields are the arguments the model can set.
         from agent.tools.bim.register import _TOOL_DESCRIPTION
         from agent.tools.bim.register import IfcQueryInput
 
@@ -863,7 +748,6 @@ class TestTheDescriptionDescribesTheRealTool:
         import re
 
         description, parameters = self._description_and_parameters()
-        # `name=value` in the description is an instruction to pass `name`.
         shown = set(re.findall(r"\b([a-z][a-z0-9_]{2,})\s*=", description))
 
         assert shown, "the invariant is vacuous if the description shows no arguments at all"
@@ -873,9 +757,6 @@ class TestTheDescriptionDescribesTheRealTool:
         import re
 
         description, parameters = self._description_and_parameters()
-        # Other tools and cards the description legitimately points at. The
-        # list is explicit so a NEW snake_case name has to be classified rather
-        # than absorbed.
         neighbours = {
             "knowledge_search",
             "project_profile_patch",
@@ -890,27 +771,17 @@ class TestTheDescriptionDescribesTheRealTool:
         assert "emit_card" not in description
 
     def test_it_prefers_a_filter_over_a_transcribed_id_list(self):
-        # The reason the field exists: an id list can only carry what fits in
-        # the reply, so a set answer highlighted a fraction of itself while the
-        # legend claimed the whole thing.
         description, _ = self._description_and_parameters()
         assert "rather than a list of ids" in description
-        # And that the two are mutually exclusive — the Python model refuses a
-        # group carrying both, so an agent told otherwise loses the card.
         assert "exactly one of the two per group" in description
 
     def test_the_takeoff_material_split_is_documented_as_a_name_match(self):
-        # It matches material NAMES, not IfcMaterialLayerSet structure, and a
-        # reader who assumes otherwise reports a layered wall's quantity as
-        # though it were split per layer.
         description, _ = self._description_and_parameters()
 
         assert 'group_by="material"' in description
         assert "substring match" in description
 
     def test_the_description_separates_an_absent_value_from_a_zero(self):
-        # IFC2X3 rarely publishes Qto_* at all, so "no NetFloorArea" on a 2X3
-        # export is a fact about the exporter, not about the rooms.
         description, _ = self._description_and_parameters()
 
         assert "IFC2X3" in description
@@ -923,16 +794,12 @@ class TestTheDescriptionDescribesTheRealTool:
         assert "IfcSpace" in description
 
     def test_the_description_says_the_bcf_does_not_come_back(self):
-        # Nothing reads topic status back, so an agent must not imply the file
-        # tracks resolution.
         description, _ = self._description_and_parameters()
 
         assert "ONE-WAY" in description
 
 
 class TestBuildingClassValidation:
-    """One gate, so the run and the download cannot disagree."""
-
     @pytest.mark.parametrize("value", [0, 6, 9, -1, None])
     def test_an_impossible_building_class_reaches_neither_the_query_nor_the_link(self, value):
         from agent.tools.bim.register import _bcf_link
@@ -940,8 +807,6 @@ class TestBuildingClassValidation:
         query = build(operation="compliance", building_class=value or 0)
         assert "buildingClass" not in query
 
-        # And the same value must not survive into the export URL, which is the
-        # half that used to take it raw.
         assert "buildingClass" not in _bcf_link("p1", "haus.ifc", value or 0, "")
 
     @pytest.mark.parametrize("value", [1, 2, 3, 4, 5])
@@ -952,8 +817,6 @@ class TestBuildingClassValidation:
         assert f"buildingClass={value}" in _bcf_link("p1", "haus.ifc", value, "")
 
     def test_the_rendered_export_link_drops_a_klasse_the_catalogue_refused(self):
-        # The end-to-end shape of the bug: the tool is called with 9, the
-        # catalogue runs without a Gebäudeklasse, and the link must match.
         rendered = _render(
             {"resolved": True, "op": "compliance", "model": {"filename": "haus.ifc"}, "summary": "…"},
             "p1",
@@ -966,16 +829,6 @@ class TestBuildingClassValidation:
 
 
 class TestWhatTheTraceRecords:
-    """What `ifc_query` tells Langfuse about the call it just made (ADR-0045).
-
-    Everything expensive in a research turn is traced span by span in the agent
-    process. This tool is the exception: the parse, the SQL and the rule
-    catalogue all run in the BFF, which exports OTel logs and no traces. Without
-    these facts the span is a duration and a rendered German string, and an
-    operator asked why an answer was slow — or why it said a building has no
-    fire-rated walls — can recover none of what would explain it.
-    """
-
     @pytest.fixture(autouse=True)
     def _clean(self):
         from agent.observability.langfuse_trace_attributes import reset_contributions
@@ -1005,26 +858,13 @@ class TestWhatTheTraceRecords:
         assert self._recorded()["metadata"] == {
             "ifc_op": "compliance",
             "ifc_outcome": "resolved",
-            # A digest, not the file name. Langfuse is an external service and
-            # an Austrian project file is named for the client and the site;
-            # the trace only ever needed "the same building as that other
-            # turn", which a stable handle gives without the name.
-            # `allowlist secret`: twelve hex characters trip the entropy
-            # detector, and this is the opposite of a secret — it is the
-            # public SHA-256 prefix of the string "haus.ifc", pinned so the
-            # exact value an operator sees on a trace cannot drift.
             "ifc_model": "e37fd06cb38e",  # pragma: allowlist secret
             "ifc_elements": 40000,
         }
         assert "haus.ifc" not in str(self._recorded())
-        # One tag, because "which turns read a building model" is the filter an
-        # operator reaches for before any metadata scan.
         assert self._recorded()["tags"] == ["feature:ifc"]
 
     def test_a_list_clipped_by_one_reads_as_one(self):
-        # The renderer substitutes into a template and does nothing else, so
-        # "… 1 more storeys not shown." was what every list clipped by
-        # exactly one produced — in an answer an architect reads.
         from agent.tools.bim.register import _clipped
 
         assert _clipped(list(range(21)), 20, "storeys") == "… 1 more storey not shown."
@@ -1032,8 +872,6 @@ class TestWhatTheTraceRecords:
         assert _clipped(list(range(20)), 20, "storeys") is None
 
     def test_the_model_handle_is_stable_and_not_the_name(self):
-        # Stable, because an operator correlating two slow turns needs them to
-        # match; not the name, because the name is the client and the address.
         from agent.tools.bim.register import _model_handle
 
         assert _model_handle("Haus-Mayr_Landstrasser-Hauptstr-12_V3.ifc") == _model_handle(
@@ -1042,15 +880,10 @@ class TestWhatTheTraceRecords:
         assert _model_handle("Haus-A.ifc") != _model_handle("Haus-B.ifc")
         handle = _model_handle("Haus-Mayr_Landstrasser-Hauptstr-12_V3.ifc")
         assert handle is not None and "Mayr" not in handle and "Hauptstr" not in handle
-        # A model the payload did not name has no handle, rather than a handle
-        # for the empty string that every such turn would share.
         assert _model_handle(None) is None
         assert _model_handle("") is None
 
     def test_a_partial_answer_says_so_on_the_trace(self):
-        # The one that matters for correctness rather than speed: a truncated
-        # run is a subset presented as a total, and a trace that does not record
-        # it cannot be used to audit the answer afterwards.
         from agent.tools.bim.register import _trace
 
         _trace(
@@ -1085,9 +918,6 @@ class TestWhatTheTraceRecords:
             assert self._recorded()["metadata"]["ifc_catalog_sampled"] is expected
 
     def test_an_unresolved_model_is_recorded_with_its_reason(self):
-        # "There is no model", "there are several" and "it is still extracting"
-        # are different answers, and a trace that flattens them to a duration
-        # cannot tell an operator which one the user actually got.
         from agent.tools.bim.register import _trace
 
         _trace({"op": "overview"}, {"resolved": False, "reason": "ambiguous"})
@@ -1098,8 +928,6 @@ class TestWhatTheTraceRecords:
         }
 
     def test_a_transport_failure_is_not_recorded_as_an_empty_building(self):
-        # The distinction the whole tool is built around, carried into telemetry:
-        # "could not look" must never read as "looked and found nothing".
         from agent.tools.bim.register import _trace
 
         _trace({"op": "schedule"}, None, unavailable=True)
@@ -1110,10 +938,6 @@ class TestWhatTheTraceRecords:
         }
 
     def test_no_element_names_or_property_values_reach_the_trace(self):
-        # The SHAPE of the query, not its contents. The contents are already in
-        # `output.value`, under the redaction policy that governs it; copying
-        # them into trace metadata would put the same tenant data in a second
-        # place with a second policy.
         from agent.tools.bim.register import _trace
 
         _trace(
@@ -1133,13 +957,6 @@ class TestWhatTheTraceRecords:
 
 
 class TestTheToolBody:
-    """`_query` is the tool minus the agent runtime: the context guards, the post, and the failure table.
-
-    Nothing here reaches a frontend. `run_bim_query` is replaced per test, so
-    what is asserted is which sentence the agent reads for which outcome, and
-    what the trace says about it.
-    """
-
     @pytest.fixture(autouse=True)
     def _context(self, monkeypatch):
         from agent.tools.bim import register
@@ -1149,7 +966,6 @@ class TestTheToolBody:
 
     @staticmethod
     def _query(monkeypatch, run, **arguments) -> tuple[str, str]:
-        """The answer and the traced outcome — read inside the task, where the ContextVar was written."""
         import asyncio
 
         from agent.observability.langfuse_trace_attributes import _CONTRIBUTED

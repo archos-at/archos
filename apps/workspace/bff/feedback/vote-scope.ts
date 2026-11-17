@@ -21,18 +21,14 @@
 
 import 'server-only'
 import { sql, type SQL } from 'drizzle-orm'
+import { sqlList } from '@/lib/db/sql-list'
 import { scopeBounds } from '@/lib/quality/scope'
 import { likeContains } from '@/lib/text/like-pattern'
 import type { FeedbackQuery } from './filters'
 import { answerIdOf, VOTED_ANSWER_JOIN, VOTED_QUESTION_JOIN } from './turn-join'
 
-/** `$1, $2, …` for an IN list. Callers never pass an empty list. */
-export function sqlList(values: readonly string[]): SQL {
-  return sql.join(
-    values.map((value) => sql`${value}`),
-    sql`, `,
-  )
-}
+/** Moved to `bff/db/sql-list.ts`; re-exported for the feedback callers. */
+export { sqlList }
 
 /** The project a vote belongs to: its own, else its conversation's. */
 export const VOTE_PROJECT = sql`coalesce(f.project_id, c.project_id)`

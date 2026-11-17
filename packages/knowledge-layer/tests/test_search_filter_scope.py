@@ -1,12 +1,3 @@
-"""A caller's `filters` reach the store only on fields it indexes.
-
-Production (grid-aiq-agent, 2026-10-23): a model passed ``filters={"shelf": ...}``
-to `knowledge_search`, and the Qdrant translator raised "Filter on 'shelf': not an
-indexed payload field" as an exception. ``shelf`` is the argument that picks the
-collections, so it is moved there; any other unindexed field is refused with a
-sentence the model reads, before the search.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -72,7 +63,6 @@ def test_an_unindexed_field_is_refused_as_a_sentence_not_an_exception(filters: d
 
 
 def test_what_passes_the_check_is_what_the_store_can_translate() -> None:
-    """The ratchet: a filter the check lets through never fails as unindexed in the store."""
     args = _parse({"$or": [{"content_type": "text"}, {"doc_class": {"$in": ["law", "oib_guideline"]}}]})
 
     assert isinstance(args, SearchArgs)

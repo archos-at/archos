@@ -40,6 +40,7 @@ import {
 } from '@/lib/product-feedback/types'
 import { similarPassagesRequestSchema } from '@/lib/similar-passages/types'
 import type { AgentOperation } from '../operation'
+import { generatedRows } from '../ai-generated-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const conversationParams = z.object({
@@ -77,7 +78,8 @@ export const conversationsOperations = [
     links: 'conversation',
     summary: 'Start a new conversation',
     description:
-      'Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. ' +
+      'Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, ' +
+      'and optionally `temporary` (nothing from it is kept in memory). ' +
       'You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.',
     method: 'POST',
     path: '/api/conversations',
@@ -100,9 +102,10 @@ export const conversationsOperations = [
     name: 'conversation-update',
     domain: 'conversations',
     links: 'conversation',
-    summary: 'Rename a conversation or change when ' + PRODUCT_NAME + ' answers',
+    summary: 'Rename a conversation, make it temporary, or change when ' + PRODUCT_NAME + ' answers',
     description:
-      'Sets `title` (owner role) and/or the `engagement` mode that decides when ' + PRODUCT_NAME + ' answers (collaborator role); at least one. Returns it.',
+      'Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ' + PRODUCT_NAME + ' answers (collaborator role); at least one. ' +
+      'A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.',
     method: 'PATCH',
     path: '/api/conversations/[id]',
     params: conversationParams,
@@ -127,11 +130,14 @@ export const conversationsOperations = [
     summary: 'Read the messages of a conversation',
     description:
       'The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, ' +
-      'content, author, time and mentions; `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.',
+      'content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. ' +
+      'Message ids feed conversation-message-changes.',
     method: 'GET',
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
     query: listMessagesQuerySchema,
+    // An assistant's messages are a model's text; a person's are not.
+    generatedContent: generatedRows('messages', (message) => message.role === 'assistant'),
     load: () => import('@/app/api/conversations/[id]/messages/route'),
   },
   {
@@ -351,6 +357,19 @@ export const conversationsOperations = [
     body: formatCitationsSchema,
     readOnly: true,
     load: () => import('@/app/api/citations/format/route'),
+  },
+  {
+    name: 'citation-style-get',
+    domain: 'conversations',
+    summary: 'Read how the office’s country writes a citation',
+    description:
+      'The citation style released for the office’s home country, per language: which sources are a standard or a law, ' +
+      'the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. ' +
+      'Returns `{ style }`, null while the country has none released.',
+    method: 'GET',
+    path: '/api/citations/style',
+    readOnly: true,
+    load: () => import('@/app/api/citations/style/route'),
   },
   {
     name: 'passage-similar-search',

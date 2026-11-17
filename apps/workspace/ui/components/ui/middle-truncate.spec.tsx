@@ -11,8 +11,6 @@ describe('MiddleTruncate', () => {
     const [, head, tail] = Array.from(line.children)
     expect(head).toHaveClass('text-ellipsis', 'overflow-hidden', 'whitespace-pre', 'min-w-0', 'shrink-[100000]')
     expect(tail).toHaveTextContent('Index_C_2026-07-02.pdf')
-    // Never `shrink-0`: a column narrower than the tail sliced it at the
-    // cell's edge with no ellipsis. It ellipsizes at its start instead.
     expect(tail).not.toHaveClass('shrink-0')
     expect(tail).toHaveClass('text-ellipsis', 'overflow-hidden', 'min-w-0')
     expect(tail).toHaveAttribute('dir', 'rtl')
@@ -21,7 +19,6 @@ describe('MiddleTruncate', () => {
   })
 
   it('keeps the space at the cut: both halves preserve their white space', () => {
-    // A flex item's edge space collapses; the halves are flex items.
     const name = 'Lageplan Baufeld Nord Index C.pdf'
     render(<MiddleTruncate text={name} tail={12} />)
 

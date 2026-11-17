@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The changes beside the sheet: one group per page, one row per box, Piloti's
- * sentence under its box's label when the two can be paired. It is the same
- * list as the boxes on the sheet, not a second account of them: hovering a row
- * lights its box, clicking it shows the box (turning the page and scrolling to
- * it), and a box clicked on the sheet lights its row here.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
 import { RotateCw } from 'lucide-react'
@@ -24,17 +16,12 @@ import type { ActiveRegion } from './use-active-region'
 
 export interface ChangeListProps {
   groups: ChangeGroup[]
-  /** The page on the sheet now. */
   current: number
   activeRegion: ActiveRegion
-  /** Show this change: turn to its page and bring its box into view. */
   onShow: (number: number) => void
-  /** The page Piloti is reading now, or null. */
   loadingPage: number | null
-  /** A refused run on the page on screen, with the copy key for why. */
   error: { message: string; retryable: boolean } | null
   onRetry: () => void
-  /** The marking button, when the panel is where it lives (below the sheet on narrow screens). */
   action?: ReactNode
   className?: string
 }
@@ -55,8 +42,6 @@ export function ChangeList({
   const count = groups.reduce((sum, group) => sum + group.rows.length, 0)
   const { pinned } = activeRegion
 
-  // A box pinned on the sheet brings its row into view here, without moving
-  // the dialog around it (`scrollIntoView` would scroll every ancestor).
   useEffect(() => {
     const list = listRef.current
     if (pinned === null || !list) return
@@ -82,7 +67,7 @@ export function ChangeList({
           <AlertDescription className="text-error">
             <p>{error.message}</p>
             {error.retryable && (
-              <Button variant="outline" size="sm" className="mt-1" onClick={onRetry} data-testid="compare-mark-retry">
+              <Button variant="secondary" size="sm" className="mt-1" onClick={onRetry} data-testid="compare-mark-retry">
                 <RotateCw aria-hidden />
                 {t('compare.retry')}
               </Button>
@@ -199,8 +184,8 @@ function ChangeRowButton({
         onBlur={() => preview(null)}
         onClick={() => onShow(number)}
         className={cn(
-          'duration-quick flex w-full items-start gap-2 rounded-control p-2 text-left text-sm transition-colors ease-out hover:bg-accent pointer-coarse:min-h-11',
-          isActive && 'bg-accent',
+          'duration-quick flex w-full items-start gap-2 rounded-control p-2 text-left text-sm transition-colors ease-out hover:bg-hover pointer-coarse:min-h-11',
+          isActive && 'bg-selected hover:bg-selected',
         )}
       >
         <ChangeBadge number={number} active={isActive} className="mt-px" />

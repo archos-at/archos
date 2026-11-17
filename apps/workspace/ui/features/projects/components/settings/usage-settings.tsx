@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Settings → Usage & budget: what this project has cost, and the limit that
- * stops Piloti in it.
- *
- * This replaces the page's old "Insights" card, which was an empty state
- * promising evaluation that did not exist. The data did: every LLM call is
- * metered with its project id, and a project-scoped budget policy has been
- * enforceable since ADR-0015, settable by the project's own admins. The one
- * place to set it was the organization's budget page, which a project admin
- * usually cannot open.
- *
- * Amounts are in the organization's unit (credits, or tokens on its own key)
- * and never in money: `getProjectUsage` reuses the tenant projection that keeps
- * cost and price off every tenant surface. The meters are the organization
- * card's own, so "how close am I to being stopped" reads the same in both.
- */
-
 import type { JSX } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Pencil } from 'lucide-react'
@@ -44,7 +27,6 @@ interface UsageWindow {
   events: number
 }
 
-/** `ProjectUsage` from `lib/budgets/service`, as it crosses to the browser. */
 export interface ProjectUsageView {
   unit: BudgetUnit
   day: UsageWindow
@@ -58,17 +40,16 @@ export interface ProjectUsageView {
 export interface UsageSettingsProps {
   projectId: string
   usage: ProjectUsageView
-  /** May set or remove the project limit (`project:manage`, or an org budget admin). */
   canEditLimit: boolean
 }
 
-/** The tighter of two limits for one window; null only when neither sets one. */
 function effectiveLimit(project: number | null, org: number | null): number | null {
   if (project === null) return org
   if (org === null) return project
   return Math.min(project, org)
 }
 
+// Amounts are never money: cost and price stay off every tenant surface.
 export function UsageSettings({ projectId, usage, canEditLimit }: UsageSettingsProps): JSX.Element {
   const t = useTranslations(settingsCopy)
   const tOrg = useTranslations(organizationCopy)
@@ -171,7 +152,7 @@ export function UsageSettings({ projectId, usage, canEditLimit }: UsageSettingsP
               unitWord={unitWord}
               onSaved={async () => router.refresh()}
               trigger={
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   <Pencil className="size-3.5" aria-hidden />
                   {projectLimit ? t('project.usage.editLimit') : t('project.usage.setLimit')}
                 </Button>

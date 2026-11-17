@@ -204,6 +204,9 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'approved' }, ...as('publisher') });
     // Approved, it is out of the drafters' hands.
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { text: 'Changed after approval.' }, ...as('agent') })).rejects.toThrow(/not allowed/i);
+    // The hand-off claims before it sends; it cannot record a hand-over it did not claim.
+    await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'scheduled' }, ...as('handoff') })).rejects.toThrow(/not allowed/i);
+    await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'sending' }, ...as('handoff') });
     const handed = await payload.update({
       collection: 'social-posts',
       id: draft.id,
@@ -211,7 +214,27 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       ...as('handoff'),
     });
     expect([handed.status, handed.externalId, handed.text]).toEqual(['scheduled', 'buffer-1', 'Neu im Blog.']);
+    // Buffer holds it now: a publisher's edit here would not reach Buffer, and approving it again would send it twice.
+    const edited = await payload.update({ collection: 'social-posts', id: draft.id, data: { text: 'Edited after the hand-over.', scheduledAt: '2027-01-01T00:00:00.000Z' }, ...as('publisher') });
+    expect([edited.text, edited.scheduledAt ?? null]).toEqual(['Neu im Blog.', null]);
+    await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'approved' }, ...as('publisher') })).rejects.toThrow(/not allowed/i);
+    await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'draft' }, ...as('admin') })).rejects.toThrow(/not allowed/i);
+    // The way back: a person sets it failed (having dealt with it in Buffer), and it is editable again.
+    await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'failed' }, ...as('publisher') });
+    const reworked = await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'draft', text: 'Neu geschrieben.' }, ...as('publisher') });
+    expect([reworked.status, reworked.text]).toEqual(['draft', 'Neu geschrieben.']);
     await expect(payload.delete({ collection: 'social-posts', id: draft.id, ...as('agent') })).rejects.toThrow(/not allowed/i);
+  });
+
+  test('two runs of the hand-off that claim one post at once: exactly one gets it', async () => {
+    const [account] = (await payload.find({ collection: 'social-accounts' })).docs;
+    for (let round = 0; round < 5; round += 1) {
+      const post = await payload.create({ collection: 'social-posts', data: { account: account.id, language: 'de', text: `Runde ${round}.`, status: 'approved' }, ...as('publisher') } as never);
+      const claim = () => payload.update({ collection: 'social-posts', id: post.id, data: { status: 'sending' }, ...as('handoff') });
+      const results = await Promise.allSettled([claim(), claim(), claim()]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect((await payload.findByID({ collection: 'social-posts', id: post.id })).status).toBe('sending');
+    }
   });
 
   test('nobody grants themselves a role, and a short password is refused', async () => {

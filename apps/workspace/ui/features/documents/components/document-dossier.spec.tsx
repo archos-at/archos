@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { deriveDocumentFindings, referencedBy, resolveReferences, toFindingsDocument } from '@/lib/documents/findings'
 import type { FileItem } from '../file-types'
 import { DocumentDossier } from './document-dossier'
-import { DocumentFindingsList } from './document-findings-panel'
+import { DocumentFindingsSection } from './document-findings-panel'
 
 const file = (id: string, filename: string, overrides: Partial<FileItem> = {}): FileItem => ({
   id,
@@ -102,24 +101,22 @@ describe('DocumentDossier', () => {
   })
 })
 
-describe('DocumentFindingsList', () => {
+describe('DocumentFindingsSection', () => {
   const response = { findings: deriveDocumentFindings(documents), documentCount: 2, truncated: false, document: null }
 
-  it('lists each finding with links to its documents, and collapses', async () => {
-    render(<DocumentFindingsList projectId="p1" response={response} />)
+  it('lists each finding with links to its documents, under the id the upload report links to', () => {
+    render(<DocumentFindingsSection projectId="p1" response={response} />)
+    const section = screen.getByTestId('document-findings-panel')
+    expect(section).toHaveAttribute('id', 'document-findings')
+    expect(within(section).getByRole('heading', { name: 'Findings from the documents' })).toBeInTheDocument()
     const missing = screen.getByTestId('finding-missing_plan')
     expect(missing).toHaveTextContent('Drawing number EP-07 is referred to, but no document matches it')
     expect(within(missing).getByRole('link', { name: 'Baubeschreibung.pdf' })).toBeInTheDocument()
     expect(screen.getByTestId('finding-incomplete_read')).toHaveTextContent('2 of 40 pages not read in full (page limit)')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Hide findings' }))
-    expect(screen.queryByTestId('finding-missing_plan')).not.toBeInTheDocument()
   })
 
   it('renders nothing without findings', () => {
-    const { container } = render(
-      <DocumentFindingsList projectId="p1" response={{ ...response, findings: [] }} />
-    )
+    const { container } = render(<DocumentFindingsSection projectId="p1" response={{ ...response, findings: [] }} />)
     expect(container).toBeEmptyDOMElement()
   })
 })

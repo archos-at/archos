@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The shelf summary (ADR-0102): the counts a paged Files workspace folds its
- * folder tiles and folder brief from. It must sit behind the same gate, the
- * same reader and the same hidden folders as the listing it summarizes, or it
- * would count documents the listing hides from this reader. The SQL is
- * `list-page.spec.ts`'s and `list-page.integration.spec.ts`'s subject.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

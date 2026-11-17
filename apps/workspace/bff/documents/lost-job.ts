@@ -69,14 +69,29 @@ export const lostJobResolution = (): TerminalResolution => ({
  * enough to still be worth asking about, and with a job the batch call can
  * answer for. See {@link INTERRUPTED_REASON_PREFIX}. A row without `updatedAt`
  * is not re-checked: nothing would bound how long it keeps asking.
+ *
+ * `pushed` lifts the window: the settle push names a job that just ended, so the
+ * question is asked once, by the run itself. Without it a job that finished later
+ * than the window (it waited in the queue that long, or nobody read the list in
+ * time) left its document `failed` although it was read.
  */
-export const isRecheckableInterruption = (row: ReconcilableDocument, now: number): boolean => {
+export const isRecheckableInterruption = (row: ReconcilableDocument, now: number, pushed = false): boolean => {
   if (row.status !== 'failed') return false
   if (!row.errorMessage?.startsWith(INTERRUPTED_REASON_PREFIX)) return false
   if (!extractIngestJobId(row.metadata)) return false
+  if (pushed) return true
   const writtenAt = toEpochMs(row.updatedAt)
   return writtenAt !== null && now - writtenAt < INTERRUPTED_RECHECK_WINDOW_MS
 }
+
+/**
+ * What the backend's job lookup wrote for a job it no longer knew, until it answered "unknown":
+ * such a row was never read to an outcome, so it is settled again from the listing.
+ */
+export const JOB_NOT_FOUND_MESSAGE = 'Job ID not found'
+
+export const isForgottenJobFailure = (row: ReconcilableDocument | undefined): boolean =>
+  row?.status === 'failed' && row.errorMessage === JOB_NOT_FOUND_MESSAGE
 
 /**
  * A `cancelled` row recent enough to still be worth asking about, and with a

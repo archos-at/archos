@@ -26,7 +26,6 @@ vi.mock('@/lib/authz/feature-flags', () => ({
   isIfcModelsEnabled: vi.fn().mockReturnValue(true),
 }))
 
-/** `project-a` is granted; every other project 404s, as FGA does here. */
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(async (_session: unknown, projectId: string) => {
     if (projectId !== 'project-a') {
@@ -37,7 +36,6 @@ vi.mock('@/lib/authz/projects', () => ({
   }),
 }))
 
-/** `conv-mine` is a chat the caller is in; every other conversation 404s. */
 vi.mock('@/lib/sharing/access', () => ({
   requireResourceAccess: vi.fn(
     async (_session: unknown, _type: string, resourceId: string) => {
@@ -133,8 +131,6 @@ beforeEach(() => {
 
 describe('getModelForDocument', () => {
   it('lets any member of the organization read an Archiv model', async () => {
-    // The Archiv is shared knowledge by design (ADR-0024) — and this is the
-    // path the Archiv's own file preview resolves its viewport through.
     await expect(getModelForDocument(SESSION, 'doc-archiv')).resolves.toMatchObject({
       documentId: 'doc-archiv',
     })
@@ -146,9 +142,6 @@ describe('getModelForDocument', () => {
   })
 
   it('refuses a chat attachment to somebody outside that chat', async () => {
-    // The regression. A `session` document also has a NULL project, so the old
-    // "no project means the Archiv" test handed a private attachment to the
-    // whole organization.
     await expect(getModelForDocument(SESSION, 'doc-other-chat')).rejects.toThrow()
   })
 
@@ -169,8 +162,6 @@ describe('getAccessibleModel', () => {
         collectionName: 'conv-theirs',
       })
     )
-    // Addressing the model directly must not be a way around the document's
-    // own rule — this is the id the query, source and compliance routes take.
     await expect(getAccessibleModel(SESSION, 'model-1')).rejects.toThrow()
 
     documentsByShelf.set('doc-1', makeDocument({ id: 'doc-1', scope: 'office_shelf', projectId: null }))

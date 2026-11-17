@@ -130,7 +130,6 @@ describe('runSearch', () => {
     expect(providers.searchFolders).not.toHaveBeenCalled()
     expect(providers.searchProjects).not.toHaveBeenCalled()
     expect(providers.searchConversations).not.toHaveBeenCalled()
-    // The annotations are asked the documents' own question: one rule.
     expect(providers.searchAnnotations.mock.calls[0][3]).toEqual({ filters, citedBy: null, citing: null })
     expect(repository.searchDocumentPage.mock.calls[0][1].filters).toEqual(filters)
   })
@@ -154,7 +153,6 @@ describe('runSearch', () => {
     repository.listCandidateDocuments.mockResolvedValue([{ id: 'd1', filename: 'bsk.pdf' }])
     expect((await runSearch(session, {}, { text: 'Brandschutz', filters: { projectIds: [PROJECT], includeArchived: true } })).setAside).toEqual({})
     expect(providers.searchFolders).toHaveBeenCalled()
-    // Without words no folder is searched anyway: nothing to set aside.
     expect((await runSearch(session, {}, { filters: { currentOnly: true } })).setAside).toEqual({})
   })
 
@@ -172,7 +170,7 @@ describe('runSearch', () => {
 
     const answer = await runSearch(session, {}, { text: 'Fluchtweg', kinds: ['document'] })
 
-    expect(fetchGroupedSemanticHits).toHaveBeenCalledWith(['proj_a', 'office_org_1'], 'Fluchtweg', 20, 400, { purpose: 'workspace_search' })
+    expect(fetchGroupedSemanticHits).toHaveBeenCalledWith('org_1', ['proj_a', 'office_org_1'], 'Fluchtweg', 20, 400, { purpose: 'workspace_search' })
     expect(repository.listCandidateDocuments).not.toHaveBeenCalled()
     const query = repository.searchDocumentPage.mock.calls[0][1]
     expect(query.text).toEqual({ text: 'Fluchtweg', contentKeys: ['proj_a\u001fbsk.pdf'], contentIds: [''] })
@@ -390,7 +388,6 @@ describe('contentPrefilter', () => {
   })
 
   it('names the uploads by file name too, for their passages that carry no document id', async () => {
-    // A currentOnly search lost „Screenshot … .png“: its passages, copied from Chroma, carry no grid_document_id.
     repository.listCandidateDocuments.mockResolvedValue([
       { id: 'd1', filename: 'Screenshot 2026-08-28 175733.png' },
       { id: 'd2', filename: 'sample.pdf' },

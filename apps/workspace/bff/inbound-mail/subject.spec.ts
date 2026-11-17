@@ -1,10 +1,5 @@
-/**
- * A held mail's subject as the list shows it: the leader chain and gateway
- * tags stripped, case and wording as sent; and whether it says „forwarded“.
- */
-
 import { describe, expect, it } from 'vitest'
-import { displaySubject, isForwardSubject } from './subject'
+import { displaySubject, isForwardSubject, subjectWithinThread } from './subject'
 
 describe('displaySubject', () => {
   it.each([
@@ -40,5 +35,19 @@ describe('isForwardSubject', () => {
   it('is false for a reply, and for no subject', () => {
     expect(isForwardSubject('AW: Bescheid')).toBe(false)
     expect(isForwardSubject(null)).toBe(false)
+  })
+})
+
+describe('subjectWithinThread', () => {
+  it('keeps the part that tells a thread’s mails apart', () => {
+    expect(subjectWithinThread('Stellplatznachweis – Nachreichung Statik', 'Stellplatznachweis')).toBe('Nachreichung Statik')
+    expect(subjectWithinThread('stellplatznachweis: Index C', 'Stellplatznachweis')).toBe('Index C')
+  })
+
+  it('leaves a subject that only shares a prefix, or is the name alone', () => {
+    expect(subjectWithinThread('Stellplatznachweise Ost', 'Stellplatznachweis')).toBe('Stellplatznachweise Ost')
+    expect(subjectWithinThread('Stellplatznachweis', 'Stellplatznachweis')).toBe('Stellplatznachweis')
+    expect(subjectWithinThread('Bescheid MA 37', 'Stellplatznachweis')).toBe('Bescheid MA 37')
+    expect(subjectWithinThread(null, 'Stellplatznachweis')).toBeNull()
   })
 })

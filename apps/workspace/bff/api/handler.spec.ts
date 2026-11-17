@@ -11,9 +11,18 @@ vi.mock('server-only', () => ({}))
 import { errorResponse, internalApiRoute, SIGNED_INTERNAL_PREFIX } from './handler'
 import { readBoundedBody } from './bounded-body'
 import { NotFoundError, UpstreamError } from './errors'
+import { featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { signedRequest, TEST_KEY_ID, TEST_SIGNING_SECRET, type SignedRequestOptions } from '@/test-utils/signed-request'
 
 describe('errorResponse', () => {
+  it('answers a switched-off feature found in a service with the one problem requireFeature gives', async () => {
+    const response = errorResponse(new FeatureDisabledError('collaboration'), new Request('https://grid.test/api/conversations/c1/messages', { method: 'POST' }))
+    expect(response.status).toBe(403)
+    expect(response.headers.get('content-type')).toContain('application/problem+json')
+    expect(await response.json()).toMatchObject(featureDisabledProblem('collaboration'))
+  })
+
   it('turns a postgres invalid-uuid failure into a 404, not a 500 (#572)', () => {
     const error = Object.assign(new Error('Failed query: select ... from "documents"'), {
       cause: Object.assign(new Error('invalid input syntax for type uuid: "HdB-Hamm.jpg"'), {
@@ -27,8 +36,6 @@ describe('errorResponse', () => {
   })
 
   it('answers the legal-hold delete trigger (GLH01) with the same 409 the service check gives', async () => {
-    // Migration 0093's backstop: a delete path that forgot to ask the hold gate
-    // still reaches the trigger, and the refusal must read as a hold, not a 500.
     const error = Object.assign(new Error('Failed query: delete from "documents"'), {
       cause: Object.assign(new Error('legal hold: document d1 is covered by an active legal hold'), {
         code: 'GLH01',
@@ -54,7 +61,6 @@ describe('errorResponse', () => {
   })
 
   it('answers a write into a deleted folder (GFD01) as the folder being gone', async () => {
-    // Migration 0115: a folder went to the Papierkorb between the write check and the insert.
     const error = Object.assign(new Error('Failed query: insert into "documents"'), {
       cause: Object.assign(new Error('folder f1 is deleted; nothing may be filed into it'), { code: 'GFD01' }),
     })
@@ -94,8 +100,6 @@ describe('errorResponse', () => {
     }
   })
 
-  // The two shapes the 2026-09-25 restart produced (#733-#741), exactly as
-  // Drizzle wrapped them: a socket errno, and Postgres refusing new sessions.
   it.each([
     ['EHOSTUNREACH', Object.assign(new Error('connect EHOSTUNREACH 10.111.223.83:5432'), { code: 'EHOSTUNREACH', errno: -113 })],
     ['57P03', Object.assign(new Error('the database system is shutting down'), { code: '57P03', severity: 'FATAL' })],
@@ -113,7 +117,6 @@ describe('errorResponse', () => {
       expect(spy).toHaveBeenCalledOnce()
       const line = String(spy.mock.calls[0][0])
       expect(line).toMatch(new RegExp(`^\\[db\\] database unavailable \\(${code}\\) requestId=`))
-      // The path is what split one outage into nine issues; it stays out.
       expect(line).not.toContain('/api/user/preferences')
     } finally {
       spy.mockRestore()
@@ -121,7 +124,6 @@ describe('errorResponse', () => {
   })
 
   it('keeps a query the database rejected as a 500', () => {
-    // 23505 is a bug in the caller, not an outage.
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const error = Object.assign(new Error('Failed query: insert'), {
@@ -134,8 +136,6 @@ describe('errorResponse', () => {
   })
 
   it('logs an upstream failure, with the store code, and keeps the path out of the line', async () => {
-    // 2026-10-20: SeaweedFS out of volume slots refused every new organization's
-    // first upload, and the 502 reached the user without a line in any log.
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const error = new UpstreamError('Object storage is unavailable', {
@@ -168,12 +168,6 @@ describe('errorResponse', () => {
   })
 })
 
-/**
- * The signed-route contract end to end, through the factory: a route under
- * `/api/internal/signed/` whose requests are signed by the maintained library
- * (the oracle), and whose handler reads the body held to what the signature
- * vouches for. This is the shape the inbound-mail webhook takes.
- */
 describe('internalApiRoute with a signature', () => {
   const NOW = new Date('2026-10-22T12:00:00Z')
   const URL_SIGNED = `https://app.example.test${SIGNED_INTERNAL_PREFIX}probe`

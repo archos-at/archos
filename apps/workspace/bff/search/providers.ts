@@ -19,6 +19,7 @@
  * reader is not cleared for, which needs its own provider and test.
  */
 
+import { projectSiteAddress } from '@/lib/projects/site-address'
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { LIVE_ANNOTATION_STATUSES } from '@/lib/annotations/types'
@@ -132,10 +133,9 @@ export async function searchFolders(
   return { hits, total }
 }
 
-/** The site address on a project's profile, as stored. */
+/** The site address on a project's profile, as stored: the confirmed one, else the typed one. */
 export function projectAddress(project: ReachedProject['project']): string | null {
-  const value = project.profile?.facts?.site_address?.value
-  return typeof value === 'string' && value.trim() ? value.trim() : null
+  return projectSiteAddress(project)
 }
 
 /**

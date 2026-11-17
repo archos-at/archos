@@ -1,5 +1,3 @@
-"""How much of a PDF was read, and why the rest was not: a number on the document instead of a log line."""
-
 from __future__ import annotations
 
 from knowledge_layer.ingest import reading_coverage

@@ -1,10 +1,3 @@
-/**
- * The sweep's decision tree — the part of the pipeline where a wrong branch
- * poisons the fleet or silently drops a report. Repository and distiller are
- * mocked; what is under test is which of them gets called with what, per
- * outcome (docs/architecture/platform-failure-learning.md).
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -23,8 +16,6 @@ vi.mock('@/lib/cache', () => ({
   invalidateCached: vi.fn(async () => undefined),
 }))
 vi.mock('@/lib/knowledge/embeddings', () => ({
-  // Unembedded by default: the sweep must work on the lexical path, and each
-  // test that cares about semantic matching opts in explicitly.
   embedNote: vi.fn(async () => null),
   enrichForEmbedding: (content: string) => content,
 }))
@@ -36,7 +27,6 @@ vi.mock('./repository', () => ({
   recomputeLessonVoteCounters: vi.fn(async () => undefined),
   reopenSkippedReport: vi.fn(async () => false),
   createLessonFromReport: vi.fn(),
-  evictActiveOverCapacity: vi.fn(async () => []),
   expireStaleCandidates: vi.fn(async () => []),
   flagIneffectiveActiveLessons: vi.fn(async () => []),
   retireQuietAddressedLessons: vi.fn(async () => []),
@@ -52,6 +42,10 @@ vi.mock('./repository', () => ({
   recordSkippedReport: vi.fn(async () => undefined),
   updateLessonWithEvent: vi.fn(),
 }))
+vi.mock('./capacity-repository', () => ({
+  evictActiveOverCapacity: vi.fn(async () => []),
+  activateLessonWithCapacity: vi.fn(),
+}))
 vi.mock('./distill-client', () => ({
   distillReport: vi.fn(),
 }))
@@ -61,7 +55,7 @@ import { embedNote } from '@/lib/knowledge/embeddings'
 import {
   createLessonFromReport,
   listSemanticLessonCandidates,
-  evictActiveOverCapacity,
+  getLesson,
   expireStaleCandidates,
   findLiveLessonByContent,
   flagIneffectiveActiveLessons,
@@ -71,12 +65,15 @@ import {
   recordSkippedReport,
   retireQuietAddressedLessons,
 } from './repository'
+import { activateLessonWithCapacity, evictActiveOverCapacity } from './capacity-repository'
 import { distillReport } from './distill-client'
 import {
   buildPlatformLessonsInjection,
   DIGEST_MAX_CHARS,
   kickLessonDistillation,
+  MAX_ACTIVE_LESSONS,
   resetLessonSweepStateForTests,
+  updateLesson,
 } from './service'
 import type { DistillOutcome } from './types'
 
@@ -253,8 +250,6 @@ describe('kickLessonDistillation', () => {
   it('runs both effectiveness passes on every sweep: recurrence flagging and quiet-addressed retirement', async () => {
     vi.mocked(listUnprocessedDownvotes).mockResolvedValue([])
     await kickLessonDistillation()
-    // Threshold and quiet window ride through from the service constants —
-    // the repository owns the SQL, the service owns the policy numbers.
     expect(flagIneffectiveActiveLessons).toHaveBeenCalledWith(3, 'system:distiller')
     expect(retireQuietAddressedLessons).toHaveBeenCalledWith(14, 'system:distiller')
   })
@@ -268,9 +263,6 @@ describe('kickLessonDistillation', () => {
   })
 
   it('stops retrying a report this process has failed on three times', async () => {
-    // A permanently failing report at the oldest-first head must not wedge
-    // the queue: after MAX_ATTEMPTS_PER_PROCESS deferrals it is skipped and
-    // the reports behind it get the slots.
     vi.mocked(listUnprocessedDownvotes).mockResolvedValue([DOWNVOTE])
     vi.mocked(distillReport).mockResolvedValue(outcome({ error: 'llm_request_failed' }))
     for (let attempt = 0; attempt < 3; attempt++) await kickLessonDistillation()
@@ -281,9 +273,6 @@ describe('kickLessonDistillation', () => {
   })
 
   it('prefers semantic candidates over the popularity window', async () => {
-    // The rank window answers "which lessons are popular"; the matcher needs
-    // "which lesson is this report about". When the embedder is reachable the
-    // semantic set is what reaches the distiller.
     vi.mocked(listUnprocessedDownvotes).mockResolvedValue([DOWNVOTE])
     vi.mocked(embedNote).mockResolvedValue({ vector: [0.1, 0.2], fingerprint: 'model-a' })
     vi.mocked(listSemanticLessonCandidates).mockResolvedValue([
@@ -361,12 +350,6 @@ describe('buildPlatformLessonsInjection', () => {
     expect(await buildPlatformLessonsInjection()).toEqual({ digest: null, lessonIds: [] })
   })
 
-  /**
-   * Migrations 0120 and 0124 retire the lessons created from a vote on an
-   * answer that drew on a restricted folder. A digest cached before they ran
-   * still holds them, and is shared by every replica: it must not be injected
-   * for the rest of its TTL.
-   */
   it('does not inject a digest cached before restricted lessons were withdrawn', async () => {
     const stale = 'PLATFORM_LESSONS v1\n- [inaccurate | 1x] "Zimmerer-Honorar 48.000 EUR."'
     vi.mocked(getCached).mockImplementationOnce(async (key, _ttl, loader) =>
@@ -375,5 +358,61 @@ describe('buildPlatformLessonsInjection', () => {
     vi.mocked(listActiveLessonsForDigest).mockResolvedValue([])
 
     expect((await buildPlatformLessonsInjection()).digest).toBeNull()
+  })
+})
+
+describe('operator activation at capacity', () => {
+  const at = new Date('2026-01-01T00:00:00Z')
+  const lessonRow = (status: string) =>
+    ({
+      id: 'lesson-old',
+      content: 'Inhalt.',
+      category: 'general',
+      status,
+      heldReason: null,
+      reportCount: 1,
+      orgCount: 1,
+      firstReportedAt: at,
+      lastReportedAt: at,
+      activatedAt: null,
+      activatedBy: null,
+      retiredAt: null,
+      retiredReason: null,
+      rootCauseStatus: 'unknown',
+      rootCauseNote: null,
+      createdAt: at,
+      updatedAt: at,
+    }) as unknown as NonNullable<Awaited<ReturnType<typeof getLesson>>>
+  const session = { userId: 'op-1', email: 'op@example.test' } as Parameters<typeof updateLesson>[0]
+
+  it('activates and evicts in one repository call, never through a separate eviction', async () => {
+    vi.mocked(getLesson).mockResolvedValue(lessonRow('candidate'))
+    vi.mocked(activateLessonWithCapacity).mockResolvedValue({
+      row: lessonRow('active'),
+      evictedIds: ['other'],
+    })
+
+    const view = await updateLesson(session, 'lesson-old', { status: 'active' })
+
+    expect(activateLessonWithCapacity).toHaveBeenCalledWith(
+      'lesson-old',
+      expect.objectContaining({ status: 'active', activatedBy: 'op-1' }),
+      expect.objectContaining({ action: 'activated', actor: 'op-1' }),
+      MAX_ACTIVE_LESSONS
+    )
+    expect(evictActiveOverCapacity).not.toHaveBeenCalled()
+    expect(view.status).toBe('active')
+  })
+
+  it('returns the row as stored by the activation transaction', async () => {
+    vi.mocked(getLesson).mockResolvedValue(lessonRow('retired'))
+    vi.mocked(activateLessonWithCapacity).mockResolvedValue({
+      row: { ...lessonRow('active'), activatedBy: 'op-1' },
+      evictedIds: [],
+    })
+
+    const view = await updateLesson(session, 'lesson-old', { status: 'active' })
+
+    expect(view.activatedBy).toBe('op-1')
   })
 })

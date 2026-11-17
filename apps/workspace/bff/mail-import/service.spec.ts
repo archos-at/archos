@@ -106,7 +106,6 @@ const IMPORT = row().id
 beforeEach(() => {
   vi.clearAllMocks()
   vi.unstubAllEnvs()
-  // A signed-in deployment whose organization holds `mail-import`.
   vi.stubEnv('REQUIRE_AUTH', 'true')
 })
 
@@ -134,7 +133,12 @@ describe('startMailImport', () => {
   it('takes only Outlook archives, and only up to the ceiling', async () => {
     await expect(startMailImport(session, PROJECT, { filename: 'a.zip', sizeBytes: 10 })).rejects.toThrow(/Outlook/)
     vi.stubEnv('MAIL_IMPORT_MAX_BYTES', '100')
-    await expect(startMailImport(session, PROJECT, { filename: 'a.pst', sizeBytes: 101 })).rejects.toThrow(/maximum/)
+    try {
+      await expect(startMailImport(session, PROJECT, { filename: 'a.pst', sizeBytes: 101 })).rejects.toThrow(/maximum/)
+    } finally {
+      vi.unstubAllEnvs()
+      vi.stubEnv('REQUIRE_AUTH', 'true')
+    }
   })
 
   it('refuses a second open import of the same person in the project, naming the open one', async () => {
@@ -143,7 +147,6 @@ describe('startMailImport', () => {
     await expect(refusal).rejects.toBeInstanceOf(ConflictError)
     await expect(refusal).rejects.toMatchObject({ details: { importId: IMPORT } })
     expect(repository.findOpenMailImportOf).toHaveBeenCalledWith('org_1', PROJECT, 'user_anna')
-    // Asked on its own, never read off a page of the list, which may not reach it.
     expect(repository.listProjectMailImports).not.toHaveBeenCalled()
     expect(repository.insertMailImport).not.toHaveBeenCalled()
   })
@@ -207,7 +210,6 @@ describe('putMailImportPart', () => {
     })
     const request = new Request('http://x', { method: 'PUT', body, duplex: 'half' } as RequestInit)
     await expect(putMailImportPart(session, PROJECT, IMPORT, 3, request)).rejects.toThrow(/must be 10 bytes/)
-    // Two chunks of 8 pass the 10-byte part; the read stops there, not at the end of an endless body.
     expect(pulled).toBeLessThanOrEqual(3)
     expect(staging.putStagedPart).not.toHaveBeenCalled()
   })
@@ -305,7 +307,6 @@ describe('cancelMailImport', () => {
       .mockResolvedValueOnce(row({ status: 'cancelled', completedAt: new Date() }))
     const view = await cancelMailImport(admin, PROJECT, IMPORT)
     expect(view).toMatchObject({ status: 'cancelled', ownedByViewer: false })
-    // What was filed before the cancel still gets its summary.
     expect(sealImportBatch).toHaveBeenCalledWith(expect.objectContaining({ status: 'cancelled' }))
   })
 

@@ -1,12 +1,8 @@
-/**
- * The sessions panel's rows survive a streamed delta unchanged, so the layout
- * that renders them does not re-render with every one.
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
+import { taskThreadConversationId } from '@/lib/tasks/task-thread'
 import { useSessionRows } from './use-session-rows'
 
 const conversation = (id: string, updatedAt: Date, content = ''): Conversation => ({
@@ -35,6 +31,22 @@ describe('useSessionRows', () => {
 
   test('lists the user’s sessions newest first', () => {
     const { result } = renderHook(() => useSessionRows())
+    expect(result.current.map((row) => row.id)).toEqual(['open', 'older'])
+  })
+
+  test('a job’s per-fire conversation is not listed; a standing task’s one thread is', () => {
+    const { conversations } = useChatStore.getState()
+    const perFire = { ...conversation('fire-1', new Date(2026, 8, 26)), jobId: 'job-1' }
+    const standing = { ...conversation(taskThreadConversationId('job-2'), new Date(2026, 8, 27)), jobId: 'job-2' }
+    useChatStore.setState({ conversations: [...conversations, perFire, standing] })
+    const { result } = renderHook(() => useSessionRows())
+    expect(result.current.map((row) => row.id)).toEqual([standing.id, 'open', 'older'])
+  })
+
+  test('the caller may name the project, over the store’s', () => {
+    const { conversations } = useChatStore.getState()
+    useChatStore.setState({ conversations: [...conversations, { ...conversation('elsewhere', new Date(2026, 8, 28)), projectId: 'p2' }] })
+    const { result } = renderHook(() => useSessionRows('p1'))
     expect(result.current.map((row) => row.id)).toEqual(['open', 'older'])
   })
 
@@ -68,6 +80,21 @@ describe('useSessionRows', () => {
 
     expect(result.current[0]).not.toBe(openBefore)
     expect(result.current[0]!.title).toBe('Umbenannt')
+    expect(result.current[1]).toBe(olderBefore)
+  })
+
+  test('a chat switched to temporary yields a new row that says so (ADR-0180)', () => {
+    const { result } = renderHook(() => useSessionRows())
+    const [openBefore, olderBefore] = result.current
+    expect(openBefore!.temporary).toBe(false)
+
+    act(() => {
+      const { conversations } = useChatStore.getState()
+      useChatStore.setState({ conversations: [conversations[0]!, { ...conversations[1]!, temporary: true }] })
+    })
+
+    expect(result.current[0]).not.toBe(openBefore)
+    expect(result.current[0]!.temporary).toBe(true)
     expect(result.current[1]).toBe(olderBefore)
   })
 })

@@ -110,16 +110,17 @@ def _is_enabled() -> bool:
 
 
 def _find_pdf(file_name: str) -> str | None:
-    """The base-corpus PDF ``file_name``, fetched into this replica's cache if needed, or ``None``.
-
-    The corpus table decides what a base-corpus file is
-    (``corpus_store.ensure_local``). Fail-open like the rest of the tool: a
-    corpus that cannot be read counts as "not a base-corpus file", and the caller
-    goes on to the project/Archiv lookup.
+    """The base-corpus PDF ``file_name`` the turn may read, fetched into this replica's cache, or ``None``.
+    The corpus table decides what a base-corpus file is; one not released to a country of the turn
+    (``corpus_countries``, as for chunk reads) answers as an absent one. Fail-open otherwise: an unreadable
+    corpus counts as "not a base-corpus file" and the caller tries the project/Archiv lookup.
     """
     try:
         from agent import corpus_store
+        from agent.common.knowledge_context import corpus_countries
 
+        if not corpus_store.released_to(file_name, corpus_countries() or ()):
+            return None
         cached = corpus_store.ensure_local(file_name)
     except Exception:  # noqa: BLE001 - fail-open contract
         logger.warning("look: base-corpus lookup failed for %s", file_name, exc_info=True)

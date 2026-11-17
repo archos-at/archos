@@ -1,12 +1,3 @@
-"""``POST /v1/collections/similar`` end to end on a real Qdrant: the route, the retriever's embedder, the store.
-
-What a person sees under „Im Büro behandelt“ is decided here: which
-collections may be searched and read (the signed scope), that the source
-document never comes back, that a superseded Fassung stays out, that passages
-are grouped by document in ranking order, and that a stored passage costs no
-embedding. Without ``QDRANT_TEST_URL`` it skips locally and fails on CI.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -40,7 +31,6 @@ def _unit(seed: str) -> list[float]:
 
 
 def _at(anchor: list[float], cosine: float, seed: str) -> list[float]:
-    """A unit vector at exactly ``cosine`` to ``anchor``."""
     noise = _unit(seed)
     dot = sum(a * n for a, n in zip(anchor, noise, strict=True))
     orthogonal = [n - dot * a for a, n in zip(anchor, noise, strict=True)]
@@ -49,17 +39,13 @@ def _at(anchor: list[float], cosine: float, seed: str) -> list[float]:
     return [cosine * a + side * o / norm for a, o in zip(anchor, orthogonal, strict=True)]
 
 
-#: The source passage's vector: every other passage is placed by its cosine to it.
 SOURCE = _unit("Fluchttreppe Stiege 2")
-#: What the embedder returns for a selection: far from SOURCE, so the two paths rank differently.
 SELECTION = _at(SOURCE, 0.0, "selection")
 
 SOURCE_TEXT = "Die Fluchttreppe der Stiege 2 wird als offene Außentreppe in Stahlbeton ausgeführt, Laufbreite 1,20 m."
 
 
 class _Embedder:
-    """The production embedder's stand-in: one fixed vector, every call counted."""
-
     def __init__(self) -> None:
         self.calls: list[str] = []
 
@@ -68,9 +54,11 @@ class _Embedder:
         return SELECTION
 
 
+OFFICE = "org_similar"
+
+
 def _scope_headers(scope: list[str], secret: str | None = SECRET) -> dict[str, str]:
-    """The signed ``X-Grid-Request-Context`` envelope the BFF forwards (``buildRequestContextWireHeaders``)."""
-    payload = json.dumps({"collectionScope": scope})
+    payload = json.dumps({"collectionScope": scope, "organizationId": OFFICE})
     headers = {"x-grid-request-context": base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")}
     if secret:
         headers["x-grid-request-context-sig"] = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
@@ -115,7 +103,6 @@ def stack(monkeypatch):
 
 
 def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: str = "", **metadata) -> list[str]:
-    """Passages of one file, each at a cosine to SOURCE and on a page; returns their chunk ids."""
     from knowledge_layer.vector_store import ChunkRecord
 
     ids = [str(uuid.uuid4()) for _ in passages]
@@ -139,7 +126,6 @@ def _client(app) -> AsyncClient:
 
 
 def _seed(store) -> dict[str, str]:
-    """A project with the source document, another project, a restricted folder and the Büroablage."""
     source_ids = _put(store, "proj_a", "Brandschutzkonzept.pdf", (1.0, 4), (0.97, 5), text=SOURCE_TEXT)
     _put(store, "proj_a", "Baubeschreibung.pdf", (0.95, 2), (0.90, 7), (0.88, 9), (0.86, 11))
     _put(store, "proj_b", "Einreichplan-Erläuterung.pdf", (0.93, 3))
@@ -173,8 +159,6 @@ async def test_a_stored_chunk_is_searched_with_its_own_vector_and_its_document_l
     assert body["origin"] == "point"
     assert embedder.calls == []
     documents = [(document["collection"], document["file_name"]) for document in body["documents"]]
-    # Ranked by each document's best passage; the source file, the unsearched
-    # project and the restricted folder nobody named are absent.
     assert documents == [
         ("proj_a", "Baubeschreibung.pdf"),
         ("proj_b", "Einreichplan-Erläuterung.pdf"),
@@ -257,7 +241,6 @@ async def test_a_superseded_revision_and_another_copy_of_the_source_document_sta
     app, store, _ = stack
     ids = _seed(store)
     _put(store, "proj_a", "Brandschutzkonzept-alt.pdf", (0.99, 4), superseded=True)
-    # The same BFF document under another stored name (a rename the mirror has not caught up with).
     _put(store, "proj_a", "Brandschutzkonzept (1).pdf", (0.99, 4), grid_document_id="doc-source")
 
     async with _client(app) as client:
@@ -291,23 +274,19 @@ async def test_a_corpus_passage_is_looked_up_in_the_corpus_and_searched_in_the_o
     assert res.status_code == 200, res.text
     assert res.json()["origin"] == "point"
     assert embedder.calls == []
-    # The source document is in another collection, so every office document may come back, the cited one included.
     assert res.json()["documents"][0]["file_name"] == "Brandschutzkonzept.pdf"
 
 
 @pytest.mark.parametrize(
     ("scope", "collections", "refused"),
     [
-        # A searched collection outside the signed scope: another project nobody signed.
         (SEARCHED, [*SEARCHED, "proj_c"], "proj_c"),
-        # The source's collection outside it: its vector may not be read either.
         (["proj_b", "archiv_org1"], ["proj_b", "archiv_org1"], "proj_a"),
     ],
 )
 async def test_a_collection_outside_the_signed_scope_is_404_and_nothing_is_searched(stack, scope, collections, refused):
     app, store, embedder = stack
     ids = _seed(store)
-    # A request that would succeed but for the scope: a real chunk and text to embed.
     body = {**_body(chunk_id=ids["source_chunk"], text=SOURCE_TEXT, kind="selected"), "collections": collections}
     async with _client(app) as client:
         res = await client.post("/v1/collections/similar", json=body, headers=_scope_headers(scope))

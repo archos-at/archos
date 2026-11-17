@@ -364,8 +364,10 @@ def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_second
     async def housekeeping_base_corpus(request: Request) -> dict:
         from agent import oib_sync
 
+        from ..jobs.corpus_payloads import mark_corpus_chunks
+
         _require_internal_token(request)
-        result = await asyncio.to_thread(oib_sync.sync, enqueue=enqueue_only)
+        result = await asyncio.to_thread(oib_sync.sync, enqueue=enqueue_only, mark_chunks=mark_corpus_chunks)
         return {
             "enqueued": result.enqueued,
             "ingested_recorded": result.ingested_recorded,

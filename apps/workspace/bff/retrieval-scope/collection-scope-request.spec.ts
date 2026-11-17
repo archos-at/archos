@@ -1,28 +1,13 @@
 /**
  * @vitest-environment node
  */
-/**
- * The WebSocket upgrade's scope resolution authorizes BOTH caller-supplied
- * identifiers (ADR-0032, spec SH-4/SH-6).
- *
- * `projectId` was always checked; `conversationId` was not. That mattered because
- * the finished agent turn is persisted through the internal service path, whose
- * only tenancy gate is an org-scoped conversation lookup — so an unauthorized
- * `conversationId` on the upgrade meant a signed-in colleague could open a turn on
- * somebody's private thread and have the answer written into it and fanned out to
- * its real participants.
- *
- * The subtlety worth a test of its own: conversation ids are client-generated and
- * the row appears with the first message, so an id that does not exist yet MUST
- * still be allowed. Absent is fine; existing-but-unreachable is not.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: vi.fn(async () => ({ retrieval: { countries: ['AT'] } })) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -52,7 +37,6 @@ const session = {
   permissions: [],
 } as unknown as AuthorizedSession
 
-/** `resolveActiveProjectId` reads user preferences; no project is stored. */
 function stubDb(): void {
   const limit = vi.fn().mockResolvedValue([])
   vi.mocked(getDb).mockReturnValue({
@@ -70,8 +54,6 @@ beforeEach(() => {
 
 describe('a conversationId on the WS upgrade is authorized (F2)', () => {
   it('refuses an existing conversation the caller cannot reach, and the refusal reads as an authz error', async () => {
-    // Somebody else's private thread, in a project this caller CAN see: only the
-    // conversation-level check can catch this one.
     vi.mocked(findConversationTenancy).mockResolvedValue({
       organizationId: 'org_1',
       projectId: PROJECT_ID,
@@ -85,8 +67,6 @@ describe('a conversationId on the WS upgrade is authorized (F2)', () => {
     }).catch((error: unknown) => error)
 
     expect(failure).toBeInstanceOf(NotFoundError)
-    // The websocket-scope route answers 403 on exactly this classification, and
-    // the gateway destroys the socket on a non-2xx — so the upgrade is refused.
     expect(isAuthzRefusal(failure)).toBe(true)
   })
 
@@ -105,9 +85,6 @@ describe('a conversationId on the WS upgrade is authorized (F2)', () => {
   })
 
   it('ALLOWS a brand-new client-generated id that does not exist yet — the first-message path', async () => {
-    // The row is created by the first message POST, so the upgrade legitimately
-    // names an id the database has never seen. Refusing this would break every
-    // new chat.
     vi.mocked(findConversationTenancy).mockResolvedValue(null)
 
     const result = await buildCollectionScopeFromRequest(session, {
@@ -116,8 +93,6 @@ describe('a conversationId on the WS upgrade is authorized (F2)', () => {
 
     expect(result.conversationId).toBe('conv_brand_new')
     expect(result.scope).toContain('s_conv_brand_new')
-    // Nobody checked a row that does not exist, so it is never signed as one a
-    // reader may reach a run through (ADR-0084).
     expect(result.verifiedConversationId).toBeUndefined()
   })
 

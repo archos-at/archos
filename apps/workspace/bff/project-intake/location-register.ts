@@ -1,208 +1,33 @@
 /**
- * The location register (ticket 26: „Der Standort bestimmt den
- * Informationsbedarf – nach Bundesland, Gemeinde, Stichtag und Vorhaben"):
- * which location determinants matter for this project, and which document to
- * ask for when a determinant's value is missing, each with its reason and its
- * source. Pure; `view.ts` hands its result to step 4, Rückfragen.
+ * The location register (ticket 31, „Standortinformationen aus den
+ * Unterlagen"; ADR-0169): which location determinants matter for this project,
+ * and which document to ask for when a determinant's value is missing, each
+ * with its reason and its source. Pure; `view.ts` hands its result to step 4,
+ * Rückfragen.
  *
- * The register is DATA ({@link LOCATION_REGISTER}). Each entry names the
- * profile keys it settles (the wizard's own, so an answer, a document's value
- * and „nicht bekannt" all settle it), when it applies (Vorhaben, Nutzungen, a
- * Bestand), the document, the reason, and per Bundesland or Gemeinde only what
- * differs there. Austria only: the catalogue is Austria's.
+ * The register is the `fact_sources` record of the country the site selects
+ * (`setup-scope.ts`): its entries with a determinant, each naming the profile
+ * keys it settles (the wizard's own, so an answer, a document's value and
+ * „nicht bekannt" all settle it), when it applies (Vorhaben, Nutzungen, a
+ * Bestand), the document, the reason, and per subdivision or municipality only
+ * what differs there. Austria's record ships; a country without one, or a
+ * project nothing places, gets no document request (fail closed), and an
+ * unplaced project is asked for its site.
  *
  * Law is cited by its title. A section number from memory is marked
  * `needsReview` and the entry stays conservative: it asks for the document
- * rather than concluding anything from its absence. What is not modelled: the
- * Stichtag (editions of the law per date are corpus work, deferred by the
- * ticket), Standortdienste (BEV, Landes-GIS, HORA), and Gemeinde-level plans
- * beyond the two Altstadt laws below.
+ * rather than concluding anything from its absence. Not modelled: the
+ * Stichtag (editions per date are ticket 30's), Standortdienste (BEV,
+ * Landes-GIS, HORA), and municipal plans beyond the additions a record names.
  */
 
-import { FEDERAL_STATE_TOKENS } from '@/lib/project-profile/intake-conditions'
-import { FOUND_IN } from '@/lib/project-profile/intake-options'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
+import type { FactSource } from '@/lib/base-knowledge/wire/setup-facts'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
-import type {
-  DocumentRequest,
-  IntakeMode,
-  LocationDeterminant,
-  LocationRegisterView,
-  Need,
-  RegisterSource,
-} from './types'
-
-/** The Bundesländer, by the wizard's `A2_land` tokens. */
-export type FederalState =
-  | 'vienna'
-  | 'lower_austria'
-  | 'upper_austria'
-  | 'styria'
-  | 'carinthia'
-  | 'salzburg'
-  | 'tyrol'
-  | 'vorarlberg'
-  | 'burgenland'
-
-/**
- * When an entry applies. Each clause means „includes any of"; an input not
- * known yet counts as applying, so the register asks rather than misses.
- */
-export interface AppliesWhen {
-  /** `work_type` (A5). */
-  projectTypes?: readonly string[]
-  /** `uses@bldgN` (D0), of any Bauwerk. */
-  uses?: readonly string[]
-  /** Only when a Bauwerk is a Bestand (`construction_status@bldgN = existing`); its keys are then per such Bauwerk. */
-  existing?: true
-}
-
-/** What differs in one Bundesland: the document's name there, the reason there, the law there. */
-export interface RegisterVariant {
-  document?: string
-  reason?: string
-  sources: readonly RegisterSource[]
-}
-
-/** A Gemeinde with law of its own on top of the Land's: a sentence added to the reason. */
-export interface MunicipalityAddition {
-  federalState: FederalState
-  /** The Gemeinde's name as the geocoder gives it („Graz"). */
-  municipality: string
-  addition: string
-  sources: readonly RegisterSource[]
-}
-
-export interface RegisterEntry {
-  determinant: LocationDeterminant
-  label: string
-  /** Profile keys, without scope; per Bestand-Bauwerk (`key@bldgN`) when `appliesWhen.existing`. */
-  keys: readonly string[]
-  appliesWhen: AppliesWhen
-  document: string
-  reason: string
-  sources: readonly RegisterSource[]
-  byFederalState?: Partial<Record<FederalState, RegisterVariant>>
-  byMunicipality?: readonly MunicipalityAddition[]
-}
-
-const spatialPlanning = (title: string): RegisterVariant => ({
-  sources: [{ title, reference: 'örtliche Raumplanung: Flächenwidmungsplan, Bebauungsplan', needsReview: true }],
-})
-
-/** The register, in the order step 4 lists its requests. */
-export const LOCATION_REGISTER: readonly RegisterEntry[] = [
-  {
-    determinant: 'plot',
-    label: 'Grundstück, Fläche und Einlagezahl',
-    keys: ['plot_register_number', 'plot_area'],
-    appliesWhen: {},
-    document: FOUND_IN.landRegister,
-    reason:
-      'Der Grundbuchauszug nennt Einlagezahl und Katastralgemeinde, die Grundstücke mit ihrer Fläche, die Eigentümer und Lasten wie Dienstbarkeiten.',
-    sources: [{ title: 'Allgemeines Grundbuchsgesetz 1955 (GBG 1955)', needsReview: true }],
-  },
-  {
-    determinant: 'zoning',
-    label: 'Widmung und Bebauungsbestimmungen',
-    keys: ['zoning', 'development_plan'],
-    appliesWhen: { projectTypes: ['new_build', 'extension', 'conversion', 'change_of_use'] },
-    document: 'Auszug aus Flächenwidmungs- und Bebauungsplan',
-    reason:
-      'Die Gemeinde legt im Flächenwidmungsplan fest, wofür das Grundstück genutzt werden darf, und im Bebauungsplan, wie hoch, wie dicht und wo gebaut werden darf. Nicht für jedes Grundstück gibt es einen Bebauungsplan.',
-    sources: [{ title: 'Raumordnungsgesetz des Bundeslandes', needsReview: true }],
-    byFederalState: {
-      vienna: {
-        document: 'Plandokument (Flächenwidmungs- und Bebauungsplan)',
-        reason:
-          'In Wien legt ein Plandokument Widmung und Bebauungsbestimmungen gemeinsam fest: Widmung, Bauklasse, Bauweise, Fluchtlinien und Schutzzonen.',
-        sources: [
-          {
-            title: 'Bauordnung für Wien (BO für Wien)',
-            reference: '§§ 1–5 (Flächenwidmungs- und Bebauungspläne), § 7 (Schutzzonen)',
-            needsReview: true,
-          },
-        ],
-      },
-      lower_austria: spatialPlanning('NÖ Raumordnungsgesetz 2014 (NÖ ROG 2014)'),
-      upper_austria: spatialPlanning('Oö. Raumordnungsgesetz 1994 (Oö. ROG 1994)'),
-      styria: spatialPlanning('Steiermärkisches Raumordnungsgesetz 2010 (StROG)'),
-      carinthia: spatialPlanning('Kärntner Raumordnungsgesetz 2021 (K-ROG 2021)'),
-      salzburg: spatialPlanning('Salzburger Raumordnungsgesetz 2009 (ROG 2009)'),
-      tyrol: spatialPlanning('Tiroler Raumordnungsgesetz 2022 (TROG 2022)'),
-      vorarlberg: spatialPlanning('Vorarlberger Raumplanungsgesetz (RPG)'),
-      burgenland: spatialPlanning('Burgenländisches Raumplanungsgesetz 2019 (Bgld. RPG 2019)'),
-    },
-    byMunicipality: [
-      {
-        federalState: 'styria',
-        municipality: 'Graz',
-        addition: 'In der Grazer Altstadt kann zusätzlich eine Schutzzone nach dem Grazer Altstadterhaltungsgesetz gelten.',
-        sources: [{ title: 'Grazer Altstadterhaltungsgesetz 2008 (GAEG 2008)', needsReview: true }],
-      },
-      {
-        federalState: 'salzburg',
-        municipality: 'Salzburg',
-        addition: 'In der Salzburger Altstadt gilt zusätzlich das Salzburger Altstadterhaltungsgesetz.',
-        sources: [{ title: 'Salzburger Altstadterhaltungsgesetz 1980', needsReview: true }],
-      },
-    ],
-  },
-  {
-    determinant: 'heritage',
-    label: 'Denkmal- und Ortsbildschutz',
-    keys: ['heritage_protection'],
-    appliesWhen: { existing: true },
-    document: 'Auszug aus der Denkmalliste oder Unterschutzstellungsbescheid',
-    reason:
-      'Ein Gebäude unter Denkmalschutz darf nur mit Bewilligung des Bundesdenkmalamts verändert werden. Ob es geschützt ist, steht in der Denkmalliste des Bundesdenkmalamts oder in einem Bescheid.',
-    sources: [{ title: 'Denkmalschutzgesetz (DMSG)', needsReview: false }],
-  },
-  {
-    determinant: 'hazards',
-    label: 'Naturgefahren und Altlasten',
-    keys: ['hazard_zones'],
-    appliesWhen: { projectTypes: ['new_build', 'extension', 'demolition'] },
-    document: 'Auszug aus dem Gefahrenzonenplan, Auskunft aus dem Verdachtsflächenkataster',
-    reason:
-      'Gefahrenzonen der Wildbach- und Lawinenverbauung und Hochwasserabflussbereiche können Bauverbote oder Auflagen bedeuten; meist sind sie im Flächenwidmungsplan ersichtlich gemacht. Eine Altlast oder Verdachtsfläche betrifft Aushub, Abbruch und Gründung.',
-    sources: [
-      { title: 'Forstgesetz 1975', reference: '§ 11 (Gefahrenzonenpläne)', needsReview: true },
-      { title: 'Wasserrechtsgesetz 1959 (WRG 1959)', reference: '§ 42a (Gefahrenzonenplanungen)', needsReview: true },
-      {
-        title: 'Altlastensanierungsgesetz (ALSAG)',
-        reference: 'Verdachtsflächenkataster und Altlastenatlas des Umweltbundesamts',
-        needsReview: true,
-      },
-    ],
-  },
-  {
-    determinant: 'noise',
-    label: 'Lärm',
-    keys: ['noise_situation'],
-    appliesWhen: {
-      projectTypes: ['new_build', 'extension', 'conversion', 'refurbishment', 'change_of_use'],
-      uses: ['residential', 'lodging', 'education', 'healthcare', 'office'],
-    },
-    document: 'Lärmgutachten oder Auszug aus der Lärmkarte',
-    reason:
-      'Der Außenlärm am Standort bestimmt, wie gut Fenster und Außenbauteile dämmen müssen. Die strategischen Lärmkarten für Straße, Bahn, Flugverkehr und Industrie zeigt lärminfo.at.',
-    sources: [
-      {
-        title: 'OIB-Richtlinie 5, Schallschutz (Ausgabe 2023)',
-        reference: 'Anforderungen an Außenbauteile nach dem maßgeblichen Außenlärmpegel',
-        needsReview: true,
-      },
-      { title: 'Bundes-Umgebungslärmschutzgesetz (Bundes-LärmG)', reference: 'strategische Lärmkarten', needsReview: true },
-    ],
-  },
-]
-
-/** The register's own inputs: asked on step 4 while open, because they decide what else is asked. */
-const REGISTER_INPUTS: Record<IntakeMode, readonly string[]> = {
-  active: ['federal_state', 'work_type'],
-  // A past project: the Bundesland decides which law applied; nothing is requested.
-  closing: ['federal_state'],
-}
+import { siteCountry } from '@/lib/project-profile/site'
+import { factDefinitionsOf, factSourcesOf, setupScopeOf } from './setup-scope'
+import type { DocumentRequest, IntakeMode, LocationRegisterView, Need } from './types'
+import { LOCATION_DETERMINANTS } from './types'
 
 export interface LocationRegisterInput {
   profile: ProjectProfile
@@ -211,13 +36,14 @@ export interface LocationRegisterInput {
   mode: IntakeMode
   /** The project's needs (`computeNeeds`): a request carries the open ones among its keys. */
   needs: readonly Need[]
+  /** The released setup records to read. */
+  records: readonly StoredRuleset[]
 }
 
-/** What the register reads off the profile. */
+/** What the register reads off the profile and the records. */
 interface Situation {
-  federalState: FederalState | null
-  /** Country or Bundesland says the project is not in Austria: the register has nothing to say. */
-  abroad: boolean
+  /** The subdivision the site is placed in: its token and its territory. */
+  subdivision: { token: string; territoryId: string } | null
   municipality: string | null
   projectTypes: readonly string[] | null
   uses: readonly string[] | null
@@ -244,21 +70,15 @@ const asList = (value: ProjectPrimitiveValue | undefined): string[] | null => {
   return typeof value === 'string' && value ? [value] : null
 }
 
-function isFederalState(value: unknown): value is FederalState {
-  return typeof value === 'string' && value !== 'outside_austria' && FEDERAL_STATE_TOKENS.includes(value)
-}
-
-function situationOf(input: LocationRegisterInput): Situation {
+function situationOf(
+  input: LocationRegisterInput,
+  subdivision: { token: string; territoryId: string; municipality?: string } | null
+): Situation {
   const { profile, location } = input
-  const stated = valueOf(profile, 'federal_state')
-  const country = valueOf(profile, 'country')
-  const located = location?.federalState
-  const federalState = isFederalState(stated) ? stated : isFederalState(located) ? located : null
   const uses = scopedValues(profile, 'uses').flatMap(({ value }) => asList(value) ?? [])
   return {
-    federalState,
-    abroad: stated === 'outside_austria' || (typeof country === 'string' && country !== 'at'),
-    municipality: location?.municipality ?? (federalState === 'vienna' ? 'Wien' : null),
+    subdivision,
+    municipality: location?.municipality ?? subdivision?.municipality ?? null,
     projectTypes: asList(valueOf(profile, 'work_type')),
     uses: uses.length > 0 ? [...new Set(uses)] : null,
     existing: scopedValues(profile, 'construction_status')
@@ -271,14 +91,14 @@ const meets = (known: readonly string[] | null, wanted: readonly string[] | unde
   !wanted || known === null || known.some((value) => wanted.includes(value))
 
 /** Whether an entry applies to the situation; unknown inputs count as applying. */
-export function entryApplies(entry: RegisterEntry, situation: Pick<Situation, 'projectTypes' | 'uses' | 'existing'>): boolean {
+export function entryApplies(entry: FactSource, situation: Pick<Situation, 'projectTypes' | 'uses' | 'existing'>): boolean {
   if (entry.appliesWhen.existing && situation.existing.length === 0) return false
   return meets(situation.projectTypes, entry.appliesWhen.projectTypes) && meets(situation.uses, entry.appliesWhen.uses)
 }
 
-function keysOf(entry: RegisterEntry, situation: Situation): string[] {
-  if (!entry.appliesWhen.existing) return [...entry.keys]
-  return situation.existing.flatMap((buildingId) => entry.keys.map((key) => `${key}@${buildingId}`))
+function keysOf(entry: FactSource, situation: Situation): string[] {
+  if (!entry.appliesWhen.existing) return [...entry.factKeys]
+  return situation.existing.flatMap((buildingId) => entry.factKeys.map((key) => `${key}@${buildingId}`))
 }
 
 /** Settled: a value, a suggestion, or „nicht bekannt". */
@@ -288,18 +108,23 @@ function settled(profile: ProjectProfile, key: string): boolean {
 
 const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivity: 'base' }) === 0
 
-function requestFor(entry: RegisterEntry, situation: Situation, input: LocationRegisterInput): DocumentRequest | null {
+const isDeterminant = (value: string | undefined): value is DocumentRequest['determinant'] =>
+  (LOCATION_DETERMINANTS as readonly string[]).includes(value ?? '')
+
+function requestFor(entry: FactSource, situation: Situation, input: LocationRegisterInput): DocumentRequest | null {
   const keys = keysOf(entry, situation)
-  if (keys.length === 0) return null
-  const variant = situation.federalState ? entry.byFederalState?.[situation.federalState] : undefined
-  const additions = (entry.byMunicipality ?? []).filter(
-    (local) => local.federalState === situation.federalState && situation.municipality && sameName(local.municipality, situation.municipality)
+  if (keys.length === 0 || !isDeterminant(entry.determinant)) return null
+  const territoryId = situation.subdivision?.territoryId
+  const variant = territoryId ? entry.variants[territoryId] : undefined
+  const additions = entry.additions.filter(
+    (local) =>
+      local.territoryId === territoryId && situation.municipality && sameName(local.municipality, situation.municipality)
   )
-  const reason = [variant?.reason ?? entry.reason, ...additions.map((local) => local.addition)].join(' ')
+  const reason = [variant?.reason ?? entry.request.reason, ...additions.map((local) => local.addition)].join(' ')
   return {
     determinant: entry.determinant,
     label: entry.label,
-    document: variant?.document ?? entry.document,
+    document: variant?.document ?? entry.request.document,
     reason,
     keys,
     needs: input.needs.filter((need) => keys.includes(need.key) && need.state === 'open'),
@@ -308,27 +133,47 @@ function requestFor(entry: RegisterEntry, situation: Situation, input: LocationR
   }
 }
 
+/** The register's own inputs: asked on step 4 while open, because they decide what else is asked. */
+function registerInputs(mode: IntakeMode, subdivisionKey: string): string[] {
+  // A past project: the subdivision decides which law applied; nothing is requested.
+  return mode === 'active' ? [subdivisionKey, 'work_type'] : [subdivisionKey]
+}
+
+/** The profile key a subdivision is stored under when no record names it: the wizard's. */
+const DEFAULT_SUBDIVISION_KEY = 'federal_state'
+
 /**
- * The register for one project: the Bundesland and Gemeinde it read, its own
- * inputs still open (the Bundesland always, decisive for everything else; the
- * Vorhaben for an active project), and the documents it asks for. A past
+ * The register for one project: the subdivision and municipality it read, its
+ * own inputs still open (the subdivision always, decisive for everything else;
+ * the Vorhaben for an active project), and the documents it asks for. A past
  * project (`closing`) is asked for no document: its values stay „nicht
- * bekannt" where its own documents are silent. A project outside Austria gets
- * nothing.
+ * bekannt" where its own documents are silent. A project placed where no
+ * record speaks gets nothing; one nothing places is asked for its site.
  */
 export function locationRegisterFor(input: LocationRegisterInput): LocationRegisterView {
-  const situation = situationOf(input)
   const empty: LocationRegisterView = { federalState: null, municipality: null, questions: [], documentRequests: [] }
-  if (situation.abroad) return empty
-  const inputs = REGISTER_INPUTS[input.mode]
-  const questions = inputs.flatMap((key) =>
+  const scope = setupScopeOf(input.profile, { location: input.location, records: input.records })
+  const unplaced = scope.chain.length === 0 && siteCountry(input.profile) === null
+  const sources = factSourcesOf(scope)
+  if (!sources && !unplaced) return empty
+  const subdivisions = factDefinitionsOf(scope)?.subdivisions
+  const subdivision =
+    scope.chain.length > 1 ? (subdivisions?.options.find((option) => option.territoryId === scope.chain[0]) ?? null) : null
+  const situation = situationOf(input, subdivision)
+  const questions = registerInputs(input.mode, subdivisions?.factKey ?? DEFAULT_SUBDIVISION_KEY).flatMap((key) =>
     input.needs.filter((need) => need.key === key && need.state === 'open')
   )
   const documentRequests =
-    input.mode === 'closing'
+    input.mode === 'closing' || !sources
       ? []
-      : LOCATION_REGISTER.filter((entry) => entryApplies(entry, situation))
+      : sources.entries
+          .filter((entry) => entryApplies(entry, situation))
           .map((entry) => requestFor(entry, situation, input))
           .filter((request): request is DocumentRequest => request !== null)
-  return { federalState: situation.federalState, municipality: situation.municipality, questions, documentRequests }
+  return {
+    federalState: subdivision?.token ?? null,
+    municipality: situation.municipality,
+    questions,
+    documentRequests,
+  }
 }

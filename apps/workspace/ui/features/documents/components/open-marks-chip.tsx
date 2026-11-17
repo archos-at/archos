@@ -1,5 +1,6 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX, SyntheticEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageSquareText } from 'lucide-react'
@@ -12,25 +13,15 @@ import type { MarkTally } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import { reviewHrefAt } from '../lib/open-review'
 
-/** What a listing needs of a row to say what is open on it. */
 export interface OpenMarksSubject {
   id: string
   marks?: MarkTally | null
 }
 
-/** What a document still has: its open marks, the reader's among them (none where unknown), and Piloti's proposals. */
 export type MarkCounts = Pick<MarkTally, 'open' | 'proposed'> & { forYou?: number }
 
-/** Whether there is anything to say: an open mark, or a proposal nobody decided on. */
 export const hasLiveMarks = (marks: MarkCounts): boolean => marks.open + marks.proposed > 0
 
-/**
- * The sentence the chip stands for, „3 offene Anmerkungen, 1 für Sie und 2
- * Vorschläge von Piloti": the open marks and Piloti's untaken proposals told
- * apart, as everywhere else „offen“ means only the office's own marks
- * (Offene Punkte, the Protokoll, the Postfach). Each part only when it has
- * any. The approve confirm says the same, without „für Sie“.
- */
 export function openMarksLabel(t: Translator, locale: string, marks: MarkCounts): string {
   const forYou = marks.forYou ?? 0
   const parts = [
@@ -44,8 +35,7 @@ export function openMarksLabel(t: Translator, locale: string, marks: MarkCounts)
   return new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(parts)
 }
 
-/** What the chip says in its own words, short enough for a card: „2 offen · 1 für Sie · 12 Vorschläge". */
-export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
+function openMarksShortParts(t: Translator, marks: MarkCounts): string[] {
   const forYou = marks.forYou ?? 0
   return [
     marks.open > 0
@@ -54,37 +44,21 @@ export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
         : t('annotations.listedOpenShort', { count: marks.open })
       : null,
     marks.proposed > 0 ? t('annotations.listedProposedShort', { count: marks.proposed }) : null,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(' · ')
+  ].filter((part): part is string => part !== null)
 }
 
-/** A click or a key on the chip is the chip's: the row or card around it opens the file, not the review. */
+export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
+  return openMarksShortParts(t, marks).join(CLAUSE_JOIN)
+}
+
 const keep = (event: SyntheticEvent) => event.stopPropagation()
 
-/**
- * What a document in a listing still has open: its open Anmerkungen on every
- * Fassung, how many of them are the reader's, and Piloti's proposals nobody
- * decided on, told apart („2 offen · 1 für Sie · 12 Vorschläge"), counted by
- * the server with the listing (`tallyLiveMarks`).
- * Nothing when nothing is open, so a folder scanned at a glance shows only the
- * documents with work on them.
- *
- * It says so in words („4 offen · 2 für Sie"), not in a bubble and a person
- * beside two bare numbers: a count without its noun has to be learnt. The
- * tooltip carries the whole sentence for a pointer; a finger reads the words.
- *
- * A press opens the document's Prüfansicht: the page's own URL with `doc` and
- * `review=1` (`reviewHrefAt`), which the shelf's `?doc=` sync and the preview
- * pane already answer, so this adds no second way in.
- */
 export function OpenMarksChip({
   file,
   name,
   className,
 }: {
   file: OpenMarksSubject
-  /** The document's name as the row shows it: a screen reader moving by buttons hears which document each one opens. */
   name: string
   className?: string
 }): JSX.Element | null {
@@ -92,7 +66,6 @@ export function OpenMarksChip({
   return <OpenMarksButton documentId={file.id} name={name} marks={file.marks} className={className} />
 }
 
-/** Its own component so `useRouter` runs only for a row that has something open. */
 function OpenMarksButton({
   documentId,
   name,
@@ -111,7 +84,7 @@ function OpenMarksButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Chip asChild interactive size="sm" variant="muted" className={cn('tabular-nums', className)}>
+        <Chip asChild interactive size="sm" variant="muted" className={cn('max-w-full min-w-0 tabular-nums', className)}>
           <button data-attr="open-marks"
             type="button"
             data-slot="open-marks"
@@ -125,7 +98,16 @@ function OpenMarksButton({
             }}
           >
             <MessageSquareText aria-hidden />
-            <span>{openMarksShortLabel(t, marks)}</span>
+            {/* Below 640px a clause after the first is dropped whole, never cut mid-word („3 …“ on a 156px tile);
+                the name says the whole sentence, the tooltip too. */}
+            <span className="min-w-0 truncate">
+              {openMarksShortParts(t, marks).map((part, index) => (
+                <span key={part} className={cn(index > 0 && 'max-sm:hidden')}>
+                  {index > 0 && CLAUSE_JOIN}
+                  {part}
+                </span>
+              ))}
+            </span>
           </button>
         </Chip>
       </TooltipTrigger>

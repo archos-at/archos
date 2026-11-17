@@ -1,0 +1,13 @@
+---
+# area: documents
+fixes:
+  - >
+    Files that had been read in full but showed as failed after a large upload
+    show as read again the next time their folder is opened.
+operators:
+  - >
+    A job past the backend's 24-hour status retention now reads as unknown, not
+    as failed with "Job ID not found", so the reconciler settles its row from the
+    collection listing. A row already failed with "Job ID not found" becomes
+    completed on its next read when its file is indexed; the rest need Rescan
+    failed ingestions (446 such rows on production, 2026-11-07).

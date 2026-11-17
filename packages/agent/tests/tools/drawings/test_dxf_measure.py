@@ -1,5 +1,3 @@
-"""``dxf_measure``: which DXF, read under which scope, and what the turn keeps of it (ADR-0153)."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -23,8 +21,6 @@ FILE = "Katasterauszug.dxf"
 
 
 class _Store:
-    """The object store's two calls, counted."""
-
     def __init__(self, data: bytes, size: int | None = None) -> None:
         self.data, self.size, self.reads = data, len(data) if size is None else size, 0
 
@@ -51,7 +47,6 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
     async def resolve(document: str) -> Resolved | str:
         if document == "missing.dxf":
             return "Not found: 'missing.dxf'."
-        # The resolver drops `signed` when the canvas id lookup fails; the tool must not care.
         return Resolved(document or FILE, COLLECTION, signed=None)
 
     def get_json(path: str, **kwargs: Any) -> dict[str, Any]:

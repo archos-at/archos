@@ -1,10 +1,3 @@
-"""Tests for the OpenRouter cross-encoder reranker (``knowledge_layer.search.cross_encoder``).
-
-All offline: ``httpx.MockTransport`` stands in for the provider, so the request
-body contract and the documented example payload shape are pinned without
-network. The breaker/throttle state is module-global and reset per test.
-"""
-
 from __future__ import annotations
 
 import json
@@ -42,16 +35,6 @@ def _reranker(**kwargs) -> CrossEncoderReranker:
 
 
 def _serve(monkeypatch, handler) -> list[httpx.Request]:
-    """Route the reranker's internal AsyncClient through a MockTransport.
-
-    The patch replaces ``httpx.AsyncClient`` with a ``functools.partial``, which
-    is not a class. The reranker records its usage through ``cost_tracking``,
-    which imports ``openai`` on first use, and ``openai`` subclasses
-    ``httpx.AsyncClient`` at import. Run alone, that first import landed inside
-    the patch and failed with ``TypeError: the first argument must be callable``;
-    it passed only when an earlier test had imported ``openai`` already. Importing
-    it here, before the patch, makes the result independent of test order.
-    """
     import openai  # noqa: F401
 
     seen: list[httpx.Request] = []
@@ -65,18 +48,6 @@ def _serve(monkeypatch, handler) -> list[httpx.Request]:
 
 
 def _route_async_clients(monkeypatch, transport: httpx.MockTransport) -> None:
-    """Serve every request an ``httpx.AsyncClient`` sends during the test from this transport.
-
-    Patches the socket transport underneath the clients, never ``httpx.AsyncClient``:
-    the reranker's client is built on the provider limiter's transport (ADR-0081),
-    which must stay in the path so the slot is taken the way it is in production,
-    and ``httpx.AsyncClient`` must stay a class. The reranker's first call imports
-    ``cost_tracking``, which imports ``langchain_openai`` and so ``openai``, whose
-    ``_base_client`` subclasses ``httpx.AsyncClient`` at import time; with a
-    ``functools.partial`` in its place that ``class`` statement raises
-    ``TypeError: the first argument must be callable``, and only when ``openai``
-    was not already imported.
-    """
 
     async def _serve(self, request: httpx.Request) -> httpx.Response:
         return await transport.handle_async_request(request)
@@ -126,12 +97,10 @@ async def test_ranking_parse_drops_dup_out_of_range_and_string_scores(monkeypatc
         "documents": ["text", "text", "text"],
         "top_n": 3,
     }
-    # The reranker is the platform's: every rerank is pinned, whatever the org's setting.
     assert provider["zdr"] is True and provider["data_collection"] == "deny"
 
 
 async def test_without_the_zdr_seam_the_rerank_is_skipped_not_sent_unpinned(monkeypatch) -> None:
-    """The package imports without agent; then no rerank goes out, rather than an unpinned one."""
     import sys
 
     seen = _serve(monkeypatch, lambda request: _ok({"results": []}))
@@ -142,7 +111,6 @@ async def test_without_the_zdr_seam_the_rerank_is_skipped_not_sent_unpinned(monk
 
 
 def test_the_default_reranker_is_one_with_a_zdr_endpoint(monkeypatch) -> None:
-    """Every rerank is pinned, so a default without a ZDR endpoint would refuse every call."""
     from knowledge_layer.search import cross_encoder
 
     monkeypatch.setattr(cross_encoder, "DEFAULT_MODEL", "")
@@ -193,15 +161,6 @@ def test_base_url_trailing_rerank_is_stripped(given, expected) -> None:
 
 @pytest.mark.parametrize("uptime", [1.0, 10_000.0], ids=["fresh-boot", "long-running"])
 async def test_first_failure_warns_then_debugs_within_cooldown(monkeypatch, caplog, uptime) -> None:
-    """The first failure warns whatever the host's uptime is.
-
-    ``time.monotonic()`` is time since boot on Linux, so a freshly started
-    container reads well under the cooldown. While "never warned" was the float
-    ``0.0``, ``now - 0.0`` was already inside the window there and the first
-    failure logged at debug -- the one warning the throttle exists to guarantee,
-    swallowed on exactly the hosts that had just started failing. The parameters
-    pin both clocks so uptime can never decide this again.
-    """
 
     def _raise(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down")
@@ -241,13 +200,11 @@ async def test_breaker_trips_after_consecutive_failures_and_recovers(monkeypatch
             assert await reranker.rerank("query", chunks) is None
     assert [r for r in caplog.records if "disabling it for" in r.getMessage()]
 
-    # Tripped: a healthy provider is not even called.
     _route_async_clients(monkeypatch, httpx.MockTransport(_succeed))
     before = len(calls)
     assert await reranker.rerank("query", chunks) is None
     assert len(calls) == before
 
-    # After the cooldown the provider is retried and success resets the count.
     now[0] += 301.0
     ranked = await reranker.rerank("query", chunks)
     assert ranked is not None
@@ -265,12 +222,7 @@ async def test_unusable_ranking_counts_toward_the_breaker(monkeypatch) -> None:
     assert ce._breaker_open()
 
 
-# --- Who pays for the rerank, and with whose key (ledger row 25) -------------
-
-
 class _Tracker:
-    """The cost tracker's one method this call site uses."""
-
     def __init__(self) -> None:
         self.events: list = []
 
@@ -280,7 +232,6 @@ class _Tracker:
 
 @pytest.fixture()
 def tracker(monkeypatch):
-    """Install a tracker in the ambient ContextVar, as a turn does."""
     from agent.common import cost_tracking
 
     sink = _Tracker()
@@ -296,7 +247,6 @@ def _ranked(_request: httpx.Request) -> httpx.Response:
 
 
 async def test_a_rerank_lands_on_the_ledger_with_its_role_and_tokens(monkeypatch, tracker) -> None:
-    """It was a frontier-model call per search, charged to nobody."""
     _serve(monkeypatch, _ranked)
 
     await _reranker().rerank("Fluchtweg", [_chunk("a", "x" * 400), _chunk("b", "y" * 400)])
@@ -323,7 +273,6 @@ async def test_a_provider_that_reports_usage_is_believed_over_the_estimate(monke
 
 
 async def test_a_failed_rerank_is_charged_to_nobody(monkeypatch, tracker) -> None:
-    """No ranking, no row: the turn kept the order it already had."""
     _serve(monkeypatch, lambda request: httpx.Response(500))
 
     await _reranker().rerank("Fluchtweg", [_chunk("a")])
@@ -332,7 +281,6 @@ async def test_a_failed_rerank_is_charged_to_nobody(monkeypatch, tracker) -> Non
 
 
 async def test_a_search_outside_a_turn_is_not_recorded_and_still_ranks(monkeypatch) -> None:
-    """An ingest thread or a CLI run has no tracker; the rerank still happens."""
     _serve(monkeypatch, _ranked)
 
     ranked = await _reranker().rerank("Fluchtweg", [_chunk("a"), _chunk("b")])
@@ -341,9 +289,6 @@ async def test_a_search_outside_a_turn_is_not_recorded_and_still_ranks(monkeypat
 
 
 async def test_an_org_with_its_own_key_reranks_on_it(monkeypatch, tracker) -> None:
-    """BYOK, per search. The handle is built at startup where no org exists, so
-    resolving the key at construction is what made every org's rerank the
-    platform's bill."""
     from agent.common import credential_resolution
 
     seen = _serve(monkeypatch, _ranked)
@@ -378,11 +323,8 @@ async def test_without_an_org_the_platform_key_is_used(monkeypatch, tracker) -> 
 
 
 async def test_an_org_with_no_key_of_its_own_still_reranks(monkeypatch, tracker) -> None:
-    """A BYOK lookup that resolves nothing must not take reranking down."""
     from agent.common import credential_resolution
 
-    # The platform key is the one the reranker was built with; a key in the
-    # environment (a cloud dev session carries a real one) must not stand in.
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_KEY", raising=False)
     seen = _serve(monkeypatch, _ranked)
@@ -396,3 +338,80 @@ async def test_an_org_with_no_key_of_its_own_still_reranks(monkeypatch, tracker)
     await _reranker(api_key="platform-key").rerank("Fluchtweg", [_chunk("a")])  # pragma: allowlist secret
 
     assert seen[0].headers["Authorization"] == "Bearer platform-key"
+
+
+def _licensed(chunk_id: str, content: str, *, attested: bool) -> SimpleNamespace:
+    metadata = {"licence_class": "licensed", "ai_processing_attested": attested}
+    return SimpleNamespace(chunk_id=chunk_id, content=content, metadata=metadata)
+
+
+def _byok(monkeypatch) -> None:
+    from agent.common import credential_resolution
+
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: "org_byok")
+    monkeypatch.setattr(
+        credential_resolution,
+        "resolve_llm_credential",
+        lambda **_kw: credential_resolution.ResolvedCredential(
+            api_key="org-own-key",  # pragma: allowlist secret
+            base_url="https://byok.example/api/v1",
+            model="m",
+            source="byok",
+        ),
+    )
+
+
+async def test_licensed_text_never_goes_to_an_org_s_own_reranker(monkeypatch, tracker) -> None:
+    from agent.common.licensed_text import begin_licensed_capture
+    from agent.common.licensed_text import end_licensed_capture
+
+    seen = _serve(monkeypatch, _ranked)
+    _byok(monkeypatch)
+
+    token = begin_licensed_capture(text_allowed=True)
+    try:
+        chunks = [_chunk("a"), _licensed("b", "Mindesthöhe 111 cm", attested=True)]
+        ranked = await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+
+    assert ranked is None and seen == []
+    await _reranker().rerank("Brüstung", [_chunk("a")])
+    assert len(seen) == 1, "positive control: the same org reranks text that is not licensed"
+
+
+async def test_an_unattested_licensed_chunk_is_sent_to_no_reranker_at_all(monkeypatch, tracker) -> None:
+    seen = _serve(monkeypatch, _ranked)
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: None)
+
+    await _reranker().rerank(
+        "Brüstung", [_chunk("a", "Geländer"), _licensed("b", "Mindesthöhe 111 cm", attested=False)]
+    )
+
+    sent = seen[0].content.decode()
+    assert "Mindesthöhe 111 cm" not in sent and "Geländer" in sent
+
+
+async def test_an_attested_licensed_chunk_is_sent_empty_on_a_turn_that_may_read_no_licensed_text(
+    monkeypatch, tracker
+) -> None:
+    from agent.common.licensed_text import begin_licensed_capture
+    from agent.common.licensed_text import end_licensed_capture
+
+    seen = _serve(monkeypatch, _ranked)
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: None)
+    chunks = [_chunk("a", "Geländer"), _licensed("b", "Mindesthöhe 111 cm", attested=True)]
+
+    token = begin_licensed_capture(text_allowed=False)
+    try:
+        await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+    token = begin_licensed_capture(text_allowed=True)
+    try:
+        await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+
+    assert "Mindesthöhe 111 cm" not in seen[0].content.decode()
+    assert "Mindesthöhe 111 cm" in seen[1].content.decode(), "positive control: the flag on, OpenRouter reads it"

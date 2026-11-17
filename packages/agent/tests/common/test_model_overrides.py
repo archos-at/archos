@@ -1,5 +1,3 @@
-"""Tests for per-org runtime model overrides (X-Grid-Model-Overrides)."""
-
 import base64
 import functools
 import json
@@ -15,6 +13,11 @@ from agent.common.model_overrides import apply_model_override
 from agent.common.model_overrides import override_model
 from agent.common.model_overrides import parse_model_overrides
 from agent.common.model_overrides import sanitize_model_overrides
+from agent.common.org_config_shared import shared_model_config_key
+from agent.common.residency import ProcessingPolicy
+from agent.common.residency import policy_to_json
+
+DEFAULT_POLICY = ProcessingPolicy()
 
 
 def _encode(payload: object) -> str:
@@ -22,23 +25,16 @@ def _encode(payload: object) -> str:
 
 
 class FakeChatModel(BaseModel):
-    """Pydantic stand-in for ChatOpenAI: has model_name + model_copy."""
-
     model_name: str = "deepseek/deepseek-v4-flash"
     max_tokens: int = 4096
 
 
 class RetryPatchedChatModel(FakeChatModel):
-    """Stand-in for an agent-runtime-built ChatOpenAI (patch_with_retry applied)."""
-
     def invoke_model(self) -> str:
-        """Returns the model the request would actually go out with (self-bound)."""
         return self.model_name
 
 
 def _patch_with_retry_like_nat(llm: RetryPatchedChatModel) -> RetryPatchedChatModel:
-    """Replicate the agent runtime's patch_with_retry: wrap every public method and store it
-    in the instance __dict__ as a types.MethodType bound to THIS instance."""
     original_fn = type(llm).invoke_model
 
     @functools.wraps(original_fn)
@@ -80,8 +76,6 @@ class TestParseModelOverrides:
         assert parse_model_overrides(raw) == {"deep_research": "vendor/ok-model:free"}
 
     def test_provider_native_ids_accepted_for_byok(self):
-        # BYOK orgs (ADR-0022) may run provider-native ids without a slash;
-        # multi-slash ids are still rejected.
         raw = _encode({"shallow_research": "gpt-4o", "clarifier": "ft:gpt-4o:acme::abc", "deep_research": "a/b/c"})
         assert parse_model_overrides(raw) == {"shallow_research": "gpt-4o", "clarifier": "ft:gpt-4o:acme::abc"}
 
@@ -97,7 +91,6 @@ class TestOverrideModel:
         assert result is not llm
         assert result.model_name == "qwen/qwen-3.5-72b"
         assert result.max_tokens == 4096
-        # Original untouched — overrides must be request-scoped.
         assert llm.model_name == "deepseek/deepseek-v4-flash"
 
     def test_unrecognized_object_returned_unchanged(self):
@@ -114,31 +107,20 @@ class TestOverrideModel:
         assert apply_model_override(llm, AgentGroup.RESEARCH, {"clarifier": "vendor/other"}) is llm
 
     def test_override_rebinds_instance_patched_methods(self):
-        """Regression: the agent runtime's patch_with_retry stores public methods in the
-        instance __dict__ as MethodTypes bound to the ORIGINAL instance.
-        model_copy shallow-copies __dict__, so the override copy kept invoking
-        the original model (wire payload carried the old model name while logs
-        showed the override)."""
         llm = _patch_with_retry_like_nat(RetryPatchedChatModel())
         result = override_model(llm, "x-ai/grok-4.5")
         assert result.model_name == "x-ai/grok-4.5"
-        # The call must execute against the copy, not the original instance.
         assert result.invoke_model() == "x-ai/grok-4.5"
-        # Original keeps its own binding and model.
         assert llm.invoke_model() == "deepseek/deepseek-v4-flash"
 
 
 class FakeOpenRouterModel(BaseModel):
-    """Pydantic stand-in for a ChatOpenAI pointed at OpenRouter (has extra_body)."""
-
     model_name: str = "deepseek/deepseek-v4-flash"
     openai_api_base: str = "https://openrouter.ai/api/v1"
     extra_body: dict = {}
 
 
 class FakeNonOpenRouterModel(BaseModel):
-    """Pydantic stand-in for a non-OpenRouter (e.g. NVIDIA-hosted) chat model."""
-
     model_name: str = "meta/llama-3.1"
     openai_api_base: str = "https://llm.example.test/v1"
     extra_body: dict = {}
@@ -170,7 +152,6 @@ class TestApplyZdrRouting:
         assert result is not llm
         assert result.extra_body["provider"] == {"zdr": True, "data_collection": "deny"}
         assert result.extra_body["plugins"] == [{"id": "response-healing"}]
-        # Original untouched — the policy is request-scoped.
         assert "provider" not in llm.extra_body
 
     def test_non_openrouter_model_unchanged(self):
@@ -193,7 +174,6 @@ class TestApplyZdrRouting:
 
     def test_apply_model_override_applies_zdr_without_model_change(self):
         llm = FakeOpenRouterModel()
-        # No model override for this group, but ZDR is on -> still a ZDR copy.
         result = apply_model_override(llm, AgentGroup.RESEARCH, {}, zdr_only=True)
         assert result is not llm
         assert result.model_name == "deepseek/deepseek-v4-flash"
@@ -233,7 +213,6 @@ class TestProviderWithModelOverrides:
         assert derived is not provider
         assert derived.get(LLMRole.ROUTER).model_name == "vendor/router"
         assert derived.get(LLMRole.PLANNER).model_name == "vendor/deep"
-        # Default falls back through get() for unconfigured roles.
         assert derived.get(LLMRole.ORCHESTRATOR).model_name == "vendor/deep"
 
     def test_applied_overrides_are_logged(self, caplog):
@@ -242,7 +221,6 @@ class TestProviderWithModelOverrides:
             provider.with_model_overrides({"deep_research": "vendor/deep", "unknown_group": "x/y"})
         assert "Applying model overrides" in caplog.text
         assert "deep_research" in caplog.text and "vendor/deep" in caplog.text
-        # Untagged/unknown groups are not reported as applied.
         assert "unknown_group" not in caplog.text
 
     def test_partial_override_leaves_other_groups_untouched(self):
@@ -264,8 +242,6 @@ class TestProviderWithModelOverrides:
 
 
 class TestOrgScopedFallbackResolution:
-    """Header absent -> resolve the org's overrides via the internal endpoint."""
-
     def setup_method(self):
         from agent.common.model_overrides import reset_overrides_cache
 
@@ -288,7 +264,9 @@ class TestOrgScopedFallbackResolution:
 
         monkeypatch.setattr("agent.project_context._read_header", lambda name: None)
         monkeypatch.setattr("agent.project_context.get_organization_id_from_context", lambda: "org_ABC123")
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False))
+        monkeypatch.setattr(
+            M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY)
+        )
 
         assert M.get_model_overrides_from_context() == {"deep_research": "x-ai/grok-4.5"}
 
@@ -308,17 +286,15 @@ class TestOrgScopedFallbackResolution:
 
         def fake_fetch(org):
             calls.append(org)
-            return {"shallow_research": "vendor/x"}, True
+            return {"shallow_research": "vendor/x"}, True, DEFAULT_POLICY
 
         monkeypatch.setattr(M, "_fetch_org_config", fake_fetch)
-        # A single fetch populates BOTH the overrides and the ZDR flag.
         assert M.resolve_org_model_overrides("org_A") == {"shallow_research": "vendor/x"}
         assert M.resolve_org_zdr_only("org_A") is True
         assert M.resolve_org_model_overrides("org_A") == {"shallow_research": "vendor/x"}
         assert calls == ["org_A"]
 
     def test_fetch_failure_opens_the_models_and_closes_zdr(self, monkeypatch):
-        """The model choice fails open (YAML models); the privacy control fails closed."""
         import agent.common.model_overrides as M
 
         def boom(org):
@@ -327,7 +303,6 @@ class TestOrgScopedFallbackResolution:
         monkeypatch.setattr(M, "_fetch_org_config", boom)
         assert M.resolve_org_model_overrides("org_A") == {}
         assert M.resolve_org_zdr_only("org_A") is True
-        # Negative-cached: the failure is not retried within the TTL.
         monkeypatch.setattr(M, "_fetch_org_config", lambda org: pytest.fail("negative cache must hold"))
         assert M.resolve_org_model_overrides("org_A") == {}
 
@@ -350,10 +325,9 @@ class TestOrgScopedFallbackResolution:
 
         monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
         monkeypatch.setattr("httpx.get", lambda *a, **k: FakeResponse())
-        assert M._fetch_org_config("org_A") == ({"deep_research": "x-ai/grok-4.5"}, True)
+        assert M._fetch_org_config("org_A")[:2] == ({"deep_research": "x-ai/grok-4.5"}, True)
 
     def test_no_internal_token_is_yaml_models_with_zdr_pinned(self, monkeypatch):
-        """Without a trust channel nobody was asked: the org's ZDR bit is unknown, so it is on."""
         import agent.common.model_overrides as M
 
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
@@ -364,7 +338,7 @@ class TestOrgScopedFallbackResolution:
         import agent.common.model_overrides as M
 
         monkeypatch.setattr("agent.project_context.get_organization_id_from_context", lambda: "org_ZDR")
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({}, True))
+        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({}, True, DEFAULT_POLICY))
         assert M.get_zdr_only_from_context() is True
 
     def test_zdr_only_defaults_false_without_org(self, monkeypatch):
@@ -375,20 +349,17 @@ class TestOrgScopedFallbackResolution:
 
 
 class TestCacheTtlConstants:
-    """The propagation bounds docs/architecture/org-model-configuration.md promises."""
-
     def test_ttls(self):
         from agent.common import model_overrides as M
 
         assert M._POSITIVE_TTL_SECONDS == 10
         assert M._NEGATIVE_TTL_SECONDS == 1
-        assert M._SHARED_TTL_SECONDS == 60
+        from agent.common import org_config_shared
+
+        assert org_config_shared._SHARED_TTL_SECONDS == 60
 
 
 class TestSharedTier:
-    """The org's config lives in the shared cache between replicas, and the BFF's
-    deletion of that key is what an admin save propagates through."""
-
     @pytest.fixture(autouse=True)
     def _fresh(self):
         from agent.common import cache
@@ -407,11 +378,10 @@ class TestSharedTier:
 
         def fake_fetch(org):
             fetches.append(org)
-            return {"deep_research": "x-ai/grok-4.5"}, True
+            return {"deep_research": "x-ai/grok-4.5"}, True, DEFAULT_POLICY
 
         monkeypatch.setattr(M, "_fetch_org_config", fake_fetch)
         first = M._resolve_org_config("org_1")
-        # Another replica: no in-process memo, the shared tier still holds it.
         M.reset_overrides_cache()
         second = M._resolve_org_config("org_1")
 
@@ -423,12 +393,16 @@ class TestSharedTier:
         from agent.common import cache
         from agent.common import model_overrides as M
 
-        answers = iter([({"deep_research": "old/model"}, False), ({"deep_research": "new/model"}, False)])
+        answers = iter(
+            [
+                ({"deep_research": "old/model"}, False, DEFAULT_POLICY),
+                ({"deep_research": "new/model"}, False, DEFAULT_POLICY),
+            ]
+        )
         monkeypatch.setattr(M, "_fetch_org_config", lambda org: next(answers))
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "old/model"}
 
-        # What `invalidateBackendModelConfig` does on the BFF after a save.
-        cache.delete(M.shared_model_config_key("org_1"))
+        cache.delete(shared_model_config_key("org_1"))
         M.reset_overrides_cache()  # the in-process memo expiring
 
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "new/model"}
@@ -443,26 +417,43 @@ class TestSharedTier:
         monkeypatch.setattr(M, "_fetch_org_config", boom)
         entry = M._resolve_org_config("org_1")
         assert entry.overrides == {} and entry.zdr_only is True
-        assert cache.get_json(M.shared_model_config_key("org_1")) is None
+        assert cache.get_json(shared_model_config_key("org_1")) is None
+
+    def test_an_unreadable_placement_never_reaches_another_replica_as_unplaced(self, monkeypatch):
+        from agent.common import cache
+        from agent.common import model_overrides as M
+        from agent.common import residency
+
+        monkeypatch.setenv(residency.RESIDENCY_CELL_ENV, "eu-at-1")
+        fetches = []
+
+        def null_policy(org):
+            fetches.append(org)
+            return {}, True, residency.parse_policy(None)
+
+        monkeypatch.setattr(M, "_fetch_org_config", null_policy)
+        replica_a = M._resolve_org_config("org_1")
+        with pytest.raises(residency.ResidencyViolation):
+            residency.check_organization(replica_a.processing)
+
+        M.reset_overrides_cache()  # replica B: no memo of its own
+        replica_b = M._resolve_org_config("org_1")
+        assert replica_b.processing.known is False
+        with pytest.raises(residency.ResidencyViolation):
+            residency.check_organization(replica_b.processing)
+        assert fetches == ["org_1", "org_1"], "B asks the BFF again rather than trusting a shared failure"
+        assert cache.get_json(shared_model_config_key("org_1")) is None
 
     def test_missing_token_resolution_writes_nothing_to_the_shared_tier(self, monkeypatch):
-        """No INTERNAL_API_TOKEN -> YAML models with ZDR pinned, and no L2
-        write, so an unconfigured backend cannot shadow a real config for a full TTL."""
         from agent.common import cache
         from agent.common import model_overrides as M
 
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
         entry = M._resolve_org_config("org_1")
         assert entry.overrides == {} and entry.zdr_only is True
-        assert cache.get_json(M.shared_model_config_key("org_1")) is None
+        assert cache.get_json(shared_model_config_key("org_1")) is None
 
     def test_an_authoritative_empty_config_is_cached_in_l2(self, monkeypatch):
-        """An unconfigured org is the DEFAULT state, and it is a real answer.
-
-        While only populated records reached L2, the majority case never
-        populated it at all: every replica went back to the BFF every L1 TTL
-        for every unconfigured org, which is exactly what L2 exists to stop.
-        """
         from agent.common import cache
         from agent.common import model_overrides as M
 
@@ -470,24 +461,18 @@ class TestSharedTier:
 
         def empty(org):
             calls.append(org)
-            return {}, False
+            return {}, False, DEFAULT_POLICY
 
-        # A trust channel means `_fetch_org_config` actually ASKED the BFF, so
-        # ({}, False) is the BFF's answer rather than "we never asked".
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
         monkeypatch.setattr(M, "_fetch_org_config", empty)
         assert M.resolve_org_model_overrides("org_1") == {}
-        assert cache.get_json(M.shared_model_config_key("org_1")) == {"overrides": {}, "zdr_only": False}
+        assert cache.get_json(shared_model_config_key("org_1")) == {
+            "overrides": {},
+            "zdr_only": False,
+            "processing": policy_to_json(DEFAULT_POLICY),
+        }
 
     def test_concurrent_turns_for_one_org_share_a_single_fetch(self, monkeypatch):
-        """The ~1s negative TTL is affordable only because the fetch is coalesced.
-
-        Without it every concurrent turn raced past the expired entry and opened
-        its own request, each paying the full timeout while the BFF is down —
-        the retry-thunder the negative cache exists to prevent. The fetch is
-        held open here so every thread really is in flight at once; otherwise
-        the first one returns, populates the tiers, and the race never happens.
-        """
         import threading
         import time as stdlib_time
 
@@ -503,7 +488,7 @@ class TestSharedTier:
             calls.append(org)
             entered.set()
             proceed.wait(timeout=5)
-            return {"deep_research": "x-ai/grok-4.5"}, False
+            return {"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY
 
         monkeypatch.setattr(M, "_fetch_org_config", slow)
         results = []
@@ -512,9 +497,6 @@ class TestSharedTier:
         ]
         for thread in threads:
             thread.start()
-        # The first fetch is now parked inside `slow`. Give the other seven time
-        # to reach the resolver: they either queue on the org lock (coalesced)
-        # or open their own request (thunder), and that is the whole assertion.
         assert entered.wait(timeout=5)
         stdlib_time.sleep(0.25)
         proceed.set()
@@ -525,9 +507,6 @@ class TestSharedTier:
         assert all(r == {"deep_research": "x-ai/grok-4.5"} for r in results)
 
     def test_error_negative_cache_expires_in_about_one_second(self, monkeypatch):
-        """A failed fetch is retried quickly: held within the 1s negative TTL,
-        retried past it — so a transient BFF outage never pins the fleet to the
-        YAML models and ZDR routing, and recovery is a second away, not ten."""
         import time as stdlib_time
 
         from agent.common import model_overrides as M
@@ -555,26 +534,18 @@ class TestSharedTier:
         from agent.common import cache
         from agent.common import model_overrides as M
 
-        cache.set_json(M.shared_model_config_key("org_1"), {"overrides": "nope"}, 60)
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False))
+        cache.set_json(shared_model_config_key("org_1"), {"overrides": "nope"}, 60)
+        monkeypatch.setattr(
+            M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY)
+        )
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "x-ai/grok-4.5"}
 
 
 class ThinkingChatModel(FakeChatModel):
-    """Stand-in for a ChatOpenAI built with a YAML ``reasoning_effort``."""
-
     reasoning_effort: str | None = "medium"
 
 
 class TestProviderWithReasoningEfforts:
-    """Platform → Models pins a thinking level per group; the provider seam must carry it.
-
-    Every user-facing agent resolves its LLMs through ``LLMProvider``, so an
-    effort applied only in ``apply_model_override`` never reached chat or deep
-    research. The seam mirrors ``with_model_overrides``:
-    identity when nothing applies, a copy per affected group otherwise.
-    """
-
     def _provider(self) -> LLMProvider:
         provider = LLMProvider()
         provider.set_default(ThinkingChatModel(model_name="default/model"), group=AgentGroup.DEEP_RESEARCH)
@@ -595,7 +566,6 @@ class TestProviderWithReasoningEfforts:
         assert derived is not provider
         assert derived.get(LLMRole.PLANNER).reasoning_effort == "low"
         assert derived.get(LLMRole.ROUTER).reasoning_effort == "none"
-        # Untagged roles keep their YAML value: no group, no dial.
         assert derived.get(LLMRole.SUMMARIZER).reasoning_effort == "medium"
 
     def test_original_provider_never_mutated(self):
@@ -604,7 +574,6 @@ class TestProviderWithReasoningEfforts:
         assert provider.get(LLMRole.PLANNER).reasoning_effort == "medium"
 
     def test_composes_with_the_model_override(self):
-        """The turn's LLM carries BOTH dials: the org's model and the platform's effort."""
         provider = self._provider()
         derived = provider.with_model_overrides({"deep_research": "vendor/deep"}).with_reasoning_efforts(
             {"deep_research": "high"}
@@ -626,14 +595,6 @@ class TestProviderWithReasoningEfforts:
 
 
 class TestSignedEnvelopeBeatsTheRawHeaders:
-    """The x-grid-* headers are unsigned; with an envelope present they are not read.
-
-    A cookie-authenticated client talking to the WS proxy directly could set any
-    of them, and the proxy forwarded what it did not overwrite: a model of its
-    choosing for every agent group, an unlimited budget, the org's switched-off
-    sources back on.
-    """
-
     SECRET = "envelope-secret"  # pragma: allowlist secret (test signing key)
 
     def _headers(self, monkeypatch, payload: dict | None, **raw_headers: object) -> None:
@@ -676,12 +637,13 @@ class TestSignedEnvelopeBeatsTheRawHeaders:
             {"organizationId": "org-1"},
             **{M.MODEL_OVERRIDES_HEADER: {"shallow_research": "vendor/caller-choice"}},
         )
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({"deep_research": "vendor/org"}, False))
+        monkeypatch.setattr(
+            M, "_fetch_org_config", lambda org: ({"deep_research": "vendor/org"}, False, DEFAULT_POLICY)
+        )
 
         assert M.get_model_overrides_from_context() == {"deep_research": "vendor/org"}
 
     def test_a_forged_envelope_is_absent_and_the_header_path_applies(self, monkeypatch):
-        """Only off the BFF is the header read; a bad signature is no envelope."""
         import agent.common.model_overrides as M
         from agent import project_context as pc
 

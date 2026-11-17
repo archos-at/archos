@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The generic settings save must not be a second way to switch zero data
- * retention. It used to accept `{"settings":{"zdrOnly":false}}` under
- * `org:settings:manage` alone — no `org:models:manage`, no feature flag, no
- * confirmation, and any JSON value. The refusal lives in `updateOrgSettings`;
- * this pins it at the route, where the bypass was, with the real service.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {
@@ -76,7 +69,6 @@ describe('PUT /api/organization/settings', () => {
     expect(res.status).toBe(400)
     expect((await res.json()).error).toContain('/api/organization/model-config/zdr')
     expect(upsertOrganization).not.toHaveBeenCalled()
-    // And the org is still ZDR: nothing was written.
     expect(await isZdrOnlyForOrg('org_1')).toBe(true)
   })
 
@@ -86,8 +78,6 @@ describe('PUT /api/organization/settings', () => {
     expect(upsertOrganization).not.toHaveBeenCalled()
   })
 
-  // Web search is a privacy switch (ADR-0022) with its own route, which the agent
-  // catalog marks a control; the generic save would be a second, unmarked door.
   it.each([false, true])('refuses webSearchEnabled=%s with a 400 naming the web-search route', async (value) => {
     const res = await put({ settings: { webSearchEnabled: value } })
     expect(res.status).toBe(400)

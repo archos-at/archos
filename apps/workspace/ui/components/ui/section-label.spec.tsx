@@ -1,11 +1,4 @@
 // @disk-inputs: app/globals.css
-/**
- * The eyebrow is set in sentence case. The wordmark is the only element in
- * capitals (the brand's design system), so neither the primitive nor the
- * `.card-eyebrow` step it reaches for may bring `uppercase` or the wide
- * tracking that only existed to keep capitals legible. The case lives in CSS,
- * which jsdom does not load, so the stylesheet half reads `globals.css`.
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -47,7 +40,7 @@ describe('SectionLabel', () => {
 
   it('takes its size from `.card-eyebrow`, which sets no case and no tracking', () => {
     const rule = eyebrowRule()
-    expect(rule).toMatch(/font-size:\s*10\.5px/)
+    expect(rule).toMatch(/font-size:\s*12px/)
     expect(rule).not.toMatch(/text-transform/)
     expect(rule).not.toMatch(/letter-spacing/)
   })

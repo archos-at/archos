@@ -198,6 +198,15 @@ export const collectionFileUrl = (backendUrl: string, ref: CollectionFileRef, su
  * inventory, and the platform's vector reconcile is the only thing that
  * catches it — so the failure has to be visible somewhere a person looks.
  */
+async function listsFailedFiles(response: Response): Promise<boolean> {
+  // A body that is not the route's JSON says nothing about failed files.
+  const body: unknown = await Promise.resolve()
+    .then(() => response.json())
+    .catch(() => null)
+  if (typeof body !== 'object' || body === null || !('failed' in body)) return false
+  return Array.isArray(body.failed) && body.failed.length > 0
+}
+
 export async function purgeIngestedChunks(
   backendUrl: string,
   ref: CollectionFileRef,
@@ -213,6 +222,13 @@ export async function purgeIngestedChunks(
     })
     if (!response.ok) {
       console.warn(`[documents] chunk purge refused for ${ref.collectionName}/${ref.filename}: HTTP ${response.status}`)
+      return false
+    }
+    // A 200 still lists the files whose delete raised (`failed`); their points
+    // may remain, so the purge is not confirmed. A file with nothing indexed is
+    // `not_found`, which leaves nothing behind and counts as purged.
+    if (await listsFailedFiles(response)) {
+      console.warn(`[documents] chunk purge failed inside the backend for ${ref.collectionName}/${ref.filename}`)
       return false
     }
     return true

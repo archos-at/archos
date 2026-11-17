@@ -1,13 +1,3 @@
-/**
- * Ticket 5: „Ausgeschlossene Dateien werden überhaupt nicht übertragen, auch
- * nicht kurzzeitig." (ADR-0086)
- *
- * A file name is part of what is excluded: „Lohnzettel_Mai_Huber.pdf" says it
- * all. These specs drive the decision hook through the REAL policy loader and
- * the REAL name-probe client against a recording `fetch`, and hold that no
- * request, URL or body, carries the name of a file the office's policy holds
- * back, and that nothing at all is sent while the policy is unknown.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import {
@@ -22,7 +12,6 @@ import { useUploadDecision, type SettledPlan } from './use-upload-decision'
 
 vi.mock('../lib/content-digest', () => ({ digestFiles: vi.fn().mockResolvedValue(new Map()) }))
 
-/** The office added its own term: „Huber" is a person, and only this office knows it. */
 const OFFICE_POLICY: UploadScreeningPolicy = {
   ...SUGGESTED_SCREENING_POLICY,
   nameTerms: [...SUGGESTED_SCREENING_POLICY.nameTerms, 'Huber'],
@@ -80,7 +69,6 @@ afterEach(() => {
 
 const probe = (names: readonly string[]) => createDocumentNameProbeClient().project('p1', names)
 
-/** Every byte of every request the browser made, for one `not.toContain`. */
 const everythingSent = (): string => requests.map((request) => `${request.url}\n${request.body}`).join('\n')
 
 describe('useUploadDecision: the name screening runs before the name probe', () => {
@@ -189,7 +177,6 @@ describe('useUploadDecision: releases answered out of order', () => {
     })
     await waitFor(() => expect(result.current.plan?.counts.excluded).toBe(2))
 
-    // Back to back: the second is asked before the first one's answer lands.
     await act(async () => {
       await Promise.all([result.current.setReleased(a, true), result.current.setReleased(b, true)])
     })
@@ -201,7 +188,6 @@ describe('useUploadDecision: releases answered out of order', () => {
   })
 
   it('keeps what a release probe found when reading the file afterwards fails', async () => {
-    // Same size and a stored hash: the file is read to compare, and that read fails once.
     shelf = [{ ...match('Lohnzettel_Mai_Huber.pdf'), contentHash: 'stored' }]
     const { result } = renderHook(() => useUploadDecision())
     const payslip = new File(['x'], 'Lohnzettel_Mai_Huber.pdf')
@@ -216,7 +202,6 @@ describe('useUploadDecision: releases answered out of order', () => {
     })
     expect(result.current.plan?.files[0]?.action).toBe('excluded')
 
-    // Released again, the name is not asked twice: what the first ask found must still count.
     await act(async () => {
       await result.current.setReleased(payslip, true)
     })
@@ -236,7 +221,6 @@ describe('useUploadDecision: settle, before a confirmed plan is applied', () => 
 
     const settled: { current: SettledPlan | null } = { current: null }
     await act(async () => {
-      // Not awaited: the reader confirms while the probe is still out.
       const released = result.current.setReleased(payslip, true)
       settled.current = await result.current.settle()
       await released
@@ -249,7 +233,6 @@ describe('useUploadDecision: settle, before a confirmed plan is applied', () => 
     const { result } = renderHook(() => useUploadDecision())
     const payslip = new File(['x'], 'Lohnzettel_Mai_Huber.pdf')
     let calls = 0
-    // The release's probe fails, a moment later; any later ask would answer.
     const flaky = async (names: readonly string[]) => {
       calls += 1
       if (calls === 1) {
@@ -269,7 +252,6 @@ describe('useUploadDecision: settle, before a confirmed plan is applied', () => 
       await released
     })
 
-    // Not sent on the strength of a second ask the rollback then contradicts.
     expect(settled.current?.plan.files[0]?.action).toBe('excluded')
     expect(calls).toBe(1)
   })
@@ -354,7 +336,6 @@ describe('useUploadDecision: an unknown policy sends nothing', () => {
     })
     expect(sendDirect).toHaveBeenCalledTimes(1)
 
-    // Saved in another tab: nothing on this page was told.
     policyResponse = () =>
       Response.json({
         policy: { ...OFFICE_POLICY, nameTerms: [...OFFICE_POLICY.nameTerms, 'Gruber'] },

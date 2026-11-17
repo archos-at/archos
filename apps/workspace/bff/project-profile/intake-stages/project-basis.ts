@@ -1,7 +1,43 @@
 /** Stage A, Projektbasis: master data, location and the kind of project. */
 
+import austria from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-definitions.json'
 import { FOUND_IN } from '../intake-options'
-import type { ProjectIntakeStage } from '../intake-types'
+import type { ProjectIntakeOption, ProjectIntakeStage } from '../intake-types'
+
+/** The countries A2_country offers. */
+const COUNTRY_OPTIONS: ProjectIntakeOption[] = [
+  { value: 'at', label: 'Österreich (AT)' },
+  { value: 'de', label: 'Deutschland (DE)' },
+  { value: 'ch', label: 'Schweiz (CH)' },
+  { value: 'other', label: 'Anderes Land' },
+]
+
+/**
+ * Austria's subdivisions, read from its `fact_definitions` record (ADR-0169)
+ * rather than written here: the Bundesländer and the option that places a site
+ * outside Austria. Read as JSON, not through the zod wire: this stage is in
+ * every spec's import graph, and the seed is parsed by `setup-facts.spec.ts`
+ * and at boot by `rulesets/shipped.ts`, so a seed nobody checked never ships.
+ */
+const AUSTRIA = (() => {
+  const subdivisions = austria.body.payload.subdivisions
+  const options: ProjectIntakeOption[] = subdivisions.options.map((option) => ({ value: option.token, label: option.label }))
+  options.push({ value: subdivisions.outside.token, label: subdivisions.outside.label })
+  return { label: subdivisions.label, options, country: austria.territoryIds[0].toLowerCase() }
+})()
+
+/**
+ * The subdivisions a site picker offers, from the same record: the country
+ * token they belong to, each subdivision's token, name and territory, and the
+ * token that places a site outside. The one list the create form, the
+ * contradiction check and the platform's reviewer read, never a copy of their own.
+ */
+export const SITE_SUBDIVISIONS = {
+  country: AUSTRIA.country,
+  label: AUSTRIA.label,
+  options: austria.body.payload.subdivisions.options.map(({ token, label, territoryId }) => ({ token, label, territoryId })),
+  outside: austria.body.payload.subdivisions.outside.token,
+} as const
 
 export const PROJECT_BASIS_STAGE: ProjectIntakeStage = {
   id: 'A',
@@ -44,38 +80,30 @@ export const PROJECT_BASIS_STAGE: ProjectIntakeStage = {
       required: true,
       help: 'In welchem Land befindet sich das Bauvorhaben?',
       why: 'Über den Standort stellt das System zusammen, welche Rechtstexte und Richtlinien für dieses Projekt gelten. Für Deutschland werden Fragebogen und Regelwerks-Layer noch angepasst.',
-      options: [
-        { value: 'at', label: 'Österreich (AT)' },
-        { value: 'de', label: 'Deutschland (DE)' },
-        { value: 'ch', label: 'Schweiz (CH)' },
-        { value: 'other', label: 'Anderes Land' },
-      ],
+      options: COUNTRY_OPTIONS,
       writesTo: '/facts/country/value',
       foundIn: [FOUND_IN.titleBlock, FOUND_IN.buildingDescription],
     },
     {
       id: 'A2_land',
       core: true,
-      label: 'Bundesland',
+      label: AUSTRIA.label,
       type: 'single_select',
       required: true,
-      // Asked unless another country was chosen: Piloti is Austria's, and a
-      // reading that finds „Bundesland: Wien“ before any document names the
-      // country must still be asked for it. Answering it derives `country`.
-      conditions: [{ param: 'A2_country', op: 'excludes_any', value: ['de', 'ch', 'other'] }],
-      why: 'Bestimmt, welche landesspezifischen Rechtstexte für den Standort herangezogen werden.',
-      options: [
-        { value: 'vienna', label: 'Wien' },
-        { value: 'lower_austria', label: 'Niederösterreich' },
-        { value: 'upper_austria', label: 'Oberösterreich' },
-        { value: 'styria', label: 'Steiermark' },
-        { value: 'carinthia', label: 'Kärnten' },
-        { value: 'salzburg', label: 'Salzburg' },
-        { value: 'tyrol', label: 'Tirol' },
-        { value: 'vorarlberg', label: 'Vorarlberg' },
-        { value: 'burgenland', label: 'Burgenland' },
-        { value: 'outside_austria', label: 'Außerhalb Österreichs' },
+      // Asked unless another country was chosen: a reading that finds
+      // „Bundesland: Wien“ before any document names the country must still be
+      // asked for it. Answering it derives `country`. Germany's and
+      // Switzerland's subdivisions arrive with their records (ADR-0169); until
+      // then a site there describes itself in `site_details`.
+      conditions: [
+        {
+          param: 'A2_country',
+          op: 'excludes_any',
+          value: COUNTRY_OPTIONS.map((option) => option.value).filter((value) => value !== AUSTRIA.country),
+        },
       ],
+      why: 'Bestimmt, welche landesspezifischen Rechtstexte für den Standort herangezogen werden.',
+      options: AUSTRIA.options,
       writesTo: '/facts/federal_state/value',
       foundIn: [FOUND_IN.titleBlock, FOUND_IN.permit, FOUND_IN.buildingDescription],
     },

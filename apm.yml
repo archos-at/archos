@@ -32,7 +32,7 @@ dependencies:
 
     # Writing documents an agent consumes: skills, AGENTS.md, CLAUDE.md.
     # Pinned to a commit; an unpinned ref drifts silently under `apm install`.
-    - mattpocock/skills/skills/productivity/writing-for-agents#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
+    - mattpocock/skills/skills/productivity/writing-for-agents#5863806dd4e15c63174bee4e7515a4256792ecfa
 
     # `improve-codebase-architecture` is a BUNDLE, not one skill: it calls the
     # Skill tool for `codebase-design` (the module/interface/depth/seam/adapter/
@@ -40,6 +40,12 @@ dependencies:
     # decision loop once you pick a candidate) and `domain-modeling` (keeping
     # CONTEXT.md current). Pinning it alone leaves three dead Skill calls, so
     # all four are pinned together at the same commit.
+    #
+    # HELD at 6654f6b on 2026-11-15 while every other skill moved to its latest
+    # commit: upstream 5863806 renamed the glossary these four maintain from
+    # `CONTEXT.md` to `GLOSSARY.md` and no longer mentions the old name, so an
+    # agent would start a second glossary beside ours (77 files cite
+    # CONTEXT.md). Bump these four together with that rename, as one change.
     #
     # It reads `docs/adr/` to avoid re-proposing decisions we already recorded,
     # which is why it is worth more here than in a repo without an ADR log. It
@@ -50,24 +56,22 @@ dependencies:
     - mattpocock/skills/skills/engineering/domain-modeling#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
     - mattpocock/skills/skills/productivity/grilling#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
 
-    # pstack (poteto's stack). unslop, typescript-best-practices, `how` and
-    # `why` carry no disable-model-invocation and so fire on their own; the
-    # rest only run when asked for by name.
-    #
-    # `why` is the sibling of `how`: `how` explains what the code does, `why`
-    # reconstructs the forces behind it from source control, issues and docs.
-    # That is the question this repo answers with `docs/adr/`, so the two meet.
+    # pstack (poteto's stack). unslop and `how` carry no
+    # disable-model-invocation and so fire on their own; the rest only run when
+    # asked for by name. Removed on 2026-11-15: `typescript-best-practices`
+    # (generic advice the model already follows; the repo's own TypeScript
+    # rules are in docs/contributing/code-conventions.md) and `why` (21 KB that
+    # fanned out across every connector on any "why" question; `docs/adr/` and
+    # `git log` answer those here).
     #
     # `technical-writing` covers human-facing prose — docs, RFCs, PR bodies —
     # where `writing-for-agents` covers the documents an agent consumes.
-    - cursor/plugins/pstack/skills/unslop#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/typescript-best-practices#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/how#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/why#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/technical-writing#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/interrogate#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/blast-radius#bdf7aa355337897f167153e05069aca505dae17c
-    - cursor/plugins/pstack/skills/principle-model-the-domain#bdf7aa355337897f167153e05069aca505dae17c
+    - cursor/plugins/pstack/skills/unslop#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+    - cursor/plugins/pstack/skills/how#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+    - cursor/plugins/pstack/skills/technical-writing#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+    - cursor/plugins/pstack/skills/interrogate#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+    - cursor/plugins/pstack/skills/blast-radius#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+    - cursor/plugins/pstack/skills/principle-model-the-domain#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
 
     # UI evidence. These two replace the `apps/workspace/visual/` harness: one
     # drives a real browser, the other puts what it captured in the PR.
@@ -106,28 +110,36 @@ dependencies:
     # teaches its audit replay about aliases. The skill still TRIGGERS correctly
     # — matching is on the frontmatter description, not the directory — so what
     # the wart costs is the name you would type to invoke it by hand.
-    - vercel-labs/agent-browser/skills/agent-browser#aff6125c023b810ea3f2e5deec5379e9a4270bdc
+    - vercel-labs/agent-browser/skills/agent-browser#53384771fbafc261ba67608ac806dd5aa70b84f0
     - vercel-labs/before-and-after/skill#8306d34f459b6704e08e6adb5829fcddb0dc3557
 
-    # Interface craft, from Emil Kowalski (Vercel, Linear): motion, polish and
-    # the small details that decide whether the UI feels finished. `apps/workspace`
-    # already ships `motion` and `sonner`, and is a mobile-first PWA, which is
-    # why those three skills are in. `animate-expo` and `write-swift` are not:
-    # there is no React Native or Swift here. `review-animations`,
-    # `pick-ui-library` and `prototype` run only when asked for by name.
-    - emilkowalski/skills/skills/emil-design-eng#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/animate#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/review-animations#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/improve-animations#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/find-animation-opportunities#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/animation-performance#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/animation-vocabulary#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/apple-design#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/break-ui#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/mobile-native#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/ask-sonner#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/pick-ui-library#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/prototype#2d228630ba1446365f614a108cb8252f1feda202
+    # Interface design. `frontend-design` is Anthropic's own skill for building
+    # new UI or reshaping an existing one: aesthetic direction, typography,
+    # choices that do not read as templated defaults. Where it disagrees with
+    # docs/design/design-language.md, the design language wins.
+    - anthropics/skills/skills/frontend-design#1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064
+
+    # Modern web platform guidance, stewarded by the Chrome, Edge, Firefox and
+    # MDN teams and backed by their evals: steers UI work away from legacy
+    # patterns and heavy polyfills toward native HTML, CSS and DOM APIs
+    # (dialogs, popovers, view transitions, container queries, forms, CWV).
+    # It fires on its own for client-side work and skips backend and tooling.
+    # KNOWN EXCEPTION to "pinned": the skill text and its bundled guides/ are
+    # pinned here, but the skill tells the agent to run
+    # `npx -y modern-web-guidance@latest search|retrieve`, an unpinned CLI from
+    # npm, at each use. Accepted for the evals-backed, current content; the
+    # bundled guides/ under the deployed skill are the pinned offline fallback.
+    - GoogleChrome/modern-web-guidance/skills/modern-web-guidance#4dd968349e54ca45a05dd5c818fb035c9054b022
+
+    # Interface craft, from Emil Kowalski (Vercel, Linear). `emil-design-eng` is
+    # the one skill kept from that repo: it carries the polish and motion bar
+    # (easing, duration, origin, press feedback) in one place. The other twelve
+    # (animate, the four *-animation(s) skills, animation-performance,
+    # animation-vocabulary, apple-design, break-ui, mobile-native, ask-sonner,
+    # pick-ui-library, prototype) were removed on 2026-11-15: most fired on
+    # their own and each cost its listing on every turn for work this repo
+    # rarely does.
+    - emilkowalski/skills/skills/emil-design-eng#64eb3deb9a5fbfa041faf783e0bc3fd635872e9c
   mcp: []
 
 includes: auto

@@ -1,0 +1,9 @@
+---
+# area: administration
+operators:
+  - >
+    The authorization catalog now retires a permission it no longer defines:
+    on each deploy its job removes a retired permission from every role that
+    holds it, then deletes it, instead of failing the deploy. The first prod
+    release after this removes the knowledge second-reviewer permission and
+    the old workflow and skill permissions where they remain.

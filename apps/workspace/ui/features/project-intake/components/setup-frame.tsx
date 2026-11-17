@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The setup's chrome (ticket 26, `docs/design/project-setup-five-steps.md`):
- * one slim bar on top, one footer at the bottom, the step scrolling between.
- *
- * Every step fits a screen and has ONE primary action, and it always sits in
- * the same place: the footer's right edge on a desk, the footer's full width on
- * a phone. A step says what that action is with {@link StepFooter}, which hands
- * it to the frame the way `ProjectSectionActions` hands the section head its
- * button; a step that says nothing gets „Weiter zu <next step>".
- */
-
 import type { JSX, ReactNode } from 'react'
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -30,32 +19,21 @@ import { intakeShellCopy } from '@/i18n/namespaces/intake-shell'
 import { cn } from '@/lib/utils'
 import { SETUP_STEP_IDS, type SetupStepId, type SetupStepSummary } from './steps/types'
 
-/** How far a step's own round has come, drawn in the footer on a desk and under the bar on a phone. */
 export interface StepProgress {
   done: number
   total: number
-  /** Said aloud and shown beside the bar on a desk, e.g. „1 von 6 erledigt". */
   label: string
 }
 
-/** What a step puts in the frame's footer. */
 export interface StepFooterContent {
-  /** The one primary action. Absent: the frame's own „Weiter zu …". */
   primary?: ReactNode
-  /** A quiet second way on, left on a desk and under the primary on a phone („Ohne Unterlagen weiter"). */
   aside?: ReactNode
-  /** One sentence beside the step count, on a desk only. */
   note?: ReactNode
   progress?: StepProgress
 }
 
 type SlotName = 'primary' | 'asideDesk' | 'asidePhone' | 'note'
 
-/**
- * How a step reaches the footer. The nodes travel by portal into the footer's
- * slots, so a step re-rendering never re-renders the frame; only plain data
- * (the progress, whether the step brought its own action) is frame state.
- */
 interface FooterChannel {
   slots: Partial<Record<SlotName, HTMLElement>>
   setProgress: (progress: StepProgress | null) => void
@@ -64,7 +42,6 @@ interface FooterChannel {
 
 const FooterContext = createContext<FooterChannel | null>(null)
 
-/** The frame's side of the channel: the slot elements and the two pieces of data. */
 export function useStepFooterChannel(): {
   channel: FooterChannel
   progress: StepProgress | null
@@ -75,8 +52,6 @@ export function useStepFooterChannel(): {
   const [progress, setProgress] = useState<StepProgress | null>(null)
   const [ownsPrimary, setOwnsPrimary] = useState(false)
   const channel = useMemo(() => ({ slots, setProgress, setOwnsPrimary }), [slots])
-  // One stable ref per slot: a fresh callback each render would detach and
-  // re-attach the slot, and each of those is a state change.
   const refs = useMemo(() => {
     const attach = (name: SlotName) => (element: HTMLElement | null) =>
       setSlots((current) =>
@@ -90,7 +65,6 @@ export function useStepFooterChannel(): {
 
 export const StepFooterProvider = FooterContext.Provider
 
-/** A step's footer, drawn by the frame wherever the step places it. */
 export function StepFooter({ primary, aside, note, progress }: StepFooterContent): JSX.Element | null {
   const channel = useContext(FooterContext)
   const setProgress = channel?.setProgress
@@ -133,11 +107,6 @@ function overviewHref(projectId: string): string {
   return `/app/projects/${encodeURIComponent(projectId)}/settings`
 }
 
-/**
- * The bar on top. On a desk: where (Einrichtung, the project), the five steps
- * inline, and the way out. On a phone: back, the step with its count (a menu of
- * all five), and the step's own progress under it.
- */
 export function SetupBar({ projectId, projectName, step, summaries, progress, onGoTo }: BarProps): JSX.Element {
   const tShell = useTranslations(intakeShellCopy)
   const index = SETUP_STEP_IDS.indexOf(step)
@@ -210,11 +179,6 @@ export function SetupBar({ projectId, projectName, step, summaries, progress, on
   )
 }
 
-/**
- * The five steps in a row. A step before the shown one that asks nothing more
- * carries a check; one that still asks something keeps its number, so a jump
- * ahead never passes for having finished what was skipped.
- */
 function StepRail({
   step,
   summaries,
@@ -276,10 +240,6 @@ function ProgressLine({ progress, className }: { progress: StepProgress; classNa
   return <Progress value={share} aria-label={progress.label} className={cn('bg-border h-1', className)} />
 }
 
-/**
- * The footer: where the person is on the left, the one way on at the right.
- * On a phone the way on takes the full width and the count lives in the bar.
- */
 export function SetupFooter({
   step,
   progress,
@@ -328,10 +288,8 @@ export function SetupFooter({
   )
 }
 
-/** The footer's primary action, styled once: 50px and full width under a thumb, 42px on a desk. */
 export const PRIMARY_ACTION_CLASS =
   'h-[50px] w-full rounded-xl text-base md:h-[42px] md:w-auto md:rounded-[9px] md:px-5 md:text-sm'
 
-/** The footer's quiet second way on: a text link. */
 export const ASIDE_ACTION_CLASS =
   'text-muted-foreground hover:text-foreground touch-target text-[15px] underline-offset-4 hover:underline md:text-[13px] md:underline'

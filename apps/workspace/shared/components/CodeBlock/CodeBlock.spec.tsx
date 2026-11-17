@@ -15,7 +15,6 @@ describe('CodeBlock — clipboard copy', () => {
   })
 
   it('copies the value and shows the success state on success', async () => {
-    // setup() first — userEvent installs its own clipboard stub; override after.
     const user = userEvent.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
@@ -43,7 +42,6 @@ describe('CodeBlock — clipboard copy', () => {
     await user.click(screen.getByRole('button', { name: /copy code/i }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not copy'))
-    // Success state must not appear on failure.
     expect(screen.queryByRole('button', { name: /copied/i })).not.toBeInTheDocument()
   })
 })

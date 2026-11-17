@@ -24,6 +24,7 @@
  */
 
 import { z } from 'zod'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { MAX_JUDGED_DOCUMENTS } from './types'
 
 /**
@@ -154,6 +155,34 @@ export const ROOT_SORT_RUN_STATUSES = [
   'failed',
 ] as const
 export type RootSortRunStatus = (typeof ROOT_SORT_RUN_STATUSES)[number]
+
+/**
+ * A run's lifecycle (ADR-0179). The job works a run through `judging`,
+ * `grouping`, `applying` and `undoing` and moves it on when a step is finished
+ * (`advance`); a person reviews a `ready` run and applies or cancels it, and
+ * may undo what an applied run moved, also after it failed part of the way.
+ * `withdraw` takes a step back whose job could not be queued: an undo that
+ * started from `failed` goes back there, which is the `fail` edge. `applied` and
+ * `failed` are not final, because both can still be undone.
+ */
+export const ROOT_SORT_LIFECYCLE = defineLifecycle<
+  RootSortRunStatus,
+  'advance' | 'apply' | 'undo' | 'cancel' | 'withdraw' | 'fail'
+>({
+  id: 'root-sort-run',
+  initial: 'judging',
+  states: {
+    judging: { on: { advance: 'grouping', cancel: 'cancelled', fail: 'failed' } },
+    grouping: { on: { advance: 'ready', cancel: 'cancelled', fail: 'failed' } },
+    ready: { on: { apply: 'applying', cancel: 'cancelled' } },
+    applying: { on: { advance: 'applied', withdraw: 'ready', fail: 'failed' } },
+    applied: { on: { undo: 'undoing' } },
+    undoing: { on: { advance: 'undone', withdraw: 'applied', fail: 'failed' } },
+    undone: { type: 'final' },
+    cancelled: { type: 'final' },
+    failed: { on: { undo: 'undoing' } },
+  },
+})
 
 /** The statuses a job is working; the dialog follows a run in one of these. */
 export const ROOT_SORT_WORKING_STATUSES: readonly RootSortRunStatus[] = ['judging', 'grouping', 'applying', 'undoing']

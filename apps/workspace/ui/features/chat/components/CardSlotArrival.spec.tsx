@@ -1,14 +1,10 @@
-/**
- * A card's place in a streamed answer (ADR-0066), through the REAL markdown
- * renderer: the place is a slot the card-marker plugin leaves in the parsed
- * document, so a stubbed renderer would only test the stub.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import { useLayoutEffect, useState, type ReactNode } from 'react'
-import { vi, describe, test, expect, afterEach } from 'vitest'
+import { vi, describe, test, expect, afterEach, beforeAll } from 'vitest'
 import { AgentResponse } from './AgentResponse'
 import { CardSlot, CardSlotLiveProvider, forgetArrivals, resetArrivalsForTests } from './CardSlotArrival'
 import { useDrawnReporter } from '@/features/a2ui/catalog'
+import { rendererSettled } from '@/features/a2ui/A2uiCard'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { ChatStoreWithHydration } from '../store'
 import type { AnswerCard } from '@/shared/cards/schemas'
@@ -36,6 +32,8 @@ vi.mock('@/adapters/auth', () => ({
 
 const PROSE = 'Die Antwort.\n\n[[card:1]]\n\nDanach.'
 
+beforeAll(rendererSettled)
+
 describe('a placed card while the answer streams', () => {
   test('its marker holds the place, between the paragraphs it was written between', () => {
     render(<AgentResponse content={PROSE} isStreaming />)
@@ -45,7 +43,6 @@ describe('a placed card while the answer streams', () => {
     const after = screen.getByText('Danach.')
     expect(before.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(slot.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // Never the marker as text.
     expect(document.body.textContent).not.toContain('[[card:')
   })
 
@@ -72,16 +69,13 @@ describe('a placed card while the answer streams', () => {
 
 describe('CardSlot', () => {
   let key = 0
-  // Every test is a card of its own: an arrival plays once per key and page.
   const nextKey = () => `m1:${(key += 1)}`
   afterEach(() => resetArrivalsForTests())
 
   const live = (node: ReactNode) => <CardSlotLiveProvider value>{node}</CardSlotLiveProvider>
   const placeholder = () => document.querySelector('[data-slot="card-placeholder"]')
-  /** The card is on screen: mounted, and not faded out behind the placeholder. */
   const cardShown = () => screen.getByText('Karte').parentElement?.style.opacity !== '0'
 
-  /** A card that reports itself drawn when `drawn` says so, as `A2uiCard` does. */
   function Card({ drawn = true }: { drawn?: boolean }) {
     const report = useDrawnReporter()
     useLayoutEffect(() => {
@@ -108,7 +102,6 @@ describe('CardSlot', () => {
         </CardSlot>
       )
     )
-    // One element from marker to card: nothing is swapped for anything else.
     expect(container.firstElementChild).toBe(frame)
     expect(placeholder()).not.toBeNull()
     expect(cardShown()).toBe(false)
@@ -151,8 +144,6 @@ describe('CardSlot', () => {
     expect(cardShown()).toBe(true)
   })
 
-  // A retraction withdraws a round, and the next one writes its cards at the
-  // same indices: remembered as arrived, they appeared without an entrance.
   test('after its answer is retracted, the next card at the same place arrives again', async () => {
     const slot = live(
       <CardSlot arrivalKey="m-retracted:0">
@@ -208,8 +199,6 @@ describe('CardSlot', () => {
   })
 
   test('with reduced motion, a card that arrives live is shown at once', () => {
-    // The slot reads the setting through the kit (`useMotionToken`), which
-    // asks `matchMedia`; motion's own cached `useReducedMotion` is not used.
     const original = window.matchMedia
     window.matchMedia = (query: string) =>
       ({
@@ -252,7 +241,6 @@ describe('CardSlot', () => {
         <CardSlot arrivalKey={arrivalKey} />
       </CardSlotLiveProvider>
     )
-    // Not dropped in one frame: the same element folds first.
     expect(container.firstElementChild).toBe(frame)
     expect(frame).not.toHaveAttribute('aria-busy')
     await waitFor(() => expect(container.firstElementChild).toBeNull())
@@ -272,7 +260,6 @@ describe('CardSlot', () => {
   })
 
   test('an unplaced card the reader watches arrive comes in like a placed one', () => {
-    // Mounted outside the live provider (the settle frame), told it arrives.
     render(
       <CardSlot arrivalKey={nextKey()} arriving>
         <Card drawn={false} />

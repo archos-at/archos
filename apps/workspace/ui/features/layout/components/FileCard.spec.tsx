@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { FileCard, type FileInfo } from './FileCard'
 
-// Mock MarkdownRenderer
 vi.mock('@/shared/components/MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: { content: string }) => (
     <div data-testid="markdown">{content}</div>
@@ -55,8 +54,6 @@ describe('FileCard', () => {
     test('does not render timestamp when not provided', () => {
       render(<FileCard file={createFile({ timestamp: undefined })} />)
 
-      // Should not have extra timestamp text (only line count). The default
-      // fixture is a single line, so this also pins the singular.
       const lineCount = screen.getByText('1 line')
       expect(lineCount).toBeInTheDocument()
     })
@@ -70,7 +67,6 @@ describe('FileCard', () => {
         />
       )
 
-      // Preview should be visible in collapsed state
       expect(screen.getByText('Short preview content')).toBeInTheDocument()
     })
 
@@ -78,7 +74,6 @@ describe('FileCard', () => {
       const longContent = 'A'.repeat(150)
       render(<FileCard file={createFile({ content: longContent })} />)
 
-      // Should show truncated preview
       expect(screen.getByText(/\.\.\.$/)).toBeInTheDocument()
     })
 
@@ -105,11 +100,9 @@ describe('FileCard', () => {
 
       render(<FileCard file={createFile()} />)
 
-      // Expand
       await user.click(screen.getByRole('button'))
       expect(screen.getByText('Content')).toBeInTheDocument()
 
-      // Collapse
       await user.click(screen.getByRole('button'))
       expect(screen.queryByText('Content')).not.toBeInTheDocument()
     })
@@ -164,7 +157,6 @@ describe('FileCard', () => {
 
       await user.click(screen.getByRole('button'))
 
-      // Should render in a pre element, not MarkdownRenderer
       const preElement = screen.getByText('print("hello")').closest('pre')
       expect(preElement).toBeInTheDocument()
     })
@@ -197,7 +189,6 @@ describe('FileCard', () => {
     test('handles empty content gracefully', () => {
       render(<FileCard file={createFile({ content: '' })} />)
 
-      // Should render without errors
       expect(screen.getByText('report.md')).toBeInTheDocument()
     })
   })

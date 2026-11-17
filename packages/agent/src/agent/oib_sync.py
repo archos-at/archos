@@ -92,7 +92,15 @@ SYNC_LOCK_KEY = "oib-sync"
 #    chunks addressed ``clause_id = "Tabelle N"``. Removing them also drops the 12
 #    table rows version 3 accepted as Punkte (OIB-RL 2 13-15, OIB-RL 2.1 6.1-6.3,
 #    and their Änderungen twins): 1645 Punkt ids become 1633, plus 104 table chunks.
-CHUNK_FORMAT_VERSION = 4
+# 5: a released text (``<manifestationKey>-<hash>.pdf``, a base-corpus job carrying
+#    ``knowledge_edition_id``) is cut on its Punkte first, where the heading chunker cut
+#    it and cited 5.1.1 to 5.1.4 of a Richtlinie as "5.1"; the footer of any edition
+#    month (not May alone) is furniture, so every chunk of a 2015 or 2019 copy changes
+#    its breadcrumb from the file name to "OIB-Richtlinie N — Subject"; the annex the
+#    contents page lists after the last Punkt leaves that Punkt. Without this bump the
+#    released texts would keep their heading-cut chunks until someone re-ingested each
+#    by hand, on every environment. Stored marks survive the rebuild (``begin_job``).
+CHUNK_FORMAT_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -258,14 +266,20 @@ def settle(rows: dict[str, corpus_store.FileRow]) -> Settled:
         if not row.needs_ingestion(CHUNK_FORMAT_VERSION):
             continue
         state = progress_of(row)
-        if state == JobProgress.DONE:
+        if state == JobProgress.DONE and not row.job_carries_the_mark():
+            # Prepared before the file was last marked (`corpus_store.begin_job`): its chunks carry no mark, or an
+            # older one, and nobody of the file's country reads them. The job is forgotten and the file reads as
+            # waiting, so the next cycle queues one that carries the mark.
+            _drop_job(row)
+            state = JobProgress.NONE
+        elif state == JobProgress.DONE:
             if corpus_store.mark_ingested(name, row.sha256, CHUNK_FORMAT_VERSION):
                 settled[name] = replace(
                     row, ingested_sha256=row.sha256, chunk_format_version=CHUNK_FORMAT_VERSION, failed_job_id=None
                 )
                 recorded += 1
                 continue
-            state = JobProgress.WAITING  # the bytes changed under it; the next cycle looks again
+            state = JobProgress.WAITING  # the bytes changed or a mark landed under it; the next cycle looks again
         elif state == JobProgress.FAILED and row.failed_job_id != job_id_for(row):
             corpus_store.mark_failed(name, row.sha256, job_id_for(row))
             settled[name] = replace(row, failed_job_id=job_id_for(row))
@@ -306,6 +320,11 @@ def _request_locked(name: str, doc_class: str | None, enqueue: EnqueueIngestJob)
     config: dict = {"cleanup_files": True, "original_filenames": [name], "priority": "bulk"}
     if doc_class:
         config["doc_class"] = doc_class
+    # The country and edition the platform recorded for this text (ADR-0173), on every chunk it writes.
+    # The job is recorded at the mark generation it is prepared with; `settle` takes no other job's chunks.
+    mark = corpus_store.begin_job(name)
+    if mark is not None:
+        config.update(mark.job_config())
     prepared = ingestor.prepare_job(
         [corpus_store.CorpusObjectDownload(row.storage_key, row.sha256)],
         COLLECTION_NAME,
@@ -336,14 +355,24 @@ def request_ingestion(name: str, doc_class: str | None = None, *, enqueue: Enque
 
 
 def store_and_request(name: str, data: bytes, doc_class: str | None = None, *, enqueue: EnqueueIngestJob) -> bool:
-    """An admin upload: store the file, then queue its job, with no cycle able to come between.
+    """An upload, a ZIP member or a fetched text: store the file, then queue its job, with no cycle in between.
+
+    **A corpus file is immutable here, the one place that writes one** (ADR-0165). A name the
+    corpus keeps takes the same bytes as a no-op and any others not at all
+    (``CorpusFileImmutable``): the bytes a reviewer read under a name are the bytes a publish
+    indexes, whatever a caller thought the upload was. The check and the store share the file's
+    lock, which holds across replicas, so two uploads of one name cannot both be first.
 
     Raises ``CorpusStoreError`` if the object store refuses the file (nothing is listed then), and
     ``QueueUnavailable`` if the file is stored but its job could not be queued (the next cycle
     queues it).
     """
     with _file_lock(name):
-        corpus_store.put(name, data)
+        held = corpus_store.get_file(name)
+        if held is None:
+            corpus_store.put(name, data)
+        elif held.sha256 != hashlib.sha256(data).hexdigest():
+            raise corpus_store.CorpusFileImmutable(name)
         return _request_locked(name, doc_class, enqueue)
 
 
@@ -380,22 +409,33 @@ def remove_document(name: str) -> bool:
     return True
 
 
-def mark_for_reingest(name: str) -> bool:
+def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> bool:
     """Make ``name`` need a new job: forget what the index was built from and what failed. False if not in the corpus.
 
     The file then reads as PENDING in ``oib_status``, which is the state the admin UI already
     polls on, and :func:`request_ingestion` queues a fresh job. The job for these bytes has the
     same id as before, so a finished or failed one is dropped first (its status and queue row);
     one still waiting or running is left alone, since it will do the work this asks for.
+    A ``mark`` (the country and edition the platform recorded, ADR-0173) is stored for the job to carry.
+    A job left alone was prepared before this mark, a generation behind (``corpus_store.set_mark``): when it
+    finishes, :func:`settle` does not record it, drops it, and the next cycle queues one that carries the mark.
+    The same mark again over a job in flight is no new mark: the job already carries it, so its generation stays
+    and its work counts. A retried indexing run asks for exactly that, and each new generation used to throw away
+    an ingest that was nearly done (prod, 2026-11-14).
+    Under the file's lock, as preparing a job is, so a job is prepared wholly before a mark or wholly after it.
     """
     if not corpus_store.is_valid_name(name):
         return False
-    row = corpus_store.get_file(name)
-    if row is None:
-        return False
-    if progress_of(row) not in (JobProgress.WAITING, JobProgress.RUNNING):
-        _drop_job(row)
-    corpus_store.forget_ingested(name)
+    with _file_lock(name):
+        row = corpus_store.get_file(name)
+        if row is None:
+            return False
+        in_flight = progress_of(row) in (JobProgress.WAITING, JobProgress.RUNNING)
+        if not in_flight:
+            _drop_job(row)
+        if mark is not None and not (in_flight and corpus_store.get_mark(name) == mark):
+            corpus_store.set_mark(name, mark)
+        corpus_store.forget_ingested(name)
     return True
 
 
@@ -434,7 +474,42 @@ def _forget_everything_if_the_index_was_reset(rows: dict[str, corpus_store.FileR
     return corpus_store.list_files()
 
 
-def sync(*, enqueue: EnqueueIngestJob) -> SyncResult:
+#: Sets payload fields on every chunk of each named base-corpus file; the API tier hands it in
+#: (``agent_host.jobs.corpus_payloads``), since this package does not reach the vector store itself.
+MarkCorpusChunks = Callable[[dict[str, dict[str, str | bool]]], None]
+
+
+def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
+    """Mark the corpus that predates ``country_id`` as Austrian, once (ADR-0173).
+
+    Until this change the base corpus held Austria alone, so the files the first sync after the
+    deploy finds unmarked are the Austria pack's. Each row gets the mark (a later ingest job carries
+    it) and its chunks get ``country_id``, so nothing turns unreadable once the filter reads unmarked
+    chunks as nobody's. Then the backfill records that it ran, and never runs again: a file uploaded
+    later carries the mark its release gives it, or none. Without ``mark_chunks``, or with a store
+    that refuses, it waits for the next cycle, with nothing half-written in the table.
+    """
+    if mark_chunks is None:
+        return 0
+    names = corpus_store.legacy_unmarked()
+    try:
+        if names:
+            mark_chunks({name: {"country_id": corpus_store.LEGACY_CORPUS_COUNTRY, "released": True} for name in names})
+    except Exception:  # noqa: BLE001 - the next cycle tries again; nothing below has run
+        logger.warning(
+            "The legacy country backfill could not reach the vector store; it runs next cycle", exc_info=True
+        )
+        return 0
+    mark = corpus_store.FileMark(country_id=corpus_store.LEGACY_CORPUS_COUNTRY, released=True)
+    for name in names:
+        corpus_store.set_mark(name, mark)
+    corpus_store.record_legacy_backfill()
+    if names:
+        logger.info("Marked %d base-corpus file(s) from before the country field as %s", len(names), mark.country_id)
+    return len(names)
+
+
+def sync(*, enqueue: EnqueueIngestJob, mark_chunks: MarkCorpusChunks | None = None) -> SyncResult:
     """One sync cycle: record the jobs that finished, then queue a job for every file that needs one.
 
     Cheap: it reads the table and the status store and writes queue rows, and runs no ingestion.
@@ -443,6 +518,7 @@ def sync(*, enqueue: EnqueueIngestJob) -> SyncResult:
     queue cannot take a job, instead of ingesting here.
     """
     with keyed_lock(SYNC_LOCK_KEY):
+        backfill_legacy_marks(mark_chunks)
         rows = _forget_everything_if_the_index_was_reset(corpus_store.list_files())
         settled = settle(rows)
         failed = sum(1 for state in settled.progress.values() if state == JobProgress.FAILED)

@@ -55,10 +55,9 @@ import type { TurnOutcomeRequest } from '@/lib/turns/outcome-types'
 import { askAnswerMessageId } from '@/lib/turns/answer-ids'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
 import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
-import { projectFactResolver } from '@/lib/project-profile/answer-bindings'
-import { findProjectProfile } from '@/lib/projects/repository'
-import { projectKeysIn, type ProjectKey } from '@/lib/text/answer-directives'
+import { projectValuesFor } from '@/lib/conversations/messages-for-agent'
 import { answerEvidence } from './answer-evidence'
+import { citationStylesFor } from '@/lib/citations/style'
 import { answerTextForAgent } from './answer-text'
 import {
   ASK_WAIT_SECONDS,
@@ -72,10 +71,12 @@ import {
   endAsk,
   findAsk,
   findAskById,
+  findAsksOpenBefore,
   hasAskedInConversation,
   insertAsk,
   listAskDocuments,
   markAskWorking,
+  OPEN_ASKS_PAGE,
   type AskEnd,
 } from './repository'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -256,21 +257,49 @@ async function waitForEnd(row: AgentAskRow, deadline: number): Promise<AgentAskR
   return current
 }
 
+/** How an ask whose turn's end never arrived is ended: one wording for the read and the sweep. */
+export function lostAskEnd(maxSeconds: number = askMaxSeconds()): AskEnd {
+  const minutes = Math.round(maxSeconds / 60)
+  return { state: 'failed', reason: `${PRODUCT_NAME} did not report the end of its turn within ${minutes} minutes. Ask again.` }
+}
+
 /**
  * The row, ended `failed` when it has been open longer than any turn runs
  * ({@link askMaxSeconds}): its turn's outcome notice never arrived (a replica
- * died mid-turn), and without this the ask would read `working` forever.
+ * died mid-turn, or exited before the notice was sent), and without this the
+ * ask would read `working` forever. The sweep ({@link endLostAsks}) ends the
+ * same asks by the same rule without waiting for a read.
  */
 async function expireIfLost(row: AgentAskRow, now = Date.now()): Promise<AgentAskRow> {
   if (isTerminalAskState(row.state)) return row
   const maxSeconds = askMaxSeconds()
   if (now - new Date(row.createdAt).getTime() < maxSeconds * 1_000) return row
-  const reason = `${PRODUCT_NAME} did not report the end of its turn within ${Math.round(maxSeconds / 60)} minutes. Ask again.`
   return (
-    (await endAsk(row.organizationId, row.id, { state: 'failed', reason })) ??
+    (await endAsk(row.organizationId, row.id, lostAskEnd(maxSeconds))) ??
     (await findAsk(row.organizationId, row.id)) ??
     row
   )
+}
+
+/** The most asks one sweep ends; the next run takes the rest. */
+export const LOST_ASKS_PER_SWEEP = OPEN_ASKS_PAGE
+
+/**
+ * End, in every organization, the asks still open past {@link askMaxSeconds}:
+ * the `agent-ask-expiry` sweep (`bff/scheduling/tasks.ts`), under platform
+ * access. The same rule and wording as a read ({@link expireIfLost}), so an ask
+ * ends at the same age whether anybody reads it or not: on dev, 2026-11-12, six
+ * read `working` an hour after a pod restart lost their notices. How many it ended.
+ */
+export async function endLostAsks(now: Date = new Date()): Promise<number> {
+  const maxSeconds = askMaxSeconds()
+  const lost = await findAsksOpenBefore(new Date(now.getTime() - maxSeconds * 1_000), LOST_ASKS_PER_SWEEP)
+  let ended = 0
+  for (const ask of lost) {
+    // `endAsk` is the compare-and-set on the live states: an outcome that lands meanwhile stands.
+    if (await endAsk(ask.organizationId, ask.id, lostAskEnd(maxSeconds))) ended += 1
+  }
+  return ended
 }
 
 /** The view of `row` as its asker reads it: the answer once completed, and what Piloti filed meanwhile. */
@@ -286,6 +315,7 @@ async function viewOf(session: AuthorizedSession, row: AgentAskRow): Promise<Ask
         conversationId: row.conversationId,
         projectId: conversation?.projectId ?? null,
         origin: configuredAppOrigin(),
+        styles: (await citationStylesFor(row.organizationId)) ?? undefined,
       })
       const projectValue = await projectValuesFor(message.content, conversation?.projectId ?? null, row.organizationId)
       answer = { messageId, text: answerTextForAgent(message.content, { projectValue }), ...evidence }
@@ -296,21 +326,6 @@ async function viewOf(session: AuthorizedSession, row: AgentAskRow): Promise<Ask
     answer,
     documents: await listAskDocuments(row, memberReader(session.userId)),
   }
-}
-
-/**
- * The project's values for the `:project[key]` bindings an answer holds, or
- * undefined when it holds none (no profile read). A key the profile lacks
- * stays the key, as in the copy: a value is never invented.
- */
-async function projectValuesFor(
-  content: string,
-  projectId: string | null,
-  organizationId: string
-): Promise<((key: ProjectKey) => string | null) | undefined> {
-  if (!projectId || projectKeysIn(content).length === 0) return undefined
-  const resolve = projectFactResolver(await findProjectProfile(projectId, organizationId))
-  return (key) => resolve(key).text
 }
 
 /** The parts of a view the row alone answers. */
@@ -362,7 +377,7 @@ async function endUnstarted(
 export async function askAgent(
   session: AuthorizedSession,
   input: CreateAskRequest,
-  options: { waitMs?: number } = {},
+  options: { waitMs?: number; beforeTurn?: (ask: { id: string; conversationId: string }) => Promise<void> } = {},
 ): Promise<AskView> {
   requireEnabled(session)
   const deadline = Date.now() + (options.waitMs ?? (input.waitSeconds ?? ASK_WAIT_SECONDS) * 1_000)
@@ -384,6 +399,8 @@ export async function askAgent(
 
   let started: Awaited<ReturnType<typeof startTurn>>
   try {
+    // What must be in place before the turn reads its context (a golden run names the case this conversation answers).
+    await options.beforeTurn?.({ id, conversationId })
     started = await startTurn(session, ask, projectId, input.question)
   } catch (error) {
     // Never a 500 that leaves the ask `submitted` with no id handed out.

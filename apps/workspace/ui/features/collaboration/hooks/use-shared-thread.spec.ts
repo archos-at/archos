@@ -1,19 +1,3 @@
-/**
- * Tests for the ADR-0033 seam.
- *
- * The two properties worth the most here are the ones a reviewer cannot see by
- * reading the component tree:
- *
- *  - **A private thread is untouched** (spec NF-8) — no live subscription, no
- *    message request, no store write. That is asserted at the transport level:
- *    `subscribeToEvents` (the shared `EventSource`) and `fetch` are spied on, so a
- *    regression that "only" adds a request cannot pass.
- *  - **Correctness never depends on an event arriving** (spec CC-10 / RT-4). The
- *    convergence tests drive a real `window.focus` through the real
- *    `useLiveEvents` fallback rather than calling a refresh function, so the path
- *    that actually saves a dropped event is the path under test.
- */
-
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { CollaborationEvent } from '@/lib/events/types'
@@ -27,9 +11,6 @@ vi.mock('@/adapters/api/deep-research-client', () => ({
   cancelJob: mockDeepResearchApi.cancelJob,
 }))
 
-// The event hub owns the single EventSource. Spying on it is how "no subscription"
-// becomes a testable claim, and how a live frame is delivered through the real
-// `useLiveEvents` plumbing.
 const hub = vi.hoisted(() => ({
   listeners: new Set<(event: CollaborationEvent) => void>(),
   subscribeToEvents: vi.fn(),
@@ -121,7 +102,6 @@ interface RouteState {
 let routes: RouteState
 let fetchMock: ReturnType<typeof vi.fn>
 
-/** Requests issued during the test, so "no extra fetch" is assertable. */
 const requested = (): string[] =>
   fetchMock.mock.calls.map((call) => String(call[0]))
 
@@ -206,7 +186,6 @@ describe('useSharedThread — the private path is untouched (spec NF-8)', () => 
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: false, currentUserId: ME })
     )
 
-    // Give any effect a chance to misbehave before asserting the absence.
     await act(async () => {
       await Promise.resolve()
     })
@@ -215,7 +194,6 @@ describe('useSharedThread — the private path is untouched (spec NF-8)', () => 
     expect(hub.subscribeToEvents).not.toHaveBeenCalled()
     expect(result.current.shared).toBe(false)
     expect(result.current.turnInFlight).toBeNull()
-    // The local-first copy is exactly as it was.
     expect(storedMessages().map((m) => m.id)).toEqual(['local-1'])
   })
 
@@ -232,9 +210,6 @@ describe('useSharedThread — the private path is untouched (spec NF-8)', () => 
       await Promise.resolve()
     })
 
-    // Exactly ONE request: the access read that decides which path applies.
-    // Sharedness is a server-computed fact, so it cannot be known without asking —
-    // but nothing follows from it here.
     expect(requested()).toEqual([`/api/conversations/${CONVERSATION_ID}`])
     expect(hub.subscribeToEvents).not.toHaveBeenCalled()
     expect(result.current.shared).toBe(false)
@@ -253,8 +228,6 @@ describe('useSharedThread — the private path is untouched (spec NF-8)', () => 
 
 describe('useSharedThread — the server is authoritative', () => {
   test('replaces the local copy with the server history on open', async () => {
-    // A stale local-first thread: one message the server does not have, and none
-    // of the colleague's.
     seedStore([{ id: 'stale', content: 'written before sharing', timestamp: new Date(at(1)) }])
     routes.messages = [
       row('m1', { createdAt: at(2), content: 'my question' }),
@@ -345,7 +318,6 @@ describe('useSharedThread — reconciliation', () => {
     )
     await waitFor(() => expect(storedMessages()).toHaveLength(1))
 
-    // Anna writes. The event is only a hint: the hook re-reads.
     routes.messages = [...routes.messages, row('m2', { authorUserId: ANNA, createdAt: at(3) })]
     await emit({
       kind: 'conversation.message',
@@ -355,8 +327,6 @@ describe('useSharedThread — reconciliation', () => {
     })
 
     await waitFor(() => expect(storedMessages()).toHaveLength(2))
-    // The same event again (a duplicate frame, or a second reader's refresh) must
-    // not double-render it.
     await emit({
       kind: 'conversation.message',
       conversationId: CONVERSATION_ID,
@@ -367,12 +337,6 @@ describe('useSharedThread — reconciliation', () => {
     expect(storedMessages().filter((m) => m.id === 'm2')).toHaveLength(1)
   })
 
-  /**
-   * A self-authored event is NOT skipped: the same event fires for a message we
-   * sent from a second device, where this tab holds no optimistic echo of it. The
-   * id-keyed merge is what makes the re-read free on the device that wrote it, so
-   * the refetch is the cheap way to be correct on the other one.
-   */
   test('re-reads for our own write too — the second device has no echo', async () => {
     renderHook(() =>
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
@@ -380,7 +344,6 @@ describe('useSharedThread — reconciliation', () => {
     await waitFor(() => expect(storedMessages()).toHaveLength(1))
     const before = requested().length
 
-    // Written elsewhere by us: only the server knows about it.
     routes.messages = [...routes.messages, row('mine', { authorUserId: ME, createdAt: at(3) })]
     await emit({
       kind: 'conversation.message',
@@ -391,7 +354,6 @@ describe('useSharedThread — reconciliation', () => {
 
     expect(requested().slice(before).some((url) => url.startsWith(`/api/conversations/${CONVERSATION_ID}/messages`))).toBe(true)
     await waitFor(() => expect(storedMessages()).toHaveLength(2))
-    // …and the echo case stays a no-op on screen: one row, not two.
     expect(storedMessages().filter((m) => m.id === 'mine')).toHaveLength(1)
   })
 
@@ -418,7 +380,6 @@ describe('useSharedThread — reconciliation', () => {
     )
     await waitFor(() => expect(storedMessages()).toHaveLength(1))
 
-    // Anna wrote while the tab was in the background and the event was dropped.
     routes.messages = [...routes.messages, row('m9', { authorUserId: ANNA, createdAt: at(5) })]
 
     await act(async () => {
@@ -429,18 +390,12 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('a thread that is not shared yet still converges on focus', async () => {
-    // `useLiveEvents` owns the focus listener AND is gated on `shared`, so a
-    // thread that has not been shared for this reader had no listener, no poll
-    // and no subscription: once the short access-retry ladder was spent there
-    // was no route back at all. "Anna shared this while I had it open" could
-    // only be discovered by navigating away and returning.
     routes.shared = false
     const { result } = renderHook(() =>
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
     )
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.shared).toBe(false)
-    // NF-8: the private path opened nothing.
     expect(hub.subscribeToEvents).not.toHaveBeenCalled()
 
     routes.shared = true
@@ -454,9 +409,6 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('does not re-read access on every alt-tab of a private thread', async () => {
-    // The listener above is on a floor, because focus fires constantly. NF-8 is
-    // "a user who never shares must not notice this feature exists", and a GET
-    // per window focus is very much noticeable.
     routes.shared = false
     const { result } = renderHook(() =>
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
@@ -470,7 +422,6 @@ describe('useSharedThread — reconciliation', () => {
       window.dispatchEvent(new Event('focus'))
     })
 
-    // One read for the first focus, and nothing for the two that followed it.
     await waitFor(() => expect(requested().length).toBe(before + 1))
   })
 
@@ -481,8 +432,6 @@ describe('useSharedThread — reconciliation', () => {
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
     )
     await waitFor(() => expect(storedMessages()).toHaveLength(1))
-    // Opening a thread must not read a colleague's name out: that is history, not
-    // an arrival.
     expect(result.current.lastArrival).toBeNull()
 
     routes.messages = [...routes.messages, row('m2', { authorUserId: ANNA, createdAt: at(3) })]
@@ -527,7 +476,6 @@ describe('useSharedThread — reconciliation', () => {
     await waitFor(() => expect(result.current.shared).toBe(true))
     await emit({ kind: 'conversation.turn', conversationId: CONVERSATION_ID, phase: 'started', actorUserId: ANNA })
 
-    // The persisted answer is on its way: the read is held open.
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => (release = resolve))
     const answered = [
@@ -540,8 +488,6 @@ describe('useSharedThread — reconciliation', () => {
     })
     await emit({ kind: 'conversation.turn', conversationId: CONVERSATION_ID, phase: 'ended', actorUserId: ANNA })
 
-    // Cleared here, the live view (gated on the turn) unmounted a round trip
-    // before the answer that replaces it.
     expect(result.current.turnInFlight).not.toBeNull()
 
     await act(async () => release())
@@ -550,10 +496,6 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('picks up the server-authoritative path when a thread that was private is re-opened', async () => {
-    // The documented cost of NF-8's strictness: a private thread listens for
-    // nothing, so it learns it has been shared on the next open rather than
-    // instantly. What must NOT happen is that it stays on the local-first path
-    // afterwards.
     routes.shared = false
     const first = renderHook(() =>
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
@@ -587,19 +529,12 @@ describe('useSharedThread — reconciliation', () => {
       change: 'visibility',
     })
 
-    // Sharing changes which PATH applies, so the access fact is re-read — not just
-    // the message list.
     await waitFor(() =>
       expect(requested().slice(before)).toContain(`/api/conversations/${CONVERSATION_ID}`)
     )
   })
 
   test('a network failure on the access read is retried, not treated as "not shared"', async () => {
-    // A thrown fetch used to clear `shared`, which ALSO switched off the live
-    // subscription, the focus listener and the fallback poll — every one of
-    // which is gated on that flag. One dropped request therefore froze the
-    // thread for the rest of the session, silently, with no way back except a
-    // remount. It must retry instead.
     vi.useFakeTimers()
     try {
       let accessReads = 0
@@ -630,7 +565,6 @@ describe('useSharedThread — reconciliation', () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0)
       })
-      // The failed read is not evidence about sharedness, so nothing is claimed.
       expect(result.current.accessLost).toBe(false)
       expect(accessReads).toBe(1)
 
@@ -645,12 +579,6 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('re-reads the access facts when the thread is declared stale', async () => {
-    // The first `@` in a private thread makes it shared server-side. This hook
-    // only reads sharedness on a conversation change, and every live
-    // subscription that would carry the news is gated on `shared` — the very
-    // flag that is now wrong. Without a nudge the asker sent their mention and
-    // the product did nothing: no waiting banner, no explanation, no way back
-    // short of a reload.
     let shared = false
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -675,7 +603,6 @@ describe('useSharedThread — reconciliation', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.shared).toBe(false)
 
-    // The mention lands: the server's answer has moved, and the composer says so.
     shared = true
     await act(async () => {
       bumpThreadRevision(CONVERSATION_ID)
@@ -685,11 +612,6 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('a turn that keeps showing signs of life is never expired', async () => {
-    // The banner's deadline is a SILENCE timeout, not a turn-length one. A fixed
-    // one erased a colleague's answer mid-sentence on any turn longer than it —
-    // deep research routinely is — and both expiry doors (the interval and the
-    // focus/poll refresh) have to agree about that, or the stricter one wins by
-    // accident and the bug comes back through the other door.
     vi.useFakeTimers()
     try {
       const { result } = renderHook(() =>
@@ -707,18 +629,15 @@ describe('useSharedThread — reconciliation', () => {
       })
       expect(result.current.turnInFlight).not.toBeNull()
 
-      // Twenty minutes of turn, with a sign of life every minute.
       for (let minute = 0; minute < 20; minute += 1) {
         act(() => result.current.noteTurnActivity())
         await act(async () => {
           await vi.advanceTimersByTimeAsync(60_000)
         })
-        // …and the other door gets tried too.
         act(() => result.current.refresh())
       }
       expect(result.current.turnInFlight).not.toBeNull()
 
-      // Now it goes quiet.
       await act(async () => {
         await vi.advanceTimersByTimeAsync(6 * 60_000)
       })
@@ -729,11 +648,6 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('a 502 is a blip, not a revocation', async () => {
-    // The retry ladder only ever covered a THROWN fetch. A 5xx resolves with
-    // `ok: false` and took the authoritative branch: it cleared `shared` — which
-    // switches off the live subscription, the focus listener and the poll — told
-    // the reader they had lost access, and published "private" to the composer's
-    // socket gate. One rolling deploy froze the thread for the session.
     vi.useFakeTimers()
     try {
       let accessReads = 0
@@ -761,7 +675,6 @@ describe('useSharedThread — reconciliation', () => {
       )
       await vi.waitFor(() => expect(result.current.shared).toBe(true))
 
-      // An access re-read, via the event that triggers one.
       await act(async () => {
         await emit({
           kind: 'resource.access.changed',
@@ -771,7 +684,6 @@ describe('useSharedThread — reconciliation', () => {
         })
       })
 
-      // Still shared, and emphatically NOT reported as a revocation.
       expect(result.current.shared).toBe(true)
       expect(result.current.accessLost).toBe(false)
 
@@ -786,10 +698,6 @@ describe('useSharedThread — reconciliation', () => {
   })
 
   test('access revoked between the access read and the history read is still flagged', async () => {
-    // The race the initial load used to drop: the access read says "shared", the
-    // history read that follows it is denied. Nothing in the first read can know
-    // that, so the denial has to escalate to a second access read — otherwise the
-    // reader keeps a live-looking composer over a thread they can no longer read.
     let accessReads = 0
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -820,8 +728,6 @@ describe('useSharedThread — reconciliation', () => {
 
     await waitFor(() => expect(result.current.accessLost).toBe(true))
     expect(result.current.shared).toBe(false)
-    // Exactly one revalidation: the second read is never escalated again, so a
-    // server that keeps denying cannot turn this into a request loop.
     expect(accessReads).toBe(2)
   })
 })
@@ -850,7 +756,6 @@ describe('useSharedThread — read state', () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(50)
       })
-      // Nothing yet: a read receipt per message would be one POST per arrival.
       expect(requested()).not.toContain(`/api/conversations/${CONVERSATION_ID}/read`)
 
       await act(async () => {
@@ -890,16 +795,70 @@ describe('useSharedThread — read state', () => {
       vi.useRealTimers()
     }
   })
+
+  const holdReadReceipts = () => {
+    routes.messages = [row('m1', { createdAt: at(2) }), row('m2', { authorUserId: ANNA, createdAt: at(3) })]
+    const held: Array<(error: Error) => void> = []
+    const answer = fetchMock.getMockImplementation() as (input: RequestInfo | URL) => Promise<Response>
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input) !== `/api/conversations/${CONVERSATION_ID}/read`) return answer(input)
+      return new Promise<Response>((_resolve, reject) => held.push(reject))
+    })
+    const posted = () =>
+      fetchMock.mock.calls.filter((call) => String(call[0]) === `/api/conversations/${CONVERSATION_ID}/read`).length
+    const openAndRead = async () => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50)
+      })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_000)
+      })
+    }
+    return { held, posted, openAndRead }
+  }
+
+  test('tries a failed read receipt again while the thread is still open', async () => {
+    vi.useFakeTimers()
+    try {
+      const { held, posted, openAndRead } = holdReadReceipts()
+      renderHook(() => useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME }))
+      await openAndRead()
+      expect(posted()).toBe(1)
+
+      await act(async () => {
+        held[0](new Error('offline'))
+        await vi.advanceTimersByTimeAsync(9_000)
+      })
+
+      expect(posted()).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a read receipt that fails after the reader left the thread is not tried again', async () => {
+    vi.useFakeTimers()
+    try {
+      const { held, posted, openAndRead } = holdReadReceipts()
+      const { unmount } = renderHook(() =>
+        useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
+      )
+      await openAndRead()
+      expect(posted()).toBe(1)
+
+      unmount()
+      await act(async () => {
+        held[0](new Error('offline'))
+        await vi.advanceTimersByTimeAsync(30_000)
+      })
+
+      expect(posted()).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
-/**
- * The seam publishes sharedness for the composer's agent socket.
- *
- * `useWebSocketChat` has to know whether opening a socket on mount could collide
- * with another participant's, and this access read is the only place that fact is
- * learned (ADR-0033 §1). It lives in a sibling component, so the answer is handed
- * over through the registry rather than re-fetched.
- */
 describe('useSharedThread — sharedness is published for the agent-socket gate', () => {
   beforeEach(() => {
     resetThreadSharing()
@@ -934,13 +893,10 @@ describe('useSharedThread — sharedness is published for the agent-socket gate'
       await Promise.resolve()
     })
 
-    // `unknown`, and the gate treats a gated org as connect-on-mount on its own.
     expect(getThreadSharing(CONVERSATION_ID)).toBe('unknown')
   })
 
   test('a failed access read publishes nothing rather than guessing "private"', async () => {
-    // Guessing private here would re-open the two-participant socket collision.
-    // Staying `unknown` only defers the connect to composer focus.
     fetchMock.mockImplementation(async () => {
       throw new Error('offline')
     })
@@ -968,9 +924,6 @@ describe('useSharedThread — a chat this page minted', () => {
   })
 
   test('is not asked about before the server has created it, and is private meanwhile', async () => {
-    // `ensureSession` mints the id on the first keystroke; the row exists only
-    // once the first message is stored. The read in between was a 404 on every
-    // new chat.
     markConversationMinted(CONVERSATION_ID)
 
     const { result } = renderHook(() =>
@@ -982,7 +935,6 @@ describe('useSharedThread — a chat this page minted', () => {
 
     expect(fetchMock).not.toHaveBeenCalled()
     expect(result.current.shared).toBe(false)
-    // The socket gate still opens on mount, as it did when the 404 said so.
     expect(getThreadSharing(CONVERSATION_ID)).toBe('private')
   })
 
@@ -1003,8 +955,6 @@ describe('useSharedThread — a chat this page minted', () => {
   })
 
   test('a conversation this page did not mint (a link, the list) is read at once', async () => {
-    // Somebody else's id: nothing here recorded it, so it must be treated as on
-    // the server, or a shared thread opened by link would never be read.
     markConversationMinted('s_some_other_new_chat')
 
     const { result } = renderHook(() =>
@@ -1017,7 +967,6 @@ describe('useSharedThread — a chat this page minted', () => {
 })
 
 describe('useSharedThread — composing presence', () => {
-  /** Mount a shared thread and wait for its first load to settle. */
   const mountShared = async () => {
     const hook = renderHook(() =>
       useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
@@ -1056,9 +1005,6 @@ describe('useSharedThread — composing presence', () => {
   })
 
   test('a claim whose withdrawal never arrives expires on its own', async () => {
-    // The failure this prevents is a colleague left permanently "about to
-    // answer" because their tab was closed mid-word. There is no fetch behind
-    // presence, so the expiry is the ONLY thing that heals it.
     const { result } = await mountShared()
 
     await emit(typing(ANNA, true, 20))
@@ -1068,9 +1014,6 @@ describe('useSharedThread — composing presence', () => {
   })
 
   test('never reports the reader as typing', async () => {
-    // The publisher already drops the actor's own echo; this is the second line
-    // of defence, because "you are typing" is the one failure everybody notices
-    // and nobody reports.
     const { result } = await mountShared()
 
     await emit(typing(ME, true))
@@ -1107,8 +1050,6 @@ describe('useSharedThread — composing presence', () => {
 
     await emit(typing(ANNA, true))
 
-    // No roster to resolve against and no subscription that could have carried
-    // it — the private path stays exactly as cheap as it was (spec NF-8).
     expect(result.current.typists).toHaveLength(0)
     expect(requested()).not.toContain(`/api/sharing/conversation/${CONVERSATION_ID}`)
   })

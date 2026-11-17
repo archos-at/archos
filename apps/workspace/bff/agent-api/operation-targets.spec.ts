@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a call names (`targetsOf`), over the real catalog. The read gate and the
- * proposal both judge a call by this answer, so a key it misses is a place
- * neither of them checks.
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

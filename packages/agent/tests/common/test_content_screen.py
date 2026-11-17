@@ -1,18 +1,3 @@
-"""The content screen: spans, the mask, and the fixture the browser's twin reads too.
-
-``tests/fixtures/content_screen_cases.json`` is the contract between
-``agent.common.content_screen`` and ``apps/workspace/bff/upload-screening/content-screen.ts``:
-both read that one file, run every case and must produce the same matches, the
-same masked text and the same findings. It also holds the character tables both
-twins must agree on (whitespace, decimal digits, letter/number/mark classes, the
-fold of every code point, the IBAN registry); each side checks its own against
-them, so the two agree on every code point, not only on the cases listed.
-
-The unit tests below pin the properties a case list cannot state on its own:
-masking is a fixpoint for any input, nothing reported carries a value, and the
-placeholders are protected.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -54,11 +39,6 @@ def _cases() -> list[dict]:
     return _fixture()["cases"]
 
 
-# =============================================================================
-# The shared fixture
-# =============================================================================
-
-
 def test_the_fixture_holds_the_placeholders_defined_here() -> None:
     assert _fixture()["placeholders"] == PLACEHOLDERS
 
@@ -86,10 +66,6 @@ def test_each_case_finds_and_masks_what_the_fixture_says(case: dict) -> None:
     assert (again.text, again.findings) == (masked.text, ())
 
 
-# =============================================================================
-# The character tables both twins are held to
-# =============================================================================
-
 _ALL_CHARS = [chr(cp) for cp in range(0x110000) if not 0xD800 <= cp <= 0xDFFF]
 
 
@@ -98,14 +74,12 @@ def _unicode() -> dict:
 
 
 def test_the_fixture_was_made_with_this_unicode_version() -> None:
-    # A different version changes the tables below; regenerate them and check the TS spec on the same version.
     assert _unicode()["version"] == unicodedata.unidata_version
 
 
 def test_whitespace_is_the_listed_white_space_property() -> None:
     assert [ord(char) for char in WHITESPACE] == _unicode()["whitespace"]
     assert len(WHITESPACE) == 25
-    # str.isspace is White_Space plus the four information separators, which is why neither side uses it.
     assert {char for char in _ALL_CHARS if char.isspace()} - set(WHITESPACE) == {chr(c) for c in range(0x1C, 0x20)}
 
 
@@ -119,12 +93,6 @@ def test_every_decimal_digit_is_listed_by_its_zero() -> None:
 
 
 def _assigned_chars() -> list[str]:
-    """The code points the fixture's Unicode version assigns: the ones the TS twin is compared on.
-
-    A newer runtime (CI's Node follows the latest 22.x) adds characters; Unicode's
-    stability policy keeps the class and case mapping of the assigned ones, so
-    the tables compare over these.
-    """
     return [chr(cp) for start, end in _unicode()["assigned_ranges"] for cp in range(start, end + 1)]
 
 
@@ -142,11 +110,6 @@ def test_the_character_classes_are_the_fixtures() -> None:
 def test_the_fold_of_every_assigned_code_point_is_the_fixtures() -> None:
     folded = "\n".join(fold(char) for char in _assigned_chars())
     assert hashlib.sha256(folded.encode()).hexdigest() == _unicode()["fold_sha256"]
-
-
-# =============================================================================
-# Properties
-# =============================================================================
 
 
 def test_no_rules_mask_nothing() -> None:
@@ -207,10 +170,6 @@ def test_final_sigma_folds_as_sigma() -> None:
     assert fold("ΟΔΟΣ") == fold("οδος") == "οδοσ"
 
 
-# =============================================================================
-# Every match in one pass, and masking is a fixpoint for any input
-# =============================================================================
-
 _IBANS = ["AT611904300234573201", "DE89370400440532013000", "GB29NWBK60161331926819", "CH9300762011623852957"]
 _CARDS = ["4111111111111111", "5555555555554444", "378282246310005"]
 _SEPARATORS = [" ", "  ", "\t", "\n", "-", ".", "\u00a0", "\u202f", ""]
@@ -235,7 +194,6 @@ def test_fifty_ibans_each_followed_by_a_card_leave_no_number() -> None:
 
 
 def _generated(rng: random.Random) -> str:
-    """A text of numbers, near-numbers, terms, placeholders and noise, glued by any separator."""
     blocks = [
         lambda: _grouped(rng.choice(_IBANS), rng.choice(_SEPARATORS)),
         lambda: rng.choice(_IBANS).lower(),

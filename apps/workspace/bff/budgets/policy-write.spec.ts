@@ -1,21 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A member-scope budget policy must name a member of the organization.
- *
- * The failure this pins is the quiet kind: an admin types (or pastes, or
- * autocompletes wrongly) a user id that is not in this organization, the write
- * succeeds, the settings page lists a limit, and the limit does nothing — spend
- * is joined on the member's id and no row ever matches. Nothing is thrown,
- * nothing is logged, and the organization believes it has a cap it does not
- * have. That is worse than the write being refused, which is why this is a
- * validation error and not a silent normalization.
- *
- * The clear path is deliberately NOT roster-checked, and that asymmetry has its
- * own test below: the one member-scope row an admin most wants to remove is the
- * one whose subject has since left.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -165,8 +150,6 @@ describe('saveBudgetPolicy, member scope', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestError)
 
-    // The roster check runs BEFORE the write, so nothing is stored and no audit
-    // event claims something happened.
     expect(insertPolicySuperseding).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
     expect(resolveSubjectMembership).toHaveBeenCalledWith('org_1', 'user_from_another_org')
@@ -188,9 +171,6 @@ describe('saveBudgetPolicy, member scope', () => {
   })
 
   it('asks the roster of THIS organization, never of the subject', async () => {
-    // The membership resolver takes (organizationId, userId) in that order, and
-    // swapping them is the mistake that would make every check pass in dev,
-    // where an admin's own id is also an org id in nobody's roster.
     const { saveBudgetPolicy } = await import('./service')
     resolveSubjectMembership.mockResolvedValue({ organizationMembershipId: 'om_1', role: 'member' })
 
@@ -227,8 +207,6 @@ describe('saveBudgetPolicy, member scope', () => {
 
 describe('removeBudgetPolicy, member scope', () => {
   it('removes a departed member’s stale policy without consulting the roster', async () => {
-    // The cure for the row this ticket is about. A roster check here would make
-    // it permanent: the subject is exactly the person who is no longer a member.
     const { removeBudgetPolicy } = await import('./service')
     resolveSubjectMembership.mockResolvedValue(null)
 

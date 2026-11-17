@@ -33,8 +33,6 @@ vi.mock('./sidebar-user-menu', () => ({
   },
 }))
 
-// The badge subscription is the hook's own concern; here only the count's
-// placement matters.
 let pending = 0
 vi.mock('@/features/collaboration/hooks/use-inbox', () => ({
   useInboxBadge: () => ({ pending }),
@@ -52,7 +50,6 @@ const baseProps = {
 }
 
 let mobile = false
-// Only the hook is stood in for: the module's named queries stay real.
 vi.mock('@/hooks/use-is-mobile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-is-mobile')>()),
   useIsMobile: () => mobile,
@@ -75,12 +72,24 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
   })
 
+  test('ends in one rule, as a project page\u2019s header does', () => {
+    render(<OrgHeader {...baseProps} />)
+    expect(screen.getByRole('banner')).toHaveClass('border-b', 'border-border')
+  })
+
   test('drops each doorway with its own gate', () => {
     render(<OrgHeader {...baseProps} canAccessOfficeShelf={false} canAccessInbox={false} />)
     expect(screen.queryByLabelText('Office filing')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Inbox')).not.toBeInTheDocument()
-    // The avatar stays — the header is never just a wordmark.
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
+  })
+
+  test('opens the office standards only for an office with the office-standards entitlement', () => {
+    const { unmount } = render(<OrgHeader {...baseProps} />)
+    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
+    unmount()
+    render(<OrgHeader {...baseProps} canAccessOfficeStandards />)
+    expect(screen.getByLabelText('Office standards')).toHaveAttribute('href', '/app/base-knowledge')
   })
 
   test('marks the doorway whose sheet is open, and only that one', () => {
@@ -98,8 +107,6 @@ describe('OrgHeader — the org scope in one slim band', () => {
   })
 })
 
-// Ticket #38, topic 7: the wordmark jumped going from here into a project. It
-// stands in the row `brand-slot.ts` defines, the one the rail's head uses too.
 describe('OrgHeader — the wordmark stands where the rail puts it', () => {
   test('centred in the shared 56px brand row, 24px in from `md`', () => {
     render(<OrgHeader {...baseProps} />)
@@ -114,7 +121,6 @@ describe('OrgHeader — on a phone', () => {
   test('the doorways give way to the tab bar; search opens the palette', () => {
     mobile = true
     render(<OrgHeader {...baseProps} />)
-    // Hidden by CSS below `md` (the tab bar carries them), still the desktop's.
     expect(screen.getByLabelText('Office filing').className).toMatch(/(^|\s)hidden(\s|$)/)
     expect(screen.getByLabelText('Office filing').className).toContain('md:flex')
     const search = screen.getByTestId('shell-search')

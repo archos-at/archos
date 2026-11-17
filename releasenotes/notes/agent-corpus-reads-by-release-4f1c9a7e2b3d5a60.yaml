@@ -1,0 +1,7 @@
+---
+security:
+  - >
+    When the agent looks at a page of a base-knowledge document, it now does so
+    only for documents released to your office's countries. A file that is
+    unreleased, belongs to another country or is still a draft is treated as if
+    it did not exist.

@@ -9,6 +9,8 @@ from one place.
 - How the system works: [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
 - How we work, in detail: [docs/contributing/README.md](docs/contributing/README.md)
 - What an agent must act on while working: [AGENTS.md](AGENTS.md)
+- The rules of how we work, with their cases: [docs/contributing/working-style.md](docs/contributing/working-style.md)
+- What every change must do, and the check that fails it: [docs/contributing/obligations.md](docs/contributing/obligations.md)
 - The bar every change must clear before it is "done":
   [docs/contributing/definition-of-done.md](docs/contributing/definition-of-done.md)
 
@@ -90,7 +92,8 @@ tasks, so there is no second copy to drift:
 - Infra: `task infra:types`.
 - Everything at once: `task verify` — this is the merge gate: repo lint plus the
   same per-tier groups CI runs (`be:verify` with its coverage gate, `workspace:verify`,
-  `infra:types`). `task verify:fast` omits only the production build.
+  `infra:types`). `task verify:fast` runs the part of it your change can break (the tiers and UI
+  specs the diff against `origin/develop` reaches), without the production builds.
 - Repo-wide hooks: `task lint:repo` (`pre-commit run --all-files`) — ruff,
   markdown-link-check and more, configured in
   [`.pre-commit-config.yaml`](.pre-commit-config.yaml).

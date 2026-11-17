@@ -325,6 +325,60 @@ body {
   }
 }
 
+/* A bar pinned (sticky) over the foot of the content it sits in (the E-Mail-Eingang's decision bar): a faint
+   shadow upward instead of a line, and only while content is left beneath it; at the end of the scroll, and in a
+   pane that does not scroll (an inactive timeline), it draws none. Guarded like `scroll-edge-bottom`. A bar below
+   a list rather than over it (a selection bar) is a band of the one grey and needs neither. */
+@keyframes pinned-foot-reveal {
+  from {
+    box-shadow: 0 -8px 16px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@utility shadow-pinned-foot {
+  @supports (animation-timeline: scroll(nearest block)) {
+    animation: pinned-foot-reveal linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: calc(100% - 24px) 100%;
+  }
+}
+
+/* The design system's 1280px content container, for every listing of a project's section (Dateien and its
+   tabs). It keeps the section's left edge, which beside the app rail is the rail's edge, and centres once its
+   section is at least 1440px wide: the page cannot ask whether a rail is shown, but a 1440px section has none
+   beside it at a laptop's width and is a wide screen otherwise, where 192px of paper on one side read as a
+   page that had slid. The section frame names the container (`@container/section`). */
+@utility listing-container {
+  width: 100%;
+  max-width: 1280px;
+  @container section (min-width: 90rem) {
+    margin-inline: auto;
+  }
+}
+
+/* A list that scrolls between two parts that stand still (the rail's „Letzte Chats“): its last 24px fade out while
+   more lies below, and stand whole once the end is reached. A list too short to scroll has an inactive timeline, so
+   the animation has no effect and nothing fades. Guarded like `scroll-edge-bottom`. */
+@keyframes scroll-fade-bottom-end {
+  0%,
+  96% {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+  }
+  100% {
+    mask-image: none;
+  }
+}
+
+@utility scroll-fade-bottom {
+  @supports (animation-timeline: scroll(self block)) {
+    animation: scroll-fade-bottom-end linear both;
+    animation-timeline: scroll(self block);
+  }
+}
+
 @utility scroll-edge-top {
   @supports (animation-timeline: scroll(nearest block)) {
     animation: scroll-edge-reveal-top linear both;
@@ -664,9 +718,6 @@ body {
   --tw-inset-ring-color: var(--border-color-brand);
 }
 
-@utility tracking-display {
-  letter-spacing: -0.04em;
-}
 
 @utility scale-press {
   transform: scale(0.98);
@@ -712,7 +763,10 @@ body {
      (brand design system), and the wide tracking existed only to make capitals
      readable — on sentence-case text it reads as a rendering fault. */
   .card-eyebrow {
-    font-size: 10.5px;
+    /* 12px, the ramp's caption step: at 10.5px a section label was the smallest type on screen and
+       read as fine print, not as the name of what follows it (design-language.md, „Type ramp“). */
+    font-size: 12px;
+    line-height: 16px; /* the label step of the type scale, 12/16/500 (paper on a desk) */
     font-weight: 500;
   }
 
@@ -756,7 +810,6 @@ body {
     font-size: 17px;
     line-height: 1.3;
     font-weight: 500;
-    letter-spacing: -0.04em;
   }
 
   /* Figure — the one thing the card exists to say, and with the headline the
@@ -782,19 +835,16 @@ body {
   .card-figure-20 {
     font-size: 20px;
     line-height: 1.25;
-    letter-spacing: -0.01em;
   }
 
   .card-figure-24 {
     font-size: 24px;
     line-height: 1.2;
-    letter-spacing: -0.02em;
   }
 
   .card-figure-30 {
     font-size: 30px;
     line-height: 1.15;
-    letter-spacing: -0.02em;
   }
 }
 

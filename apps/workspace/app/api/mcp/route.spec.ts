@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The agent door's HTTP edge (ADR-0122): who is turned away before the MCP
- * handler runs, the challenge an MCP client needs to start OAuth, and one real
- * round trip through the SDK so the server we build is the server that answers.
- */
 
 import { webcrypto } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -71,7 +66,6 @@ function rpc(method: string, params: unknown, headers: Record<string, string> = 
   })
 }
 
-// The shared setup file swaps `crypto` for a stub with no randomUUID, which the SDK uses.
 beforeAll(() => {
   vi.stubGlobal('crypto', webcrypto)
 })
@@ -222,11 +216,6 @@ describe('stateless transport', () => {
   })
 })
 
-/**
- * The JSON-RPC message in a response. The 2025-era leg of the SDK answers as an
- * SSE stream (`responseMode: 'json'` shapes the 2026 leg only); either way one
- * message comes back.
- */
 async function messageOf<T>(response: Response): Promise<T> {
   const raw = await response.text()
   const data = raw.split('\n').find((line) => line.startsWith('data:'))
@@ -251,7 +240,6 @@ describe('MCP round trip as Piloti', () => {
   })
 
   it('lists one tool per operation in tools mode, chosen by query or header', async () => {
-    // project-folder-access-set is sensitive: Piloti may not propose it, so it never sees it (M4).
     const expected = ['project-list', 'project-member-add', 'project-delete', 'workspace-search', 'report-missing-operation']
     expect(await toolNames(`${URL_}?mode=tools`)).toEqual(expected)
     expect(await toolNames(URL_, { 'x-piloti-mcp-mode': 'tools' })).toEqual(expected)

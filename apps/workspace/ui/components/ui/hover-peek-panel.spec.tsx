@@ -1,13 +1,3 @@
-/**
- * The lazy peek: no popover until the trigger is engaged, and the trigger the
- * reader touched is the node that answers.
- *
- * The second half is the one that regresses silently. Mounting the popover
- * AROUND the trigger at engagement moves the trigger in the React tree, React
- * remounts it, and the focus or tap that engaged it lands on a detached node.
- * Every "same node" assertion below fails under that design.
- */
-
 import type { FC } from 'react'
 import { render, screen, waitFor, fireEvent } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -81,7 +71,6 @@ describe('HoverPeekPanel', () => {
     await user.unhover(anna)
     await waitFor(() => expect(screen.queryByText('Anna body')).toBeNull())
     expect(anna).toHaveAttribute('aria-expanded', 'false')
-    // Engaged once, kept: a second hover pays nothing to mount again.
     expect(popoverMounts.total).toBe(1)
   })
 
@@ -93,8 +82,6 @@ describe('HoverPeekPanel', () => {
     await user.tab()
     expect(document.activeElement).toBe(anna)
     expect(await screen.findByText('Anna body')).toBeInTheDocument()
-    // After the popover mounted beside it, the focused node is still the one
-    // in the document — not a detached twin.
     expect(anna.isConnected).toBe(true)
     expect(trigger('Anna')).toBe(anna)
     expect(document.activeElement).toBe(anna)
@@ -119,8 +106,6 @@ describe('HoverPeekPanel', () => {
     render(<Page onTriggerClick={clicked} />)
     const anna = trigger('Anna')
 
-    // The window the Herleitung bug lived in: state changes between the
-    // finger landing and the click. Driven by hand so nothing else happens.
     fireEvent.pointerDown(anna, { pointerType: 'touch' })
     expect(popoverMounts.current).toBe(1)
     expect(trigger('Anna')).toBe(anna)
@@ -147,10 +132,6 @@ describe('HoverPeekPanel', () => {
     render(<Page />)
     const anna = trigger('Anna')
 
-    // The ordinary reader: rest on the chip, read, then click to keep it.
-    // The pointerdown before that click used to count as a press OUTSIDE the
-    // panel (the trigger is an anchor, not a Radix trigger) and closed it
-    // underneath the pin.
     await user.hover(anna)
     expect(await screen.findByText('Anna body')).toBeInTheDocument()
     await user.click(anna)
@@ -188,15 +169,10 @@ describe('HoverPeekPanel', () => {
 
     await user.click(trigger('Ben'))
     const body = await screen.findByText('Ben body')
-    // Radix names the anchored content by its wrapper; one open panel, Ben's.
     expect(body.closest('[data-radix-popper-content-wrapper]')).not.toBeNull()
     expect(screen.queryByText('Anna body')).toBeNull()
   })
 
-  /**
-   * Put each named trigger on a line of text: jsdom lays nothing out, and
-   * whether a hop is along the line or across lines decides the warm path.
-   */
   const onLines = (lines: Record<string, number>) => {
     for (const [name, line] of Object.entries(lines)) {
       vi.spyOn(trigger(name), 'getBoundingClientRect').mockReturnValue(
@@ -213,9 +189,6 @@ describe('HoverPeekPanel', () => {
     await user.hover(trigger('Anna'))
     expect(await screen.findByText('Anna body')).toBeInTheDocument()
 
-    // The hop: Ben opens on the pointer's arrival rather than after the open
-    // delay, and Anna is gone in the same commit instead of lingering through
-    // her close grace underneath him.
     await user.hover(trigger('Ben'))
     expect(screen.getByText('Ben body')).toBeInTheDocument()
     expect(screen.queryByText('Anna body')).toBeNull()
@@ -223,8 +196,6 @@ describe('HoverPeekPanel', () => {
   })
 
   test('crossing a marker on the next line while a peek is open does not swap at once', async () => {
-    // On the way from Anna to her panel below, the pointer passes over Ben.
-    // An instant swap there took the panel the reader was reaching for.
     const user = userEvent.setup()
     render(<Page />)
     onLines({ Anna: 0, Ben: 1 })
@@ -235,7 +206,6 @@ describe('HoverPeekPanel', () => {
     expect(screen.queryByText('Ben body')).toBeNull()
     expect(screen.getByText('Anna body')).toBeInTheDocument()
 
-    // Staying on Ben is a choice, and he opens on the ordinary delay.
     expect(await screen.findByText('Ben body')).toBeInTheDocument()
     expect(screen.queryByText('Anna body')).toBeNull()
   })
@@ -260,13 +230,11 @@ describe('HoverPeekPanel', () => {
       onLines({ Anna: 0, Ben: 1 })
 
       await user.click(trigger('Anna'))
-      // Ben opens beside the pinned Anna and takes the page's slot, then closes.
       await user.hover(trigger('Ben'))
       expect(await screen.findByText('Ben body')).toBeInTheDocument()
       await user.hover(screen.getByRole('button', { name: 'Elsewhere' }))
       await waitFor(() => expect(screen.queryByText('Ben body')).toBeNull())
 
-      // Long after, the reader closes the pinned Anna and moves to Ben.
       clock += 5_000
       await user.click(trigger('Anna'))
       await waitFor(() => expect(trigger('Anna')).toHaveAttribute('aria-expanded', 'false'))

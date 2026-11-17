@@ -66,7 +66,6 @@ import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } 
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** A tool on the palette: the review's own, or the cursor chat, which sets nothing. */
 type PaletteTool = ReviewTool | 'chat'
 
 const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
@@ -74,14 +73,11 @@ const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
   { tool: 'point', key: 'C', icon: MessageSquarePlus },
   { tool: 'region', key: 'R', icon: SquareDashed },
   { tool: 'ask', key: 'P', icon: Sparkles },
-  // A head speaking, not a bubble: the comment tool already is one, and this one keeps nothing.
   { tool: 'chat', key: '/', icon: Speech },
 ]
 
-/** Where this browser keeps that it has seen the tools explained: the first review opens with them spelled out. */
 export const TOOLS_INTRO_KEY = 'review.toolsIntroSeen'
 
-/** Whether the tools were explained here before. Storage that cannot be read counts as seen: no intro on every open. */
 export function toolsIntroSeen(): boolean {
   try {
     return window.localStorage.getItem(TOOLS_INTRO_KEY) === '1'
@@ -98,14 +94,8 @@ function rememberToolsIntro(): void {
   }
 }
 
-/** A phone, or a phone on its side: a card beside a mark has no room, so it comes up from the bottom edge. */
 const DOCKED_CARDS = '(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
 
-/**
- * Where a proposal stands in the walk through Piloti's proposals: its place
- * among the proposals on this Fassung, in the order J and „Durchgehen" take
- * them. Null for anything that is not one of them.
- */
 export function walkPosition(
   annotations: readonly Pick<AnnotationView, 'id' | 'status' | 'onCurrentRevision'>[],
   id: string | null
@@ -115,12 +105,6 @@ export function walkPosition(
   return index === -1 ? null : { index: index + 1, total: walk.length }
 }
 
-/**
- * The tools, as one row of buttons for a pill. `icons`: glyphs with the name
- * and key in a tooltip, in the viewer's own pill. `intro`: the first review a
- * browser opens, every tool spelled out with its key, and a way to fold it.
- * `touch`: a label under every glyph, since a finger has no tooltip and no keys.
- */
 function ReviewTools({
   review,
   chatOpen,
@@ -134,7 +118,6 @@ function ReviewTools({
   onChat: () => void
   variant: 'icons' | 'intro' | 'touch'
   onFold?: () => void
-  /** A mark tool was taken up from the keyboard: the crosshair sets the place. */
   onAim?: () => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -152,15 +135,11 @@ function ReviewTools({
             aria-label={name}
             onClick={(event) => {
               if (tool === 'chat') return onChat()
-              // Picked again, the tool in hand is put down. `detail` is 0 for a click the keyboard made (Enter, Space).
               review.setTool(pressed ? 'select' : tool)
               if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
             }}
             className={cn(
-              // The tool in hand is filled in ink: what the pointer will do is never a guess.
               'aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:text-background',
-              // Spelled out where the stage is wide enough for the whole pill; under ~1000px of it the
-              // tools fold to their glyphs, still named for a screen reader (the viewer's container).
               variant === 'intro' && 'w-auto gap-1.5 px-2 text-xs font-medium @max-5xl:w-7 @max-5xl:px-0',
               variant === 'touch' && 'h-12 w-14 flex-col gap-0.5 pointer-coarse:size-auto pointer-coarse:h-12 pointer-coarse:w-14'
             )}
@@ -176,8 +155,6 @@ function ReviewTools({
             {variant === 'touch' && <span className="text-[10px] leading-3 font-medium">{t(`review.toolsShort.${tool}`)}</span>}
           </ToolbarIconButton>
         )
-        // A finger has no hover: its labels are under the glyphs. Spelled out, the
-        // tools keep the tooltip too, for when a narrow stage folds them to glyphs.
         if (variant === 'touch') return <span key={tool} className="contents">{button}</span>
         return (
           <Tooltip key={tool}>
@@ -203,15 +180,12 @@ function ReviewTools({
   )
 }
 
-/** Which tools a reader has: marks need the right to set them; Piloti needs a project to ask in. */
 const toolOffered = (tool: ReviewTool, review: ReviewState): boolean =>
   tool === 'select' || (tool === 'ask' ? review.piloti.available : review.canAnnotate)
 
-/** Whether a key press belongs to a field the reader is typing in. */
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
 
-/** The people in the room, one face per person however many tabs they have open. Piloti is not one of them. */
 export function people(peers: readonly RoomPeerState[]): RoomPeerState[] {
   const byUser = new Map<string, RoomPeerState>()
   for (const state of peers) {
@@ -220,13 +194,6 @@ export function people(peers: readonly RoomPeerState[]): RoomPeerState[] {
   return [...byUser.values()]
 }
 
-/**
- * Who is in the room, as the header tells it: the people, one per person, and
- * the page each is on; and Piloti, what it is doing and for whom. Equal by
- * value from one pointer frame to the next, so the faces, the header and the
- * file preview that read it re-render when somebody comes, goes or turns a
- * page, not when a pointer moves.
- */
 export interface RoomCompany {
   people: Array<{ peerId: string; userId: string; name: string; page: number | null }>
   piloti: { forName: string | null; working: boolean; label: string | null } | null
@@ -247,16 +214,9 @@ export function roomCompanyOf(peers: readonly RoomPeerState[]): RoomCompany {
   }
 }
 
-/** The room's company, re-rendering only when it changed: see {@link RoomCompany}. */
 export const useRoomCompany = (room: Pick<DocumentRoom, 'peers'>): RoomCompany =>
   useRoomSelector(room, roomCompanyOf, sameValue)
 
-/**
- * Who else is here, as faces in their colour. A face is also the way to follow
- * them: the view goes where theirs goes until the reader moves on their own.
- * Without `onFollow` (the file preview's header) the faces only tell, and the
- * caller says in words who they are.
- */
 export function Presence({
   review,
   following = null,
@@ -269,9 +229,6 @@ export function Presence({
   const t = useTranslations(filesCopy)
   const tPresence = useTranslations(presenceCopy)
   const { people: others, piloti } = useRoomCompany(review.room)
-  // Piloti in the room as itself: a peer the server publishes while it works on
-  // the document, naming whose request it works on (ADR-0105). The full name
-  // here, where there is room; the cursor tag carries the first name.
   const forName = piloti?.forName
   const onBehalf = forName ? tPresence('piloti.onBehalfOf', { name: forName }) : null
   if (others.length === 0 && !piloti) return null
@@ -353,19 +310,10 @@ export function Presence({
   )
 }
 
-/** The page a person is on: where their pointer is, else where they are scrolled to. */
 const pageOf = (state: RoomPeerState): number | null => state.cursor?.page ?? state.viewport?.page ?? null
 
-/** Where a colleague is from this reader's view: in it, or past its top or bottom edge. */
 export type PeerSide = 'here' | 'above' | 'below'
 
-/**
- * Where a colleague's point is from the reader's view. Measured where the
- * page is laid out (`pageRect`, the view's `top`/`bottom`, all in the
- * window): their point is on screen or past an edge, so a colleague on the
- * next page whose pointer is in plain sight gets no chip. A page that is not
- * laid out is told by its number against the reader's page.
- */
 export function peerSide(
   at: { page: number; y: number },
   viewPage: number,
@@ -379,7 +327,6 @@ export function peerSide(
   return at.page < viewPage ? 'above' : at.page > viewPage ? 'below' : 'here'
 }
 
-/** Re-render on every scroll inside `ref`, once a frame at most: what is on screen moved. */
 function useScrollTick(ref: RefObject<HTMLElement | null>): void {
   const [, setTick] = useState(0)
   useEffect(() => {
@@ -401,17 +348,6 @@ function useScrollTick(ref: RefObject<HTMLElement | null>): void {
   }, [ref])
 }
 
-/**
- * The people out of this reader's view, at the edge of the sheet that leads
- * to them, the way a design tool keeps a colleague's pointer at the edge of
- * the canvas when it is off-screen. A chip jumps there; following stays the
- * face's. `edge` is the one edge this instance draws.
- *
- * Never over the open card: the card lives in the page's scroller, which no
- * z-index lifts above these, so the card keeps out of the foot (`fitCard`) and
- * a row that would still lie over it (the reader scrolled the card under it)
- * steps aside until it is clear.
- */
 function Elsewhere({
   review,
   page,
@@ -422,7 +358,6 @@ function Elsewhere({
   review: ReviewState
   page: number
   edge: 'above' | 'below'
-  /** The canvas the pages are laid out in, to tell what is on screen. */
   canvas: RefObject<HTMLElement | null>
   onJump: (state: RoomPeerState) => void
 }): JSX.Element | null {
@@ -434,7 +369,6 @@ function Elsewhere({
   const card = node?.querySelector<HTMLElement>('[data-review-card]')?.getBoundingClientRect() ?? null
   const lane = row.current?.getBoundingClientRect() ?? null
   const overCard = Boolean(card && lane && covers(card, lane))
-  // Its own subscription: where people are moves with every pointer, and only these chips redraw for it.
   const peers = useRoomPeers(review.room)
   const here = people(peers).flatMap((state) => {
     const at = pageOf(state)
@@ -476,16 +410,9 @@ function Elsewhere({
   )
 }
 
-/** The whole-document review asked of Piloti: the latest one, while it is in the header. */
 const documentReviewOf = (asks: readonly CanvasAsk[]): CanvasAsk | null =>
   asks.findLast((ask) => ask.region === null && !ask.replyInThread) ?? null
 
-/**
- * „Piloti prüfen lassen" in place: Piloti goes through the document while it
- * stays open, its findings landing as proposals through the room, its pointer
- * on the pages. The header says what it is doing, compactly, and where the
- * conversation is.
- */
 function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => void }): JSX.Element {
   const t = useTranslations(filesCopy)
   const tChat = useTranslations(chatCopy)
@@ -495,7 +422,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     const button = (
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="h-8 gap-1.5"
         data-testid="review-with-agent"
@@ -508,7 +435,6 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
       </Button>
     )
     if (!piloti.busy) return button
-    // A disabled button says why: a wrapper takes the pointer the button no longer does.
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -521,7 +447,6 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     )
   }
   const working = run.status === 'thinking'
-  // A check of what is fixed answers in the threads: it finds no proposals to walk.
   const checking = run.checkFixed !== null
   const found = run.status === 'answered' && !checking ? review.counts.proposed : 0
   const line = working
@@ -535,7 +460,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     <div
       role="status"
       data-testid="review-agent-status"
-      className="border-border/70 bg-muted/40 flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
+      className="border-border/70 bg-muted flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
     >
       <AgentGlyph working={working} />
       {working ? (
@@ -590,25 +515,6 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
   )
 }
 
-/**
- * The focused review of one document: the sheet, the marks on it, the threads
- * under them, and the people looking at it with you.
- *
- * Built for two moments an architect has with a drawing. Alone, with time: go
- * through a Fachplaner's sheet and leave what you find exactly where you found
- * it, without a form in the way (C, click, type, Enter). Together: a Jour fixe
- * or a call where everybody looks at the same sheet, sees each other's
- * pointers, follows whoever is talking, and watches the marks land. Piloti is
- * in the room as a colleague: asked about a box (P, or from a draft or a
- * thread), it answers beside it; asked to review the document, it works
- * through it with its own pointer, and its findings arrive as proposals that
- * count only once a person takes one over.
- *
- * The rest of the page is gone while it is open (a full-page `PageDialog`; a
- * panel docked beside the page, the Postfach, stays usable: ADR-0148).
- * Escape steps back one thing at a time: the draft, the tool,
- * the open thread, and only then the review itself.
- */
 export function DocumentReviewMode({
   open,
   onOpenChange,
@@ -626,21 +532,12 @@ export function DocumentReviewMode({
   onOpenChange: (open: boolean) => void
   review: ReviewState
   documentName: string
-  /** „Fassung 3", when the document has Fassungen to tell apart. */
   revisionLabel?: string | null
   canPickAssignee: boolean
-  /** A mark to open at, when the review was entered from one. */
   focusRequest?: { annotationId: string; key: number } | null
-  /** The review on a page of its own: offered as a window of its own, and as a link to send. */
   popoutHref?: string | null
-  /** A tool to have in hand once the review opens (entered by „Anmerken"). */
   initialTool?: ReviewTool
-  /** The page the reader is on, as it changes: the file preview opens there again once the review closes. */
   onPage?: (page: number) => void
-  /**
-   * Where „Protokoll exportieren" may file the Protokoll as a document; null where it has no place (not a
-   * project's, archived, a closed project). Offered only to a reader who may write the document's folder.
-   */
   protocolFiling?: ProtocolFilingTarget | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -648,12 +545,7 @@ export function DocumentReviewMode({
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
   const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti } = review
-  /**
-   * The page this reader is on (the one crossing the middle of the view), for
-   * who is elsewhere. Null until the viewer first reports: it opens on page 1.
-   */
   const [viewPage, setViewPage] = useState<number | null>(null)
-  /** Where the middle of the reader's view is, for the keyboard's crosshair to start there. */
   const viewAt = useRef<{ page: number; y: number } | null>(null)
   const { sendViewport } = room
   const onViewport = useCallback(
@@ -667,18 +559,11 @@ export function DocumentReviewMode({
   )
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const touch = useMediaQuery('(pointer: coarse)')
-  /** What the toolbars and the chips below take of the canvas's foot, kept free for the cursor chat and the review's toasts. */
   const foot = touch ? STAGE_FOOT.touch : STAGE_FOOT.pointer
-  /** The canvas less its head and foot: where a card on the sheet keeps. */
   const stage = useCallback<StageBounds>(() => {
     const box = canvasRef.current?.getBoundingClientRect()
     return box ? { top: box.top + STAGE_HEAD, bottom: box.bottom - foot } : null
   }, [foot])
-  /**
-   * Cursor chat („/"): open, and where this reader's pointer last was, to open
-   * it there. From the toolbar's button there is no pointer to open at (the
-   * hand is on the button): the bubble opens centred over the sheet.
-   */
   const [chat, setChat] = useState<{ from: { x: number; y: number } | null } | null>(null)
   const lastPointer = useRef<{ x: number; y: number } | null>(null)
   const openChat = useCallback((atPointer: boolean) => setChat({ from: atPointer ? lastPointer.current : null }), [])
@@ -690,17 +575,10 @@ export function DocumentReviewMode({
     setFocus({ page, y, key: `jump:${state.peer.peerId}:${Date.now()}` })
   }, [])
   const openAsk = piloti.asks.find((ask) => ask.id === piloti.openId) ?? null
-  // From `lg` the list is a column beside the sheet, folded while it is empty; below it, a sheet
-  // from the bottom edge (a phone on its side is 852px, under `lg`). One header button for both.
   const list = useReviewList(review)
   const { beside: listBeside, sheetOpen: listOpen, setSheetOpen: setListOpen } = list
-  // On a phone a card beside its mark runs off the screen: it comes up from the bottom edge instead.
   const docked = useMediaQuery(DOCKED_CARDS)
 
-  /**
-   * The tools spelled out, the first time a browser opens a review: every
-   * tool with its name and key. Folded after the first mark or by its ×.
-   */
   const [intro, setIntro] = useState(false)
   useEffect(() => {
     if (open && !touch && !toolsIntroSeen()) setIntro(true)
@@ -713,19 +591,15 @@ export function DocumentReviewMode({
     if (intro && (draft || openAsk)) foldIntro()
   }, [intro, draft, openAsk, foldIntro])
 
-  // The review is open: the document's rows about new marks are read, which no pin's dot carries,
-  // and so are those that arrive while it stays open.
   const { watchMarksSetNews } = review
   useEffect(() => (open ? watchMarksSetNews() : undefined), [open, watchMarksSetNews])
 
-  // Entered with a tool in hand: armed once per opening.
   const armed = useRef(false)
   useEffect(() => {
     if (!open) {
       armed.current = false
       return
     }
-    // Not before the reader's rights are known: the tools are offered once the list has said so.
     if (armed.current || !initialTool || !toolOffered(initialTool, review)) return
     armed.current = true
     setTool(initialTool)
@@ -736,7 +610,6 @@ export function DocumentReviewMode({
       setFollowing(null)
       setDraft(null)
       select(annotation.id)
-      // A ghost (an open mark of an earlier Fassung) is drawn where it stood: the view goes there too.
       if (annotation.onCurrentRevision || isGhostMark(annotation, review.documentId)) {
         setFocus({ page: annotation.page, y: annotation.y + (annotation.h ?? 0) / 2, key: `${annotation.id}:${Date.now()}` })
       }
@@ -744,15 +617,6 @@ export function DocumentReviewMode({
     [select, setDraft, review.documentId]
   )
 
-  /**
-   * The focus, for a reader on the keyboard. A card opened by a key (J, K, Enter
-   * on a pin or a row) takes the focus itself: it is a dialog named by its
-   * header, so it is announced, and no Enter lands on „Erledigen" by accident.
-   * What had the focus is kept, and gets it back when the card closes (its ×,
-   * Escape). Each key's ask is counted, so a key that lands on the card already
-   * open is answered at once and leaves nothing behind for a later click. The
-   * keyboard's crosshair returns the focus the same way when the tool is put down.
-   */
   const cardTrigger = useRef<HTMLElement | null>(null)
   const [cardFocusAsked, setCardFocusAsked] = useState(0)
   const cardFocusAnswered = useRef(0)
@@ -778,7 +642,6 @@ export function DocumentReviewMode({
     return () => cancelAnimationFrame(frame)
   }, [cardInHand, cardFocusAsked])
 
-  /** The keyboard's crosshair: a mark tool taken up by a key sets its place with the arrows. */
   const [aim, setAim] = useState<{ page: number; y: number; key: number } | null>(null)
   const aimTrigger = useRef<HTMLElement | null>(null)
   const startAim = useCallback(() => {
@@ -789,7 +652,6 @@ export function DocumentReviewMode({
   useEffect(() => {
     if (tool !== 'select' || !aim) return
     setAim(null)
-    // Put down, or the mark set and its card closed: the focus goes back to where the tool was taken up.
     const trigger = aimTrigger.current
     aimTrigger.current = null
     if (!trigger) return
@@ -797,10 +659,6 @@ export function DocumentReviewMode({
     return () => cancelAnimationFrame(frame)
   }, [tool, aim])
 
-  /**
-   * Going through Piloti's proposals („Durchgehen"): the proposal in hand. A
-   * decision on it moves to the next one; choosing anything else ends the walk.
-   */
   const [walking, setWalking] = useState<string | null>(null)
   const walkProposals = useCallback(() => {
     const next = review.step(1, 'proposed')
@@ -815,13 +673,11 @@ export function DocumentReviewMode({
     }
     const current = annotations.find((annotation) => annotation.id === walking)
     if (current?.status === 'proposed') return
-    // Taken over or dismissed: on to the next, or the walk is done.
     const next = review.step(1, 'proposed')
     setWalking(next?.id ?? null)
     if (next) bring(next)
   }, [walking, selectedId, annotations, review, bring])
   const walk = walking ? walkPosition(annotations, walking) : null
-  /** A row of the list chosen: its mark brought into view, its card focused when a key chose it. */
   const openFromList = useCallback<OpenMark>(
     (annotation, byKeyboard) => {
       if (byKeyboard) focusNextCard()
@@ -830,7 +686,6 @@ export function DocumentReviewMode({
     [bring, focusNextCard]
   )
 
-  // Entered from a mark: open at it, once per request, as soon as the list holds it.
   const handled = useRef<number | null>(null)
   useEffect(() => {
     if (!open || !focusRequest || handled.current === focusRequest.key) return
@@ -840,8 +695,6 @@ export function DocumentReviewMode({
     bring(target)
   }, [open, focusRequest, annotations, bring])
 
-  // Following: the view goes where theirs goes. Read off the room by what it needs, so
-  // their pointer moving does not re-render the review; their view moving does.
   const followed = useRoomSelector(
     room,
     useCallback(
@@ -884,12 +737,8 @@ export function DocumentReviewMode({
     onOpenChange(false)
   }, [onOpenChange, setDraft, setTool])
 
-  // A mark of an earlier Fassung is not drawn as a mark of this sheet (an open
-  // one is a ghost, where it stood on its own): selected, its thread opens over
-  // the sheet, never beside a place the current drawing may not have.
   const earlier = annotations.find((annotation) => annotation.id === selectedId && !annotation.onCurrentRevision) ?? null
   const selected = annotations.find((annotation) => annotation.id === selectedId) ?? null
-  // The card a phone docks: Piloti's answer on a box, the draft, or the open thread.
   const dockedAsk = openAsk && openAsk.region && !openAsk.replyInThread ? openAsk : null
   const dockOpen = docked && Boolean(dockedAsk || draft || selected)
   const closeCard = useCallback(() => {
@@ -900,13 +749,6 @@ export function DocumentReviewMode({
     else select(null)
   }, [dockedAsk, piloti, draft, setDraft, select])
 
-  /**
-   * Escape steps back one thing at a time: Piloti's card, the draft, following,
-   * the tool, the open thread, and only then the review itself. It runs as the
-   * dialog's own Escape (Radix hears the key first, on the document, and only
-   * for the topmost layer: an open menu or sheet takes its own Escape). In a
-   * field it is the field's, unless there is a draft or a card to let go of.
-   */
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
     if (typing(event.target) && !draft && !openAsk) return
@@ -918,12 +760,6 @@ export function DocumentReviewMode({
     else close()
   }
 
-  /**
-   * A key's decision is a moment from the server (`review.decide`): the toast
-   * names it and offers „Rückgängig", which lets it go before it is sent, as
-   * the inbox's archive does. A key is easy to hit by mistake; a click on the
-   * card's own button is not, and goes at once.
-   */
   const decideByKey = (current: AnnotationView, status: 'open' | 'resolved' | 'dismissed') => {
     const held = review.decide(current, status, () => toast.error(t('review.actionFailed'), reviewToast()))
     if (!held) return
@@ -938,11 +774,8 @@ export function DocumentReviewMode({
     )
   }
 
-  // Letters pick tools and walk the marks. The handler reads this render's state
-  // through a ref: the listener is attached once per opening, not on every change.
   const onKey = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-    // The list's sheet, and a phone's card sheet, are layers of their own: their keys are their own.
     if (listOpen || dockOpen) return
     if (event.key === 'Escape' || typing(event.target)) return
     const key = event.key.toLowerCase()
@@ -969,7 +802,6 @@ export function DocumentReviewMode({
       if (current.status === 'proposed') decideByKey(current, 'open')
       else if (current.status === 'open') decideByKey(current, 'resolved')
     } else if ((key === 'backspace' || key === 'delete') && selectedId) {
-      // ⌫ on „Verwerfen" says it: a proposal in hand is dismissed, nothing else is.
       const current = annotations.find((annotation) => annotation.id === selectedId)
       if (!current?.canEdit || current.status !== 'proposed') return
       decideByKey(current, 'dismissed')
@@ -987,7 +819,6 @@ export function DocumentReviewMode({
     return () => window.removeEventListener('keydown', listener)
   }, [open])
 
-  /** A link that opens the review at this mark, on the clipboard; a refusal says so. */
   const copyText = useCallback(
     (text: string) => {
       if (!navigator.clipboard) {
@@ -1001,11 +832,6 @@ export function DocumentReviewMode({
     },
     [t]
   )
-  /**
-   * The mark's own link: the document on its shelf at the review (`popoutHref`), else this page,
-   * with `doc`, `review` and `mark` and nothing of this tab's way through it: neither the tool in
-   * hand nor `back`, the page this reader came from, which is not the recipient's.
-   */
   const copyLink = useCallback(
     (annotation: AnnotationView) => {
       const url = new URL(popoutHref ?? window.location.href, window.location.href)
@@ -1021,7 +847,6 @@ export function DocumentReviewMode({
 
   const followedState = followed
 
-  /** The card for whatever is in hand, wherever it is shown. */
   const threadCard = (placement: CardPlacement) => {
     if (draft) return <DraftCard review={review} draft={draft} placement={placement} canPickAssignee={canPickAssignee} />
     if (!selected) return null
@@ -1038,8 +863,6 @@ export function DocumentReviewMode({
     )
   }
 
-  // What the tool in hand does next, said once at the top of the canvas.
-  // With the keyboard's crosshair out, the keys that move and set it.
   const toolHint =
     tool !== 'select' && !draft && !openAsk
       ? aim
@@ -1062,8 +885,6 @@ export function DocumentReviewMode({
       documentId={review.documentId}
       hasRevisions={annotations.some((annotation) => !annotation.onCurrentRevision)}
       hasProposals={annotations.some((annotation) => annotation.authorKind === 'piloti' && !annotation.acceptedBy)}
-      // Filing is an upload into the document's folder: offered to whoever may write there, which is
-      // what `canAnnotate` says (the document's write, folder included, ADR-0088). The upload checks again.
       filing={protocolFiling && review.canAnnotate ? { target: protocolFiling, documentName } : null}
     />
   )
@@ -1074,8 +895,6 @@ export function DocumentReviewMode({
       <PageDialogContent
         showCloseButton={false}
         onEscapeKeyDown={stepBack}
-        // The sheet is what has focus to begin with, not the close button: a
-        // ring on the X is the first thing an opened review would say.
         onOpenAutoFocus={(event) => event.preventDefault()}
         className="bg-background inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] flex h-[calc(100dvh-var(--page-inset-top,0px))] max-h-none w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
         data-testid="document-review"
@@ -1104,13 +923,11 @@ export function DocumentReviewMode({
             <DialogDescription className="text-muted-foreground text-xs sm:truncate">
               {[
                 revisionLabel,
-                // Another document replaces this one, or this one replaces another: the header says so.
                 review.revision?.replacedBy
                   ? t('review.replacedBy', { name: review.revision.replacedBy.filename })
                   : review.revision?.replaces[0]
                     ? t('review.replaces', { name: review.revision.replaces[0].filename })
                     : null,
-                // „2 offen · 12 Vorschläge": Piloti's untaken proposals are not counted as open, as in Dateien.
                 hasLiveMarks(review.counts) ? openMarksShortLabel(t, review.counts) : t('review.nothingOpen'),
               ]
                 .filter(Boolean)
@@ -1130,7 +947,6 @@ export function DocumentReviewMode({
             )}
             <Presence review={review} following={following} onFollow={setFollowing} />
             {popoutHref && (
-              // A window of its own for a second screen, and the link to send: both quiet, beside the faces.
               <span className="flex items-center max-sm:hidden">
                 <Button
                   type="button"
@@ -1160,12 +976,11 @@ export function DocumentReviewMode({
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-8 gap-1.5 pointer-coarse:h-11"
               aria-haspopup={listBeside ? undefined : 'dialog'}
               aria-expanded={list.expanded}
-              // „Anmerkungen: 3 offene Anmerkungen und 12 Vorschläge von Piloti“: the chip's sentence.
               aria-label={t('review.listOpen', {
                 marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
               })}
@@ -1207,7 +1022,6 @@ export function DocumentReviewMode({
                 )}
                 <Elsewhere review={review} page={viewPage ?? 1} edge="above" canvas={canvasRef} onJump={jumpTo} />
                 {toolHint && (
-                  // With the crosshair out its own label says the keys in words; the glyphs here would be read on top of it.
                   <FloatingNote role={aim ? undefined : 'status'} aria-hidden={aim ? true : undefined} data-testid="review-tool-hint">
                     {toolHint}
                   </FloatingNote>
@@ -1224,8 +1038,6 @@ export function DocumentReviewMode({
                   userId={room.self?.userId ?? null}
                   from={chat.from}
                   bounds={() => canvasRef.current?.getBoundingClientRect() ?? null}
-                  // Above the viewer's pill and the chips of who is below, and on a
-                  // touch screen above the tools over the pill too.
                   foot={foot}
                   onChat={room.sendChat}
                   onClose={() => setChat(null)}
@@ -1239,8 +1051,6 @@ export function DocumentReviewMode({
                 />
               )}
               {touch && (
-                // On a touch screen the tools sit centred ABOVE the viewer's own
-                // pill, at the thumb, each with its name under it.
                 <FloatingToolbar className="pointer-events-auto absolute bottom-[4.75rem] left-1/2 z-30 -translate-x-1/2">
                   {toolsPalette('touch')}
                 </FloatingToolbar>
@@ -1250,7 +1060,6 @@ export function DocumentReviewMode({
                 title={documentName}
                 focus={focus}
                 onViewport={onViewport}
-                // With a pointer, the tools lead the viewer's own pill: one bar at the foot.
                 toolbarLead={touch ? undefined : toolsPalette(intro ? 'intro' : 'icons')}
                 pageOverlay={(page) => (
                   <ReviewPageLayer
@@ -1279,15 +1088,12 @@ export function DocumentReviewMode({
           </div>
         </ReviewStageContext.Provider>
         {docked && (
-          // Not modal: no veil over the drawing the card is about, and the page
-          // stays in reach (another pin, a pinch). Only its × and Escape close it.
           <Sheet open={dockOpen} modal={false} onOpenChange={(next) => !next && closeCard()}>
             <SheetContent
               side="bottom"
               closeLabel={t('review.closeThread')}
               data-testid="review-card-sheet"
               onInteractOutside={(event) => event.preventDefault()}
-              // The sheet is the card's frame: no second border inside it.
               className="max-h-[75dvh] gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]"
             >
               <SheetTitle className="sr-only">{documentName}</SheetTitle>
@@ -1316,7 +1122,6 @@ export function DocumentReviewMode({
               <ReviewPanel
                 review={review}
                 presentation="sheet"
-                // Choosing a mark shows it: the sheet steps aside for the page.
                 onOpen={(annotation, byKeyboard) => {
                   setListOpen(false)
                   openFromList(annotation, byKeyboard)

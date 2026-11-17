@@ -12,11 +12,21 @@ The agent runtime mounts its own ``/health`` (``{"status": "healthy"}``) in ``ad
 the ``chat`` role, and FastAPI answers with the first route that matches, so a
 second handler behind it would never run. ``install_health_route`` removes
 the agent runtime's and mounts this one, leaving exactly one ``/health`` per app.
+
+``public_source_fetcher`` says whether this role knows its fetcher (ADR-0162
+amendment): ``configured``, or ``missing`` when ``PUBLIC_SOURCE_FETCHER_URL`` is
+unset, in which case no public source is read and no public PDF is parsed. It
+reads the environment and calls nothing, so a fetcher that is down does not
+take this pod out of rotation either; that is the ``DeploymentUnavailable``
+alert's to report (``deploy/pulumi/src/platform/workload-alerts.ts``).
 """
 
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
+from public_sources.pdf import ENV_FETCHER_URL
 
 from .roles import WebRole
 from .startup_banner import deployed_sha
@@ -30,4 +40,5 @@ def install_health_route(app: FastAPI, role: WebRole) -> None:
 
     @app.get(HEALTH_PATH, tags=["health"], summary="Health check")
     async def health() -> dict[str, str]:
-        return {"status": "healthy", "sha": deployed_sha(), "role": role.value}
+        fetcher = "configured" if os.environ.get(ENV_FETCHER_URL, "").strip() else "missing"
+        return {"status": "healthy", "sha": deployed_sha(), "role": role.value, "public_source_fetcher": fetcher}

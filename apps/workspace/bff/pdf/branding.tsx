@@ -69,6 +69,12 @@ export interface DocumentChrome {
   disclaimer: string
   /** The line that repeats at the foot of every page. */
   footerLine: string
+  /**
+   * The Art. 50(1) AI Act disclosure, printed under the header line: an AI
+   * system wrote this, for which office. Not the overridable branding copy
+   * (`DocumentBranding.aiDisclosure`); optional only for chrome built elsewhere.
+   */
+  aiDisclosure?: string
 }
 
 export interface CoverInfo {
@@ -176,6 +182,14 @@ const styles = StyleSheet.create({
   coverHeaderLine: {
     fontSize: PDF_TYPE.chrome,
     color: PDF_THEME.subtle,
+    marginBottom: 22,
+  },
+  // The Art. 50(1) line, under the header line and in the body's ink: it is a
+  // statement to the reader, not chrome to read past.
+  coverDisclosure: {
+    fontSize: PDF_TYPE.chrome,
+    color: PDF_THEME.ink,
+    marginTop: -14,
     marginBottom: 22,
   },
   // The prose block. Under the facts rather than over them: the facts say what
@@ -352,6 +366,9 @@ export const CoverContent: React.FC<{ cover: CoverInfo }> = ({ cover }) => (
 
     <View style={styles.coverBody}>
       {cover.chrome ? <Text style={styles.coverHeaderLine}>{cover.chrome.headerLine}</Text> : null}
+      {cover.chrome?.aiDisclosure ? (
+        <Text style={styles.coverDisclosure}>{cover.chrome.aiDisclosure}</Text>
+      ) : null}
       {cover.notice ? (
         <View style={styles.coverNotice} wrap={false}>
           <Text style={styles.coverNoticeTitle}>{cover.notice.title}</Text>

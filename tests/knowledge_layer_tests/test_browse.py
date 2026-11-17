@@ -1,16 +1,3 @@
-"""The file browser and the literal mode of the search.
-
-``list_files`` and ``knowledge_search(match="exact")`` exist because the agent could see only the
-first fifty names of a project and could only find what ranked in a top-k
-similarity search. These tests pin what makes them the Files pane and Ctrl+F:
-
-* the listing is complete (no cap), filtered and paged, with the subfolders;
-* the phrase search returns EVERY matching file with its count, matching case,
-  umlaut spellings and line breaks or hyphens between words, and its passages
-  are citable grounding hits;
-* neither reads beyond the turn's scope, and neither guesses.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -33,6 +20,7 @@ from knowledge_layer.browse import split_alternatives
 from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import reading_as
 
 from agent.common.brand import PRODUCT_NAME
 from agent.common.source_kinds import Shelf
@@ -131,8 +119,6 @@ class TestSelectFiles:
 
 
 class TestAFiledMailIsListedInTheWordsOfItsVerlauf:
-    """``list_files`` names where a filed mail came from, never an unconfirmed sender as the domain (ADR-0137)."""
-
     THREAD = {"latest_sent_at": "2026-05-14T14:40:00Z", "message_count": 5, "locale": "de"}
     SIGNED = {
         "sent_at": "2026-05-04T06:30:00Z",
@@ -279,8 +265,6 @@ class TestPhraseMatching:
 
 
 class _TextStore:
-    """A retriever that only knows the literal lookup; a ranked search here is a bug."""
-
     def __init__(self, chunks):
         self.chunks = chunks
         self.calls: list[dict] = []
@@ -295,7 +279,6 @@ class _TextStore:
 
 @pytest.fixture
 def search_with(monkeypatch, scope):
-    """Install a retriever into ``knowledge_search`` and neutralise its boot-time reach."""
 
     def install(retriever):
         monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
@@ -330,7 +313,6 @@ class TestExactSearch:
         assert '## Matches for "BA-03"' in text
         assert "- Schnitt_A-A.pdf (Projektwissen): 2×, p. 4" in text
         assert "- Leitfaden_Buero.pdf (Büroablage): 1×, p. 9" in text
-        # Same scope as the ranked search, but the reader's own files are listed first.
         table = text[text.index("## Matches") :]
         assert table.index("Schnitt_A-A.pdf") < table.index("oib-rl_2.pdf")
         assert {call["collection"] for call in store.calls} == {"proj_1", "archiv_1", "oib_knowledge"}
@@ -340,7 +322,6 @@ class TestExactSearch:
         text = await _exact(query="BA-03", folder="Plaene")
         assert "No match for" in text
         assert [call["collection"] for call in store.calls] == ["proj_1"]
-        # A folder is pushed into the query (ADR-0116), not turned into a file list.
         assert store.calls[0]["filters"] == {"folder_ancestors": "plaene"}
 
     async def test_a_narrowing_that_names_no_file_says_so(self, search_with):
@@ -376,8 +357,14 @@ def test_the_exact_mode_is_never_withheld_as_a_repeat_of_the_ranked_one():
     assert ranked == fetch_signature({"name": "knowledge_search", "args": {"query": "ba-03", "match": "meaning"}})
 
 
+@pytest.fixture
+def reads_as_an_office():
+    with reading_as("org_test"):
+        yield
+
+
+@pytest.mark.usefixtures("reads_as_an_office")
 def test_the_store_query_finds_every_spelling_and_honours_a_file_filter(qdrant_store):
-    """Against a real Qdrant: the pattern and the file filter are what the store accepts."""
     retriever = _store_retriever()
     _seed(
         "proj_find",
@@ -397,14 +384,8 @@ def test_the_store_query_finds_every_spelling_and_honours_a_file_filter(qdrant_s
     assert retriever._find_text_sync("no_such_collection", "x", None, 5) == []
 
 
-# ---------------------------------------------------------------------------
-# Review regressions: each test failed before its fix.
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def turn_shelves(monkeypatch):
-    """Restrict the turn to some shelves, as ``focus_file.set_turn_intent`` does for a focused turn."""
 
     def install(shelves):
         monkeypatch.setattr("agent.common.focus_file.get_turn_shelves", lambda: frozenset(shelves))
@@ -413,7 +394,6 @@ def turn_shelves(monkeypatch):
 
 
 def _store_retriever():
-    """The production retriever over the test's Qdrant (``qdrant_store``), with no embedder: exact mode needs none."""
     from knowledge_layer.search import LlamaIndexRetriever
 
     retriever = LlamaIndexRetriever.__new__(LlamaIndexRetriever)
@@ -422,16 +402,14 @@ def _store_retriever():
 
 
 def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
-    """Write ``(file_name, text, page, metadata)`` rows into collection ``name``, as ingestion writes chunks."""
     from knowledge_layer_testing.vector_store import record
     from knowledge_layer_testing.vector_store import write
 
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
-    """An excluded edition and a cover page are not evidence in either mode."""
-
     @pytest.fixture
     def corpus(self, monkeypatch, search_with, qdrant_store):
         retriever = _store_retriever()
@@ -499,6 +477,7 @@ class _FailingStore(_TextStore):
         return await super().find_text(collection_name, pattern, filters, limit)
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestAStoreOutageIsNeverANo:
     def test_the_adapter_raises_on_an_outage_and_answers_empty_for_an_empty_collection(self, qdrant_store, monkeypatch):
         from knowledge_layer.vector_store import store as store_module
@@ -592,11 +571,6 @@ def test_the_store_finds_the_umlaut_form_of_a_transliterated_phrase(qdrant_store
     assert files("müller strasse") == {"b.pdf"}
 
 
-# ---------------------------------------------------------------------------
-# Review regressions: false „belastbares Nein“ from the byte-exact `$contains`.
-# ---------------------------------------------------------------------------
-
-#: One chunk per spelling a real PDF text layer carries.
 _ORIGINALS = [
     ("oib.pdf", "Laut OIB-Richtlinie 2 gilt"),
     ("firma.pdf", "Firma Huber GmbH liefert"),
@@ -618,8 +592,6 @@ def originals_store(qdrant_store):
 
 
 class TestTheStoreFindsWhatAPersonWouldFind:
-    """Against a real Qdrant: the server's narrowing and the Python re-check agree on each case."""
-
     @pytest.fixture
     def store(self, originals_store):
         return originals_store
@@ -628,7 +600,6 @@ class TestTheStoreFindsWhatAPersonWouldFind:
         name, retriever = store
         pattern = phrase_pattern(split_alternatives(query))
         found = retriever._find_text_sync(name, pattern, None, 50)
-        # What the store returned is what the Python side counts: no chunk is fetched and then dropped.
         assert all(group.occurrences for group in group_matches(found, pattern))
         return {chunk.file_name for chunk in found}
 
@@ -696,11 +667,6 @@ class TestAShelfTheTurnRemoved:
     async def test_an_explicit_shelf_inside_the_selection_still_lists(self, scope, turn_shelves):
         turn_shelves({"office_shelf", "session", "base"})
         assert "Leitfaden_Buero.pdf" in await self._call(shelf="office_shelf")
-
-
-# ---------------------------------------------------------------------------
-# The Dokumentart line: what a selection holds, counted over all of it.
-# ---------------------------------------------------------------------------
 
 
 def _typed(*tag_sets: tuple[str, ...], folder: str = "Plaene"):
@@ -777,10 +743,6 @@ class TestTheDokumentartProfile:
         closing = render_listing(select_files(_rows())).rsplit("An index, not a source", 1)[1]
         assert "documents_unreadable:" in closing
 
-
-# ---------------------------------------------------------------------------
-# Themen, the photo's date and camera, and the topic filter.
-# ---------------------------------------------------------------------------
 
 LATITUDE = 47.812345
 LONGITUDE = 13.045678
@@ -909,18 +871,12 @@ class TestTopicsThroughTheTool:
         assert "`topic=`" in _LIST_FILES_DESCRIPTION
 
 
-# ---------------------------------------------------------------------------
-# Fassungen read from the names (the folder brief's revision series)
-# ---------------------------------------------------------------------------
-
-
 def _revisions():
     return file_rows(
         [
             _doc("EG_Grundriss_Index_A_2026-06-01.pdf", "alt", added_at="2026-06-01"),
             _doc("EG_Grundriss_Index_B_2026-07-02.pdf", "Zeichnungen", added_at="2026-07-02"),
             _doc("Baubeschreibung.pdf", "Zeichnungen", added_at="2026-07-03"),
-            # The same name on another shelf is another document, never a Fassung of this one.
             _doc("EG_Grundriss_Index_C_2026-08-14.pdf", shelf="office_shelf", added_at="2026-08-14"),
         ]
     )
@@ -938,7 +894,6 @@ def test_an_older_revision_is_marked_and_names_the_current_one():
 
 
 def test_a_folder_filter_keeps_the_mark_of_a_current_revision_kept_elsewhere():
-    """The older Fassung sits in ``alt/``; listing only it still names the current one."""
     text = render_listing(select_files(_revisions(), shelf="project", folder="alt"))
     assert "current by file name: EG_Grundriss_Index_B_2026-07-02.pdf" in text
     assert "Fassungen: 1 document(s)" in text
@@ -950,7 +905,6 @@ def test_revisions_never_span_two_shelves():
 
 
 def test_no_file_is_called_a_plan_in_the_revision_marks():
-    """CONTEXT.md, „Fassung“: a name with an index says a file has Fassungen, not what it is."""
     text = render_listing(select_files(_revisions(), shelf="project"))
     assert not any(word in text for word in ("Plan ", "Planstand", "Pläne"))
 

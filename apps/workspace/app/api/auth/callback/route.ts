@@ -6,7 +6,7 @@ import { tenantSlotRoute } from '@/lib/db/tenant-context'
 /**
  * Post-login redirect base.
  *
- * The frontend runs behind a proxy (Coolify/Traefik) with Next.js on an
+ * The frontend runs behind a reverse proxy with Next.js on an
  * internal address. Without a baseURL, authkit builds the post-callback
  * redirect from the request origin, which leaks the internal host
  * (e.g. https://0.0.0.0:3001/app/projects) instead of the public domain.

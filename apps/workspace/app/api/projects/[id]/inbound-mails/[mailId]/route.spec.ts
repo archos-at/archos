@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One held mail: metadata only; the service authorizes and shapes it (`service.spec.ts`).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

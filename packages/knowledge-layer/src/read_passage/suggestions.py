@@ -84,8 +84,8 @@ def _unknown_document_message(document: str, known: int, suggestions: Sequence[s
     if known <= 0:
         base = (
             f"No document in scope is named {document!r}. No documents are readable this turn — "
-            "the inventory is empty. Check the knowledge-base inventory (`surface_documents`) for "
-            "what is filed, or call `knowledge_search` with the topic when you do not yet know "
+            "the inventory is empty. List the files for what is filed, "
+            "or call `knowledge_search` with the topic when you do not yet know "
             "which document holds it. Do not invent a citation. " + _NOT_READABLE_IS_NOT_ABSENT
         )
     else:

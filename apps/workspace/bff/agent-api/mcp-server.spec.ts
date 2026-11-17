@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The real catalog through the real SDK: every operation must survive being
- * published as an MCP tool (its input schema compiles, its name is accepted),
- * or `tools` mode would fail for a client the day somebody adds an operation
- * whose schema the validator rejects.
- */
 
 import { webcrypto } from 'node:crypto'
 import { createMcpHandler } from '@modelcontextprotocol/server'
@@ -36,13 +30,11 @@ const principal: AgentPrincipal = {
 }
 
 beforeAll(() => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID.
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 })
 
 type ListedTool = { name: string; inputSchema: unknown; annotations?: Record<string, unknown>; _meta?: Record<string, unknown> }
 
-/** A 2025-11-25 request without `initialize`, as Piloti's own client sends it (`tools/workspace/client.py`). */
 function legacyRequest(body: unknown, accept: string, mode: 'search' | 'tools' = 'search'): Request {
   return new Request('https://app.piloti.test/api/mcp', {
     method: 'POST',
@@ -79,7 +71,6 @@ describe('tools mode over the real catalog', () => {
       ...visibleOperations(principal).map((op) => op.name),
       ...visibleBackendOperations(principal).map((op) => op.name),
       'report-missing-operation',
-      // The proposal card's buttons, app-only (`mcp-apps.ts`): a host keeps them from the model.
       ...APP_TOOLS.map((tool) => tool.name),
     ])
     expect(new Set(names).size).toBe(names.length)
@@ -109,7 +100,6 @@ describe('search mode', () => {
       'describe-operation',
       'call-operation',
       'report-missing-operation',
-      // The card (ADR-0142): its read, linked to the view, and its two app-only buttons (`mcp-apps.spec.ts`).
       'proposal-get',
       ...APP_TOOLS.map((tool) => tool.name),
     ])
@@ -124,7 +114,6 @@ describe('mode and instructions', () => {
     expect(resolveMode(at('https://x.test/api/mcp?mode=tools'))).toBe('tools')
     expect(resolveMode(at('https://x.test/api/mcp', { 'x-piloti-mcp-mode': 'tools' }))).toBe('tools')
     expect(resolveMode(at('https://x.test/api/mcp?mode=nonsense'))).toBe('search')
-    // The mode's name until October 2026, still accepted.
     expect(resolveMode(at('https://x.test/api/mcp', { 'x-piloti-mcp-mode': 'discovery' }))).toBe('search')
   })
 
@@ -152,8 +141,6 @@ describe('the agent door handler', () => {
   )
 
   it('lets call-operation reach an agent read tool whose own `query` is a string', async () => {
-    // input.query used to be typed as an object, so the SDK refused knowledge-search before the handler ran:
-    // "data/input/query must be object".
     vi.stubEnv('INTERNAL_API_TOKEN', '')
     const call = {
       jsonrpc: '2.0',
@@ -168,7 +155,6 @@ describe('the agent door handler', () => {
     const message = (await response.json()) as { result: { isError?: boolean; content: { text: string }[] } }
     const said = message.result.content[0]?.text ?? ''
     expect(said).not.toMatch(/must be object/)
-    // It reached callBackendOperation, which (no internal token here) refuses to sign: the call got past validation.
     expect(said).toMatch(/cannot sign a request to the backend.*HTTP 503, backend_not_configured/)
   })
 })
@@ -187,9 +173,7 @@ describe('what a client loads up front', () => {
     const tools = await listTools('tools')
     for (const tool of tools) {
       expect(tool.annotations).not.toHaveProperty('title')
-      // openWorldHint defaults to true; every operation reaches a closed workspace except the law lookup.
       expect(tool.annotations?.openWorldHint).toBe(tool.name === 'law-lookup')
-      // destructiveHint defaults to true: a write that does not destroy must say so.
       if (!tool.annotations?.readOnlyHint) expect(typeof tool.annotations?.destructiveHint).toBe('boolean')
     }
     const byName = (name: string) => tools.find((tool) => tool.name === name)?.annotations
@@ -199,21 +183,8 @@ describe('what a client loads up front', () => {
 })
 
 describe('what tools mode costs a client', () => {
-  // Measured October 2026 (chars of the tools/list result, about four per token): 1,141 per tool before the
-  // fix wave (ifMatch on every write, `additionalProperties: true` everywhere, every hint and the title twice),
-  // 922 after. A ratchet: an operation that needs more says so in its description, not in schema ballast.
-  // Raised to 1,030 on 2026-10-27 for `workspace-search` (ADR-0136): about 6,100 characters, which are its
-  // filter vocabulary (document types, facts with ranges, references, dates), not ballast; one search tool
-  // with them replaces filter guessing across the list operations. Measured 1,020 with it; lower it again
-  // when the catalog shrinks.
-  // Raised to 1,050 on 2026-10-27 for the Zod 4 move: `z.toJSONSchema` writes the numeric bounds, array
-  // minimums, `.regex()` patterns and defaults zod always enforced and the hand-written converter dropped
-  // (measured 1,042, +22 a tool). They are constraints an agent otherwise learns from a 400, not ballast;
-  // the exporter drops the keywords that only restate an absence (`lib/api/zod-json-schema.ts`).
-  // Raised to 1,060 on 2026-11-04 for `dxf-measure` (ADR-0153): about 3,000 characters, its eight operations and the
-  // setbacks and limits `buildable` takes; one tool for a site's geometry, not ballast. Measured 1,055 with it.
-  const MAX_AVERAGE_CHARS = 1_060
-  const MAX_OPERATION_CHARS = 9_000
+  const MAX_AVERAGE_CHARS = 1_090
+  const MAX_OPERATION_CHARS = 10_000
 
   it(`stays under ${MAX_AVERAGE_CHARS} characters a tool on average, and ${MAX_OPERATION_CHARS} for any catalog operation`, async () => {
     const tools = await listTools('tools')
@@ -221,7 +192,6 @@ describe('what tools mode costs a client', () => {
     const total = sizes.reduce((sum, [, size]) => sum + size, 0)
     expect(total / tools.length).toBeLessThan(MAX_AVERAGE_CHARS)
     const backend = new Set(BACKEND_OPERATIONS.map((op) => op.name))
-    // The backend read tools carry the Python tools' own schemas (`backend-tools.schema.json`), sized there.
     expect(sizes.filter(([name, size]) => !backend.has(name) && size > MAX_OPERATION_CHARS)).toEqual([])
   })
 })

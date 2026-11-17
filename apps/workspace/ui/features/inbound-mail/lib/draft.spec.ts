@@ -1,9 +1,3 @@
-/**
- * The draft a person edits and the request it becomes (D26): The agent's
- * suggestion pre-filled, unchecked parts left out (the server dismisses
- * them), acknowledgements only where the mail needs them and never in bulk.
- */
-
 import { describe, expect, it } from 'vitest'
 import { FOLDERS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail/fixtures'
 import {
@@ -49,7 +43,6 @@ describe('initialDraft', () => {
       kind: 'create',
       name: 'Baustellenbegehung',
       folder: { kind: 'existing', folderId: FOLDERS[3].id, path: 'Korrespondenz' },
-      // The correspondence folder is the rule's pick, not the agent's: no mark on it.
       folderSuggested: false,
       releaseName: false,
     })

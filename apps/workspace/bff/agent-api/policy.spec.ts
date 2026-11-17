@@ -52,7 +52,6 @@ describe('callDecision', () => {
 
   it('lets in-product Piloti read', () => {
     expect(callDecision(piloti, op('project-list'))).toBe('run')
-    // A POST that only searches is still a read.
     expect(callDecision(piloti, op('workspace-search'))).toBe('run')
   })
 
@@ -72,7 +71,6 @@ describe('visibleOperations', () => {
   })
 
   it('ignores piloti:sensitive while WorkOS does not define and enforce it (M5)', () => {
-    // A token carrying the string proves nothing until the authorization server grants it on step-up.
     expect(SENSITIVE_SCOPE_ENFORCED_BY_WORKOS).toBe(false)
     expect(names(person([SENSITIVE_SCOPE]))).not.toContain('project-folder-access-set')
     expect(findVisibleOperation(person([SENSITIVE_SCOPE]), 'project-folder-access-set')).toBeUndefined()
@@ -119,12 +117,10 @@ describe('visibleOperations', () => {
   })
 
   it('hides from Piloti, and only from Piloti, what Piloti does with a native tool; it stays on the door', () => {
-    // `annotation-create` is Piloti's `canvas__mark` (exposure.config.ts); the fake catalog has no native twin of its own.
     const mark = { ...op('project-member-add'), name: 'annotation-create' }
     expect(nativeToolOf('annotation-create')).toBe('canvas__mark')
     expect(canSee(piloti, mark)).toBe(false)
     expect(canSee(person(), mark)).toBe(true)
-    // Visibility only: the operation is on the office door, so a proposal filed before still applies.
     expect(isOnDoor('annotation-create')).toBe(true)
     expect(nativeToolOf('project-list')).toBeUndefined()
   })
@@ -151,7 +147,6 @@ describe('the guards on a sensitive operation (ADR-0122)', () => {
 
   it('needs the organization’s opt-in for that class, the scope, and the scope enforced', () => {
     expect(maySeeSensitive(optedIn(['access']), 'access', true)).toBe(true)
-    // The other class stays off: an office may let agents share and keep its keys.
     expect(maySeeSensitive(optedIn(['access']), 'secret', true)).toBe(false)
     expect(maySeeSensitive(optedIn(['secret']), 'secret', true)).toBe(true)
     expect(maySeeSensitive(optedIn([]), 'access', true)).toBe(false)

@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    An agent on the platform door can now narrow its read of the whole base
+    corpus (platform-knowledge-base-get) by file name and country, leave out
+    the summaries, and page through it. Before, a corpus of about ninety files
+    was cut off and the files past the cut could not be listed.

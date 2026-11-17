@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The `agent_document` producer (ADR-0054).
- *
- * The renderer's assertion is the one that matters, and it is on the STRING:
- * Markdown carries no metadata, so a marking that is not in the prose is not in
- * the file — and `fileGeneratedDocument` refuses a rendering whose marking it
- * cannot find in the bytes, which is what makes that a gate rather than a
- * convention. Two of the three earlier producers shipped unmarked precisely
- * because every assertion available was about the object that described the
- * file rather than about the file.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,11 +8,6 @@ vi.mock('./generated', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./generated')>()),
   fileGeneratedDocument: vi.fn(),
 }))
-// The two reads the branding resolution makes. Stubbed rather than left to fail
-// soft: both DO fail soft (see `loadOrganizationBrandingOverride`), but a spec
-// that relied on that would be asserting the platform default by way of a
-// database that is not there, and would go on passing if the override layer
-// stopped being read at all.
 vi.mock('@/lib/organizations/service', () => ({
   getOrgSettings: vi.fn(async () => ({ displayName: null, defaultLocale: 'de', settings: {} })),
   getOrganizationDisplayName: vi.fn(async () => 'Musterbüro ZT GmbH'),
@@ -47,6 +31,7 @@ import {
 } from './agent-document'
 import { GENERATED_DOCUMENT_PRODUCER_REF_KINDS } from './generated'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { getOrgSettings } from '@/lib/organizations/service'
 
 const session = { userId: 'user_1', organizationId: 'org_1', email: 'a@example.test' } as AuthorizedSession
 
@@ -61,6 +46,7 @@ describe('renderAgentDocumentMarkdown', () => {
     disclaimer: PLATFORM_DOCUMENT_BRANDING.copy.de.disclaimer,
     logo: null,
     aiGeneratorName: PRODUCT_NAME,
+    aiDisclosure: `Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`,
   }
 
   it('puts the marking IN the bytes, which is the only place Markdown has', () => {
@@ -73,9 +59,8 @@ describe('renderAgentDocumentMarkdown', () => {
     const text = new TextDecoder().decode(
       renderAgentDocumentMarkdown('# Aktenvermerk', marking, branding).bytes,
     )
-    // Inside a fenced block, after the body. A `<!-- … -->` wrapper survives the
-    // byte check and dies on the first "paste as plain text".
     expect(text).toMatch(/```\nAIGenerated=true;/)
+    expect(text).toContain('DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia')
     expect(text.indexOf('# Aktenvermerk')).toBeLessThan(text.indexOf('AIGenerated=true'))
   })
 
@@ -87,9 +72,6 @@ describe('renderAgentDocumentMarkdown', () => {
   })
 
   it('carries the branding IN the bytes, which is the only place a file has', () => {
-    // The byline in the preview pane is chrome and stays in the app. A file on
-    // somebody's disk, or attached to an Einreichung, carries only what is
-    // inside it — so every one of these four lines is asserted on the string.
     const text = new TextDecoder().decode(
       renderAgentDocumentMarkdown('# Aktenvermerk', marking, branding).bytes,
     )
@@ -101,15 +83,21 @@ describe('renderAgentDocumentMarkdown', () => {
   })
 
   it('puts the header line above the title and the disclaimer below the body', () => {
-    // One line of chrome above, three sentences of liability below. The other
-    // way round turns every preview and every paste into a disclaimer with a
-    // document underneath it.
     const text = new TextDecoder().decode(
       renderAgentDocumentMarkdown('# Aktenvermerk\n\nGK 4.', marking, branding).bytes,
     )
     expect(text.indexOf(branding.headerLine)).toBeLessThan(text.indexOf('# Aktenvermerk'))
     expect(text.indexOf('GK 4.')).toBeLessThan(text.indexOf(branding.prose))
     expect(text.indexOf(branding.prose)).toBeLessThan(text.indexOf('AIGenerated=true'))
+  })
+
+  it('opens with the Art. 50(1) disclosure, above the title, a letter to a Behörde included', () => {
+    const text = new TextDecoder().decode(
+      renderAgentDocumentMarkdown('# Ansuchen um Fristerstreckung\n\nSehr geehrte Damen und Herren,', marking, branding)
+        .bytes,
+    )
+    expect(text.indexOf(branding.headerLine)).toBeLessThan(text.indexOf(branding.aiDisclosure))
+    expect(text.indexOf(branding.aiDisclosure)).toBeLessThan(text.indexOf('# Ansuchen'))
   })
 })
 
@@ -123,12 +111,29 @@ describe('the filing seam resolves the branding once', () => {
     expect(branding.headerLine).toBe(`Erstellt mit ${PRODUCT_NAME} für Musterbüro ZT GmbH`)
     expect(branding.aiGeneratorName).toBe(PRODUCT_NAME)
   })
+
+  it('discloses the AI system and the office it acts for, in the document’s language', async () => {
+    const de = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: 'Musterbüro ZT GmbH', locale: 'de' })
+    expect(de.aiDisclosure).toBe(`Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`)
+    const en = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: null, locale: 'en' })
+    expect(en.aiDisclosure).toBe(`Written by ${PRODUCT_NAME}, an AI system.`)
+  })
+
+  it('keeps the disclosure when an office overrides its branding copy', async () => {
+    vi.mocked(getOrgSettings).mockResolvedValueOnce({
+      displayName: null,
+      defaultLocale: 'de',
+      homeCountry: 'AT',
+      settings: { documentBranding: { copy: { de: { header: 'Büro {organization}', prose: 'Von uns.' } } } },
+    } as Awaited<ReturnType<typeof getOrgSettings>>)
+    const branding = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: 'Musterbüro ZT GmbH', locale: 'de' })
+    expect(branding.headerLine).toBe('Büro Musterbüro ZT GmbH')
+    expect(branding.aiDisclosure).toBe(`Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`)
+  })
 })
 
 describe('the producer is registered', () => {
   it('files under a reference kind that is not a run, because it is not one', () => {
-    // `{conversation id}-{slug}` is not in the job store. Writing it into
-    // `AIRunId` is the mistake migration 0066 exists to end.
     expect(GENERATED_DOCUMENT_PRODUCER_REF_KINDS.agent_document).toBe('answer_artifact')
   })
 })
@@ -184,14 +189,11 @@ describe('fileAgentDocumentDraft', () => {
     })
     expect(vi.mocked(fileGeneratedDocument).mock.calls[0][0].origin).toEqual({
       conversationId: 's_conv_1',
-      // The agent's route says nothing about a language; the refusal is German.
       locale: 'de',
     })
   })
 
   it('does not fork a second draft when the reference was already filed', async () => {
-    // A retried turn must get the draft it wrote, not another one. Revising is a
-    // different gesture with a different route.
     vi.mocked(fileGeneratedDocument).mockResolvedValue({
       documentId: 'doc_1',
       filename: 'aktenvermerk-2026-09-10.md',

@@ -1,15 +1,3 @@
-"""The loop eval's bookkeeping — the only part of it a CI machine can run.
-
-`scripts/loop_eval.py` needs a backend with the OIB corpus ingested and a model
-key behind it, so the RUN is an operator's job (see the script's header and
-`docs/contributing/testing-and-verification.md`). What is testable here is
-everything between the turn and the reader: how a turn's events become a row,
-how rows survive a round-trip through CSV, and what a comparison of two runs
-says. That is not incidental plumbing — it IS the measurement, and a comparison
-that quietly drops a question, or reads a column that has since been renamed,
-would report a delta that came from the harness rather than from the agent.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -22,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load_loop_eval():
-    """Import ``scripts/loop_eval.py`` without requiring a package."""
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     spec = importlib.util.spec_from_file_location("scripts.loop_eval", REPO_ROOT / "scripts" / "loop_eval.py")
@@ -65,8 +52,6 @@ def questions():
 
 
 class TestTheQuestionSet:
-    """The fixture the runner reads. Thirty-one questions, each answerable."""
-
     def test_it_is_thirty_one_questions_with_unique_ids(self, questions):
         assert len(questions) == 31
         assert len({q.id for q in questions}) == 31
@@ -75,8 +60,6 @@ class TestTheQuestionSet:
         assert {q.kind for q in questions} <= {"ruling", "walkthrough", "direct"}
 
     def test_it_carries_a_control_that_must_not_grow_a_verdict(self, questions):
-        """A set of only legal questions cannot notice a loop change that turns
-        "what is in my Brandschutz folder" into a ruling."""
         assert any(q.kind == "direct" and q.family is None for q in questions)
 
     def test_it_spans_more_than_one_guideline_and_reaches_provincial_law(self, questions):
@@ -85,9 +68,6 @@ class TestTheQuestionSet:
         assert "Bauordnung" in families
 
     def test_provincial_law_is_measurable_and_spans_more_than_one_land(self, questions):
-        """One Bauordnung row out of twenty-three could not measure a retrieval
-        path, and the nine state codes differ — a set that only ever asks about
-        Wien cannot notice a Viennese answer to a Tyrolean question."""
         bauordnung = [q for q in questions if q.family == "Bauordnung"]
         assert len(bauordnung) >= 5
         asked = " ".join(q.question for q in bauordnung)
@@ -96,19 +76,9 @@ class TestTheQuestionSet:
         assert "Salzburg" in asked
 
     def test_no_bauordnung_row_claims_a_paragraph_nothing_here_can_verify(self, questions):
-        """`paragraph` follows `clause`'s discipline: a § read off a committed
-        fixture, never one somebody remembered. There is no committed RIS
-        fixture yet, so every one of them is null — and the day one is filled
-        in, this test is the line that says where it must come from."""
         assert [q.id for q in questions if q.paragraph] == []
 
     def test_every_expected_clause_exists_in_the_committed_structural_index(self, questions):
-        """A remembered Punkt number scores a correct answer as wrong.
-
-        The index is the same one the retrieval harness uses, built from the
-        real PDFs by `scripts/build_clause_index.py`, so a Punkt named here is a
-        Punkt the corpus actually has.
-        """
         import json
 
         index_path = REPO_ROOT / "evals" / "oib-retrieval" / "fixtures" / "clause_index.json"
@@ -122,8 +92,6 @@ class TestTheQuestionSet:
 
 
 class TestOneRow:
-    """A turn's own status events become one row. No second measuring channel."""
-
     def _steps(self, *payloads: dict) -> list[dict]:
         import json
 
@@ -152,11 +120,9 @@ class TestOneRow:
     def test_a_child_clause_counts_and_a_sibling_does_not(self):
         assert loop_eval.clause_matches("5.1", ["5.1.2"]) == "yes"
         assert loop_eval.clause_matches("5.1", ["5.2"]) == "no"
-        # `5.11` is not a child of `5.1`; a bare prefix test would say it is.
         assert loop_eval.clause_matches("5.1", ["5.11"]) == "no"
 
     def test_an_unmeasured_clause_is_blank_and_not_a_miss(self):
-        """A question with no expected Punkt must not drag the match rate down."""
         assert loop_eval.clause_matches(None, ["3.1"]) == ""
         assert loop_eval.summarise([_row("a", expected_clause="", clause_match="")]).clause_measured == 0
 
@@ -164,8 +130,6 @@ class TestOneRow:
         assert loop_eval.cited_clauses("Pkt. 3.5.2 und Punkt 5.1, siehe Pkt 4") == ["3.5.2", "5.1", "4"]
 
     def test_the_coverage_event_becomes_the_family_column(self):
-        """The runner reads the product's own `status:coverage` records, one
-        per family, and folds them into one cell."""
         question = loop_eval.Question(id="q", question="?", family="OIB-RL 2", clause=None, kind="walkthrough")
         steps = [
             {"name": "status:coverage:2", "payload": '{"family":"2","listed":4,"opened":3}'},
@@ -180,12 +144,7 @@ class TestOneRow:
 
 
 class TestLocatorEligible:
-    """A search that names a file the locator could open is eligible."""
-
     def test_the_name_the_oib_publishes_a_guideline_under_counts(self):
-        """The OIB publishes 2.2 as ``oib-richtlinie_2.2_ausgabe_mai_2023.pdf``.
-        The stem alone, without the ``.pdf`` that another alternative matches,
-        must still read as a file."""
         question = loop_eval.Question(id="q", question="?", family=None, clause=None, kind="walkthrough")
         payloads = [("retrieve.knowledge_search", {"input": {"query": "oib-richtlinie_2.2_ausgabe_mai_2023"}})]
 
@@ -202,9 +161,6 @@ class TestTheCsv:
         assert loop_eval.read_csv(path) == rows
 
     def test_the_header_is_the_contract(self, tmp_path: Path):
-        """A CSV from another version of this script has different columns, and
-        comparing the two without noticing produces a delta that came from the
-        schema rather than from the agent."""
         path = tmp_path / "old.csv"
         path.write_text("id,rounds\na,2\n", encoding="utf-8")
 
@@ -212,8 +168,6 @@ class TestTheCsv:
             loop_eval.read_csv(path)
 
     def test_an_error_row_is_written_rather_than_dropped(self, tmp_path: Path):
-        """A dead turn is a fact about the run. Dropping it would improve every
-        rate it touched."""
         path = tmp_path / "run.csv"
         loop_eval.write_csv(path, [_row("a"), _row("b", kind="", rounds="", error="ReadTimeout: …")])
 
@@ -236,17 +190,12 @@ class TestComparing:
         assert loop_eval.changed_rows([_row("a")], [_row("a")]) == []
 
     def test_a_question_present_in_only_one_run_is_reported_not_joined_away(self):
-        """A set that grew or shrank between runs is exactly what a silent inner
-        join would hide, and every aggregate below it would then be comparing
-        different populations."""
         moved = loop_eval.changed_rows([_row("a")], [_row("a"), _row("b", rounds="3")])
 
         assert ("b", "rounds", "—", "3") in moved
         assert all(question_id == "b" for question_id, *_ in moved)
 
     def test_the_expectations_are_not_compared(self):
-        """`expected_*` is the question set, not the agent. A change there is a
-        change to the eval and belongs in its own diff."""
         moved = loop_eval.changed_rows([_row("a")], [_row("a", expected_family="OIB-RL 4")])
         assert moved == []
 
@@ -260,12 +209,9 @@ class TestComparing:
         assert "retrieval rounds, total: 2 → 3 (+1)" in report
 
     def test_family_coverage_is_read_as_opened_of_listed(self):
-        """The column this set exists to move: "OIB-RL 2, three of four parts"."""
         assert loop_eval.family_coverage("2 3/4 4 1/1") == [("2", 3, 4), ("4", 1, 1)]
 
     def test_an_empty_or_unreadable_coverage_cell_scores_nothing(self):
-        """A cell the harness could not write is a harness fault. Scoring it as
-        a complete miss would blame the agent for it."""
         assert loop_eval.family_coverage("") == []
         assert loop_eval.family_coverage("2 drei/vier") == []
 
@@ -282,20 +228,15 @@ class TestComparing:
         assert moved == [("a", "family_coverage", "2 4/4", "2 3/4")]
 
     def test_the_checkpoint_source_histogram_is_per_round_not_per_turn(self):
-        """A two-round turn contributes two checkpoints. Counting turns would
-        make `argument` and `none` add up to the wrong denominator."""
         summary = loop_eval.summarise([_row("a", checkpoint_sources="none>argument>argument")])
         assert summary.checkpoint_sources == {"none": 1, "argument": 2}
 
     def test_a_first_run_compares_against_nothing_without_dividing_by_zero(self):
-        """`--out` prints the same report against an empty baseline."""
         report = loop_eval.format_comparison([], [_row("a")])
         assert "questions: 0 → 1 (+1)" in report
 
 
 class TestCapRetryIsPositional:
-    """A cap is only a retry when the turn KEPT FETCHING after it."""
-
     def test_a_fetch_after_the_cap_is_a_retry(self):
         payloads = [
             ("status:retrieval:0", {}),
@@ -315,8 +256,6 @@ class TestCapRetryIsPositional:
         assert loop_eval.flag_cap_retry(payloads) == "no"
 
     def test_the_input_token_stop_is_a_cap(self):
-        """The slot that replaced the deleted fan-out one. It was missing from
-        the set, so every token-bound stop read as no cap at all."""
         payloads = [
             ("status:budget:input", {"limit": 600000, "spent": 600001}),
             ("retrieve.knowledge", {"input": {"query": "b"}}),
@@ -341,13 +280,6 @@ class TestCapRetryIsPositional:
 
 
 class TestTheRisColumns:
-    """The three numbers the RIS consolidation is judged on.
-
-    Each is read off the same telemetry the product emits — the round
-    announcements' `tools` list and the `retrieve.ris_lookup` span — so a
-    before/after run measures the agent and not a second measuring channel.
-    """
-
     def _question(self, **overrides) -> loop_eval.Question:
         base = {
             "id": "einreichung-wien-unterlagen",
@@ -372,13 +304,18 @@ class TestTheRisColumns:
         return ("retrieve.ris_lookup", {"input": {"round": 0, "tool": "ris_lookup"}, "output": output})
 
     def test_the_old_three_tool_shape_counts_three_calls(self):
-        """What a before-run looks like: catalog, search, fetch."""
         tools = ["ris_catalog_lookup_tool", "ris_search_tool", "ris_fetch_tool", "knowledge_search"]
 
         assert loop_eval.count_ris_calls(tools) == 3
 
     def test_the_consolidated_shape_counts_one(self):
         assert loop_eval.count_ris_calls(["ris_lookup_tool", "knowledge_search"]) == 1
+
+    def test_the_renamed_lookup_counts_and_its_span_is_read(self):
+        assert loop_eval.count_ris_calls(["law_lookup", "ris_lookup_tool", "knowledge_search"]) == 2
+        span = ("retrieve.law_lookup", {"input": {"round": 0}, "output": {"clause_ids": ["§63Abs1"]}})
+
+        assert loop_eval.paragraph_matches(self._question(), "… § 63 Abs 1 BO Wien …", [span]) == "yes"
 
     def test_a_turn_that_never_touched_ris_counts_zero(self):
         assert loop_eval.count_ris_calls(["knowledge_search", "read_passage"]) == 0
@@ -401,8 +338,6 @@ class TestTheRisColumns:
         assert loop_eval.paragraph_matches(self._question(), "… § 99 BO Wien …", payloads) == "no"
 
     def test_a_committed_expectation_outranks_what_the_turn_retrieved(self):
-        """The same precedence `clause` has: a fact somebody checked beats the
-        turn's own account of itself."""
         payloads = [self._span(clauses=["§63"])]
         question = self._question(paragraph="§ 70")
 
@@ -413,8 +348,6 @@ class TestTheRisColumns:
         assert loop_eval.paragraph_matches(self._question(), "Antwort ohne Paragraf", []) == ""
 
     def test_a_ris_citation_still_in_the_answer_resolved(self):
-        """The answer this harness reads is the post-verification one, so a key
-        still in it is a key `verify_citations` kept."""
         payloads = [self._span(keys=["Bauordnung für Wien, § 63 Abs 1"])]
         answer = "Laut Bauordnung für Wien, § 63 Abs 1 sind die Pläne anzuschließen."
 
@@ -426,15 +359,11 @@ class TestTheRisColumns:
         assert loop_eval.flag_ris_citation_resolved("Dazu kann ich nichts sagen.", payloads) == "no"
 
     def test_a_turn_with_no_ris_span_leaves_the_cell_empty(self):
-        """Before the consolidation there was no span at all — an unmeasured
-        cell, not a failure to attribute to the agent."""
         assert loop_eval.flag_ris_citation_resolved("Antwort", []) == ""
 
 
 class TestTheCli:
     def test_it_refuses_to_run_without_a_backend(self, tmp_path: Path, monkeypatch):
-        """Not a silent no-op: a run with no backend that exits 0 leaves an
-        empty CSV somebody will later compare against."""
         monkeypatch.delenv(loop_eval.BASE_URL_ENV, raising=False)
 
         with pytest.raises(SystemExit) as exit_info:
@@ -455,20 +384,12 @@ WIRE = REPO_ROOT / "contracts" / "wire" / "v2"
 
 
 def _recorded(name: str) -> list[dict]:
-    """A recorded wire v2 turn (`contracts/wire/v2/`), one event per line."""
     import json
 
     return [json.loads(line) for line in (WIRE / name).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 class TestTheSocket:
-    """A turn runs on the chat socket alone (ADR-0068), so the eval reads wire v2.
-
-    The recorded turns are the ones both sides of the contract test against, so
-    a change to the wire that this reader does not follow fails here and not on
-    an operator's run.
-    """
-
     def _fold(self, name: str):
         from agent.common import wire_v2
 
@@ -548,7 +469,6 @@ class TestTheSocket:
         assert loop_eval.socket_url("http://localhost:8001", "c1").startswith("ws://localhost:8001/websocket?v=2")
 
     def test_one_turn_over_a_served_socket(self):
-        """The transport end to end, against a socket that replays a recorded turn."""
         import json
         import threading
 
@@ -559,8 +479,6 @@ class TestTheSocket:
         received: list[object] = []
 
         def handler(ws) -> None:
-            # hello.jsonl holds one recorded hello per line (its variants); a
-            # server sends exactly one, so send the first, not the whole file.
             ws.send(json.dumps(_recorded("hello.jsonl")[0]))
             question = wire_v2.CLIENT_MESSAGE.validate_json(ws.recv())
             received.append(question)
@@ -582,8 +500,6 @@ class TestTheSocket:
 
 
 class TestRunsAndQuestionSetsWrittenBeforeTheRename:
-    """`punkt` was the question key and `punkt_match` / `expected_punkt` the columns; both still read."""
-
     def test_a_question_row_with_the_old_key_reads_as_the_clause(self, tmp_path):
         path = tmp_path / "questions.yaml"
         path.write_text(

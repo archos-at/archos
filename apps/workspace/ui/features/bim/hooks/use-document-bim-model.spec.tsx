@@ -1,17 +1,3 @@
-/**
- * "Which model is THIS file", asked of the document rather than of a project.
- *
- * Every model surface used to resolve through `/api/projects/<id>/bim/models`,
- * which quietly made a project a prerequisite for looking at a model at all.
- * The org-wide Archiv has no project, so a model uploaded there could not be
- * resolved by anything in the Archiv — the file was parsed, indexed and listed
- * as ready, and the preview beside it said there was no model.
- *
- * Same two guarantees as the project list, because the same surfaces depend on
- * them: one request when several ask at once, and a poll that runs while — and
- * only while — an extraction is still going.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { useDocumentBimModel } from './use-bim-model'
@@ -23,7 +9,6 @@ const answer = (status: string) => ({
   json: async () => ({ model: { id: 'model-1', documentId: 'doc-1', status } }),
 })
 
-/** Deferred so several hooks can mount while the first request is unresolved. */
 function pending(): { resolve: () => void; promise: Promise<unknown> } {
   let release: () => void = () => {}
   const promise = new Promise<unknown>((done) => {
@@ -81,16 +66,12 @@ describe('useDocumentBimModel', () => {
     await vi.waitFor(() => expect(result.current.data?.status).toBe('extracting'))
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
-    // The minute after an upload: nothing else would tell this surface that
-    // extraction finished, so the model would sit at "wird gelesen" until the
-    // page was reloaded.
     fetchMock.mockResolvedValue(answer('ready'))
     await vi.advanceTimersByTimeAsync(4_000)
     await vi.waitFor(() => expect(result.current.data?.status).toBe('ready'))
 
     const afterReady = fetchMock.mock.calls.length
     await vi.advanceTimersByTimeAsync(20_000)
-    // A ready model costs nothing: the interval is torn down with the flag.
     expect(fetchMock.mock.calls.length).toBe(afterReady)
   })
 

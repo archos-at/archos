@@ -1,0 +1,38 @@
+import { describe, expect, it } from 'vitest'
+import { siteCountry } from './site'
+import type { ProjectProfile } from './types'
+
+const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '' })
+const assumed = (value: string) => ({
+  value,
+  status: 'unconfirmed' as const,
+  reason: 'r',
+  source: 'agent_suggested' as const,
+  updatedAt: '',
+})
+
+function profile(facts: Record<string, string>, assumptions: Record<string, string> = {}): Pick<ProjectProfile, 'facts' | 'assumptions'> {
+  return {
+    facts: Object.fromEntries(Object.entries(facts).map(([key, value]) => [key, fact(value)])),
+    assumptions: Object.fromEntries(Object.entries(assumptions).map(([key, value]) => [key, assumed(value)])),
+  }
+}
+
+describe('siteCountry', () => {
+  it.each([
+    [profile({ country: 'at', federal_state: 'tyrol' }), 'at'],
+    [profile({ federal_state: 'vienna' }), 'at'],
+    [profile({ country: 'de' }), 'de'],
+    [profile({ country: 'DE' }), 'de'],
+    [profile({ country: 'AT', federal_state: 'Tyrol' }), 'at'],
+    [profile({ country: 'other' }), 'other'],
+    [profile({ federal_state: 'outside_austria' }), 'other'],
+    [profile({}, { federal_state: 'vienna' }), 'at'],
+    [profile({ country: 'de' }, { federal_state: 'vienna' }), 'de'],
+    [profile({ main_use: 'residential' }), null],
+    [profile({ federal_state: 'foo' }), null],
+    [profile({ country: 'germany' }), null],
+  ])('places %j in %s', (input, expected) => {
+    expect(siteCountry(input)).toBe(expected)
+  })
+})

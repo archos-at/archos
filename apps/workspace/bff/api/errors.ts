@@ -82,6 +82,19 @@ export class OrgMemoryDisabledError extends ApiError {
 }
 
 /**
+ * 403 — a memory write that names a temporary conversation (ADR-0180 rule 2).
+ * A temporary conversation keeps nothing: no project, organization or personal
+ * memory. Its own code, like {@link OrgMemoryDisabledError}, so the agent can
+ * tell this intended refusal from a missing permission and say nothing was
+ * kept. English: the agent reads it.
+ */
+export class TemporaryConversationError extends ApiError {
+  constructor(message = 'This conversation is temporary: nothing from it is kept in memory') {
+    super(403, 'TEMPORARY_CONVERSATION', message)
+  }
+}
+
+/**
  * 403 — a conversation that drew on a folder with restricted access may not
  * carry its content to where others read it (ADR-0087): a deep-research run, a
  * task, the project profile, or a folder not restricted at least as narrowly.

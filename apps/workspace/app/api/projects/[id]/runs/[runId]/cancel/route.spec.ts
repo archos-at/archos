@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The cancel route is an adapter and nothing else: the ids in the path reach
- * the service unchanged, the view comes back as the body, and the service's
- * refusals arrive as the statuses the errors carry.
- */
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

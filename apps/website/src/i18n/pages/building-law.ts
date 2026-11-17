@@ -3,16 +3,21 @@
  * `withName`. Text only: images, links and structure live in `src/views/BuildingLawView.astro`.
  *
  * Name no edition or date of the legal corpus here: nothing on the site's side verifies it.
+ * Claim no country's law and no older version of a law by hand: the country lines are generated
+ * from the coverage the country packs state (`coverage.generated.ts`, ADR-0173), and
+ * scripts/check_coverage_copy.py fails copy here that names another country.
  * Evidence for each claim (Belegpflicht):
  * - corpus: OIB-Richtlinien, Austrian law via RIS, a curated norm register, norms an office
  *   uploads itself, cited at the passage: VISION.md ("Building law and norms"); the nine states:
- *   packages/ris-adapter/src/register.py (Landesrecht filter);
+ *   configs/sources/at/ris/source.yml (the Landesrecht filter, table federal_state);
  * - one click opens the passage: owner decision D16;
  * - the project's facts (Bundesland, Gebäudeklasse, uses) asked at setup, OIB-Richtlinien derived:
  *   VISION.md ("Starting a project");
  * - an Einschätzung is marked as one, nothing ungrounded as fact: VISION.md principle 3;
  * - Aktenvermerk drafted into the project, valid with a person's Freigabe: VISION.md ("Writing").
  */
+import { coverageCopy } from './coverage.generated'
+
 const de = {
   title: 'Baurecht und OIB-Richtlinien durchsuchen',
   description:
@@ -56,10 +61,10 @@ const de = {
   coverage: {
     title: 'Was heute abgedeckt ist.',
     items: [
-      { key: 'Landesrecht', value: 'Das Baurecht der neun österreichischen Bundesländer, aus dem Rechtsinformationssystem des Bundes (RIS).' },
+      { key: 'Landesrecht', value: 'Das Baurecht der neun österreichischen Bundesländer, aus dem Rechtsinformationssystem des Bundes (RIS), in der heute geltenden Fassung. Welche Fassung an einem früheren Stichtag galt, zeigt {name} noch nicht.' },
       { key: 'OIB-Richtlinien', value: 'Die OIB-Richtlinien mit ihren Begriffsbestimmungen.' },
       { key: 'Normen', value: 'Ein kuratiertes Normenverzeichnis und die Normen, die Ihr Büro selbst hochlädt.' },
-      { key: 'Deutschland und Schweiz', value: 'Die Rechtstexte noch nicht. Pläne, Modelle, Unterlagen und Bürowissen nutzt {name} unabhängig vom Land.' },
+      { key: coverageCopy.de.itemKey, value: coverageCopy.de.itemValue },
     ],
   },
   roles: {
@@ -85,8 +90,8 @@ const de = {
       a: 'Nein. {name} bereitet vor, sucht und belegt. Über ein Ansuchen entscheidet die Behörde, und die Planung verantwortet Ihr Büro.',
     },
     {
-      q: 'Gilt das auch für Projekte in Deutschland oder der Schweiz?',
-      a: 'Die Rechtstexte decken heute Österreich ab. Projektunterlagen, Pläne, Modelle und Bürowissen nutzt {name} in jedem Land.',
+      q: coverageCopy.de.faqQ,
+      a: coverageCopy.de.faqA,
     },
   ],
   cta: {
@@ -138,10 +143,10 @@ const en: typeof de = {
   coverage: {
     title: 'What is covered today.',
     items: [
-      { key: 'State law', value: 'The building law of the nine Austrian states, from the federal legal information system (RIS).' },
+      { key: 'State law', value: 'The building law of the nine Austrian states, from the federal legal information system (RIS), as in force today. {name} does not yet show which version applied on an earlier reference date.' },
       { key: 'OIB guidelines', value: 'The OIB guidelines with their definitions.' },
       { key: 'Standards', value: 'A curated register of standards and the standards your office uploads itself.' },
-      { key: 'Germany and Switzerland', value: 'Not the legal texts yet. {name} works with plans, models, documents and office knowledge in any country.' },
+      { key: coverageCopy.en.itemKey, value: coverageCopy.en.itemValue },
     ],
   },
   roles: {
@@ -167,8 +172,8 @@ const en: typeof de = {
       a: 'No. {name} prepares, searches and cites. The authority decides on an application, and your firm is responsible for the design.',
     },
     {
-      q: 'Does this work for projects in Germany or Switzerland?',
-      a: 'The legal texts cover Austria today. {name} works with project documents, plans, models and office knowledge in any country.',
+      q: coverageCopy.en.faqQ,
+      a: coverageCopy.en.faqA,
     },
   ],
   cta: {

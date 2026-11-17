@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * The file operations, as one control.
- *
- * One overflow menu, in the object's own header, is what every file manager
- * people already use does. The items themselves live in
- * {@link documentActionEntries} so a right-click on the same object cannot
- * drift from this ⋯. This file owns the dropdown trigger, the dialogs, and
- * the fetch hook.
- *
- * A surface that already shows one of the operations elsewhere (the preview's
- * own Download) passes `actions` to drop it. The workspace wraps the tile in
- * {@link DocumentObjectMenu} so the same list also opens on right-click.
- */
-
 import { useState, type ReactNode } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
@@ -40,7 +26,6 @@ export type { DocumentActionKind }
 
 const NO_ENTRIES: readonly ActionMenuEntry[] = []
 
-/** Overflow-only default: Open / Ask / Copy path belong on the tile, not here. */
 const DEFAULT_ACTIONS: readonly DocumentActionKind[] = [
   'download',
   'downloadPdf',
@@ -52,17 +37,8 @@ const DEFAULT_ACTIONS: readonly DocumentActionKind[] = [
 
 export type MoveTargetFolder = PathFolder
 
-/**
- * Where „Verschieben" is a sheet and not a submenu: under a finger, or on a
- * screen too narrow for a panel to open beside its item.
- */
 const SHEET_MOVE_QUERY = '(pointer: coarse), (max-width: 639px)'
 
-/**
- * Whether „Verschieben" should open the folder sheet. Asked ONCE by a listing
- * and handed to every row (`moveInSheet`): a media-query subscription per row
- * of a thousand-document folder is a thousand listeners for one answer.
- */
 export function useMoveInSheet(): boolean {
   return useMediaQuery(SHEET_MOVE_QUERY)
 }
@@ -75,30 +51,15 @@ export interface DocumentActionsMenuProps {
   onRenamed?: (documentId: string, displayName: string | null) => void
   onDeleted?: (documentId: string) => void
   onReingested?: (documentId: string, status: string) => void
-  /** The read in progress was stopped; carries the row's new status. */
   onCancelled?: (documentId: string, status: string) => void
   folders?: readonly MoveTargetFolder[]
-  /** The move targets, sorted once by a listing — see `documentActionEntries`. Wins over `folders`. */
   destinations?: readonly FolderDestination[]
   onMoved?: (documentId: string, folderId: string | null) => void
   onOpen?: () => void
   onAsk?: () => void
-  /** „Auswählen": a listing's way into picking several documents. Absent where nothing can select. */
   onSelectMode?: () => void
-  /**
-   * „Verschieben" opens a sheet with a search field instead of a submenu
-   * (`useMoveInSheet`). A submenu opens beside its item, and on a phone there
-   * is no beside: it ran off the left edge with its folders out of reach.
-   */
   moveInSheet?: boolean
   trigger?: ReactNode
-  /**
-   * What the default trigger sits on. `floating` (the default) lays it over a
-   * thumbnail or a viewport, so it carries its own translucent ground and
-   * shadow to stay legible on whatever is behind it. `toolbar` sits in a row of
-   * ghost icon buttons (the preview header) and must look like its neighbours:
-   * the floating ground there read as one grey square among plain glyphs.
-   */
   surface?: 'floating' | 'toolbar'
   align?: 'start' | 'end'
   side?: 'top' | 'right' | 'bottom' | 'left'
@@ -122,12 +83,6 @@ export function useDocumentActionMenu({
   moveInSheet = false,
   live = true,
 }: Omit<DocumentActionsMenuProps, 'trigger' | 'align' | 'side'> & {
-  /**
-   * Whether the menu is wanted yet. A listing mounts one of these per row and
-   * passes false until the reader first opens that row's menu: the state is
-   * kept, but no entries are built and no dialogs are mounted for a row
-   * nobody has asked about.
-   */
   live?: boolean
 }) {
   const t = useTranslations(DOCUMENT_SCOPE_COPY[scope])
@@ -191,14 +146,10 @@ export function useDocumentActionMenu({
     onDownloadPdf: () => void documentActions.downloadPdf(),
     onRename: () => setRenameOpen(true),
     onDelete: () => setDeleteOpen(true),
-    // A retry just runs; re-reading an indexed file asks first, because it is
-    // not a repair of anything the reader can see and it costs a full read.
     onReingest: () =>
       reingestOffer(document) === 'reread'
         ? setRereadOpen(true)
         : void documentActions.reingest(),
-    // Stopping a read destroys nothing, so it runs on the click: no dialog
-    // stands between the person and the thing they asked for.
     onCancel: () => void documentActions.cancel(),
     onMove: (folderId, folderName) => void documentActions.move(folderId, folderName),
     onCopyOriginPath: document.originPath ? copyOriginPath : undefined,
@@ -284,11 +235,11 @@ export function DocumentActionsMenu({
           trigger ?? (
             <Button
               type="button"
-              variant="ghost"
+              variant={surface === 'toolbar' ? 'secondary' : 'ghost'}
               size="icon"
               className={cn(
                 'size-8 shrink-0',
-                surface === 'floating' && 'border border-border bg-background shadow-2xs',
+                surface === 'floating' && 'bg-background/85 rounded-full backdrop-blur-sm',
               )}
               aria-label={t('actions.label', { name })}
               title={t('actions.menuLabel')}

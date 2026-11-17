@@ -36,6 +36,7 @@ disagree about what they carry.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -46,13 +47,12 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
+from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
-from agent.observability.langfuse_trace_attributes import GEN_AI_REQUEST_MODEL
+from agent.common.licensed_text import trace_payload
 from agent.observability.langfuse_trace_attributes import METADATA_PREFIX
-from agent.observability.langfuse_trace_attributes import OBSERVATION_MODEL_NAME
 from agent.observability.langfuse_trace_attributes import SESSION_ID_ATTRIBUTE
 from agent.observability.langfuse_trace_attributes import TAGS_ATTRIBUTE
-from agent.observability.langfuse_trace_attributes import usage_observation_attributes
 from agent.observability.otlp_resource import ENDPOINT_ENV
 from agent.observability.otlp_resource import resource_attributes
 from agent.observability.otlp_resource import signal_endpoint
@@ -61,6 +61,9 @@ from agent.observability.trace_context import OBSERVATION_STATUS_MESSAGE_ATTRIBU
 from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
 from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
 from agent.observability.trace_context import process_trace_attributes
+from agent.observability.usage_details import GEN_AI_REQUEST_MODEL
+from agent.observability.usage_details import OBSERVATION_MODEL_NAME
+from agent.observability.usage_details import usage_observation_attributes
 
 logger = logging.getLogger(__name__)
 
@@ -159,13 +162,13 @@ def _current_tracer():
 
 
 def _clip(text: str) -> str:
-    """A payload attribute as it may leave the process: inline images redacted, then cut to the bound.
+    """A payload attribute as it may leave the process: images and licensed text redacted, then cut to the bound.
 
-    Every payload this tracer writes passes here, so no prompt, output or pick carries an image's
-    bytes (``common.image_redaction``), as on the agent runtime's pipeline spans. Redacted before the cut, so a
-    cut never leaves half a data URL the pattern no longer matches.
+    Every payload this tracer writes passes here, so no prompt, output or pick carries an image's bytes
+    (``common.image_redaction``) or a licensed passage past its quote cap (``common.licensed_text``). Redacted
+    before the cut, so a cut never leaves half a data URL the pattern no longer matches.
     """
-    text = redact_inline_images(text)
+    text = trace_payload(redact_inline_images(text))
     if len(text) <= MAX_PAYLOAD_CHARS:
         return text
     return text[:MAX_PAYLOAD_CHARS] + TRUNCATION_MARKER
@@ -231,6 +234,7 @@ def _usage_attributes(usage: Any) -> dict[str, Any]:
         completion_tokens=_count(usage.get("completion_tokens")),
         total_tokens=_count(usage.get("total_tokens")),
         cached_tokens=_count(_mapping(usage.get("prompt_tokens_details")).get("cached_tokens")),
+        cache_write_tokens=_count(_mapping(usage.get("prompt_tokens_details")).get("cache_write_tokens")),
         reasoning_tokens=_count(_mapping(usage.get("completion_tokens_details")).get("reasoning_tokens")),
         cost_usd=cost if isinstance(cost, int | float) and not isinstance(cost, bool) else None,
     )
@@ -316,22 +320,30 @@ class _ObservedGeneration:
         self._feature = feature
         self._attributes = attributes
         self._span: Any | None = None
+        self._sink: Any = None
 
     async def __aenter__(self) -> GenerationRecorder:
-        self._span = _start_span(self._feature, self._attributes)
-        return GenerationRecorder(self._span)
+        return self.__enter__()
 
     async def __aexit__(self, exc_type, exc, traceback) -> bool:
-        _end_span(self._span, exc)
-        return False
+        return self.__exit__(exc_type, exc, traceback)
 
     def __enter__(self) -> GenerationRecorder:
         self._span = _start_span(self._feature, self._attributes)
+        # The seam reports where the call inside this block went (``common/residency.record_route``).
+        self._sink = residency.route_sink().set(functools.partial(_record_route, self._span))
         return GenerationRecorder(self._span)
 
     def __exit__(self, exc_type, exc, traceback) -> bool:
+        residency.route_sink().reset(self._sink)
         _end_span(self._span, exc)
         return False
+
+
+def _record_route(span: Any, route: Any) -> None:
+    """``route``'s processing location, subprocessor and compliance as the generation's own metadata."""
+    if span is not None:
+        span.set_attributes({f"{OBSERVATION_METADATA_PREFIX}{key}": value for key, value in route.metadata().items()})
 
 
 def _start_span(feature: str, attributes: dict[str, Any]) -> Any | None:

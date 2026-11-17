@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run's message and its ledger.
- *
- * Three properties, and they are the ones a review would ask about: the message
- * is minted ONCE however often a submit is retried, a ledger op is folded into
- * the one metadata key this service owns, and every identity in the write comes
- * off the `task_runs` row rather than out of the op.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,8 +19,6 @@ vi.mock('@/lib/conversations/repository', () => ({
 }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
-// The scope a run control signs: the project the service just authorized, as
-// the scope builder resolves it (its own checks are its spec's to pin).
 vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
   buildCollectionScopeFromRequest: vi.fn(async (_session: unknown, context: { projectId?: string }) => ({
     headerValue: 'scope',
@@ -44,17 +34,13 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
   })),
 }))
 vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn(), resolveInboxItemsFor: vi.fn() }))
-// The project's folders and the documents a run is handed: the real Unterlagen refusal runs against them.
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({ findProjectDocumentsByFilenames: vi.fn() }))
-// Partial: the real slot helpers are what a route opens, and replacing the
-// module wholesale would test a service the app does not run.
 vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
   withPlatformAccess: vi.fn(async (_why: string, run: () => Promise<unknown>) => run()),
 }))
-// Partial for the same reason: the error class is what the service narrows on.
 vi.mock('@/lib/jobs/backend-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/jobs/backend-client')>()),
   cancelBackendJob: vi.fn(),
@@ -150,11 +136,9 @@ const session = {
   accessToken: 'wos-token',
 } as unknown as AuthorizedSession
 
-/** The envelope a run control carried, decoded the way the backend reads it. */
 const signedPayload = (caller: JobControlCaller): Record<string, unknown> =>
   JSON.parse(Buffer.from(caller.contextHeaders['X-Request-Context'], 'base64url').toString('utf8'))
 
-/** ADR-0084: the project the service authorized travels signed, so a teammate may steer the run. */
 const expectSignedProject = (caller: JobControlCaller): void => {
   expect(caller.accessToken).toBe('wos-token')
   expect(buildCollectionScopeFromRequest).toHaveBeenCalledWith(session, { projectId: 'project-1' })
@@ -190,9 +174,6 @@ beforeEach(() => {
   vi.mocked(findMessageInConversation).mockResolvedValue(
     message({ [`run_ledger`]: emptyRunLedger(RUN, T0) }),
   )
-  // The repository's contract, faithfully: the patch (or the function that
-  // computes it) is applied to the row as stored, and `writes` is what reached
-  // the column — so "wrote nothing" is observable, not just "was not called".
   writes = []
   vi.mocked(mergeMessageMetadata).mockImplementation(async (conversationId, messageId, patch) => {
     const stored = await findMessageInConversation(conversationId, messageId)
@@ -222,8 +203,6 @@ describe('createRunMessage', () => {
       content: '',
     })
     expect((row.metadata as Record<string, unknown>).run_ledger).toEqual(emptyRunLedger(RUN, T0))
-    // No title given, no key: the block falls back to its own word for an
-    // untitled run, and an empty string would be a title that is empty.
     expect(row.metadata as Record<string, unknown>).not.toHaveProperty('run_title')
   })
 
@@ -242,10 +221,6 @@ describe('createRunMessage', () => {
   })
 
   it('derives the id from the run, so a retried submit is a no-op', async () => {
-    // `insertMessages` upserts with `onConflictDoNothing`, so the second attempt
-    // returns nothing and the message that already exists is read back. Without
-    // the deterministic id, a retried submit would leave two half-written runs
-    // in the thread.
     vi.mocked(insertMessages).mockResolvedValue([])
     vi.mocked(findMessageInConversation).mockResolvedValue(message(null))
 
@@ -258,8 +233,6 @@ describe('createRunMessage', () => {
 
 describe('the ledger stays under the lock', () => {
   it('folds onto the ledger as stored when the lock is taken, not a copy read before it', async () => {
-    // A flush that landed between an earlier read and the lock is the one the
-    // fold must build on; the stored row is read INSIDE the merge.
     await applyRunLedgerOp(RUN, { op: 'append', steps: [step] }, T1)
     const [[, , patch]] = vi.mocked(mergeMessageMetadata).mock.calls
     const landed = openPhase(emptyRunLedger(RUN, T0), 'planning', T0)
@@ -343,7 +316,7 @@ describe('settleRunLedger', () => {
     expect(await settleRunLedger(run, { status: 'success' }, T1)).toBe(false)
   })
 
-  it('lets a real write failure through, so the caller can leave the row active and retry', async () => {
+  it('lets a real write failure through, so the caller knows the block is not settled and leaves it to the heal', async () => {
     vi.mocked(mergeMessageMetadata).mockRejectedValue(new Error('connection reset'))
     await expect(settleRunLedger(run, { status: 'success' }, T1)).rejects.toThrow('connection reset')
   })
@@ -360,8 +333,6 @@ describe('applyRunLedgerOp', () => {
     expect(ledger.steps).toEqual([step])
     expect(ledger.phases).toEqual([{ phase: 'researching', startedAt: T0.toISOString() }])
     expect(ledger.status).toBe('running')
-    // One top-level key. The report, its sources and the transparency keys are
-    // written by the path that produces them, into the same message.
     expect(mergeMessageMetadata).toHaveBeenCalledWith(CONVERSATION, runMessageId(RUN), expect.any(Function))
     expect(writes).toEqual([{ run_ledger: ledger }])
   })
@@ -394,7 +365,6 @@ describe('applyRunLedgerOp', () => {
     })
     expect(resolveInboxItemsFor).not.toHaveBeenCalled()
 
-    // A second flush that is still waiting says nothing new.
     vi.mocked(findMessageInConversation).mockResolvedValue(
       message({ run_ledger: { ...emptyRunLedger(RUN, T0), status: 'waiting' } }),
     )
@@ -415,7 +385,6 @@ describe('applyRunLedgerOp', () => {
         recipientUserId: 'user_1',
         groupKey: expect.stringMatching(/^task_run\.waiting:/),
       },
-      // A row an older pod wrote before 0177 settles too.
       {
         organizationId: 'org_1',
         recipientUserId: 'user_1',
@@ -440,6 +409,30 @@ describe('applyRunLedgerOp', () => {
     expect(ledger.status).toBe('done')
     expect(ledger.result).toEqual({ filedAt: T1.toISOString(), fileId: 'doc-1' })
     expect(ledger.finishedAt).toBe(T1.toISOString())
+  })
+
+  it('keeps the ending the reaper settled when the worker it gave up on flushes again', async () => {
+    const reaped = failRun(openPhase(emptyRunLedger(RUN, T0), 'researching', T0), 'Job timed out', T0)
+    vi.mocked(findMessageInConversation).mockResolvedValue(message({ run_ledger: reaped }))
+
+    const appended = await applyRunLedgerOp(RUN, { op: 'append', status: 'running' }, T1)
+    expect(appended.ledger).toEqual(reaped)
+
+    const finished = await applyRunLedgerOp(RUN, { op: 'finish', result: { filedAt: T1.toISOString() } }, T1)
+    expect(finished.ledger).toEqual(reaped)
+  })
+
+  it('stores a salvaged run as interrupted with its result, the way the worker says it', async () => {
+    const interrupted = { ...openPhase(emptyRunLedger(RUN, T0), 'writing', T0), status: 'interrupted' as const }
+    vi.mocked(findMessageInConversation).mockResolvedValue(message({ run_ledger: interrupted }))
+
+    const { ledger } = await applyRunLedgerOp(
+      RUN,
+      { op: 'finish', result: { filedAt: T1.toISOString(), reportMessageId: 'message-9' } },
+      T1,
+    )
+    expect(ledger.status).toBe('interrupted')
+    expect(ledger.result).toEqual({ filedAt: T1.toISOString(), reportMessageId: 'message-9' })
   })
 
   it('finishes with an error, keeping what had been completed', async () => {
@@ -495,7 +488,6 @@ describe('applyRunLedgerOp', () => {
 
     const { ledger } = await applyRunLedgerOp(RUN, { op: 'append' }, T1)
 
-    // Not "now": a week-old run must not be dated to the moment a flush arrived.
     expect(ledger.startedAt).toBe(T0.toISOString())
   })
 
@@ -559,13 +551,6 @@ describe('getRunView', () => {
   })
 })
 
-/**
- * The cancel is the browser's existing job cancel reached by run id: same
- * backend call, same credential, same permission. What is pinned here is that
- * it refuses before it reaches the backend when there is nothing to stop, and
- * that it writes nothing itself — the row and the ledger are the worker's to
- * close.
- */
 describe('cancelRun', () => {
   it('gates on project:view and the chat permissions, then cancels the backend job as the caller', async () => {
     await expect(cancelRun(session, 'project-1', RUN)).resolves.toMatchObject({
@@ -585,7 +570,6 @@ describe('cancelRun', () => {
   })
 
   it('refuses before the backend when the caller may not chat in the project', async () => {
-    // Once per call this test makes: `clearMocks` drops calls, not implementations.
     vi.mocked(requireProjectAccess)
       .mockResolvedValueOnce(MEMBER)
       .mockRejectedValueOnce(new NotFoundError())
@@ -636,13 +620,6 @@ describe('cancelRun', () => {
   })
 })
 
-/**
- * The worker holds one id, the job store's, and the report has to reach the
- * message the run has been narrating itself in. Three answers matter: it finds
- * that message, it writes the report into it without touching the ledger, and it
- * says „no message here" for a run that has none — which is what keeps the old
- * question-and-answer path alive for the runs that still need it.
- */
 describe('writeRunReport', () => {
   it('fills in the run’s own message, inside the run’s organization', async () => {
     await expect(
@@ -663,12 +640,6 @@ describe('writeRunReport', () => {
     )
   })
 
-  /**
-   * The backend's own spelling arrives and the stored contract leaves. The
-   * translation is the internal messages route's, applied at the one point the
-   * foreign dialect enters — a report whose `sources` stayed under that name is
-   * a message whose citations are silently gone.
-   */
   it('translates the backend’s answer metadata on the way in', async () => {
     await writeRunReport('job-9', {
       content: 'Der Bericht',
@@ -715,17 +686,6 @@ describe('findRunMessageByBackendJobId', () => {
   })
 })
 
-/**
- * Adding a document to a running run is the same door as the cancel: gated the
- * same way, refused before the backend for a run with nothing to hand it to,
- * and it writes nothing itself — the ledger lists the document through the
- * run's own stream once the worker has taken it.
- */
-/**
- * A closed project (ADR-0090): every member reads it and may chat about it, but
- * someone who reads it only because it is closed does not steer another
- * person's run, and nobody hands a run a document, which files into it.
- */
 describe('run mutations in a closed project', () => {
   const outsider = { role: 'project-viewer', closed: true, readsBecauseClosed: true } as const
 
@@ -787,11 +747,6 @@ describe('addRunDocument', () => {
     await expect(addRunDocument(session, 'project-1', RUN, doc)).rejects.toBeInstanceOf(UpstreamError)
   })
 
-  /**
-   * ADR-0084 lets every project:chat member read the run's stream and report,
-   * where the document's name and title would land. A cleared member picking a
-   * document from a restricted folder is refused, and the backend hears nothing.
-   */
   describe('a document from a restricted folder (ADR-0087)', () => {
     const PERSONAL = 'folder-personal'
     const OPEN = 'folder-plaene'
@@ -826,7 +781,6 @@ describe('addRunDocument', () => {
           'project-1',
           'org_1',
           ['Abmahnung_Meier_2026.pdf'],
-          // Held rows too: the answer is only ever a refusal (ADR-0086).
           { includeArchived: true, reader: internalRead('identity') }
         )
         expect(addDocumentToBackendJob).not.toHaveBeenCalled()

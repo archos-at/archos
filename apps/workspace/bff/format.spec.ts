@@ -3,6 +3,7 @@
  */
 import { describe, test, expect } from 'vitest'
 import {
+  formatByteProgress,
   formatBytes,
   formatCount,
   formatCredits,
@@ -54,7 +55,6 @@ describe('formatDate', () => {
 describe('formatDayRange', () => {
   test('an inclusive range of UTC days in the locale range form', () => {
     expect(formatDayRange('2026-09-01', '2026-09-30', 'de')).toBe('1.–30. Sept. 2026')
-    // English sets the dash between thin spaces (U+2009); ICU decides, not us.
     expect(formatDayRange('2026-09-01', '2026-09-30', 'en')).toBe('Sep 1\u2009–\u200930, 2026')
     expect(formatDayRange('2026-12-15', '2027-01-10', 'de')).toMatch(
       /^15\. Dez\. 2026\s–\s10\. Jan\. 2027$/
@@ -72,7 +72,6 @@ describe('formatDayRange', () => {
 
 describe('formatEur', () => {
   test('formats German amounts with comma decimal and trailing symbol', () => {
-    // Uses a non-breaking space between value and symbol.
     expect(formatEur(12.34, 'de')).toBe('12,34 €')
   })
 
@@ -165,9 +164,6 @@ describe('formatTransferRate', () => {
 
 describe('formatBytes', () => {
   test('counts in decimal units, matching the numbers configured beside it', () => {
-    // A quota is entered in GB (BYTES_PER_GB = 1e9) and an upload ceiling in MB
-    // (BYTES_PER_MB = 1e6); a 1024-based formatter renders both as ~93% of what
-    // the administrator typed.
     expect(formatBytes(1_000_000_000, 'en-US')).toBe('1 GB')
     expect(formatBytes(100_000_000, 'en-US')).toBe('100 MB')
   })
@@ -178,16 +174,12 @@ describe('formatBytes', () => {
   })
 
   test('takes its separator and unit word from the locale', () => {
-    // CLDR picks the space itself — a plain one for MB in German, a
-    // non-breaking one for GB — so the assertion normalizes whitespace rather
-    // than embedding an invisible character it would be easy to "fix" wrongly.
     const spaces = (value: string) => value.replace(/\s/g, ' ')
     expect(spaces(formatBytes(4_800_000, 'de'))).toBe('4,8 MB')
     expect(spaces(formatBytes(2_400_000_000, 'de'))).toBe('2,4 GB')
   })
 
   test('renders the byte tier as "B", not as CLDR\'s literal word "byte"', () => {
-    // "878 byte" reads as a typo in a column of "4.8 MB".
     expect(formatBytes(878, 'en-US')).toBe('878 B')
     expect(formatBytes(878, 'de')).toBe('878 B')
   })
@@ -205,5 +197,13 @@ describe('formatBytes', () => {
 
   test('scales past gigabytes', () => {
     expect(formatBytes(3_500_000_000_000, 'en-US')).toBe('3.5 TB')
+  })
+})
+
+describe('formatByteProgress', () => {
+  test('says a transfer as two sizes in the total’s unit, each with one decimal from MB up', () => {
+    expect(formatByteProgress(3_000_000, 6_000_000, 'de')).toEqual({ done: '3,0', total: '6,0 MB' })
+    expect(formatByteProgress(450_000, 6_000_000, 'en')).toEqual({ done: '0.5', total: '6.0 MB' })
+    expect(formatByteProgress(120_000, 361_000, 'de')).toEqual({ done: '120', total: '361 kB' })
   })
 })

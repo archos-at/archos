@@ -1,38 +1,22 @@
 'use client'
 
-/**
- * Section nav for the platform dashboard.
- *
- * The platform tier used to be seven unrelated admin domains stacked in one
- * scrolling column — every one loading on mount, every one with its own
- * skeleton, error card and retry button, and no way to link to any of them.
- * Each is now its own route; this is how you move between them.
- *
- * A rail on `lg` and up (labels always visible — an admin surface visited
- * rarely should not ask you to decode icons), a horizontally scrolling tab
- * strip below that. Section switches `replace` the URL: the tabs are a
- * switcher, not a stack, so Back leaves the platform shell in one step
- * instead of walking Overview → Models → Knowledge.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  type LucideIcon,
   Bandage,
-  BookOpenCheck,
   Building2,
   Cpu,
   DatabaseZap,
+  Globe2,
   HardDrive,
   LayoutGrid,
   MessageSquarePlus,
   Plug,
-  Scale,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  type LucideIcon,
 } from 'lucide-react'
 import { SectionStrip, type SectionNavItem } from '@/components/shell/section-nav'
 import { cn } from '@/lib/utils'
@@ -40,13 +24,6 @@ import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
-/**
- * Sections in four groups, in reading order: the fleet you run, how well it
- * answers, what it knows, and upkeep. Twelve links in one flat column was a list
- * to read top to bottom every visit; grouped, the rail is a map. Lessons and
- * Feedback sit under quality because that is what they are: what the down-votes
- * were distilled into, and what members tell us directly.
- */
 export const PLATFORM_SECTION_GROUPS = [
   {
     key: 'operate',
@@ -54,8 +31,6 @@ export const PLATFORM_SECTION_GROUPS = [
       { key: 'overview', href: '/app/platform', icon: Building2 },
       { key: 'models', href: '/app/platform/models', icon: Cpu },
       { key: 'retrieval', href: '/app/platform/retrieval', icon: SlidersHorizontal },
-      // A curated skill is the most direct thing this dashboard makes: write
-      // one here and every organization is offered it, no deploy.
       { key: 'skills', href: '/app/platform/skills', icon: Sparkles },
     ],
   },
@@ -70,8 +45,7 @@ export const PLATFORM_SECTION_GROUPS = [
   {
     key: 'content',
     sections: [
-      { key: 'knowledge', href: '/app/platform/knowledge', icon: BookOpenCheck },
-      { key: 'norms', href: '/app/platform/norms', icon: Scale },
+      { key: 'countries', href: '/app/platform/countries', icon: Globe2 },
       { key: 'cards', href: '/app/platform/cards', icon: LayoutGrid },
     ],
   },
@@ -80,8 +54,6 @@ export const PLATFORM_SECTION_GROUPS = [
     sections: [
       { key: 'storage', href: '/app/platform/storage', icon: HardDrive },
       { key: 'maintenance', href: '/app/platform/maintenance', icon: DatabaseZap },
-      // Where staff connect their own assistant to this console and to the
-      // cluster's MCP servers (ADR-0126, ADR-0154).
       { key: 'agents', href: '/app/platform/agents', icon: Plug },
     ],
   },
@@ -98,13 +70,6 @@ export const PLATFORM_SECTIONS: readonly PlatformSection[] = PLATFORM_SECTION_GR
 
 export type PlatformSectionKey = PlatformSection['key']
 
-/**
- * The overview lives at the bare `/app/platform`, so it must match exactly —
- * a prefix test would light it up on every subsection. Subsections match their
- * own route and anything nested under it, but on a path boundary: a bare
- * `startsWith` would also mark `/app/platform/norms` active on a sibling route
- * such as `/app/platform/norms-draft`.
- */
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false
   if (href === '/app/platform') return pathname === href
@@ -157,7 +122,7 @@ export function PlatformNav(): JSX.Element {
                         'px-3 py-1.5',
                         active
                           ? 'bg-secondary text-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground'
                       )}
                     >
                       <Icon

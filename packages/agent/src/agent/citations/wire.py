@@ -5,16 +5,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from agent.citations.binding import BindingClassification
-from agent.citations.binding import binding_classification_for_entry
-from agent.citations.binding import binding_note_for_entry
-from agent.citations.binding import document_key
-from agent.citations.binding import source_lane
-from agent.citations.binding import source_origin_token
 from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_place
+from agent.citations.office_lines import office_line_fields
+from agent.citations.roles import classification_for
+from agent.citations.roles import role_fields
+from agent.citations.roles import use_for_entry
+from agent.citations.source_identity import document_key
+from agent.citations.source_identity import source_lane
+from agent.citations.source_identity import source_origin_token
+from agent.common.knowledge_context import EditionUse
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import kind_for_lane
 
@@ -60,21 +62,8 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
     # (chips, Herleitung fan-out, report). Derived from the rich lane
     # classification so the OIB corpus and RIS share the same ``building_law`` kind;
     # the fine lane travels alongside as a sub-label. See ``source_kinds``.
-    # The norm registry is static within a turn; load it at most once here
-    # (only for RIS entries, mirroring both helpers' guard) and hand the same
-    # instance to source_lane and binding_note_for_entry so neither reloads it.
-    from agent.common.norm_registry import load_registry
-    from agent.common.norm_registry import resolve_federal_state
-
-    # Load the registry once for anything that could resolve to a catalogued norm:
-    # a RIS URL (source_lane/binding_note) OR a document identifier (the WIDENED
-    # binding classification matches KB/upload filenames against aliases too). A
-    # bare web URL still skips the load. The instance is shared across all three
-    # helpers so none reloads it. Passing it to source_lane/binding_note_for_entry
-    # is behaviour-neutral: both only read the registry on the RIS branch.
-    registry = load_registry() if (entry.url and "ris.bka.gv.at" in entry.url) or entry.citation_key else None
     place = is_look_place(entry)
-    lane_key, lane_label = source_lane(entry, registry)
+    lane_key, lane_label = source_lane(entry)
     if place:
         # A place is the office's own document, never building law, whatever its
         # file is called (an uploaded „OIB-RL 2.pdf" is still a project document).
@@ -82,16 +71,10 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         lane_key, lane_label = ("office", "Büroablage") if office else ("project", "Projektwissen")
     kind = kind_for_lane(lane_key)
 
-    # Binding classification (rank + coarse status) for the client. Bundesland is
-    # resolved structured-first (signed request context, then prompt text) so a
-    # Wien entry is never claimed for a Tirol project; the resolution is fail-open.
-    try:
-        federal_state = resolve_federal_state(None)
-    except Exception:  # federal_state resolution must never break wire serialization
-        federal_state = None
-    classification = binding_classification_for_entry(entry, registry, federal_state)
-    if place:
-        classification = BindingClassification(rank=None, binding_status="unknown")
+    # Binding status for the client: the role the turn's records give this passage's
+    # edition at the site (ADR-0168), and ``unknown`` wherever they give none (ADR-0175).
+    use = None if place else use_for_entry(entry)
+    classification = classification_for(use, place=place)
 
     payload: dict[str, Any] = {
         # The [N] marker this source carries in the answer prose (when known).
@@ -117,15 +100,11 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         "kind": kind,
         "lane": lane_key,
         "lane_label": lane_label,
-        # Bindingness fact for the popover ("does this bind me?") — only present
-        # for RIS sources the norm registry catalogues with a binding_note.
-        "binding_note": None if place else binding_note_for_entry(entry, registry),
-        # Structured binding status alongside the prose ``binding_note``. ``rank``
-        # is dropped by the None-filter below when the source matched no catalogued
-        # norm; ``binding_status`` is ALWAYS emitted (``unknown`` included) — the
-        # honest "we don't know" is a signal the UI needs, not an absence.
-        "rank": classification.rank,
+        # ``binding_status`` is ALWAYS emitted (``unknown`` included) — the honest
+        # "we don't know" is a signal the UI needs, not an absence. ``rank`` and the
+        # prose ``binding_note`` came from the norm registry and are no longer sent.
         "binding_status": classification.binding_status,
+        **_line_fields(entry, use),
         "file_name": file_name,
         "page": page,
         # WHERE within the document, in the law's own numbering, and HOW NEARLY
@@ -161,6 +140,30 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         "project": _wire_project(entry),
     }
     return {key: value for key, value in payload.items() if value is not None}
+
+
+def _line_fields(entry: SourceEntry, use: EditionUse | None) -> dict[str, Any]:
+    """What the citation's line states: its edition's role, route and dates from the records, and what the
+    passage's producer stated about the text itself (design §6.7; ``docs/design/citations.md``)."""
+    return {
+        # The platform's records where they know the edition; else the office's label of its own copy.
+        **(role_fields(use) or office_line_fields(entry)),
+        # WHERE A PERSON OPENS IT IN PUBLIC: the address the producer stated beside the passage, else the
+        # one the edition's records name. Never the registry identity (``url``) and never a link into a
+        # thread: what an exported document may print beside the designation.
+        "public_url": entry.public_url or (use.source_url if use else None),
+        # The day this turn read a source that was read live; "abgerufen am" says this day, not today's.
+        "retrieved_at": entry.retrieved_at,
+        # Which Fassung the text is, as its producer stated it: an office or project document's index
+        # and day, a consolidated law's in-force day.
+        "revision": _wire_revision(entry),
+    }
+
+
+def _wire_revision(entry: SourceEntry) -> dict[str, str] | None:
+    """``{index?, date?}`` of the Fassung an entry's text is, or None when its producer stated neither."""
+    revision = {"index": entry.revision_index, "date": entry.revision_date}
+    return {key: value for key, value in revision.items() if value} or None
 
 
 def _wire_project(entry: SourceEntry) -> dict[str, str] | None:

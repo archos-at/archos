@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * What filing a diagram LOOKS like — once, for the fence and for the card.
- *
- * The state machine is `../use-diagram-filing.ts`; this is its five sentences
- * and its two controls. Shared for the same reason the hook is: „Das Bild wurde
- * abgelegt, das PDF nicht." and „PDF ergänzen" are a matched pair of claims
- * about one outcome, and two hand-rolled copies of that pair drift into saying
- * different things about the same 201.
- *
- * It renders INLINE, with no chrome of its own, so each surface keeps its own
- * caption layout: the fence puts it beside „Schematisch — ohne Maßangabe." in a
- * figcaption, the card under its own doctrine line. Nothing here is a Button —
- * a filled control in a caption would compete with the drawing and, on the
- * card, with the Fundstelle underneath it. Quiet ink text that behaves like a
- * link is what the rest of this product uses for a secondary action in a meta
- * row, and it is what these already were.
- */
-
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useTranslations } from '@/i18n'
 import { diagramsCopy } from '@/i18n/namespaces/diagrams'
@@ -26,13 +8,6 @@ import { openFiledDocument } from '@/features/documents/lib/open-filed-document'
 import { cn } from '@/lib/utils'
 import type { DiagramFiling } from '../use-diagram-filing'
 
-/**
- * A 12px line of text is a 16px-tall target, and the design language's reading
- * of Fitts is that a control has to survive a thumb. `min-h-11` (44px) with the
- * label vertically centred gives the pointer the area without giving the
- * caption row a button's visual weight — it stays a line of quiet text, which
- * is what it should look like beside „Schematisch — ohne Maßangabe.".
- */
 export const CAPTION_CONTROL =
   'inline-flex min-h-11 items-center rounded-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
@@ -57,18 +32,10 @@ export function DiagramFilingControls({ filing, className }: { filing: DiagramFi
           href={href}
           className={CAPTION_CONTROL}
           data-testid="diagram-open-filed"
-          // A real link, intercepted — not a button dressed as one. Middle
-          // click, "copy link address" and a phone all still get the Files
-          // route; a desktop click gets the pane beside the conversation
-          // instead. `isMobile` is the honest gate: `FilePreviewHost` refuses to
-          // peek below the `md` breakpoint, so on a phone the interception
-          // would be a click that did nothing.
           onClick={(event) => {
             if (isMobile || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
             event.preventDefault()
             void openFiledDocument({ documentId, projectId: target.projectId }).then((opened) => {
-              // The peek could not read the row. Never a dead control: fall
-              // through to the destination the link already names.
               if (!opened) window.location.assign(href)
             })
           }}
@@ -88,8 +55,6 @@ export function DiagramFilingControls({ filing, className }: { filing: DiagramFi
         <button
           type="button"
           onClick={() => void filing.file()}
-          // Disabled until the paper copy exists: in dark mode it lands a beat
-          // after the picture, and a press before then would file nothing.
           disabled={!filing.canFile}
           className={cn(CAPTION_CONTROL, 'disabled:cursor-not-allowed disabled:opacity-60')}
         >

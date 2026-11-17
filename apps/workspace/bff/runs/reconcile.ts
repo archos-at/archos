@@ -27,11 +27,15 @@
  *
  * ## Order, and why it makes a retry safe
  *
- * Message, then ledger, then row (the recorder does the last two in that
- * order). The claim picks only active rows, so closing the row LAST means a
- * sweep that fails halfway leaves the row active and the next sweep does the
- * rest; each earlier step checks before it writes (an empty message, a live
- * ledger), so doing it twice changes nothing.
+ * Message, then row, then ledger (the recorder does the last two in that
+ * order). The row's close is a compare-and-set from the live states, and it
+ * is what decides the ending when the worker's report and this sweep cross:
+ * the first one stands, and the block is settled with the ending the row
+ * holds, never with the one that lost. A sweep that fails before the close
+ * leaves the row active and the next sweep does the rest; the message step
+ * checks before it writes (an empty message), so doing it twice changes
+ * nothing. A block that could not be written after the close is settled by
+ * the heal below, which looks at every closed run once.
  *
  * ## Which rows, how often
  *
@@ -52,7 +56,8 @@
  * or never reached it): past `unknownGraceMinutes` (default 120, three times the
  * longest run's wall clock, so a run that did start has ended by then) the row
  * is closed as failed with a reason that says its result could not be
- * recovered. Before that, it waits.
+ * recovered. Before that, it waits. One such run is not failed: where the
+ * block already reads `done`, the run succeeded (`believeTheBlock`).
  */
 
 import 'server-only'
@@ -61,7 +66,11 @@ import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { fetchBackendJobOutcome, type BackendJobOutcome } from '@/lib/jobs/backend-client'
 import * as taskRepository from '@/lib/tasks/repository'
 import { recordRunOutcome, type TaskOutcome } from '@/lib/tasks/service'
-import { readRunMessage, settleRunLedger, writeRunReport, type RunEnding } from './service'
+import { endingOfClosedRun } from './run-ending'
+import { runDisplayStatus } from './run-vocabulary'
+import { readRunMessage, settleRunLedger, writeRunReport } from './service'
+
+export { endingOfClosedRun }
 
 /** How many runs one sweep claims. Bounded: the sweep is housekeeping on a timer. */
 export const RECONCILE_BATCH = 25
@@ -194,6 +203,24 @@ async function settleRunMessage(run: TaskRun, decision: Extract<ReconcileDecisio
 }
 
 /**
+ * A run whose job the store cannot produce, and whose block reads `done`,
+ * succeeded: the worker writes that only after it stored the report, so the
+ * block is the evidence the lost job would have given. Closed as a success
+ * with the report its message holds, whatever the run's age: there is nothing
+ * left to wait for. Null for every other run, and the age decides as before.
+ *
+ * This is also what closes a run the kill switch left alone
+ * (`claimRunsToInterrupt`) when its worker's report never arrives: found in the
+ * job store it ends by the store's verdict, and lost there it ends here.
+ */
+async function believeTheBlock(run: TaskRun, probe: JobProbe): Promise<ReconcileDecision | null> {
+  if (probe.kind !== 'no-job' && probe.kind !== 'not-found') return null
+  const message = await readRunMessage(run)
+  if (!message?.ledger || runDisplayStatus(message.ledger) !== 'done') return null
+  return { kind: 'close', outcome: { status: 'success', report: message.content.trim() || null }, message: null }
+}
+
+/**
  * Reconcile one claimed run, inside its own organization. Throws only for a
  * failure worth retrying, and then nothing past the failing step was written.
  */
@@ -202,14 +229,28 @@ export async function reconcileRun(
   config: Pick<ReconcileConfig, 'unknownGraceMinutes'>,
   now: Date = new Date(),
 ): Promise<ReconcileVerdict> {
-  const decision = decideReconciliation(run, await probeJob(run), now, config)
-  if (decision.kind === 'wait') return 'waiting'
+  return (await reconcileRunWithEnding(run, config, now)).verdict
+}
+
+/**
+ * {@link reconcileRun}, also saying which ending it closed the run with. For
+ * the kill switch (`./kill-all`), which sends the runs it did not stop itself
+ * down this path and tells the operator how each one ended.
+ */
+export async function reconcileRunWithEnding(
+  run: TaskRun,
+  config: Pick<ReconcileConfig, 'unknownGraceMinutes'>,
+  now: Date = new Date(),
+): Promise<{ verdict: ReconcileVerdict; ending?: TaskOutcome['status'] }> {
+  const probe = await probeJob(run)
+  const decision = (await believeTheBlock(run, probe)) ?? decideReconciliation(run, probe, now, config)
+  if (decision.kind === 'wait') return { verdict: 'waiting' }
 
   await settleRunMessage(run, decision)
-  // The sweep's counts are the log line: the scheduler prints them whenever a
+  // The sweep's counts are the log line: the `runs-reconcile` task prints them whenever a
   // sweep closed or failed something.
   const recorded = await recordRunOutcome(run, decision.outcome, { onlyIfActive: true })
-  return recorded.closed ? 'closed' : 'already-closed'
+  return recorded.closed ? { verdict: 'closed', ending: decision.outcome.status } : { verdict: 'already-closed' }
 }
 
 export interface ReconcileSweepResult {
@@ -220,17 +261,6 @@ export interface ReconcileSweepResult {
   /** Closed runs whose block still read as live, and now reads as ended. */
   healed: number
   failed: number
-}
-
-/**
- * The ending a closed row records, as its block should show it. The row is the
- * authority here: it was closed by the outcome recorder, the reaper's report or
- * the reconciler, each with the job store's verdict.
- */
-export function endingOfClosedRun(run: Pick<TaskRun, 'status' | 'error'>): RunEnding {
-  if (run.status === 'succeeded') return { status: 'success' }
-  if (run.status === 'interrupted') return { status: 'interrupted' }
-  return { status: 'failure', error: run.error }
 }
 
 /**

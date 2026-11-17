@@ -170,6 +170,11 @@ export async function findStorageKeyByIdAndCollection(
  * for this question: its chunks were purged when the folder went to the bin,
  * and an ingest that was still running then must take back out what it
  * inserted afterwards. A restore dispatches it again.
+ *
+ * An archived document is gone for this question in the same way: archiving
+ * purged its chunks and stops the read first (`../archive-read-stop`), and a
+ * job that could not be stopped must not put them back. Nothing dispatches an
+ * archived row (`dispatchDocument`), and unarchiving reads it again.
  */
 export async function documentExistsInCollection(
   documentId: string,
@@ -190,6 +195,7 @@ export async function documentExistsInCollection(
             eq(documents.id, documentId),
             eq(documents.collectionName, collectionName),
             ...(organizationId ? [eq(documents.organizationId, organizationId)] : []),
+            eq(documents.lifecycle, 'active'),
             sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
             // The pipeline asks about the file it just indexed, still held.
             documentVisibleTo(internalRead('ingest')),

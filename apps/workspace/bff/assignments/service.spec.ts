@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Assignment candidates (ADR-0047): who a collaborator may put on the hook.
- *
- * The property under test is the floor — `collaborator`, not `owner`. Share
- * invite candidates require owner because that list exists to change the
- * roster. A project member on a project-visible document is a collaborator
- * and must still be able to name who is responsible.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -114,18 +106,15 @@ beforeEach(() => {
     ]),
   )
   vi.mocked(filterUsersWithProjectAccess).mockResolvedValue(new Set(['user_anna', 'user_bob']))
-  // Anna and Bob are in the project; Carol is not.
   vi.mocked(userHoldsProjectPermission).mockImplementation(async (_session, _project, userId) => userId !== 'user_carol')
   vi.mocked(findDocumentForSession).mockResolvedValue(projectDocument(null))
   vi.mocked(filterUsersWhoMayReadFolder).mockImplementation(async (_org, _project, _folder, userIds) => new Set(userIds))
 })
 
-/** A document filed in a project, in `folderId` (null: the project root). */
 function projectDocument(folderId: string | null): Document {
   return { id: 'doc_1', scope: 'project', projectId: 'proj_1', folderId } as Partial<Document> as Document
 }
 
-/** Only Anna may read the restricted folder `fld_hr`. */
 function onlyAnnaReadsTheFolder(): void {
   vi.mocked(findDocumentForSession).mockResolvedValue(projectDocument('fld_hr'))
   vi.mocked(filterUsersWhoMayReadFolder).mockImplementation(
@@ -184,7 +173,6 @@ describe('listAssignmentCandidates', () => {
   it('lists the org directory when the resource has no project container', async () => {
     stubCallerRole('collaborator', null)
     vi.mocked(findDocumentForSession).mockResolvedValue({ id: 'doc_1', scope: 'office_shelf', projectId: null, folderId: null } as Partial<Document> as Document)
-    // Every person in the directory is a member; the Büroablage asks each membership, not a role.
     vi.mocked(resolveSubjectMembership).mockResolvedValue({ organizationMembershipId: 'om_1', role: 'member', roles: ['member'] })
 
     const candidates = await listAssignmentCandidates(session, 'document', 'doc_1')
@@ -193,8 +181,6 @@ describe('listAssignmentCandidates', () => {
     expect(candidates.map((person) => person.userId)).toEqual(['user_anna', 'user_bob', 'user_carol'])
   })
 
-  // A mark's Zuständige answers and closes it, which are writes: the picker for
-  // a mark lists who may change the document, and leaves out who may only read it.
   it('with access write lists only who may change the document: a reader of the project is left out', async () => {
     vi.mocked(userHoldsProjectPermission).mockImplementation(
       async (_session, _project, userId, permission) =>
@@ -205,7 +191,6 @@ describe('listAssignmentCandidates', () => {
 
     expect(candidates.map((person) => person.userId)).toEqual(['user_anna'])
     expect(filterUsersWhoMayWriteFolder).toHaveBeenCalledWith('org_1', 'proj_1', null, ['user_anna'])
-    // Without it, the same document still lists everyone who may open it: whom a mark may mention.
     const readers = await listAssignmentCandidates(session, 'document', 'doc_1')
     expect(readers.map((person) => person.userId)).toEqual(['user_anna', 'user_bob'])
   })

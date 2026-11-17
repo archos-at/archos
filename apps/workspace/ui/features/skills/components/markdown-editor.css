@@ -39,7 +39,7 @@
   /* A hairline border and the app's radius, in place of the library's stacked
      box-shadow ring and 3px corners. */
   border: 1px solid var(--input);
-  border-radius: var(--radius);
+  border-radius: var(--radius-surface);
   box-shadow: none;
   overflow: hidden;
   font-family: inherit;
@@ -97,7 +97,7 @@
   height: 28px;
   min-width: 28px;
   padding: 0 6px;
-  border-radius: calc(var(--radius) - 6px);
+  border-radius: var(--radius-inline);
   color: var(--text-color-secondary);
   transition:
     background-color var(--motion-quick) var(--ease-out),

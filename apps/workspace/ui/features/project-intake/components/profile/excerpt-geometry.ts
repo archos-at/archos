@@ -1,26 +1,12 @@
-/**
- * Which part of a cited page the Steckbrief shows beside a value: the quoted
- * passage with enough of the page around it to see what it belongs to (the
- * title block it sits in, the line above it), or the whole page, small, when
- * the quote is not found in the page's text (a scan, a quote the reading
- * paraphrased). Pure, in the page's own units at scale 1, top-left origin, the
- * space `passageBounds` answers in.
- */
-
 import type { Box } from '@/features/knowledge/lib/pdf-raster'
 
 export interface Excerpt {
-  /** The part of the page to draw. */
   crop: Box
-  /** The passage, relative to `crop`; null when the whole page is shown. */
   mark: Box | null
 }
 
-/** At least this share of the page's width is shown, so a short quote is not a word on a blank strip. */
 export const MIN_WIDTH_SHARE = 0.5
-/** Margin around the passage, as a share of the page's size, at least. */
 export const MARGIN_SHARE = 0.06
-/** Never flatter than this (width over height): a single line still shows the lines around it. */
 export const MAX_ASPECT = 3
 
 function clampSpan(start: number, length: number, total: number): [number, number] {
@@ -29,7 +15,6 @@ function clampSpan(start: number, length: number, total: number): [number, numbe
   return [from, span]
 }
 
-/** Grow a span around its centre to `length`, kept inside `[0, total]`. */
 function grow(start: number, span: number, length: number, total: number): [number, number] {
   if (span >= length) return clampSpan(start, span, total)
   return clampSpan(start - (length - span) / 2, length, total)

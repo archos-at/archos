@@ -324,7 +324,6 @@ const ProjectChatContent = ({
     <MainLayout
       isAuthenticated={isAuthenticated}
       onSignIn={signIn}
-      projectName={projectName}
       canCollaborate={canCollaborate}
       canChatInProject={canChatInProject}
     />

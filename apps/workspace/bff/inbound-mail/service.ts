@@ -197,6 +197,10 @@ export async function readInboundMailPart(
   if (!part) throw new NotFoundError('Part not found')
   if (part.scanStatus !== 'clean') throw refusal('scan_not_clean', 'This attachment has no clean scan', { partId })
   if (!part.storageKey) throw refusal('gone', 'The bytes of this attachment are no longer held', { partId })
+  // Kept past its erasure only for a legal hold: evidence for people, never bytes for an agent.
+  if (actingReaderIsAgent() && (part.erasureDeferredAt || mail.erasureDeferredAt)) {
+    throw refusal('legal_hold', 'This attachment is kept under a legal hold and is not sent to an agent', { partId })
+  }
   const bytes = await readStagedObject(mail.stagingBucket, part.storageKey)
   recordAuditEventAfterCommit({
     action: 'inbound_mail.part_read',

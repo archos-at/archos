@@ -38,6 +38,12 @@ publishes are all parameterised on `resourceType`. The four routes under
 `app/api/sharing/[resourceType]/[resourceId]/**` validate the path segment
 against the registry and pass it through, so a new type gets read, visibility,
 grant, revoke, role-change and the candidate picker **with no new route files**.
+The takeover is generic too, and so are its two rules (ADR-0032, amendment
+2026-11-11): `mayTakeOwnership` in `access.ts` offers it only to a project admin
+who can already read the resource, `escalateToOwner` asks for that read itself,
+and `ownership-notice.ts` tells the resource's owners through the
+`resource.ownership_taken` inbox type, whose copy names no resource kind. A new
+type inherits all three by its probe and its `describeRef`.
 
 **The inbox read path.** `lib/inbox/service.ts` has no conversation literal in
 435 lines. Emission, read-time re-authorization, redaction, projection and the

@@ -1,9 +1,3 @@
-/**
- * Where focus lands when a side sheet opens: on its first control for a mouse
- * or a keyboard, on the panel itself under a finger (`overlay-focus.ts`), so
- * the phone drawer does not open with its project pill wearing a focus ring.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 

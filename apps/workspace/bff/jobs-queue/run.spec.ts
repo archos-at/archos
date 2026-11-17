@@ -4,7 +4,6 @@ import type { BffJobRow } from '@/lib/db/schema/bff-job-queue'
 import { inJobSlice } from './slice-scope'
 import { emptyCounts, type ReindexProjectPayload } from './types'
 
-/** The row a run took; each case says which. */
 const takenRow = vi.fn<() => Promise<BffJobRow>>()
 
 const runReindexSlice = vi.fn()
@@ -51,7 +50,6 @@ vi.mock('@/lib/auth/pinned-session', () => ({
 
 import { runHandler } from './run'
 
-/** One slice of the taken row, as the `bff-job` task runs it, its answer as the row would keep it. */
 async function runJobSlice() {
   const job = await takenRow()
   const result = await runHandler({ kind: job.kind, organizationId: job.lane, payload: job.payload, attempts: job.attempts })
@@ -97,7 +95,6 @@ beforeEach(() => {
   runRestoreFolderSlice.mockReset()
   runPurgeBinnedChunksSlice.mockReset()
   runAgentWake.mockReset()
-  // Who the identity provider says the requester is today: the role they hold now, not the one they clicked with.
   resolvePinnedRequesterSession.mockReset()
   resolvePinnedRequesterSession.mockImplementation(async ({ userId, email, organizationId }) => ({
     userId,
@@ -140,9 +137,6 @@ describe('runHandler', () => {
 
     expect(outcome.done).toBe(false)
     expect(outcome.payload).toMatchObject({ cursor: { createdAt: 'x', id: 'y' } })
-    // The session is the requester's identity in the LANE's organization, as the
-    // identity provider has it today (the membership of now, not of the click),
-    // with no access token to forward anywhere.
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({
       userId: 'user-1',
       email: 'user@example.com',
@@ -238,7 +232,6 @@ describe('runHandler', () => {
 
     it('finishes a delete’s chunk purge as the system, whoever deleted, and says when the attempt is the last', async () => {
       takenRow.mockResolvedValue(row({ kind: 'purge_binned_chunks', payload: purge, attempts: 3 }))
-      // The person who deleted has left: the purge still runs.
       resolvePinnedRequesterSession.mockResolvedValue(null)
       runPurgeBinnedChunksSlice.mockImplementation(async (_organizationId, state) => ({ done: true, payload: state }))
 
@@ -373,7 +366,6 @@ describe('runHandler', () => {
       await runJobSlice()
       expect(runBimExtractJob.mock.calls[0][2]).toEqual({ last: true })
 
-      // The runner's own knob, read where the BFF in the same pod can see it.
       vi.stubEnv('BFF_JOBS_MAX_ATTEMPTS', '5')
       await runJobSlice()
       expect(runBimExtractJob.mock.calls[1][2]).toEqual({ last: false })

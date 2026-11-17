@@ -1,11 +1,3 @@
-"""The north-star set: the exemplar document and its rows kept in step, and the rows held to today's tools.
-
-Offline. A live run needs a model key, a Qdrant and the seeded fixture projects. What is pinned here is what
-would make the set measure the wrong thing or drift from the document: an exemplar without a row, a row
-asking for a tool or argument that does not exist, a gold box that does not resolve, a drawn box that does
-not hold its gold, a row that the ideal answer of its exemplar would fail.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -37,7 +29,6 @@ SCHEMA = {tool["name"]: tool for tool in json.loads(files_eval.TOOL_SCHEMA.read_
 
 
 def _canvas_members() -> set[str]:
-    """The canvas group's members, as the model sees them (``canvas__point``), read off its DESCRIPTIONS."""
     source = (REPO_ROOT / "packages/agent/src/agent/tools/canvas/register.py").read_text(encoding="utf-8")
     block = source.split("DESCRIPTIONS = {", 1)[1].split("\n}\n", 1)[0]
     return {f"canvas__{name}" for name in re.findall(r'^    "([a-z_]+)": \(', block, re.MULTILINE)}
@@ -48,13 +39,8 @@ def _file_change_operations() -> set[str]:
     return set(ast.literal_eval(re.search(r"^_OPERATIONS = (\(.*?\))", source, re.MULTILINE).group(1)))
 
 
-#: The estate's readers, built per turn rather than listed in the config (ADR-0133).
 ESTATE_TOOLS = {"ls", "glob", "grep", "read_file"}
-#: Spellings Piloti's chat no longer binds that a row may still name: `files_eval.aliases` counts the
-#: filesystem call that replaced one under its old name, so the parent-commit baseline and a run on this
-#: commit are matched by the same rows.
 ALIASED = {"read_passage"}
-#: Every name the model can call today: the configured tools, the canvas group spelled out, and `look`.
 TOOLS = {*files_eval.configured_tools(), *_canvas_members(), "look", *ESTATE_TOOLS, *ALIASED} - {"canvas"}
 
 
@@ -220,7 +206,6 @@ class TestWhatRunsOnThisCommit:
 
 
 def _run(row: dict, answer: str, calls: list[dict], rounds: int = 1) -> dict[str, bool]:
-    """The checks ``suite.observe`` would record for a run, minus the judge (offline)."""
     run = suite.Run(question_id=row["id"], run=1, answer=answer, tool_args=calls, research_calls=rounds)
     checks = suite.check(row, run, {"cards": []})
     expect = {**row["expect"], "judge": []}
@@ -236,8 +221,6 @@ def call(name: str, **arguments: object) -> dict:
 
 
 class TestTheExemplarPassesItsRow:
-    """The ideal trajectory and answer of an exemplar hold every check of its row; its anti-pattern does not."""
-
     def test_dimension(self):
         row = BY_ID["ns-dimension"]
         looks = [
@@ -301,7 +284,7 @@ class TestTheExemplarPassesItsRow:
 
 class TestTheSuiteWiring:
     def test_north_star_is_a_set_the_suite_loads(self):
-        assert [q["id"] for q in suite._north_star_questions()] == [r["id"] for r in ROWS]
+        assert [q["id"] for q in suite.set_questions("north-star")] == [r["id"] for r in ROWS]
 
     def test_the_arm_and_the_look_switch_stay_with_their_sets(self, capsys):
         with pytest.raises(SystemExit):
@@ -323,7 +306,6 @@ CHECK_TS = REPO_ROOT / "apps/workspace/bff/document-check/check.ts"
 
 
 def _check_instruction_lines() -> list[str]:
-    """The lines ``checkInstruction`` joins, read off check.ts with its constants and placeholders filled."""
     source = CHECK_TS.read_text(encoding="utf-8")
     findings = re.search(r"export const MAX_FINDINGS = (\d+)", source).group(1)
     body = source.split("export function checkInstruction", 1)[1].split("].join('\\n')", 1)[0]

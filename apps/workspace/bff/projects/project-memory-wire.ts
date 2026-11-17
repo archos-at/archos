@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
+import { memoryTopicField, memoryTopicQueryField } from '@/lib/memory-topics/wire'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import {
   PROJECT_MEMORY_CONFIDENCES,
@@ -18,12 +19,15 @@ export const listMemoryQuerySchema = z.object({
   includeArchived: z.string().optional(),
   // Optional: scope to a single conversation (the chat "Piloti noted N" chip).
   conversationId: z.string().optional(),
+  topic: memoryTopicQueryField,
   ...pageQueryShape,
 })
 
 /** `GET /api/organization/memory`. */
 export const listOrganizationMemoryQuerySchema = z.object({
-  includeArchived: z.enum(['true', 'false']).optional().describe('"true" also returns archived items.'),
+  includeArchived: z.enum(['true', 'false']).optional().describe('"true" includes archived.'),
+  conversationId: z.string().min(1).max(255).optional().describe('This conversation only.'),
+  topic: memoryTopicQueryField,
   ...pageQueryShape,
 })
 
@@ -32,6 +36,7 @@ export const createMemorySchema = z.object({
   content: z.string().trim().min(1).max(2000),
   confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
   pinned: z.boolean().optional(),
+  topic: memoryTopicField.optional(),
 })
 
 export const patchMemorySchema = z
@@ -42,6 +47,7 @@ export const patchMemorySchema = z
     confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
     verification: z.enum(PROJECT_MEMORY_VERIFICATIONS).optional(),
     pinned: z.boolean().optional(),
+    topic: memoryTopicField.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'Empty patch' })
 

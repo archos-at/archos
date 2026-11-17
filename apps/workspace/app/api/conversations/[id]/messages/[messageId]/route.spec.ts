@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The card-decision PATCH is the server half of interactive-card persistence
- * (see features/cards/card-decision.ts). Two things must hold: the caller is
- * authorized as a `collaborator` on the conversation before the message row is
- * touched — answering a card is contributing, and `messages` has no organization
- * column of its own — and only decisions from the closed union can be written,
- * because the stored blob is replayed straight into the renderer on rehydrate.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({
@@ -40,8 +32,6 @@ vi.mock('@/lib/conversations/repository', () => ({
 }))
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
-// Which people may read what the conversation recorded is `restricted-use.spec.ts`'s
-// subject; here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -91,8 +81,6 @@ describe('PATCH /api/conversations/[id]/messages/[messageId]', () => {
     const res = await patch({ cardInteractions: decisions })
 
     expect(res.status).toBe(200)
-    // The fourth argument is what stops a second client's PATCH from erasing a
-    // decision it never saw — without it the whole map is replaced.
     expect(mergeMessageMetadata).toHaveBeenCalledWith(
       'conv_1',
       MESSAGE_ID,
@@ -103,10 +91,6 @@ describe('PATCH /api/conversations/[id]/messages/[messageId]', () => {
 
   it('authorizes the conversation before touching the message row', async () => {
     await patch({ cardInteractions: decisions })
-    // Regression guard: `messages` has no organization column, so without an
-    // access check on the conversation any signed-in user could patch another
-    // tenant's message by id — and after ADR-0032, any COLLEAGUE could patch a
-    // message in a thread they merely happen to know the id of.
     expect(findConversationTenancy).toHaveBeenCalledWith('conv_1')
     expect(requireProjectAccess).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: 'org_1' }),
@@ -184,7 +168,6 @@ describe('PATCH /api/conversations/[id]/messages/[messageId]', () => {
   })
 
   it('rejects an oversized interactions map', async () => {
-    // The value lands in a jsonb column; `z.record` bounds key length, not count.
     const oversized = Object.fromEntries(
       Array.from({ length: 65 }, (_, i) => [
         `memory_proposal-${i}`,

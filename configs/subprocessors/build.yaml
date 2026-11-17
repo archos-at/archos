@@ -1,0 +1,44 @@
+# Services the deployment and the build reach. None receives a prompt, a
+# document or account data.
+services:
+  - id: github
+    hosts: [github.com]
+    copy:
+      de: GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.
+      en: GitHub (USA) — source-code hosting, CI pipelines, security scanning.
+  - id: pulumi-cloud
+    hosts: []
+    copy:
+      de: Pulumi Cloud (Pulumi Corporation, USA) — Zustand der Infrastruktur und die Zugangsschlüssel des Betriebs (Pulumi ESC), darunter der Zugang zum Cluster; keine Inhalte aus {productName}.
+      en: Pulumi Cloud (Pulumi Corporation, USA) — the infrastructure's state and the operator's secrets (Pulumi ESC), among them the cluster credentials; no content from {productName}.
+  - id: anthropic-claude-code
+    hosts: []
+    copy:
+      de: Anthropic (USA) — KI-Assistent in der Entwicklung (Claude Code in Issues und Pull Requests); erhält Quellcode, Issue-Texte und CI-Protokolle, keine Daten aus {productName}.
+      en: Anthropic (USA) — AI assistant in development (Claude Code on issues and pull requests); receives source code, issue text and CI logs, no data from {productName}.
+  - id: registries
+    hosts: [ghcr.io, raw.githubusercontent.com, charts.jetstack.io, cloudnative-pg.github.io, hatchet-dev.github.io, kedacore.github.io, kubernetes-sigs.github.io]
+    copy:
+      de: Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.
+      en: Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
+  - id: letsencrypt
+    hosts: [acme-v02.api.letsencrypt.org, acme-staging-v02.api.letsencrypt.org]
+    copy:
+      de: Let’s Encrypt (USA) — TLS-Zertifikate für die Domains von {productName}; erhält nur die Domainnamen.
+      en: Let’s Encrypt (USA) — TLS certificates for the {productName} domains; receives only the domain names.
+  - id: clamav-mirror
+    hosts: [database.clamav.net]
+    copy:
+      de: ClamAV-Signaturen (Cisco Talos) — Signaturen für die Virenprüfung werden heruntergeladen; nichts wird hochgeladen.
+      en: ClamAV signatures (Cisco Talos) — malware signatures are downloaded; nothing is uploaded.
+  - id: google-fonts
+    hosts: []
+    copy:
+      de: Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von {productName} niemals Google.
+      en: Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using {productName}.
+  - id: buffer
+    hosts: [api.buffer.com]
+    env: [BUFFER_API_KEY]
+    copy:
+      de: Buffer (USA) — veröffentlicht die Beiträge unseres Blogs in sozialen Netzwerken, nachdem eine Person sie freigegeben hat; erhält nur diese Beiträge, keine Daten aus {productName}.
+      en: Buffer (USA) — publishes our blog's posts on social networks once a person has approved them; receives only those posts, no data from {productName}.

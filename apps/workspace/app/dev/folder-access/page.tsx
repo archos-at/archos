@@ -257,7 +257,6 @@ function PersonaSection({
           onDropDocumentInFolder={() => {}}
           onDropFolderInFolder={() => {}}
           onPickFiles={() => {}}
-          uploadCard={<div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">Hochladen</div>}
         />
       </div>
     </section>

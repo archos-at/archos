@@ -52,7 +52,6 @@ describe('MultiSelect', () => {
     await user.click(within(list).getByRole('option', { name: /Statik/ }))
     await user.click(within(list).getByRole('option', { name: /Brandschutz/ }))
 
-    // The value follows the options' order, not the click order.
     expect(onChange).toHaveBeenLastCalledWith(['brandschutz', 'statik'])
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     expect(within(list).getByRole('option', { name: /Statik/ })).toHaveAttribute('aria-checked', 'true')

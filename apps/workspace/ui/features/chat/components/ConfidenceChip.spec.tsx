@@ -4,11 +4,6 @@ import { describe, test, expect } from 'vitest'
 import { ConfidenceChip } from './ConfidenceChip'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/**
- * ConfidenceChip surfaces the model's self-assessment and — when the backend
- * capped that confidence — explains WHY in the tooltip (PB-9). These specs
- * cover the reason→copy mapping and the fail-open generic behaviour.
- */
 describe('ConfidenceChip', () => {
   test('renders nothing when confidence is absent', () => {
     const { container } = render(<ConfidenceChip confidence={undefined} />)
@@ -33,8 +28,6 @@ describe('ConfidenceChip', () => {
 
   test('shows the quote-unverified reason in the tooltip when a quote could not be verified', async () => {
     const user = userEvent.setup()
-    // A grounded answer with one unverified quote is held at "medium", so the
-    // reason no longer names a level; it says what was capped and why.
     render(<ConfidenceChip confidence="medium" cappedReason="quote_unverified" />)
 
     await user.hover(screen.getByRole('button'))
@@ -50,9 +43,6 @@ describe('ConfidenceChip', () => {
 
   test("labels the model's reason as the one it gave before the cap", async () => {
     const user = userEvent.setup()
-    // The model explained a "high"; the backend held the answer at "medium".
-    // Showing that explanation under the shown level would read as nonsense,
-    // so the label says which level the reason belongs to.
     render(
       <ConfidenceChip
         confidence="medium"
@@ -82,7 +72,6 @@ describe('ConfidenceChip', () => {
 
     await user.hover(screen.getByRole('button'))
 
-    // Generic self-assessment tooltip, with no capped-reason sentence appended.
     expect((await screen.findAllByText(/It can be wrong\./)).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Low confidence:/)).not.toBeInTheDocument()
   })
@@ -118,11 +107,6 @@ describe('ConfidenceChip', () => {
   })
 })
 
-/**
- * Rule 2 (ADR-0125): the level is held to the weakest sentence the answer rests
- * on, and the tooltip says what the sentences rest on. A turn stored before it
- * carries no version and keeps the copy it was computed under.
- */
 describe('ConfidenceChip on a stored per-sentence turn (ADR-0125)', () => {
   test('keeps the copy of the rule it was stored under', async () => {
     const user = userEvent.setup()
@@ -163,7 +147,6 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     expect(findings).toHaveTextContent('The stair is 1.50 m wide')
     expect(findings).toHaveTextContent('contradicts the source: the section gives 1.10 m')
     expect(findings).toHaveTextContent('checked against [1] Section A-A.pdf, p.2')
-    // The level is the check's, so the model's reason for its own self-report is not shown as if it were.
     expect(screen.queryByText(/Everything is backed\./)).not.toBeInTheDocument()
   })
 
@@ -181,6 +164,37 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
 
     expect((await screen.findAllByText(/A quotation could not be confirmed word for word/)).length).toBeGreaterThan(0)
     expect(screen.queryByTestId('confidence-check-findings')).not.toBeInTheDocument()
+  })
+
+  test('says when building law the records do not settle capped the level (ADR-0175)', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        cappedReason="law_unsettled"
+        check={{ status: 'judged', level: 'high', findings: [] }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/Which edition binds at this site is not yet settled/)).length).toBeGreaterThan(0)
+  })
+
+  test('says when an open point the answer names itself capped the level', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        cappedReason="open_point"
+        reason="Bindung der OIB-RL 2 nicht an der Quelle geprüft"
+        check={{ status: 'judged', level: 'high', findings: [] }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/Capped by the answer itself: an open point it names/)).length).toBeGreaterThan(0)
   })
 
   test('an unavailable check shows no level and says the check did not run', async () => {

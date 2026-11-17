@@ -26,6 +26,7 @@ import {
   INTAKE_FILING,
   INTAKE_FILING_STATES,
   INTAKE_FIXTURES,
+  INTAKE_REGISTER,
   type IntakeFixtureName,
 } from '@/app/dev/_fixtures/project-intake'
 import { installFixtureDocuments } from './fixture-documents'
@@ -61,8 +62,8 @@ export default function ProjectSetupPreviewPage({
   const params = use(searchParams)
   const name = stateOf(params.state)
   const busy = params.busy === '1'
-  // `?profile=review | confirmed | highRise | readonly` draws the Steckbrief's own
-  // fixtures (with the rule set's Ampel computed by the real function).
+  // `?profile=review | confirmed | highRise | siteUnknown | notEntitled | uncurated | readonly` draws
+  // the Steckbrief's own fixtures (the law at the site as `projectLawFor` answers it).
   const profileName =
     typeof params.profile === 'string' && params.profile in PROFILE_STEP_FIXTURES
       ? (params.profile as ProfileStepFixtureName)
@@ -84,7 +85,10 @@ export default function ProjectSetupPreviewPage({
       ? PROFILE_STEP_FIXTURES[profileName]
       : questionsName
         ? QUESTIONS_FIXTURES[questionsName]
-        : INTAKE_FIXTURES[name]
+        : // `?site=register`: the ready review with the address confirmed by the address register (ADR-0172).
+          params.site === 'register'
+          ? INTAKE_REGISTER
+          : INTAKE_FIXTURES[name]
   const [sent, setSent] = useState<string | null>(null)
   // Step 1 reads the Beteiligte from its own API; here from an in-memory one
   // (`?project=fresh | team | viewer | closing`), made once per state.

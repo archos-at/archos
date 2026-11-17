@@ -1,0 +1,9 @@
+---
+# area: building-law
+operators:
+  - >
+    An operator's agent onboarding a country can now capture a public PDF (a
+    guideline, a gazette, an ordinance) and quote from it, and can propose a
+    source whose documents are PDFs, watched like any other. The text is the
+    one ingestion indexes; a scanned page keeps no text yet and the capture
+    says so.

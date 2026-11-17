@@ -1,15 +1,3 @@
-"""Tests for unified LLM cost capture + budget enforcement.
-
-DRY-RUN NOTE: OpenRouter is not reachable from CI. These tests replay the
-response shape documented by OpenRouter's usage accounting
-(https://openrouter.ai/docs/guides/guides/usage-accounting — the `usage`
-object with `cost` in USD, `prompt_tokens_details.cached_tokens`,
-`completion_tokens_details.reasoning_tokens`) exactly as langchain-openai
-surfaces it (`llm_output["token_usage"]`). Live verification against the API
-is an ops step; every ledger row carries the generation id so it can be
-reconciled via GET /api/v1/generation?id=.
-"""
-
 import base64
 import json
 import re
@@ -33,15 +21,12 @@ _ROUTE = Path(__file__).resolve().parents[4] / "apps/workspace/app/api/internal/
 
 
 def _route_keys(schema_name: str) -> set[str]:
-    """The top-level keys one zod object in the internal usage route declares."""
     source = _ROUTE.read_text()
     body = re.search(rf"const {schema_name} = z\.object\(\{{(.*?)\n\}}\)", source, re.S)
     assert body is not None, schema_name
     return set(re.findall(r"^  (\w+):", body.group(1), re.M))
 
 
-# The usage object exactly as OpenRouter documents it (usage accounting is
-# always on; langchain-openai passes it through as llm_output["token_usage"]).
 OPENROUTER_USAGE = {
     "prompt_tokens": 1204,
     "completion_tokens": 331,
@@ -68,7 +53,6 @@ def _budget_header(payload: dict) -> str:
 
 
 def _usage_event(*, cost_source: str, cost_usd: float = 0.0) -> UsageEvent:
-    """One bespoke (non-callback) event, the way the reranker records one."""
     return UsageEvent(
         model=None,
         requested_model=None,
@@ -112,9 +96,6 @@ class TestExtractUsageEvent:
         ids=["bool", "string", "nan", "inf", "negative"],
     )
     def test_a_malformed_cost_is_never_booked(self, cost, caplog):
-        # `True` is an int in Python and would book $1.00; NaN would switch the
-        # budget gate off; the BFF rejects a non-finite or negative cost with
-        # the whole batch. Recorded as missing, and said so in the log.
         with caplog.at_level("WARNING", logger="agent.common.cost_tracking"):
             event = extract_usage_event(_openrouter_result({**OPENROUTER_USAGE, "cost": cost}))
         assert event is not None
@@ -132,8 +113,6 @@ class TestExtractUsageEvent:
         assert extract_usage_event(_openrouter_result(usage=None)) is None
 
     def test_payload_shape_matches_internal_endpoint(self):
-        # Read from the route itself: a key it does not declare is dropped by
-        # zod without an error, so the two must be equal, not merely overlap.
         event = extract_usage_event(_openrouter_result())
         assert set(event.to_payload()) == _route_keys("usageEventSchema")
 
@@ -168,8 +147,6 @@ class TestBudgetSnapshot:
         assert snapshot.exhausted_scope(1.0) == "organization"
 
     def test_token_family_round_trips_and_enforces(self):
-        # An organization on its own key is limited in tokens, never in cost
-        # (ADR-0053): the USD family is absent and the token family decides.
         snapshot = BudgetSnapshot.from_header(
             _budget_header({"remainingOrgUsd": None, "remainingOrgTokens": 5000, "remainingUserTokens": 800})
         )
@@ -179,7 +156,6 @@ class TestBudgetSnapshot:
         assert snapshot.exhausted_scope(0.0, 799) is None
         assert snapshot.exhausted_scope(0.0, 800) == "member"
         assert snapshot.exhausted_scope(0.0, 5000) == "organization"
-        # Older BFFs send only the USD family; the token side stays unlimited.
         legacy = BudgetSnapshot.from_header(_budget_header({"remainingOrgUsd": 1.0}))
         assert legacy is not None and legacy.remaining_org_tokens is None
         assert legacy.exhausted_scope(0.5, 10**9) is None
@@ -203,8 +179,6 @@ class TestCostTracker:
         assert tracker.events_recorded == 2
 
     def test_cost_source_reports_the_events_provenance(self):
-        # The rollup must be able to say whether its dollar number was
-        # reported or estimated; a positive cost alone does not tell it.
         tracker = self._tracker()
         assert tracker.cost_source is None
 
@@ -224,7 +198,6 @@ class TestCostTracker:
         assert exc_info.value.scope == "member"
 
     def test_blocks_next_call_when_token_budget_exhausted(self):
-        # Each replayed generation is 1,535 tokens; the cap trips on the second.
         tracker = self._tracker(BudgetSnapshot(remaining_org_tokens=2000))
         tracker.on_chat_model_start({}, [])
         tracker.on_llm_end(_openrouter_result())
@@ -245,8 +218,6 @@ class TestCostTracker:
         tracker.on_chat_model_start({}, [], invocation_params={"model": "vendor/override-model"})
         tracker.on_llm_end(_openrouter_result())
         tracker.flush(wait=False)  # moves pending out
-        # requested model recorded on the event before flush
-        # (validated through the posted payload below)
 
     def test_flush_posts_batch_with_identity(self):
         tracker = self._tracker()
@@ -273,7 +244,6 @@ class TestCostTracker:
             with track_llm_costs(identity=identity, budget=BudgetSnapshot()) as tracker:
                 tracker.on_llm_end(_openrouter_result())
         payload = post.call_args.args[0]
-        # The batch keys the internal endpoint declares, read from the route.
         assert set(payload) == _route_keys("usageBatchSchema")
         assert payload["messageId"] == "answer_1"
         assert payload["activity"] is None
@@ -292,15 +262,8 @@ class TestCostTracker:
         assert post.call_count == 0
 
     def test_concurrent_runs_attribute_model_by_run_id(self):
-        """Interleaved LLM calls must each record their own requested model.
-
-        Deep research fires concurrent calls; keying the requested model by
-        run_id (not a single shared slot) keeps model attribution correct when
-        call B starts before call A ends.
-        """
         tracker = self._tracker()
         tracker.on_chat_model_start({}, [], run_id="A", invocation_params={"model": "vendor/model-a"})
-        # A second call on a different model starts before A finishes.
         tracker.on_chat_model_start({}, [], run_id="B", invocation_params={"model": "vendor/model-b"})
         tracker.on_llm_end(_openrouter_result(), run_id="A")
         tracker.on_llm_end(_openrouter_result(), run_id="B")
@@ -323,15 +286,12 @@ class TestTrackLlmCosts:
         with patch("agent.common.cost_tracking._post_usage_events") as post:
             with track_llm_costs(identity={"organization_id": "org_1"}, budget=BudgetSnapshot()) as tracker:
                 tracker.on_llm_end(_openrouter_result())
-            # exit flushes via the background executor; force it to drain
             from agent.common.cost_tracking import _flush_executor
 
             _flush_executor.submit(lambda: None).result()
         assert post.call_count == 1
 
     def test_configure_hook_attaches_handler_to_langchain_config(self):
-        """The DRY seam: any callback manager configured inside the context
-        must pick up the tracker without agent code opting in."""
         from langchain_core.callbacks.manager import CallbackManager
 
         with track_llm_costs(identity={"organization_id": "org_1"}, budget=BudgetSnapshot()) as tracker:
@@ -341,7 +301,6 @@ class TestTrackLlmCosts:
 
 class TestDeferredFlush:
     def test_inline_flush_false_leaves_the_batch_pending(self):
-        """The chat turn posts the usage batch after the deltas, not before."""
         with patch("agent.common.cost_tracking._post_usage_events") as post:
             with track_llm_costs(
                 identity={"organization_id": "org_1"}, budget=BudgetSnapshot(), inline_flush=False
@@ -369,13 +328,6 @@ class TestDeferredFlush:
         assert tracker.flush(wait=False) is None
 
 
-# The shape an `api_type: responses` role leaves behind when nothing carries the
-# provider's accounting. langchain-openai's `_construct_lc_result_from_responses_api`
-# builds a ChatResult with NO llm_output and a response_metadata that excludes
-# `usage`; what survives is LangChain's normalized usage_metadata, in which
-# OpenRouter's `input_tokens_details.cached_tokens` has become
-# `input_token_details.cache_read`. `install_responses_cost_carrier` puts the
-# provider's `cost` back beside it (TestResponsesApiCost below).
 RESPONSES_USAGE_METADATA = {
     "input_tokens": 41883,
     "output_tokens": 514,
@@ -391,8 +343,6 @@ def _responses_result(usage_metadata=RESPONSES_USAGE_METADATA) -> LLMResult:
 
 
 class TestResponsesApiUsage:
-    """The Responses path must still land cached tokens on the ledger."""
-
     def test_cached_and_reasoning_tokens_survive_the_normalized_shape(self):
         event = extract_usage_event(_responses_result())
         assert event is not None
@@ -402,8 +352,6 @@ class TestResponsesApiUsage:
         assert event.reasoning_tokens == 192
 
     def test_without_the_carried_cost_it_is_reported_missing(self):
-        # A zero that claimed to be a measurement would be worse than one that
-        # says so.
         event = extract_usage_event(_responses_result())
         assert event is not None
         assert event.cost_usd == 0.0
@@ -446,9 +394,6 @@ class TestPromptCacheSummary:
         assert [r for r in caplog.records if "[PromptCache]" in r.getMessage()]
 
 
-# OpenRouter's Responses `usage`, as its API reference documents it
-# (https://openrouter.ai/docs/api/api-reference/responses/create-a-response):
-# token counts in the Responses spelling, plus `cost` in USD and `is_byok`.
 OPENROUTER_RESPONSES_USAGE = {
     "input_tokens": 41883,
     "input_tokens_details": {"cached_tokens": 35072},
@@ -489,7 +434,6 @@ def _openrouter_response(usage: dict = OPENROUTER_RESPONSES_USAGE) -> dict:
 
 
 def _responses_llm(*, streaming: bool, usage: dict = OPENROUTER_RESPONSES_USAGE):
-    """A real Responses-API ChatOpenAI whose HTTP is answered in-process."""
     import httpx
     from langchain_openai import ChatOpenAI
 
@@ -526,13 +470,6 @@ def _responses_llm(*, streaming: bool, usage: dict = OPENROUTER_RESPONSES_USAGE)
 
 
 class TestResponsesApiCost:
-    """The main answer role runs on the Responses API; its cost must reach the ledger.
-
-    Before the carrier every `research_llm` call was recorded at cost 0, so an
-    answer's details showed only its post-answer stages (~0.1 credits) and the
-    budget was never charged for the answer itself.
-    """
-
     def test_the_carrier_is_installed(self):
         from langchain_openai.chat_models import base as lc_openai
 
@@ -580,8 +517,6 @@ class TestResponsesApiCost:
 
 
 class TestCallsOutsideLangChain:
-    """Ingestion's vision, transcription and embedding calls use the raw SDK: no callback sees them."""
-
     @staticmethod
     def _client(response):
         from types import SimpleNamespace
@@ -645,8 +580,6 @@ class TestCallsOutsideLangChain:
         assert len(post.call_args.args[0]["events"]) == 1
 
     def test_work_handed_to_a_pool_lands_on_the_callers_ledger(self):
-        # A pool thread starts with an empty context: without the copy, every
-        # vision call an ingestion job fanned out ran with no tracker at all.
         from concurrent.futures import ThreadPoolExecutor
 
         from agent.common.cost_tracking import record_usage_event
@@ -661,3 +594,90 @@ class TestCallsOutsideLangChain:
                     assert pool.submit(call).result() is False
                     assert [f.result() for f in [submit_in_context(pool, call) for _ in range(3)]] == [True] * 3
         assert len(post.call_args.args[0]["events"]) == 3
+
+
+class TestCacheWritesReachTheLedger:
+    def test_chat_completions_usage(self):
+        usage = {**OPENROUTER_USAGE, "prompt_tokens_details": {"cached_tokens": 512, "cache_write_tokens": 384}}
+        event = extract_usage_event(_openrouter_result(usage))
+        assert event is not None
+        assert (event.cached_tokens, event.cache_write_tokens) == (512, 384)
+        assert event.to_payload()["cacheWriteTokens"] == 384
+
+    def test_the_normalized_langchain_shape(self):
+        metadata = {**RESPONSES_USAGE_METADATA, "input_token_details": {"cache_read": 35072, "cache_creation": 6000}}
+        event = extract_usage_event(_responses_result(metadata))
+        assert event is not None
+        assert (event.cached_tokens, event.cache_write_tokens) == (35072, 6000)
+
+    def test_a_raw_openai_response(self):
+        from types import SimpleNamespace
+
+        from agent.common.cost_tracking import _usage_event_from_openai
+
+        usage = {
+            "prompt_tokens": 2000,
+            "completion_tokens": 10,
+            "total_tokens": 2010,
+            "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 1800},
+        }
+        response = SimpleNamespace(usage=usage, id="gen-1", model="openai/gpt-6.1-terra")
+        event = _usage_event_from_openai(response, role="claim_judge", requested_model="openai/gpt-6.1-terra")
+        assert event is not None and event.cache_write_tokens == 1800
+
+    def test_absent_is_zero(self):
+        event = extract_usage_event(_openrouter_result())
+        assert event is not None and event.to_payload()["cacheWriteTokens"] == 0
+
+
+class TestAStreamedChatCompletionKeepsItsCost:
+    USAGE = {
+        "prompt_tokens": 1000,
+        "completion_tokens": 5,
+        "total_tokens": 1005,
+        "cost": 0.02,
+        "is_byok": False,
+        "prompt_tokens_details": {"cached_tokens": 600, "cache_write_tokens": 300},
+    }
+
+    def _llm(self):
+        import httpx
+        from langchain_openai import ChatOpenAI
+
+        def chunk(**fields):
+            return {"id": "gen-1", "object": "chat.completion.chunk", "created": 0, "model": "m", **fields}
+
+        stream = [
+            chunk(choices=[{"index": 0, "delta": {"role": "assistant", "content": "hi"}, "finish_reason": None}]),
+            chunk(choices=[{"index": 0, "delta": {}, "finish_reason": "stop"}]),
+            chunk(choices=[], usage=self.USAGE),
+        ]
+        body = "".join(f"data: {json.dumps(c)}\n\n" for c in stream) + "data: [DONE]\n\n"
+
+        def handler(request):
+            return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+        return ChatOpenAI(
+            model="openai/gpt-6.1-terra",
+            api_key="test",
+            base_url="https://openrouter.ai/api/v1",
+            http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+    async def test_the_cost_and_both_cache_counts_reach_the_ledger(self):
+        from langchain_core.callbacks import AsyncCallbackHandler
+
+        seen = []
+
+        class Ledger(AsyncCallbackHandler):
+            async def on_llm_end(self, response, **kwargs):
+                seen.append(extract_usage_event(response))
+
+        from langchain_core.messages import HumanMessage
+
+        await self._llm().bind(stream=True).ainvoke([HumanMessage(content="q")], config={"callbacks": [Ledger()]})
+
+        assert len(seen) == 1 and seen[0] is not None
+        payload = seen[0].to_payload()
+        assert (payload["costUsd"], payload["costSource"]) == (pytest.approx(0.02), "usage_field")
+        assert (payload["cachedTokens"], payload["cacheWriteTokens"]) == (600, 300)

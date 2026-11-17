@@ -1,9 +1,3 @@
-"""The folder cards route's client: the bodies are the contract's, and a 404 is an answer, not a crash.
-
-The contract is ``apps/workspace/tests/fixtures/folder-cards.schema.json``, exported
-from ``lib/folder-cards/types.ts``. There is no Pydantic twin.
-"""
-
 from __future__ import annotations
 
 import io

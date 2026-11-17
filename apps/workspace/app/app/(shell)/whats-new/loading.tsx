@@ -1,10 +1,11 @@
 import type { JSX } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ShellContent } from '@/components/shell'
+import { WeekEntry, WeekTimeline } from '@/features/whats-new/components'
 import { getTranslations } from '@/i18n/server'
 import { whatsNewCopy } from '@/i18n/namespaces/whats-new'
 
-/** Route-level loading state, in the page's own column, so the arrival from the user menu shows at once. */
+/** Route-level loading state, in the page's own shapes, so the arrival from the user menu shows at once. */
 export default async function WhatsNewLoading(): Promise<JSX.Element> {
   const t = await getTranslations(whatsNewCopy)
   return (
@@ -17,11 +18,16 @@ export default async function WhatsNewLoading(): Promise<JSX.Element> {
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-4 w-80 max-w-full" />
       </div>
-      <div className="flex flex-col gap-6">
+      <Skeleton className="mb-8 h-8 w-full max-w-xl rounded-full" />
+      <WeekTimeline>
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-56 w-full" />
+          <WeekEntry key={i} rail={<Skeleton className="h-6 w-36" />}>
+            <Skeleton className="h-4 w-full max-w-prose" />
+            <Skeleton className="h-4 w-4/5 max-w-prose" />
+            <Skeleton className="h-4 w-32" />
+          </WeekEntry>
         ))}
-      </div>
+      </WeekTimeline>
     </ShellContent>
   )
 }

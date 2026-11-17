@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The proposal as a folder tree: what Piloti would file where, with a switch
- * per file and per folder, and a „Verschieben nach …“ per file that picks
- * another folder or the root.
- *
- * Drawn from the model (`../../lib/placement-tree`); it decides nothing. A
- * folder is open when the reader opened it, and an unsure-only review opens the
- * folders that hold something unsure by default. Built from the same atoms the
- * Ablage tree uses (Checkbox, Badge, Button), not a lookalike of its own.
- */
-
 import type { CSSProperties, JSX } from 'react'
 import { useMemo, useState } from 'react'
 import {
@@ -47,9 +36,7 @@ import {
 
 export interface PlacementTreeViewProps {
   tree: PlacementTree
-  /** Every folder of the shelf: where a file may be sent. */
   folders: readonly RootSortFolder[]
-  /** Only the unsure placements are on screen: folders holding one open by default. */
   onlyUnsure: boolean
   onToggleFile: (documentId: string, kept: boolean) => void
   onToggleFolder: (node: FolderNode, kept: boolean) => void
@@ -58,7 +45,6 @@ export interface PlacementTreeViewProps {
 
 const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' })
 
-/** Room for the chevron (pulled 28px left) plus 8px to the card's edge, then 20px a level. */
 const indent = (depth: number): CSSProperties => ({
   paddingInlineStart: `${36 + (depth - 1) * 20}px`,
 })
@@ -74,7 +60,6 @@ export function PlacementTreeView({
   onRetarget,
 }: PlacementTreeViewProps): JSX.Element {
   const t = useTranslations(filesCopy)
-  // Open state the reader set, by folder path; absent means the default.
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(() => new Map())
   const isOpen = (node: FolderNode): boolean =>
     opened.get(node.path) ?? (onlyUnsure && node.unsureBelow > 0)
@@ -107,7 +92,7 @@ export function PlacementTreeView({
       </ul>
       {!onlyUnsure && tree.stays.length > 0 && (
         <section aria-label={t('rootSort.review.staysLabel')} className="border-border border-t">
-          <SectionLabel as="h3" className="bg-muted/40 px-3 py-2">
+          <SectionLabel as="h3" className="bg-muted px-3 py-2">
             {t('rootSort.review.staysLabel')}
           </SectionLabel>
           <ul>
@@ -267,7 +252,7 @@ function FileRow({ file, depth, onToggleFile, onRetarget, targets }: FileRowProp
           {t(file.certainty === 'sure' ? 'rootSort.tree.sure' : 'rootSort.tree.unsure')}
         </Badge>
       )}
-      {file.chosenByPerson && <Badge variant="outline">{t('rootSort.tree.changed')}</Badge>}
+      {file.chosenByPerson && <Badge variant="secondary">{t('rootSort.tree.changed')}</Badge>}
       <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
         {file.reason || (placed || file.chosenByPerson ? '' : t('rootSort.tree.noReason'))}
       </span>

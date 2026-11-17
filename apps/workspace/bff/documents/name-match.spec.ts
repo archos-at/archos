@@ -6,12 +6,6 @@ import {
   originBaseName,
 } from './name-match'
 
-/**
- * The two spellings of one German filename. Written as escapes rather than as
- * literals, because a source file can only hold one of them and an editor,
- * a formatter or a copy-paste would silently normalize the other away — which
- * is the very failure these tests exist to catch.
- */
 const COMPOSED = 'Pr\u00fcfbericht.pdf'
 const DECOMPOSED = 'Pru\u0308fbericht.pdf'
 
@@ -29,12 +23,6 @@ describe('documentNameKey', () => {
     expect(documentNameKey('  Plan.pdf ')).toBe('Plan.pdf')
   })
 
-  /*
-   * Deliberate. Postgres holds `Plan.pdf` and `plan.pdf` as two rows, so a
-   * planner that folded case here would promise to replace one while the server
-   * inserted the other. Case is a question for `documentAliasKey`, whose answer
-   * is a warning rather than an identity.
-   */
   it('does not fold case, because the identity it stands for does not', () => {
     expect(documentNameKey('Plan.pdf')).not.toBe(documentNameKey('plan.pdf'))
   })
@@ -69,8 +57,6 @@ describe('originBaseName', () => {
     expect(originBaseName('Wohnbau\\Statik\\EG.pdf')).toBe('EG.pdf')
   })
 
-  // Null rather than '', so a caller can key a map on the result without
-  // inventing an entry that every unnamed document would then match.
   it('is null when there is no path and when the path names nothing', () => {
     expect(originBaseName(null)).toBeNull()
     expect(originBaseName('')).toBeNull()

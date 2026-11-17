@@ -62,6 +62,41 @@ describe('generate-wire-schemas', () => {
     )
   })
 
+  it('reads a value this bundle does not know as null where the field says so', async () => {
+    const reason = {
+      anyOf: [{ enum: ['ungrounded', 'law_unsettled'], type: 'string' }, { type: 'null' }],
+      default: null,
+      'x-unknown-as-null': true,
+    }
+    const root = { $defs: { Result: { type: 'object', properties: { reason }, additionalProperties: false } } }
+    expect(buildWireSchemaModule(root)).toContain(
+      '"reason": z.union([z.enum(["ungrounded","law_unsettled"]), z.null()]).default(null).catch(null)'
+    )
+    // The generated module: a capped reason added after this bundle was built still lets the turn settle.
+    const { turnResultSchema } = await import('../ui/adapters/api/wire-v2.generated')
+    const parsed = turnResultSchema.parse({
+      message_id: 'm1',
+      text: 'GK 5',
+      answer_confidence: 'medium',
+      answer_confidence_capped_reason: 'a_reason_from_a_later_release',
+    })
+    expect(parsed.answer_confidence_capped_reason).toBeNull()
+    expect(parsed.answer_confidence).toBe('medium')
+  })
+
+  it('keeps a field the client sends strict, even when marked', () => {
+    const root = {
+      $defs: {
+        Answer: {
+          type: 'object',
+          properties: { level: { enum: ['low'], type: 'string', 'x-unknown-as-null': true } },
+        },
+        ClientMessage: { oneOf: [{ $ref: '#/$defs/Answer' }], discriminator: { propertyName: 'type' } },
+      },
+    }
+    expect(() => buildWireSchemaModule(root)).toThrow(/read strictly by the server/)
+  })
+
   it('refuses a field that would generate z.any()', () => {
     const root = { $defs: { Loose: { type: 'object', properties: { x: {} } } } }
     expect(() => buildWireSchemaModule(root)).toThrow(/z\.any\(\)/)

@@ -1,26 +1,13 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every operation that says `readOnly: true` while its method could write, with
- * the reason it really changes nothing (H2, ADR-0122).
- *
- * `readOnly` decides what Piloti runs without asking: a read runs as the
- * requester, a write becomes a proposal the person decides. An operation that
- * claims to read and writes (`project-experience-extract` patched the project
- * profile and drafted decisions) runs a write past the person. So a new one
- * needs a sentence here, written by someone who read the route's service; the
- * test fails until it has one, and fails when one listed here stops claiming.
- *
- * "Changes nothing" means no row, file, grant or credential: a paid model call
- * that only answers is still a read.
- */
 import { describe, expect, it } from 'vitest'
 import { AGENT_OPERATIONS } from './catalog'
 import { annotationsOf } from './operation'
 
 const READ_ONLY_WRITE_METHODS: Readonly<Record<string, string>> = {
   'bim-model-query': 'queryAccessibleModel answers a query over the stored model; the POST carries the query.',
+  'classification-evaluate': 'evaluateProjectClassification reads the profile and runs the classification on it; the POST carries the what-if values. It writes nothing.',
   'citation-format': 'renderCitations formats the citations in the body; reads no stored data and stores none.',
   'passage-similar-search': 'findSimilarPassages searches the projects the person may read; stores nothing.',
   'workspace-search':
@@ -35,6 +22,8 @@ const READ_ONLY_WRITE_METHODS: Readonly<Record<string, string>> = {
   'document-revision-compare': 'compareRevisionVisually compares two Fassungen in the backend; stores no result.',
   'document-revision-candidates': 'probeProjectRevisionCandidates / probeOfficeShelfRevisionCandidates list earlier revisions by name.',
   'skill-review': 'reviewSkill asks the model to review a draft in the body; the skill is not saved.',
+  'platform-knowledge-source-test':
+    'testPlatformSource runs the source’s recorded fixtures and, if asked, one live probe through the fetcher; no monitor state, capture or record is written.',
 }
 
 const claims = AGENT_OPERATIONS.filter((op) => op.method !== 'GET' && annotationsOf(op).readOnlyHint)
@@ -65,11 +54,6 @@ describe('a non-GET operation that claims to change nothing', () => {
   })
 })
 
-/**
- * A sensitive GET: it changes nothing, but shows what an attacker would want
- * to know, so it sits behind the same guards. Each with what it returns, and
- * why that is no secret.
- */
 const SENSITIVE_READS: Readonly<Record<string, string>> = {
   'organization-llm-credential-list':
     'listOrgCredentials maps every row through toView: a masked keyHint (…abcd) and a sha256 fingerprint prefix, never the key.',

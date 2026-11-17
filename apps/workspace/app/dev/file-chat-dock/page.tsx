@@ -56,7 +56,7 @@ export default function FileChatDockPreviewPage(): JSX.Element {
         <div className="w-[22.5rem] shrink-0 max-md:hidden" aria-hidden />
         <aside className="border-base bg-card/95 absolute top-14 right-3 bottom-3 flex w-80 max-md:hidden flex-col overflow-hidden rounded-2xl border shadow-xs backdrop-blur">
           <div className="flex h-9 shrink-0 items-center gap-1 px-2.5">
-            <p className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[-0.01em]">
+            <p className="min-w-0 flex-1 truncate text-[12px] font-medium">
               Brandschutzplan_EG.pdf
             </p>
             <span className="text-muted-foreground flex size-7 items-center justify-center">

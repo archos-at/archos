@@ -18,7 +18,7 @@
 import { z } from 'zod'
 
 /** Number-shape detectors the content gate can run. Each validates a checksum, not just a shape. */
-export const SCREENING_DETECTORS = ['iban', 'at_svnr', 'credit_card'] as const
+export const SCREENING_DETECTORS = ['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'] as const
 export type ScreeningDetector = (typeof SCREENING_DETECTORS)[number]
 
 export interface UploadScreeningPolicy {
@@ -100,7 +100,7 @@ export const SUGGESTED_SCREENING_POLICY: UploadScreeningPolicy = {
     'Krankenstandsbestätigung',
     'Kontoauszug',
   ],
-  detectors: ['iban', 'at_svnr', 'credit_card'],
+  detectors: ['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'],
 }
 
 const MAX_TERMS = 200

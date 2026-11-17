@@ -1,10 +1,3 @@
-"""Tests for the LLM-judge reranker (``knowledge_layer.search.rerank``).
-
-The reranker scores retrieved chunks in one batched LLM call and must fail
-open: any parse error, timeout, or transport failure leaves the input order
-unchanged.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -118,25 +111,8 @@ async def test_rerank_uses_single_batched_call() -> None:
     assert len(llm.calls[0]) == 2  # system + user message
 
 
-# ===========================================================================
-# Judge-reply hardening.
-#
-# The suite above proves the reranker never crashes. These prove it never
-# silently produces a WRONG order -- the more dangerous failure, because a
-# renumbered or partial reply used to be absorbed as a successful rerank with
-# nothing in the logs to distinguish it from a good one.
-# ===========================================================================
-
-
 @pytest.mark.asyncio
 async def test_zero_based_reply_is_rejected_rather_than_shifting_every_chunk() -> None:
-    """A judge answering 0-based must not silently shift the whole ranking.
-
-    Read 1-based, ``{"i": 0}`` is out of range and ``{"i": 1}``/``{"i": 2}`` name
-    the wrong chunks: the model's best candidate lands second and its worst lands
-    first. Every index being out of range is the signature of a renumbered reply,
-    so the ranking is discarded instead.
-    """
     llm = _FakeLLM(json.dumps({"scores": [{"i": 0, "score": 10}, {"i": -1, "score": 0}]}))
     chunks = [_chunk("a"), _chunk("b"), _chunk("c")]
     reranked = await rerank_chunks(llm, "query", chunks)
@@ -148,13 +124,11 @@ async def test_indices_past_the_candidate_count_are_dropped() -> None:
     llm = _FakeLLM(json.dumps({"scores": [{"i": 2, "score": 9}, {"i": 99, "score": 10}]}))
     chunks = [_chunk("a"), _chunk("b"), _chunk("c")]
     reranked = await rerank_chunks(llm, "query", chunks)
-    # 99 names no candidate and is discarded; 2 is honoured.
     assert reranked[0].chunk_id == "b"
 
 
 @pytest.mark.asyncio
 async def test_a_repeated_index_keeps_the_first_score_and_never_demotes() -> None:
-    """``dict()`` collapse used to be last-wins, so a repeat silently demoted a chunk."""
     llm = _FakeLLM(json.dumps({"scores": [{"i": 1, "score": 9}, {"i": 1, "score": 0}, {"i": 2, "score": 5}]}))
     chunks = [_chunk("a"), _chunk("b")]
     reranked = await rerank_chunks(llm, "query", chunks)
@@ -163,11 +137,6 @@ async def test_a_repeated_index_keeps_the_first_score_and_never_demotes() -> Non
 
 @pytest.mark.asyncio
 async def test_unscored_chunks_outrank_an_explicitly_rejected_one() -> None:
-    """A partial reply must not bury unjudged candidates under a rejected one.
-
-    Models routinely score only a prefix of a long list. Treating the omissions as
-    a low score sent every unjudged chunk below one the judge scored 0.
-    """
     llm = _FakeLLM(json.dumps({"scores": [{"i": 1, "score": 10}, {"i": 2, "score": 0}]}))
     chunks = [_chunk("scored_best"), _chunk("scored_worst"), _chunk("unscored_x"), _chunk("unscored_y")]
     reranked = await rerank_chunks(llm, "query", chunks)
@@ -179,11 +148,6 @@ async def test_unscored_chunks_outrank_an_explicitly_rejected_one() -> None:
 
 @pytest.mark.asyncio
 async def test_non_positive_top_n_does_not_empty_the_result() -> None:
-    """``rerank_candidates: 0`` is config-reachable (``ge=0``) and used to return nothing.
-
-    ``chunks[:0]`` emptied the knowledge base on both the success and the
-    fail-open path, so retrieval failed open to zero chunks.
-    """
     llm = _FakeLLM(json.dumps({"scores": [{"i": 1, "score": 5}, {"i": 2, "score": 9}]}))
     chunks = [_chunk("a"), _chunk("b")]
     assert len(await rerank_chunks(llm, "query", chunks, top_n=0)) == 2
@@ -192,11 +156,6 @@ async def test_non_positive_top_n_does_not_empty_the_result() -> None:
 
 @pytest.mark.asyncio
 async def test_non_finite_and_boolean_scores_are_rejected() -> None:
-    """``json.loads`` accepts NaN, and a single NaN makes the sort order undefined.
-
-    ``bool`` is an ``int`` subclass, so ``{"i": true}`` would otherwise score
-    candidate 1 and ``{"score": true}`` would read as 1.0.
-    """
     chunks = [_chunk("a"), _chunk("b"), _chunk("c")]
     assert [c.chunk_id for c in await rerank_chunks(_FakeLLM('{"scores":[{"i":3,"score":NaN}]}'), "q", chunks)] == [
         "a",
@@ -211,7 +170,6 @@ async def test_non_finite_and_boolean_scores_are_rejected() -> None:
 
 
 def test_a_chunk_without_a_page_does_not_render_p_none() -> None:
-    """``page_number`` is ``int | None``, so a getattr default never fires for a null page."""
     from knowledge_layer.search.rerank import _build_user_prompt
 
     prompt = _build_user_prompt("q", [SimpleNamespace(content="text", page_number=None, file_name="doc.pdf")])
@@ -220,7 +178,6 @@ def test_a_chunk_without_a_page_does_not_render_p_none() -> None:
 
 
 def test_excerpt_budget_shrinks_so_a_large_pool_still_fits_the_prompt() -> None:
-    """Per-chunk budget yields to a whole-prompt bound rather than multiplying by it."""
     from knowledge_layer.search.rerank import _MIN_EXCERPT_CHARS
     from knowledge_layer.search.rerank import _TOTAL_EXCERPT_BUDGET_CHARS
     from knowledge_layer.search.rerank import _excerpt_budget
@@ -257,22 +214,8 @@ async def test_cross_encoder_failure_falls_back_to_the_judge() -> None:
     assert len(llm.calls) == 1
 
 
-# ===========================================================================
-# Score-contract clamping.
-#
-# `_parse_scores` accepts any finite number, so a judge that ignores the stated
-# 0-10 range could skew the mean the unscored candidates are imputed at.
-# ===========================================================================
-
-
 @pytest.mark.asyncio
 async def test_out_of_contract_scores_cannot_invert_the_imputation() -> None:
-    """A negative score used to drag the mean below zero.
-
-    With mean < 0 every unscored candidate sorted beneath a chunk the judge had
-    explicitly rejected — the exact inversion the imputation exists to prevent.
-    Clamping to the stated 0-10 range keeps the mean inside the contract.
-    """
     llm = _FakeLLM(json.dumps({"scores": [{"i": 1, "score": -5}, {"i": 2, "score": 8}]}))
     chunks = [_chunk("rejected"), _chunk("preferred"), _chunk("unscored_x"), _chunk("unscored_y")]
     order = [c.chunk_id for c in await rerank_chunks(llm, "query", chunks)]
@@ -281,7 +224,6 @@ async def test_out_of_contract_scores_cannot_invert_the_imputation() -> None:
 
 @pytest.mark.asyncio
 async def test_an_all_equal_reply_leaves_the_retrieval_order_intact() -> None:
-    """When the judge rejects everything equally its opinion carries no information."""
     llm = _FakeLLM(json.dumps({"scores": [{"i": 1, "score": 0}, {"i": 2, "score": 0}]}))
     chunks = [_chunk("a"), _chunk("b"), _chunk("c")]
     assert [c.chunk_id for c in await rerank_chunks(llm, "query", chunks)] == ["a", "b", "c"]

@@ -37,13 +37,13 @@ from ris_adapter.cache import fetch_document_cached
 from ris_adapter.cache import ingested_marker_key
 from ris_adapter.cache import ris_cache_ttl_seconds
 from ris_adapter.cache import search_cache_key
-from ris_adapter.client import CONTROLLER_FOR_APPLICATION
 from ris_adapter.client import DEFAULT_BASE_URL
 from ris_adapter.client import PAGE_SIZES
 from ris_adapter.client import RisClient
 from ris_adapter.client import RisError
 from ris_adapter.client import RisHit
 from ris_adapter.client import build_document_url
+from ris_adapter.client import search_terms
 
 from nat.plugin_api import Builder
 from nat.plugin_api import FunctionBaseConfig
@@ -57,42 +57,24 @@ try:
     from agent.common.norm_registry import focus_entries
     from agent.common.norm_registry import load_registry
     from agent.common.norm_registry import match_entries
+    from agent.common.prompt_caching import one_shot_calls
+    from agent.common.turn_status import record_lane_hit as _record_lane_hit
 
     _CATALOG_AVAILABLE = True
+    _LANE_CAPTURE_AVAILABLE = True
 except ImportError:  # adapter used standalone, without the Grid agent package
     NormEntry = None  # type: ignore[assignment]
     extract_federal_state = None  # type: ignore[assignment]
     focus_entries = None  # type: ignore[assignment]
     load_registry = None  # type: ignore[assignment]
     match_entries = None  # type: ignore[assignment]
+    from contextlib import nullcontext as one_shot_calls
+
     _CATALOG_AVAILABLE = False
-
-try:
-    from agent.common.turn_status import record_lane_hit as _record_lane_hit
-
-    _LANE_CAPTURE_AVAILABLE = True
-except ImportError:  # adapter used standalone, without the Grid agent package
     _record_lane_hit = None  # type: ignore[assignment]
     _LANE_CAPTURE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
-
-# Austrian federal states accepted by the Landesrecht (LrKons) filter.
-_FEDERAL_STATE_PARAMS: dict[str, str] = {
-    "burgenland": "Bundesland.SucheInBurgenland",
-    "kaernten": "Bundesland.SucheInKaernten",
-    "niederoesterreich": "Bundesland.SucheInNiederoesterreich",
-    "oberoesterreich": "Bundesland.SucheInOberoesterreich",
-    "salzburg": "Bundesland.SucheInSalzburg",
-    "steiermark": "Bundesland.SucheInSteiermark",
-    "tirol": "Bundesland.SucheInTirol",
-    "vorarlberg": "Bundesland.SucheInVorarlberg",
-    "wien": "Bundesland.SucheInWien",
-}
-
-_JUDIKATUR_APPLICATIONS = frozenset(
-    app for app, controller in CONTROLLER_FOR_APPLICATION.items() if controller == "Judikatur"
-)
 
 # Applications serving consolidated (legally non-binding, informational) texts.
 _KONSOLIDIERT_APPLICATIONS = frozenset({"BrKons", "LrKons"})
@@ -111,21 +93,6 @@ _CASE_LAW_SIGNALS = re.compile(
 )
 
 
-def _normalize_federal_state(value: str) -> str:
-    """Map a user-supplied state name to the API filter key (empty if unknown)."""
-    normalized = (
-        value.strip()
-        .lower()
-        .replace("ä", "ae")
-        .replace("ö", "oe")
-        .replace("ü", "ue")
-        .replace("ß", "ss")
-        .replace(" ", "")
-        .replace("-", "")
-    )
-    return _FEDERAL_STATE_PARAMS.get(normalized, "")
-
-
 def _build_search_params(
     application: str,
     query: str,
@@ -134,37 +101,25 @@ def _build_search_params(
     date_from: str,
     date_to: str,
 ) -> dict[str, str]:
-    """Translate the tool arguments into OGD-RIS query parameters."""
-    params: dict[str, str] = {}
-    if query:
-        params["Suchworte"] = query
-    if title:
-        params["Titel"] = title
+    """Translate the tool arguments into OGD-RIS query parameters.
 
-    if federal_state and application in ("LrKons", "Lgbl", "LgblAuth", "Vbl"):
-        key = _normalize_federal_state(federal_state)
-        if key:
-            params[key] = "true"
-
+    The parameters are the ``terms`` of the ``search`` operation in the RIS
+    source record (``configs/sources/at/ris/source.yml``): which Bundesland
+    parameter a state name becomes, and which date parameter each application
+    takes, are tables there, not branches here.
+    """
     for value, name in ((date_from, "date_from"), (date_to, "date_to")):
         if value and not _DATE_RE.fullmatch(value.strip()):
             raise RisError(f"{name} must use the YYYY-MM-DD format, got '{value}'")
-
-    if application in _JUDIKATUR_APPLICATIONS:
-        if date_from:
-            params["EntscheidungsdatumVon"] = date_from.strip()
-        if date_to:
-            params["EntscheidungsdatumBis"] = date_to.strip()
-    elif application == "BgblAuth":
-        if date_from:
-            params["Kundmachung.Von"] = date_from.strip()
-        if date_to:
-            params["Kundmachung.Bis"] = date_to.strip()
-    elif application == "BrKons" and date_from:
-        # Query the consolidated version in force at the given date.
-        params["Fassung.FassungVom"] = date_from.strip()
-
-    return params
+    args = {
+        "application": application,
+        "query": query,
+        "title": title,
+        "federal_state": federal_state,
+        "date_from": date_from.strip(),
+        "date_to": date_to.strip(),
+    }
+    return search_terms(args)
 
 
 # ---------------------------------------------------------------------------
@@ -659,8 +614,9 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
 
 
 async def _plan_with(planner, query, application, title, federal_state, date_from, date_to) -> RisSearchPlan | None:
-    """Run the planner; isolated for testability."""
-    return await planner(query, application, title, federal_state, date_from, date_to)
+    """Run the planner, writing nothing to the prompt cache (its tail is the request's own); isolated for tests."""
+    with one_shot_calls():
+        return await planner(query, application, title, federal_state, date_from, date_to)
 
 
 def _format_catalog_entry(index: int, entry: NormEntry) -> str:

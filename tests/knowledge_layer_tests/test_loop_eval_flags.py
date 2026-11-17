@@ -1,9 +1,3 @@
-"""Double-fetch flags for scripts/loop_eval.py: countable latency rates.
-
-Each flag is a pure function of a turn's own steps, so a before/after run
-shows whether a loop change removed work or merely moved it. Offline.
-"""
-
 from __future__ import annotations
 
 import importlib.util

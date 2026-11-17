@@ -3,14 +3,10 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The authorization decision is the boundary under test: the spec asserts it is
-// asked for `project:memory:write` (or the `project:edit` umbrella), and that a refusal stops the extraction.
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn().mockResolvedValue(undefined),
 }))
 
-// The office's „Sensible Daten" policy (ADR-0086): here it masks one name, so a
-// spec sees that the quote stored in the profile went through it.
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_org: string, text: string) => ({ text: text.replaceAll('Maria Huber', '[Name]') })),
 }))
@@ -19,8 +15,6 @@ vi.mock('@/lib/backend-proxy', () => ({
   getBackendUrl: vi.fn().mockReturnValue('http://backend:8000'),
 }))
 
-// The project and profile repository: the reads the service makes and the one
-// profile write `persistProfile` makes. The patch engine itself runs for real.
 vi.mock('@/lib/projects/repository', () => ({
   findProjectInOrg: vi.fn(),
   findProjectProfileInOrg: vi.fn(),
@@ -28,7 +22,6 @@ vi.mock('@/lib/projects/repository', () => ({
   updateProjectProfileIfVersion: vi.fn(),
 }))
 
-// Project memory: the service's own reads and writes, at the service boundary.
 vi.mock('@/lib/projects/memory-service', () => ({
   listProjectMemory: vi.fn().mockResolvedValue([]),
   createProjectMemoryItemForProject: vi.fn().mockResolvedValue({ id: 'item-1' }),
@@ -43,8 +36,6 @@ vi.mock('@/lib/document-roles/repository', () => ({
   deleteBindingsOutsideBuildings: vi.fn().mockResolvedValue(0),
 }))
 
-// Which files every member may open and a model may read is the SQL's subject
-// (readable-files.integration.spec.ts); here, the names it answered.
 vi.mock('./readable-files', () => ({
   extractableFileNames: vi.fn(),
 }))
@@ -67,7 +58,6 @@ const session = { userId: 'user-1', organizationId: 'org-1' } as never
 
 const emptyProfile = { facts: {}, goals: {}, unknowns: [], assumptions: {} }
 
-/** A profile with one confirmed fact per key, as the intake wizard leaves it. */
 const confirmed = (...keys: string[]) => ({
   facts: Object.fromEntries(
     keys.map((key) => [key, { value: 'x', confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-01-01T00:00:00.000Z' }])
@@ -79,7 +69,6 @@ const confirmed = (...keys: string[]) => ({
 
 const evidence = (quote: string, page = '2') => ({ fileName: 'Baubeschreibung.pdf', page, quote })
 
-/** The files every member may open, as `extractableFileNames` answers for the project. */
 const OPEN_FILES = ['Baubeschreibung.pdf', 'Bescheid.pdf']
 
 function backendAnswer(overrides: Partial<ExperienceResponse> = {}): ExperienceResponse {
@@ -101,13 +90,11 @@ function answerWith(body: unknown, status = 200) {
   )
 }
 
-/** The request body the BFF sent, checked against the wire schema. */
 function sentRequest() {
   const init = mockFetch.mock.calls[0]?.[1]
   return experienceRequestSchema.parse(JSON.parse(String(init?.body)))
 }
 
-/** The assumptions the profile write carried. */
 function writtenAssumptions(): Record<string, unknown> {
   const values = vi.mocked(updateProjectProfileIfVersion).mock.calls[0]?.[3]
   return { ...values?.profile.assumptions }
@@ -131,7 +118,6 @@ function givenProfile(profile: unknown) {
 describe('extractProjectExperience', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // The extractor is service-token guarded; without a token nothing is sent.
     vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockReset()

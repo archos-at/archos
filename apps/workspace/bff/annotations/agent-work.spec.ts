@@ -1,8 +1,3 @@
-/**
- * Piloti's work on a mark, read off its newest wake: what each wake status
- * shows, and for how long an end without an answer stays said.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

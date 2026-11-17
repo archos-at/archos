@@ -3,7 +3,7 @@
  * are settled now instead of when somebody next reads a list.
  *
  * Nothing new decides anything here. The rows are found by their recorded job
- * id (`listInFlightDocumentsForIngestJobs`) and handed to the same
+ * id (`listSettleableDocumentsForIngestJobs`) and handed to the same
  * `reconcileDocumentStatuses` every read and sweep uses, inside their own
  * organization, so the guarded write, the once-only settle of the upload batch
  * and the once-only `document_ingest_finished` all hold as they do for a read.
@@ -20,10 +20,10 @@ import { withTenant } from '@/lib/db/tenant-context'
 import type { Document } from '@/lib/db/schema/documents'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from './document-status'
 import { reconcileDocumentStatuses } from './reconcile-status'
-import { listInFlightDocumentsForIngestJobs } from './repository'
+import { listSettleableDocumentsForIngestJobs } from './repository'
 
 export interface SettlePushResult {
-  /** Rows found in flight for the named jobs that the reconcile left at rest. */
+  /** Rows found for the named jobs that the reconcile left at rest. */
   settled: number
 }
 
@@ -33,9 +33,9 @@ const byOrganization = (rows: Document[]): Map<string, Document[]> => {
   return grouped
 }
 
-/** Settle the documents of the ingest jobs `jobIds`. An id no in-flight row carries is ignored. */
+/** Settle the documents of the ingest jobs `jobIds`. An id no in-flight or interrupted row carries is ignored. */
 export async function settlePushedIngestJobs(jobIds: readonly string[]): Promise<SettlePushResult> {
-  const rows = await listInFlightDocumentsForIngestJobs([...new Set(jobIds)])
+  const rows = await listSettleableDocumentsForIngestJobs([...new Set(jobIds)])
   let settled = 0
   for (const [organizationId, inOrganization] of byOrganization(rows)) {
     try {

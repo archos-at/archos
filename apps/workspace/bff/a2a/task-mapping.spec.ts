@@ -1,8 +1,3 @@
-/**
- * An ask as an A2A task, and an A2A message as an ask (ADR-0124): the mapping
- * table in `task-mapping.ts`, pinned.
- */
-
 import { Role, TaskState, type Message } from '@a2a-js/sdk'
 import { describe, expect, it } from 'vitest'
 import { ASK_STATES, type AskView } from '@/lib/agent-asks/ask-wire'
@@ -42,7 +37,7 @@ const message = (over: Partial<Message> = {}): Message => ({
 
 describe('taskOf', () => {
   it('puts the answer’s sources and confidence in one data part beside its text, and nothing when it has none', () => {
-    const sources = [{ documentId: 'c:Konzept.pdf', name: 'Konzept', page: 2, url: 'https://app.example/app/chat?session=s&cite=x' }]
+    const sources = [{ documentId: 'c:Konzept.pdf', name: 'Konzept', page: 2, kind: 'project' as const, url: 'https://app.example/app/chat?session=s&cite=x', citation: 'Konzept, S. 2.' }]
     const confidence = { level: 'high' as const, reason: 'Zitiert.' }
     const withEvidence = taskOf(view({ answer: { messageId: 'answer-1', text: 'Höchstens 40 m.', sources, confidence } }))
     const parts = withEvidence.artifacts[0]?.parts ?? []
@@ -70,6 +65,15 @@ describe('taskOf', () => {
     })
     expect(task.history.map((entry) => entry.role)).toEqual([Role.ROLE_USER, Role.ROLE_AGENT])
     expect(task.metadata).toMatchObject({ projectId: 'project-1' })
+  })
+
+  it('marks the answer artifact as a model’s text, and not a filed document, which carries its own marking', () => {
+    const [answer, document] = taskOf(view()).artifacts
+    expect(answer?.metadata).toEqual({
+      aiGenerated: true,
+      digitalSourceType: 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia',
+    })
+    expect(document?.metadata?.aiGenerated).toBeUndefined()
   })
 
   it('says why in the status message of a rejected ask', () => {

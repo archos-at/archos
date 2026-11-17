@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * The composer's Aufwand dial: how long Piloti thinks before it answers, per chat.
- *
- * A chip beside the send button names the current level; it opens a popover
- * with one five-stop slider, "Schneller" on the left and "Intelligenter" on the
- * right. The level is this chat's (`stores/effort-store.ts`), starts at the
- * organization's default and goes out with every question.
- *
- * The top stop warns. Maximum thinks far longer and spends far more tokens, and
- * on an ordinary question it overthinks rather than answers better, so the
- * popover says so while it is chosen and the chip carries the warning colour.
- *
- * The warning appears while the reader may still be dragging, so it must not
- * move the slider. The popover is pinned at the edge that faces the chip and
- * grows away from it, so the warning sits on that far side of the slider:
- * above it when the popover opens upwards (`data-side="top"`, the composer's
- * case), below it when a short viewport flips it. Nor may the warning flip the
- * popover: its side is chosen leaving room for it (`WARNING_ROOM`) and then
- * kept (`useStickySide`). It folds open by height on the tween scale, and
- * appears without motion for a reader who asked for less.
- *
- * The slider is a native `<input type="range">`, as in `viewer-slider.tsx`:
- * keyboard- and screen-reader-operable for free, drawn as a recessed track
- * whose dot ramp shows up to a raised thumb. The dial writes on every step
- * because the write is a synchronous store update, never a round trip.
- */
-
 import {
   type CSSProperties,
   type FC,
@@ -64,21 +37,12 @@ import { cn } from '@/lib/utils'
 
 import { effectiveEffort, useEffortStore } from '../../stores/effort-store'
 
-/** The top stop, the one the dial warns about. */
 const MAXIMUM = CHAT_EFFORTS[CHAT_EFFORTS.length - 1]
 
-/**
- * Room, in px, the popover keeps free above and below while the warning is
- * hidden: at least the warning's height, which is three lines and its margin,
- * 82px in either language. Radix flips a popover that no longer fits, and a
- * warning arriving mid-drag must not be the thing that flips it, so the side
- * is chosen as if the warning were already there. Longer copy needs more room.
- */
 const WARNING_ROOM = 96
 
 let orgDefaultRequest: Promise<void> | null = null
 
-/** Read the organization's default once per page load; a failure keeps the product default. */
 function loadOrgDefault(): Promise<void> {
   orgDefaultRequest ??= fetch('/api/organization/settings')
     .then((response) => (response.ok ? response.json() : null))
@@ -93,15 +57,6 @@ function loadOrgDefault(): Promise<void> {
 
 type PopoverSide = 'top' | 'bottom'
 
-/**
- * Keep the popover on the side it opened on.
- *
- * Radix re-runs its flip on every resize and always tries the preferred side
- * first, so a popover that opened below for lack of room jumps back above the
- * moment its content shrinks, or its collision padding does. Preferring
- * whatever side it is on makes the choice sticky: it moves only when that side
- * stops fitting. Each opening starts from the composer's own side, the top.
- */
 function useStickySide(): {
   side: PopoverSide
   observeSide: (node: HTMLDivElement | null) => void
@@ -124,7 +79,6 @@ function useStickySide(): {
   return { side, observeSide, resetSide: useCallback(() => setSide('top'), []) }
 }
 
-/** Test hook: forget the cached default request. */
 export function resetEffortDialDefaultRequest(): void {
   orgDefaultRequest = null
 }
@@ -132,20 +86,7 @@ export function resetEffortDialDefaultRequest(): void {
 interface EffortDialProps {
   conversationId: string | null | undefined
   disabled?: boolean
-  /**
-   * Out of sight but still in the row: invisible, unfocusable and silent, at
-   * its full width. For the composer's response mode, where a HITL answer is
-   * not a question and the dial has nothing to say. Unmounting it there made
-   * every control beside it jump sideways twice per prompt.
-   */
   hidden?: boolean
-  /**
-   * Where the keyboard goes if the dial hides while it holds the focus (the
-   * chip, or the slider in its open popover). The composer passes its field:
-   * the dial hides because a question arrived, and the field is where it is
-   * answered. Without it the focus is let go to <body> rather than left on a
-   * control nobody can see.
-   */
   focusOnHide?: RefObject<HTMLElement | null>
   className?: string
 }
@@ -169,13 +110,8 @@ export const EffortDial: FC<EffortDialProps> = ({
   const index = CHAT_EFFORTS.indexOf(effort)
   const label = t(`effortDial.levels.${effort}`)
   const isMaximum = effort === MAXIMUM
-  // Controlled only so a dial that hides while open closes too, rather than
-  // leaving its popover standing over an invisible chip.
   const [open, setOpen] = useState(false)
 
-  // Hiding while focused hands the focus on, before paint, so no frame has the
-  // keyboard on an invisible, aria-hidden control (and a screen reader is not
-  // left announcing one).
   const triggerRef = useRef<HTMLButtonElement>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
   useLayoutEffect(() => {
@@ -190,7 +126,6 @@ export const EffortDial: FC<EffortDialProps> = ({
     else focused.blur()
   }, [hidden, focusOnHide])
 
-  // One node, two readers: the focus hand-off above and the side tracking.
   const setContent = useCallback(
     (node: HTMLDivElement | null) => {
       contentRef.current = node
@@ -203,8 +138,6 @@ export const EffortDial: FC<EffortDialProps> = ({
     <Popover
       open={open && !hidden}
       onOpenChange={(next) => {
-        // Each opening starts from the composer's side. Reset on open rather
-        // than on close: a dial that hides closes without this callback.
         if (next) resetSide()
         setOpen(next)
       }}
@@ -252,8 +185,6 @@ export const EffortDial: FC<EffortDialProps> = ({
         collisionPadding={isMaximum ? 0 : { top: WARNING_ROOM, bottom: WARNING_ROOM }}
         className="group/effort flex w-72 flex-col p-4"
         data-testid="effort-dial"
-        // Closed by hiding: the focus has already moved on (above), and
-        // Radix's return to the trigger would put it back on the hidden chip.
         onCloseAutoFocus={(event) => {
           if (hidden) event.preventDefault()
         }}
@@ -281,9 +212,6 @@ export const EffortDial: FC<EffortDialProps> = ({
 
         <AnimatePresence initial={false}>
           {isMaximum && (
-            // The shared arrival primitive: the warning arrives below the reading
-            // point and takes its height on the app's tween, reduced motion in one
-            // frame. It stays last on a dial that opens above its chip.
             <HeightArrival
               key="maximum-warning"
               className="group-data-[side=bottom]/effort:order-last"
@@ -324,23 +252,13 @@ interface EffortSliderProps {
   onChoose: (level: (typeof CHAT_EFFORTS)[number]) => void
 }
 
-/** Thumb width and its inset from the track edge, in px; every position is measured with them. */
 const THUMB = 28
 const INSET = 4
 
-/** The rail the thumb's centre travels: from its centre at the left stop to its centre at the right. */
 const RAIL: CSSProperties = { left: INSET + THUMB / 2, right: INSET + THUMB / 2 }
 
-/** A box as wide as the thumb's travel, starting at the thumb's left edge in the left stop. */
 const TRAVEL: CSSProperties = { left: INSET, width: `calc(100% - ${2 * INSET + THUMB}px)` }
 
-/**
- * The ramp: dots painted onto the TRACK, faint at Minimal and dense toward
- * High, warming to the warning ink over the last stretch, the one that buys
- * Maximum. It never moves. Only how much of it shows does (see `revealTo`), so
- * turning the dial up reads as filling with more, never as a background sliding.
- * The dots are a mask over the gradient, so the gradient colours them.
- */
 const RAMP_DOTS: CSSProperties = {
   backgroundImage: [
     'linear-gradient(to right,',
@@ -353,25 +271,14 @@ const RAMP_DOTS: CSSProperties = {
   maskPosition: 'left center',
 }
 
-/**
- * The clip that shows the ramp up to the thumb's centre. The reveal box is the
- * track inside its inset, where the thumb's centre runs from THUMB / 2 to
- * 100% - THUMB / 2, so at `share` the right inset is what is left beyond it.
- */
 function revealTo(share: number): string {
   return `inset(0 calc(${1 - share} * (100% - ${THUMB}px) + ${THUMB / 2}px) 0 0 round 8px)`
 }
 
-/** The thumb: a flat ink key on the track, the one thing on the dial that is not a dot. */
 const THUMB_FACE: CSSProperties = {
   backgroundColor: 'var(--foreground)',
 }
 
-/**
- * One level's mark on the bare track. It goes out the moment the ramp's edge
- * reaches it, read from the same motion value as the thumb, so it always
- * happens under the thumb and a stop never sits on top of the dots.
- */
 const Stop: FC<{ position: MotionValue<number>; at: number }> = ({ position, at }) => {
   const opacity = useTransform(position, (value) => (value >= at - 0.001 ? 0 : 1))
   return (
@@ -383,27 +290,6 @@ const Stop: FC<{ position: MotionValue<number>; at: number }> = ({ position, at 
   )
 }
 
-/**
- * The track is drawn under an invisible range input that covers it, so the
- * browser still owns dragging, clicking and the arrow keys. The input's own
- * thumb keeps the drawn thumb's width, which is what makes the browser's stop
- * positions and the drawn ones the same.
- *
- * Light stops mark the five levels on the bare track. Behind the thumb the
- * track shows its ramp (`RAMP_DOTS`), which is painted on the track and never
- * moves: the thumb only uncovers more of it, through a clip whose edge is the
- * thumb's centre, so the edge is always under the thumb. (The ramp used to be
- * a fade that travelled WITH the thumb, which read as the background sliding.)
- * A stop goes out as the edge reaches it (`Stop`), likewise under the thumb.
- *
- * Reveal, stops and thumb follow ONE spring: a single motion value, animated on
- * `springGlide` and read by all three, so they cannot drift apart however a drag
- * retargets it. Each step of a drag retargets the spring from where it is,
- * velocity and all. The value starts at the chosen stop, so opening the dial
- * does not glide. `animate()` on a bare motion value does not consult
- * `<MotionConfig>`, so a reader who asked for less motion gets a jump, read
- * from `useReducedMotionConfig`, which honours both that config and the OS.
- */
 const EffortSlider: FC<EffortSliderProps> = ({ label, index, valueText, onChoose }) => {
   const sliderId = useId()
   const reducedMotion = useReducedMotionConfig()

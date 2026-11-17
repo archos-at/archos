@@ -1,11 +1,3 @@
-"""The one decision about which restricted folders a memory depends on (ADR-0087).
-
-``restriction_decisions`` (``decide_restrictions`` plus the judge's verdict) is
-called by the ``remember`` tool and by the reflection stage. These tests drive
-it directly with a fake judge model, and pin the strict reading of the judge's
-reply, because an unusable reply must fail CLOSED.
-"""
-
 import asyncio
 import json
 
@@ -36,8 +28,6 @@ class _Response:
 
 
 class _Judge:
-    """A chat model stand-in that answers with canned text and records the prompt."""
-
     def __init__(self, content: str | Exception, *, delay: float = 0.0) -> None:
         self._content = content
         self._delay = delay
@@ -141,7 +131,6 @@ class TestDecision:
 
     @pytest.mark.asyncio
     async def test_an_unknown_inventory_fails_closed(self):
-        """The inventory read failed open: what the turn could list is unknown."""
         judge = _Judge(_reply([]))
         evidence = _evidence(sources=[CONTRACTS], rows=())
         assert await decide_restriction("x", evidence, llm=judge) == (CONTRACTS, PERSONNEL)
@@ -155,8 +144,6 @@ class TestDecision:
 
     @pytest.mark.asyncio
     async def test_read_plus_an_unread_folder_the_note_draws_on(self):
-        """Read A, and B's summary was listable: a note restricted to A alone
-        would carry B's content to people cleared only for A."""
         judge = _Judge(_reply([1]))
         evidence = _evidence(sources=[CONTRACTS], rows=(CONTRACT_ROW, PERSONNEL_ROW))
         assert await decide_restriction("Gehälter steigen", evidence, llm=judge) == (CONTRACTS, PERSONNEL)
@@ -181,9 +168,6 @@ class TestDecision:
 
 
 class TestVerdicts:
-    """AI Act: every judge verdict reaches the audit trail, so each decision says
-    what the judge answered, about which folders, and nothing of the text."""
-
     @pytest.mark.asyncio
     async def test_a_batch_carries_one_verdict_per_note(self):
         judge = _Judge(_reply([], [2]))
@@ -240,8 +224,6 @@ class TestParse:
 
 
 class TestRestrictedMemoryInThePrompt:
-    """A paraphrase of a restricted NOTE must not be filed as open memory."""
-
     _DIGEST = (
         "PROJECT_MEMORY v1\n"
         '- [decision | high | unverified] "Flachdach extensiv begrünt."\n'
@@ -281,22 +263,15 @@ class TestRestrictedMemoryInThePrompt:
 
 
 class TestACopyOfARestrictedNoteIsRestrictedWithoutAsking:
-    """ADR-0087: a verbatim copy of a restricted digest line is that line, whatever the judge says."""
-
     _NOTE = "Honorar für die Tragwerksplanung: 48.000 € netto, mit Büro Müller vereinbart."
 
     @pytest.mark.parametrize(
         "memory",
         [
-            # Verbatim.
             _NOTE,
-            # Verbatim, with words around it.
             f"Merke: {_NOTE} Gilt ab Juli.",
-            # Case, spacing, punctuation and Unicode form folded away (NFD „ü").
             "honorar FÜR die  tragwerksplanung 48.000 €, netto; mit büro müller vereinbart",
-            # Reordered and reformatted: every significant token of the note kept.
             "Mit Büro Müller vereinbart: Tragwerksplanung-Honorar 48.000 € netto.",
-            # A verbatim fragment of the note.
             "Tragwerksplanung: 48.000 € netto",
         ],
     )
@@ -306,11 +281,8 @@ class TestACopyOfARestrictedNoteIsRestrictedWithoutAsking:
     @pytest.mark.parametrize(
         "memory",
         [
-            # A different fact about the same people: 3 of 7 tokens, left to the judge.
             "Die Statik prüft Büro Müller.",
-            # The same grammatical shape, different content: the function words do not count.
             "Die Kosten der Fenster und des Kellers.",
-            # One shared number is a coincidence, not a copy.
             "Die Stellplatzanzahl beträgt 48.",
             "",
         ],
@@ -323,7 +295,6 @@ class TestACopyOfARestrictedNoteIsRestrictedWithoutAsking:
         evidence = restriction_evidence(SCOPE, listed_documents=(OPEN_ROW,), restricted_notes=(self._NOTE,))
 
         assert await decide_restriction(self._NOTE, evidence, llm=judge) == (CONTRACTS, PERSONNEL)
-        # The judge was still asked: it may name more than the copy.
         assert len(judge.calls) == 1
 
     async def test_an_unrelated_memory_beside_it_stays_open(self):
@@ -337,12 +308,9 @@ class TestACopyOfARestrictedNoteIsRestrictedWithoutAsking:
 
 
 class TestRestrictedNotesEarlierTurnsWereShown:
-    """ADR-0087: a restricted note that left the digest is still evidence in a later turn."""
-
     _EARLIER = R.RestrictedNote("Gehalt Bauleitung: 5.200 € brutto.", (PERSONNEL,))
 
     async def test_with_nothing_restricted_listable_the_judge_is_still_asked(self):
-        """The case that wrote open memory: no restricted row listed, the note gone from the digest."""
         judge = _Judge(_reply([1]))
         evidence = restriction_evidence(SCOPE, listed_documents=(OPEN_ROW,), earlier_notes=(self._EARLIER,))
 

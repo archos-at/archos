@@ -1,14 +1,3 @@
-"""Folder card points never reach a chunk read; the folder channel finds them (ADR-0127, S11c).
-
-A folder card is a point ``kind = folder`` in its folder's own scope, beside the
-chunks. Every read in the knowledge layer builds its filter in
-``scope.scope_filter``, which leaves those points out unless the read asks for
-them. These tests put a folder point next to real chunks on a real Qdrant and
-drive every read path there is (ranked, grouped, similar, scroll, ordered
-scroll, grep, facets, counts, the chunk id listings, the structural fetch),
-then the two that may see it: the folder search and the folder scroll.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -27,6 +16,8 @@ from knowledge_layer_testing.vector_store import vector
 from knowledge_layer_testing.vector_store import write
 from qdrant_client import models
 
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 PROJECT = "proj_kind"
 RESTRICTED = "proj_kind_r_9"
 CARD_TEXT = "Brandschutz Fluchtwege Gutachten"
@@ -42,7 +33,6 @@ CARD = {
 
 @pytest.fixture
 def placed(qdrant_store):
-    """Two chunks and one folder card point in the project; a card in a restricted scope too."""
     write(
         PROJECT,
         [
@@ -50,7 +40,6 @@ def placed(qdrant_store):
             record("Statik Bewehrung Decke", "Statik.pdf", folder_path="Gutachten", reading_order=1, chunk_ordinal=0),
         ],
     )
-    # The card's vector is the chunk text's, so a chunk search for that text ranks it first if it can.
     folders.upsert_folder_card(qdrant_store, PROJECT, CARD, vector(CARD_TEXT))
     write(RESTRICTED, [record("Geheim", "Vertrag.pdf", reading_order=1, chunk_ordinal=0)])
     folders.upsert_folder_card(qdrant_store, RESTRICTED, {**CARD, "folder_path": "Verträge"}, vector(CARD_TEXT))
@@ -65,7 +54,9 @@ def _no_folder(payloads) -> None:
 
 class TestNoChunkReadSeesAFolder:
     def test_the_ranked_search(self, placed):
-        hits = hybrid_search(placed, [PROJECT], vector=vector(CARD_TEXT), lexical_text=CARD_TEXT, limit=10)
+        hits = hybrid_search(
+            placed, [PROJECT], vector=vector(CARD_TEXT), lexical_text=CARD_TEXT, limit=10, office_id="org_test"
+        )
 
         _no_folder(hit.payload for hit in hits)
         assert len(hits) == 2
@@ -79,6 +70,7 @@ class TestNoChunkReadSeesAFolder:
             group_by="scope",
             groups=5,
             group_size=5,
+            office_id="org_test",
         )
 
         _no_folder(hit.payload for _scope, hits in groups for hit in hits)
@@ -91,6 +83,7 @@ class TestNoChunkReadSeesAFolder:
             embed=vector,
             documents=5,
             per_document=3,
+            office_id="org_test",
         )
 
         assert [document.file_name for document in result.documents] == ["BS.pdf"]
@@ -103,8 +96,7 @@ class TestNoChunkReadSeesAFolder:
         _no_folder(hit.payload for hit in reads.fetch(PROJECT, None, 10))
 
     def test_grep(self, placed):
-        # The card's abstract says "Brandschutzgutachten"; a grep reads chunk text only.
-        hits = retrieval.find_text(PROJECT, r"(?i)brandschutz", None, 50)
+        hits = retrieval.find_text(PROJECT, r"(?i)brandschutz", None, 50, office_id="org_test")
 
         _no_folder(hit.payload for hit in hits)
 
@@ -208,8 +200,6 @@ class TestTheCardsLifecycle:
 
 
 class _Embedder:
-    """The production embedder's two methods the callers use, with the test vectors."""
-
     def embed_query(self, text: str) -> list[float]:
         return vector(text)
 

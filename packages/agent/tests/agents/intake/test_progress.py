@@ -1,10 +1,3 @@
-"""The run's live progress (``op: progress``): the setup page counts the documents while Piloti reads.
-
-``finish`` alone left „23 Dokumente gelesen" at the last reading's number until
-the end. The middleware now reports after every tool call, and only when the
-read log has a file it has not reported yet.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace

@@ -1,13 +1,3 @@
-"""What the canvas tools tell the rest of the turn: which answer a write belongs to, and which thread got a reply.
-
-Every write names the answer this turn writes (``answerMessageId``), so the BFF
-records each change Piloti applied against it (ADR-0109). And every write that
-speaks in a mark's thread notes it on the turn's thread record
-(``agent.turn.annotation_reply``), so the turn does not post its answer
-there a second time; ``leave_canvas``, the canvas's end-of-turn call, settles
-whether that answer may go where everyone reads.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -39,7 +29,6 @@ from agent.turn.annotation_reply import bind_thread_reply
 from agent.turn.annotation_reply import reset_thread_reply
 from agent.turn.response import answer_message_id
 
-#: The answer the conftest's turn writes: conversation ``s_conv_1``, user message ``m_user_7``.
 ANSWER = answer_message_id("s_conv_1", "m_user_7")
 
 WRITES = {
@@ -55,7 +44,6 @@ WRITES = {
 
 @pytest.fixture
 def thread():
-    """A turn asked in the thread of :data:`ANNOTATION`, its record bound as the chat socket binds it."""
     record = ThreadReply(annotation_id=ANNOTATION, document_id=DOCUMENT)
     token = bind_thread_reply(record)
     yield record

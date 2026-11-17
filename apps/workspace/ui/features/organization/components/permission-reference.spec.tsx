@@ -26,7 +26,6 @@ const role = (over: Partial<RoleSpec> = {}): RoleSpec => ({
   ...over,
 })
 
-/** The table row a permission's slug identifies. */
 const rowFor = (slug: string): HTMLElement => screen.getByText(slug).closest('tr') as HTMLElement
 
 describe('invertRoles', () => {
@@ -70,8 +69,6 @@ describe('PermissionReference', () => {
   })
 
   test('says so when no role grants a permission', () => {
-    // A permission no role holds is a real and important finding: nobody can
-    // exercise it, which usually means a provisioning gap rather than a design.
     render(
       <PermissionReference
         permissions={[permission({ slug: 'org:archiv:manage', name: 'Manage document Archiv' })]}
@@ -127,8 +124,6 @@ describe('PermissionReference', () => {
   test('the shipped catalog renders with the real inversion behind it', () => {
     render(<PermissionReference />)
 
-    // `org:audit:view` is granted by exactly three shipped roles; if a role edit
-    // changes that, this view must be why anyone finds out.
     const row = rowFor('org:audit:view')
     expect(within(row).getByText('Admin')).toBeInTheDocument()
     expect(within(row).getByText('Auditor')).toBeInTheDocument()

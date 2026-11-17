@@ -1,11 +1,3 @@
-"""What the chat turn does for the review canvas, around the graph: nothing posted, one ``leave``.
-
-The canvas tools act only when the model calls them. The harness adds two
-things and no more: a question asked in a thread runs without restricted
-folders in scope, and Piloti's cursor leaves every document it appeared on once
-the turn is over, however it ended.
-"""
-
 from __future__ import annotations
 
 from agent.agents.piloti import conversation_register as cr

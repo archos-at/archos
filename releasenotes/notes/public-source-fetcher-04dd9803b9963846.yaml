@@ -1,0 +1,8 @@
+---
+# area: building-law
+operators:
+  - >
+    Austrian law lookups can now be routed per office through an isolated
+    fetcher that reaches only public hosts: create the source-routing flag in
+    both WorkOS environments, and set publicSourceFetcherEnabled on a stack to
+    deploy the fetcher (both off by default, nothing changes until then).

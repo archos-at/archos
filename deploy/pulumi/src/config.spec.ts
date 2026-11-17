@@ -175,11 +175,16 @@ describe("the bff-jobs pool's floor", () => {
   });
 });
 
-describe("the geocoder URL (ADR-0151)", () => {
+describe("the geocoder URL (ADR-0151, ADR-0159)", () => {
   const key = `${pulumi.getProject()}:geocoderUrl`;
 
-  it("defaults to komoot's public Photon", () => {
+  it("is off by default: no address keystroke leaves the cell unless a stack opts in", () => {
     pulumi.runtime.setAllConfig(baseStackConfig());
+    expect(loadConfig().geocoderUrl).toBe("");
+  });
+
+  it("takes komoot's public Photon when a stack names it", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key]: "https://photon.komoot.io" });
     expect(loadConfig().geocoderUrl).toBe("https://photon.komoot.io");
   });
 

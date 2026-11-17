@@ -1,11 +1,3 @@
-/**
- * The room on the sheet, the way a design tool has it: a colleague's cursor
- * chat keeps their name above the words; a pointer that rests goes quiet; the
- * mark a colleague has open is ringed in their colour with their name; a box
- * being dragged out says whose it is; „/" opens a bubble at the reader's own
- * pointer that types live into the room and clears itself.
- */
-
 import { useState } from 'react'
 import { act, fireEvent, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -198,9 +190,7 @@ describe('where a card goes', () => {
   })
 
   it('goes under a mark that leaves no room on either side, its left edge kept on the page', () => {
-    // A corridor across the sheet: 5% on either side, which a share said was room enough.
     expect(placeCard({ x: 0.05, y: 0.3, w: 0.9, h: 0.1 }, page)).toEqual({ x: 0.05, y: 0.4, placement: 'below' })
-    // On a narrow page the card starts where it still ends on the page.
     const narrow = placeCard({ x: 0.6, y: 0.2, w: 0.1, h: 0.1 }, { width: 400, height: 600 })
     expect(narrow.placement).toBe('below')
     expect(narrow.x * 400 + 320).toBeLessThanOrEqual(400)
@@ -228,7 +218,6 @@ describe('whose name a selection tag still says', () => {
 describe('who is out of view', () => {
   it('says where a colleague is from where their point is laid out, not from page numbers', () => {
     const view = { top: 100, bottom: 800 }
-    // Page 2 starts in view: a pointer high on it is on screen, no chip.
     expect(peerSide({ page: 2, y: 0.1 }, 1, { top: 700, height: 1000 }, view)).toBe('here')
     expect(peerSide({ page: 2, y: 0.5 }, 1, { top: 700, height: 1000 }, view)).toBe('below')
     expect(peerSide({ page: 1, y: 0.05 }, 1, { top: -400, height: 1000 }, view)).toBe('above')
@@ -248,14 +237,11 @@ describe('the list counts', () => {
     { status: 'open', assigneeUserId: 'user_me', createdBy: 'user_anna' },
     { status: 'resolved', assigneeUserId: null, createdBy: 'user_anna' },
     { status: 'resolved', assigneeUserId: 'user_me', createdBy: 'user_anna' },
-    // Piloti's proposal naming the reader is not theirs until somebody takes it over.
     { status: 'proposed', assigneeUserId: 'user_me', createdBy: 'user_me' },
   ] as const
 
   it('counts what „For you" leaves, so a tab never promises more than the list shows', () => {
-    // Piloti's proposals are listed under Offen but counted apart from the office's own open marks.
     expect(tabCounts(marks, { on: false, me: 'user_me' })).toEqual({ open: 2, proposed: 2, closed: 2 })
-    // What the reader set is not theirs: only what they are Zuständige of, as Dateien counts „für Sie".
     expect(tabCounts(marks, { on: true, me: 'user_me' })).toEqual({ open: 1, proposed: 0, closed: 1 })
   })
 })
@@ -283,7 +269,6 @@ describe('cursor chat', () => {
 
   it('opens beside the pointer, and never past the canvas edge', () => {
     expect(placeChat({ x: 100, y: 200 }, canvas, size, 72)).toEqual({ left: 114, top: 216 })
-    // The toolbar's own corner: the bubble would have opened under the window's edge.
     expect(placeChat({ x: 40, y: 840 }, canvas, size, 72)).toEqual({ left: 54, top: 50 + 800 - 64 - 8 })
     expect(placeChat({ x: 990, y: 100 }, canvas, size, 72).left).toBe(1000 - 240 - 8)
   })
@@ -337,9 +322,7 @@ describe("a colleague's box being drawn", () => {
   })
 
   it('puts the name beside a box narrower than it, so it never lies over what is left of it (a pin)', () => {
-    // 0.05 of a phone's 390px page is 20px: „Jakob" is wider.
     expect(draftTagPlace({ x: 0.5, y: 0.3, w: 0.05 }, 'Jakob', page)).toBe('beside-right')
-    // At the page's right edge there is no room beside it: it goes to the left.
     expect(draftTagPlace({ x: 0.9, y: 0.3, w: 0.05 }, 'Jakob', page)).toBe('beside-left')
   })
 })

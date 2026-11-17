@@ -1,10 +1,3 @@
-/**
- * Wizard behaviour specs, updated for the modules-A–H intake. These land the
- * wizard on a specific module (via a seeded localStorage draft) and exercise
- * the Save path, the FB-13 conflict check, optimistic concurrency, draft
- * freshness, and numeric validation. The deterministic rule under test is the
- * fossil-fuel-on-a-new-build conflict (E1=gas + A5 includes Neubau).
- */
 import { projectTourUrl } from '@/lib/onboarding/product-tour'
 import { fireEvent, render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -65,18 +58,6 @@ function stubFetch(): FetchStub {
   return { fetch, calls, consistencyResponse: state }
 }
 
-/**
- * The answers the wizard hard-requires (A1 / A2_adr / A2_country / A2_land / A5).
- *
- * `A2_adr` is deliberately under the free-text threshold (10 chars): it is a
- * `text` question, so a realistic street address would enrol every fixture in
- * the LLM consistency check and change what the flag-OFF cases are testing.
- *
- * Every review-step fixture carries them because a real user cannot reach a
- * successful save without them: `handleSave` refuses and jumps to the first one
- * missing. A fixture without them models a user who cannot exist — and used to
- * pass only because that gate did not exist.
- */
 const REQUIRED_ANSWERS: Record<string, ProjectPrimitiveValue> = {
   A1: 'Test',
   A2_adr: 'Wien 1',
@@ -85,7 +66,6 @@ const REQUIRED_ANSWERS: Record<string, ProjectPrimitiveValue> = {
   A5: ['new_build'],
 }
 
-/** Seed a draft so the wizard restores these answers and opens on the Review step (module H). */
 function seedReviewDraft(answers: Record<string, ProjectPrimitiveValue>, savedAt?: number): void {
   localStorage.setItem(
     `intake-draft-v3-${PROJECT_ID}`,
@@ -112,7 +92,6 @@ const consistencyCalls = (stub: FetchStub) =>
 const putProfileCalls = (stub: FetchStub) =>
   stub.calls.filter((c) => c.url.endsWith(`/projects/${PROJECT_ID}/profile`) && c.method === 'PUT')
 
-// Answers that trigger the fossil-fuel-on-a-new-build conflict.
 const FOSSIL_CONFLICT: Record<string, ProjectPrimitiveValue> = { A5: ['new_build'], 'E1@bldg1': 'gas' }
 
 describe('ProjectIntakeWizard — FB-13 conflict check', () => {
@@ -147,7 +126,6 @@ describe('ProjectIntakeWizard — FB-13 conflict check', () => {
     expect(await screen.findByText(/Erneuerbare-Wärme-Gesetz/i)).toBeInTheDocument()
     expect(putProfileCalls(stub)).toHaveLength(0)
     expect(pushMock).not.toHaveBeenCalled()
-    // No free text present → the LLM was never called.
     expect(consistencyCalls(stub)).toHaveLength(0)
   })
 
@@ -177,7 +155,6 @@ describe('ProjectIntakeWizard — FB-13 conflict check', () => {
 
     await user.click(screen.getByRole('button', { name: /revise/i }))
 
-    // "Art des Vorhabens" (A5) lives in module A → step 1 of 8. Findings clear.
     expect(await screen.findByText(new RegExp(`step 1 of ${TOTAL}`, 'i'))).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.queryByText(/Erneuerbare-Wärme-Gesetz/i)).not.toBeInTheDocument()
@@ -187,7 +164,6 @@ describe('ProjectIntakeWizard — FB-13 conflict check', () => {
   it('flag ON: no substantive free text → the LLM is never called', async () => {
     const user = userEvent.setup()
     const stub = stubFetch()
-    // Consistent structured answers, and a too-short context note (< 10 chars).
     seedReviewDraft({ A2_land: 'vienna', A5: ['conversion'], G1: 'ok' })
     renderWizard(true)
 
@@ -280,8 +256,6 @@ describe('ProjectIntakeWizard — Fix 3 save-success feedback', () => {
   it('toasts a save confirmation with the captured-fact count after a successful save', async () => {
     const user = userEvent.setup()
     stubFetch()
-    // project_name + site_address + country + federal_state + work_type:
-    // the five facts the required-answer set produces.
     seedReviewDraft({ A2_land: 'vienna' })
     renderWizard(false)
 
@@ -471,7 +445,6 @@ describe('ProjectIntakeWizard — edit-mode save preserves agent-recorded knowle
     expect(body.facts.brandabschnitt_flaeche?.value).toBe(1200)
     expect(body.goals.zieltermin).toBe('2027-03-01')
     expect(body.unknowns).toContain('statik_gutachten')
-    // The wizard's own answer still lands as usual.
     expect(body.facts.federal_state?.value).toBe('vienna')
   })
 })
@@ -570,8 +543,6 @@ describe('ProjectIntakeWizard — stale conditional answers pruned on load', () 
   it('prunes an orphaned conditional answer from a restored draft before saving', async () => {
     const user = userEvent.setup()
     const stub = stubFetch()
-    // A6 (Baujahr) only applies to existing-building work. A restored draft with
-    // pure Neubau + a stale Baujahr must be pruned on load like an interactive edit.
     seedReviewDraft({ A5: ['new_build'], A6: 1990, A6__mode: 'value' })
     renderWizard(false)
 
@@ -579,7 +550,6 @@ describe('ProjectIntakeWizard — stale conditional answers pruned on load', () 
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith(projectTourUrl(PROJECT_ID)))
     const body = putProfileCalls(stub)[0].body as { facts: Record<string, unknown> }
-    // The pruned Baujahr never reaches the persisted profile.
     expect(body.facts.existing_year_built).toBeUndefined()
   })
 })
@@ -742,7 +712,6 @@ describe('ProjectIntakeWizard — Fix 2 AI-finding revise link resolves a stage'
     await user.click(await screen.findByRole('button', { name: /save & see/i }))
     expect(await screen.findByText(/the note contradicts the plan/i)).toBeInTheDocument()
 
-    // The link falls back to the first free-text stage (module A, A1 is text) → step 1.
     await user.click(screen.getByRole('button', { name: /revise/i }))
     expect(await screen.findByText(new RegExp(`step 1 of ${TOTAL}`, 'i'))).toBeInTheDocument()
     await waitFor(() =>
@@ -762,7 +731,6 @@ describe('ProjectIntakeWizard — Fix 5 non-finite number rejected', () => {
   it('rejects "1e999" (Infinity) with a validation error and neither advances nor saves', async () => {
     const user = userEvent.setup()
     const stub = stubFetch()
-    // Land on module C (index 2) with the building set to a Gebäude so C2 shows.
     localStorage.setItem(
       `intake-draft-v3-${PROJECT_ID}`,
       JSON.stringify({ answers: { 'C1@bldg1': 'building' }, currentStep: 2 })
@@ -794,9 +762,6 @@ describe('ProjectIntakeWizard — module rail', () => {
     renderWizard(false)
     const rail = await screen.findByRole('navigation', { name: /wizard modules/i })
 
-    // The horizontal stepper this replaced cut every label to ~8 characters,
-    // which turned three different modules into "Grundstück …" / "Technik &
-    // En…" / "Zusammenfa…". Full titles are the rail's whole reason to exist.
     for (const title of [
       'Grundstück & Widmung',
       'Technik & Energie',
@@ -813,8 +778,6 @@ describe('ProjectIntakeWizard — module rail', () => {
     renderWizard(false)
     const rail = await screen.findByRole('navigation', { name: /wizard modules/i })
 
-    // Validation is soft everywhere but A1/A2/A5, so a rail that locked
-    // unvisited modules would enforce a gate the questionnaire does not have.
     await user.click(within(rail).getByText('Projektkontext'))
     expect(await screen.findByText(/Modul G/)).toBeInTheDocument()
   })
@@ -826,8 +789,6 @@ describe('ProjectIntakeWizard — module rail', () => {
     const rail = await screen.findByRole('navigation', { name: /wizard modules/i })
     const moduleA = within(rail).getByText('Projektbasis').closest('button')!
 
-    // A1 is seeded from the project name, so module A opens at 1 of 6: the
-    // Bundesland is asked until a country other than Austria is chosen.
     expect(within(moduleA).getByText('1 of 6')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText(/Adresse \/ Gemeinde/), 'Innrain 1, 6020 Innsbruck')
@@ -843,7 +804,6 @@ describe('ProjectIntakeWizard — Schnellstart', () => {
   })
   afterEach(() => localStorage.clear())
 
-  /** Module B: B1/B1_text/B2 are core, the risk/noise/servicing block is not. */
   async function openModuleB(user: ReturnType<typeof userEvent.setup>) {
     const rail = await screen.findByRole('navigation', { name: /wizard modules/i })
     await user.click(within(rail).getByText('Grundstück & Widmung'))
@@ -860,7 +820,6 @@ describe('ProjectIntakeWizard — Schnellstart', () => {
 
     await user.click(screen.getByRole('button', { name: /quick start/i }))
 
-    // Core survives, non-core goes, and the count says how much went.
     expect(screen.getByLabelText(/Flächenwidmung \(Kategorie\)/)).toBeInTheDocument()
     expect(screen.queryByLabelText(/Lärmsituation am Standort/)).not.toBeInTheDocument()
     expect(screen.getByText(/hidden in quick start/i)).toBeInTheDocument()
@@ -873,7 +832,6 @@ describe('ProjectIntakeWizard — Schnellstart', () => {
     await openModuleB(user)
     await user.click(screen.getByRole('button', { name: /quick start/i }))
 
-    // A count the user cannot act on would just be a nag.
     await user.click(screen.getByRole('button', { name: /show all here/i }))
     expect(screen.queryByText(/hidden in quick start/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/Lärmsituation am Standort/)).toBeInTheDocument()
@@ -885,8 +843,6 @@ describe('ProjectIntakeWizard — Schnellstart', () => {
     renderWizard(false)
     await screen.findByText(/Modul A/)
 
-    // Every question v1.2 leaves in module A is core, so Schnellstart has
-    // nothing to hide there and must stay silent rather than print "0 more".
     await user.click(screen.getByRole('button', { name: /quick start/i }))
     expect(screen.queryByText(/hidden in quick start/i)).not.toBeInTheDocument()
   })
@@ -898,8 +854,6 @@ describe('ProjectIntakeWizard — Schnellstart', () => {
     await screen.findByText(/Modul A/)
     await user.click(screen.getByRole('button', { name: /quick start/i }))
 
-    // Only A1/A2/A5 are hard-required and all are core; this guards the case
-    // where a later `required: true` lands on a non-core question.
     for (const label of [/Projektname/, /Adresse \/ Gemeinde/, /^Land/]) {
       expect(screen.getByLabelText(label)).toBeInTheDocument()
     }
@@ -926,9 +880,6 @@ describe('ProjectIntakeWizard — Rest überspringen', () => {
     expect(within(moduleG).getByText('0 of 4')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /skip the rest/i }))
 
-    // Explicitly open counts as answered: both produce an `unknown` in the
-    // profile, but only the explicit one is distinguishable from "not reached"
-    // in Modul H's completion checklist.
     await waitFor(() => expect(within(moduleG).getByText('complete')).toBeInTheDocument())
   })
 
@@ -939,11 +890,8 @@ describe('ProjectIntakeWizard — Rest überspringen', () => {
     const rail = await screen.findByRole('navigation', { name: /wizard modules/i })
     const moduleA = within(rail).getByText('Projektbasis').closest('button')!
 
-    // A1 is seeded from the project name; A2_adr/A2_country stay required, so
-    // module A can never be skipped to "complete".
     await user.click(screen.getByRole('button', { name: /skip the rest/i }))
     await waitFor(() => expect(within(moduleA).getByText(/of/)).toBeInTheDocument())
-    // Never "complete": the required questions are still unanswered.
     expect(within(moduleA).queryByText('complete')).not.toBeInTheDocument()
   })
 
@@ -954,7 +902,6 @@ describe('ProjectIntakeWizard — Rest überspringen', () => {
     await screen.findByText(/Modul A/)
     await user.click(screen.getByRole('button', { name: /skip the rest/i }))
 
-    // Skipping must not open the one gate the spec keeps closed.
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     expect(await screen.findByText(/Modul A/)).toBeInTheDocument()
   })
@@ -968,7 +915,6 @@ describe('ProjectIntakeWizard — required answers gate the save', () => {
   })
   afterEach(() => localStorage.clear())
 
-  /** A draft that lands on Modul H with a required answer missing. */
   function seedIncompleteReviewDraft(omit: string): void {
     const answers: Record<string, ProjectPrimitiveValue> = { ...REQUIRED_ANSWERS }
     delete answers[omit]
@@ -986,9 +932,6 @@ describe('ProjectIntakeWizard — required answers gate the save', () => {
 
     await user.click(await screen.findByRole('button', { name: /save/i }))
 
-    // Modul H declares no required questions of its own, so before this gate
-    // ANY route onto it — the module rail, a restored draft, a condition that
-    // turned a question visible after it was passed — could save without them.
     await waitFor(() => expect(screen.getByText(/Modul A/)).toBeInTheDocument())
     expect(putProfileCalls(stub)).toHaveLength(0)
     expect(pushMock).not.toHaveBeenCalled()
@@ -1002,10 +945,6 @@ describe('ProjectIntakeWizard — required answers gate the save', () => {
 
     await user.click(await screen.findByRole('button', { name: /save/i }))
 
-    // Refusing from the summary with nothing to act on would be worse than the
-    // hole it closes.
-    // A5 renders as a chip group, so the label owns no form control to query by
-    // — and its title also appears in the rail, hence findAllByText.
     expect((await screen.findAllByText(/Art des Vorhabens/)).length).toBeGreaterThan(0)
     expect(await screen.findByText(/mindestens eine Option|at least one/i)).toBeInTheDocument()
   })
@@ -1024,14 +963,12 @@ describe('ProjectIntakeWizard — required answers gate the save', () => {
   it('the module rail can reach the summary without opening that hole', async () => {
     const user = userEvent.setup()
     const stub = stubFetch()
-    // No draft: a fresh wizard on Modul A, only A1 seeded from the project name.
     renderWizard(false)
     const rail = await screen.findByRole('navigation', { name: /wizard modules/i })
 
     await user.click(within(rail).getByText('Zusammenfassung'))
     await user.click(await screen.findByRole('button', { name: /save/i }))
 
-    // Free navigation stays — the gate is on the save, not on the rail.
     expect(putProfileCalls(stub)).toHaveLength(0)
   })
 })

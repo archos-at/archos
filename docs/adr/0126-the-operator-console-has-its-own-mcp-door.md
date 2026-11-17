@@ -179,6 +179,7 @@ metadata and tags.
   operators already ask for it; "everything a person can do, an agent can do"
   would stop at the operators.
 
+
 ## More Information
 
 * ADR-0122 and its amendment: the office door, and why the platform domain left it.
@@ -196,3 +197,13 @@ admitted with exactly their platform rights, and a person without platform
 membership is refused as before. What this gives up, a sign-in policy of the
 platform organization's own, and how to switch it off before one is set:
 [`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md#what-admitting-any-organization-gives-up).
+
+## Amendment (2026-11-06): tenant content is on no door
+
+The door no longer offers the whole `platform` domain. Each console operation is
+platform-public or tenant content (`bff/agent-api/exposure/platform.ts`), and
+tenant content (cross-office conversations, feedback, ratings, lessons, project
+names, spend per named person, and the writes that change offices' state: the
+kill switch and the vector reconcile) is withheld from every door. Staff read it in the
+console in the browser. The operator's agent vendor is no processor of tenant
+content: [ADR-0160](0160-an-operators-agent-reaches-platform-content-never-tenant-content.md).

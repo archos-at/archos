@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The ask routes (ADR-0124) as thin adapters: the session, the body and query
- * schemas, the chat-turn budget, and the status that tells an agent whether to
- * poll (200 for an ask that ended, 202 for one still running). The rules are
- * the service's (`lib/agent-asks/service.spec.ts`).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

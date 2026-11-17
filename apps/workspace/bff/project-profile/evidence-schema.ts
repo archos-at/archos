@@ -25,11 +25,14 @@ export const MAX_EVIDENCE_QUOTE_LENGTH = 400
 /** Most inputs a derivation names. The building class has seven. */
 export const MAX_DERIVATION_INPUTS = 20
 
-export const PROFILE_EVIDENCE_KINDS = ['document', 'geocoder', 'derivation', 'person'] as const
+export const PROFILE_EVIDENCE_KINDS = ['document', 'geocoder', 'register', 'derivation', 'person'] as const
 export type ProfileEvidenceKind = (typeof PROFILE_EVIDENCE_KINDS)[number]
 
-/** The derivations the intake computes. One today; each more is a row. */
-export const DERIVATION_RULES = ['building_class'] as const
+/**
+ * The derivations the intake computes; each more is a row. `postal_code`: the
+ * Bundesland a typed address's Postleitzahl and place name (`postal-place.ts`).
+ */
+export const DERIVATION_RULES = ['building_class', 'postal_code'] as const
 export type DerivationRule = (typeof DERIVATION_RULES)[number]
 
 const instant = z.string().datetime({ offset: true })
@@ -51,6 +54,21 @@ export const geocoderEvidenceSchema = z.object({
   kind: z.literal('geocoder'),
   provider: z.literal('photon'),
   label: z.string().min(1).max(300),
+  resolvedAt: instant,
+})
+
+/**
+ * An official address register in the cell confirmed the address
+ * (`lib/site-resolution`, ADR-0172): the register's address id, prefixed by
+ * the register, and the reference date of the release it was read from.
+ */
+export const registerEvidenceSchema = z.object({
+  kind: z.literal('register'),
+  /** `<register>:<its own id>`, e.g. `at-bev:5734380`. */
+  addressId: z.string().min(1).max(100),
+  label: z.string().min(1).max(300),
+  /** The reference date (Stichtag) of the release it was read from. */
+  referenceDate: z.string().max(10),
   resolvedAt: instant,
 })
 
@@ -79,6 +97,7 @@ export const personEvidenceSchema = z.object({
 export const profileEvidenceSchema = z.discriminatedUnion('kind', [
   documentEvidenceSchema,
   geocoderEvidenceSchema,
+  registerEvidenceSchema,
   derivationEvidenceSchema,
   personEvidenceSchema,
 ])

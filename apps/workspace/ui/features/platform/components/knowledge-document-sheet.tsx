@@ -1,18 +1,8 @@
 'use client'
 
-/**
- * One base-corpus document, in a side sheet: what it is, where it stands, and
- * (for a platform admin) the edits that used to sit on every table row.
- *
- * The sheet is a detail view, so it holds the file the caller resolves from
- * the live list on every render: an optimistic edit or a poll shows up here
- * instead of freezing a stale copy. Only the rename draft is local, and it
- * resets when a different document opens.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { Eye, Trash2 } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -55,12 +45,10 @@ import type { KnowledgeFile } from '@/lib/knowledge/service'
 export interface KnowledgeDocumentSheetProps {
   file: KnowledgeFile | null
   onClose: () => void
-  /** Rename, reclassify and remove render only when true. */
   canManage: boolean
   onRename: (file: KnowledgeFile, title: string) => void
   onReclassify: (file: KnowledgeFile, next: DocClass) => void
   onView: (file: KnowledgeFile) => void
-  onDelete: (file: KnowledgeFile) => void
 }
 
 export function KnowledgeDocumentSheet({
@@ -89,7 +77,6 @@ function SheetBody({
   onRename,
   onReclassify,
   onView,
-  onDelete,
 }: Omit<KnowledgeDocumentSheetProps, 'file' | 'onClose'> & { file: KnowledgeFile }): JSX.Element {
   const t = useTranslations(platformCopy)
   const tk = useTranslations(knowledgeCopy)
@@ -144,7 +131,7 @@ function SheetBody({
                   aria-label={t('knowledge.displayTitleFor', { name: file.fileName })}
                   placeholder={t('knowledge.displayTitlePlaceholder')}
                 />
-                <Button variant="outline" onClick={() => onRename(file, titleDraft)}>
+                <Button variant="secondary" onClick={() => onRename(file, titleDraft)}>
                   {t('knowledge.displayTitleSave')}
                 </Button>
               </div>
@@ -177,7 +164,7 @@ function SheetBody({
                   <span>{t('knowledge.docClassSuggestion', { label: label(suggestion) })}</span>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => onReclassify(file, suggestion)}
                   >
                     {t('knowledge.docClassSuggestionAccept')}
@@ -221,19 +208,9 @@ function SheetBody({
       ) : null}
 
       <SheetFooter className="pt-2">
-        {canManage ? (
-          <Button
-            variant="ghost"
-            className="text-destructive sm:mr-auto"
-            onClick={() => onDelete(file)}
-          >
-            <Trash2 className="size-3.5" aria-hidden />
-            {t('knowledge.delete')}
-          </Button>
-        ) : null}
         {/* A file the corpus no longer lists has no PDF left to open. */}
         {file.state !== 'removed' ? (
-          <Button variant="outline" onClick={() => onView(file)}>
+          <Button variant="secondary" onClick={() => onView(file)}>
             <Eye className="size-3.5" aria-hidden />
             {t('knowledge.viewPdf')}
           </Button>

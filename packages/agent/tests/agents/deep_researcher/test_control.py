@@ -1,5 +1,3 @@
-"""„Jetzt schreiben": the reader's one lever over a running deep research."""
-
 import asyncio
 
 from agent.agents.deep_researcher.control import bind_write_now
@@ -51,8 +49,6 @@ def test_added_documents_are_drained_once_and_the_binding_is_per_run():
         queue.append(PlanDocument(name="nachtrag.pdf", title="Nachtrag"))
         assert [d.name for d in take_added_documents()] == ["nachtrag.pdf"]
         assert take_added_documents() == []
-        # The list itself is left whole: it is the monitor's dedupe history
-        # and the finalizer's account of every addition.
         assert [d.name for d in queue] == ["nachtrag.pdf"]
     finally:
         reset_added_documents(token)

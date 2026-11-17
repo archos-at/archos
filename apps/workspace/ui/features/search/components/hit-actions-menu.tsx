@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * A document hit's ⋯: the house's `ActionMenu`, the same dropdown a document
- * row in Dateien opens, with the entries of `lib/hit-actions.ts`.
- *
- * The search page holds which hit's menu is open (`HitMenuProvider`), so the
- * field's keyboard can open the active row's menu (Shift+F10 or the context
- * menu key, the platform's key for "the menu of the thing I am on") while the
- * focus stays in the field. Without a provider (the ⌘K palette, whose rows
- * are options of its own list) a hit has no menu.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { createContext, useContext } from 'react'
 import { MoreHorizontal } from 'lucide-react'
@@ -23,7 +12,6 @@ import type { DocumentHit } from '@/lib/search/search-wire'
 import { useDocumentHitActions } from '../hooks/use-document-hit-actions'
 
 export interface HitMenuState {
-  /** The hit whose menu is open (`document:<id>`), or null. */
   openKey: string | null
   onOpenKeyChange: (key: string | null) => void
 }
@@ -34,7 +22,6 @@ export function HitMenuProvider({ value, children }: { value: HitMenuState; chil
   return <HitMenuContext.Provider value={value}>{children}</HitMenuContext.Provider>
 }
 
-/** Whether the hits drawn here carry a menu: on the search page, not in the palette. */
 export function useHitMenus(): boolean {
   return useContext(HitMenuContext) !== null
 }

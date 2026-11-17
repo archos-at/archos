@@ -1,15 +1,3 @@
-"""BM25 tuned to our chunks: measured from the stored vectors, written by a ``_vN`` rebuild (ADR-0127, S12).
-
-Qdrant's ``qdrant/bm25`` normalises term weights by chunk length against
-``avg_len`` (default 256 of ITS tokens). A collection records the length
-normalisation its lexical vectors were written with (``schema.BM25_LENGTH_KEY``);
-none recorded means Qdrant's defaults, which is every collection the rebuild
-did not make. The rebuild measures the source's chunk lengths from the weights
-it stored, writes the target with the measured ``avg_len`` and recomputes every
-lexical vector; writes and queries then read the length from the collection the
-alias points at. Real Qdrant, like ``test_qdrant_rebuild.py``.
-"""
-
 from __future__ import annotations
 
 import os
@@ -25,13 +13,11 @@ from knowledge_layer.vector_store import rebuild
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import store as store_module
 
-#: Every collection here is made with a few indexes (``qdrant_testing.few_payload_indexes``).
 pytestmark = pytest.mark.usefixtures("few_payload_indexes")
 
 DIM = 8
 IDENTITY = {"embed_fingerprint": "fp-bm25", "embed_model": "model-bm25"}
 SCOPE = "proj_bm25"
-#: Words the German analysis keeps (no stopwords), so a text of N of them is N BM25 tokens long.
 WORDS = ["Fluchtweg", "Treppenhaus", "Brandabschnitt", "Geschoss", "Rauchabzug", "Bauteil", "Decke", "Wand"]
 
 
@@ -135,7 +121,6 @@ class TestOnQdrant:
         assert target[schema.BM25_LENGTH_KEY] == {"k": 1.2, "b": 0.75, "avg_len": 90.0}
         assert target["embed_fingerprint"] == IDENTITY["embed_fingerprint"]
         after = _weights(store, alias + "_v2", records[0].chunk_id)
-        # A 60-token chunk was short against 256 and is near the mean against 90: its weights fall.
         assert min(after) < min(before)
         assert rebuild.length_from_weight(min(after), report.bm25_length) == pytest.approx(60, abs=0.5)
 
@@ -150,7 +135,9 @@ class TestOnQdrant:
 
         [late] = _records([60])
         fresh.upsert(SCOPE, [late])
-        hits = hybrid_search(fresh, [SCOPE], vector=records[1].embedding, lexical_text="Sprinkleranlage", limit=2)
+        hits = hybrid_search(
+            fresh, [SCOPE], vector=records[1].embedding, lexical_text="Sprinkleranlage", limit=2, office_id="org_test"
+        )
 
         assert fresh.bm25_length(SCOPE) == {"k": 1.2, "b": 0.75, "avg_len": 90.0}
         assert rebuild.length_from_weight(min(_weights(fresh, alias, late.chunk_id)), fresh.bm25_length(SCOPE)) == (

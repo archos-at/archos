@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The drawing area of the comparison, one component per view, plus what it
- * says while it cannot draw.
- *
- * Every scroll frame carries `data-compare-frame`: the gestures
- * (`use-stage-gestures.ts`) and „show this change" both find the frame from the
- * element they start at, so neither cares which view is on.
- */
-
 import type { CSSProperties, JSX, ReactNode } from 'react'
 import { useRef } from 'react'
 import { AlertTriangle, FileX2, RotateCw } from 'lucide-react'
@@ -30,7 +21,6 @@ import type { ActiveRegion } from './use-active-region'
 import type { SideState } from './use-page-sources'
 import type { CompareFile, CompareMode, PageSize, PageSource } from './types'
 
-/** One Fassung's drawing context: its source and the page it would show. */
 export interface Side {
   file: CompareFile
   source: PageSource | null
@@ -48,15 +38,12 @@ export interface StageProps {
   onDividerChange: (value: number) => void
   regions: NumberedRegion[]
   activeRegion: ActiveRegion
-  /** Past the fit, a frame has something to pan, and says so with its cursor. */
   pannable: boolean
 }
 
-/** A frame one finger scrolls and two fingers zoom (the gestures hook takes the pinch). */
 const FRAME_CLASS = 'bg-surface-sunken flex min-h-0 overflow-auto p-4 touch-pan-x touch-pan-y'
 const PAN_CLASS = 'cursor-grab data-[panning=true]:cursor-grabbing data-[panning=true]:select-none'
 
-/** The drawing area for the current mode. */
 export function Stage(props: StageProps): JSX.Element {
   const { mode, stage, scale } = props
   if (!stage || scale <= 0) {
@@ -66,13 +53,11 @@ export function Stage(props: StageProps): JSX.Element {
   return <SingleSheet {...props} stage={stage} />
 }
 
-/** How much of each name's end to keep, so the place the two names differ survives the cut. */
 const tails = (sides: { older: Side; newer: Side }): { older: number; newer: number } => ({
   older: distinguishingTailLength(sides.older.file.filename, sides.newer.file.filename),
   newer: distinguishingTailLength(sides.newer.file.filename, sides.older.file.filename),
 })
 
-/** Whether `side` has the page, so a shorter document can say so instead of drawing nothing. */
 const sourceHasPage = (side: Side, page: number): boolean =>
   side.source !== null && hasPage(side.source.pageCount, page)
 
@@ -83,8 +68,6 @@ function SideBySide({ sides, page, stage, scale, regions, activeRegion, pannable
   const width = stage.width * scale
   const height = stage.height * scale
 
-  // Moving the other frame fires its own scroll event, which comes back here
-  // and finds the two already level: that is what ends the echo.
   const follow = (from: HTMLDivElement | null, to: HTMLDivElement | null): void => {
     if (!from || !to) return
     if (to.scrollTop === from.scrollTop && to.scrollLeft === from.scrollLeft) return
@@ -148,8 +131,6 @@ function SingleSheet({
   const height = stage.height * scale
   const olderName = t('compare.paneOlder', { name: sides.older.file.filename })
   const newerName = t('compare.paneNewer', { name: sides.newer.file.filename })
-  // The newer sheet shows right of the divider; the tags are clipped the same
-  // way, so each one disappears with the side it names.
   const olderClip: CSSProperties = { clipPath: `inset(0 ${100 - divider}% 0 0)` }
   const newerClip: CSSProperties = { clipPath: `inset(0 0 0 ${divider}%)` }
 
@@ -201,11 +182,6 @@ function SingleSheet({
 
 type LoadStatus = SideState['status']
 
-/**
- * What the stage says while it cannot show pages: loading, not comparable, or
- * failed. Each final state names what happened, to which file, and offers the
- * one thing that helps: try again, or go to the text comparison.
- */
 export function StageNotice({
   older,
   newer,
@@ -221,7 +197,6 @@ export function StageNotice({
   newerName: string
   onRetry: () => void
   onTextCompare: () => void
-  /** Whether the host can open the text comparison itself; otherwise the action closes the dialog back to the history. */
   hasTextCompare: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -235,7 +210,7 @@ export function StageNotice({
           description={t('compare.notComparableDescription')}
           className="max-w-md"
           action={
-            <Button variant="outline" data-compare-notice-action="" onClick={onTextCompare}>
+            <Button variant="secondary" data-compare-notice-action="" onClick={onTextCompare}>
               {t(hasTextCompare ? 'compare.openTextCompare' : 'compare.backToHistory')}
             </Button>
           }
@@ -257,7 +232,7 @@ export function StageNotice({
           description={t('compare.failedDescription')}
           className="max-w-md"
           action={
-            <Button variant="outline" data-compare-notice-action="" data-testid="compare-retry" onClick={onRetry}>
+            <Button variant="secondary" data-compare-notice-action="" data-testid="compare-retry" onClick={onRetry}>
               <RotateCw aria-hidden />
               {t('compare.retry')}
             </Button>

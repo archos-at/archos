@@ -22,7 +22,6 @@ import { Composer } from './composer'
 import { ReviewCard, type CardPlacement } from './thread-card'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** The line a failed question says: by what broke, never the wire code itself. */
 export function failureKey(ask: Pick<CanvasAsk, 'error' | 'view'>): 'busy' | 'failedSession' | 'failedConnection' | 'failed' {
   if (ask.error === 'busy') return 'busy'
   const code = ask.view?.error?.code ?? ''
@@ -33,21 +32,10 @@ export function failureKey(ask: Pick<CanvasAsk, 'error' | 'view'>): 'busy' | 'fa
   return 'failed'
 }
 
-/** The statuses a person can ask again from: the question never got its answer. */
 const RETRYABLE = new Set<CanvasAsk['status']>(['failed', 'declined', 'stopped'])
 
-/** What a quick action makes of an answer taken over: a Rückfrage stays one, the rest is a Hinweis. */
 const kindFor = (intent: CanvasAskIntent | null) => (intent === 'question' ? 'question' : 'hint')
 
-/**
- * Piloti's card beside a box on the page: the question being put, Piloti at
- * work on it (its own steps, live), and its answer, with the ways to keep it.
- * While Piloti works, the card takes a note for the running turn („Piloti
- * lenken“): it is read before Piloti's next step, and listed under the
- * question with whether it has been taken up yet.
- * The frame is the thread card's; what Piloti does on the pages meanwhile
- * (its pointer, what it highlights) is drawn by the page layer from the room.
- */
 export function AgentAnswerCard({
   review,
   ask,
@@ -66,7 +54,6 @@ export function AgentAnswerCard({
   const view = ask.view
   const text = view ? answerMarkdown(view.text) : ''
   const working = ask.status === 'thinking'
-  // Only an answer is kept: a refusal's words are its reason, not a finding.
   const answered = ask.status === 'answered'
   const line =
     liveLine(stepsOf(view), tChat) ?? (ask.region ? t('review.piloti.thinking') : t('review.piloti.thinkingDocument'))
@@ -147,7 +134,7 @@ export function AgentAnswerCard({
           />
           <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('review.piloti.quickLabel')}>
             {CANVAS_ASK_INTENTS.map((intent) => (
-              <Chip key={intent} asChild interactive variant="outline" size="md">
+              <Chip key={intent} asChild interactive variant="secondary" size="md">
                 <button data-attr="files-send"
                   type="button"
                   data-testid={`agent-quick-${intent}`}
@@ -176,7 +163,7 @@ export function AgentAnswerCard({
               <ul className="space-y-1" aria-label={t('review.piloti.steerNotes')} data-testid="agent-card-notes">
                 {notes.map(([steerId, note]) => (
                   <li key={steerId} className="text-muted-foreground text-xs leading-5 break-words">
-                    <Chip size="sm" variant="outline" className="mr-1.5 align-middle">
+                    <Chip size="sm" variant="secondary" className="mr-1.5 align-middle">
                       {note.round === undefined
                         ? t('review.piloti.steerWaiting')
                         : t('review.piloti.steerApplied', { round: note.round })}
@@ -236,7 +223,6 @@ export function AgentAnswerCard({
             )}
           </div>
           {!working && (
-            // One row, never two: the words are short enough for a 20rem card.
             <div className="border-t px-3 py-2.5">
               <div className="flex items-center gap-1.5 whitespace-nowrap">
               {RETRYABLE.has(ask.status) ? (

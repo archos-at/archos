@@ -1,11 +1,3 @@
-"""The LlamaIndex adapter on Qdrant: retrieval, exact search, the ingest write, facts, health.
-
-Against a real Qdrant (``qdrant_testing``). The embedding API is stood in for:
-what is under test is the seam, that the adapter's contract (``retrieve``,
-``find_text``, the chunk a caller gets) holds on the store, and that what the
-ingest path writes (``writes.write_chunks``) carries everything a read filters on.
-"""
-
 from __future__ import annotations
 
 import math
@@ -21,10 +13,14 @@ from knowledge_layer.search import bm25_text
 from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
+from knowledge_layer_testing.vector_store import TEST_OFFICE
 from knowledge_layer_testing.vector_store import record as _record
 from knowledge_layer_testing.vector_store import vector as _vector
 
-#: The real reader, before ``retriever`` stubs it for the tests that need no metadata store.
+from agent import project_context
+
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 FACTS_BY_FILE = writes.facts_by_file
 
 
@@ -36,10 +32,10 @@ def _cosine(a: list[float], b: list[float]) -> float:
 @pytest.fixture
 def retriever(qdrant_store, monkeypatch) -> LlamaIndexRetriever:
     monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {})
+    monkeypatch.setattr(project_context, "get_organization_id_from_context", lambda: "org_test")
     instance = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     instance._initialized = True
     monkeypatch.setattr(instance, "_embed_query_cached", lambda query: _vector(query))
-    # The process-wide store takes this retriever's embedder as its identity.
     store_module.reset_store()
     store_module.get_store(instance._identity())
     return instance
@@ -50,7 +46,6 @@ def _row(text: str, file_name: str, **metadata: Any) -> ChunkRecord:
 
 
 def _ingest(retriever: LlamaIndexRetriever, scope: str, rows: list[ChunkRecord], **config: Any) -> None:
-    """Write ``rows`` the way the ingest path does: one ``write_chunks`` per file."""
     for file_name in sorted({row.metadata["file_name"] for row in rows}):
         mine = [row for row in rows if row.metadata["file_name"] == file_name]
         writes.write_chunks(scope, file_name, mine, identity=retriever._identity(), config=config)
@@ -61,7 +56,7 @@ async def test_retrieve_answers_from_qdrant_with_the_chunk_contract(retriever):
         _row("Die Fluchtwege sind in Gebäudeklasse 4 rauchfrei auszuführen.", "brandschutz.pdf"),
         _row("Die Tragwerksplanung berücksichtigt die Holzbauweise.", "statik.pdf"),
     ]
-    _ingest(retriever, "proj_a", rows, organization_id="org_1", project_id="p1", document_id="d1")
+    _ingest(retriever, "proj_a", rows, organization_id=TEST_OFFICE, project_id="p1", document_id="d1")
 
     result = await retriever.retrieve("Fluchtweg", "proj_a", top_k=2)
 
@@ -70,7 +65,6 @@ async def test_retrieve_answers_from_qdrant_with_the_chunk_contract(retriever):
     assert top.file_name == "brandschutz.pdf" and top.page_number == 2
     assert top.chunk_id == rows[0].chunk_id
     assert top.score == pytest.approx(max(0.0, _cosine(_vector("Fluchtweg"), rows[0].embedding)), abs=1e-3)
-    # The chunk carries the metadata the chunker gave it, not the store's own fields.
     assert "office_id" not in top.metadata and "_node_content" not in top.metadata
     assert "indexed_at" not in top.metadata
     assert [chunk.retrieval_rank for chunk in result.chunks] == list(range(len(result.chunks)))
@@ -92,7 +86,6 @@ async def test_retrieve_from_a_collection_with_no_chunks_is_an_empty_success(ret
 
 
 def test_bm25_terms_are_priced_like_the_german_mirror(retriever):
-    """Ubiquitous or absent terms leave BM25 silent instead of ranking the corpus (qdrant-gates-2026-10.md)."""
     rows = [_row(f"OIB-Richtlinie Ausgabe Mai 2023, Abschnitt {i}.", "rl.pdf") for i in range(27)]
     rows += [_row("Ausgabe Mai 2023: Fluchtwege sind zu kennzeichnen.", "rl.pdf")]
     _ingest(retriever, "oib_knowledge", rows)
@@ -106,7 +99,6 @@ def test_bm25_terms_are_priced_like_the_german_mirror(retriever):
 
 
 def test_unmeasurable_term_frequencies_leave_the_lexical_channels_unpriced(retriever, monkeypatch):
-    """Fail open: pricing sharpens the channels, it never takes them away."""
     from knowledge_layer.vector_store import retrieval as qdrant_retrieval
 
     def down(*args: Any, **kwargs: Any) -> None:
@@ -127,7 +119,6 @@ async def test_a_foreign_embedder_fails_the_retrieval_loudly(retriever, monkeypa
 
 
 def test_a_foreign_embedder_is_refused_on_write(retriever):
-    """The write checks the identity the collection was created with: two vector spaces never share one."""
     _ingest(retriever, "proj_a", [_row("x", "a.pdf")])
     store_module.reset_store()
     other = {"embed_fingerprint": "other-fp", "embed_model": "other-model"}
@@ -157,7 +148,6 @@ def test_the_write_carries_the_ids_the_collection_name_implied(retriever):
 
 
 def test_the_write_stamps_when_it_happened(retriever, monkeypatch):
-    """``indexed_at`` is what a collection's ``updated_at`` (and the reaper of uploads) reads."""
     monkeypatch.setattr(writes.time, "time", lambda: 1_700_000_000.5)
     _ingest(retriever, "s_conv", [_row("eins", "a.pdf")])
     monkeypatch.setattr(writes.time, "time", lambda: 1_700_000_900.0)
@@ -189,6 +179,21 @@ def test_deletes_go_by_chunk_file_and_scope(retriever):
     assert store.count("proj_b") == 1, "a delete names its scope and never reaches another"
 
 
+def test_removing_an_office_copy_leaves_no_point_of_it(retriever):
+    scope = "office_shelf_org_test"
+    mark = {"licence_class": "licensed", "ai_processing_attested": True, "knowledge_edition_id": "ed-1"}
+    _ingest(retriever, scope, [_row("Abschnitt 1", "OENORM.pdf"), _row("Abschnitt 2", "OENORM.pdf")], **mark)
+    _ingest(retriever, scope, [_row("Andere", "Kommentar.pdf")])
+    store = store_module.get_store()
+    assert store.count(scope, {"file_name": "OENORM.pdf"}) == 2, "the control: the copy was indexed"
+
+    store.delete_file(scope, "OENORM.pdf")
+
+    assert store.count(scope, {"file_name": "OENORM.pdf"}) == 0
+    assert store.count(scope, {"knowledge_edition_id": "ed-1"}) == 0
+    assert store.count(scope, {"file_name": "Kommentar.pdf"}) == 1, "a removal names its file and never reaches another"
+
+
 def test_a_long_delete_goes_in_bounded_requests(retriever, monkeypatch):
     rows = [_row(f"Chunk {index}", "a.pdf") for index in range(7)]
     _ingest(retriever, "proj_a", rows)
@@ -207,7 +212,6 @@ def test_a_long_delete_goes_in_bounded_requests(retriever, monkeypatch):
 
 
 def test_a_write_the_store_refuses_raises(retriever, monkeypatch):
-    """No other store holds the chunk: a refused write fails the file instead of passing as written."""
 
     def refused(*args: Any, **kwargs: Any) -> None:
         raise ConnectionError("qdrant down")
@@ -219,7 +223,6 @@ def test_a_write_the_store_refuses_raises(retriever, monkeypatch):
 
 
 def test_adapter_never_imports_qdrant_client():
-    """The ingestor and the retriever reach Qdrant only through ``knowledge_layer.vector_store`` (ADR-0115)."""
     for module in Path(adapter_module.__file__).parent.glob("*.py"):
         source = module.read_text(encoding="utf-8")
         assert not re.search(r"^\s*(from|import)\s+qdrant_client\b", source, re.MULTILINE), module.name
@@ -237,11 +240,6 @@ def test_refresh_facts_copies_a_persons_edit_onto_the_points(retriever, monkeypa
 
 
 def test_copy_facts_repairs_a_copy_refresh_facts_swallowed_and_counts_the_files(retriever, monkeypatch):
-    """The weekly reconcile's document facts half: what a failed copy left stale is copied again.
-
-    ``refresh_facts`` never raises after a person's edit; ``copy_facts``, which the
-    reconcile calls, raises so the sweep can count the failure.
-    """
     _ingest(retriever, "proj_a", [_row("eins", "a.pdf"), _row("zwei", "b.pdf")])
     facts = {"a.pdf": {"tags": ["bescheid"], "superseded": True}, "b.pdf": {"tags": ["plan"]}}
 
@@ -263,13 +261,11 @@ def test_copy_facts_repairs_a_copy_refresh_facts_swallowed_and_counts_the_files(
 
 
 def test_an_ingest_job_stamps_the_projects_facts_on_its_chunks(retriever):
-    """A new document is boosted and filtered like its siblings from its first search."""
     facts = {"federal_state": "wien", "building_class": [4], "construction_method": ["holzbau"]}
     _ingest(retriever, "proj_a", [_row("eins", "a.pdf")], project_facts=facts, project_status="closed")
     _ingest(retriever, "proj_a", [_row("zwei", "b.pdf")])
     store = store_module.get_store()
     assert store.count("proj_a", {"project_facts.construction_method": "holzbau", "project_status": "closed"}) == 1
-    # A job with a status it does not know writes no facts rather than failing the file.
     _ingest(retriever, "proj_a", [_row("drei", "c.pdf")], project_facts=facts, project_status="archived")
     assert store.count("proj_a", {"project_facts.construction_method": "holzbau"}) == 1
 
@@ -295,9 +291,6 @@ async def test_search_grouped_ranks_projects_in_one_query(retriever):
     assert all(chunk.metadata.get("file_name") for _, chunks in groups for chunk in chunks)
 
 
-# ---------------------------------------------------------------- numeric legal references, end to end
-
-
 NUMBERED = [
     "Gemäß § 3 Abs. 2 sind Fluchtwege vorzusehen.",
     "Nach §3 gilt dies sinngemäß.",
@@ -310,12 +303,6 @@ NUMBERED = [
 
 
 async def test_numeric_legal_references_reach_the_exact_term_channel(retriever):
-    """extract_exact_terms -> term_frequencies -> the phrase prefetch, as ``knowledge_search`` runs it.
-
-    On the ``multilingual`` tokenizer every count here was 0, so
-    ``selective_terms`` dropped the terms and the channel the Chroma path's
-    ``$contains`` served never ran.
-    """
     from knowledge_layer.vector_store import retrieval as qdrant_retrieval
 
     _ingest(retriever, "proj_a", [_row(text, f"{index}.pdf") for index, text in enumerate(NUMBERED)])
@@ -329,8 +316,6 @@ async def test_numeric_legal_references_reach_the_exact_term_channel(retriever):
     assert total == len(NUMBERED)
     assert frequencies == {"§ 3": 2, "5.1.1": 1, "43 cm": 1, "OIB-Richtlinie 2": 1}
 
-    # The exact channel alone beside the dense one: the two chunks citing § 3
-    # are in both, every other chunk in one, so they lead.
     hits = qdrant_retrieval.search(
         "proj_a",
         vector=_vector("Was regelt § 3?"),
@@ -339,11 +324,9 @@ async def test_numeric_legal_references_reach_the_exact_term_channel(retriever):
         filters=None,
         exact_terms=["§ 3"],
         identity=retriever._identity(),
+        office_id="org_test",
     )
     assert {hit.payload["file_name"] for hit in hits[:2]} == {"0.pdf", "1.pdf"}
-
-
-# ---------------------------------------------------------------- find_text narrows on the server
 
 
 FIND_CORPUS = [
@@ -403,7 +386,7 @@ async def test_find_text_with_the_token_prefilter_returns_exactly_what_the_full_
 
     def run(pattern: str) -> tuple[list[str], int]:
         scanned["n"] = 0
-        hits = qdrant_retrieval.find_text("proj_a", pattern, None, 100)
+        hits = qdrant_retrieval.find_text("proj_a", pattern, None, 100, office_id="org_test")
         return [hit.chunk_id for hit in hits], scanned["n"]
 
     narrowed_patterns = 0
@@ -418,9 +401,7 @@ async def test_find_text_with_the_token_prefilter_returns_exactly_what_the_full_
         if qdrant_retrieval.literal_tokens(pattern):
             narrowed_patterns += 1
             assert narrowed_scanned < full_scanned, phrases
-    # Not vacuous: most of these patterns narrow on the server.
     assert narrowed_patterns >= 8
-    # And the matches themselves are the ones a reader expects.
     found, _ = run(phrase_pattern(["Größe der Fläche"]))
     assert len(found) == 7  # every spelling, the plural included (a substring), not "ohne der"
 
@@ -432,19 +413,13 @@ def test_literal_tokens_only_names_words_every_match_holds_whole():
     assert literal_tokens(phrase_pattern(["Größe der Fläche"])) == [["der"]]
     assert literal_tokens(phrase_pattern(["OIB-Richtlinie 2"])) == [["richtlinie"]]
     assert literal_tokens(phrase_pattern(["weg", "EG"])) == [["weg"], ["eg"]]
-    # A word longer than three characters matches inside longer words: no token.
     assert literal_tokens(phrase_pattern(["Fluchtstiege"])) is None
-    # One alternative without a safe word leaves no safe condition at all.
     assert literal_tokens(phrase_pattern(["Straße", "Weg"])) is None
     assert literal_tokens("(?i)fo+") is None
 
 
-# ---------------------------------------------------------------- facts: per file, batched, cleared
-
-
 @pytest.fixture
 def metadata_store(tmp_path, monkeypatch):
-    """A real SQLite metadata store, with ``facts_by_file`` reading it (the module fixture stubs it out)."""
     from agent.knowledge import configure_summary_db
     from agent.knowledge import factory
 
@@ -517,7 +492,6 @@ def test_clearing_a_dokumentart_puts_the_chunks_own_back(retriever, metadata_sto
     set_document_doc_class("proj_a", "plan.pdf", None)
     set_document_doc_class("proj_a", "brief.pdf", None)
 
-    # What hit_metadata.hit_doc_class falls back to once the stored class is gone.
     assert store.count("proj_a", {"doc_class": "einreichplan"}) == 1
     assert store.count("proj_a", {"doc_class": "bescheid"}) == 0
     assert store.count("proj_a", {"doc_class": "korrespondenz"}) == 0
@@ -536,12 +510,7 @@ async def test_a_hit_carries_the_chunks_own_dokumentart(retriever, metadata_stor
     assert result.chunks[0].metadata.get("doc_class") == "einreichplan"
 
 
-# ---------------------------------------------------------------- what BM25 may be asked for
-
-
 def test_bm25_candidates_leave_out_the_stopwords_qdrants_folding_lets_through():
-    """Qdrant folds „über“ to ``uber`` before its German stopword list runs, so it
-    ranked every chunk with an „über“ for „was weißt du über die oib 1“."""
     from knowledge_layer.vector_store import bm25_candidates
 
     assert "über" not in bm25_candidates("was weißt du über die oib 1")
@@ -554,7 +523,6 @@ def test_bm25_candidates_leave_out_the_stopwords_qdrants_folding_lets_through():
 
 
 def test_bm25_candidates_leave_out_the_pieces_of_a_file_name():
-    """„oib-rl_5_ausgabe_mai_2023.pdf“ asked BM25 for „ausgabe mai 2023“, every Richtlinie's front matter."""
     from knowledge_layer.vector_store import bm25_candidates
 
     assert bm25_candidates("oib-rl_5_ausgabe_mai_2023.pdf") == []
@@ -568,12 +536,10 @@ def test_bm25_candidates_leave_out_the_pieces_of_a_file_name():
 
 
 def test_bm25_candidates_ask_both_german_spellings():
-    """The index folds „ä“ to „a“ and keeps „ae“: „Flaechenwidmung“ found none of what „Flächenwidmung“ found."""
     from knowledge_layer.vector_store import bm25_candidates
 
     assert bm25_candidates("Flaechenwidmung") == ["flaechenwidmung", "flächenwidmung"]
     assert bm25_candidates("Flächenwidmung Tür") == ["flächenwidmung", "flaechenwidmung", "tür", "tuer"]
-    # A stopword typed without its umlaut is still a stopword.
     assert bm25_candidates("Fluchtwege fuer die Garage") == ["fluchtwege", "die", "garage"]
 
 
@@ -597,9 +563,6 @@ def test_umlaut_stopwords_never_reach_bm25_whatever_their_frequency(retriever):
     assert "über" not in text.split() and "fluchtwege" in text.split()
 
 
-# ---------------------------------------------------------------- grouped search: BM25 priced over the union
-
-
 def _write(retriever: LlamaIndexRetriever, scope: str, texts: list[str]) -> None:
     records = [_record(text, f"{scope}_{i}.pdf") for i, text in enumerate(texts)]
     store_module.get_store(retriever._identity()).upsert(scope, records)
@@ -607,12 +570,6 @@ def _write(retriever: LlamaIndexRetriever, scope: str, texts: list[str]) -> None
 
 @pytest.fixture
 def three_projects(retriever):
-    """Two searched projects (56 chunks together) and one that is not searched.
-
-    „Ausgabe“ is on every searched chunk; „Holzbau“ on half of proj_a (13 of
-    26) but under a quarter of the union (13 of 56); „Fluchttreppe“ only in
-    proj_c, which the search does not reach.
-    """
     _write(retriever, "proj_a", [f"Ausgabe {i}: Holzbau im Wohnbau" for i in range(13)])
     _write(retriever, "proj_a", [f"Ausgabe {i}: Fassade aus Glas" for i in range(13, 26)])
     _write(retriever, "proj_b", [f"Ausgabe {i}: Stahlbeton und Decken" for i in range(30)])
@@ -629,12 +586,6 @@ def test_term_frequencies_count_over_the_union_of_the_searched_scopes(three_proj
 
 
 async def test_grouped_search_prices_bm25_over_the_searched_scopes(three_projects, monkeypatch):
-    """Cross-project search sent the raw question to BM25 (qdrant-gates-2026-10.md, "Open, before the flip").
-
-    Priced over the union: the ubiquitous „Ausgabe“ and the unreachable
-    „Fluchttreppe“ drop out, and „Holzbau“, common in one project but selective
-    across both, stays.
-    """
     from knowledge_layer.vector_store import retrieval
 
     sent: list[str] = []
@@ -655,8 +606,6 @@ async def test_grouped_search_prices_bm25_over_the_searched_scopes(three_project
 
 
 async def test_grouped_search_runs_the_exact_term_channels(three_projects, monkeypatch):
-    """Cross-project „§ 8“ got neither the ``paragraph_refs`` nor the phrase channel:
-    grouped search passed no exact terms. Now the one passage citing it ranks first."""
     from knowledge_layer.vector_store import retrieval
 
     _write(three_projects, "proj_b", ["Nach § 8 sind die Decken brandbeständig auszuführen."])
@@ -677,25 +626,13 @@ async def test_grouped_search_runs_the_exact_term_channels(three_projects, monke
     assert scope == "proj_b" and "§ 8" in hits[0].content
 
 
-# ---------------------------------------------------------------- health
-
-
 async def test_health_is_qdrants(retriever, monkeypatch):
-    """Qdrant is the one store: it answering is the whole of health."""
     assert await retriever.health_check() is True
     monkeypatch.setattr(store_module.QdrantStore, "health", lambda self: False)
     assert await retriever.health_check() is False
 
 
-# ---------------------------------------------------------------- superseded follows the newer row
-
-
 def test_removing_the_newer_revision_makes_the_older_one_findable_again(retriever, metadata_store):
-    """A link counts only while the newer row exists; the points must say what the rows say.
-
-    Left ``superseded: true``, the ``superseded != true`` pre-filter hid the
-    Fassung that had become the current one from every search.
-    """
     from agent.knowledge import link_document_revision
     from agent.knowledge import register_summary
     from agent.knowledge import unregister_summary
@@ -735,11 +672,7 @@ def test_clearing_many_dokumentarten_restores_them_in_one_batch(retriever, metad
     assert store.count("proj_a", {"doc_class": "einreichplan"}) == 4
 
 
-# ---------------------------------------------------------------- the query vector for a caller
-
-
 def test_embed_query_initializes_without_reaching_any_store(monkeypatch):
-    """„Im Büro behandelt“ embeds the selected sentence first: that needs the embedder, never a vector store."""
 
     class Embedder:
         def get_query_embedding(self, text: str) -> list[float]:

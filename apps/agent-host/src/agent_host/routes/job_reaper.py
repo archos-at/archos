@@ -8,23 +8,31 @@ import os
 from typing import Any
 
 from ..jobs.outcome_notify import notify_job_outcome_from_access
+from ..jobs.run_ownership import STALE_SECONDS
 from ..jobs.runner import _update_status_if_not_terminal
 
 logger = logging.getLogger(__name__)
 
 
-GHOST_JOB_TIMEOUT_SECONDS = 300  # 5 minutes without events = ghost job
+#: Five minutes without a sign of life is a ghost job. One number with the window after
+#: which a waiting retry may take a run over (``run_ownership``): were this one shorter,
+#: the reaper would fail a run a retry was about to rescue.
+GHOST_JOB_TIMEOUT_SECONDS = STALE_SECONDS
 
 
 GHOST_JOB_ERROR = "Job timed out (no heartbeat received from worker)"
 
 
-# Active jobs whose last event is older than the timeout, per dialect.
+# Active jobs whose last sign of life is older than the timeout, per dialect: the
+# last event AND the last ``job_info`` write, which is ``run_ownership``'s reading.
+# A retry that takes a dead run over only touches ``updated_at`` and emits nothing
+# until its workflow is built; read by its events alone, it was reaped at the next cycle.
 _STALE_SQL = {
     "postgres": (
         "SELECT DISTINCT je.job_id FROM job_events je "
         "INNER JOIN job_info ji ON je.job_id = ji.job_id "
         "WHERE ji.status IN ({statuses}) "
+        "AND COALESCE(ji.updated_at, ji.created_at) < NOW() - :timeout * INTERVAL '1 second' "
         "GROUP BY je.job_id "
         "HAVING MAX(je.created_at) < NOW() - :timeout * INTERVAL '1 second'"
     ),
@@ -32,6 +40,7 @@ _STALE_SQL = {
         "SELECT DISTINCT je.job_id FROM job_events je "
         "INNER JOIN job_info ji ON je.job_id = ji.job_id "
         "WHERE ji.status IN ({statuses}) "
+        "AND datetime(COALESCE(ji.updated_at, ji.created_at)) < datetime('now', :timeout_interval) "
         "GROUP BY je.job_id "
         "HAVING MAX(je.created_at) < datetime('now', :timeout_interval)"
     ),

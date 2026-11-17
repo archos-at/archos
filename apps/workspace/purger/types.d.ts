@@ -34,6 +34,12 @@ export interface QueueEntry {
   entity_id: string;
   status: string;
   attempts: number;
+  /**
+   * The claim this holder took: the row's `claimed_at` as the claim wrote it,
+   * as text so no precision is lost. Every closing write matches it, so a
+   * holder whose claim was taken over changes nothing (`db.js`, `claimNext`).
+   */
+  claim_token: string;
   /** Human-readable label, kept on the queue row so the log line survives the
    *  deletion of whatever it named. */
   display_name?: string | null;

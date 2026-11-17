@@ -3,7 +3,6 @@ import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { useLayoutStore } from '@/features/layout/store'
 import { PhoneTabBar } from './phone-tab-bar'
 import { useShellOverlays } from './shell-overlays'
 
@@ -43,7 +42,6 @@ afterEach(() => {
   pathname = '/app/projects/p1/files'
   mobile = true
   badge.mockClear()
-  useLayoutStore.setState({ isMobileNavOpen: false })
   useShellOverlays.setState({ moreSheetOpen: false })
 })
 
@@ -64,7 +62,6 @@ describe('PhoneTabBar — inside a project', () => {
       'page'
     )
     expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
-    // Exactly one chip, on the current tab.
     const pills = bar().querySelectorAll('[data-slot="phone-tab-pill"]')
     expect(pills).toHaveLength(1)
     expect(pills[0]!.closest('a')).toHaveTextContent('Files')

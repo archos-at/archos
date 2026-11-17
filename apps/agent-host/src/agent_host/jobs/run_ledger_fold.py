@@ -95,7 +95,9 @@ from agent.common.run_ledger import RunLedgerDoc
 from agent.common.run_ledger import RunLedgerFinishRequest
 from agent.common.run_ledger import RunPhaseEntry
 from agent.common.run_ledger import RunResult
+from agent.common.run_ledger import RunStatus
 from agent.common.run_ledger import RunStep
+from agent.common.run_ledger import next_run_status
 from agent.common.run_ledger import to_wire
 
 from .phase_events import JOB_PHASE_EVENT_TYPE
@@ -417,6 +419,9 @@ class RunLedgerFold:
         return False
 
     def _ingest_error(self, data: dict[str, Any]) -> bool:
+        if next_run_status(self._status, "failed") != "failed":
+            # Already ended another way (its report is stored): a teardown error does not unmake that.
+            return False
         reason = _clip(data.get("error"), MAX_ERROR_REASON_CHARS)
         self._error_reason = reason or "Der Lauf ist fehlgeschlagen."
         self._status = "failed"
@@ -424,20 +429,18 @@ class RunLedgerFold:
         return True
 
     def _ingest_cancelled(self) -> bool:
-        # No finish op: that one carries a result or an error, and a cancelled
-        # run has neither. „abgebrochen" IS the terminal fact, and it travels as
-        # the status of the last append.
-        self._status = "cancelled"
+        # No finish op: that one carries a result or an error, and a cancelled run has
+        # neither. „abgebrochen" IS the terminal fact; it travels as the last append's status.
+        self._status = next_run_status(self._status, "cancelled")
         self._flush_now = True
         return True
 
     def _ingest_degraded(self, data: dict[str, Any]) -> bool:
         if not data.get(TRUNCATED_KEY):
             return False
-        # Cut off and salvaged: the run still has a report to show, so this moves
-        # the status and nothing else. The caveat itself is already on the
-        # message (``_TRANSPARENCY_METADATA_KEYS``), in the product's voice.
-        self._status = "interrupted"
+        # Cut off and salvaged: the run still has a report, so this moves the status only.
+        # The caveat is already on the message (``_TRANSPARENCY_METADATA_KEYS``).
+        self._status = next_run_status(self._status, "interrupted")
         return True
 
     def note_result(self, *, report_message_id: str | None = None, file_id: str | None = None) -> None:
@@ -448,6 +451,7 @@ class RunLedgerFold:
                 reportMessageId=_clip(report_message_id, MAX_REFERENCE_ID_CHARS) or None,
                 filedAt=_now(),
             )
+            self._status = next_run_status(self._status, "done")  # Stored, so done; interrupted stands.
             self._flush_now = True
             self._dirty = True
 
@@ -533,14 +537,12 @@ class RunLedgerFold:
     def _debounce_elapsed(self) -> bool:
         return (time.monotonic() - self._last_flush) >= self.DEBOUNCE_SECONDS
 
-    async def close(self, *, status: str | None = None) -> None:
+    async def close(self, *, status: RunStatus | None = None) -> None:
         """Seal the run, flush everything, and state how it ended. Never raises."""
         with self._lock:
             self._seal_open_step()
             if status is not None:
-                self._status = status
-            elif self._result is not None and self._status not in ("interrupted", "cancelled"):
-                self._status = "done"
+                self._status = next_run_status(self._status, status)
             self._finished_at = _now()
             self._flush_now = True
         await self.flush(force=True)

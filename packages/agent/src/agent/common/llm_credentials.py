@@ -99,10 +99,14 @@ def _fetch_credential(organization_id: str) -> OrgLLMCredential | None:
     base_url = data.get("baseUrl")
     if not isinstance(api_key, str) or not api_key or not isinstance(base_url, str) or not base_url:
         return None
+    from agent.common import residency
+
     return OrgLLMCredential(
         credential_id=str(data.get("id") or ""),
         provider=str(data.get("provider") or "custom"),
-        base_url=base_url,
+        # An office's own OpenRouter key is held to its cell's zone like the platform's (ADR-0167); an endpoint
+        # the zone cannot rewrite or place is refused at the seam.
+        base_url=residency.routed_url(base_url, residency.active_cell()),
         api_key=api_key,
         key_fingerprint=str(data.get("keyFingerprint") or ""),
     )

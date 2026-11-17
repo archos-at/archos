@@ -1,18 +1,3 @@
-"""The run ledger's wire, validated against the schema the BFF generated from its own zod.
-
-ADR-0055 read from this side: there is **no hand-written twin** of the contract.
-The shape lives in ``apps/workspace/bff/runs/run-ledger-types.ts``, is
-serialised to ``apps/workspace/tests/fixtures/run-ledger.schema.json`` by
-``run-ledger-schema.spec.ts``, and what this file asserts is that the payloads
-``agent.common.run_ledger`` builds validate against it — so a field renamed
-on the TS side fails here rather than at runtime with a 400 the reader sees as
-„Piloti konnte den Verlauf nicht schreiben".
-
-Both directions are checked: a ledger this tier builds validates against the
-schema, and a ledger shaped the way the schema describes parses back into these
-models. One direction alone would let a model that drops a field pass.
-"""
-
 from __future__ import annotations
 
 import json
@@ -30,7 +15,9 @@ from agent.common.run_ledger import MAX_LOCI_PER_DOC
 from agent.common.run_ledger import MAX_NAME_CHARS
 from agent.common.run_ledger import MAX_STEPS
 from agent.common.run_ledger import RUN_PHASES
+from agent.common.run_ledger import RUN_STATUS_MOVES
 from agent.common.run_ledger import RUN_STATUSES
+from agent.common.run_ledger import TERMINAL_RUN_STATUSES
 from agent.common.run_ledger import RunError
 from agent.common.run_ledger import RunLedger
 from agent.common.run_ledger import RunLedgerDoc
@@ -39,6 +26,7 @@ from agent.common.run_ledger import RunPhaseEntry
 from agent.common.run_ledger import RunResult
 from agent.common.run_ledger import RunStatus
 from agent.common.run_ledger import RunStep
+from agent.common.run_ledger import next_run_status
 from agent.common.run_ledger import to_wire
 
 SCHEMA_PATH = (
@@ -53,12 +41,10 @@ def schema() -> dict[str, Any]:
 
 
 def _validator(schema: dict[str, Any], name: str) -> Draft202012Validator:
-    """A validator for one named definition, resolving ``$ref`` against the whole file."""
     return Draft202012Validator({**schema["$defs"][name], "$defs": schema["$defs"]})
 
 
 def _ledger() -> RunLedger:
-    """A run that searched, wrote and filed — every optional exercised once."""
     return RunLedger(
         runId="6f1a0f7e-2b1f-4a4e-9a4e-2f0f1a6d9c31",
         status="done",
@@ -96,17 +82,13 @@ def _ledger() -> RunLedger:
 
 
 class TestTheWire:
-    """A ledger this tier builds is one the BFF's own schema accepts."""
-
     def test_the_fixture_is_where_the_contract_lives(self, schema: dict[str, Any]) -> None:
-        """A guard on the guard: a moved fixture must fail loudly, not silently pass."""
         assert "runLedger" in schema["$defs"]
 
     def test_a_built_ledger_validates(self, schema: dict[str, Any]) -> None:
         _validator(schema, "runLedger").validate(to_wire(_ledger()))
 
     def test_a_fresh_ledger_validates(self, schema: dict[str, Any]) -> None:
-        """„angelegt, noch nichts passiert" is a state, not an empty payload."""
         fresh = RunLedger(
             runId="run-1",
             status="created",
@@ -134,7 +116,6 @@ class TestTheWire:
         _validator(schema, "runLedger").validate(to_wire(failed))
 
     def test_the_wire_reads_back_into_the_models(self) -> None:
-        """The other direction: what the schema describes is what these models parse."""
         assert RunLedger.model_validate(to_wire(_ledger())) == _ledger()
 
     def test_an_optional_is_absent_and_never_null(self) -> None:
@@ -149,7 +130,6 @@ class TestTheWire:
         assert "result" not in payload and "error" not in payload and "finishedAt" not in payload
 
     def test_the_append_op_validates(self, schema: dict[str, Any]) -> None:
-        """The request body the fold will post is the same contract, closed at two ops."""
         body = {
             "op": "append",
             "steps": [to_wire(_ledger().steps[0])],
@@ -160,8 +140,6 @@ class TestTheWire:
 
 
 class TestTheClosedShape:
-    """What the ledger is defined by NOT carrying."""
-
     def test_a_step_may_not_name_a_tool(self) -> None:
         with pytest.raises(ValidationError):
             RunStep(
@@ -177,12 +155,6 @@ class TestTheClosedShape:
         assert not _validator(schema, "runLedger").is_valid(to_wire(_ledger()) | {"steps": [step]})
 
     def test_both_vocabularies_are_the_frontends(self, schema: dict[str, Any]) -> None:
-        """Mirrored, not imported; the fixture is the pin.
-
-        A phase added on the TS side and not here would arrive on a ledger this
-        tier cannot build, so the run would lose its whole account rather than
-        one row.
-        """
         properties = schema["$defs"]["runLedger"]["properties"]
         assert set(get_args(RunStatus)) == set(properties["status"]["enum"])
         assert set(RUN_STATUSES) == set(properties["status"]["enum"])
@@ -190,12 +162,21 @@ class TestTheClosedShape:
         assert set(get_args(RunPhase)) == set(phase_enum)
         assert set(RUN_PHASES) == set(phase_enum)
 
-    def test_the_bounds_are_the_frontends(self, schema: dict[str, Any]) -> None:
-        """A producer cuts to length before it sends; the caps it cuts to are these.
+    def test_the_status_moves_are_the_frontends(self, schema: dict[str, Any]) -> None:
+        lifecycle = schema["x-lifecycle"]
+        assert set(TERMINAL_RUN_STATUSES) == set(lifecycle["ended"])
+        declared = {state: set(node.get("on", {}).values()) for state, node in lifecycle["states"].items()}
+        assert {state: set(targets) for state, targets in RUN_STATUS_MOVES.items()} == declared
 
-        Pinned to the fixture so „truncate at 160" cannot mean one thing here and
-        another in the sanitiser that has the last word.
-        """
+    def test_an_ended_status_stays_ended(self) -> None:
+        for ended in TERMINAL_RUN_STATUSES:
+            assert set(RUN_STATUS_MOVES[ended]) <= set(TERMINAL_RUN_STATUSES)
+            assert next_run_status(ended, "running") == ended
+        assert next_run_status("failed", "done") == "failed"
+        assert next_run_status("done", "interrupted") == "interrupted"
+        assert next_run_status("running", "not-a-status") == "running"
+
+    def test_the_bounds_are_the_frontends(self, schema: dict[str, Any]) -> None:
         ledger = schema["$defs"]["runLedger"]["properties"]
         step = ledger["steps"]["items"]["properties"]
         doc = step["docs"]["items"]["properties"]

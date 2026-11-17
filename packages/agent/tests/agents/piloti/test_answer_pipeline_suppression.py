@@ -1,25 +1,3 @@
-"""Short-overview card suppression: vetoes, callout survival, takeaway window.
-
-Covers ``answer_pipeline._suppress_cards`` — the mechanical floor that drops
-unearned ``emit_card`` cards on a short, non-ruling answer without a verdict:
-
-1. **The proof lives in the prose** — the Fundstelle a short answer rests on
-   is a cited quote line, which suppression never touches.
-2. **Callout survival** — below the takeaway floor the trailer shrinks to the
-   callout alone; the ``[[callout]]`` marker resolves against exactly that
-   field, so dropping it would silence a warning the gates deliberately kept.
-3. **The window between the floors** — at or above the card floor (400)
-   but below the takeaway floor (600) the cards STAY while the gate has
-   already withheld the takeaways (500-char case): a short answer with one
-   table is richer than the same answer without it. The card floor sat at
-   800, above the takeaway floor, while a card cost a full-context round;
-   cards travel in the envelope now and cost none.
-4. **Sibling probes** — every other system emitter's card type is a catalog
-   member and vetoes the suppression: ``memory_proposal``, ``task_created``,
-   ``document_draft`` via write/edit and via the ``file_draft`` re-push (plus
-   ``document_grid`` and ``file_operation_proposal`` for the full set).
-"""
-
 import json
 
 import pytest
@@ -30,6 +8,7 @@ from agent.agents.piloti.answer_pipeline import _gated_meta
 from agent.agents.piloti.answer_pipeline import _should_suppress_meta_cards
 from agent.agents.piloti.answer_pipeline import _suppress_cards
 from agent.agents.piloti.answer_pipeline import finalize_answer
+from agent.cards.envelope import FLOOR_EXEMPT_CARD_TYPES
 from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
@@ -38,10 +17,7 @@ from agent.citations.registry import SourceRegistry
 from agent.common.answer_envelope import AnswerMeta
 from agent.common.answer_envelope import gate_answer_meta
 
-#: Above the card floor (400) but below the takeaway floor (600): cards stay,
-#: takeaways were never gated in.
 WINDOW_PROSE = "x" * 500
-#: Below both floors: the trailer shrinks to the callout alone.
 SHORT_PROSE = "x" * 300
 
 _CALLOUT = {"kind": "deadline", "text": "Die Bauverhandlung ist binnen sechs Wochen anzuberaumen."}
@@ -53,7 +29,6 @@ _TAKEAWAYS = [
 
 @pytest.fixture
 def card_registry():
-    """A bound turn card registry, reset afterwards like the chat entrypoint."""
     registry = CardRegistry()
     token = set_card_registry(registry)
     yield registry
@@ -98,7 +73,6 @@ class TestShouldSuppressMetaCards:
         assert _should_suppress_meta_cards(SHORT_PROSE, meta) is False
 
     def test_a_work_report_vetoes(self):
-        # A work turn's prose is short by design; its report is the answer (ADR-0123).
         meta = _gated({"kind": "work", "work": {"done": [{"text": "Freigaben gelesen"}]}}, prose_chars=60)
         assert _should_suppress_meta_cards(SHORT_PROSE, meta) is False
 
@@ -108,17 +82,9 @@ class TestShouldSuppressMetaCards:
 
 
 class TestTheProofLivesInTheProse:
-    """The Fundstelle a short answer rests on is a cited quote line in the prose.
-
-    The retired ``legal_basis`` card once vetoed suppression, because clearing
-    the registry under it deleted the answer's proof. The proof is the prose's
-    own `> „…“ [N]` line now, and suppression never touches the prose: the
-    content card goes, the quote stays.
-    """
-
     def test_a_quote_line_survives_while_the_card_goes(self, card_registry):
         meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
-        card_registry.add({"type": "ifc_model_picker", "title": "Modell"})
+        card_registry.add({"type": "calculation", "title": "Fläche"})
         quote = "> „Brandabschnitte dürfen höchstens 1.200 m² umfassen.“ [1]"
         content = SHORT_PROSE + "\n\n" + quote + "\n\n[[card:1]]\n"
 
@@ -131,8 +97,6 @@ class TestTheProofLivesInTheProse:
 
 
 class TestCalloutSurvival:
-    """Below the takeaway floor the trailer shrinks to the callout alone."""
-
     def test_suppression_preserves_the_callout_field(self, card_registry):
         meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
         card_registry.add({"type": "typed_table", "title": "Tabelle"})
@@ -157,7 +121,6 @@ class TestCalloutSurvival:
         assert kept_meta is None
 
     async def test_the_callout_marker_survives_suppression_end_to_end(self):
-        """The full path: suppression keeps the field, the marker resolves."""
         prose = "Die Antwort ist kurz [1].\n\n[[callout]]\n\nMehr Text.\n\n## References\n- [1] https://example.com"
         envelope = {"answer": prose, "kind": "direct", "callout": _CALLOUT}
         messages = [AIMessage(content="```answer_json\n" + json.dumps(envelope) + "\n```")]
@@ -172,8 +135,6 @@ class TestCalloutSurvival:
 
 
 class TestTheWindowBetweenTheFloors:
-    """At 500 chars the cards stay; the gate already withheld the takeaways."""
-
     def test_cards_kept_at_500_chars_while_takeaways_are_gated_out(self, card_registry):
         meta = _gated({"takeaways": _TAKEAWAYS, "callout": _CALLOUT}, prose_chars=500)
         assert meta is not None and "takeaways" not in meta and "callout" in meta
@@ -207,8 +168,6 @@ class TestTheWindowBetweenTheFloors:
 
 
 class TestSiblingProbes:
-    """Every system emitter's card vetoes the suppression — by catalog, by path."""
-
     def test_memory_proposal_is_a_catalog_member_and_vetoes(self, card_registry):
         from agent.cards.catalog import SYSTEM_CARD_TYPES
 
@@ -260,7 +219,6 @@ class TestSiblingProbes:
         assert len(card_registry) == 1
 
     def test_document_draft_from_the_file_draft_repush_vetoes(self, card_registry):
-        """The re-push carries the filing — same type, the filed shape."""
         from agent.cards.catalog import SYSTEM_CARD_TYPES
         from agent.tools.documents.cards import emit_draft_card
 
@@ -288,7 +246,6 @@ class TestSiblingProbes:
         assert len(card_registry) == 1
 
     def test_the_rest_of_the_system_set_vetoes_too(self, card_registry):
-        """``document_grid`` and ``file_operation_proposal`` complete the set."""
         from agent.cards.catalog import SYSTEM_CARD_TYPES
 
         for card_type in ("document_grid", "file_operation_proposal"):
@@ -312,8 +269,6 @@ class TestSiblingProbes:
 
 
 class TestTrailerValueWiring:
-    """``_gated_meta`` threads this turn's captures into the trailer-value gate."""
-
     def _extracted(self, payload: dict) -> _Extracted:
         return _Extracted(
             content="x" * 700,
@@ -351,8 +306,6 @@ class TestTrailerValueWiring:
 
 
 class TestMarkerOnlyContent:
-    """Suppression never hands the reader a marker with no card behind it."""
-
     def test_an_answer_that_was_only_a_marker_becomes_empty(self, card_registry):
         meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
         card_registry.add({"type": "typed_table", "title": "Tabelle"})
@@ -366,8 +319,6 @@ class TestMarkerOnlyContent:
 
 class TestTrailerCaptures:
     def test_explicit_turn_sources_are_the_log(self):
-        # The repair no longer retrieves (ADR-0067), so this turn's reads are
-        # the whole of what a trailer value may be grounded in.
         from agent.agents.piloti.answer_pipeline import _trailer_captures
 
         turn = _oib_source()
@@ -395,3 +346,87 @@ class TestTrailerCaptures:
         meta = _gated_meta(extracted, "x" * 700, SourceRegistry(), turn_sources=[repair])
 
         assert meta is not None and meta["verdict"]["value"] == "100 cm"
+
+
+def _surface(leaf: str, **fields: str) -> dict:
+    return {
+        "type": "surface",
+        "title": "Zwei Häuser",
+        "components": [
+            {"id": "root", "component": "Tabs", "tabs": [{"title": "A", "child": "a"}, {"title": "B", "child": "b"}]},
+            {"id": "a", "component": leaf, "title": "Haus A", **fields},
+            {"id": "b", "component": leaf, "title": "Haus B", **fields},
+        ],
+    }
+
+
+class TestTheModelCardIsTheAnswer:
+    @pytest.mark.parametrize("card_type", sorted(FLOOR_EXEMPT_CARD_TYPES))
+    def test_it_vetoes_the_floor(self, card_registry, card_type):
+        card_registry.add({"type": card_type, "title": "Dachgeschoß"})
+        meta = _gated({"kind": "walkthrough", "topic": "Dachgeschoß"}, prose_chars=51)
+        content = "Das Dachgeschoß ist im Modell isoliert dargestellt.\n\n[[card:1]]"
+
+        kept_content, kept_meta, suppressed = _suppress_cards(content, meta)
+
+        assert suppressed is False
+        assert kept_content == content
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_a_trailer_card_on_a_short_answer_still_goes(self, card_registry):
+        card_registry.add({"type": "calculation", "title": "Fläche"})
+        meta = _gated({"kind": "walkthrough", "topic": "Fläche"}, prose_chars=51)
+
+        _, _, suppressed = _suppress_cards("Die Fläche beträgt 21,41 m².\n\n[[card:1]]", meta)
+
+        assert suppressed is True
+        assert len(card_registry) == 0
+
+    def test_a_surface_of_trailer_cards_on_a_short_answer_still_goes(self, card_registry):
+        card_registry.add(_surface("calculation"))
+        meta = _gated({"kind": "walkthrough", "topic": "Fläche"}, prose_chars=51)
+
+        _, _, suppressed = _suppress_cards("Die Fläche beträgt 21,41 m².\n\n[[card:1]]", meta)
+
+        assert suppressed is True
+        assert len(card_registry) == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("answer", "kind", "card"),
+        [
+            pytest.param(
+                "Wählen Sie das Modell aus, das Sie öffnen möchten.",
+                "direct",
+                {"type": "ifc_model_picker", "title": "Welches Modell möchten Sie öffnen?"},
+                id="zeig-mir-das-modell",
+            ),
+            pytest.param(
+                "Das Dachgeschoß ist im Modell isoliert dargestellt.\n\n[[card:1]]",
+                "walkthrough",
+                {
+                    "type": "ifc_viewer",
+                    "title": "Dachgeschoß",
+                    "model_file": "AC20-FZK-Haus.ifc",
+                    "storey": "Dachgeschoss",
+                },
+                id="zeig-mir-das-dachgeschoss",
+            ),
+            pytest.param(
+                "Beide Häuser sind im Modell zu sehen.\n\n[[card:1]]",
+                "direct",
+                _surface("ifc_viewer", model_file="AC20-FZK-Haus.ifc"),
+                id="zeig-mir-beide-haeuser",
+            ),
+        ],
+    )
+    async def test_an_answer_keeps_its_model_card_through_finalize(self, card_registry, answer, kind, card):
+        envelope = {"answer": answer, "kind": kind, "topic": "Modell", "cards": [card]}
+        message = AIMessage(content="```answer_json\n" + json.dumps(envelope, ensure_ascii=False) + "\n```")
+
+        final = await finalize_answer([message], registry=SourceRegistry(), tools=[], repair=None)
+
+        assert [kept["type"] for kept in card_registry.snapshot()] == [card["type"]]
+        assert final.answer_meta is not None
+        assert final.answer_meta.get("kind") == kind

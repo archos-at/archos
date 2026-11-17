@@ -4,14 +4,9 @@
 import { describe, expect, it } from 'vitest'
 import { composeTransform, pageTextChunks, textItemToChunk } from './pdf-text-chunks'
 
-/**
- * The viewport matrix pdf.js builds for an unrotated page at scale 1: x passes
- * through, y is flipped and shifted by the page height. A 800pt-tall page here.
- */
 const PAGE_HEIGHT = 800
 const VIEWPORT = [1, 0, 0, -1, 0, PAGE_HEIGHT]
 
-/** A 12pt run of text with its baseline at PDF-space (72, 700). */
 const run = (str: string, x = 72, baseline = 700, size = 12, width = 120) => ({
   str,
   width,
@@ -37,8 +32,6 @@ describe('textItemToChunk', () => {
   it('flips the baseline into a top-left box', () => {
     const chunk = textItemToChunk(run('Der Bescheid'), VIEWPORT)
     expect(chunk.x).toBe(72)
-    // Baseline y=700 in PDF space is 100 from the top; the box starts one glyph
-    // height above it.
     expect(chunk.y).toBe(PAGE_HEIGHT - 700 - 12)
     expect(chunk.height).toBe(12)
     expect(chunk.width).toBe(120)

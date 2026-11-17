@@ -33,7 +33,6 @@ import type { SetupStepProps } from './types'
 
 export { projectChatHref } from '../reading/reading-chat-band'
 
-/** Which sentence the band says: the bell while Piloti still reads, the chat once it is over. */
 const BAND: Record<ReadingPhase, 'reading' | 'ready' | 'failed' | 'waiting'> = {
   waiting: 'waiting',
   waitingWithDocuments: 'reading',
@@ -43,7 +42,6 @@ const BAND: Record<ReadingPhase, 'reading' | 'ready' | 'failed' | 'waiting'> = {
   failed: 'failed',
 }
 
-/** What Piloti said about what it read, folded behind one quiet link. */
 function SummaryDisclosure({ summary }: { summary: string }): JSX.Element {
   const t = useTranslations(intakeReadingStepCopy)
   const [open, setOpen] = useState(false)
@@ -62,22 +60,6 @@ function SummaryDisclosure({ summary }: { summary: string }): JSX.Element {
   )
 }
 
-/**
- * Step 3, Erfassung (the approved mockup, `Erfassung.dc.html`). Piloti reads in
- * the background; the step says where it stands, and asks nothing: the person
- * may watch, leave (Piloti tells them when it is done, `piloti.intake_ready`),
- * or ask the project chat now.
- *
- * One column: the heading, the documents as a bar, one card of milestones
- * (Standort, Werte, Widersprüche, Lücken), the values just found with their
- * page, and the calm band with the chat. The footer leads on to the
- * Rückfragen; without documents, back to the Ablage.
- *
- * The frame has no status header, so what it held lives here, folded into
- * quiet links: reading what is unread, and adding documents. A failed
- * reading is said here, with its retry as the footer's action; the frame's
- * alert says it on every other step.
- */
 export function ReadingStep({
   view,
   projectId,
@@ -99,7 +81,6 @@ export function ReadingStep({
   const shown = foundValues(view, arrival)
   const add: AddDocumentsProps | undefined = canUpload ? { projectId, uploading, onFiles } : undefined
   const tools: DocumentTools = {
-    // A failed reading's retry is the frame's alert; a second one here would be two of the same.
     reread: canDecide && phase === 'ready' ? { busy, onReread } : undefined,
   }
   const feedHeading = shown.some((value) => value.fresh)
@@ -110,7 +91,7 @@ export function ReadingStep({
 
   return (
     <div className="mx-auto w-full max-w-[640px] md:pt-2" data-testid="setup-step-reading" data-phase={phase}>
-      <h1 className="text-[22px] font-medium tracking-tight md:text-2xl">{t(`heading.${phase}`)}</h1>
+      <h1 className="text-[22px] font-medium md:text-2xl">{t(`heading.${phase}`)}</h1>
       {(phase === 'waiting' || phase === 'waitingWithDocuments' || phase === 'failed') && (
         <p className="text-muted-foreground mt-1.5 text-sm">{t(`lead.${phase}`)}</p>
       )}

@@ -22,7 +22,7 @@ export interface ReconciledFrom {
 }
 
 /** The row still carries the dispatch the read resolved: that job, or none. */
-const sameDispatch = (jobId: string | null): SQL =>
+export const sameDispatch = (jobId: string | null): SQL =>
   jobId
     ? sql`${documents.metadata} ->> 'ingestJobId' = ${jobId}`
     : sql`(${documents.metadata} ->> 'ingestJobId') IS NULL`

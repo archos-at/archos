@@ -1,5 +1,3 @@
-"""The agent-runtime human prompt, its wire shape, and the answer back (`common/human_prompt.py`)."""
-
 import pytest
 
 from agent.common import build_human_prompt
@@ -24,10 +22,7 @@ from nat.utils import providers
 
 
 class TestBuildHumanPrompt:
-    """Tests for build_human_prompt."""
-
     def test_without_options_is_a_text_prompt(self):
-        """No options must produce the free-text prompt used before options existed."""
         prompt = build_human_prompt("Which period?")
 
         assert isinstance(prompt, HumanPromptText)
@@ -36,27 +31,21 @@ class TestBuildHumanPrompt:
         assert prompt.placeholder == "Please provide more details..."
 
     def test_empty_options_is_a_text_prompt(self):
-        """An empty list means 'no enumerable answers', same as None."""
         assert isinstance(build_human_prompt("Which period?", []), HumanPromptText)
 
     def test_blank_options_are_dropped(self):
-        """Whitespace-only labels would render as empty picker cards."""
         assert isinstance(build_human_prompt("Which?", ["   ", ""]), HumanPromptText)
 
     def test_with_options_is_a_radio_prompt(self):
-        """Options must travel in the structured field, not only in the prose."""
         prompt = build_human_prompt("Which model?", ["Castle.ifc", "Institute.ifc"])
 
         assert isinstance(prompt, HumanPromptRadio)
         assert prompt.text == "Which model?"
         assert [option.label for option in prompt.options] == ["Castle.ifc", "Institute.ifc"]
-        # The value is what comes back as the user's answer, so it must be the
-        # label itself rather than an opaque id.
         assert [option.value for option in prompt.options] == ["Castle.ifc", "Institute.ifc"]
         assert [option.id for option in prompt.options] == ["1", "2"]
 
     def test_question_text_is_preserved_with_options(self):
-        """The picker adds to the question, it does not replace it."""
         question = "**Modell**: Welches meinst du?\n\n1. A\n2. B\n\n... oder tippen Sie 'skip'."
         prompt = build_human_prompt(question, ["A", "B"])
 
@@ -64,15 +53,12 @@ class TestBuildHumanPrompt:
 
 
 class TestExtractUserResponse:
-    """The two answers `human_response` builds, read back as text."""
-
     def test_a_typed_answer(self):
         response = InteractionResponse(id="1", timestamp="2026-08-18T10:00:00Z", content=HumanResponseText(text="skip"))
 
         assert extract_user_response(response) == "skip"
 
     def test_a_picked_option_reads_as_its_value(self):
-        """A picked option arrives as HumanResponseRadio, with no `.text` at all."""
         option = MultipleChoiceOption(value="Castle.ifc", label="Castle.ifc")
         response = InteractionResponse(
             id="1", timestamp="2026-08-18T10:00:00Z", content=HumanResponseRadio(selected_option=option)
@@ -86,8 +72,6 @@ def _nat_prompt(content, prompt_id: str = "ask_01") -> InteractionPrompt:
 
 
 class TestOnTheWire:
-    """The prompt as `interaction_request`, the client's answer back as the agent runtime's response."""
-
     def test_a_question_without_options_is_a_text_request(self):
         value = interaction_request(_nat_prompt(build_human_prompt("Which period?")), expires_at=1)
 
@@ -106,7 +90,6 @@ class TestOnTheWire:
 
         assert value.input == "choice"
         assert [(option.id, option.label) for option in value.options] == [("1", "Castle.ifc"), ("2", "Institute.ifc")]
-        # The question says the user may type instead of picking; "skip" is only ever typed.
         assert value.placeholder == DEFAULT_TEXT_PLACEHOLDER
 
     def test_a_prompt_shape_nobody_builds_has_no_wire_shape(self):
@@ -114,10 +97,6 @@ class TestOnTheWire:
             interaction_request(_nat_prompt(HumanPromptCheckbox(text="?", options=[])), expires_at=1)
 
     async def test_the_interaction_id_is_nat_s_own_prompt_id(self):
-        """The agent runtime 1.9 mints the prompt id; the socket mints none.
-
-        Pinned through the agent runtime's provider hook.
-        """
         seen: list[InteractionPrompt] = []
 
         async def callback(prompt: InteractionPrompt):
@@ -143,7 +122,6 @@ class TestOnTheWire:
         assert response == HumanResponseText(text="skip")
 
     def test_a_chosen_option_comes_back_as_its_label(self):
-        """The clarifier replays the value to the model as the user's turn, so it is the label, not the id."""
         prompt = build_human_prompt("Which model?", ["Castle.ifc", "Institute.ifc"])
 
         response = human_response(prompt, OptionAnswer(option_id="1"))

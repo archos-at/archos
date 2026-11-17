@@ -1,17 +1,14 @@
-/**
- * The dictionary keys of the formula card, by the union each one names.
- *
- * Typed maps rather than a `switch` per union: `satisfies Record<Union, …>`
- * makes a missing case a compile error, the way the switches did, in a sixth of
- * the lines. `i18n/key-coverage.spec.ts` reads only literal `t('…')` calls and
- * cannot see a key in a map, so `formula-copy.spec.ts` resolves every key here
- * against both dictionaries instead: a typo is a failing test, not a dot-path
- * on screen.
- *
- * Every key is in the `chat` namespace.
- */
-
-import type { CaveatKey, CheckId, Component, InputLabel, LineKey, Measure, StairType, TermKey } from './formulas'
+import type {
+  CaveatKey,
+  CheckId,
+  Component,
+  HoldReason,
+  InputLabel,
+  LineKey,
+  Measure,
+  StairType,
+  TermKey,
+} from './formulas'
 
 export const INPUT_KEYS = {
   riser: 'cards.formula.input.riser',
@@ -45,7 +42,6 @@ export const TERM_KEYS = {
   depthIncrement: 'cards.formula.term.depthIncrement',
 } as const satisfies Record<TermKey, string>
 
-/** The terms that name a count of started metres once it is known. */
 export const TERM_METRES_KEYS = {
   overhangIncrement: 'cards.formula.term.overhangIncrementMetres',
   depthIncrement: 'cards.formula.term.depthIncrementMetres',
@@ -104,19 +100,26 @@ export const STAIR_TYPE_KEYS = {
   secondary: 'cards.formula.stairType.secondary',
 } as const satisfies Record<StairType, string>
 
-/** The symbol a „{quantity} = 0 ist nicht möglich." names, for the inputs that cannot be 0. */
+export const HOLD_KEYS = {
+  siteUnknown: 'cards.formula.hold.siteUnknown',
+  unsettled: 'cards.formula.hold.unsettled',
+  unavailable: 'cards.formula.hold.unavailable',
+  notBinding: 'cards.formula.hold.notBinding',
+  otherEdition: 'cards.formula.hold.otherEdition',
+} as const satisfies Record<HoldReason, string>
+
 export const ZERO_QUANTITY_KEYS = {
   conductivity: 'cards.formula.zeroQuantity.conductivity',
   floorArea: 'cards.formula.zeroQuantity.floorArea',
 } as const satisfies Partial<Record<InputLabel, string>>
 
-/** Every map above, for the spec that resolves them. */
 export const FORMULA_KEY_MAPS = {
   INPUT_KEYS,
   TERM_KEYS,
   TERM_METRES_KEYS,
   LINE_KEYS,
   CHECK_KEYS,
+  HOLD_KEYS,
   CAVEAT_KEYS,
   COMPONENT_KEYS,
   MEASURE_KEYS,

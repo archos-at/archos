@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * „Zugriff auf …": who may read and who may write one folder (ADR-0088, ADR-0097).
- *
- * Two answers: as the parent folder (the root folder's parent is the project:
- * everyone keeps what their project permissions allow), or an own list —
- * people of the project, each with „Lesen" or „Bearbeiten", and optionally
- * „Alle Projektmitglieder dürfen lesen", which leaves the list deciding only
- * who may write. Someone not on a list nobody else reads sees nothing of the
- * folder. The dialog says what the reader cannot see from here: a subfolder can
- * only be narrower than its parent, „Bearbeiten" never goes beyond what someone
- * may do in the project, saving a change of who may READ moves and re-reads
- * the folder's documents, a list without yourself hides the folder from you
- * too, and a building model cannot sit in a folder not everyone may read.
- *
- * Who is on a list is not in the folder listing: it is read when the dialog
- * opens, with the project's people to pick from. The PUT is the authority. It
- * answers 404 for a reader who may not manage the project, refuses someone
- * outside the organization, and reports how many documents moved and which did
- * not.
- */
-
 import { type FC, useEffect, useState } from 'react'
 import { FolderTree, Lock, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -60,28 +39,24 @@ import type { FolderItem } from './project-file-workspace'
 type Mode = 'inherit' | 'custom'
 type CustomAccess = Extract<FolderAccessSetting, { mode: 'custom' }>
 
-/** At most this many people; the route holds the same line (`FOLDER_ACCESS_MAX_PEOPLE`). */
 const MAX_PEOPLE = 50
 
 export interface FolderAccessDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
-  /** The folder being changed; the dialog renders nothing without one. */
   folder: FolderItem | null
   onSaved: (result: FolderAccessResult) => void
 }
 
 const EMPTY_LIST: CustomAccess = { mode: 'custom', everyoneReads: false, people: [] }
 
-/** The whole list, for "did anything change". */
 const accessKey = (access: CustomAccess): string =>
   [
     access.everyoneReads ? '*' : '',
     ...access.people.map((person) => `${person.userId}:${person.level}`).sort(),
   ].join(',')
 
-/** Who may READ under a list: everyone, or exactly the people on it. Levels do not change it. */
 const readersKey = (access: CustomAccess): string =>
   access.everyoneReads ? '*' : access.people.map((person) => person.userId).sort().join(',')
 
@@ -99,16 +74,10 @@ export const FolderAccessDialog: FC<FolderAccessDialogProps> = ({ open, onOpenCh
 )
 
 interface Loaded {
-  /** The list as it is now: what an unchanged dialog would save. Null for a folder that inherits. */
   current: CustomAccess | null
-  /** The project's people, to name and to add. */
   people: ProjectPerson[]
 }
 
-/**
- * What the dialog reads when it opens: the folder's list (a folder with its own
- * only) and the project's people. `retry` reads both again.
- */
 function useFolderAccessData(projectId: string, folderId: string, hasOwnList: boolean) {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [failed, setFailed] = useState(false)
@@ -140,8 +109,6 @@ const FolderAccessForm: FC<
   const initialMode: Mode = folder.ownAccess ? 'custom' : 'inherit'
   const { loaded, failed, retry } = useFolderAccessData(projectId, folder.id, Boolean(folder.ownAccess))
   const [mode, setMode] = useState<Mode>(initialMode)
-  // The list as edited; until the first edit, the list as it is. A folder with
-  // its own list has none to show or save until that is read.
   const [edited, setEdited] = useState<CustomAccess | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -159,8 +126,6 @@ const FolderAccessForm: FC<
   const readersChange = mode !== initialMode || (comparable && readersKey(draft) !== readersKey(current))
   const missingPerson = custom && (draft === null || (draft.people.length === 0 && !draft.everyoneReads))
   const canSave = !saving && changed && !missingPerson
-  // A list not every member may read: its documents move into their own
-  // collection, and a model may not sit there.
   const restrictsReading = custom && !everyoneReads
 
   const edit = (change: (prev: CustomAccess) => CustomAccess): void => {
@@ -347,7 +312,7 @@ const FolderAccessForm: FC<
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+        <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
           {tc('actions.cancel')}
         </Button>
         <Button type="button" onClick={() => void save()} disabled={!canSave} data-testid="folder-access-save">

@@ -52,6 +52,8 @@ export const research = {
     cannotCreateActive: 'Cannot create a new session while the current session is active',
     newChat: 'New chat',
     toggleSessions: 'Chat history',
+    /** The history door's visible word, beside its glyph at every width (one word with the rail's „Alle Chats“). */
+    historyDoor: 'Chats',
     signInToView: 'Sign in to view your chat history',
     sessions: 'Sessions',
     addSources: 'Add data sources',
@@ -170,6 +172,9 @@ export const research = {
     // Kept, never read: Piloti cannot answer from it, nothing failed.
     statusStored: 'Filed',
     statusDeleting: 'Deleting...',
+    // As in the upload tray (`uploads.row.canceled`, `uploads.actions.dismiss`).
+    statusCanceled: 'Canceled',
+    dismiss: 'Dismiss {title}',
     expiryPending: 'Deletion Pending - Reupload',
     expiresIn: 'Expires in {minutes} min',
     deleteDisabled: 'Delete {title} (disabled)',
@@ -325,6 +330,9 @@ export const research = {
     sessionLabel: 'Chat: {title}',
     /** Same row, plus the state its leading icon depicts. */
     sessionLabelWithStatus: 'Chat: {title} — {status}',
+    /** A temporary chat's row (ADR-0180): the mark's tooltip, and the row's label with it. */
+    temporaryMark: 'Temporary chat: nothing from it is kept.',
+    sessionLabelTemporary: '{label} (temporary chat, nothing from it is kept)',
     // FB-10: Deep Research section folded into the sessions panel. The count
     // rides in a CountPill beside the heading, not in the string.
     deepResearchHeading: 'Deep Research',

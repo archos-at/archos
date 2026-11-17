@@ -1,10 +1,3 @@
-/**
- * MSW Handlers for Document APIs
- *
- * Stateful mock handlers that simulate file upload and ingestion.
- * Uses lightweight in-memory stores for type-safe state management.
- */
-
 import { http, HttpResponse, delay } from 'msw'
 import type {
   CollectionInfo,
@@ -16,12 +9,6 @@ import type { DocumentFileStatus } from '@/features/documents/types'
 import { getBackendUrl } from '@/lib/backend-url'
 import { getDb, RelationType, resetDatabase } from '../database'
 
-// ============================================================================
-// Job Processing State (for timing simulation)
-// ============================================================================
-
-// Track job processing state for async simulation
-// This remains a Map because it's timing/simulation state, not persisted data
 const jobProcessingState = new Map<
   string,
   {
@@ -31,16 +18,10 @@ const jobProcessingState = new Map<
   }
 >()
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
 const generateId = () => crypto.randomUUID()
 
 const now = () => new Date().toISOString()
 
-// Simulate job progress based on elapsed time
-// All files are processed CONCURRENTLY (upload together, then ingest together)
 const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
   const db = getDb()
   const jobEntity = db.model.documents.jobs.getById(jobId)
@@ -59,37 +40,29 @@ const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
 
   const elapsed = Date.now() - processingState.startTime
 
-  // Timing configuration (in ms) - CONCURRENT processing
-  // All files upload together, then all files ingest together
   const UPLOAD_DURATION = 3 * 1000 // 3 seconds for all files to upload
   const INGEST_DURATION = 15 * 1000 // 15 seconds for all files to ingest
   const TOTAL_DURATION = UPLOAD_DURATION + INGEST_DURATION
 
-  // Determine current phase based on elapsed time
   let currentPhase: 'uploading' | 'ingesting' | 'completed'
   let phaseProgress: number
 
   if (elapsed < UPLOAD_DURATION) {
-    // Phase 1: All files uploading together
     currentPhase = 'uploading'
     phaseProgress = Math.min(100, Math.floor((elapsed / UPLOAD_DURATION) * 100))
   } else if (elapsed < TOTAL_DURATION) {
-    // Phase 2: All files ingesting together
     currentPhase = 'ingesting'
     const ingestElapsed = elapsed - UPLOAD_DURATION
     phaseProgress = Math.min(100, Math.floor((ingestElapsed / INGEST_DURATION) * 100))
   } else {
-    // Phase 3: All files complete
     currentPhase = 'completed'
     phaseProgress = 100
   }
 
-  // Update ALL files to the same status (concurrent processing)
   const updatedFileDetails = job.file_details.map((fileDetail) => {
     const fileEntity = db.model.documents.files.getById(fileDetail.file_id)
 
     if (currentPhase === 'completed') {
-      // All files are done
       if (fileEntity && fileEntity.status !== 'success') {
         db.model.documents.files.upsert({
           ...fileEntity,
@@ -104,7 +77,6 @@ const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
         progress_percent: 100,
       }
     } else if (currentPhase === 'ingesting') {
-      // All files are ingesting
       if (fileEntity) {
         db.model.documents.files.upsert({ ...fileEntity, status: 'ingesting' })
       }
@@ -114,7 +86,6 @@ const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
         progress_percent: phaseProgress,
       }
     } else {
-      // All files are uploading
       if (fileEntity) {
         db.model.documents.files.upsert({ ...fileEntity, status: 'uploading' })
       }
@@ -126,7 +97,6 @@ const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
     }
   })
 
-  // Update job status
   const completedFiles = currentPhase === 'completed' ? job.total_files : 0
   const updatedJob: IngestionJobStatus = {
     ...job,
@@ -138,7 +108,6 @@ const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
     updatedJob.status = 'completed'
     updatedJob.completed_at = now()
 
-    // Update collection stats
     const collectionEntity = db.model.documents.collections.getById(job.collection_name)
     if (collectionEntity) {
       const totalChunks = updatedFileDetails.reduce((sum, f) => {
@@ -160,24 +129,15 @@ const updateJobProgress = (jobId: string): IngestionJobStatus | null => {
     updatedJob.started_at = now()
   }
 
-  // Persist the updated job
   db.model.documents.jobs.upsert(updatedJob)
 
   return updatedJob
 }
 
-// ============================================================================
-// Handlers
-// ============================================================================
-
 const baseUrl = getBackendUrl()
 
 export const documentHandlers = [
-  // --------------------------------------------------------------------------
-  // Collections
-  // --------------------------------------------------------------------------
 
-  // POST /v1/collections - Create collection
   http.post(`${baseUrl}/v1/collections`, async ({ request }) => {
     await delay(200)
 
@@ -185,7 +145,6 @@ export const documentHandlers = [
     const body = (await request.json()) as { name: string; description?: string }
     const { name, description } = body
 
-    // Check if collection already exists
     const existing = db.model.documents.collections.getById(name)
     if (existing) {
       return HttpResponse.json(
@@ -210,7 +169,6 @@ export const documentHandlers = [
     return HttpResponse.json(collection, { status: 201 })
   }),
 
-  // GET /v1/collections - List collections
   http.get(`${baseUrl}/v1/collections`, async () => {
     await delay(100)
 
@@ -222,7 +180,6 @@ export const documentHandlers = [
     })
   }),
 
-  // GET /v1/collections/:name - Get collection
   http.get(`${baseUrl}/v1/collections/:name`, async ({ params }) => {
     await delay(100)
 
@@ -240,7 +197,6 @@ export const documentHandlers = [
     return HttpResponse.json(collection)
   }),
 
-  // DELETE /v1/collections/:name - Delete collection
   http.delete(`${baseUrl}/v1/collections/:name`, async ({ params }) => {
     await delay(200)
 
@@ -255,7 +211,6 @@ export const documentHandlers = [
       )
     }
 
-    // Delete associated files using relationship query
     const collectionFiles = db.getRelated({
       source: collection,
       relationship: RelationType.BELONGS_TO,
@@ -266,24 +221,17 @@ export const documentHandlers = [
       db.model.documents.files.remove(file)
     }
 
-    // Delete the collection
     db.model.documents.collections.remove(collection)
 
     return new HttpResponse(null, { status: 204 })
   }),
 
-  // --------------------------------------------------------------------------
-  // Documents
-  // --------------------------------------------------------------------------
-
-  // POST /v1/collections/:name/documents - Upload files
   http.post(`${baseUrl}/v1/collections/:name/documents`, async ({ params, request }) => {
     await delay(300)
 
     const db = getDb()
     const { name: collectionName } = params as { name: string }
 
-    // Ensure collection exists, create if not
     let collection = db.model.documents.collections.getById(collectionName)
     if (!collection) {
       const newCollection: CollectionInfo = {
@@ -299,7 +247,6 @@ export const documentHandlers = [
       collection = db.model.documents.collections.insert(newCollection)
     }
 
-    // Parse multipart form data
     const formData = await request.formData()
     const uploadedFiles: File[] = []
 
@@ -316,7 +263,6 @@ export const documentHandlers = [
       )
     }
 
-    // Create file records and job
     const jobId = generateId()
     const fileIds: string[] = []
     const fileDetails: FileProgress[] = []
@@ -338,7 +284,6 @@ export const documentHandlers = [
 
       const insertedFile = db.model.documents.files.insert(fileInfo)
 
-      // Create relationship: collection -> file
       db.relate({
         source: collection,
         relationship: RelationType.BELONGS_TO,
@@ -353,7 +298,6 @@ export const documentHandlers = [
       })
     }
 
-    // Create ingestion job
     const job: IngestionJobStatus = {
       job_id: jobId,
       status: 'pending',
@@ -368,14 +312,12 @@ export const documentHandlers = [
 
     const insertedJob = db.model.documents.jobs.insert(job)
 
-    // Create relationship: collection -> job
     db.relate({
       source: collection,
       relationship: RelationType.BELONGS_TO,
       target: insertedJob,
     })
 
-    // Start simulated processing
     jobProcessingState.set(jobId, {
       currentFileIndex: 0,
       currentPhase: 'uploading',
@@ -392,7 +334,6 @@ export const documentHandlers = [
     )
   }),
 
-  // GET /v1/collections/:name/documents - List files
   http.get(`${baseUrl}/v1/collections/:name/documents`, async ({ params }) => {
     await delay(100)
 
@@ -402,11 +343,9 @@ export const documentHandlers = [
     const collection = db.model.documents.collections.getById(collectionName)
 
     if (!collection) {
-      // Return empty list if collection doesn't exist
       return HttpResponse.json({ files: [] })
     }
 
-    // Get files using relationship query
     const collectionFiles = db.getRelated({
       source: collection,
       relationship: RelationType.BELONGS_TO,
@@ -418,7 +357,6 @@ export const documentHandlers = [
     })
   }),
 
-  // DELETE /v1/collections/:name/documents - Delete files
   http.delete(`${baseUrl}/v1/collections/:name/documents`, async ({ params, request }) => {
     await delay(200)
 
@@ -433,7 +371,6 @@ export const documentHandlers = [
       const file = db.model.documents.files.getById(fileId)
       if (file && file.collection_name === collectionName) {
         if (collection) {
-          // Update collection stats
           db.model.documents.collections.upsert({
             ...collection,
             file_count: Math.max(0, collection.file_count - 1),
@@ -448,18 +385,11 @@ export const documentHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  // --------------------------------------------------------------------------
-  // Job Status (Polling)
-  // --------------------------------------------------------------------------
-
-  // GET /v1/documents/:jobId/status - Get job status
   http.get(`${baseUrl}/v1/documents/:jobId/status`, async ({ params }) => {
-    // Small delay to simulate network
     await delay(50)
 
     const { jobId } = params as { jobId: string }
 
-    // Update job progress based on elapsed time
     const job = updateJobProgress(jobId)
 
     if (!job) {
@@ -472,10 +402,6 @@ export const documentHandlers = [
     return HttpResponse.json(job)
   }),
 ]
-
-// ============================================================================
-// Utility for tests - reset state
-// ============================================================================
 
 export const resetDocumentMockState = () => {
   resetDatabase()

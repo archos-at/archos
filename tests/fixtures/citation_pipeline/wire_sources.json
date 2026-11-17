@@ -6,6 +6,7 @@
     "title": "OIB-Richtlinie 2, Ausgabe Mai 2023",
     "citation_key": "oib-rl_2_ausgabe_mai_2023.pdf, p.12",
     "collection": "oib_knowledge",
+    "shelf": "base",
     "source_type": "knowledge_layer",
     "tool": "knowledge_search",
     "origin": "kb",
@@ -13,10 +14,30 @@
     "lane": "building_law_oib",
     "lane_label": "OIB-Richtlinie",
     "binding_status": "declared_binding",
+    "role": "binding",
+    "work_id": "work:oib-rl-2",
+    "edition_id": "edition:oib-rl-2:2023-05",
+    "designation": "OIB-RL 2",
+    "edition_label": "Ausgabe Mai 2023",
+    "route": {
+      "work_id": "work:wbtv",
+      "designation": "WBTV",
+      "provision": "WBTV 2023, LGBl. 14/2024"
+    },
+    "role_since": "2024-02-23",
+    "as_of": "2026-11-10",
+    "last_checked_at": "2026-10-30",
+    "freshness": "check_due",
+    "role_labels": [
+      "check_overdue"
+    ],
+    "language": "de",
+    "text_status": "authentic",
     "file_name": "oib-rl_2_ausgabe_mai_2023.pdf",
     "page": 12,
     "score": 0.87,
-    "snippet": "Brandabschnitte sind so auszubilden, dass eine Brandausbreitung begrenzt wird."
+    "snippet": "Brandabschnitte sind so auszubilden, dass eine Brandausbreitung begrenzt wird.",
+    "public_url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/"
   },
   {
     "number": 2,

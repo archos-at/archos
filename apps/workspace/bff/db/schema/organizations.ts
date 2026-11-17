@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { char, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * app-side organization record.
@@ -12,10 +12,12 @@ import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
  *   - attach future org-scoped data via the `settings` jsonb without a schema
  *     change each time.
  *
- * Rows are created lazily (upserted) the first time an org's settings are
- * WRITTEN; a read creates none. Most organizations therefore have no row, so a
- * name is never read from here alone: `getOrganizationDisplayName(s)` falls back
- * to WorkOS.
+ * Migration 0200 wrote a row for every organization the database had seen; an
+ * organization created since gets one when it is created
+ * (`POST /api/organizations`) or on its first settings write. A row can still
+ * be missing for an organization made in the WorkOS dashboard that has written
+ * nothing yet, so a name is never read from here alone:
+ * `getOrganizationDisplayName(s)` falls back to WorkOS.
  */
 export const organizations = pgTable('organizations', {
   /** WorkOS organization id (e.g. `org_...`). */
@@ -28,6 +30,24 @@ export const organizations = pgTable('organizations', {
    * tell from a choice, and German offices were switched to English by it.
    */
   defaultLocale: text('default_locale'),
+  /**
+   * ISO 3166-1 alpha-2 country of the office's own seat (migration 0200), upper
+   * case. Never a project's jurisdiction: a project's site decides its law, and
+   * a project with no site gets none. NULL: nobody has said where the office is.
+   */
+  homeCountry: char('home_country', { length: 2 }),
+  /**
+   * The office's clock, an IANA zone (migration 0200), set from the home country
+   * at creation. NULL reads as Europe/Vienna (`officeTimeZone`). The office's own
+   * clock, never a project site's.
+   */
+  timeZone: text('time_zone'),
+  /**
+   * The residency cell (one deployment) the office is placed in, e.g. `eu-at-1`
+   * (migration 0203, ADR-0167). A deployment of another cell refuses to serve
+   * it. NULL: not placed; served by the cell it reaches, under that cell's zone.
+   */
+  residencyCell: text('residency_cell'),
   /** Flexible bag for additional org-scoped settings. */
   settings: jsonb('settings').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

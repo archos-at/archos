@@ -1,24 +1,3 @@
-"""Every outbound model call goes through the OpenRouter seam (``common/openrouter.py``).
-
-Zero Data Retention was once applied call site by call site, and most call
-sites never learned about it: the embeddings, the reranker, drawing captions,
-conversation titles and the whole async job worker went out unpinned while the
-setting said "on". This test is the ratchet on that: a module that builds its
-own model client, or posts to a model endpoint, without one of the seam's
-adapters fails here, so the next call site is caught by CI rather than by an
-audit.
-
-The adapters, one per call-site shape:
-
-- a JSON body built by hand: ``ResolvedCredential.request_body`` or
-  ``PLATFORM_FIXED.apply`` / ``DataPolicy.apply``;
-- an OpenAI SDK client: ``openrouter.openai_client``;
-- the embedding client: ``knowledge_layer.embedding.make_embed_model``;
-- a LangChain chat model: ``pin_chat_model`` / ``apply_model_override`` /
-  ``RequestLLMContext.apply`` (not scanned here: those models are built by the agent runtime,
-  and ``test_model_overrides`` / ``test_llm_provider`` cover them).
-"""
-
 from __future__ import annotations
 
 import re
@@ -36,14 +15,12 @@ SCANNED = [
     ROOT / "scripts",
 ]
 
-#: Constructing a model client by hand. Allowed only where the seam builds one.
 RAW_CLIENT = re.compile(r"\b(?:Async)?OpenAI\(|\bNVIDIAEmbedding\(")
 RAW_CLIENT_HOMES = {
     "packages/agent/src/agent/common/openrouter.py",  # openai_client
     "packages/knowledge-layer/src/embedding.py",  # make_embed_model
 }
 
-#: Talking to a model endpoint directly. The module must also use an adapter.
 MODEL_ENDPOINT = re.compile(
     r"/chat/completions|/audio/transcriptions|[\"']/rerank[\"']|/api/alpha/decisions|\.responses\.[\w.]*create\("
 )
@@ -51,7 +28,8 @@ ADAPTERS = re.compile(
     r"request_body\(|PLATFORM_FIXED\.apply\(|\.apply\(\{|openai_client\(|pinned_(?:async_)?http_client\("
 )
 
-#: Mentions of a model endpoint that send no tenant content, with the reason.
+ROUTED = re.compile(r"limited_async_http_client\(|pinned_(?:async_)?http_client\(|openai_client\(|residency\.enforce\(")
+
 NO_TENANT_CONTENT = {
     "apps/agent-host/src/agent_host/context_envelope.py": "our own route path, in a docstring",
     "scripts/turn_census/census.py": "parses recorded request paths",
@@ -63,7 +41,6 @@ NO_TENANT_CONTENT = {
 def _python_files() -> list[Path]:
     files: list[Path] = []
     for base in SCANNED:
-        # Tests and their support packages (`testing/`) are not call sites.
         files.extend(p for p in base.rglob("*.py") if not {"tests", "testing"} & set(p.relative_to(ROOT).parts))
     return files
 
@@ -73,7 +50,6 @@ def _rel(path: Path) -> str:
 
 
 def test_the_scan_sees_the_known_call_sites():
-    """Guards the test itself: a glob that silently matched nothing would pass everything."""
     scanned = {_rel(p) for p in _python_files()}
     assert "apps/agent-host/src/agent_host/routes/generate_summary.py" in scanned
     assert "packages/knowledge-layer/src/search/cross_encoder.py" in scanned
@@ -109,7 +85,22 @@ def test_every_model_endpoint_call_goes_through_an_adapter(path: Path):
     )
 
 
+@pytest.mark.parametrize("path", _python_files(), ids=_rel)
+def test_every_model_endpoint_call_is_routed_by_residency(path: Path):
+    rel = _rel(path)
+    if rel in NO_TENANT_CONTENT:
+        return
+    text = path.read_text(encoding="utf-8")
+    endpoint = MODEL_ENDPOINT.search(text)
+    if endpoint is None:
+        return
+    assert ROUTED.search(text), (
+        f"{rel} talks to a model endpoint ({endpoint.group(0)!r}) on a client the residency guard does not "
+        "sit on. Send it through limited_async_http_client, pinned_http_client or openai_client, or call "
+        "residency.enforce on the URL first, so a residency cell routes it into its zone (ADR-0167)."
+    )
+
+
 def test_the_allowlists_name_files_that_exist():
-    """A stale entry would quietly exempt whatever file next takes that path."""
     for rel in [*RAW_CLIENT_HOMES, *NO_TENANT_CONTENT]:
         assert (ROOT / rel).is_file(), rel

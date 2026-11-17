@@ -1,10 +1,3 @@
-/**
- * Layout Store
- *
- * Zustand store for managing the main app layout state.
- * Controls sidebar visibility and panel states.
- */
-
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import type {
@@ -18,7 +11,6 @@ import { createDataSourcesClient, type DataSourceFromAPI } from '@/adapters/api'
 
 const initialState: LayoutState = {
   isSessionsPanelOpen: false,
-  isMobileNavOpen: false,
   dataSourcesPanelTab: 'connections',
   enabledDataSourceIds: [], // Start empty, populated when data sources are fetched
   theme: 'system',
@@ -29,7 +21,6 @@ const initialState: LayoutState = {
   dataSourcesLoading: false,
   dataSourcesError: null,
   activeSourcePreset: null,
-  // Deprecated aliases for backwards compatibility
   dataSourcePanelTab: 'connections',
 }
 
@@ -49,9 +40,6 @@ export const useLayoutStore = create<LayoutStore>()(
       setSessionsPanelOpen: (open: boolean) =>
         set({ isSessionsPanelOpen: open }, false, 'setSessionsPanelOpen'),
 
-      setMobileNavOpen: (open: boolean) =>
-        set({ isMobileNavOpen: open }, false, 'setMobileNavOpen'),
-
       setDataSourcesPanelTab: (tab: DataSourcesPanelTab) =>
         set({ dataSourcesPanelTab: tab }, false, 'setDataSourcesPanelTab'),
 
@@ -63,7 +51,6 @@ export const useLayoutStore = create<LayoutStore>()(
               enabledDataSourceIds: isEnabled
                 ? state.enabledDataSourceIds.filter((sourceId) => sourceId !== id)
                 : [...state.enabledDataSourceIds, id],
-              // Manual toggling takes the user off any shortcut preset.
               activeSourcePreset: null,
             }
           },
@@ -72,8 +59,6 @@ export const useLayoutStore = create<LayoutStore>()(
         ),
 
       setEnabledDataSources: (ids: string[]) =>
-        // Bulk manual selection also leaves any shortcut preset behind;
-        // applySourcePreset is the one action that sets both together.
         set({ enabledDataSourceIds: ids, activeSourcePreset: null }, false, 'setEnabledDataSources'),
 
       setTheme: (theme: ThemeMode) => set({ theme }, false, 'setTheme'),
@@ -96,8 +81,6 @@ export const useLayoutStore = create<LayoutStore>()(
           const client = createDataSourcesClient({ authToken })
           const response = await client.getDataSources()
 
-          // Start with every returned source enabled. Auth-aware cleanup still
-          // runs through disableAuthRequiredSources when a user loses access.
           const enabledIds = response.data_sources.map((source) => source.id)
 
           set(
@@ -106,8 +89,6 @@ export const useLayoutStore = create<LayoutStore>()(
               knowledgeLayerAvailable: response.knowledge_layer,
               vlmAvailable: response.vlm_available,
               enabledDataSourceIds: enabledIds,
-              // Fresh fetch enables everything — that's manual-equivalent
-              // state, so no shortcut preset can be considered active.
               activeSourcePreset: null,
               dataSourcesLoading: false,
               dataSourcesError: null,
@@ -149,7 +130,6 @@ export const useLayoutStore = create<LayoutStore>()(
       setVlmAvailable: (available: boolean) =>
         set({ vlmAvailable: available }, false, 'setVlmAvailable'),
 
-      // Deprecated actions - delegate to new ones
       setDataSourcePanelTab: (tab: DataSourcesPanelTab) =>
         set(
           { dataSourcesPanelTab: tab, dataSourcePanelTab: tab },
@@ -159,8 +139,6 @@ export const useLayoutStore = create<LayoutStore>()(
     }),
       {
         name: 'layout',
-        // Only explicit user preferences survive reloads — panel/tab/data-source
-        // state stays ephemeral per session.
         partialize: (state) => ({
           theme: state.theme,
           showTechnicalReasoning: state.showTechnicalReasoning,

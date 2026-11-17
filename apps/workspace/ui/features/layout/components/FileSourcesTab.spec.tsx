@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { FileSourcesTab } from './FileSourcesTab'
 
-// Mock the chat store
 const callOrder: string[] = []
 const mockEnsureConversationExists = vi.fn(async () => {
   callOrder.push('ensureConversation')
@@ -21,7 +20,6 @@ vi.mock('@/features/chat/store', () => ({
   }),
 }))
 
-// Mock useAppConfig
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     authRequired: true,
@@ -37,10 +35,10 @@ vi.mock('@/shared/context', () => ({
 }))
 
 
-// Mock the file upload hook
 const mockUploadFiles = vi.fn()
 const mockDeleteFile = vi.fn()
 const mockClearError = vi.fn()
+const mockDismissFiles = vi.fn()
 
 vi.mock('@/features/documents', () => ({
   UploadAnywayButton: () => null,
@@ -67,7 +65,6 @@ vi.mock('@/features/documents/utils', () => ({
   mapToDisplayStatus: (status: string) => status,
 }))
 
-// Mock the layout store
 vi.mock('../store', () => ({
   useLayoutStore: vi.fn((selector) => {
     const state = {
@@ -77,7 +74,6 @@ vi.mock('../store', () => ({
   }),
 }))
 
-// Mock child components
 vi.mock('./FileSourceCard', () => ({
   FileSourceCard: ({
     title,
@@ -108,8 +104,6 @@ vi.mock('./FileSourceCard', () => ({
   FileSourceCardSkeleton: () => <div data-testid="file-card-skeleton" />,
 }))
 
-// FilePreviewDialog pulls the heavy preview-pane graph; stub it to a marker that
-// surfaces the previewed file name so the row-open path can be asserted.
 vi.mock('@/features/documents/components/file-preview-dialog', () => ({
   FilePreviewDialog: ({ file }: { file: { filename: string } | null }) =>
     file ? <div data-testid="file-preview">{file.filename}</div> : null,
@@ -140,7 +134,6 @@ describe('FileSourcesTab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockProjectId = null
-    // `mockReturnValue` is permanent; start every test from an empty list.
     vi.mocked(useFileUpload).mockReturnValue({
       uploadFiles: mockUploadFiles,
       deleteFile: mockDeleteFile,
@@ -152,13 +145,6 @@ describe('FileSourcesTab', () => {
     } as unknown as ReturnType<typeof useFileUpload>)
   })
 
-  /**
-   * Project files listed in the chat's file dialog are not deleted from it. The
-   * delete here went through the proxy's chunk-only file delete with a document
-   * id where a filename was expected, so it removed nothing. A project document
-   * is deleted in the project's Files, where the delete checks legal holds and
-   * erases every version; this dialog says so instead of offering a control.
-   */
   test('offers no delete for project files, and says where they are deleted', async () => {
     mockProjectId = 'project-1'
     vi.stubGlobal(
@@ -204,6 +190,48 @@ describe('FileSourcesTab', () => {
     expect(mockDeleteFile).toHaveBeenCalledWith('file-1')
   })
 
+  test('a cancelled upload is dismissed from the list, never sent through the delete', async () => {
+    vi.mocked(useFileUpload).mockReturnValue({
+      uploadFiles: mockUploadFiles,
+      deleteFile: mockDeleteFile,
+      dismissFiles: mockDismissFiles,
+      sessionFiles: [{ id: 'file-1', fileName: 'a.pdf', status: 'canceled', collectionName: 'session-1' }],
+      isUploading: false,
+      error: null,
+      clearError: mockClearError,
+    } as unknown as ReturnType<typeof useFileUpload>)
+    render(<FileSourcesTab />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(mockDismissFiles).toHaveBeenCalledWith(['file-1'])
+    expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument()
+    expect(mockDeleteFile).not.toHaveBeenCalled()
+  })
+
+  test('a cancelled project upload can be dismissed too, though project files are not deleted here', async () => {
+    mockProjectId = 'project-1'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ collectionName: 'proj_1' }) })
+    )
+    vi.mocked(useFileUpload).mockReturnValue({
+      uploadFiles: mockUploadFiles,
+      deleteFile: mockDeleteFile,
+      dismissFiles: mockDismissFiles,
+      sessionFiles: [{ id: 'file-1', fileName: 'a.pdf', status: 'canceled', collectionName: 'proj_1' }],
+      isUploading: false,
+      error: null,
+      clearError: mockClearError,
+    } as unknown as ReturnType<typeof useFileUpload>)
+    render(<FileSourcesTab />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+
+    expect(mockDismissFiles).toHaveBeenCalledWith(['file-1'])
+    vi.unstubAllGlobals()
+  })
+
   test('renders empty state when no files', () => {
     render(<FileSourcesTab />)
 
@@ -219,8 +247,6 @@ describe('FileSourcesTab', () => {
     expect(screen.getByText('Upload Zone')).toBeInTheDocument()
   })
 
-  // An attachment is authorized on its conversation, which a chat does not have
-  // on the server until its first message. So the row is made real first.
   test('makes the conversation real on the server before uploading into it', async () => {
     callOrder.length = 0
     mockUploadFiles.mockImplementation(async () => {
@@ -254,8 +280,6 @@ describe('FileSourcesTab', () => {
     expect(screen.getByTestId('file-card-file-2')).toHaveTextContent('report.txt')
   })
 
-  // ADR-0113: a held attachment says why from its typed verdict, and its
-  // legacy `quarantined:` message never reaches the card as text.
   test('shows why a held file is held, never its stored message', () => {
     const legacy = 'quarantined:{"reasons":[{"kind":"term","term":"Altbegriff","count":1,"pages":[9]}],"checked":"full"}'
     vi.mocked(useFileUpload).mockReturnValue({
@@ -381,7 +405,6 @@ describe('FileSourcesTab', () => {
     render(<FileSourcesTab />)
 
     expect(screen.getAllByTestId('file-card-skeleton').length).toBeGreaterThan(0)
-    // The status text is retained for screen readers.
     expect(screen.getByText('Checking for files...')).toBeInTheDocument()
   })
 
@@ -439,7 +462,6 @@ describe('FileSourcesTab', () => {
   })
 
   test('does not show spinner when upload belongs to a different session', () => {
-    // Active collection is a different session than the one rendered
     vi.mocked(useDocumentsStore).mockImplementation((selector) => {
       const state = { currentCollectionName: 'other-session-99' }
       return (selector as (s: typeof state) => unknown)(state)
@@ -457,7 +479,6 @@ describe('FileSourcesTab', () => {
 
     render(<FileSourcesTab />)
 
-    // Spinner should NOT appear because the upload is for a different session
     expect(screen.queryByText('Checking for files...')).not.toBeInTheDocument()
     expect(screen.getByText('No Attached Files')).toBeInTheDocument()
   })

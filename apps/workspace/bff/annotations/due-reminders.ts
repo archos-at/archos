@@ -10,7 +10,7 @@
  * (`annotation.assigned_to_you`, folded per mark: the overdue reminder upgrades
  * the earlier one, never a second row). Each reminder for each date is said
  * once (`reminder` on the row, `remindedFor`): a second run on the same day, a
- * retried slice and a restarted scheduler tell nobody twice, and a date moved
+ * retried slice and a restarted worker tell nobody twice, and a date moved
  * since is reminded of anew.
  *
  * ## How it runs
@@ -130,7 +130,7 @@ export async function enqueueDueReminders(now: Date = new Date()): Promise<DueRe
       }
     }
   }
-  // The others are queued; failing the sweep makes the scheduler retry, and what is queued counts as `already`.
+  // The others are queued; failing the sweep makes the task retry, and what is queued counts as `already`.
   if (failed.length > 0) {
     throw new Error(`due reminders for ${day}: ${failed.length} of ${organizations.length} organization(s) could not be queued`)
   }

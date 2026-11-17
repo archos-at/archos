@@ -6,7 +6,6 @@ import { backoffWithJitter, createRetryLadder } from './backoff'
 
 describe('backoffWithJitter', () => {
   it('grows exponentially before jitter is applied', () => {
-    // random() === 1 yields the top of the window, i.e. the undithered delay.
     const top = (attempt: number) =>
       backoffWithJitter(attempt, { baseMs: 1_000, maxMs: 30_000, random: () => 1 })
 
@@ -42,9 +41,6 @@ describe('backoffWithJitter', () => {
   })
 
   it('desynchronises clients that were dropped at the same instant', () => {
-    // The regression this exists to prevent: without jitter every client
-    // dropped by the same pod retries at an identical offset, so the herd
-    // lands together on the surviving replicas.
     let seed = 0
     const clients = Array.from({ length: 50 }, () => {
       seed += 1 / 50
@@ -76,15 +72,6 @@ describe('backoffWithJitter', () => {
   })
 })
 
-/**
- * The ladder exists because the function above is pure, so four call sites
- * hand-rolled the state around it — an attempt counter, a timer, a cancel, and a
- * rule for when the count goes back to zero. Every one of those four got the
- * RESET wrong at least once: a healthy tab resuming at the ceiling, a budget
- * spent by failures an hour apart, a timer outliving the effect that made it.
- * Those three are what is pinned hardest here. As a primitive they are
- * invariants, and an invariant is only worth the name if something checks it.
- */
 describe('createRetryLadder', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
@@ -101,8 +88,6 @@ describe('createRetryLadder', () => {
     vi.advanceTimersByTime(200)
     expect(run).toHaveBeenCalledTimes(2)
 
-    // Spent — and `schedule` SAYS so rather than silently doing nothing, because
-    // every caller needs that moment to report a real failure.
     expect(ladder.spent).toBe(true)
     expect(ladder.schedule(run)).toBe(false)
     vi.advanceTimersByTime(10_000)
@@ -137,8 +122,6 @@ describe('createRetryLadder', () => {
   })
 
   it('cancels without forgiving — teardown is not vindication', () => {
-    // What an unmount calls. It must not clear the count as well: the ladder is
-    // being abandoned, not proven healthy.
     const ladder = createRetryLadder({ delaysMs: [100, 200] })
     const run = vi.fn()
 
@@ -148,7 +131,6 @@ describe('createRetryLadder', () => {
     expect(run).not.toHaveBeenCalled()
 
     ladder.schedule(run)
-    // Rung two, not rung one: 100ms is no longer enough.
     vi.advanceTimersByTime(100)
     expect(run).not.toHaveBeenCalled()
     vi.advanceTimersByTime(100)
@@ -156,8 +138,6 @@ describe('createRetryLadder', () => {
   })
 
   it('keeps one retry in flight, however many failures arrive', () => {
-    // Two errors in quick succession are one connection failing, not two.
-    // Without the replace, both timers fire and the reconnect doubles.
     const ladder = createRetryLadder({ delaysMs: [100, 100, 100] })
     const run = vi.fn()
 
@@ -187,8 +167,6 @@ describe('createRetryLadder', () => {
   })
 
   it('never gives up without a budget', () => {
-    // The shared event hub is this shape: giving up on the one connection that
-    // carries every collaboration event is worse than waiting out the cap.
     const ladder = createRetryLadder({ baseMs: 1_000, maxMs: 2_000, random: () => 1 })
     const run = vi.fn()
 

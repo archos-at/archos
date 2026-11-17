@@ -1,26 +1,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * Who may download an answer.
- *
- * This endpoint hands out a FILE — the answer, its project name, its citations
- * and its building's dimensions — so the access rules are exercised through the
- * REAL `@/lib/sharing/access`, exactly as `conversations/service.spec.ts` does.
- * Only the registry's probe, the container check and the grant lookup are
- * mocked. A spec that mocked `requireResourceAccess` would assert that the
- * export calls a function, not that anything is enforced.
- *
- * The three ways this could leak, each a test below: another organization's
- * answer, a colleague's private thread, and a project the caller cannot reach.
- * All three must be indistinguishable from "no such answer" (spec SH-6).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -44,9 +28,6 @@ vi.mock('@/lib/documents/repository', () => ({
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
 vi.mock('@/lib/sharing/repository', () => ({ findGrantForSubject: vi.fn() }))
 
-// The request-scoped locale helpers need a Next.js request context, which a
-// service spec has no business standing up. Bound to the REAL dictionaries so
-// the document still fails here if a key is missing.
 vi.mock('@/i18n/server', async () => {
   const { translatorFor } = await import('@/i18n/namespace')
   const { answerExportCopy } = await import('@/i18n/namespaces/answer-export')
@@ -70,6 +51,9 @@ import type { ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findGrantForSubject } from '@/lib/sharing/repository'
 import { exportAnswerDocument } from './service'
+import { renderDocx } from './docx'
+import { IPTC_TRAINED_ALGORITHMIC_MEDIA } from '@/lib/ai-provenance'
+import { readZipEntries } from '@/test-utils/read-zip'
 
 const CONVERSATION_ID = 'conv_1'
 const PROJECT_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
@@ -130,7 +114,6 @@ const message = (overrides: Partial<Message> = {}): Message =>
     ...overrides,
   }) as Message
 
-/** The bytes are a real .docx, so the XML is readable straight out of the zip. */
 const documentXml = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
 
 beforeEach(() => {
@@ -152,7 +135,6 @@ describe('tenancy', () => {
     await expect(exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).rejects.toThrow(
       NotFoundError
     )
-    // Nothing was read, so nothing could have been written into a file.
     expect(listMessagesForConversation).not.toHaveBeenCalled()
   })
 
@@ -183,9 +165,6 @@ describe('tenancy', () => {
   })
 
   it('404s a message id that belongs to a DIFFERENT conversation', async () => {
-    // The history is this conversation's, resolved through the access check
-    // above — an id that is not in it never resolves, so a guessed message id
-    // cannot pull an answer out of another thread.
     vi.mocked(listMessagesForConversation).mockResolvedValue([message({ id: QUESTION_ID })])
 
     await expect(exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).rejects.toThrow(
@@ -240,6 +219,34 @@ describe('the exported file', () => {
       (await exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).bytes
     )
     expect(without).not.toContain('Begr')
+  })
+
+  it('carries a law_unsettled cap from the provenance, and drops a cap it has no sentence for', async () => {
+    const capped = async (reason: string) => {
+      vi.mocked(listMessagesForConversation).mockResolvedValue([
+        message({
+          metadata: { provenance: { answerConfidence: 'medium', answerConfidenceCappedReason: reason } },
+        }),
+      ])
+      return documentXml((await exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).bytes)
+    }
+    expect(await capped('law_unsettled')).toContain('verbindliche Fassung des Baurechts')
+    const retired = await capped('measurement_only')
+    expect(retired).toContain('Verl')
+    expect(retired).not.toContain('Begrenzt')
+  })
+
+  it('marks the file as generated, in the IPTC term, with the run that wrote it', async () => {
+    vi.mocked(listMessagesForConversation).mockResolvedValue([
+      message({ metadata: { trace_id: 'trace_0a1b' } }),
+    ])
+    const parts = readZipEntries((await exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).bytes)
+    const custom = parts.get('docProps/custom.xml') ?? ''
+
+    expect(custom).toContain(`name="DigitalSourceType"><vt:lpwstr>${IPTC_TRAINED_ALGORITHMIC_MEDIA}`)
+    expect(custom).toContain('name="AIGenerated"><vt:bool>true')
+    expect(custom).toContain('name="AIRunId"><vt:lpwstr>trace_0a1b')
+    expect(readZipEntries(renderDocx([])).has('docProps/custom.xml')).toBe(false)
   })
 
   it('leaves the project out when the chat hangs off no project', async () => {

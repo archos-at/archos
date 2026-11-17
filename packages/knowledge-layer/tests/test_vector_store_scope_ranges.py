@@ -1,20 +1,17 @@
-"""Range operators in the filter grammar, and the tenancy boundary a ranged read keeps.
-
-No server needed: the filters are compiled and inspected, and ``reads.fetch_from`` runs against a
-stand-in store that applies the scope condition the way Qdrant does.
-"""
-
 from __future__ import annotations
 
 from typing import Any
 
 import pytest
+from knowledge_layer.vector_store import reading_as as vector_store_reading_as
 from knowledge_layer.vector_store import reads
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import scope as scope_module
 from knowledge_layer.vector_store import scope_filter
 from knowledge_layer.vector_store import translate
 from qdrant_client import models
+
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
 def _conditions(flt: models.Filter) -> list[models.FieldCondition]:
@@ -91,8 +88,6 @@ class _Record:
 
 
 class _Store:
-    """Stands in for the Qdrant store: ``scroll`` applies the scope and the one bound ``fetch_from`` adds."""
-
     def __init__(self, records: list[_Record]):
         self.records = records
         self.calls: list[tuple[str, Any]] = []
@@ -110,6 +105,7 @@ class _Store:
 
     def scroll(self, scope: str, filters: Any = None, *extra: Any, limit: int | None = None, **_):
         self.calls.append((scope, filters))
+        self.extras = extra
         lower = 0
         for node in (filters or {}).get("$and", []):
             lower = max(lower, node.get("reading_order", {}).get("$gte", 0)) if isinstance(node, dict) else lower
@@ -132,7 +128,6 @@ def _payload(chunk_id: str, page: int, ordinal: int | None, text: str = "t") -> 
 
 
 def _at(page: int, ordinal: int, chunk_id: str) -> tuple:
-    """The ``document_position`` of a numbered chunk with no section structure."""
     return (page, 0, 0, 0, 0, ordinal, chunk_id)
 
 
@@ -155,7 +150,6 @@ def test_fetch_from_continues_after_the_start_in_document_order(monkeypatch):
 
 
 def test_fetch_from_reads_only_the_scope_it_is_asked_for(monkeypatch):
-    """The start position narrows within a scope; it cannot reach the same file name in another one."""
     records = [
         _Record("proj_a", _payload("mine", 4, 0, "mine")),
         _Record("proj_b", _payload("theirs", 4, 1, "theirs")),
@@ -174,7 +168,6 @@ def _place(payload: dict[str, Any], **structure: int) -> dict[str, Any]:
 
 
 def test_fetch_from_compares_the_key_it_sorts_by_so_a_table_part_out_of_ordinal_order_is_kept(monkeypatch):
-    """Page 5 sorts [text 4, text 5, table part 3]: a cursor after text 4 must still reach table part 3."""
     records = [
         _Record("proj_a", _payload("t4", 5, 4)),
         _Record("proj_a", _payload("t5", 5, 5)),
@@ -190,7 +183,6 @@ def test_fetch_from_compares_the_key_it_sorts_by_so_a_table_part_out_of_ordinal_
 
 
 def test_fetch_from_does_not_end_a_read_at_an_unnumbered_chunk_of_an_earlier_section(monkeypatch):
-    """Unnumbered (section 1), numbered 7 (section 2), unnumbered (section 3): a cut after the first loses neither."""
     records = [
         _Record("proj_a", _place(_payload("u1", 5, None), section_order=1)),
         _Record("proj_a", _place(_payload("n7", 5, 7), section_order=2)),
@@ -202,3 +194,14 @@ def test_fetch_from_does_not_end_a_read_at_an_unnumbered_chunk_of_an_earlier_sec
     hits = reads.fetch_from("proj_a", None, reads._document_key(first), 10)
 
     assert [hit.chunk_id for hit in hits] == ["n7", "u3"]
+
+
+def test_a_structural_read_carries_the_office_and_refuses_without_one(monkeypatch):
+    store = _Store([_Record("proj_a", _payload("p1", 1, 0))])
+    monkeypatch.setattr(reads, "get_store", lambda: store)
+
+    reads.fetch("proj_a", {"file_name": "a.pdf"}, 5)
+    assert store.extras, "the office condition travels with the scroll"
+
+    with vector_store_reading_as(None), pytest.raises(ValueError, match="needs the office it reads as"):
+        reads.fetch("proj_a", {"file_name": "a.pdf"}, 5)

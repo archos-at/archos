@@ -13,7 +13,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 
 vi.mock('@/lib/authz/platform', () => {
-  // Defined inside the factory: vi.mock is hoisted above module-level classes.
   class PlatformAccessDeniedError extends Error {
     readonly status = 403
   }
@@ -38,6 +37,11 @@ vi.mock('@/lib/knowledge/service', () => ({
   reingestKnowledgeBaseDocuments: reingestMock,
 }))
 
+const refuseRemoval = vi.hoisted(() => vi.fn())
+const refuseReplacing = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/base-knowledge/platform/texts', () => ({ refuseRemovingNamedText: refuseRemoval, refuseReplacingNamedTexts: refuseReplacing }))
+
+import { ApiError, ConflictError } from '@/lib/api/errors'
 import { POST as uploadRoute } from './documents/route'
 import { DELETE as deleteRoute } from './documents/[fileName]/route'
 import { POST as syncRoute } from './sync/route'
@@ -61,6 +65,7 @@ describe('platform knowledge routes', () => {
   beforeEach(() => {
     isOwner.value = false
     uploadMock.mockReset()
+    refuseReplacing.mockReset()
     deleteMock.mockReset()
     syncMock.mockReset()
   })
@@ -100,6 +105,18 @@ describe('platform knowledge routes', () => {
     expect((await uploadRoute(uploadRequest())).status).toBe(502)
   })
 
+  it('refuses other bytes under a file a record names, and stores nothing (ADR-0165)', async () => {
+    isOwner.value = true
+    refuseReplacing.mockRejectedValue(new ApiError(409, 'NAME_TAKEN', 'norm.pdf is the text of manifestation:norm'))
+    const res = await uploadRoute(uploadRequest())
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('NAME_TAKEN')
+    expect(uploadMock).not.toHaveBeenCalled()
+    expect([...(refuseReplacing.mock.calls[0]?.[0] as Map<string, string>)]).toEqual([
+      ['norm.pdf', '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81'],
+    ])
+  })
+
   it('rejects an upload without a file', async () => {
     isOwner.value = true
     expect((await uploadRoute(uploadRequest(false))).status).toBe(400)
@@ -116,6 +133,38 @@ describe('platform knowledge routes', () => {
 
     expect(res.status).toBe(200)
     expect(deleteMock).toHaveBeenCalledWith('norm.pdf')
+  })
+
+  it('checks and deletes one name: the name as the deletion would trim it', async () => {
+    isOwner.value = true
+    deleteMock.mockClear()
+    refuseRemoval.mockClear()
+    refuseRemoval.mockImplementation(async (name: string) => {
+      if (name === 'norm.pdf') throw new ConflictError('norm.pdf is the text of manifestation:at-norm-text')
+    })
+
+    const res = await deleteRoute(new Request('https://grid.example', { method: 'DELETE' }), {
+      params: Promise.resolve({ fileName: ' norm.pdf ' }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(refuseRemoval).toHaveBeenCalledWith('norm.pdf')
+    expect(deleteMock).not.toHaveBeenCalled()
+    refuseRemoval.mockReset()
+  })
+
+  it('does not delete a file a platform record names as its text', async () => {
+    isOwner.value = true
+    deleteMock.mockClear()
+    refuseRemoval.mockRejectedValueOnce(new ConflictError('norm.pdf is the text of manifestation:at-norm-text'))
+
+    const res = await deleteRoute(new Request('https://grid.example', { method: 'DELETE' }), {
+      params: Promise.resolve({ fileName: 'norm.pdf' }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(refuseRemoval).toHaveBeenCalledWith('norm.pdf')
+    expect(deleteMock).not.toHaveBeenCalled()
   })
 
   it('triggers a corpus sync for the platform owner', async () => {

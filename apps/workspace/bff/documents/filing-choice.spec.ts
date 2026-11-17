@@ -57,13 +57,10 @@ describe('storedFilingChoice', () => {
     })
     expect(storedFilingChoice(row(recorded({ revisionOfId: 'Index_B.pdf' })))).toBeNull()
     expect(storedFilingChoice(row(recorded({ revisionOfId: '   ' })))).toBeNull()
-    // A file name is no choice to re-send: the release re-resolves an id.
     expect(storedFilingChoice(row(recorded({ revisionOf: 'Index_B.pdf' })))).toBeNull()
   })
 })
 
-// A filed mail (ADR-0137, D36): a Verlauf the content screening holds keeps its
-// lane and date through the release, and an attachment the mail it came with.
 describe('a filed mail’s facts with the filing choice', () => {
   const MAIL_THREAD: MailThreadIngestFacts = { latest_sent_at: '2026-10-14T07:12:00Z', message_count: 4, locale: 'de' }
   const MAIL_ORIGIN: MailOriginIngestFacts = { sent_at: '2026-10-14T07:12:00Z', sender_trust: 'external_unverified', locale: 'de' }

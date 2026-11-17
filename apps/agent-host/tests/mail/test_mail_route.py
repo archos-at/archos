@@ -1,5 +1,3 @@
-"""``POST /v1/mail/read``: the internal token, the object-store gate, the fetch, and the answers."""
-
 from __future__ import annotations
 
 import asyncio

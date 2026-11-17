@@ -114,7 +114,7 @@ function Preview(): JSX.Element {
       className="text-foreground mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-8"
     >
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t('sections.access.title')}</h1>
+        <h1 className="text-page-title font-medium phone:text-section">{t('sections.access.title')}</h1>
         <p className="text-muted-foreground mt-1 text-sm">{t('sections.access.subtitle')}</p>
       </div>
 

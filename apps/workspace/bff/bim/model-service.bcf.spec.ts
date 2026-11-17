@@ -36,6 +36,11 @@ vi.mock('@/lib/documents/repository', async () => {
   }
 })
 
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { settledContext } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn().mockResolvedValue(settledContext()) }
+})
+
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('./repository', () => ({
   listBimModels: vi.fn(),
@@ -89,6 +94,8 @@ import {
   deleteBimCheckConfirmation,
 } from './repository'
 import { runBimQuery } from './query'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
+import { contextAt } from './rule-basis.fixtures'
 import { readZipEntries } from '@/test-utils/read-zip'
 
 const SESSION = {
@@ -128,8 +135,6 @@ describe('exportAccessibleComplianceBcf', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('prefers an exact file-name match over a substring one', async () => {
-    // `Haus-A_V3 (1).ifc` contains `Haus-A_V3.ifc`'s stem; a substring-first
-    // resolver hands back the duplicate upload.
     vi.mocked(listBimModels).mockResolvedValue([
       model({ id: 'm-dup', filename: 'Haus-A_V3 (1).ifc' }),
       model({ id: 'm-real', filename: 'Haus-A_V3.ifc' }),
@@ -142,11 +147,6 @@ describe('exportAccessibleComplianceBcf', () => {
   })
 
   it('runs the catalogue against the resolved model, with the facts it was given', async () => {
-    // Everything else here reads the markup HEADER, which comes from the
-    // resolved model — so the model id and the facts handed to the catalogue
-    // were unasserted. An export built against the wrong model, or with the
-    // Gebäudeklasse silently dropped, produced a file that looks right and
-    // describes a different building or applies thresholds nobody chose.
     vi.mocked(listBimModels).mockResolvedValue([model({ id: 'm-3', filename: 'Haus-A_V3.ifc' })])
 
     await run({ modelId: null, modelName: 'Haus-A_V3.ifc', buildingClass: 4, mainUse: 'residential' })
@@ -164,8 +164,6 @@ describe('exportAccessibleComplianceBcf', () => {
   })
 
   it('takes the newest when only a substring matches', async () => {
-    // `listBimModels` orders newest-first; the first hit is the revision the
-    // architect uploaded last, which is what "the model" means in a sentence.
     vi.mocked(listBimModels).mockResolvedValue([
       model({ id: 'm-4', filename: 'Haus-A_V4.ifc' }),
       model({ id: 'm-3', filename: 'Haus-A_V3.ifc' }),
@@ -178,8 +176,6 @@ describe('exportAccessibleComplianceBcf', () => {
   })
 
   it('never resolves a model that is still being extracted', async () => {
-    // A pending model has no elements, so it would export a clean ledger for a
-    // building nobody has checked.
     vi.mocked(listBimModels).mockResolvedValue([
       model({ id: 'm-new', filename: 'Haus-A_V4.ifc', status: 'pending' }),
       model({ id: 'm-3', filename: 'Haus-A_V3.ifc' }),
@@ -198,9 +194,6 @@ describe('exportAccessibleComplianceBcf', () => {
   })
 
   it('refuses a model id belonging to another project', async () => {
-    // The id would pass `getAccessibleModel` — the caller can read that model.
-    // What they must not get is that building's verdicts filed under THIS
-    // project's confirmations.
     vi.mocked(findBimModelById).mockResolvedValue(
       model({ id: 'm-other', filename: 'Anderes-Haus.ifc', projectId: 'proj-2' })
     )
@@ -257,23 +250,10 @@ describe('exportAccessibleComplianceBcf', () => {
   })
 })
 
-/**
- * The signed ledger, and whose building a signature can be filed against.
- *
- * `getAccessibleModel` authorizes against the MODEL's own project, which is a
- * different question from the project the confirmation is being recorded
- * under. An org admin bypasses per-project authorization entirely, and an
- * ordinary member can hold `project:edit` on one project and `project:view` on
- * another — so the two questions come apart in practice, not only in theory.
- */
 describe('confirming and withdrawing against the right building', () => {
   const OTHER = model({ id: 'm-other', filename: 'Anderes-Haus.ifc', projectId: 'proj-2' })
 
   it('refuses to record a confirmation against another project’s model', async () => {
-    // The row would carry a `modelId` outside this project's revision series:
-    // invisible to `attachConfirmations`, and un-withdrawable, because the
-    // withdraw path deletes by the sibling ids of a model in THIS project. A
-    // permanent orphan in a table that records who signed off on what.
     vi.mocked(findBimModelById).mockResolvedValue(OTHER)
 
     await expect(
@@ -309,11 +289,19 @@ describe('confirming and withdrawing against the right building', () => {
       projectId: 'proj-1',
       ruleId: 'oib2-fire-resistance-load-bearing',
       modelId: 'm-3',
-      // From the session, never from the body: a signature a caller could
-      // address to somebody else is not a signature.
       confirmedBy: 'user-1',
       note: 'Gutachten liegt vor',
     })
+  })
+
+  it('refuses to confirm a rule that is a hint at the project site', async () => {
+    vi.mocked(findBimModelById).mockResolvedValue(model({ id: 'm-3', filename: 'Haus-A_V3.ifc' }))
+    vi.mocked(contextForPage).mockResolvedValueOnce(contextAt('AT-6', 'none'))
+
+    await expect(
+      confirmAccessibleCheck(SESSION, 'proj-1', { ruleId: 'oib2-fire-resistance-load-bearing', modelId: 'm-3', note: null })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(upsertBimCheckConfirmation).not.toHaveBeenCalled()
   })
 
   it('accepts an org-wide Archiv model, which every project may speak for', async () => {

@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * What to do with a text the content check found something in (D13), asked
- * before filing because a filed text becomes part of a document the agent reads.
- *
- * Three outcomes, „Unkenntlich ablegen“ selected: the findings are masked in
- * the E-Mail-Verlauf (the original keeps them, as evidence), the text starts
- * a mail thread of its own, or it goes in whole, which holds the whole
- * mail thread until someone checks it. The kinds found are named; what they
- * matched never is.
- */
-
 import type { JSX } from 'react'
 import { useId } from 'react'
 import { ShieldAlert } from 'lucide-react'

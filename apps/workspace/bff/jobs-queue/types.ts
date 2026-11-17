@@ -72,6 +72,8 @@ import { requesterSchema } from './requester'
  * `search_facets_sync` walks one shelf's documents a page per slice as the
  * system (ADR-0136): it rewrites their derived search rows from the reading the
  * agent stored, and decides nothing about who may read them.
+ * `platform_text_index` is one step as the system (ADR-0165): a published
+ * platform text handed to the base corpus, its run marked with the answer.
  *
  * The other three are one bounded step each and run as the system, because the
  * person's permission was checked when the work was requested and what they do
@@ -103,6 +105,8 @@ export const BFF_JOB_KINDS = [
   'inbound_mail_follow',
   'inbound_mail_sender_file',
   'search_facets_sync',
+  'platform_text_index',
+  'platform_text_deindex',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 
@@ -558,6 +562,8 @@ export type InboundMailSenderFilePayload = z.infer<typeof inboundMailSenderFileP
 export interface JobAttempt {
   /** True when a failure now leaves the job dead, so the work must leave its own truth behind. */
   last: boolean
+  /** The job's own id, for work that must tell its row from a later job's (`documents.metadata.bffJobId`). */
+  jobId?: string
 }
 
 /** What one slice of any job answers: whether the job is finished, and the state to save either way. */

@@ -110,6 +110,7 @@ export const INBOUND_MAIL_REFUSALS = [
   'original_not_clean',
   /** This deployment receives no mail (no inbound domain is configured), so no address can be made. */
   'mail_not_received_here',
+  'legal_hold', // kept past erasure for a legal hold: a person may read the bytes, an agent may not
 ] as const
 export type InboundMailRefusal = (typeof INBOUND_MAIL_REFUSALS)[number]
 

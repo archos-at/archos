@@ -1,30 +1,3 @@
-/**
- * VerdictHeaderCard — the answer's TL;DR made structural, meant to sit at the
- * TOP of an answer.
- *
- * THE CARD IS THE FIGURE (`docs/design/answer-card-charter.md` §B1). The subject
- * reads as a quiet eyebrow, the verdict is the one large thing — 30px, the
- * biggest type anywhere in the card set — and there is no body list at all.
- * The card lands at roughly 100px tall and that height is its signature: it is
- * the only card in the system under 120px, so an answer that opens with one is
- * recognisable before it is read. Accented register (§A1): a 2px left edge in
- * INK, because this card makes a claim you may act on and ink is the action
- * colour here (chroma belongs to provenance).
- *
- * CONFIDENCE IS A GAUGE, NOT A PILL. A pill („mittlere Sicherheit" on a tint)
- * is legible but not comparable: two answers side by side give the reader two
- * words and no sense of which one the product is surer of. Three segments
- * filled to level are comparable at a glance, and three is exact rather than a
- * rounding — the enum has exactly three values, so the gauge encodes the field
- * and interpolates nothing (§D.1).
- *
- * The gauge is INK, not the old success/warning tints. Confidence is not a
- * verdict, and „mittel" rendered in the same amber as „knapp am Grenzwert"
- * spent a colour role on a second axis, which §A3 exists to stop. The German
- * word is still written out beside it and is still what carries the meaning —
- * the gauge is `aria-hidden` reinforcement, never a signal travelling alone.
- */
-
 import { type FC } from 'react'
 import { Gavel } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -44,22 +17,9 @@ interface VerdictHeaderCardProps {
   reference?: NormReferenceData | null
   confidence?: Confidence | null
   confidence_reason?: string | null
-  /**
-   * Render as the answer's MASTHEAD instead of a framed card: no ground, no
-   * frame — eyebrow, figure and reference sit directly on the answer surface,
-   * closed by one hairline that hands over to the prose. This is how the
-   * envelope's native `verdict` field renders (the anatomy is part of the
-   * answer, never an object on it); the framed default remains for stored
-   * threads whose verdict arrived as a card.
-   */
   flat?: boolean
 }
 
-/**
- * German label + how many of the three segments are lit. Colour never travels
- * alone, and here it does not travel at all: the word IS the signal and the
- * gauge only makes two answers comparable.
- */
 const CONFIDENCE: Record<Confidence, { label: (t: Translator) => string; level: 1 | 2 | 3 }> = {
   high: { label: (t) => t('cards.verdictHeader.confidenceHigh'), level: 3 },
   medium: { label: (t) => t('cards.verdictHeader.confidenceMedium'), level: 2 },
@@ -68,14 +28,6 @@ const CONFIDENCE: Record<Confidence, { label: (t: Translator) => string; level: 
 
 const SEGMENTS = [1, 2, 3] as const
 
-/**
- * Above this many characters the verdict steps down 30px → 24px.
- *
- * Branching on the STRING, not on the viewport: „Brandabschnittsbildende
- * Bauteile REI 90" is too long for one line in the 636px desktop column and in
- * the 314px phone one alike, and it is the string that is the problem. 30px
- * itself survives 314px comfortably.
- */
 const LONG_VERDICT = 24
 
 export const VerdictHeaderCard: FC<VerdictHeaderCardProps> = ({
@@ -102,7 +54,7 @@ export const VerdictHeaderCard: FC<VerdictHeaderCardProps> = ({
           break is the guarantee that nothing ever overflows the card. */}
       <p
         className={cn(
-          'hyphens-auto break-words text-balance tracking-tight text-foreground',
+          'hyphens-auto break-words text-balance text-foreground',
           text.length > LONG_VERDICT ? 'card-figure-24' : 'card-figure-30',
         )}
       >
@@ -148,9 +100,6 @@ export const VerdictHeaderCard: FC<VerdictHeaderCardProps> = ({
   )
 
   if (flat) {
-    // No chrome at all: the masthead wrapper (`AnswerAnatomy.tsx`) owns the
-    // one hairline that closes the header over the prose — drawn there, not
-    // here, so a masthead of verdict + summary carries exactly one rule.
     return <div className="flex flex-col gap-2.5">{body}</div>
   }
 

@@ -17,9 +17,11 @@ value validates to False and callers fall back to :data:`DEFAULT_DOC_CLASS`.
 
 from __future__ import annotations
 
-# doc_class key -> German label (the "Dokumentart" the user picks / the LLM sees).
+# doc_class key -> German label (the "Dokumentart" the user picks / the LLM sees). A label names the
+# document's ROLE, never whether it binds: that is the edition's role at the site, from the records
+# (ADR-0175). "OIB-Richtlinie (verbindlich)" told every turn a Richtlinie binds, in Steiermark too.
 DOCUMENT_CLASS_LABELS: dict[str, str] = {
-    "oib_guideline": "OIB-Richtlinie (verbindlich)",
+    "oib_guideline": "OIB-Richtlinie",
     "oib_guide": "OIB-Leitfaden",
     "oib_explanatory_note": "OIB-Erläuterung",
     "oib_definitions": "OIB-Begriffsbestimmungen",

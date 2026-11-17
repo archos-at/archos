@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, Bell, MessageSquarePlus, Search } from 'lucide-react'
+import { Archive, Bell, FolderKanban, Library, MessageSquarePlus, Search } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -26,39 +26,16 @@ import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 
-/**
- * The org-scope chrome: one slim header instead of a rail.
- *
- * Above a project there is no section list to navigate — the projects home IS
- * the org scope's content, and everything else up here is either a sheet that
- * floats above it (Archiv, Postfach) or an account destination that already
- * lives in the avatar menu (Profil, Organisation, Plattform). A 236px rail
- * repeating those five links earned its column inside a project and spent it up
- * here, so org scope trades it for a header and gives the page the full width.
- *
- * The header carries exactly what must stay one click away: the wordmark (the
- * way home), the two org-wide doorways with the inbox badge, and the avatar.
- * Someone who works in several offices also gets WorkOS's organization
- * switcher beside the wordmark, since which office they are in is the scope of
- * everything below it.
- * Everything account-shaped is behind the avatar — two clicks, deliberately.
- *
- * On a phone the doorways move to the tab bar at the bottom of the screen
- * (`PhoneTabBar`), where the thumb is, and this band keeps the wordmark, the
- * search that opens the command palette, the avatar, and, while the network is
- * gone, a line that says so (`ConnectionBand`).
- */
-
 export interface OrgHeaderProps {
   user?: SidebarUser
   organizationName?: string | null
   authRequired: boolean
-  /** The organizations the avatar menu offers to switch to (`switchableOrganizations`); empty for one. */
   organizations?: readonly SwitchableOrganization[]
   canManageOrganization: boolean
   canViewOrganization: boolean
   canManagePlatform: boolean
   canAccessOfficeShelf: boolean
+  canAccessOfficeStandards?: boolean
   canAccessInbox: boolean
 }
 
@@ -71,13 +48,13 @@ export function OrgHeader({
   canViewOrganization,
   canManagePlatform,
   canAccessOfficeShelf,
+  canAccessOfficeStandards = false,
   canAccessInbox,
 }: OrgHeaderProps): JSX.Element {
   const pathname = usePathname() ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  // The bell opens the Postfach beside the page where it fits.
   const inboxDoor = useStartDockDoor('inbox')
   const tFeedback = useTranslations(feedbackCopy)
   const openFeedback = useOpenFeedback()
@@ -94,13 +71,21 @@ export function OrgHeader({
           <Link
             href="/app/projects"
             aria-label={t('allProjects')}
-            className="text-foreground focus-visible:ring-ring/60 rounded-control flex items-center focus-visible:outline-none focus-visible:ring-2"
+            className="text-foreground rounded-control flex items-center"
           >
             <Logo kind="wordmark" size="small" />
           </Link>
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Where the reader is, as the phone's tab bar lights „Projekte":
+              the wordmark goes there too, but says nothing about being there. */}
+          <OrgHeaderIconLink
+            href="/app/projects"
+            label={t('projectSwitcher.projects')}
+            icon={FolderKanban}
+            active={pathname === '/app/projects'}
+          />
           {/* On a phone the two doorways live in the tab bar, under the thumb
               (`PhoneTabBar`), and feedback in the avatar menu; the band keeps
               search and the account. */}
@@ -111,6 +96,16 @@ export function OrgHeader({
               icon={Archive}
               tourAnchor={TOUR_ANCHORS.officeShelf}
               active={pathname === '/app/office-shelf' || pathname.startsWith('/app/office-shelf/')}
+            />
+          )}
+          {/* The office's standards beside the Büroablage they are filed in:
+              a place of their own, so a standard is not one file among many. */}
+          {canAccessOfficeStandards && (
+            <OrgHeaderIconLink
+              href="/app/base-knowledge"
+              label={t('sections.baseKnowledge')}
+              icon={Library}
+              active={pathname === '/app/base-knowledge' || pathname.startsWith('/app/base-knowledge/')}
             />
           )}
           {/* The workspace search (ADR-0136); ⌘K reaches it from anywhere too. */}
@@ -140,7 +135,8 @@ export function OrgHeader({
             />
           )}
           <ShellSearchButton className="md:hidden" />
-          <div className="bg-border mx-2 hidden h-6 w-px md:block" aria-hidden />
+          {/* Space, not a rule, between the doorways and the person. */}
+          <div className="hidden w-2 md:block" aria-hidden />
           <SidebarUserMenu
             user={user}
             organizationName={organizationName}
@@ -176,9 +172,7 @@ function OrgHeaderIconLink({
   icon: React.ComponentType<{ className?: string }>
   active: boolean
   badgeCount?: number
-  /** Marks the link as a product-tour stop. */
   tourAnchor?: TourAnchor
-  /** A door to a panel docked beside the page (the Postfach). */
   door?: StartDockDoor
 }): JSX.Element {
   return (
@@ -193,16 +187,19 @@ function OrgHeaderIconLink({
           onClick={door?.onClick}
           data-tour={tourAnchor}
           className={cn(
-            'focus-visible:ring-ring/60 relative hidden size-9 items-center justify-center rounded-control transition-colors pointer-coarse:size-11 md:flex duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none',
+            'relative hidden size-9 items-center justify-center gap-2 rounded-control text-[13px] transition-colors pointer-coarse:size-11 md:flex xl:w-auto xl:px-2.5 duration-quick ease-out motion-reduce:transition-none',
             active || door?.open
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              ? // On paper, with no track: open is the picked grey, the pointer the desk.
+                'bg-selected text-foreground'
+              : 'text-muted-foreground hover:bg-desk hover:text-foreground',
           )}
         >
-          <Icon className="size-4" aria-hidden />
+          <Icon className="size-4 shrink-0" aria-hidden />
+          <span className="hidden xl:inline">{label}</span>
           <InboxBadge
             pending={badgeCount}
-            className="absolute right-0.5 top-0.5 -translate-y-1/3 translate-x-1/3"
+            tone="muted"
+            className="absolute right-0.5 top-0.5 -translate-y-1/3 translate-x-1/3 xl:static xl:translate-x-0 xl:translate-y-0"
           />
         </Link>
       </TooltipTrigger>
@@ -211,7 +208,6 @@ function OrgHeaderIconLink({
   )
 }
 
-/** The header's one action that is not a place: the same key shape as a link. */
 function OrgHeaderIconButton({
   label,
   hint,
@@ -231,7 +227,7 @@ function OrgHeaderIconButton({
           aria-label={label}
           onClick={onClick}
           data-testid="org-header-feedback"
-          className="focus-visible:ring-ring/60 text-muted-foreground hover:bg-accent hover:text-foreground hidden size-9 pointer-coarse:size-11 md:flex items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-desk hover:text-foreground hidden size-9 pointer-coarse:size-11 md:flex items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
         >
           <Icon className="size-4" aria-hidden />
         </button>

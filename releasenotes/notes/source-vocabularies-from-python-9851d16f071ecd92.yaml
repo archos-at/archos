@@ -1,0 +1,9 @@
+---
+# area: building-law
+operators:
+  - >
+    A source's protocol and format now have one list, the access types and
+    format engines of the public-sources package. A new engine needs no
+    database migration: migration 0216 drops the two checks that copied the
+    list, and the platform's source records accept whatever the deployed
+    engines are.

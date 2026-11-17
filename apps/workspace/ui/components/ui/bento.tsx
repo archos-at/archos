@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Bento: a dashboard grid of tiles of different sizes, each a summary that
- * opens something.
- *
- * A tile is the product's raised card (`raised-card.tsx`) with a fixed
- * anatomy: an eyebrow naming what it measures, the content, and the footer tab
- * carrying the one way into the detail. The tray footer is what lines a row of
- * unequal tiles up, so the grid reads as a grid however much each one holds.
- *
- * The grid is six columns from `lg`, two from `md`, one below. Tiles say how
- * wide and tall they are with `span`; `grid-flow-dense` lets a tile a reader
- * may not see (a permission-gated one) leave no hole behind.
- */
-
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, type LucideIcon } from 'lucide-react'
@@ -44,32 +30,17 @@ export function BentoGrid({
   )
 }
 
-/**
- * How much of the grid a tile takes. Spelled out rather than computed, because
- * Tailwind only ships classes it can see written down.
- */
 const SPANS = {
-  /** A third of the row on desktop. */
   small: 'lg:col-span-2',
-  /** Half the row. */
   half: 'lg:col-span-3',
-  /** Two thirds of the row. */
   major: 'md:col-span-2 lg:col-span-4',
-  /** Two thirds, two rows tall: the hero. */
   hero: 'md:col-span-2 lg:col-span-4 lg:row-span-2',
-  /** A third, two rows tall. */
   tall: 'lg:col-span-2 lg:row-span-2',
-  /** The whole row. */
   wide: 'md:col-span-2 lg:col-span-6',
 } as const
 
 export type BentoSpan = keyof typeof SPANS
 
-/**
- * A grid cell for a card that brings its own chrome: an organism that is
- * already a raised card (the lifecycle card) takes a size in the bento without
- * being wrapped in a second card.
- */
 export function BentoCell({
   span = 'small',
   className,
@@ -83,22 +54,13 @@ export function BentoCell({
 }
 
 export interface BentoTileProps {
-  /** What the tile measures, as its eyebrow. Also its accessible name. */
   label: string
   icon?: LucideIcon
-  /**
-   * Draws the icon in a tinted well instead of bare: the tile's one touch of
-   * colour, so a grid of tiles is told apart at a glance. The figures stay in
-   * text ink whatever the tone.
-   */
   tone?: StatCardIconTone
   span?: BentoSpan
-  /** A control in the eyebrow row, right-aligned (a menu, a toggle). */
   action?: ReactNode
-  /** The detail this tile summarizes; rendered as the footer link. */
   href?: string
   linkLabel?: string
-  /** Footer content beside or instead of the link. */
   footer?: ReactNode
   className?: string
   bodyClassName?: string
@@ -162,11 +124,6 @@ export function BentoTile({
   )
 }
 
-/**
- * The headline figure of a tile, with an optional line under it. Stat-tile
- * rule: the number is the content, so it is large and wears text ink, never a
- * series colour.
- */
 export function BentoFigure({
   value,
   caption,
@@ -178,7 +135,7 @@ export function BentoFigure({
 }): JSX.Element {
   return (
     <div className={cn('min-w-0', className)}>
-      <p className="text-3xl font-medium tabular-nums tracking-tight">{value}</p>
+      <p className="text-3xl font-medium tabular-nums">{value}</p>
       {caption ? <p className="text-muted-foreground mt-1 text-sm">{caption}</p> : null}
     </div>
   )

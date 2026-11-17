@@ -7,6 +7,7 @@ import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } 
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
+import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
 
 /**
  * `app.kubernetes.io/name` of the two Langfuse workloads and their ClickHouse
@@ -58,8 +59,8 @@ export const QDRANT_CALLERS = [
  *     break the product. Tightening egress is a follow-up that needs a live
  *     cluster to validate. The exception is Gotenberg (rule 13), which needs no
  *     egress at all, so denying all of it cannot break anything it does. The
- *     frontend's address search calls komoot's public Photon over HTTPS
- *     (ADR-0151) through that open egress.
+ *     frontend's address search, where a stack switches it on (ADR-0159),
+ *     calls komoot's public Photon over HTTPS through that open egress.
  *   - **Intra-namespace is allowed wholesale** (frontend→backend, backend→data,
  *     workers→data, backend→frontend BFF). Per-edge micro-policies buy little
  *     here and are far easier to get subtly wrong. The exceptions are the pods
@@ -128,6 +129,8 @@ export function installNetworkPolicies(
             ...langfuseWithheld,
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
+            // Its own policy admits the tool-running roles alone (`app/public-source-fetcher.ts`).
+            PUBLIC_SOURCE_FETCHER.name,
             QDRANT.name,
             // Rule 22 is its one caller; its stats and readiness ports are the kubelet's.
             ...(cfg.mcpGateway.enabled ? [MCP_GATEWAY.name] : []),

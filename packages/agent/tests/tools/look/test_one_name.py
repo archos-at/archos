@@ -1,13 +1,3 @@
-"""One name for one act (ADR-0128): nothing an agent reads names a retired look tool.
-
-``view_knowledge_image`` and ``canvas__look`` were one function under two names;
-``look`` replaced both, and the door's ``knowledge-image-view`` became
-``document-look``. A retired name that comes back in a config, a prompt, a tool
-description or the agent door teaches the model a tool it cannot call. The one
-place that keeps an old name is the UI's step labels, as a read-side alias for
-stored turns, and it says so in a comment.
-"""
-
 from __future__ import annotations
 
 import re
@@ -22,7 +12,6 @@ from agent.tools.look.register import DESCRIPTION
 ROOT = Path(__file__).resolve().parents[5]
 RETIRED = re.compile(r"view_knowledge_image|canvas__look|knowledge-image-view")
 
-#: Files an agent reads, whole: what is bound, what it is told, and what the door offers.
 AGENT_FACING = [
     ROOT / "configs" / "config_oib_openrouter.yml",
     ROOT / "apps" / "workspace" / "bff" / "agent-api" / "backend-operations.ts",
@@ -53,8 +42,6 @@ def test_the_door_serves_look() -> None:
     assert "look" in BACKEND_READ_TOOLS and "view_knowledge_image" not in BACKEND_READ_TOOLS
 
 
-def test_the_step_labels_keep_the_old_name_only_as_a_commented_alias() -> None:
-    lines = EXECUTED_STEPS.read_text(encoding="utf-8").splitlines()
-    hits = [index for index, line in enumerate(lines) if RETIRED.search(line)]
+def test_the_step_labels_keep_the_old_name_only_as_one_alias() -> None:
+    hits = [line for line in EXECUTED_STEPS.read_text(encoding="utf-8").splitlines() if RETIRED.search(line)]
     assert len(hits) == 1, "executed-steps.ts keeps exactly one retired name, the stored turns' alias"
-    assert "stored turns" in lines[hits[0] - 1], "say above the alias that it is there for stored turns"

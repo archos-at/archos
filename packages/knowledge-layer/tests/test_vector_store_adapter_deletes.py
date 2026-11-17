@@ -1,17 +1,3 @@
-"""Every delete the adapter makes, against a real Qdrant (ADR-0115).
-
-Qdrant is the one store, so a delete is one delete: it took what it names or
-it raised, and the caller's retry starts over. What these pin, per operation:
-
-* when Qdrant refuses, nothing is deleted and nothing recorded as deleted (the
-  metadata row stays, the collection version is not bumped), and a retry
-  finishes the job;
-* a delete takes the chunks it names and nothing else: another file, another
-  version of the same name, another collection;
-* ``delete_file`` takes every stored spelling the delete's rule accepts (a
-  ``tmp…_`` upload prefix, percent-encoding), not only the exact one.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -30,8 +16,6 @@ SCOPE = "proj_deletes"
 
 
 class QdrantOutage:
-    """Makes every Qdrant delete fail while ``down``, as an unreachable server does (after the store's retries)."""
-
     def __init__(self, monkeypatch: pytest.MonkeyPatch):
         self.down = False
         real = store_module.QdrantStore._delete
@@ -65,7 +49,6 @@ def env(tmp_path, monkeypatch, qdrant_store):
 
 
 def _seed(file_name: str, count: int = 3, *, stored_as: str | None = None, scope: str = SCOPE) -> list[str]:
-    """``count`` chunks of ``file_name`` in Qdrant and its row in the metadata store."""
     from agent.knowledge import register_summary
 
     stored = stored_as or file_name
@@ -86,16 +69,16 @@ def _summary_rows(scope: str = SCOPE) -> set[str]:
     return {document.file_name for document in get_available_documents(scope)}
 
 
-# ---------------------------------------------------------------- delete_file
-
-
 def test_delete_file_deletes_nothing_when_qdrant_fails_and_finishes_on_retry(env):
     ids = _seed("plan.pdf")
     _seed("other.pdf")
     _seed("plan.pdf", scope="proj_elsewhere")
     env["outage"].down = True
 
-    assert env["ingestor"].delete_file("plan.pdf", SCOPE) is False
+    with pytest.raises(ConnectionError):
+        env["ingestor"].delete_file("plan.pdf", SCOPE)
+    outcome = env["ingestor"].delete_files(["plan.pdf"], SCOPE)
+    assert outcome["not_found"] == [] and [entry["file_id"] for entry in outcome["failed"]] == ["plan.pdf"]
 
     assert _ids("plan.pdf") == set(ids)
     assert "plan.pdf" in _summary_rows()
@@ -130,15 +113,11 @@ def test_delete_file_by_its_listed_id_resolves_the_name(env):
 
 
 def test_delete_file_with_no_chunks_still_clears_its_row(env):
-    """A row with no chunks lists a file nobody can retrieve: the delete takes it whatever the store holds."""
     from agent.knowledge import register_summary
 
     register_summary(SCOPE, "ghost.pdf", "Nur eine Zeile")
     assert env["ingestor"].delete_file("ghost.pdf", SCOPE) is False  # nothing of the file was in the store
     assert "ghost.pdf" not in _summary_rows()
-
-
-# ---------------------------------------------------------------- retire / quarantine / discard
 
 
 @pytest.mark.parametrize("operation", ["retire", "quarantine"])
@@ -199,9 +178,6 @@ def test_discarding_with_nothing_attempted_deletes_nothing(env):
     env["ingestor"]._discard_partial_version(SCOPE, "statik.pdf", None)
     env["ingestor"]._discard_partial_version(SCOPE, "statik.pdf", [])
     assert _ids() == set(kept) and env["bumped"] == []
-
-
-# ---------------------------------------------------------------- delete_collection
 
 
 def test_delete_collection_keeps_everything_when_qdrant_fails(env):

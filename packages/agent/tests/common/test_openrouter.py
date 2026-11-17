@@ -1,5 +1,3 @@
-"""The OpenRouter seam: the pin, the org policy (fail closed) and each adapter."""
-
 from __future__ import annotations
 
 import contextvars
@@ -32,7 +30,17 @@ class TestTargetsOpenRouter:
     def test_openrouter_hosts(self, url):
         assert targets_openrouter(url)
 
-    @pytest.mark.parametrize("url", ["https://api.openai.com/v1", "", None, "https://evil.test/openrouter.ai"])
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://api.openai.com/v1",
+            "",
+            None,
+            "https://evil.test/openrouter.ai",
+            "https://openrouter.ai.example.net/api/v1",
+            "https://notopenrouter.ai/api/v1",
+        ],
+    )
     def test_other_hosts(self, url):
         assert not targets_openrouter(url)
 
@@ -67,8 +75,6 @@ class TestThePin:
 
 
 class TestPageReads:
-    """A ZDR page read is EU-only so its prompt cache can hit; every other call keeps the EU-first order."""
-
     def test_only_the_eu_slugs_no_fallback_no_order(self, monkeypatch):
         monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
         body = ZERO_DATA_RETENTION.for_page_reads().apply({"model": "m"})
@@ -116,8 +122,6 @@ class TestTheOrganizationsPolicy:
 
 
 class _OpenRouterModel:
-    """Duck-typed chat model: OpenRouter base URL, ``extra_body``, ``model_copy``."""
-
     openai_api_base = "https://openrouter.ai/api/v1"
 
     def __init__(self, extra_body=None, *, copy_fails=False):

@@ -65,15 +65,20 @@ export function browserPageLifecycle(
 ): PageLifecycle {
   if (!globals) return ALWAYS_ACTIVE
   const { document: doc, window: win, navigator: nav } = globals
+  /** In the back/forward cache: frozen, whatever `visibilityState` says at that moment. */
+  let cached = false
+  const visible = () => !cached && doc.visibilityState !== 'hidden'
   return {
     get visible() {
-      return doc.visibilityState !== 'hidden'
+      return visible()
     },
     get online() {
       return nav.onLine !== false
     },
     subscribe(listener) {
-      const active = () => doc.visibilityState !== 'hidden' && nav.onLine !== false
+      // Code that subscribes is running, so the page is not in the cache.
+      cached = false
+      const active = () => visible() && nav.onLine !== false
       const onVisibility = () => {
         if (doc.visibilityState === 'hidden') listener.suspend?.()
         else if (active()) listener.resume('visible')
@@ -85,9 +90,18 @@ export function browserPageLifecycle(
       // `pageshow` fires on every show; only a restore from the back/forward
       // cache comes back with its sockets closed under it.
       const onPageShow = (event: Event) => {
+        cached = false
         if ((event as PageTransitionEvent).persisted && active()) listener.resume('pageshow')
       }
-      const onPageHide = () => listener.suspend?.()
+      // `pagehide` fires while the page still reads as visible. Only one into
+      // the back/forward cache is a page going away that may come back; any
+      // other is a page being discarded, and a suspend raised for it found the
+      // page visible and online and was counted as a failed attempt.
+      const onPageHide = (event: Event) => {
+        if (!(event as PageTransitionEvent).persisted) return
+        cached = true
+        listener.suspend?.()
+      }
       doc.addEventListener('visibilitychange', onVisibility)
       win.addEventListener('online', onOnline)
       win.addEventListener('offline', onOffline)

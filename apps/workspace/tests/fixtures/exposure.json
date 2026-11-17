@@ -1,6 +1,36 @@
 {
  "comment": "Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts (UPDATE_FIXTURES=1). `agent` is true, false or \"native:<tool>\" (the in-product agent uses that tool; the door hides the operation from it). `appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.",
  "operations": {
+  "classification-evaluate": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "project-base-confirm": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "which base a project’s answers rest on is the person’s confirmation; the agent shows the base, the person confirms it"
+  },
+  "project-base-get": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-cleanup-confirm": {
    "kind": "catalog",
    "domain": "projects",
@@ -191,6 +221,16 @@
    "withheld": null,
    "reason": null
   },
+  "project-memory-topic-rename": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-memory-update": {
    "kind": "catalog",
    "domain": "projects",
@@ -331,7 +371,7 @@
    "withheld": null,
    "reason": null
   },
-  "project-standards-get": {
+  "project-site-set": {
    "kind": "catalog",
    "domain": "projects",
    "sensitivity": null,
@@ -1709,6 +1749,16 @@
    },
    "reason": null
   },
+  "citation-style-get": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "conversation-create": {
    "kind": "catalog",
    "domain": "conversations",
@@ -2084,6 +2134,76 @@
    "reason": null
   },
   "mention-request-release": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-clear": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-create": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": "native:remember",
+   "platform": false,
+   "withheld": null,
+   "reason": "The agent keeps a note about the person with its own `remember` (scope `personal`), which records the conversation it came from"
+  },
+  "personal-memory-delete": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-list": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-topic-delete": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-topic-rename": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-update": {
    "kind": "catalog",
    "domain": "collaboration",
    "sensitivity": null,
@@ -2570,6 +2690,166 @@
    },
    "reason": null
   },
+  "base-knowledge-bulk": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-check-record": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-confirm": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms"
+  },
+  "base-knowledge-edition-add": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-edition-as-of": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-folder-create": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-folder-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-get": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-licence-set": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "whether a licensed copy’s text may reach a model is the office’s statement about its own licence; only the person makes it"
+  },
+  "base-knowledge-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-propose": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-remove": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-report": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-update": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-upload": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "coverage-get": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "knowledge-base-get": {
    "kind": "catalog",
    "domain": "knowledge",
@@ -2591,6 +2871,16 @@
    "reason": null
   },
   "norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "site-resolve": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,
@@ -2773,6 +3063,16 @@
     "category": "product-config",
     "reason": "spend limits on the agent itself; product configuration"
    },
+   "reason": null
+  },
+  "organization-countries-get": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
    "reason": null
   },
   "organization-deleted-folder-content-get": {
@@ -3262,9 +3562,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "a model’s summary of ratings of offices’ answers with the comments and expected answers people wrote, searchable by their text"
+   },
+   "reason": null
   },
   "platform-answer-feedback-export": {
    "kind": "catalog",
@@ -3272,9 +3575,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "an export of ratings of offices’ answers with the comments and expected answers people wrote, searchable by their text"
+   },
+   "reason": null
   },
   "platform-answer-feedback-get": {
    "kind": "catalog",
@@ -3282,9 +3588,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "ratings of offices’ answers with the comments and expected answers people wrote, searchable by their text"
+   },
+   "reason": null
   },
   "platform-answer-feedback-options-get": {
    "kind": "catalog",
@@ -3292,9 +3601,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "counts over ratings of offices’ answers with the comments and expected answers people wrote, searchable by their text: a search over that text answers by its count"
+   },
+   "reason": null
   },
   "platform-audit-portal-link": {
    "kind": "catalog",
@@ -3322,9 +3634,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "the flagged turns of the conversations of every office, their questions and answers, with what each cited"
+   },
+   "reason": null
   },
   "platform-citation-health-get": {
    "kind": "catalog",
@@ -3332,9 +3647,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "per office, the sources answers failed to cite, which can name an office’s own documents"
+   },
+   "reason": null
   },
   "platform-feedback-claim": {
    "kind": "catalog",
@@ -3342,9 +3660,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "a write that answers with the report: product feedback people in offices wrote, with their names and emails"
+   },
+   "reason": null
   },
   "platform-feedback-get": {
    "kind": "catalog",
@@ -3352,9 +3673,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "product feedback people in offices wrote, with their names and emails"
+   },
+   "reason": null
   },
   "platform-feedback-list": {
    "kind": "catalog",
@@ -3362,11 +3686,40 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "product feedback people in offices wrote, with their names and emails"
+   },
+   "reason": null
   },
   "platform-feedback-triage": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "a write that answers with the report: product feedback people in offices wrote, with their names and emails"
+   },
+   "reason": null
+  },
+  "platform-kill-runs": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "stops every office’s running turns and research: a write on what offices are doing, for staff in an incident"
+   },
+   "reason": null
+  },
+  "platform-knowledge-base-get": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3376,7 +3729,67 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
-  "platform-kill-runs": {
+  "platform-knowledge-change-request-create": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-change-request-decide": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-change-request-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-change-request-list": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-change-request-review": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-change-request-submit": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-citation-capture": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3396,7 +3809,37 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
+  "platform-knowledge-document-add": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-document-add-upload": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-document-delete": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-document-get": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3416,7 +3859,147 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
+  "platform-knowledge-golden-run": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-golden-run-advance": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-golden-run-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-index-status": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-overview-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-publish": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-records-propose": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-reingest": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-release-export": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-release-import": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-rollback": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-schema-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-source-credential-set": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-source-status": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-source-test": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3436,7 +4019,67 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
+  "platform-knowledge-text-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-text-import": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-text-list": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-text-upload": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-title-update": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-validate": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-work-list": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3452,9 +4095,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "lessons distilled from offices’ down-voted turns, with the turns they came from"
+   },
+   "reason": null
   },
   "platform-lesson-list": {
    "kind": "catalog",
@@ -3462,9 +4108,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "lessons distilled from offices’ down-voted turns, with the turns they came from"
+   },
+   "reason": null
   },
   "platform-lesson-sweep-run": {
    "kind": "catalog",
@@ -3472,9 +4121,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "reads offices’ down-voted turns to distil lessons distilled from offices’ down-voted turns, with the turns they came from"
+   },
+   "reason": null
   },
   "platform-lesson-update": {
    "kind": "catalog",
@@ -3482,9 +4134,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "a write that answers with the lesson: lessons distilled from offices’ down-voted turns, with the turns they came from"
+   },
+   "reason": null
   },
   "platform-model-defaults-get": {
    "kind": "catalog",
@@ -3532,9 +4187,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "product-config",
+    "reason": "the norm registry takes no edits since ADR-0175 and answers 409: norms change through a change request (platform-knowledge-change-request-create)"
+   },
+   "reason": null
   },
   "platform-norm-verify": {
    "kind": "catalog",
@@ -3557,6 +4215,26 @@
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
   "platform-org-budget-update": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-org-countries-list": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-org-country-entitle": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3602,6 +4280,19 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "an office’s spend per person, with each person’s name and email"
+   },
+   "reason": null
+  },
+  "platform-organization-home-country-set": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3642,9 +4333,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "one of the conversations of every office, their questions and answers, turn by turn"
+   },
+   "reason": null
   },
   "platform-profiler-conversation-list": {
    "kind": "catalog",
@@ -3652,9 +4346,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "the conversations of every office, their questions and answers, searchable by their text"
+   },
+   "reason": null
   },
   "platform-quality-scope-options": {
    "kind": "catalog",
@@ -3662,9 +4359,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "the names of every office’s projects"
+   },
+   "reason": null
   },
   "platform-reasoning-efforts-get": {
    "kind": "catalog",
@@ -3796,7 +4496,7 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
-  "platform-vectors-reconcile": {
+  "platform-territory-import": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
@@ -3805,6 +4505,19 @@
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-vectors-reconcile": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "deletes chunks from offices’ own search collections, and its failures can name what they held"
+   },
+   "reason": null
   },
   "knowledge-search": {
    "kind": "backend",
@@ -3871,7 +4584,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "agent": "native:ris_lookup_tool",
+   "agent": "native:law_lookup",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"

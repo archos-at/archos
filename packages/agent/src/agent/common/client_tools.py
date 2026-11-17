@@ -4,8 +4,8 @@ A frontend tool runs on the person's screen, not here, so it exists for a turn
 only when the page that asked it says it can run it: ``user_message.client_tools``
 (``wire_v2.UserMessage``). A phone with no room beside the chat, a tab one
 release older, a background run and an agent at the door declare nothing, and
-the model is not offered the tool there at all (``agents/piloti/register.py``,
-``_tools_in_scope``). The tool checks again when it is called (ADR-0144).
+the model is not offered the tool there at all (``turn_tools.tools_in_scope``
+beside the chat agent's ``register.py``). The tool checks again when it is called (ADR-0144).
 
 Per turn, in a ``ContextVar`` set once by ``turn.payload.extract_turn_inputs``.
 The value is one mutable record, so a claim made inside a tool call (whose

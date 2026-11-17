@@ -47,7 +47,6 @@ const READER = 'user_latency_reader'
 const COLLEAGUES = Array.from({ length: 15 }, (_, index) => `user_latency_${index}`)
 const FACET_KEYS: FacetKey[] = ['documentType', 'tag', 'project', 'partyRole', 'municipality', 'cites', 'status', 'fileType']
 
-/** A seeded PRNG (mulberry32), so two runs measure the same office. */
 function random(seed: number): () => number {
   let state = seed
   return () => {
@@ -128,7 +127,6 @@ function pickType(roll: number): [DossierDocumentType, string] {
   return ['other', 'XX']
 }
 
-/** One organization's documents, deterministic in `seed`. */
 function officeDocuments(org: (typeof ORGS)[number], seed: number, collections: string[], shelf: string): SeededDocument[] {
   const next = random(seed)
   const pick = <T>(list: readonly T[]): T => list[Math.floor(next() * list.length)]
@@ -423,7 +421,6 @@ describe.skipIf(!enabled)('search latency over a seeded office', () => {
 
   it('office-wide completions, one keystroke each', async () => {
     const { suggestValues } = await import('./suggest-repository')
-    // SUGGEST_EXPLAIN=1 prints the plan of a party completion: how the `raw` fence was found (suggest-repository.ts).
     if (process.env.SUGGEST_EXPLAIN === '1') {
       const { suggestStatement } = await import('./suggest-repository')
       const { getDb } = await import('@/lib/db')

@@ -9,7 +9,7 @@ if (empty(ticketId)) {
   return
 }
 
-let res := postHogGetTicket({'ticket_id': ticketId, 'include_first_customer_message_text': true})
+let res := postHogGetTicket({'ticket_id': ticketId})
 if (res.status != 200) {
   throw Error(f'Failed to fetch ticket ({res.status}): {res.body}')
 }
@@ -74,31 +74,11 @@ let titles := {
 let title := titles[kind] ?? f'📝 {copy.title_other}'
 let number := ticket.ticket_number ?? ticket.number ?? props.ticket_number
 
-// The report's first message starts with "[kind] #<report id> <path>" for
-// PostHog's inbox; Slack shows the member's words without it. PostHog hands the
-// first message back with its line breaks folded into spaces, so this works on
-// words: drop "[kind]", "#<id>" and a following "/path".
-fun withoutHeader(text) {
-  if (empty(text) or not match(text, '^\\[[a-z]+\\] #')) {
-    return text ?? ''
-  }
-  let rest := ''
-  let i := 0
-  for (let word in splitByString(' ', text)) {
-    i := i + 1
-    let isPath := i == 3 and substring(word, 1, 1) == '/'
-    if (i > 2 and not isPath) {
-      rest := empty(rest) ? word : f'{rest} {word}'
-    }
-  }
-  return rest
-}
-
-let words := substring(withoutHeader(ticket.first_customer_message_text), 1, 2500)
-let quote := empty(words) ? '' : f'\n>>> {words}'
-
+// The member's words stay in PostHog: Slack is a US processor that the
+// data-flow register (configs/subprocessors/slack.yaml) lists for ids and links
+// only. The alert says which ticket and who took it; the text is one click away.
 let blocks := [
-  {'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*{title} #{number}*{quote}'}},
+  {'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*{title} #{number}*'}},
   {'type': 'context', 'elements': [{'type': 'mrkdwn', 'text': f'✅ {copy.taken_by} *{name}*'}]},
   {'type': 'actions', 'elements': [{
     'type': 'button',

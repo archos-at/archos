@@ -3,8 +3,6 @@ import { MERMAID_TASK_TIMEOUT_MS, serialized, withMermaid } from './render-diagr
 
 describe('mermaid renders one at a time', () => {
   it('never starts a task before the previous one finished', async () => {
-    // The shape of the bug: configure a global, await, read it back. Run
-    // concurrently, the second configure lands inside the first's await.
     let global = ''
     const events: string[] = []
     const render = serialized(async (theme: string) => {

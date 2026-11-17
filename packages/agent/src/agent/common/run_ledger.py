@@ -59,6 +59,36 @@ RunStatus = Literal[
     "interrupted",
 ]
 
+#: The states a run has ended in. An ended ledger stays ended.
+TERMINAL_RUN_STATUSES: tuple[str, ...] = ("done", "failed", "cancelled", "interrupted")
+
+#: Every status move a writer makes, by the status it leaves. The hand-written
+#: mirror of ``RUN_LEDGER_LIFECYCLE`` in ``run-ledger-types.ts``; the fixture
+#: carries that table as ``x-lifecycle`` and the test pins this one to it. The
+#: BFF applies the same table to what this tier sends, so a status that is no
+#: move here would be dropped there. ``done`` to ``interrupted`` is the one
+#: move between two endings: a finished run whose answer was cut off and
+#: salvaged.
+RUN_STATUS_MOVES: dict[str, tuple[str, ...]] = {
+    "created": ("running", "waiting", "done", "failed", "cancelled"),
+    "running": ("waiting", "done", "failed", "cancelled", "interrupted"),
+    "waiting": ("running", "done", "failed", "cancelled"),
+    "done": ("interrupted",),
+    "failed": (),
+    "cancelled": (),
+    "interrupted": (),
+}
+
+
+def next_run_status(current: str, asked: str) -> str:
+    """The status after asking for ``asked``: it, when that is a move, else ``current``.
+
+    The first final word stands: a ledger that says how its run ended keeps
+    that ending, whatever is reported afterwards.
+    """
+    return asked if asked in RUN_STATUS_MOVES.get(current, ()) else current
+
+
 MAX_RUN_ID_CHARS = 64
 MAX_STEPS = 50
 MAX_STEP_ID_CHARS = 64

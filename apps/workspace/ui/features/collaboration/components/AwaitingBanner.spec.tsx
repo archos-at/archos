@@ -58,8 +58,6 @@ describe('AwaitingBanner — the silence is explained (MN-8)', () => {
   })
 
   test('keeps the question visible when several people are awaited', () => {
-    // It used to render only for a single request, so the moment a second person
-    // was asked, what they were asked vanished from the banner entirely.
     render(
       <AwaitingBanner
         awaiting={state([
@@ -97,9 +95,6 @@ describe('AwaitingBanner — the silence is explained (MN-8)', () => {
   })
 
   test('gives each row its own since-time, not the oldest request’s', () => {
-    // The thread-level "asked by X, since Y" is narrowed to the single-person
-    // case precisely because it would describe somebody else's wait here — so
-    // every row has to carry its own, or the fact is simply gone.
     render(
       <AwaitingBanner
         awaiting={state([
@@ -121,8 +116,6 @@ describe('AwaitingBanner — the silence is explained (MN-8)', () => {
   })
 
   test('a row reads the question before it offers the way out of it', () => {
-    // A screen reader follows source order. Offering "continue without Anna" to
-    // somebody who has not been told what Anna was asked is the wrong order.
     render(
       <AwaitingBanner
         awaiting={state([
@@ -139,15 +132,10 @@ describe('AwaitingBanner — the silence is explained (MN-8)', () => {
     const row = screen.getAllByTestId('awaiting-person')[0]
     const note = within(row).getByText('Ist das Atrium ein eigener Abschnitt?')
     const button = within(row).getByRole('button')
-    // Document position, not `row.children` indexes: either element may be
-    // nested, and `indexOf` returns -1 for a non-direct child — which compares
-    // as "before" and would pass while the button actually came first.
     expect(note.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 
   test('tells two waits on the same person apart by name', () => {
-    // One colleague can be waited on twice — asked twice, or by two people — and
-    // then both buttons read "Continue without Anna Weber".
     render(
       <AwaitingBanner
         awaiting={state([
@@ -193,7 +181,6 @@ describe('AwaitingBanner — the silence is explained (MN-8)', () => {
         onRelease={vi.fn()}
       />,
     )
-    // Two in the header stack plus one per row of the per-person list.
     expect(screen.getAllByText('AW').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('MH').length).toBeGreaterThanOrEqual(2)
   })
@@ -319,13 +306,6 @@ describe('AwaitingBanner — always a way out (MN-9)', () => {
   })
 })
 
-/**
- * The clarifying question — the most common thing the person who was asked
- * actually needs to do, and the one move the deterministic routing gets wrong if
- * they type it as plain text: a plain contribution settles the request, so the
- * question reads as an answer, the wait ends, and Piloti is handed a thread in
- * the middle of a human conversation.
- */
 describe('AwaitingBanner — asking back', () => {
   test('offers it to the person being asked, naming who to ask', () => {
     render(

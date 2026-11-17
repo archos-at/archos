@@ -1,22 +1,3 @@
-"""The top level says what the repository holds, and a finished move stays finished (ADR-0145).
-
-Two ratchets on the layout ADR-0145 sets out:
-
-- Every top-level tracked directory is a target name or a legacy name still
-  waiting for its move. A new directory fails here until someone adds it, which
-  is the moment to ask whether its name says its job. A legacy name leaves the
-  list in the PR that empties it, and a listed name that is gone fails too, so
-  the list cannot keep a stale entry.
-- A path a finished move left behind is never tracked again, and nothing but
-  history names it. History is the ADRs, `releasenotes/`, `docs/audit/` and the Drizzle
-  migrations, which say what was true then. A one-segment old path (`plans/`) only gets
-  the first half: as a word it turns up in prose and test data.
-  A file inside an app that has the old path as its own live directory
-  (`apps/workspace/shared/brand/`) may name it app-relative.
-
-A move adds its old path to `MOVED` and removes its legacy name in the same PR.
-"""
-
 from __future__ import annotations
 
 import re
@@ -25,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: The layout ADR-0145 aims at, with the dot-directories the tools need.
 TARGET = frozenset(
     {
         ".claude",
@@ -48,10 +28,8 @@ TARGET = frozenset(
     }
 )
 
-#: Still waiting for their move, and the ADR-0145 row that empties each.
 LEGACY = {}
 
-#: Finished moves: the old path, and where its contents went.
 MOVED = {
     "plans/": "docs/plans, then deleted (#1250, #1252)",
     "docs/superpowers/": "docs/specs, then deleted (#1250, #1252)",
@@ -75,28 +53,22 @@ MOVED = {
     "deploy/start_web.py": "apps/agent-host/start_web.py (row 7)",
 }
 
-#: Where an old path may still be named: the record of what was true then.
 HISTORY = (
     ":!docs/adr/",
     ":!releasenotes/",
     ":!docs/audit/",
     ":!apps/workspace/migrations/",
-    # The secret scan walks full history, so its allowlist names the paths the fixtures lived at then.
     ":!.gitleaks.toml",
-    # Dated audits, research reports and records: what was true when they were written.
     ":!docs/product/seo-geo-audit-2026-09.md",
     ":!docs/roadmap/continuous-improvement-ledger.md",
     ":!docs/roadmap/architect-workspace-voice-and-agentic-loop.md",
     ":!docs/ux/motion.md",
-    # Test timings, keyed by the test ids of their day.
     ":!tests/.test_durations",
-    # Baselines and duration tables key their entries by path from the app root (`shared/cards/...`).
     ":(exclude,glob)apps/workspace/**/*.json",
 )
 
 
 def _at_path_start(path: str) -> str:
-    """An extended regex for `path` where a path starts: `plans/`, not the end of `floor-plans/`."""
     return r"(^|[^[:alnum:]_./-])" + re.escape(path).replace("/", "/")
 
 
@@ -131,27 +103,28 @@ def test_a_finished_move_leaves_nothing_behind():
 
 
 def _names_a_live_directory(file: str, old: str) -> bool:
-    """`file` sits in an app that still has `old` of its own: `apps/workspace/shared/brand/` for `shared/brand/`.
-
-    An app-relative path in that app's docs, specs and `@disk-inputs` lines names
-    the live directory, not the root one that moved.
-    """
     return any((ROOT / parent / old).is_dir() for parent in Path(file).parents if parent != Path("."))
 
 
+def _git_grep(mode: str, patterns: list[str], within: list[str]) -> list[str]:
+    expressions = [argument for pattern in patterns for argument in ("-e", pattern)]
+    found = subprocess.run(
+        ["git", "grep", "-l", mode, *expressions, "--", *within, *HISTORY, ":!tests/test_repo_layout.py"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return found.stdout.split()
+
+
 def test_nothing_but_history_names_a_moved_path():
+    moved = [path for path in MOVED if path.count("/") > 1]
+    candidates = _git_grep("-F", moved, ["."])
     named = {}
-    # A one-segment name (`plans/`) is also a word in prose and test data; the
-    # tracked-path check above covers it.
-    for old in (path for path in MOVED if path.count("/") > 1):
-        found = subprocess.run(
-            ["git", "grep", "-l", "-E", _at_path_start(old), "--", ".", *HISTORY, ":!tests/test_repo_layout.py"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if files := [file for file in found.stdout.split() if not _names_a_live_directory(file, old)]:
+    for old in moved if candidates else ():
+        found = _git_grep("-E", [_at_path_start(old)], candidates)
+        if files := [file for file in found if not _names_a_live_directory(file, old)]:
             named[old] = files
 
     assert named == {}, f"these still name a moved path; point them at where it went: {named}"

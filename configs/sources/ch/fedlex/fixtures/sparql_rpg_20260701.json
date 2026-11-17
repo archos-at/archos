@@ -1,0 +1,4 @@
+
+{ "head": { "link": [], "vars": ["file", "date"] },
+  "results": { "distinct": false, "ordered": true, "bindings": [
+    { "file": { "type": "uri", "value": "https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/1979/1573_1573_1573/20260701/de/xml/fedlex-data-admin-ch-eli-cc-1979-1573_1573_1573-20260701-de-xml-6.xml" }	, "date": { "type": "literal", "datatype": "http://www.w3.org/2001/XMLSchema#date", "value": "2026-07-01" }} ] } }

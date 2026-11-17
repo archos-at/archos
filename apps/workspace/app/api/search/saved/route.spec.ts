@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/search/saved` — any member lists their own and the office's shared
- * saved searches, and saves one as themselves.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

@@ -209,7 +209,7 @@ export default function ComposerAddresseePreviewPage(): JSX.Element {
         className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8 text-foreground"
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Wer die Nachricht bekommt</h1>
+          <h1 className="text-xl font-semibold">Wer die Nachricht bekommt</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Die Aussage im Composer — überall dort, wo die Nachricht nicht an {PRODUCT_NAME} geht.
             Der Standardfall bleibt still; genau das macht die anderen lesbar.

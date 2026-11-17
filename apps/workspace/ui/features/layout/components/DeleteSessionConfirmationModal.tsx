@@ -1,10 +1,3 @@
-/**
- * DeleteSessionConfirmationModal Component
- *
- * Confirmation dialog displayed before deleting a session. A thin wrapper over
- * the shared ConfirmDialog primitive — the confirm anatomy lives in one place.
- */
-
 'use client'
 
 import { type FC } from 'react'
@@ -14,20 +7,12 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { researchCopy } from '@/i18n/namespaces/research'
 
 export interface DeleteSessionConfirmationModalProps {
-  /** Whether the modal is open */
   open: boolean
-  /** Callback when open state changes */
   onOpenChange: (open: boolean) => void
-  /** Callback when delete is confirmed */
   onConfirm: () => void
-  /** Title of the session being deleted, shown in the dialog copy */
   sessionTitle?: string
 }
 
-/**
- * Dialog for confirming session deletion.
- * Displays a warning message with Cancel and Delete Session actions.
- */
 export const DeleteSessionConfirmationModal: FC<DeleteSessionConfirmationModalProps> = ({
   open,
   onOpenChange,

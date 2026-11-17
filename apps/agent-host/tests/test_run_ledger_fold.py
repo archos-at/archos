@@ -1,21 +1,3 @@
-"""A run's own events, folded into the account its reader is given.
-
-What these pin, in order of how badly each would hurt:
-
-1. Nothing here may fail a run. A ledger client that 500s, times out or raises
-   costs the account a flush and the run nothing.
-2. Every event lands in the field the reader sees it in — the phase keys most of
-   all, because a phase that folds to nothing is a run that shows as idle while
-   it works.
-3. One fold, one truth: every flush puts the WHOLE ledger on the job's own event
-   stream, so a live client replaces its copy instead of folding a second one.
-4. A step is posted once, when it is sealed. ``append`` is append-only at the
-   BFF, so a step sent twice is a step the reader sees twice.
-5. Every body the fold sends is a body the BFF's own schema accepts — checked
-   against the JSON Schema exported from its zod, not against a twin written
-   here (ADR-0055).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -51,13 +33,10 @@ def schema() -> dict[str, Any]:
 
 
 def validator(schema: dict[str, Any], name: str) -> Draft202012Validator:
-    """A validator for one named definition, resolving ``$ref`` against the file."""
     return Draft202012Validator({**schema["$defs"][name], "$defs": schema["$defs"]})
 
 
 class FakeClient:
-    """The ledger primitive, recorded rather than called."""
-
     def __init__(self, *, accepts: bool = True, raises: bool = False) -> None:
         self.accepts = accepts
         self.raises = raises
@@ -78,8 +57,6 @@ class FakeClient:
 
 
 class FakeStore:
-    """The job's event store, kept in a list."""
-
     job_id = "job-1"
 
     def __init__(self) -> None:
@@ -126,10 +103,7 @@ def snapshots(store: FakeStore) -> list[dict]:
 
 
 class TestTheMapping:
-    """Every event in the field the reader sees it in."""
-
     def test_the_five_phase_keys_are_the_contracts(self) -> None:
-        """A phase that folds to a key the schema does not know is a lost run."""
         assert set(PHASE_KEYS.values()) == set(RUN_PHASES)
         assert PHASE_KEYS[PHASE_PLANNING_STARTED] == "planning"
         assert PHASE_KEYS[PHASE_RESEARCH_STARTED] == "researching"
@@ -138,8 +112,6 @@ class TestTheMapping:
         assert PHASE_KEYS[PHASE_DONE] == "filed"
 
     def test_it_listens_for_the_spelling_the_runner_writes(self) -> None:
-        """The fold names the event types itself (the runner imports it, not the
-        other way round), so this is what keeps the two spellings one spelling."""
         from agent_host.jobs.runner import JOB_DEGRADED_EVENT_TYPE as runner_degraded
 
         assert JOB_DEGRADED_EVENT_TYPE == runner_degraded
@@ -156,7 +128,6 @@ class TestTheMapping:
         assert ledger["status"] == "running"
 
     async def test_a_research_round_states_its_own_intent(self) -> None:
-        """The batch's ``conclusion`` IS the step's intent — never a tool name."""
         fold, _store, _client = make_fold()
         fold.observe(
             phase_event(
@@ -171,8 +142,6 @@ class TestTheMapping:
 
         assert [step["id"] for step in steps] == ["runde-1", "runde-2"]
         assert steps[0]["intent"] == "Fluchtweglängen für GK4 klären"
-        # A batch that stated nothing still names itself, because a step with no
-        # intent is one the contract refuses and the reader cannot read.
         assert steps[1]["intent"] == "Recherche-Runde 2"
         assert all(step["phase"] == "researching" for step in steps)
         assert all("tool" not in step for step in steps)
@@ -216,8 +185,6 @@ class TestTheMapping:
         )
         assert fold.snapshot()["steps"][0]["openPoints"] == ["Stiegenhausbreite im Bestand prüfen"]
 
-        # write_todos re-states the whole list, so the fold replaces rather than
-        # appends: a point that was closed has to disappear.
         fold.observe(todo_event([{"content": "Stiegenhausbreite im Bestand prüfen", "status": "completed"}]))
         assert "openPoints" not in fold.snapshot()["steps"][0]
 
@@ -231,13 +198,10 @@ class TestTheMapping:
         ledger = fold.snapshot()
         assert ledger["status"] == "failed"
         assert ledger["error"]["reason"] == "Der Anbieter hat abgebrochen."
-        # Derived from the phases that genuinely ended — „beim Recherchieren
-        # gescheitert, Planen war fertig" rather than „failed".
         assert ledger["error"]["completedBefore"] == ["planning"]
         assert [body.error.reason for body in client.finishes] == ["Der Anbieter hat abgebrochen."]
 
     async def test_a_cancelled_run_is_its_status_and_sends_no_finish(self) -> None:
-        """The finish op carries a result or an error; a cancel has neither."""
         fold, _store, client = make_fold()
         fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=1))
         fold.observe({"type": "job.cancelled", "data": {}})
@@ -260,6 +224,30 @@ class TestTheMapping:
         assert "error" not in ledger
         assert client.finishes[-1].result.report_message_id == "msg-1"
 
+    async def test_an_error_after_the_report_is_stored_does_not_unmake_the_run(self) -> None:
+        fold, _store, client = make_fold()
+        fold.observe(phase_event(PHASE_WRITING_STARTED))
+        fold.note_result(report_message_id="msg-1")
+        fold.observe({"type": "job.error", "data": {"error": "exporter stop failed", "error_type": "X"}})
+        await fold.close()
+
+        ledger = fold.snapshot()
+        assert ledger["status"] == "done"
+        assert "error" not in ledger
+        assert [body.status for body in client.appends if body.status] == ["done"]
+        assert client.finishes[-1].error is None
+
+    async def test_a_failed_run_stays_failed_whatever_is_reported_afterwards(self) -> None:
+        fold, _store, client = make_fold()
+        fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=1))
+        fold.observe({"type": "job.error", "data": {"error": "Der Anbieter hat abgebrochen.", "error_type": "X"}})
+        fold.observe({"type": "job.cancelled", "data": {}})
+        fold.note_result(report_message_id="msg-1")
+        await fold.close(status="running")
+
+        assert fold.snapshot()["status"] == "failed"
+        assert all(body.status in (None, "failed") for body in client.appends)
+
     async def test_a_finished_run_says_what_it_left_behind(self) -> None:
         fold, _store, client = make_fold()
         fold.observe(phase_event(PHASE_WRITING_STARTED))
@@ -275,8 +263,6 @@ class TestTheMapping:
 
 
 class TestTheBasis:
-    """The documents the reader named: on the ledger from the first snapshot, extended live."""
-
     async def test_the_named_documents_are_on_the_first_snapshot_and_the_first_append(self) -> None:
         fold, store, client = make_fold(
             basis=[
@@ -291,7 +277,6 @@ class TestTheBasis:
             {"name": "Einreichplan.pdf", "title": "Einreichplan", "shelf": "project", "loci": []}
         ]
         assert [doc.name for doc in client.appends[0].basis] == ["Einreichplan.pdf"]
-        # Sent once: a quiet flush repeats neither the list nor the step.
         await fold.flush(force=True)
         assert all(body.basis is None for body in client.appends[1:])
 
@@ -326,8 +311,6 @@ class TestTheBasis:
 
 
 class TestTheFlush:
-    """When the account moves, and who is told."""
-
     async def test_every_flush_puts_the_whole_ledger_on_the_job_stream(self) -> None:
         fold, store, _client = make_fold()
         fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=1, conclusion="OIB-2 lesen"))
@@ -335,8 +318,6 @@ class TestTheFlush:
 
         assert len(snapshots(store)) == 1
         ledger = snapshots(store)[0]
-        # The WHOLE thing, so a live client replaces its copy rather than
-        # folding a second one from the raw events.
         assert ledger["runId"] == RUN_ID
         assert ledger["steps"][0]["intent"] == "OIB-2 lesen"
 
@@ -346,19 +327,16 @@ class TestTheFlush:
         await fold.flush(force=True)
         assert len(snapshots(store)) == 1
 
-        # Inside the debounce window and not a transition: nothing goes out.
         fold.observe(source_event(file_name="a.pdf", page=1))
         await fold.flush()
         assert len(snapshots(store)) == 1
 
-        # A phase transition ignores the debounce: the reader is told at once.
         fold.observe(phase_event(PHASE_WRITING_STARTED))
         await fold.flush()
         assert len(snapshots(store)) == 2
         assert snapshots(store)[-1]["steps"][0]["docs"][0]["name"] == "a.pdf"
 
     async def test_an_ingest_schedules_its_own_flush(self) -> None:
-        """The runner never calls flush: the events that feed the fold drive it."""
         store = FakeStore()
         fold = RunLedgerFold(job_id="job-1", run_id=RUN_ID, event_store=store, client=FakeClient())
         fold.observe(phase_event(PHASE_PLANNING_STARTED))
@@ -369,7 +347,6 @@ class TestTheFlush:
         fold, _store, client = make_fold()
         fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=1))
         await fold.flush(force=True)
-        # Still open: it may still collect documents, and append cannot revise.
         assert [step.id for body in client.appends for step in (body.steps or [])] == []
 
         fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=2))
@@ -389,7 +366,6 @@ class TestTheFlush:
         assert sent == ["planning", "planning"], "what the store did not take is offered again"
 
     async def test_without_a_run_id_it_narrates_and_posts_nothing(self) -> None:
-        """No run id is no identity: the route would 404, so no doomed POST."""
         fold, store, client = make_fold(run_id=None)
         fold.observe(phase_event(PHASE_PLANNING_STARTED))
         fold.note_result(report_message_id="msg-1")
@@ -400,8 +376,6 @@ class TestTheFlush:
 
 
 class TestNothingFailsTheRun:
-    """The contract every write in this tier keeps."""
-
     async def test_a_client_that_raises_never_reaches_the_run(self) -> None:
         fold, store, _client = make_fold(client=FakeClient(raises=True))
         fold.observe(phase_event(PHASE_PLANNING_STARTED))
@@ -427,7 +401,6 @@ class TestNothingFailsTheRun:
         assert fold.snapshot()["phases"] == []
 
     async def test_the_wrapped_store_still_stores_everything(self) -> None:
-        """Wrapping the event store must not cost the stream a single event."""
         fold, store, _client = make_fold()
         wrapped = fold.observing(store)
         wrapped.store(phase_event(PHASE_PLANNING_STARTED))
@@ -440,8 +413,6 @@ class TestNothingFailsTheRun:
 
 
 class TestTheContract:
-    """What the fold sends is what the BFF's own schema accepts (ADR-0055)."""
-
     async def test_every_body_a_whole_run_sends_validates(self, schema: dict[str, Any]) -> None:
         fold, store, client = make_fold()
         fold.observe(phase_event(PHASE_PLANNING_STARTED))
@@ -468,7 +439,6 @@ class TestTheContract:
             ledger.validate(payload)
 
     async def test_an_over_long_intent_is_cut_before_it_is_sent(self, schema: dict[str, Any]) -> None:
-        """A producer cuts to length; being refused is not a plan."""
         fold, store, _client = make_fold()
         fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=1, conclusion="ü" * 400))
         await fold.flush(force=True)

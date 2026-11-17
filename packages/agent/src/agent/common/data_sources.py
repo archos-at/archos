@@ -163,6 +163,11 @@ def disabled_source_notice(tool_name: str, disabled: Iterable[str], args: Any = 
         return None
     meta = get_source(source_id)
     label = meta.name if meta else source_id.replace("_", " ").title()
+    from agent.common.law_gate import withheld_notice
+
+    # A legal database the knowledge context withholds is not switched off: say what is missing (ADR-0175).
+    if (gated := withheld_notice(source_id, label)) is not None:
+        return gated
     return (
         f"Not executed: {label} is switched off for this conversation. "
         f"Answer with what you already have, and state in the text that {label} was not consulted."

@@ -187,7 +187,7 @@ export const documentVersions = pgTable(
      * a `revision` task instead — a conversation gets the block, unattended
      * work gets the row.
      *
-     * `text` with no foreign key, as `job_runs.conversation_id` is: the honest
+     * `text` with no foreign key: the honest
      * constraint would be the composite `(conversation_id, organization_id)`,
      * which is worth its cost on a row that decides access and not on one that
      * decides prose.

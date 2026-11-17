@@ -13,6 +13,11 @@ Richtlinien PDFs on disk, and the corpus is licensed material that belongs to
 whoever operates the platform, so this directory ships **empty**: 71 MB of
 binaries in git made every clone pay for documents that change once a year.
 Put the PDFs here yourself; those tests skip when there are none.
+Every URL is the publisher's own, under `https://www.oib.or.at/wp-content/uploads/`: the 2019 and 2015
+editions, RL 6 2025 and RL 1 2019 at its root, and the Mai 2023 editions in `richtlinien/richtlinie_2023/`
+(RL 1 2023 and RL 5 2023 also sit at the root, RL 1 as `oib-rl_1_ausgabe_mai_2023_0.pdf`). The platform's
+released source record `at-oib` (`access.documents`) lists them; check each file's sha256 against the platform's text of that
+manifestation before you measure with it.
 
 `*.pdf` here is gitignored. Do not commit the corpus back.
 
@@ -28,7 +33,20 @@ one spelling:
 | Erläuterungen | `erlaeuterungen_oib-rl_2.1_…` | `erlaeuterungen-zu-oib-richtlinie_2.2_…` |
 | Änderungen | `aenderungen_oib-rl_2.1_…` | `aenderungen_oib-richtlinie_2.2_…` |
 
-`canonical_oib_file_name` maps both spellings onto one before parsing. The
+The other editions a Land still binds keep oib.or.at's names too, which follow
+neither column:
+
+| Edition | Published name |
+|---|---|
+| Ausgabe April 2019 | `oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf` (and RL 2–6 alike); RL 1 is `richtlinie_1_12.04.19_0.pdf` |
+| Ausgabe September 2025 | `oib-rl_6_september_2025.pdf` |
+| Ausgabe März 2015 | `oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf` |
+
+`canonical_oib_file_name` (`agent/common/oib_file_names.py`) maps every spelling
+onto one before parsing; each of these eleven is a manifestation's `corpusFile`
+in `configs/knowledge-packs/at.json`. Tying a passage to its edition by its
+file's name is the bridge until retrieval reads the edition from the chunk's
+`edition_id`. The
 Änderungen diff documents are kept out of retrieval by name
 (`knowledge_search.exclude_file_names` in `configs/config_oib_openrouter.yml`),
 so a new published name there needs a new line in that list;

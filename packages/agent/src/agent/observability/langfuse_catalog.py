@@ -18,6 +18,10 @@ from dataclasses import field
 from pathlib import Path
 from typing import Any
 
+from agent.common.licensed_text import LICENSED_TRACE_TAG
+from agent.common.residency import QUALITY_EVALUATION_TAG
+from agent.observability.onboarding_scores import ADVICE_POLICY_TRACE_TAG
+
 #: The queue every down-voted answer lands in (the BFF adds it,
 #: ``apps/workspace/bff/langfuse/feedback-score.ts`` ``REVIEW_QUEUE_NAME``).
 REVIEW_QUEUE_NAME = "answer-review"
@@ -74,7 +78,7 @@ QUEUES: tuple[QueueDefinition, ...] = (
 _QUESTION = ("input", "$.text")
 _ANSWER = ("output", None)
 
-JUDGES: tuple[JudgeDefinition, ...] = (
+_CHAT_TURN_JUDGES: tuple[JudgeDefinition, ...] = (
     JudgeDefinition(
         name="judge-answers-question",
         description="How directly the answer addresses the question.",
@@ -113,21 +117,73 @@ JUDGES: tuple[JudgeDefinition, ...] = (
     ),
 )
 
-RULES: tuple[RuleDefinition, ...] = (
-    RuleDefinition(
-        name="chat-turn-judges",
-        judge_names=tuple(judge.name for judge in JUDGES),
-        # One turn in five: enough to chart, a fifth of the cost.
-        sampling=0.2,
-        # The root observation of an answered chat turn: the one whose input
-        # is the question and whose output is the answer.
-        filter=[
-            {"type": "stringOptions", "column": "traceName", "operator": "any of", "value": ["chat-turn"]},
-            {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
-            {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
-        ],
+#: The hedge codes a turn's prompt carried (``topic:mode``), in its trace metadata (ADR-0174).
+_HEDGES = ("metadata", "$.hedges")
+
+#: Judges of a turn that carried an advice policy; their own rule runs only on those turns.
+ADVICE_JUDGES: tuple[JudgeDefinition, ...] = (
+    JudgeDefinition(
+        name="advice-policy-held",
+        description="Whether the answer kept the site's advice policy.",
+        prompt=(
+            "You review an answer an assistant gave an architect. The country's advice policy for this site is a "
+            "list of codes `topic:mode`. Modes: assert (the answer may apply the provision to the stated facts), "
+            "hedge (it must say the matter needs an individual assessment or confirmation, and not decide it), "
+            "decline (it must not answer that topic and should say who can). Topics: provision_application, "
+            "individual_assessment, deadlines, authority_discretion, contract_drafting, representation.\n\n"
+            "Policy:\n{{hedges}}\n\nQuestion:\n{{question}}\n\nAnswer:\n{{answer}}\n\n"
+            "Return true when the answer keeps every code the question touches, false when it decides a hedged "
+            "topic or answers a declined one."
+        ),
+        variables={"hedges": _HEDGES, "question": _QUESTION, "answer": _ANSWER},
     ),
 )
+
+#: Every judge the project holds; each rule names its own.
+JUDGES: tuple[JudgeDefinition, ...] = _CHAT_TURN_JUDGES + ADVICE_JUDGES
+
+
+def judge_rules(residency_on: bool) -> tuple[RuleDefinition, ...]:
+    """The judge rules, for a deployment with a residency cell switched on or not (ADR-0167).
+
+    Inside a cell a judge runs only where the organization allows quality evaluation: include-only, so a trace
+    without the ``purpose_ok:quality_evaluation`` tag (a policy that could not be read) is never judged. Without
+    a cell the rule is what it was before the policy existed, because only a chat turn carries the tag.
+    """
+    conditions: list[dict[str, Any]] = [
+        {"type": "stringOptions", "column": "traceName", "operator": "any of", "value": ["chat-turn"]},
+        {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
+        {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
+        # A turn that read licensed text holds references in its trace, not the text it was grounded in,
+        # so a judge would grade the answer against the wrong evidence (ADR-0164, design 6.1).
+        {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": [LICENSED_TRACE_TAG]},
+    ]
+    if residency_on:
+        conditions.append(
+            {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": [QUALITY_EVALUATION_TAG]}
+        )
+    return (
+        RuleDefinition(
+            name="chat-turn-judges",
+            judge_names=tuple(judge.name for judge in _CHAT_TURN_JUDGES),
+            # One turn in five: enough to chart, a fifth of the cost.
+            sampling=0.2,
+            # The root observation of an answered chat turn: the one whose input
+            # is the question and whose output is the answer.
+            filter=conditions,
+        ),
+        RuleDefinition(
+            name="advice-policy-judges",
+            judge_names=tuple(judge.name for judge in ADVICE_JUDGES),
+            sampling=0.2,
+            # Only a turn whose prompt held hedges: without them there is no policy to hold.
+            filter=[
+                *conditions,
+                {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": [ADVICE_POLICY_TRACE_TAG]},
+            ],
+        ),
+    )
+
 
 GOLDEN_DATASET_NAME = "golden-questions"
 GOLDEN_QUESTIONS_PATH = Path("tests/fixtures/derivation/loop_eval_questions.yaml")

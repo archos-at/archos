@@ -44,7 +44,6 @@ describe('readDocumentStatuses', () => {
     expect(fetcher).toHaveBeenCalledTimes(3)
     expect(reads.get('a')).toEqual({ kind: 'row', fields: { status: 'completed', summary: 'S' } })
     expect(reads.get('b')).toEqual({ kind: 'gone' })
-    // A failed read is no answer, and the next tick asks again.
     expect(reads.has('c')).toBe(false)
   })
 
@@ -98,7 +97,6 @@ describe('mergeStatusReads', () => {
       ['a', 'completed', 4],
       ['b', 'completed', null],
     ])
-    // Untouched rows keep their identity, so nothing downstream re-renders for them.
     expect(merged[1]).toBe(rows[1])
   })
 
@@ -128,7 +126,6 @@ describe('trackedPatchFromStatus', () => {
 
   it('settles every spelling of a failure as failed', () => {
     expect(trackedPatchFromStatus('error', 'Kaputt')).toEqual({ status: 'failed', errorMessage: 'Kaputt' })
-    // No reason in the read: the patch leaves the row's own reason alone.
     expect(trackedPatchFromStatus('quarantined')).toEqual({ status: 'held' })
     expect(trackedPatchFromStatus('failed')).toEqual({ status: 'failed' })
   })

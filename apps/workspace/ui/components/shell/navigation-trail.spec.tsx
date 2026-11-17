@@ -46,8 +46,6 @@ describe('NavigationTrail', () => {
   })
 
   test('names the location it is mounted on, recording the visit if nobody has yet', async () => {
-    // Child effects run before the root recorder's, so this must not depend on
-    // the entry already existing.
     pathname = '/app/projects/p1/files'
     render(<NavigationTrailLabel label="Stadthaus Wien" />)
     await waitFor(() =>

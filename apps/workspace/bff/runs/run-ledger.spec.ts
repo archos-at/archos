@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The bound on the run ledger, and the moves that grow one.
- *
- * What is under test is not "does it copy fields". It is the three properties a
- * reader's safety rests on: the key set is CLOSED, every list and string is
- * BOUNDED, and everything the ledger can check for itself is DERIVED rather than
- * believed. The hostile payload at the end is the whole file in one case.
- */
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -32,6 +24,10 @@ import {
   MAX_NAME_CHARS,
   MAX_OPEN_POINTS,
   MAX_STEPS,
+  RUN_LEDGER_LIFECYCLE,
+  RUN_STATUSES,
+  TERMINAL_RUN_STATUSES,
+  isTerminalRunStatus,
   modernizeRunLedger,
   runLedgerRequestSchema,
   type RunStep,
@@ -76,9 +72,6 @@ describe('sanitizeRunLedger', () => {
     expect(
       sanitizeRunLedger({ runId: 'run-1', status: 'running', phases: [], steps: [] }),
     ).toBeNull()
-    // `startedAt` is not optional in the type and inventing "now" for a stored
-    // row would date a week-old run to whenever somebody opened it, so it falls
-    // back to another instant the ledger itself carries.
     const recovered = sanitizeRunLedger({
       runId: 'run-1',
       steps: [step()],
@@ -106,7 +99,6 @@ describe('sanitizeRunLedger', () => {
       steps: [
         {
           ...step(),
-          // The one field this ledger is defined by not having.
           tool: 'search_norms',
           docs: [{ name: 'oib-2.pdf', loci: ['S. 12'], provider: 'milvus' }],
         },
@@ -126,7 +118,6 @@ describe('sanitizeRunLedger', () => {
       steps: many(MAX_STEPS + 12, (index) => step({ id: `step-${index}` })),
     })
     expect(ledger?.steps).toHaveLength(MAX_STEPS)
-    // The FIRST steps are kept: the beginning of a run is what explains it.
     expect(ledger?.steps[0].id).toBe('step-0')
 
     const docs = sanitizeRunLedger({
@@ -362,8 +353,6 @@ describe('the moves', () => {
       { phase: 'researching', startedAt: T1.toISOString() },
     ])
     expect(applied.steps).toEqual([step()])
-    // The stated status wins over the „läuft" a step implies: a run that has
-    // asked the person a question is waiting, whatever it did just before.
     expect(applied.status).toBe('waiting')
   })
 
@@ -375,6 +364,85 @@ describe('the moves', () => {
     expect(applyRunLedgerFinish(ledger, { error: { reason: 'Zeitüberschreitung' } }, T2).status).toBe(
       'failed',
     )
+  })
+})
+
+describe('an ended ledger stays ended', () => {
+  const researching = () => appendStep(openPhase(emptyRunLedger('run-1', T0), 'researching', T0), step(), T1)
+  const reaped = () => failRun(researching(), 'Der Lauf wurde nicht mehr gefunden.', T1)
+
+  it('declares no move from an ended state to a state that has not ended', () => {
+    for (const move of RUN_LEDGER_LIFECYCLE.moves) {
+      if (isTerminalRunStatus(move.from)) expect(TERMINAL_RUN_STATUSES).toContain(move.to)
+    }
+    const live = RUN_STATUSES.filter((status) => !isTerminalRunStatus(status))
+    expect(live.every((status) => RUN_LEDGER_LIFECYCLE.liveStates.includes(status))).toBe(true)
+    expect(RUN_LEDGER_LIFECYCLE.finalStates.every(isTerminalRunStatus)).toBe(true)
+  })
+
+  it.each(['created', 'running', 'waiting', 'done', 'cancelled', 'interrupted'] as const)(
+    'keeps a failed ledger failed when a late flush says %s',
+    (status) => {
+      const failed = reaped()
+      expect(applyRunLedgerAppend(failed, { status }, T2)).toBe(failed)
+    },
+  )
+
+  it('keeps the reaper’s failure when the worker it gave up on finishes after all', () => {
+    const failed = reaped()
+    expect(applyRunLedgerFinish(failed, { result: { filedAt: T2.toISOString() } }, T2)).toBe(failed)
+    expect(applyRunLedgerFinish(failed, { error: { reason: 'Etwas anderes.' } }, T2)).toBe(failed)
+  })
+
+  it('keeps a cancel against a result and against an error', () => {
+    const cancelled = setRunStatus(researching(), 'cancelled', T1)
+    expect(applyRunLedgerFinish(cancelled, { result: { filedAt: T2.toISOString() } }, T2)).toBe(cancelled)
+    expect(applyRunLedgerFinish(cancelled, { error: { reason: 'Zeitüberschreitung' } }, T2)).toBe(cancelled)
+    expect(setRunStatus(cancelled, 'running', T2)).toBe(cancelled)
+  })
+
+  it('keeps a salvaged run interrupted when its result arrives, and takes the result', () => {
+    const interrupted = setRunStatus(researching(), 'interrupted', T1)
+    const finished = applyRunLedgerFinish(interrupted, { result: { filedAt: T2.toISOString(), reportMessageId: 'm-1' } }, T2)
+    expect(finished.status).toBe('interrupted')
+    expect(finished.result).toEqual({ filedAt: T2.toISOString(), reportMessageId: 'm-1' })
+    expect(finished.finishedAt).toBe(T2.toISOString())
+    expect(finished.phases.every((entry) => entry.endedAt)).toBe(true)
+  })
+
+  it('lets a finished run become interrupted, the one move between two endings', () => {
+    const done = finishRun(researching(), { filedAt: T1.toISOString() }, T1)
+    expect(setRunStatus(done, 'interrupted', T2).status).toBe('interrupted')
+    expect(setRunStatus(setRunStatus(done, 'interrupted', T2), 'done', T2).status).toBe('interrupted')
+  })
+
+  it('completes a settled ending with what the worker knows, and keeps when it ended', () => {
+    const settledByOutcome = finishRun(researching(), { filedAt: T1.toISOString() }, T1)
+    const completed = finishRun(settledByOutcome, { filedAt: T2.toISOString(), reportMessageId: 'm-1' }, T2)
+    expect(completed.status).toBe('done')
+    expect(completed.result).toEqual({ filedAt: T1.toISOString(), reportMessageId: 'm-1' })
+    expect(completed.finishedAt).toBe(T1.toISOString())
+  })
+
+  it('gives a failure its reason once: the status first, then the finish op, and no second reason', () => {
+    const failed = setRunStatus(researching(), 'failed', T1)
+    const explained = failRun(failed, 'Zeitüberschreitung', T2)
+    expect(explained.error?.reason).toBe('Zeitüberschreitung')
+    expect(failRun(explained, 'Etwas anderes.', T2)).toBe(explained)
+  })
+
+  it('still takes the last sealed step after the ending, without moving the status', () => {
+    const failed = reaped()
+    const late = applyRunLedgerAppend(failed, { steps: [step({ id: 'step-2' })], status: 'running' }, T2)
+    expect(late.steps.map((entry) => entry.id)).toEqual(['step-1', 'step-2'])
+    expect(late.status).toBe('failed')
+    expect(late.error).toEqual(failed.error)
+    expect(late.finishedAt).toBe(failed.finishedAt)
+  })
+
+  it('does not take a running ledger back to created', () => {
+    const running = researching()
+    expect(setRunStatus(running, 'created', T2)).toBe(running)
   })
 })
 

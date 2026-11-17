@@ -156,7 +156,10 @@ export async function sweepStaleReceptions(now: Date): Promise<SweepCounts> {
 /**
  * Sweep 2: received mail whose job is gone gets it again. A mail whose job is
  * dead is not listed: the queue reported it when it died, and it is queued
- * again here once the queue's retention prunes the dead row.
+ * again here once the queue's retention prunes the dead row. A job that fails
+ * on its last attempt holds the mail unreadable first (`holdAfterFailure`,
+ * `./receive-job.ts`), so that mail is `waiting` and never reaches this sweep;
+ * only a mail that could not be held (the database down) is retried this way.
  */
 export async function sweepOrphanedReceptions(now: Date): Promise<SweepCounts> {
   const result = counts('requeued')

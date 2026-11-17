@@ -10,6 +10,7 @@ import { inboundMailAppEnv } from "../config/inbound-mail";
 import { API_TIER, CHAT_TIER } from "./tier-names";
 import { posthogEnv } from "./posthog-env";
 import { hatchetEnv } from "./hatchet-env";
+import { publicSourceFetcherEnv } from "./public-source-fetcher";
 import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
 import type { ModelWorkload } from "../config/app-services";
 import { heavyFileBytesEnv } from "../config/workers";
@@ -267,6 +268,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     // How long a terminating replica waits for its turns; the pod's grace period
     // is this plus the endpoint drain and slack (`backendRollout`).
     { name: "CHAT_DRAIN_SECONDS", value: String(cfg.backend.drainSeconds) },
+    ...publicSourceFetcherEnv(),
     // Project-memory write path (backend → frontend BFF).
     { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
     sref("INTERNAL_API_TOKEN"),
@@ -279,11 +281,10 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
     { name: "WORKOS_CLIENT_ID", value: cfg.auth.workosClientId },
     // OTLP tracing via the cluster collector (ADR-0029 amendment). Producers
-    // send plain OTLP in-cluster — the collector alone holds the Langfuse
-    // key. HTTP/protobuf to :4318 — the full /v1/traces path is required: the
-    // The agent-runtime exporter posts to the endpoint as-is (path appending only happens
-    // for SDK env-var defaults, not for an endpoint the config passes
-    // explicitly). OTEL_SERVICE_NAME becomes service.name on the spans so
+    // send plain OTLP in-cluster — the collector alone holds the Langfuse key.
+    // HTTP/protobuf to :4318 with the full /v1/traces path: the agent-runtime exporter posts
+    // to the endpoint as-is (only SDK env-var defaults get the path appended).
+    // OTEL_SERVICE_NAME becomes service.name on the spans so
     // chat tier and worker tier are distinct resources in Langfuse.
     // Injected only when the observability tier is deployed — otherwise every
     // span export would retry against a Service that doesn't exist.
@@ -553,6 +554,8 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     { name: "PLATFORM_ORG_EXTERNAL_ID", value: cfg.auth.platformOrgExternalId },
     { name: "DISABLE_SELF_SERVE_ORGS", value: String(cfg.auth.disableSelfServeOrgs) },
     { name: "AUDIT_LOGS_ENABLED", value: String(cfg.auth.auditLogsEnabled) },
+    // Platform knowledge governance: `true` lets one operator approve and publish alone (dev only).
+    { name: "KNOWLEDGE_SINGLE_OPERATOR", value: String(cfg.auth.knowledgeSingleOperator) },
     // Shared cache + WS rate limiting (needed for >1 replica correctness).
     // Authenticated: the URL carries the password, so it comes from the Secret.
     sref("REDIS_URL"),
@@ -582,7 +585,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // marked failed (retryable); .xlsx/.xlsm index without preview.
     ...(w.gotenbergUrl ? [{ name: "GOTENBERG_URL", value: w.gotenbergUrl }] : []),
     // Address search for the project dialog (ADR-0151), behind `/api/geocode`:
-    // komoot's public Photon unless the stack names another. Empty ⇒ the route
+    // off unless the stack sets `geocoderUrl` (ADR-0159). Empty ⇒ the route
     // answers `enabled: false` and the address stays a plain text field.
     ...(cfg.geocoderUrl ? [{ name: "GEOCODER_URL", value: cfg.geocoderUrl }] : []),
     // The malware scanner (ADR-0157): the in-cluster clamd, never anything

@@ -1,5 +1,3 @@
-"""ADR-0064 use 12: a fingerprint value is suggested only when its quote states it."""
-
 from __future__ import annotations
 
 import pytest
@@ -35,7 +33,6 @@ def _value(key: str, value: str | list[str], quote: str) -> FingerprintValue:
 
 
 def _answering(monkeypatch: pytest.MonkeyPatch, by_value: dict[str, float | None]) -> list[dict]:
-    """Jev answering p(stated) by the value's label; None for a call that failed."""
     seen: list[dict] = []
 
     def decide(states, questions, **kwargs):
@@ -108,7 +105,6 @@ def test_a_failing_client_leaves_the_reading_as_it_was(monkeypatch):
 
 
 def test_a_value_stated_only_through_what_a_reader_knows_is_kept(monkeypatch):
-    """Measured: „Stadtgemeinde Mödling" scored 0.24 for Niederösterreich. Only a clear contradiction drops."""
     _answering(monkeypatch, {"Wien": 0.24})
     value = _value("federal_state", "vienna", "Magistratsabteilung 37")
 

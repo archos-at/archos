@@ -1,9 +1,3 @@
-/**
- * The work list's data (ADR-0132): action steps folded from the wire, grouped
- * by round, the prefetch drawing none; same-kind calls folded and a long round
- * worst first; the call id that links a row to its cards surviving the
- * sanitizer a reload goes through; and the words of each row.
- */
 import { describe, expect, test } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -40,7 +34,6 @@ import {
 } from './work-sentence'
 import { normalizeFileName } from './citations'
 
-/** The no-break space the copy binds a number to its noun with. */
 const NB = '\u00A0'
 
 describe('the fold of an action', () => {
@@ -81,7 +74,6 @@ describe('the fold of an action', () => {
         counts: { files: 3 },
       },
     ])
-    // storedSteps stamps ts = origin + seq * 10
     expect(Date.parse(row.timestamp)).toBe(1_759_000_000_000 + 10 - 500)
     expect(row.action?.counts).toEqual({ files: 3 })
   })
@@ -108,7 +100,6 @@ describe('the fold of an action', () => {
     const kept = sanitizeThinkingSteps(JSON.parse(JSON.stringify(steps)))!
     expect(kept.find((step) => step.id === 'call:c4')!.callId).toBe('call:c4')
     expect(kept.find((step) => step.id === 'sources:call:c4')!.callId).toBe('call:c4')
-    // Only an action or a sources step carries one; and it is bounded like the wire bounds it.
     const [status] = sanitizeThinkingSteps([{ ...steps[0], kind: 'status', callId: 'x' }])!
     expect(status.callId).toBeUndefined()
     const [long] = sanitizeThinkingSteps([{ ...read, callId: 'x'.repeat(200) }])!
@@ -177,7 +168,6 @@ describe('workRounds', () => {
     expect(followed.map((round) => [round.round, round.rows.map((row) => row.id)])).toEqual([
       [1, ['w', 'r']],
     ])
-    // Only the call that carries the prefetch round is the prefetch's.
     expect(followed.flatMap(allRows).map((row) => row.id)).not.toContain('p0')
   })
 
@@ -193,7 +183,6 @@ describe('workRounds', () => {
 
   test('a call left running when its turn ended ranks with the empty ones, not the found', () => {
     const steps = storedSteps(
-      // Six calls of six kinds: nothing folds, the round is over five rows.
       (['search', 'list', 'web', 'law', 'model', 'read'] as const).map((verb, index) => ({
         id: index === 5 ? 'f' : verb,
         call_id: verb,
@@ -205,7 +194,6 @@ describe('workRounds', () => {
         status: index === 5 ? 'running' : 'ok',
       }))
     )
-    // storedSteps settles every step: the turn is over, `f` never finished.
     const [round] = workRounds(steps)
     expect(round.rows[0].id).toBe('f')
     expect(round.rows[0].running).toBe(false)
@@ -331,7 +319,6 @@ describe('workParts', () => {
       result: `14${NB}Treffer in 3${NB}Dokumenten`,
       tone: 'ok',
     })
-    // „von 41“ went by the value test: the place proves, the denominator does not.
     expect(text({ verb: 'search', status: 'ok', query: 'Fläche', counts: { hits: 1 } })).toBe(
       `Sucht „Fläche“: 1${NB}Treffer`
     )
@@ -347,7 +334,6 @@ describe('workParts', () => {
       })
     ).toEqual({
       verb: 'Sucht in',
-      // „OIB‑RL“ never breaks at its hyphen (U+2011).
       object: 'OIB\u2011RL 2, Ausgabe 2023: „Brandabschnitt Tiefgarage“',
       result: 'kein Treffer',
       tone: 'empty',
@@ -379,7 +365,6 @@ describe('workParts', () => {
         { where: 'oben rechts', reading: 'BA 2: 1.420 m²' }
       )
     ).toBe(`Betrachtet EG.pdf, S.${NB}2, oben rechts: BA 2: 1.420 m²`)
-    // A long reading is no figure for the row's right edge.
     expect(
       workParts(t, { verb: 'look', status: 'ok', target: 'EG.pdf' }, { reading: 'x'.repeat(80) })
         .result
@@ -420,7 +405,6 @@ describe('workParts', () => {
     expect(text({ verb: 'workspace', status: 'ok', target: 'task-list' })).toBe(
       'Arbeitsbereich: task-list'
     )
-    // Without a target, the fallback sentence stands alone.
     expect(workParts(t, { verb: 'read', status: 'ok' })).toMatchObject({
       verb: '',
       object: 'Liest ein Dokument',
@@ -473,7 +457,6 @@ describe('workParts', () => {
       verb: '',
       object: `4${NB}Abfragen am Gebäudemodell`,
     })
-    // Reading, looking and opening keep their verb: „Liest 7 Dokumente“ reads.
     expect(workParts(t, { verb: 'list', status: 'ok', target: 'a' }, { fold })).toMatchObject({
       verb: 'Öffnet',
       object: `4${NB}Ordner`,
@@ -485,7 +468,6 @@ describe('workParts', () => {
     expect(quoteQuery(t, '"Brandabschnitt"')).toBe('Brandabschnitt')
     expect(quoteQuery(t, '„Brandabschnitt“ Tiefgarage')).toBe('‚Brandabschnitt‘ Tiefgarage')
     expect(quoteQuery(t, 'Fluchtweg "max 40 m" GK4')).toBe('Fluchtweg ‚max 40 m‘ GK4')
-    // Two quoted parts are no wrapper: both turn inner.
     expect(quoteQuery(t, '"a" und "b"')).toBe('‚a‘ und ‚b‘')
     expect(text({ verb: 'search', status: 'ok', query: '„Brandabschnitt“ Tiefgarage' })).toBe(
       'Sucht „‚Brandabschnitt‘ Tiefgarage“'

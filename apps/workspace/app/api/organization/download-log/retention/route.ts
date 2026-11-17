@@ -5,7 +5,7 @@
  *       `settings.downloadLogRetentionDays` (the generic settings save refuses
  *       the key): whole days from 30 to 365, never longer. Audited with the
  *       value before and after. A shorter time takes effect at the next daily
- *       purge by the scheduler.
+ *       purge by the `download-log-retention` cron task.
  */
 
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'

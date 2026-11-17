@@ -40,10 +40,6 @@ const deletedKeys = () =>
 
 const IMG_PREFIX = 'org/org-1/project/proj-1/doc/doc-1/_img/'
 
-/**
- * `send` answers a listing with the stored keys under its prefix, as S3 does, and every
- * delete with success. `truncated` pages the first listing of a prefix that holds keys.
- */
 const storedRasters = (keys: string[], { truncated = false }: { truncated?: boolean } = {}) => {
   const pages = new Map<string, number>()
   send.mockImplementation(async (command: unknown) => {
@@ -83,8 +79,6 @@ describe('deleteDerivedObjects', () => {
     expect(deleteBimDerivedObjects).toHaveBeenCalledWith(doc.storageKey, 'test-bucket')
   })
 
-  // A Word file turned PDF is the Word file's content; leaving it behind after
-  // "delete" is the same disclosure as leaving the original (ADR-0070).
   it('reports a rendition it could not remove instead of moving on', async () => {
     send.mockImplementation(async (command: unknown) => {
       if (command instanceof DeleteObjectCommand && command.input.Key?.endsWith('/_render.pdf')) {
@@ -120,9 +114,6 @@ describe('deleteDerivedObjects', () => {
     expect(result.reason).toMatch(/bim derivatives/)
   })
 
-  // The rasters are cut out of the private file, so leaving them behind after
-  // "delete" is a disclosure. The count is only known by listing, hence the
-  // prefix sweep rather than a fixed sibling name.
   it('sweeps the _img/ prefix the ingest pipeline stored rasters under', async () => {
     storedRasters([`${IMG_PREFIX}0.jpg`, `${IMG_PREFIX}1.jpg`])
 
@@ -174,11 +165,6 @@ describe('deleteDerivedObjects', () => {
   })
 })
 
-/**
- * The project and Archiv deletes used to erase the live object by hand — the
- * file, `_thumb.jpg` and `_bim/`, never the `_img/` rasters — and to swallow
- * every failure before deleting the row. They share this now.
- */
 describe('eraseDocumentObjectsOrKeepRow', () => {
   const live = { id: 'doc-1', ...doc }
 
@@ -210,7 +196,7 @@ describe('eraseDocumentObjectsOrKeepRow', () => {
       return {}
     })
 
-    await expect(eraseDocumentObjectsOrKeepRow(live, 'org-1')).resolves.toBeUndefined()
+    await expect(eraseDocumentObjectsOrKeepRow(live, 'org-1')).resolves.toEqual({ versionsLeft: 1 })
 
     expect(listDocumentVersionObjects).toHaveBeenCalledWith('doc-1', 'org-1')
     expect(deletedKeys()).toContain(v2Key)

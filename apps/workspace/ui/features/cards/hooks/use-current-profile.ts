@@ -3,13 +3,6 @@
 import { useEffect, useState } from 'react'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 
-/**
- * The project's profile as it is now, read once per project, for the „before“
- * column of a proposed change to it. On failure it stays null and the column is
- * hidden rather than guessed: the card never shows a „before“ it cannot vouch
- * for. Pass null to read nothing (a decided proposal: the profile already holds
- * the change).
- */
 export function useCurrentProfile(projectId: string | null | undefined): ProjectProfile | null {
   const [loaded, setLoaded] = useState<{ projectId: string; profile: ProjectProfile } | null>(null)
 

@@ -43,7 +43,6 @@ import { embedNote, embedNotes, enrichForEmbedding } from '@/lib/knowledge/embed
 import {
   countLessonsByStatus,
   createLessonFromReport,
-  evictActiveOverCapacity,
   expireStaleCandidates,
   flagIneffectiveActiveLessons,
   findLiveLessonByContent,
@@ -64,6 +63,7 @@ import {
   setLessonEmbedding,
   updateLessonWithEvent,
 } from './repository'
+import { activateLessonWithCapacity, evictActiveOverCapacity } from './capacity-repository'
 import {
   MAX_DISTILL_ANSWER_CHARS,
   MAX_DISTILL_COMMENT_CHARS,
@@ -120,10 +120,11 @@ export const LESSON_ADDRESSED_QUIET_DAYS = 14
  * at the rate people happen to vote — so the kick reads how much is waiting
  * (the sweep already over-fetches) and widens up to `KICK_BACKLOG_LIMIT`.
  *
- * This is why there is no scheduler container: the work is event-driven and
- * self-healing while anyone is voting, and a deployment where nobody votes is
- * also a deployment where no backlog forms. An operator who wants a clock can
- * point one at `POST /api/internal/platform-lessons/sweep`.
+ * The kick is not the only caller. It runs in the request's `after()`, which a
+ * pod that dies loses, and then the report waits for the next vote anywhere;
+ * the register's upkeep at the head of every sweep is due by date, not by
+ * vote. So the `platform-lessons-sweep` cron task runs one bounded sweep an
+ * hour (`runScheduledLessonSweep`, `bff/scheduling/tasks.ts`).
  */
 const KICK_SWEEP_LIMIT = 3
 const KICK_BACKLOG_LIMIT = 12
@@ -423,8 +424,8 @@ async function sweep(limit: number): Promise<SweepResult> {
 /**
  * Fire-and-forget kick after a down-vote lands (`next/server`'s `after` in the
  * feedback route). Never throws — a broken pipeline must not be able to break
- * voting, and anything it leaves behind is picked up by the next kick or the
- * manual sweep.
+ * voting, and anything it leaves behind is picked up by the next kick, the
+ * hourly sweep or the manual one.
  */
 export async function kickLessonDistillation(): Promise<void> {
   // A kick that finds a sweep already running has nothing to add: the running
@@ -464,11 +465,10 @@ export async function reopenReportForRedistillation(feedbackId: string): Promise
 
 
 /**
- * The same catch-up run, for the token-guarded internal trigger (an external
- * clock). No session: the internal token IS the authorization, exactly as it
- * is for the digest route this sits beside.
+ * The same catch-up run, for the hourly `platform-lessons-sweep` cron task on
+ * the `bff-jobs` worker (`bff/scheduling/sweeps.ts`). No session: nobody asked.
  */
-export async function runInternalLessonSweep(): Promise<SweepResult> {
+export async function runScheduledLessonSweep(): Promise<SweepResult> {
   if (sweepInFlight) await sweepInFlight.catch(() => undefined)
   try {
     sweepInFlight = withPlatformAccess('platform lessons: scheduled sweep', () =>
@@ -640,7 +640,7 @@ export async function updateLesson(
     }
 
     if (input.status === 'active' && existing.status !== 'active') {
-      row = await updateLessonWithEvent(
+      const activated = await activateLessonWithCapacity(
         lessonId,
         {
           status: 'active',
@@ -656,9 +656,10 @@ export async function updateLesson(
           actor,
           actorEmail,
           detail: { automatic: false },
-        }
+        },
+        MAX_ACTIVE_LESSONS
       )
-      await evictActiveOverCapacity(MAX_ACTIVE_LESSONS, actor)
+      row = activated?.row ?? null
     } else if (input.status === 'retired' && existing.status !== 'retired') {
       row = await updateLessonWithEvent(
         lessonId,

@@ -1,10 +1,3 @@
-/**
- * The detail opens on the mail (the owner's review, 2026-10-27): one line of
- * who, how far confirmed and when; the evidence (sent time, recipients, the
- * original with its warning, the expiry) one press away behind „Details“;
- * the expiry forward only in its last week; a clean scan silent.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -43,14 +36,12 @@ function renderDetail(name: string) {
 beforeEach(() => vi.clearAllMocks())
 
 describe('MailHeader', () => {
-  it('says who, how far confirmed and when in one line, and folds the evidence behind „Details“', async () => {
+  it('says who, then how far confirmed and when, and folds the evidence behind „Details“', async () => {
     renderDetail('member-verified')
     const line = screen.getByTestId('mail-header-line')
-    expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber ‹m.huber@huber-architektur.at›')
-    // Trust is never folded away.
+    expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber m.huber@huber-architektur.at')
     expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Domain verified: huber-architektur.at')
     expect(within(line).getByTestId('mail-header-received')).toBeInTheDocument()
-    // The original, its warning, the recipients and the expiry wait behind „Details“.
     expect(screen.queryByTestId('mail-original')).toBeNull()
     expect(screen.queryByText('Opens in your mail program; images from outside are loaded there.')).toBeNull()
     expect(screen.queryByText(/post@ma37\.wien\.gv\.at/)).toBeNull()
@@ -156,7 +147,6 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for Miriam Huber: the domain did not verify this mail.')
-    // Said once: no hypothetical about a member who left under the line, no second warning in the bar.
     expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('has left the office')
     expect(screen.getByTestId('claimed-mail-bar')).toHaveTextContent('Only Miriam Huber can file or restore this mail. You can dismiss it.')
     expect(screen.queryByTestId('decision-bar')).toBeNull()
@@ -179,6 +169,6 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('it expires after 14 days and cannot be restored')
     unmount()
     renderDetail('member-verified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('the sender may not file in this project. Check the mail and file what belongs in the project.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you to file it, because the sender may not file in this project.')
   })
 })

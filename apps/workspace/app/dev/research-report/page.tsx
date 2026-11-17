@@ -161,7 +161,7 @@ export default function ResearchReportPreviewPage() {
         className="text-foreground mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 md:p-8"
       >
         <header>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-xl font-semibold">
             Tiefenrecherche: Plan, Unterlagen, Befunde
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

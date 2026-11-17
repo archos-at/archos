@@ -1,5 +1,3 @@
-"""The intake eval's scoring and its fixture are under test; a run itself needs a model (``task be:eval:intake``)."""
-
 from __future__ import annotations
 
 import shutil
@@ -290,7 +288,6 @@ class TestTheFixture:
 
     @pytest.mark.skipif(shutil.which("bun") is None, reason="the intake route's logic runs under bun")
     def test_the_key_covers_every_need_of_the_stated_profile(self):
-        """The answer key is the wizard's question set: when a question is added or renamed, this fails first."""
         from scripts.intake_eval.bff import JOB_ID
         from scripts.intake_eval.bff import FakeIntakeBff
         from scripts.intake_eval.bff import Gate
@@ -363,15 +360,21 @@ class TestTheRoute:
                 {
                     "op": "record",
                     "jobId": JOB_ID,
-                    "values": [{"key": "building_type@bldg1", "value": "building", "evidence": evidence}],
+                    "values": [
+                        {"key": "federal_state", "value": "vienna", "evidence": evidence},
+                        {"key": "building_type@bldg1", "value": "building", "evidence": evidence},
+                    ],
                 }
             )
-            withdrawn = bff.withdraw({"op": "withdraw", "jobId": JOB_ID, "keys": ["building_type@bldg1", "country"]})
+            withdrawn = bff.withdraw(
+                {"op": "withdraw", "jobId": JOB_ID, "keys": ["building_type@bldg1", "federal_state", "country"]}
+            )
             needs = {need["key"] for need in bff.needs({"jobId": JOB_ID})["needs"]}
         finally:
             gate.close()
         assert {"key": "storeys_above_ground@bldg1", "decisive": True} in recorded["opened"]
         assert [(r["outcome"], r.get("reason")) for r in withdrawn["results"]] == [
+            ("withdrawn", None),
             ("withdrawn", None),
             ("refused", "nothing-suggested"),
         ]

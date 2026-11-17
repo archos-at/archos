@@ -5,16 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
-  // The route calls this in its catch block; the real impl returns null for a
-  // non-authz error (so the original error rethrows). Mirror that here.
 }))
 
 vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
 
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -72,7 +68,6 @@ describe('/api/conversations', () => {
         { id: 's_conv_2', organizationId: 'org_1', createdBy: 'user_1', title: 'Chat 2', projectId: null, createdAt: new Date(), updatedAt: new Date() },
       ]
       const whereFn = vi.fn().mockReturnThis()
-      // The bounded list query chains .orderBy().limit(); limit resolves rows.
       const orderByFn = vi.fn(() => ({ limit: vi.fn().mockResolvedValue(rows) }))
 
       mockGetDb.mockReturnValue(mockDbChain({
@@ -84,7 +79,6 @@ describe('/api/conversations', () => {
 
       expect(res.status).toBe(200)
       const json = await res.json()
-      // Paged (ADR-0131): an envelope, not a bare array. Two rows under the limit is the last page.
       expect(json.conversations).toHaveLength(2)
       expect(json.conversations[0].id).toBe('s_conv_1')
       expect(json.nextCursor).toBeNull()

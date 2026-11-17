@@ -1,13 +1,3 @@
-"""Who is asking, as the model reads it in the ``## Context`` block.
-
-What is load-bearing: a signed-in person is named from the verified token (the
-WorkOS JWT template's ``name``, ``email``, ``organization_name``); a turn nobody
-is signed in for (a scheduled run, a woken thread) is named from the signed
-envelope's ``requester``, which the BFF fills from the pinned session; the
-token wins a field it has and the envelope fills the rest; an envelope that
-failed its signature names nobody; nothing unknown renders as a placeholder.
-"""
-
 import base64
 import hashlib
 import hmac
@@ -30,7 +20,6 @@ ANNA = {"name": "Anna Weber", "email": "anna@example.at", "organizationName": "A
 def _context_block(user_info) -> str:
     state = ResearchAgentState(messages=[HumanMessage(content="?")], user_info=user_info)
     rendered = render_turn_context(system_prompt_template(), state, [])
-    # The head of the turn context: the date and who asks, up to the first section.
     head = rendered[rendered.index("<turn_context>") :]
     return head.split("\n\n", 1)[0] + "\n"
 
@@ -44,7 +33,6 @@ def _signed(payload: dict, secret: str = SECRET) -> RequestContext | None:
 
 @pytest.fixture
 def token(monkeypatch):
-    """The verified token's claims as the API middleware hands them over; None is no token."""
     holder: dict = {"claims": None}
 
     def principal():
@@ -84,7 +72,6 @@ def test_a_turn_nobody_is_signed_in_for_is_named_from_the_signed_envelope(token)
 
 
 def test_the_token_wins_a_field_it_has_and_the_envelope_fills_the_rest(token):
-    # A token minted before the template, say: it names nobody, the envelope does.
     token["claims"] = {"name": "  ", "email": "ben@example.at"}
     request = _signed({"requester": ANNA})
 

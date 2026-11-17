@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * What Piloti showed the person in their viewer during this answer (ADR-0144).
- *
- * One line per viewer action: the place, what became of it, and the one
- * control that fits. Moved: „Zurücknehmen“ puts the viewer back as it was, and
- * says so only when it did. Not moved (the person turned it off, was typing,
- * there was no room, or the action would cover or leave the chat): „Anzeigen“
- * runs it now. A document the person may not see says it is not available and
- * offers nothing. The switch on the latest answer with an action is the
- * person's choice whether Piloti opens places on its own (the same switch is on
- * the profile page); it starts off under reduced motion.
- *
- * Only the asker's page has rows, and none is stored with the answer, so a
- * spectator or a reload sees the answer without them. While the turn runs the
- * actions are held (`viewer-actions.ts`): the row appears with the answer's
- * first words, says each place waits for the finished answer, and „Anzeigen“
- * opens one at once. Only the status text is a live region: the person hears that their
- * viewer moved and where, not the buttons and the switch again.
- */
-
 import { useId, type FC } from 'react'
 import { ArrowUpRight, Box, Columns2, Highlighter, SquareDashed } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
@@ -48,7 +28,6 @@ const ICONS: Record<ViewerActionName, typeof ArrowUpRight> = {
 
 type T = ReturnType<typeof useTranslations>
 
-/** „Baubeschreibung.pdf, S. 4“, „Bereich in Grundriss EG.pdf, S. 1“, „Grundriss EG mit … vergleichen“. */
 export const describeViewerAction = (t: T, entry: ViewerActionEntry): string => {
   const { tool_call_name: name, args } = entry.call
   const place = args.page ? t('viewerActions.place', { name: args.document_name, page: args.page }) : args.document_name
@@ -59,11 +38,9 @@ export const describeViewerAction = (t: T, entry: ViewerActionEntry): string => 
   })
 }
 
-/** What became of the action, in the row's words. */
 export const viewerActionStatusText = (t: T, entry: ViewerActionEntry): string => {
   switch (entry.status) {
     case 'offered':
-      // The model view leaves the chat; a comparison covers it. Each says which.
       if (entry.reason === 'leaves' && entry.call.tool_call_name === 'focus_ifc_element') return t('viewerActions.offered.model')
       return t(`viewerActions.offered.${entry.reason ?? 'off'}`)
     case 'shown':
@@ -108,7 +85,7 @@ const Row: FC<{ entry: ViewerActionEntry }> = ({ entry }) => {
       )}
       {(entry.status === 'held' || entry.status === 'offered' || entry.status === 'undone') && (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="h-6 shrink-0 px-2"
           aria-label={t('viewerActions.showAria', { what })}
@@ -121,7 +98,6 @@ const Row: FC<{ entry: ViewerActionEntry }> = ({ entry }) => {
   )
 }
 
-/** The person's choice whether Piloti opens places on its own: here, and on the profile page. */
 export const ViewerActionsSwitch: FC<{ className?: string }> = ({ className }) => {
   const t = useTranslations(chatCopy)
   const switchId = useId()

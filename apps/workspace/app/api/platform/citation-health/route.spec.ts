@@ -10,7 +10,6 @@ vi.mock('@/lib/auth/session', () => ({
 }))
 
 vi.mock('@/lib/authz/platform', () => {
-  // Defined inside the factory: vi.mock is hoisted above module-level classes.
   class PlatformAccessDeniedError extends Error {
     readonly status = 403
   }
@@ -91,7 +90,6 @@ describe('GET /api/platform/citation-health', () => {
     expect(body.totals.cleanRate).toBe(0.88)
     expect(body.organizations[0].name).toBe('Tenant')
     expect(body.reasons[0].reason).toBe('url_not_in_registry')
-    // The fields the dashboard needs to say what it is NOT showing.
     expect(body).toMatchObject({
       inventoryKnown: false,
       missingSourcesTotal: 0,

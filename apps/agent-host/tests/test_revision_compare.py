@@ -1,11 +1,3 @@
-"""The Fassung comparison route: two page images in one vision call, boxes and words out.
-
-``POST /v1/collections/{collection}/revision-compare``. The model is a fake: what is pinned is
-the contract (what is sent, what is parsed and dropped, what is cached, what is traced and
-what is refused), not the quality of any model's eyes. The pure parsing is exercised
-directly, the route through its real handler.
-"""
-
 import json
 import uuid
 from unittest.mock import AsyncMock
@@ -26,7 +18,9 @@ from agent.common import cache
 from agent.knowledge import revision_compare as compare
 from agent.knowledge.schema import AvailableDocument
 from agent.observability import direct_trace
+from agent.project_context import ORGANIZATION_ID_HEADER
 from agent_host.routes import revision_compare as route
+from agent_host.routes.internal_auth import _TOKEN_HEADERS
 from agent_host.routes.revision_compare import add_revision_compare_routes
 
 COLLECTION = "proj_a"
@@ -53,7 +47,6 @@ def _model_reply(changes=None, summary=None) -> dict:
 
 
 def _gateway(data: dict | None = None, error: Exception | None = None):
-    """The vision endpoint as ``httpx.AsyncClient`` sees it; returns the class double and its ``post``."""
     response = MagicMock(spec=httpx.Response)
     response.status_code = 200
     response.raise_for_status = MagicMock()
@@ -75,9 +68,15 @@ def _environment(monkeypatch):
     cache.reset_local_store()
 
 
+@pytest.fixture(autouse=True)
+def licence(monkeypatch):
+    state = {"value": None}
+    monkeypatch.setattr("agent.tools.look.place.document_licence", lambda collection, name: state["value"])
+    return state
+
+
 @pytest.fixture
 def pages(monkeypatch):
-    """Page loader double: distinct bytes per file and page, unless a test makes a page unavailable."""
     unavailable: set[str] = set()
     asked: list[tuple[str, str, int, str | None]] = []
     salt = uuid.uuid4().hex
@@ -126,8 +125,6 @@ class TestTheRoute:
 
         assert response.status_code == 200
         body = response.json()
-        # The trace id is whatever tracer the process has (another test may have
-        # installed one); the test that installs its own pins the value.
         assert set(body) >= {"trace_id"}
         body.pop("trace_id")
         assert body == {
@@ -293,7 +290,6 @@ class TestTracing:
         assert response.json()["trace_id"] == format(span.get_span_context().trace_id, "032x")
 
     async def test_the_vision_call_is_booked_to_the_named_organization_and_person(self, pages, ingested, monkeypatch):
-        """A notice's spend reaches the ledger the budget gate reads; a cache hit books nothing (ADR-0130)."""
         from agent.common import cost_tracking
 
         posted: list[dict] = []
@@ -335,8 +331,6 @@ class TestTracing:
 
 
 class TestChangedPages:
-    """``revision-pages``: the newer Fassung's changed pages, from the index, without a model call."""
-
     @pytest.fixture
     def stored(self, monkeypatch):
         chunks = {
@@ -375,6 +369,25 @@ class TestChangedPages:
         response, _ = await self._pages()
 
         assert response.status_code == 409
+
+    async def test_the_index_is_read_as_the_office_the_bff_names(self, ingested, monkeypatch):
+        from knowledge_layer.vector_store import office_read
+
+        offices: list[object] = []
+
+        def read(collection, name):
+            offices.append(office_read(collection))  # the real refusal, had no office been named
+
+        monkeypatch.setattr("agent.knowledge.collection_pages.read_chunks", read)
+        monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
+        headers = {_TOKEN_HEADERS[0]: "test-token", ORGANIZATION_ID_HEADER: "org-1"}
+        async with _client() as client:
+            response = await client.post(
+                f"/v1/collections/{COLLECTION}/revision-pages", json={"older": OLDER, "newer": NEWER}, headers=headers
+            )
+
+        assert response.status_code == 200
+        assert len(offices) == 2 and all(offices)
 
     async def test_an_index_outage_is_a_503_never_nothing_changed(self, ingested, monkeypatch):
         def down(collection, name):
@@ -510,3 +523,23 @@ class TestWhatIsSent:
         assert base != compare.cache_key("m", "c", 1, b"old2", b"new")
         assert base != compare.cache_key("m", "c", 1, b"old", b"new2")
         assert base != compare.cache_key("m", "c", 1, b"new", b"old")
+
+
+class TestALicensedCopy:
+    async def test_one_its_office_has_not_attested_is_refused_and_no_model_reads_it(self, pages, ingested, licence):
+        from agent.common.licensed_text import LicenceTerms
+
+        licence["value"] = LicenceTerms(licence_class="licensed")
+        response, post = await _post()
+
+        assert response.status_code == 403
+        post.assert_not_called()
+
+    async def test_an_attested_one_is_compared(self, pages, ingested, licence):
+        from agent.common.licensed_text import LicenceTerms
+
+        licence["value"] = LicenceTerms(licence_class="licensed", ai_processing=True)
+        response, post = await _post()
+
+        assert response.status_code == 200
+        post.assert_awaited_once()

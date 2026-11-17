@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The ratchet on Piloti's reads in a conversation (H1, ADR-0093, ADR-0094,
- * ADR-0122).
- *
- * A read runs as the requester and lands in a transcript the whole audience
- * reads. In a shared conversation only a read listed in `AUDIENCE_READS` (one
- * document's content, one project's facts) may reach the dispatcher, and no
- * backend read. Walked over the REAL catalog and the real backend operations
- * with the REAL judge: an operation added tomorrow is held by this file the day
- * it ships, with no list to remember to extend. Who reads the conversation and
- * the record are the database's (`read-gate.integration.spec.ts`).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
@@ -72,7 +60,6 @@ const session = {
   featureFlags: null,
 }
 
-/** A fresh principal per call, as the route builds one per HTTP request. */
 const piloti = (): AgentPrincipal => ({
   actor: 'piloti',
   session,
@@ -157,7 +144,6 @@ describe('in a shared conversation', () => {
     expect(vi.mocked(recordWorkspaceHandOut).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(callOperation).mock.invocationCallOrder[0],
     )
-    // Nothing of the conversation's own project's restricted folders: a shared chat records none.
     expect(ownRestrictingFolders).not.toHaveBeenCalled()
   })
 
@@ -247,7 +233,6 @@ describe('in a conversation that is the requester’s alone', () => {
     vi.mocked(audienceReachAmong).mockResolvedValue(reachOf(['proj_b'], true))
     const result = await runOperation(ctx(piloti()), 'project-get', { params: { id: 'proj_b' } })
     expect(result.isError).toBeUndefined()
-    // A project's facts carry no folder; the conversation's own project is not touched.
     expect(recordWorkspaceHandOut).toHaveBeenCalledWith(expect.anything(), audienceOf(true), {
       projectIds: ['proj_b'],
       folderIds: [],
@@ -278,16 +263,11 @@ describe('in a conversation that is the requester’s alone', () => {
   })
 })
 
-/**
- * Reads Piloti runs in a project's solo conversation that name no project, document,
- * folder, conversation or model, and still carry no project's content. Each needs a
- * reason a reviewer can disagree with; a read that can carry another project's content
- * declares `spansProjects` instead, and is refused there.
- */
 const SHELF_SCOPED =
   'a project only when its `projectId` names one, which the gate judges as any named project; else the office shelf, which belongs to no project'
 
 const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
+  'citation-style-get': "the office country's released citation style, a platform record that belongs to no project",
   'inbox-summary-get': 'a count of waiting items, no item',
   'feedback-report-list': "the person's own product feedback to the Piloti team, which belongs to no project",
   'feedback-office-report-list': "the office's product feedback to the Piloti team, which belongs to no project",
@@ -298,7 +278,12 @@ const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
   'document-name-match': SHELF_SCOPED,
   'document-revision-candidates': SHELF_SCOPED,
   'office-shelf-root-sort-get': 'the office shelf, which belongs to no project',
+  'base-knowledge-list': 'the office shelf’s standards, commentaries and directives, which belong to no project',
+  'base-knowledge-folder-list': 'the office shelf’s base-knowledge folders, which belong to no project',
+  'base-knowledge-edition-as-of':
+    'which edition of a law applied, from records that belong to no project; a project’s procedure dates only when its `projectId` names one, which the gate judges as any named project',
   'knowledge-base-get': 'the platform’s base corpus, the same for every organization',
+  'site-resolve': 'a public address register and the organization’s own rulesets, read for the typed text; no project is read',
   'release-note-list': 'the product’s release notes, the same for every organization',
   'norm-list': 'the platform’s norm register, public law pointers, the same for every organization',
   'organization-member-list': 'the organization’s members, which every member sees',
@@ -306,9 +291,13 @@ const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
   'organization-memory-list': 'the knowledge shared by every project, which every member reads',
   'office-conventions-list': 'the office’s conventions, counted as patterns over several projects and shown as shapes; every member reads them',
   'organization-storage-get': 'storage totals of the organization',
+  'organization-countries-get': 'the organization’s home country and the countries it is entitled to',
+  'coverage-get': 'how far the platform’s base knowledge goes per entitled country, records that belong to no project',
   'skill-list': 'the organization’s skills',
   'skill-invocable-list': 'the skills the person may invoke',
   'skill-category-list': 'the skill categories',
+  'personal-memory-list':
+    'notes about the person themself (how they want answers, their role), kept on no project and read by that person alone; the same notes already open every turn of theirs',
   'saved-search-list':
     'search questions the person saved or the office shared, never a result: a scope may name a project by id, none of its content',
 }

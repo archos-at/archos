@@ -570,6 +570,10 @@ const fakePage = () => {
     restore() {
       listener?.resume('pageshow')
     },
+    /** A suspend the page raises while it is still visible and online. */
+    nudge() {
+      listener?.suspend?.()
+    },
   }
   const lifecycle: PageLifecycle = page
   return Object.assign(page, { lifecycle })
@@ -712,6 +716,77 @@ describe('a page away: locked, in the background, offline', () => {
 
     expect(statuses.at(-1)).toBe('failed')
     expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('reads the page afresh on a connect after a close: a hide it stopped listening to is not held against the server', async () => {
+    const page = fakePage()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [] } })
+    await socket.connect()
+    latest().greet()
+    page.hide()
+    socket.close()
+    // Visible again while nothing listened: no resume was ever heard.
+    page.visible = true
+
+    await socket.connect()
+    latest().open()
+    await vi.advanceTimersByTimeAsync(HELLO_TIMEOUT_MS)
+    // A server that never says hello on a page that was here all along is another dialect.
+    expect(statuses.at(-1)).toBe('incompatible')
+  })
+
+  it('reports silence again on a connect after a close made while the page was hidden', async () => {
+    const onSilent = vi.fn()
+    const page = fakePage()
+    const { socket } = setup([{ turnId: 't1', lastSeq: 3 }], { lifecycle: page.lifecycle, onSilent })
+    await socket.connect()
+    page.hide()
+    socket.close()
+    page.visible = true
+
+    await socket.connect()
+    latest().greet()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(onSilent).toHaveBeenCalledWith(['t1'])
+  })
+
+  it('spends no rung on a suspend while the page is still visible and online', async () => {
+    const page = fakePage()
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [100] } })
+    await socket.connect()
+    latest().greet()
+    latest().drop()
+    expect(statuses.at(-1)).toBe('reconnecting')
+
+    page.nudge()
+    page.nudge()
+    await vi.advanceTimersByTimeAsync(100)
+    // The one rung was still there: the attempt it bought is made.
+    expect(FakeSocket.instances).toHaveLength(2)
+    expect(statuses).not.toContain('failed')
+  })
+
+  it('does not say failed a second time for a suspend while the page is still visible and online', async () => {
+    const page = fakePage()
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [] } })
+    await socket.connect()
+    latest().drop()
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'failed'])
+
+    page.nudge()
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'failed'])
+  })
+
+  it('does not start the away clock on a suspend while the page is still visible and online', async () => {
+    const page = fakePage()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [] } })
+    await socket.connect()
+    page.nudge()
+    latest().open()
+    await vi.advanceTimersByTimeAsync(HELLO_TIMEOUT_MS)
+    expect(statuses.at(-1)).toBe('incompatible')
   })
 
   it('stops listening to the page when closed', async () => {

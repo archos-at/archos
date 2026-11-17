@@ -34,8 +34,6 @@ describe('the registry', () => {
   })
 
   it('classifies every slug, and nothing that is not one', () => {
-    // `FLAG_KINDS` is a Record over the slug union, so tsc already refuses a
-    // missing entry; this pins that the runtime object agrees.
     expect(Object.keys(FLAG_KINDS).sort()).toEqual([...REGISTRY_FLAG_SLUGS].sort())
   })
 
@@ -52,8 +50,10 @@ describe('the registry', () => {
         'deep-research',
         'folder-cards',
         'inbound-mail',
+        'licensed-seam',
         'mail-import',
         'office-conventions',
+        'office-standards',
         'piloti-acts',
         'piloti-ask',
         'piloti-notices',
@@ -61,9 +61,19 @@ describe('the registry', () => {
         'platform-agent-mcp',
         'runtime-model-config',
         'skills',
+        'source-monitors',
         'task-automation',
       ].sort()
     )
+  })
+})
+
+describe('the switches the cut-over removed (ADR-0175)', () => {
+  const RETIRED = ['knowledge-context', 'building-law-chain', 'time-editions', 'office-base-knowledge', 'platform-base-knowledge']
+
+  it.each(RETIRED)('%s is not in the registry', (slug) => {
+    expect(REGISTRY_FLAG_SLUGS as readonly string[]).not.toContain(slug)
+    expect(Object.keys(FLAG_KINDS)).not.toContain(slug)
   })
 })
 
@@ -87,9 +97,6 @@ describe('where people sign in (REQUIRE_AUTH=true): WorkOS decides, fail-closed'
   })
 
   it('gives a rollout no default either — absent from the claim is off', () => {
-    // The default-ON env gates (`IFC_MODELS_ENABLED`,
-    // `AGENT_AUTHORED_DOCUMENTS_ENABLED`) are gone; what WorkOS says is
-    // what the session gets.
     expect(isIfcModelsEnabled({ featureFlags: [] })).toBe(false)
     expect(isAgentAuthoredDocumentsEnabled({ featureFlags: [] })).toBe(false)
     expect(isIfcModelsEnabled({ featureFlags: [FEATURE_FLAGS.ifcModels] })).toBe(true)
@@ -113,19 +120,29 @@ describe('where people sign in (REQUIRE_AUTH=true): WorkOS decides, fail-closed'
     expect(isIfcModelsEnabled(none)).toBe(false)
   })
 
-  it('requireFeature returns a stable-coded 403', async () => {
-    const res = requireFeature({ featureFlags: [] }, FLAG)
-    expect(res).not.toBeNull()
+  it.each(REGISTRY_FLAG_SLUGS)('requireFeature refuses %s with the one feature-disabled problem (RFC 9457)', async (flag) => {
+    const res = requireFeature({ featureFlags: [] }, flag)
     expect(res?.status).toBe(403)
-    expect(await res?.json()).toEqual({ error: 'feature-disabled', feature: FLAG })
-    expect(requireFeature({ featureFlags: [FLAG] }, FLAG)).toBeNull()
+    expect(res?.headers.get('content-type')).toContain('application/problem+json')
+    const body = await res?.json()
+    expect(body).toEqual({
+      type: 'urn:problem-type:feature-disabled',
+      title: 'Forbidden',
+      status: 403,
+      code: 'feature_disabled',
+      detail: expect.stringContaining(`feature flag \`${flag}\``),
+      error: body.detail,
+      feature: flag,
+    })
+    expect(body.detail).toMatch(/switches it on per organization/)
+    expect(requireFeature({ featureFlags: [flag] }, flag)).toBeNull()
   })
 
   it('requireSkillsEnabled: null when allowed, stable-coded 403 when off', async () => {
     expect(requireSkillsEnabled({ featureFlags: [FEATURE_FLAGS.skills] })).toBeNull()
     const res = requireSkillsEnabled({ featureFlags: [] })
     expect(res?.status).toBe(403)
-    expect(await res?.json()).toEqual({ error: 'feature-disabled', feature: 'skills' })
+    expect(await res?.json()).toMatchObject({ code: 'feature_disabled', feature: 'skills' })
   })
 })
 

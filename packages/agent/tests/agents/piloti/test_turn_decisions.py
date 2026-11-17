@@ -1,12 +1,3 @@
-"""The turn-start decision (ADR-0064): what is asked, and what the answers may do.
-
-Every effect is an ADDITION — a fetch run early, a shape attached, a skill
-body read in place — and ``TurnDecisions.none()`` is the turn as it ran
-before. The decision client is mocked at its seam; what is pinned is the
-question set, the state's shape, and the mapping from probabilities to
-effects.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -40,7 +31,6 @@ def _facts(question: str, **kwargs) -> TurnFacts:
 
 class TestWhatIsAsked:
     def test_other_projects_are_a_corpus_only_when_the_office_has_reference_projects(self):
-        """A corpus nothing searches must not be offered: picking it would prefetch nothing."""
         without = questions_for(_facts("Wie haben wir die Traufe gelöst?"))
         with_catalog = questions_for(_facts("Wie haben wir die Traufe gelöst?", reference_projects=3))
 
@@ -48,7 +38,6 @@ class TestWhatIsAsked:
         assert "referenz" in with_catalog["corpus"]["criteria"]
 
     def test_a_file_name_the_inventory_lists_needs_no_evidence(self):
-        """The inventory answers the name, folder or number of a file: no prefetch for it."""
         criteria = questions_for(_facts("In welchem Ordner liegt der Schnitt?"))["needs_evidence"]["criteria"]
         assert "name, folder or number of a file the inventory lists" in criteria["false"]
         assert "value, a class" in criteria["true"]
@@ -66,9 +55,7 @@ class TestWhatIsAsked:
         }
         assert questions["corpus"]["type"] == "choice"
         assert set(questions["corpus"]["criteria"]) == {"baurecht", "projekt", "buero", "modell", "none"}
-        # The family question carries the Richtlinie's subject, in the decider's language.
         assert "Brandschutz" in questions["family_2"]["criteria"]["true"]
-        # The card question carries the card's own index line.
         assert "fire compartments" in questions["card_fire_compartment"]["criteria"]["true"]
 
     def test_skills_riding_the_prompt_get_a_choice_with_none_and_one_fits_noul_each(self):
@@ -104,8 +91,6 @@ class TestWhatIsAsked:
 
 
 class TestTheReferenceProjects:
-    """ADR-0094: the office's other projects as a corpus, and a precedent question beside it."""
-
     def test_the_precedent_question_is_asked_only_when_the_office_has_reference_projects(self):
         assert "precedent" not in questions_for(_facts("Wie haben wir die Traufe gelöst?"))
         questions = questions_for(_facts("Wie haben wir die Traufe gelöst?", reference_projects=6))
@@ -155,13 +140,11 @@ class TestTheReferenceProjects:
         assert all(call["name"] != "project_lookup" for call in low)
 
     def test_the_automatic_search_never_reaches_a_running_project(self):
-        """A decision may only add: a running project's content would narrow who may read the chat."""
         for corpus, precedent in (("referenz", None), ("baurecht", 0.95), ("projekt", 0.95)):
             calls = prefetch_calls(self._decided(corpus, precedent), "Wie war das?", reference_projects=3)
             assert [call["args"]["scope"] for call in calls if call["name"] == "project_lookup"] == ["closed"]
 
     def test_the_automatic_search_never_reaches_a_restricted_folder(self):
-        """A solo chat's lookup also reaches cleared restricted folders; recording one narrows the chat unasked."""
         for corpus, precedent in (("referenz", None), ("baurecht", 0.95)):
             calls = prefetch_calls(self._decided(corpus, precedent), "Wie war das?", reference_projects=3)
             lookups = [call["args"] for call in calls if call["name"] == "project_lookup"]
@@ -170,16 +153,11 @@ class TestTheReferenceProjects:
     @pytest.mark.parametrize(
         ("corpus", "corpus_p", "precedent", "looks"),
         [
-            # Measured (decision_eval_office.py precedent): a rule question puts the answer in
-            # the law at ~1.00 and still scores 0.6-0.75 on precedent; the bar there is higher.
             ("baurecht", 1.0, 0.66, False),
             ("baurecht", 1.0, 0.75, True),
-            # Placed in the project or the archive, a moderate precedent is enough.
             ("projekt", 0.9, 0.58, True),
             ("projekt", 0.9, 0.5, False),
-            # An unsure law placement is no placement: the ordinary bar holds.
             ("baurecht", 0.4, 0.58, True),
-            # Chosen as the corpus, the reference projects are searched whatever the noul says.
             ("referenz", 0.6, None, True),
         ],
     )
@@ -247,11 +225,22 @@ class TestThePrefetch:
         return TurnDecisions(decided=True, needs_evidence=evidence, corpus=corpus, corpus_p=p, families=families)
 
     def test_a_law_question_prefetches_itself_and_the_top_family_overview(self):
-        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der  Fluchtweg sein?")
+        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der  Fluchtweg sein?", austrian_law=True)
         assert calls == [
             {"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}},
             {"name": "knowledge_search", "args": {"query": "OIB-Richtlinie 2"}},
         ]
+
+    def test_a_project_abroad_reads_no_oib_family(self):
+        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der Fluchtweg sein?", austrian_law=False)
+        assert calls == [{"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}}]
+        undecided = TurnDecisions()
+        assert prefetch_calls(undecided, "Was weißt du über die OIB 2?", austrian_law=False) == []
+
+    def test_without_the_caller_saying_so_no_austrian_family_is_read(self):
+        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der Fluchtweg sein?")
+        assert calls == [{"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}}]
+        assert prefetch_calls(TurnDecisions.none(), "Was weißt du über die OIB 2?") == []
 
     def test_a_family_question_is_its_own_overview_and_prefetches_once(self):
         calls = prefetch_calls(self._decided("baurecht"), "Was weißt du über die OIB 2?")
@@ -269,7 +258,6 @@ class TestThePrefetch:
         q = "Wo steht „Rauchabzug“?"
         calls = prefetch_calls(self._decided("projekt"), q, focus_file_name="Gutachten.pdf")
         assert calls[0]["args"] == {"query": q, "path": "/project/Gutachten.pdf.md"}
-        # Citable passages, under the mount, narrowed to the open document by its name (a glob, escaped).
         assert calls[1] == {
             "name": "grep",
             "args": {"pattern": "Rauchabzug", "output_mode": "content", "path": "/project/", "glob": "Gutachten.pdf"},
@@ -279,7 +267,6 @@ class TestThePrefetch:
 
     @pytest.mark.parametrize("name", ["Plan [A].pdf", "Plan {A,B}.pdf", "Plan\\x.pdf", "Plan *.pdf"])
     def test_the_open_document_s_glob_matches_it_and_nothing_else(self, name):
-        """The estate's own matcher (BRACE on) reads the escaped name as the one file it is."""
         from types import SimpleNamespace
 
         from knowledge_layer.estate import glob_files
@@ -324,15 +311,11 @@ class TestThePrefetch:
         assert prefetch_calls(self._decided("baurecht", p=0.4), "q") == []
 
     def test_a_decision_that_missed_its_budget_still_prefetches_a_family_question(self):
-        """The decider rarely lands in 1.5 s; the family question is evidence by construction."""
-        assert prefetch_calls(TurnDecisions.none(), "Was weißt du über die OIB 2?") == [
+        assert prefetch_calls(TurnDecisions.none(), "Was weißt du über die OIB 2?", austrian_law=True) == [
             {"name": "knowledge_search", "args": {"query": "Was weißt du über die OIB 2?"}}
         ]
 
     def test_without_a_decision_a_later_message_prefetches_nothing(self):
-        """„Was sagt die OIB 2 dazu?" after a stair question is a follow-up; the
-        decided path would refuse it, so the undecided one may not guess it
-        is a family overview."""
         assert (
             prefetch_calls(
                 TurnDecisions.none(),
@@ -348,8 +331,6 @@ class TestThePrefetch:
 
 
 class TestTheSkillsShapes:
-    """The chosen skill's preferred cards ride the turn — what `use_skill` used to hand over."""
-
     SKILL_CARDS = {"fire-safety": ["fire_compartment", "egress_diagram"], "hygiene": ["daylight_incidence"]}
 
     def test_the_skills_cards_come_first_then_the_nouls_picks_capped_and_deduped(self):
@@ -369,7 +350,6 @@ class TestTheSkillsShapes:
         assert none.chosen_skill is None
         unsure = TurnDecisions(decided=True, skill="hygiene", skill_p=0.5, skill_fit=0.9)
         assert unsure.chosen_skill is None
-        # A weak fit on a confident choice still loads: a body is ~400 tokens and an offer.
         weak_fit = TurnDecisions(decided=True, skill="thermal-protection", skill_p=0.64, skill_fit=0.13)
         assert weak_fit.chosen_skill == "thermal-protection"
 
@@ -392,8 +372,6 @@ class TestTheSkillsShapes:
 
 
 class TestAFollowUpPrefetchesNothing:
-    """The previous turn's passages are in the transcript; nothing to fetch ahead."""
-
     def test_a_follow_up_runs_no_round_zero_not_even_the_family_overview(self):
         decided = TurnDecisions(
             decided=True,
@@ -429,7 +407,5 @@ class TestTheOpenDocument:
 
 
 def test_the_prefetch_query_carries_no_trailing_blank():
-    # A 300-character cut can land on a space; the search strips its query,
-    # so a blank left here makes the warm-up embed a different string.
     question = "x" * 299 + " und mehr"
     assert prefetch_query(question) == prefetch_query(question).strip()

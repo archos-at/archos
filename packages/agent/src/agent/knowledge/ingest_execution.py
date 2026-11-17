@@ -73,7 +73,8 @@ def run_job(
     """
     with priority_scope(prepared.priority):
         ingestor.run_prepared(prepared, still_owner=still_owner)
-    return ingestor.get_job_status(prepared.job_id)
+    # A status nothing holds any more is a lost run: retryable, not an AttributeError in the caller.
+    return ingestor.get_job_status(prepared.job_id) or ingest_status_store.interrupted(prepared.status)
 
 
 def outcome_of(status: IngestionJobStatus) -> Outcome:

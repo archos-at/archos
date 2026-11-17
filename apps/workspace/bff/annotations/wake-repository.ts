@@ -12,6 +12,7 @@ import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { documentAnnotations, pilotiWakes, type AgentWakeRow } from '@/lib/db/schema/document-annotations'
 import { withTenant } from '@/lib/db/tenant-context'
+import { AGENT_WAKE_LIFECYCLE } from './lifecycles'
 import type { AgentWakeTrigger } from './types'
 
 export interface NewWake {
@@ -166,7 +167,7 @@ export async function endWake(
       and(
         eq(pilotiWakes.organizationId, organizationId),
         eq(pilotiWakes.id, id),
-        inArray(pilotiWakes.status, ['queued', 'started'])
+        inArray(pilotiWakes.status, [...AGENT_WAKE_LIFECYCLE.liveStates])
       )
     )
     .returning()
@@ -194,7 +195,7 @@ export async function findLiveDelegationWake(
         eq(pilotiWakes.annotationId, annotationId),
         eq(pilotiWakes.triggerKind, 'assigned'),
         eq(pilotiWakes.eventId, eventId),
-        inArray(pilotiWakes.status, ['queued', 'started'])
+        inArray(pilotiWakes.status, [...AGENT_WAKE_LIFECYCLE.liveStates])
       )
     )
     .orderBy(desc(pilotiWakes.createdAt))

@@ -1,11 +1,3 @@
-"""A chunk's id is what it is, and its embedding is cached by what it says (``chunk_identity``).
-
-Unit tests: the Qdrant suite that writes real points skips without
-``QDRANT_TEST_URL`` (``task be:test:sources`` runs it with a server). What is
-held here is the id function, the set arithmetic retirement and discard use,
-and the cache, against an in-memory stand-in for Dragonfly.
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -96,7 +88,6 @@ class TestEmbeddingCache:
         assert batches == [["a", "bb", "a"]]
         assert (hits_first, hits_second) == (0, 2)
         assert second == [first[1], first[0]]
-        # As float32, the precision a Qdrant point stores, so cached and fresh vectors are one point.
         assert first[0][0] == np.float32(0.1 + 0.123456789).item()
 
     def test_only_the_missing_texts_are_embedded(self, cache):
@@ -138,8 +129,6 @@ class TestEmbeddingCache:
 
 
 class TestAnIngestWritesTheSameIdsTwice:
-    """Through the real `_ingest_job`, on the offline harness: a retry overwrites, it does not duplicate."""
-
     def test_two_attempts_of_one_version_write_the_same_chunk_ids(self, tmp_path, calls, monkeypatch):  # noqa: F811
         from knowledge_layer.vector_store import writes
 

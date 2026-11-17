@@ -22,7 +22,6 @@ describe('card classification', () => {
   it('classifies the canvas card as live: its objects are the record, not the message', () => {
     expect(CARD_INTERACTIVITY.canvas_activity).toBe('live')
     expect(isLiveCardType('canvas_activity')).toBe(true)
-    // A live card is not a pending decision: nothing on the message waits for an answer.
     expect(isInteractiveCardType('canvas_activity')).toBe(false)
     expect(INTERACTIVE_CARD_TYPES).not.toContain('canvas_activity')
     expect(LIVE_CARD_TYPES).toEqual(['canvas_activity'])
@@ -87,16 +86,12 @@ describe('reconcileCardInteractions', () => {
   })
 
   it('drops a decision when a card is inserted ahead of the answered one', () => {
-    // A streaming answer replaces `message.cards` wholesale; without this the
-    // recorded key would point at a DIFFERENT card.
     const before = [memory('REI 90')]
     const after = [summary(), memory('REI 90')]
     expect(reconcileCardInteractions(decided('memory_proposal-0'), before, after)).toBeUndefined()
   })
 
   it('drops a decision when the same card TYPE at that index carries a different proposal', () => {
-    // The critical case: same type, same index, different content. Carrying
-    // "accepted" over would mark a proposal the user never saw as decided.
     const before = [memory('REI 90')]
     const after = [memory('REI 60')]
     expect(reconcileCardInteractions(decided('memory_proposal-0'), before, after)).toBeUndefined()
@@ -116,23 +111,17 @@ describe('reconcileCardInteractions', () => {
       'summary-1': { decision: 'rejected' as const, decidedAt: '2026-07-28T09:00:00.000Z' },
     }
     const before = [memory('REI 90'), summary()]
-    // Index 0 unchanged, index 1 replaced → only index 0's decision survives.
     const after = [memory('REI 90'), memory('etwas anderes')]
     expect(reconcileCardInteractions(interactions, before, after)).toEqual(decided('memory_proposal-0'))
   })
 
   it('drops a decision whose index is now a rejected-card hole', () => {
-    // `validateAnswerCards` keeps wire positions with `undefined` holes rather
-    // than renumbering: a hole carries no card, so nothing can be decided
-    // about it, and the decision must not slide onto a neighbour.
     const before = [memory('REI 90')]
     const after = [undefined]
     expect(reconcileCardInteractions(decided('memory_proposal-0'), before, after)).toBeUndefined()
   })
 
   it('keeps later decisions bound when an earlier slot is a hole', () => {
-    // The middle-card-drop case: the hole holds index 1, so the proposal at
-    // index 2 is still the proposal the key was recorded against.
     const cards = [memory('REI 90'), undefined, memory('Fluchtniveau')]
     expect(reconcileCardInteractions(decided('memory_proposal-2'), cards, [...cards])).toEqual(
       decided('memory_proposal-2'),
@@ -186,8 +175,6 @@ describe('sanitizeCardInteractions', () => {
   })
 
   it('drops entries whose decision is not in the union', () => {
-    // A message row written by a future/foreign build must never smuggle an
-    // unknown lifecycle state into the renderer.
     const clean = sanitizeCardInteractions({
       'memory_proposal-0': { decision: 'exfiltrated', decidedAt: '2026-07-28T09:00:00.000Z' },
       'memory_proposal-1': { decision: 'dismissed', decidedAt: '2026-07-28T09:00:00.000Z' },
@@ -198,10 +185,6 @@ describe('sanitizeCardInteractions', () => {
   })
 
   it('substitutes an unusable timestamp rather than dropping the decision', () => {
-    // What it emits must be exactly what the PATCH route accepts: the client
-    // re-sends the WHOLE map, so one unparseable entry rehydrated from a
-    // foreign row would 400 every later decision on that message — silently,
-    // because the mirror only warns.
     for (const bad of [undefined, 42, 'yesterday', '2026-13-45', '2026-07-28T09:00:00+02:00']) {
       const clean = sanitizeCardInteractions({ 'x-0': { decision: 'accepted', decidedAt: bad } })
       expect(clean?.['x-0'].decision).toBe('accepted')
@@ -210,10 +193,6 @@ describe('sanitizeCardInteractions', () => {
   })
 
   it('keeps every UTC ISO form the PATCH route accepts as-is', () => {
-    // `.datetime()` requires `Z` and seconds but leaves the fractional part
-    // optional, so second- and microsecond-precision instants are just as
-    // valid as `toISOString()`'s three digits. Clobbering them to the epoch
-    // would silently rewrite another client's history.
     for (const good of [
       '2026-07-28T09:00:00.000Z',
       '2026-07-28T09:00:00Z',

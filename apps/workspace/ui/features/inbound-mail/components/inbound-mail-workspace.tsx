@@ -1,47 +1,18 @@
 'use client'
 
-/**
- * Dateien › E-Mail-Eingang (ADR-0137, DECISION §9): the list of held mail read
- * against the open mail, a split with no overlay (the „second pane“ case of
- * the design language's overlay table).
- *
- * LAYOUT BY CONTAINER, NOT BY VIEWPORT. The list is 22rem and the detail the
- * rest while this component's own box is wider than 48rem (`@3xl`); below
- * that it is list → detail, the detail a page of its own with the way back at
- * its top. The URL carries the open mail (`/files/mail/<id>`, pushed, so Back
- * closes it) and the filter (`?status=handled&outcome=…`, replaced: a filter
- * is not a place).
- *
- * THE KEYBOARD (group `inboundMail` in `components/shell/shortcuts.ts`):
- * J/K walk the rows, Enter opens the row, X selects it, Space previews the
- * open mail's first attachment, E files the open mail as the bar shows it,
- * ⌫ dismisses (the selection, or else the open mail). Each key goes through
- * the same control a pointer would press, so busy and confirm states hold.
- * None of them fires while a field has the focus or a dialog is open.
- *
- * „WIE VORGESCHLAGEN ABLEGEN“ comes in four sizes, all through one rule
- * (`fileableReason`, `asSuggested` in `../lib/completeness.ts`): a ready row's
- * own button (one mail, one press, no confirmation: the row already says
- * where its text goes, and the toast says where everything went), the „Bereit“
- * heading's „Alle … ablegen“, a thread group's press, and a selection's bulk
- * bar. Each knows from the list whether its mails are complete
- * (`incompleteReason`, the server's, on each row), reads them (at most twenty,
- * the most one request may decide) and checks them once more as they are now
- * before anything is sent. The request carries no acknowledgement (RT-S5); the
- * several-mail sizes confirm first, listing where everything goes.
- */
-
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, AtSign, FolderOpen, Lock, MailSearch, X } from 'lucide-react'
+import { ArrowLeft, Lock, MailPlus, MailSearch, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { EmptyState } from '@/components/ui/empty-state'
-import { ProjectSectionActions } from '@/components/shell/project-section-frame'
+import { ProjectSectionActions, ProjectSectionBack, useSectionBackSlot } from '@/components/shell/project-section-frame'
+import { PHONE_QUERY } from '@/hooks/use-is-mobile'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTranslations } from '@/i18n'
 import {
   INBOUND_MAIL_DECISION_MAX_MAILS,
@@ -65,7 +36,10 @@ import { listSections, visibleMails } from '../lib/list-sections'
 import { inboundMailPaths, type InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { refusalOf } from '../lib/refusal'
 import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
+import { useInboundMailAddress } from '../hooks/use-inbound-mail-address'
+import { useOpenFirstMail } from '../hooks/use-open-first-mail'
 import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mail-address'
+import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
 import { SelectionBar, type BulkBlock } from './selection-bar'
@@ -78,27 +52,20 @@ export interface InboundMailWorkspaceProps {
   folders: readonly FolderOption[]
   status: InboundMailListStatus
   outcome: InboundMailOutcome | null
-  /** The first page as the server read it; null reads it here (or says it failed). */
   initialList: InboundMailListView | null
-  /** The open mail, or null for the list alone. */
   mailId: string | null
   initialMail: InboundMailView | null
   initialText?: InboundMailTextView | null
   client?: InboundMailClient
   addressClient?: InboundMailAddressClient
   paths?: InboundMailPaths
-  /** The list failed on the server: show its error instead of reading again. */
   initialListFailed?: boolean
-  /** Previews pin these. */
   now?: number
   decidedByOther?: boolean
-  /** Keep the list empty-and-loading (a preview of the skeleton). */
   listLoading?: boolean
-  /** Mails checked on arrival (a preview of the selection). */
   initialChecked?: readonly string[]
 }
 
-/** Where a filing as suggested was pressed, for PostHog. */
 type AsSuggestedSurface = 'row' | 'ready_section' | 'thread_group' | 'selection'
 
 function isTyping(target: EventTarget | null): boolean {
@@ -127,6 +94,8 @@ export function InboundMailWorkspace({
   initialChecked,
 }: InboundMailWorkspaceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
+  const phone = useMediaQuery(PHONE_QUERY)
+  const backInHeader = useSectionBackSlot()
   const router = useRouter()
   const paths = useMemo(() => pathsProp ?? inboundMailPaths(projectId), [pathsProp, projectId])
   const filter = useMemo(() => ({ status, outcome }), [status, outcome])
@@ -139,8 +108,9 @@ export function InboundMailWorkspace({
   const [quietOpen, setQuietOpen] = useState(false)
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   const [addressOpen, setAddressOpen] = useState(false)
-  const [everReceived, setEverReceived] = useState<boolean | null>(null)
-  const [address, setAddress] = useState<Awaited<ReturnType<InboundMailAddressClient['get']>> | null>(null)
+  const address = useInboundMailAddress(projectId, true, addressClient)
+  const addressView = address.state.kind === 'ready' ? address.state.address : null
+  const everReceived = addressView ? addressView.lastReceivedAt !== null : address.state.kind === 'error' ? true : null
   const detailActions = useRef<DetailActions | null>(null)
   const waiting = useInboundMailWaiting(projectId, true, client)
 
@@ -149,7 +119,6 @@ export function InboundMailWorkspace({
     [t]
   )
 
-  // The page's first page of the waiting list is also the count every surface shows.
   useEffect(() => {
     if (initialList && status === 'waiting') {
       primeInboundMailWaiting(projectId, { count: initialList.items.filter((mail) => mail.status === 'waiting').length, more: initialList.nextCursor !== null })
@@ -165,7 +134,6 @@ export function InboundMailWorkspace({
     }
   }, [client, projectId, status, outcome])
 
-  // A filter change (or no first page from the server) reads the list here.
   const firstFilter = useRef(`${status}:${outcome ?? ''}`)
   useEffect(() => {
     if (listLoading) return
@@ -185,21 +153,10 @@ export function InboundMailWorkspace({
   const groups = useMemo(() => (list.kind === 'ready' ? list.threadGroups : []), [list])
   const sections = useMemo(() => listSections(items, { grouped: status === 'waiting', groups }), [items, status, groups])
   const rows = useMemo(() => visibleMails(sections, quietOpen), [sections, quietOpen])
+  const firstMail = useOpenFirstMail({ mailId, firstId: rows[0]?.id ?? null, scope: `${status}:${outcome ?? ''}`, open: (id) => router.replace(paths.mail(id, filter)) })
 
-  // An empty waiting list is „never used“ or „all done“: the address says which, and is shown in the first.
-  const empty = list.kind === 'ready' && list.items.length === 0 && status === 'waiting'
-  useEffect(() => {
-    if (!empty || everReceived !== null) return
-    addressClient
-      .get(projectId)
-      .then((view) => {
-        setAddress(view)
-        setEverReceived(view.lastReceivedAt !== null)
-      })
-      .catch(() => setEverReceived(true))
-  }, [empty, everReceived, addressClient, projectId])
-
-  // ------------------------------------------------------------ selection and bulk
+  const empty = list.kind === 'ready' && list.items.length === 0
+  const never = empty && status === 'waiting' && everReceived === false
 
   const selectedIds = useMemo(() => items.filter((mail) => checked.has(mail.id)).map((mail) => mail.id), [items, checked])
   const [views, setViews] = useState<Map<string, InboundMailView>>(new Map())
@@ -209,7 +166,6 @@ export function InboundMailWorkspace({
   const [rowFiling, setRowFiling] = useState<string | null>(null)
   const [confirmDismiss, setConfirmDismiss] = useState(false)
 
-  /** Read the mails a bulk filing sends (at most twenty), keeping what is already read and current. */
   const readViews = useCallback(
     async (ids: string[]): Promise<Map<string, InboundMailView>> => {
       const updatedAt = new Map(items.map((mail) => [mail.id, mail.updatedAt]))
@@ -224,7 +180,6 @@ export function InboundMailWorkspace({
     [items, views, client, projectId]
   )
 
-  /** Why these mails cannot be filed as suggested in one request, the first reason with its count; null when they can. */
   const blockFor = useCallback((ids: string[], reasonOf: (id: string) => IncompleteReason | null): BulkBlock => {
     if (ids.length > INBOUND_MAIL_DECISION_MAX_MAILS) return { reason: 'too_many', count: ids.length }
     const reasons = new Map<IncompleteReason, number>()
@@ -236,7 +191,6 @@ export function InboundMailWorkspace({
     return first ? { reason: first[0], count: first[1] } : null
   }, [])
 
-  // The list says it per mail (`incompleteReason`), so the bar knows without reading a single mail.
   const summaryReason = useCallback(
     (id: string): IncompleteReason | null => {
       const mail = items.find((candidate) => candidate.id === id)
@@ -246,27 +200,20 @@ export function InboundMailWorkspace({
   )
   const selectionBlock = blockFor(selectedIds, summaryReason)
 
-  /** The destinations of a filing, in the confirmation's words: „In „Behörde/Bescheide“: 1“. */
   const destinationLine = (destination: BulkDestination): string =>
     destination.kind === 'folder' && destination.label === ''
       ? t('bulk.destination.root', { count: destination.count })
       : t(`bulk.destination.${destination.kind}`, { label: destination.label, count: destination.count })
 
-  /**
-   * Read these mails as they are now and build their filing as suggested; on a
-   * refusal, say why (or open a group's first mail) and answer null.
-   */
   const prepare = async (ids: string[], groupId: string | null): Promise<Extract<ReturnType<typeof asSuggested>, { ok: true }> | null> => {
     const refuse = (block: BulkBlock): boolean => {
       if (!block) return false
-      // A group that cannot go in one press is opened at its first mail.
       if (groupId) router.push(paths.mail(ids[0], filter))
       else toast.error(t(`bulk.blocked.${block.reason}`, { count: block.count, max: INBOUND_MAIL_DECISION_MAX_MAILS }))
       return true
     }
     if (refuse(blockFor(ids, summaryReason))) return null
     const read = await readViews(ids)
-    // The mails as they are now: one may have changed since the list was read.
     const current = ids.map((id) => read.get(id)).filter((view): view is InboundMailView => !!view)
     if (current.length < ids.length) {
       refuse({ reason: 'not_waiting', count: ids.length - current.length })
@@ -288,18 +235,15 @@ export function InboundMailWorkspace({
     if (built) setConfirmFile({ decisions: built.decisions, plan: built.plan, surface })
   }
 
-  /** Send a filing as suggested and say where everything goes. */
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
     await client.file(projectId, { mails: decisions })
     toast.success(t('toast.filedAsSuggested', { count: decisions.length }), {
-      description: plan.destinations.map(destinationLine).join(' · '),
+      description: plan.destinations.map(destinationLine).join(CLAUSE_JOIN),
     })
-    // Whether „Bereit“ is the way people file: by surface, how many mails per press.
     capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
     changed()
   }
 
-  /** A ready row's own press: one mail, read again and checked, then filed with no confirmation. */
   const fileOne = async (mailId: string): Promise<void> => {
     if (rowFiling) return
     setRowFiling(mailId)
@@ -352,8 +296,6 @@ export function InboundMailWorkspace({
       return next
     })
 
-  // ------------------------------------------------------------ keyboard
-
   const keyState = useRef({ rows, focusedId, mailId, selectedIds })
   keyState.current = { rows, focusedId, mailId, selectedIds }
   useEffect(() => {
@@ -381,7 +323,6 @@ export function InboundMailWorkspace({
       }
       if (key === 'x') {
         const target = index >= 0 ? visible[index] : null
-        // An impersonation is never part of a bulk decision (`bulkSelectable`): its row has no box, and X selects nothing.
         if (!target || !bulkSelectable(target)) return
         event.preventDefault()
         toggle(target.id, !checked.has(target.id))
@@ -407,8 +348,6 @@ export function InboundMailWorkspace({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [router, paths, filter, checked])
-
-  // ------------------------------------------------------------ render
 
   const notice =
     projectClosed && !closedNoticeHidden ? (
@@ -439,35 +378,28 @@ export function InboundMailWorkspace({
     ) : null
 
   const back = (
-    <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit @3xl:hidden">
+    <Button asChild variant="ghost" size="sm" className={cn('-ml-3.5 w-fit @3xl:hidden', backInHeader && 'phone:hidden')} /* its 14px padding given back */>
       <Link href={paths.list(filter)} data-testid="inbound-mail-back">
         <ArrowLeft className="size-4" aria-hidden />
         {t('title')}
+        <ProjectSectionBack href={paths.list(filter)} to={t('title')} />
       </Link>
     </Button>
   )
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
-      <ProjectSectionActions>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href={paths.files} data-testid="inbound-mail-files">
-              <FolderOpen className="size-4" aria-hidden />
-              {t('back')}
-            </Link>
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-address-open">
-            <AtSign className="size-4" aria-hidden />
-            {t('addressButton')}
-          </Button>
-        </div>
+    <div ref={firstMail.ref} className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
+      <ProjectSectionActions onTitleLine>
+        {/* An opened mail on a phone shows the mail; nothing is portalled, or the header kept an empty row's margin. */}
+        {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} compact={phone} />}
       </ProjectSectionActions>
-      <div className="flex min-h-0 flex-1 flex-col @3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className={cn('min-h-0 flex-1 flex-col @3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
-          <div className="flex items-baseline justify-between gap-2 px-3 pt-3 sm:px-4">
-            <h2 className="text-sm font-medium">{t('title')}</h2>
-          </div>
+      {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
+      {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
+          apart and 24px off the foot, so both show their corners. The rows sit 8px inside the desk's edge. */}
+      {/* 24px under the header's rule (16px on a phone): the list's desk and the open mail started on the rule and
+          read as hung from it (review of 2026-11-11). */}
+      <div className={cn('flex min-h-0 flex-1 flex-col pt-4 @3xl:pt-6', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk @3xl:px-2', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
@@ -496,7 +428,6 @@ export function InboundMailWorkspace({
               setLoadingMore(true)
               try {
                 const page = await client.list(projectId, { status, outcome: outcome ?? undefined, cursor: list.nextCursor })
-                // A thread grouped on an earlier page keeps that group; a later page adds only threads it starts.
                 const known = new Set(list.threadGroups.map((group) => group.threadId))
                 setList({
                   kind: 'ready',
@@ -512,12 +443,32 @@ export function InboundMailWorkspace({
             }}
             loadingMore={loadingMore}
             everReceived={everReceived}
-            addressBlock={address ? <InboundMailAddressBlock address={address} projectId={projectId} projectName={projectName} surface="never_used" showUses={false} /> : null}
+            addressBlock={
+              addressView?.address ? (
+                <InboundMailAddressBlock
+                  address={addressView}
+                  projectId={projectId}
+                  projectName={projectName}
+                  surface="never_used"
+                  showUses={false}
+                />
+              ) : addressView?.canManage ? (
+                <Button type="button" size="sm" className="w-fit" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-never-create">
+                  <MailPlus className="size-4" aria-hidden />
+                  {t('address.create')}
+                </Button>
+              ) : null
+            }
+            showFilter={!never}
+            neverCase={!addressView || addressView.address ? 'address' : addressView.canManage ? 'create' : 'ask'}
             selectionBar={selectionBar}
             notice={notice}
           />
         </div>
-        <div className={cn('min-h-0 flex-1 @3xl:block', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')} data-testid="inbound-mail-detail-pane">
+        <div
+          className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block @3xl:overflow-y-auto @3xl:rounded-surface @3xl:bg-sheet @3xl:shadow-sm', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
+          data-testid="inbound-mail-detail-pane"
+        >
           {mailId ? (
             <InboundMailDetail
               key={mailId}
@@ -532,16 +483,27 @@ export function InboundMailWorkspace({
               actionsRef={detailActions}
               now={now}
               decidedByOther={decidedByOther}
+              yieldPrimary={selectedIds.length > 0}
             />
-          ) : (
-            <div className="p-6">
-              <EmptyState icon={MailSearch} title={t('noSelection')} />
+          ) : list.kind === 'loading' || firstMail.pending ? null /* nothing to pick yet, or the first mail on its way */ : (
+            <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
+              <MailSearch className="size-5" aria-hidden />
+              <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
             </div>
           )}
         </div>
       </div>
 
-      <InboundMailAddressDialog projectId={projectId} projectName={projectName} open={addressOpen} onOpenChange={setAddressOpen} client={addressClient} />
+      <InboundMailAddressDialog
+        projectId={projectId}
+        projectName={projectName}
+        open={addressOpen}
+        onOpenChange={(open) => {
+          setAddressOpen(open)
+          if (!open) void address.reload()
+        }}
+        client={addressClient}
+      />
       <ConfirmDialog
         open={confirmFile !== null}
         onOpenChange={(open) => !open && setConfirmFile(null)}

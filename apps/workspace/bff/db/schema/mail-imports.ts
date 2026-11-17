@@ -1,9 +1,29 @@
 import { sql } from 'drizzle-orm'
 import { bigint, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { projects } from './projects'
 
 export const MAIL_IMPORT_STATUSES = ['uploading', 'queued', 'importing', 'completed', 'failed', 'cancelled'] as const
 export type MailImportStatus = (typeof MAIL_IMPORT_STATUSES)[number]
+
+/**
+ * An import's lifecycle (ADR-0179). The browser sends the archive
+ * (`uploading`), the person's last chunk queues it, the job imports it. A
+ * person may cancel until it has ended; the job may end a run it has not yet
+ * marked `importing`. Every end is final.
+ */
+export const MAIL_IMPORT_LIFECYCLE = defineLifecycle<MailImportStatus, 'queue' | 'start' | 'complete' | 'fail' | 'cancel'>({
+  id: 'mail-import',
+  initial: 'uploading',
+  states: {
+    uploading: { on: { queue: 'queued', cancel: 'cancelled' } },
+    queued: { on: { start: 'importing', complete: 'completed', fail: 'failed', cancel: 'cancelled' } },
+    importing: { on: { complete: 'completed', fail: 'failed', cancel: 'cancelled' } },
+    completed: { type: 'final' },
+    failed: { type: 'final' },
+    cancelled: { type: 'final' },
+  },
+})
 
 /**
  * Why a mail or one of its files was not filed. Kept in a JSON column, so no

@@ -1,0 +1,68 @@
+id: workos
+kind: processor
+status: active
+order: 40
+name: WorkOS, Inc.
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+data_classes: [account_identity, audit_metadata]
+purposes: [service_provision, security]
+holds_tenant_text: true
+deletion:
+  status: gap
+  de: >-
+    WorkOS hält Konten, Mitgliedschaften, den Audit-Trail und im WorkOS Vault die eigenen KI-Schlüssel einer
+    Organisation. Audit-Ereignisse tragen Projekt-, Organisations- und Dokumentnamen. Bei Vertragsende werden weder
+    die Organisation noch ihre Nutzer, ihr Audit-Trail oder ihre Schlüssel automatisch gelöscht.
+  en: >-
+    WorkOS holds accounts, memberships, the audit trail and, in WorkOS Vault, an organization's own AI keys. Audit
+    events carry project, organization and document names. At contract end neither the organization, its users, its
+    audit trail nor its keys are deleted automatically.
+hosts: [api.workos.com, workos.com, authkit.app, workoscdn.com]
+env:
+  - WORKOS_API_KEY
+  - WORKOS_CLIENT_ID
+  - WORKOS_AUTHKIT_DOMAIN
+sdks:
+  - 'js:@workos-inc/authkit-nextjs'
+  - 'js:@workos-inc/node'
+  - 'js:@workos-inc/widgets'
+evidence:
+  - docs/adr/0002-outsource-identity-to-workos.md
+  - apps/workspace/bff/audit/document-names.ts
+  - apps/workspace/bff/audit/schemas.mjs
+  - apps/workspace/bff/audit/service.ts
+  - apps/workspace/bff/llm-credentials/secret-store.ts
+  - docs/deployment/workos-provisioning.md
+agreement:
+  entity: WorkOS, Inc., USA (address per order form)
+  dpa: Part of the agreement; binding from its effective date. Standard contractual clauses (modules 2 and 3) included
+  dpa_url: https://workos.com/legal/dpa
+  subprocessors: https://trust.workos.com/subprocessors
+  note: Data is stored in the United States; no EU residency option found.
+  checked: '2026-11-11'
+  sources:
+    - https://workos.com/legal/dpa
+copy:
+  name:
+    de: WorkOS, Inc.
+    en: WorkOS, Inc.
+  purpose:
+    de: Identität & Anmeldung (Passwort oder Konto bei Google, Microsoft, Apple oder GitHub), Versand von Einladungs- und Bestätigungs-E-Mails, Autorisierung, Audit-Log-Speicherung, Verwahrung eigener KI-Schlüssel Ihrer Organisation (WorkOS Vault)
+    en: Identity & sign-in (password, or an account at Google, Microsoft, Apple or GitHub), sending invitation and verification e-mails, authorization, audit-log storage, keeping your organization's own AI keys (WorkOS Vault)
+  data:
+    de: >-
+      Name, E-Mail, Organisationszugehörigkeit, Rollen, Anmeldeereignisse, Audit-Ereignisse (inkl. IP-Adresse, Browserkennung sowie
+      Namen von Organisationen, Projekten und Dokumenten, soweit die betroffene Ablage für alle Projektmitglieder
+      sichtbar ist); eigene KI-Schlüssel Ihrer Organisation, falls hinterlegt
+    en: >-
+      Name, email, organization membership, roles, sign-in events, audit events (incl. IP address, browser user agent and the names of
+      organizations, projects and documents, where the folder concerned is visible to every project member); your organization's own AI keys, where stored
+  location:
+    de: USA
+    en: USA
+  required:
+    de: Ja
+    en: 'Yes'

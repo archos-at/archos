@@ -1,9 +1,3 @@
-"""Datetime payload fields: their index, their coercion, their facts and the range filter on them.
-
-No server needed. What a live collection does with the index (creation on an existing collection, a
-range matching real points, a point without the field not matching) is not covered here.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -55,6 +49,20 @@ class TestSchema:
         assert made == {name: models.PayloadSchemaType.DATETIME for name in schema.DATETIME_FIELDS}
 
 
+class TestLicenceMarkIndexes:
+    def test_both_fields_are_keyword_indexed(self):
+        for field in (schema.LICENCE_CLASS_FIELD, schema.KNOWLEDGE_EDITION_FIELD):
+            assert field in schema.KEYWORD_FIELDS
+            assert schema._field_schema(field) == models.PayloadSchemaType.KEYWORD
+
+    def test_ensure_payload_indexes_creates_them_on_a_collection_made_before_them(self):
+        new = {schema.LICENCE_CLASS_FIELD, schema.KNOWLEDGE_EDITION_FIELD}
+        client = MagicMock()
+        client.get_collection.return_value.payload_schema = {name: MagicMock() for name in schema.INDEXED_FIELDS - new}
+
+        assert schema.ensure_payload_indexes(client, "office_v1") == sorted(new)
+
+
 class TestCoercion:
     @pytest.mark.parametrize(
         ("raw", "expected"),
@@ -100,13 +108,11 @@ class TestFacts:
         assert facts["document_date"] == "2025-07-01T09:00:00Z"
 
     def test_a_mail_thread_is_dated_by_its_newest_message(self):
-        """A filed E-Mail-Verlauf (ADR-0137): „the newest correspondence“ sorts by its last message."""
         facts = document_facts(_document(mail_thread={"latest_sent_at": "2026-05-14T14:40:00Z", "message_count": 5}))
 
         assert facts["document_date"] == "2026-05-14T14:40:00Z"
 
     def test_a_file_that_came_with_a_mail_keeps_its_own_date(self):
-        """The day it was mailed is where it came from, not when it was written: no date of its own, none."""
         origin = {"sent_at": "2026-05-04T06:30:00Z", "sender_trust": "external_verified"}
 
         assert document_facts(_document(mail_origin=origin))["document_date"] is None

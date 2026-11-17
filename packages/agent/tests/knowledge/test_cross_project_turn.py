@@ -1,14 +1,3 @@
-"""A turn whose conversation drew on another project shuts every door a whole project reads (ADR-0094).
-
-The BFF refuses each of them on its own (a run, a task, a profile patch, a
-filing, a memory write). These pin the agent's half, so the model is not
-offered what will be refused: the turn learns it from the turn context or from
-a lookup it just made, and then the shut-doors prompt block renders, deep
-research and tasks are withdrawn, a ``project_profile_patch`` card is refused,
-``remember`` saves nothing (and never offers a card that would save it through
-the reader's own session), and reflection does not run.
-"""
-
 from __future__ import annotations
 
 import io
@@ -33,6 +22,7 @@ from agent.memory import register as memory_register
 from agent.memory.register import ProjectMemoryRememberConfig
 from agent.memory.register import project_memory_remember
 from agent.stages import TurnFacts
+from agent.stages.flags import TurnFlags
 from agent.stages.memory_reflection import _handler as reflection_handler
 from agent.stages.spec import StageContext
 from agent.turn import context as turn_context
@@ -80,11 +70,16 @@ class TestTheTurnLearnsIt:
         monkeypatch.setattr(
             turn_context,
             "_turn_flags",
-            lambda *_a, **_k: _awaitable(
-                SimpleNamespace(deep_research_allowed=True, tasks_allowed=True, enabled_stages=())
-            ),
+            lambda *_a, **_k: _awaitable(TurnFlags(enabled_stages=frozenset())),
         )
-        request = SimpleNamespace(organization_id="org", project_id="p1", user_id="u1", federal_state=None)
+        request = SimpleNamespace(
+            organization_id="org",
+            project_id="p1",
+            user_id="u1",
+            federal_state=None,
+            envelope_header=None,
+            envelope_signature=None,
+        )
 
         await turn_context._load_turn_context(request, conversation_id="c1", query_text="q", resolve_stages=False)
 

@@ -1,16 +1,3 @@
-/**
- * The chip makes one promise — it prefills the composer — so the tests that
- * matter are the negative ones — a click fetches nothing and sends nothing —
- * next to the proof that the sentence which reaches the composer is the whole,
- * sendable German question built from the row's own words, and that a row with
- * nothing to build from offers no chip at all.
- *
- * The schematic legend is exercised through its real component rather than the
- * chip alone: the point of the feature is that a `needs_input` row IS the
- * question, and a chip that renders in isolation but never appears on a row
- * would pass a test of the chip and fail the reader.
- */
-
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -31,7 +18,6 @@ vi.mock('@/features/chat/store', () => {
   return { useChatStore }
 })
 
-/** German, pinned: the sentence under test is the German one, on every machine. */
 const renderDe = (ui: ReactElement) =>
   render(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -61,8 +47,6 @@ describe('AskAboutChip', () => {
 
     await user.click(screen.getByRole('button', { name: /Handlauf beidseitig/ }))
 
-    // The row's own words, one sentence, sendable as it stands — and the
-    // remedy's trailing full stop does not collide with the template's own.
     expect(setComposerPrefill).toHaveBeenCalledWith(
       'Bei „Handlauf beidseitig“ fehlt eine Angabe: Dieser Export enthält kein IfcRailing — ' +
         'Handläufe im CAD als IfcRailing modellieren. Wie kann ich das nachreichen, und was gilt bis dahin?',
@@ -82,8 +66,6 @@ describe('AskAboutChip', () => {
   })
 
   it('renders nothing rather than a question with a hole in it', () => {
-    // A subject too short to name anything would produce „Bei „—“ fehlt eine
-    // Angabe …", which is a template showing through, not a question.
     const { container } = renderDe(<AskAboutChip subject="  " missing="egal" />)
     expect(container.querySelector('button')).toBeNull()
 
@@ -97,7 +79,6 @@ describe('AskAboutChip', () => {
 
     await user.click(screen.getByRole('button', { name: /Handlauf beidseitig/ }))
 
-    // „nicht zurück zum LLM" — the chip queues a draft the user can ignore.
     expect(chatSendFn).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()
   })
@@ -164,17 +145,6 @@ describe('a schematic legend offers the question next to the remedy', () => {
   })
 
   describe('trailing-mark stripping is linear in the length of the label', () => {
-    /**
-     * `tidy` used to strip the trailing run with `/[.,;:!?…]+$/`. That pattern is
-     * anchored at the end but may begin at any position, so on a label of many
-     * marks the engine retries from each one and the scan is quadratic — 32k
-     * colons took 1,007ms against 0.2ms for the loop that replaced it. The label
-     * is written by the model into a card row, so its length and shape are not
-     * ours to bound.
-     *
-     * An absolute budget, not a ratio between two sizes: healthy timings here
-     * are microseconds and a ratio of two of those is noise rather than signal.
-     */
     it('does not stall on a label that is all sentence marks', () => {
       const started = performance.now()
 

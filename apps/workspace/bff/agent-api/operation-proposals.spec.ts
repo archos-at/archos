@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Piloti's writes through the MCP surface are proposals (ADR-0122): proposing
- * files a row and applies nothing; accepting runs the operation through
- * `callOperation` as the ACCEPTING person; a read-only or vanished operation is
- * never run; dismissing runs nothing. A turn in no project files on the
- * organization (0176), read through its conversation and decided by anyone who
- * reads it; the same call repeated while the first is open files nothing. The
- * service is the real one, over an in-memory repository; `callOperation` and
- * the catalog are the seams.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
@@ -34,7 +24,6 @@ vi.mock('@/lib/langfuse/decision-score', () => ({
   recordDecisionScore: vi.fn(async () => undefined),
 }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
-// The other kinds' services are not reached by an operation proposal.
 vi.mock('@/lib/proposals/executors', () => ({
   applyFileOperations: vi.fn(),
   operationLabel: vi.fn(),
@@ -68,15 +57,12 @@ vi.mock('@/lib/proposals/repository', () => ({
   listShelfProposals: vi.fn(),
 }))
 
-// Where a target lives is SQL; the real-path proof is `operation-proposals.integration.spec.ts`.
 vi.mock('./operation-targets-repository', () => ({
   findTargetPlace: vi.fn(async () => ({ projectId: '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f', conversationId: null })),
   findProjectName: vi.fn(async () => 'Neubau Musterstraße'),
 }))
 vi.mock('@/lib/authz/folder-access', () => ({ isFolderVisibleTo: vi.fn(async () => true) }))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
-// Whose reach a shared conversation's proposal must stay in: SQL and WorkOS, proven in
-// operation-proposals.integration.spec.ts; here only that its refusal files nothing.
 vi.mock('./conversation-audience', () => ({ proposalReachRefusal: vi.fn(async () => null) }))
 
 const dispatch = vi.hoisted(() => ({ callOperation: vi.fn() }))
@@ -122,7 +108,6 @@ const CATALOG = [FOLDER_RENAME, FOLDER_LIST, SEARCH_POST, ORG_MEMORY_CREATE]
 let catalog = CATALOG
 vi.mock('./exposure.config', async (importOriginal) => {
   const real = await importOriginal<typeof import('./exposure.config')>()
-  // The fakes are kinds of operation; organization-memory-create keeps its real entry (Piloti does it natively).
   const offered = { external: true, agent: true }
   return { ...real, EXPOSURE: { ...real.EXPOSURE, 'folder-rename': offered, 'folder-list': offered, 'folder-search': offered } }
 })
@@ -308,7 +293,6 @@ describe('proposeOperation', () => {
       summary: first.summary,
     })
 
-    // Another input is another proposal; so is the same call in another conversation.
     await proposeOperation({
       principal: { session: ASKER, conversationId: 'conv_1', projectId: PROJECT },
       op: FOLDER_RENAME,
@@ -537,7 +521,6 @@ describe('applying an operation proposal', () => {
 
   it('refuses an operation that has left the catalog or turned read-only since it was proposed', async () => {
     const { proposalId } = await propose()
-    // Another input: the same call twice would be one proposal.
     const second = await proposeOperation({
       principal: { session: ASKER, conversationId: 'conv_1', projectId: PROJECT },
       op: FOLDER_RENAME,

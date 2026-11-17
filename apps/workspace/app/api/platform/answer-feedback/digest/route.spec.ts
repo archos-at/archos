@@ -26,8 +26,6 @@ vi.mock('@/lib/authz/platform', () => {
 
 vi.mock('@/lib/feedback/service', () => ({
   getAnswerFeedbackDigest: vi.fn().mockImplementation(async (session: unknown) => {
-    // The real service gates before it reads; mirrored here so the 403 test is
-    // testing the route's translation of a refusal, not a mock that never refuses.
     const { requirePlatformPermission } = await import('@/lib/authz/platform')
     await requirePlatformPermission(session as never, 'platform:organizations:view')
     return { digest: { headline: 'Fine.' }, error: null }
@@ -82,11 +80,6 @@ describe('GET /api/platform/answer-feedback/digest', () => {
     )
   })
 
-  /**
-   * A young window is not an error. Answering 4xx would send the client down the
-   * "something is broken" path for the ordinary state of a product that has just
-   * started collecting votes.
-   */
   it('answers 200 with a reason when there is no digest to give', async () => {
     isOwner.value = true
     vi.mocked(getAnswerFeedbackDigest).mockResolvedValueOnce({

@@ -14,6 +14,7 @@ re-implements it.
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -21,10 +22,13 @@ from typing import TYPE_CHECKING
 
 from .task_failures import TaskFailure
 from .task_failures import TransientTaskError
+from .task_failures import classify
 
 if TYPE_CHECKING:
     from hatchet_sdk import Hatchet
 
+
+logger = logging.getLogger(__name__)
 
 _lock = threading.Lock()
 _client: Hatchet | None = None
@@ -74,3 +78,14 @@ def task_error(failure: TaskFailure, *, retry: bool) -> Exception:
     from hatchet_sdk import NonRetryableException
 
     return NonRetryableException(failure.text)
+
+
+def sanitized(what: str, error: BaseException, *, retry: bool = True) -> Exception:
+    """``error`` as a task raises it to the engine (``raise sanitized(...) from None``), logged in full here.
+
+    ``what`` names the work in the log line and never reaches Hatchet: the run's
+    record holds the class and the category (:func:`task_error`).
+    """
+    failure = classify(error)
+    logger.error("%s failed on Hatchet: %s", what, failure.text, exc_info=error)
+    return task_error(failure, retry=retry)

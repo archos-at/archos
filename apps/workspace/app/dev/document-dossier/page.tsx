@@ -21,7 +21,7 @@ import type { JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { InspectorGroup } from '@/components/ui/inspector-group'
 import { AgentReading } from '@/features/documents/components/agent-reading'
-import { DocumentFindingsList } from '@/features/documents/components/document-findings-panel'
+import { DocumentFindingsSection } from '@/features/documents/components/document-findings-panel'
 import type { FileItem } from '@/features/documents/file-types'
 import { deriveDocumentFindings, referencedBy, resolveReferences, toFindingsDocument } from '@/lib/documents/findings'
 import type { DocumentFindingsResponse, DocumentLinks } from '@/lib/documents/findings-wire'
@@ -172,7 +172,10 @@ export default function DocumentDossierDevPage(): JSX.Element {
     <I18nProvider initialLocale="de" fixedLocale>
       <main className="bg-muted/40 min-h-screen p-6" data-testid="dev-document-dossier">
         <div className="flex max-w-[780px] flex-col gap-6">
-          <DocumentFindingsList projectId={PROJECT_ID} response={RESPONSE} />
+          {/* As the root's folder brief shows it, open: a section of its sheet. */}
+          <div className="bg-sheet max-w-[720px] rounded-surface shadow-sm">
+            <DocumentFindingsSection projectId={PROJECT_ID} response={RESPONSE} />
+          </div>
           <div className="flex max-w-[520px] flex-col gap-2" data-testid="dev-upload-report">
             <p className="text-muted-foreground px-1 text-xs">Eingangsbericht (inbox row „Ihr Upload ist gelesen“)</p>
             <InspectorGroup className="p-3">

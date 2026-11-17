@@ -25,388 +25,121 @@ import asyncio
 import logging
 import re
 import time
-from dataclasses import dataclass
-from dataclasses import field
-from html import unescape
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from public_sources import access_for
+from public_sources import engine_for
+from public_sources import get_source
+from public_sources.egress import EgressRefused
+
+# The format is the ``ris_xml`` engine's; its names are re-exported here, where
+# the tools, the routes and the tests have always imported them from.
+from public_sources.engines import ris_xml
+from public_sources.engines.ris_xml import RisDocument
+from public_sources.engines.ris_xml import RisError
+from public_sources.engines.ris_xml import RisHit
+from public_sources.engines.ris_xml import RisSearchResult
+from public_sources.engines.ris_xml import _as_list
+from public_sources.engines.ris_xml import _as_text
+from public_sources.engines.ris_xml import _find_all
+from public_sources.engines.ris_xml import _find_first
+from public_sources.routing import source_transport
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BASE_URL = "https://data.bka.gv.at/ris/api/v2.6"
+__all__ = [
+    "ALLOWED_DOCUMENT_HOSTS",
+    "CONTROLLER_FOR_APPLICATION",
+    "DEFAULT_BASE_URL",
+    "DOCUMENT_PATH_SEGMENTS",
+    "PAGE_SIZES",
+    "RIS_SOURCE_ID",
+    "RisClient",
+    "RisDocument",
+    "RisError",
+    "RisHit",
+    "RisSearchResult",
+    "_as_list",
+    "_as_text",
+    "_find_all",
+    "_find_first",
+    "build_document_url",
+    "federal_state_param",
+    "html_to_text",
+    "parse_search_response",
+    "public_host",
+    "search_terms",
+]
+
+#: The source record this client is one configured instance of (ADR-0162):
+#: ``configs/sources/at/ris/source.yml``. Every Austrian value below is read from it.
+RIS_SOURCE_ID = "at-ris"
+_SOURCE = get_source(RIS_SOURCE_ID)
+_ACCESS = access_for(_SOURCE)
+_ENGINE = engine_for(_SOURCE)
+
+DEFAULT_BASE_URL = _ACCESS.config.base_url
+
+
+def source_record():
+    """This adapter's source record (``configs/sources``): its hosts, and how an address states a work's identifier."""
+    return _SOURCE
+
 
 # Only documents hosted by RIS itself may be fetched through this adapter.
-ALLOWED_DOCUMENT_HOSTS = frozenset(
-    {
-        "www.ris.bka.gv.at",
-        "ris.bka.gv.at",
-        "data.bka.gv.at",
-    }
-)
+ALLOWED_DOCUMENT_HOSTS = frozenset(_SOURCE.hosts)
 
 # Application code -> API controller (URL path segment of the search endpoint).
 # See "Umstrukturierung der API (Controller) Namen" in the handbook.
-CONTROLLER_FOR_APPLICATION: dict[str, str] = {
-    # Bundesrecht
-    "BrKons": "Bundesrecht",
-    "BgblAuth": "Bundesrecht",
-    "BgblPdf": "Bundesrecht",
-    "BgblAlt": "Bundesrecht",
-    "Begut": "Bundesrecht",
-    "RegV": "Bundesrecht",
-    "Erv": "Bundesrecht",
-    # Landesrecht
-    "LrKons": "Landesrecht",
-    "LgblAuth": "Landesrecht",
-    "Lgbl": "Landesrecht",
-    "LgblNO": "Landesrecht",
-    "Vbl": "Landesrecht",
-    # Judikatur
-    "Vfgh": "Judikatur",
-    "Vwgh": "Judikatur",
-    "Normenliste": "Judikatur",
-    "Justiz": "Judikatur",
-    "Bvwg": "Judikatur",
-    "AsylGH": "Judikatur",
-    "Lvwg": "Judikatur",
-    "Dsk": "Judikatur",
-    "Verg": "Judikatur",
-    "Dok": "Judikatur",
-    "Pvak": "Judikatur",
-    "Gbk": "Judikatur",
-    "Uvs": "Judikatur",
-    "Ubas": "Judikatur",
-    "Umse": "Judikatur",
-    "Bks": "Judikatur",
-    # Bezirke / Gemeinden
-    "Bvb": "Bezirke",
-    "Gr": "Gemeinden",
-    "GrA": "Gemeinden",
-    # Sonstige Kundmachungen, Erlässe
-    "PruefGewO": "Sonstige",
-    "Avsv": "Sonstige",
-    "Spg": "Sonstige",
-    "Avn": "Sonstige",
-    "KmGer": "Sonstige",
-    "Upts": "Sonstige",
-    "Mrp": "Sonstige",
-    "Erlaesse": "Sonstige",
-}
+CONTROLLER_FOR_APPLICATION: dict[str, str] = dict(_ACCESS.table("controller").values)
 
 # Documents-per-page values accepted by the API.
-PAGE_SIZES: dict[int, str] = {10: "Ten", 20: "Twenty", 50: "Fifty", 100: "OneHundred"}
+PAGE_SIZES: dict[int, str] = {int(size): token for size, token in _ACCESS.table("page_size").values.items()}
 
 # Citizen-application path segment used in document content URLs
 # (https://www.ris.bka.gv.at/Dokumente/<segment>/<docnr>/<docnr>.html),
 # keyed by application code.
-DOCUMENT_PATH_SEGMENTS: dict[str, str] = {
-    "BrKons": "Bundesnormen",
-    "LrKons": "Landesnormen",
-    "BgblAuth": "BgblAuth",
-    "Begut": "Begut",
-    "RegV": "RegV",
-    "Erv": "Erv",
-    "Vfgh": "Vfgh",
-    "Vwgh": "Vwgh",
-    "Justiz": "Justiz",
-    "Bvwg": "Bvwg",
-    "Lvwg": "Lvwg",
-    "AsylGH": "AsylGH",
-    "Dsk": "Dsk",
-    "Gbk": "Gbk",
-    "Erlaesse": "Erlaesse",
-}
+DOCUMENT_PATH_SEGMENTS: dict[str, str] = dict(_ACCESS.table("document_segment").values)
 
 # Document-number prefix -> citizen-application path segment, used to infer
 # the fetch URL when the agent passes a bare document number.
-_DOC_PREFIX_SEGMENTS: tuple[tuple[str, str], ...] = (
-    ("NOR", "Bundesnormen"),
-    ("JFT", "Vfgh"),
-    ("JFR", "Vfgh"),
-    ("JWT", "Vwgh"),
-    ("JWR", "Vwgh"),
-    ("JJT", "Justiz"),
-    ("JJR", "Justiz"),
-    ("BVWG", "Bvwg"),
-    ("LVWG", "Lvwg"),
-    ("ASYLGH", "AsylGH"),
-    ("DSB", "Dsk"),
-    ("ERL", "Erlaesse"),
-)
+_DOC_PREFIX_SEGMENTS: tuple[tuple[str, str], ...] = tuple(_ACCESS.table("document_prefix").values.items())
 
 
-class RisError(Exception):
-    """Raised for OGD-RIS API errors (validation errors, bad pages, HTTP failures)."""
+def search_terms(args: dict[str, Any]) -> dict[str, str]:
+    """The ``terms`` parameters of the record's ``search`` operation for ``args``."""
+    return _ACCESS.params("search", args, group="terms")
 
 
-@dataclass
-class RisHit:
-    """A single normalized document reference from an OGD-RIS search result."""
-
-    application: str = ""
-    document_number: str = ""
-    title: str = ""
-    citation_url: str = ""  # citizen-application URL of the document (for citations)
-    content_urls: dict[str, str] = field(default_factory=dict)  # DataType (Html/Xml/Pdf/Rtf) -> URL
-    full_law_url: str = ""  # GesamteRechtsvorschriftUrl — the ENTIRE consolidated law as HTML
-    metadata: dict[str, str] = field(default_factory=dict)  # human-relevant fields (dates, §, court, ...)
-
-    @property
-    def fetch_url(self) -> str:
-        """Best URL for fetching the document text (HTML preferred, then XML)."""
-        return self.content_urls.get("Html") or self.citation_url or self.content_urls.get("Xml", "")
-
-
-@dataclass
-class RisSearchResult:
-    """Normalized OGD-RIS search response."""
-
-    hits: list[RisHit] = field(default_factory=list)
-    total: int = 0
-    page: int = 1
-    page_size: int = 20
-
-
-@dataclass
-class RisDocument:
-    """A fetched RIS document converted to plain text."""
-
-    url: str
-    title: str
-    text: str
-
-
-# ---------------------------------------------------------------------------
-# JSON traversal helpers (XML-derived JSON has dict-or-list ambiguity)
-# ---------------------------------------------------------------------------
-
-
-def _as_list(node: Any) -> list[Any]:
-    """Normalize an XML-derived JSON node to a list (single child -> dict)."""
-    if node is None:
-        return []
-    if isinstance(node, list):
-        return node
-    return [node]
-
-
-def _find_first(node: Any, key: str) -> Any:
-    """Breadth-first search for the first value under ``key`` anywhere in ``node``."""
-    queue = [node]
-    while queue:
-        current = queue.pop(0)
-        if isinstance(current, dict):
-            if key in current:
-                return current[key]
-            queue.extend(current.values())
-        elif isinstance(current, list):
-            queue.extend(current)
-    return None
-
-
-def _find_all(node: Any, key: str) -> list[Any]:
-    """Breadth-first search for every value under ``key`` anywhere in ``node``."""
-    found: list[Any] = []
-    queue = [node]
-    while queue:
-        current = queue.pop(0)
-        if isinstance(current, dict):
-            if key in current:
-                found.append(current[key])
-            queue.extend(current.values())
-        elif isinstance(current, list):
-            queue.extend(current)
-    return found
-
-
-def _as_text(value: Any) -> str:
-    """Flatten a scalar / ``{"#text": ...}`` / list node into a display string."""
-    if value is None:
-        return ""
-    if isinstance(value, dict):
-        if "#text" in value:
-            return _as_text(value["#text"])
-        # e.g. Geschaeftszahl arrays come as {"item": [...]}
-        return ", ".join(filter(None, (_as_text(v) for v in value.values())))
-    if isinstance(value, list):
-        return ", ".join(filter(None, (_as_text(v) for v in value)))
-    return str(value).strip()
-
-
-# Metadata fields worth surfacing to the agent, in display order.
-_METADATA_FIELDS = (
-    ("Kurztitel", "Kurztitel"),
-    ("ArtikelParagraphAnlage", "Paragraph/Artikel"),
-    ("Gesetzesnummer", "Gesetzesnummer"),
-    ("Kundmachungsorgan", "Kundmachungsorgan"),
-    ("Inkrafttretensdatum", "In Kraft seit"),
-    ("Ausserkrafttretensdatum", "Außer Kraft seit"),
-    ("Geschaeftszahl", "Geschäftszahl"),
-    ("Entscheidungsdatum", "Entscheidungsdatum"),
-    ("Gericht", "Gericht"),
-    ("Bundesland", "Bundesland"),
-    ("Bgblnummer", "BGBl-Nummer"),
-)
-
-_TITLE_KEYS = ("Kurztitel", "Titel", "Dokumenttitel", "Kurzinformation", "Geschaeftszahl")
-
-
-#: The host OGD-RIS started stating in 2026-09 for document and whole-law URLs.
-#: It answers with a 301 to ``ris.bka.gv.at``, is on no allow-list, and written
-#: into the norm catalog it replaced every pointer the reader can open.
-_OGD_HOST_PREFIX = "https://ogd.ris.bka.gv.at/"
-_PUBLIC_HOST_PREFIX = "https://www.ris.bka.gv.at/"
+def federal_state_param(federal_state: str) -> str:
+    """The Landesrecht search parameter for a Bundesland name, e.g. ``Bundesland.SucheInWien``; empty if unknown."""
+    return _ACCESS.table("federal_state").lookup(federal_state) if federal_state else ""
 
 
 def public_host(url: str) -> str:
     """A RIS URL on the public host the citations, the catalog and the fetch use."""
-    if url.startswith(_OGD_HOST_PREFIX):
-        return _PUBLIC_HOST_PREFIX + url[len(_OGD_HOST_PREFIX) :]
-    return url
+    return _ENGINE.public_host(url)
 
 
 def _parse_hit(ref: Any) -> RisHit:
-    """Normalize one OgdDocumentReference node into a RisHit."""
-    hit = RisHit()
-
-    data = ref.get("Data", ref) if isinstance(ref, dict) else ref
-    metadaten = _find_first(data, "Metadaten") or data
-
-    technisch = _find_first(metadaten, "Technisch") or {}
-    hit.document_number = _as_text(technisch.get("ID") if isinstance(technisch, dict) else None) or _as_text(
-        _find_first(metadaten, "Dokumentnummer")
-    )
-    hit.application = _as_text(technisch.get("Applikation") if isinstance(technisch, dict) else None)
-
-    for key in _TITLE_KEYS:
-        title = _as_text(_find_first(metadaten, key))
-        if title:
-            hit.title = title
-            break
-
-    hit.citation_url = public_host(_as_text(_find_first(metadaten, "DokumentUrl")))
-    hit.full_law_url = public_host(_as_text(_find_first(metadaten, "GesamteRechtsvorschriftUrl")))
-
-    for key, label in _METADATA_FIELDS:
-        value = _as_text(_find_first(metadaten, key))
-        if value and label not in hit.metadata:
-            hit.metadata[label] = value
-
-    # Content URLs live under Dokumentliste/ContentReference/Urls/ContentUrl.
-    for content_url in _find_all(ref, "ContentUrl"):
-        for entry in _as_list(content_url):
-            if not isinstance(entry, dict):
-                continue
-            data_type = _as_text(entry.get("DataType"))
-            url = _as_text(entry.get("Url"))
-            if data_type and url and data_type not in hit.content_urls:
-                hit.content_urls[data_type] = url
-
-    return hit
+    """One OgdDocumentReference node as a RisHit, with the record's host rewrites."""
+    return ris_xml._parse_hit(ref, _ENGINE.config.host_rewrites)
 
 
 def parse_search_response(payload: dict[str, Any]) -> RisSearchResult:
-    """Parse a raw OGD-RIS JSON response into a RisSearchResult.
+    """Parse a raw OGD-RIS JSON response into a RisSearchResult (the ``ris_xml`` engine).
 
     Raises:
         RisError: When the payload carries an ``OgdSearchResult.Error`` node.
     """
-    result = payload.get("OgdSearchResult")
-    if not isinstance(result, dict):
-        raise RisError("Unexpected OGD-RIS response: missing OgdSearchResult")
-
-    error = result.get("Error")
-    if isinstance(error, dict):
-        application = _as_text(error.get("Applikation"))
-        message = _as_text(error.get("Message")) or "unknown error"
-        raise RisError(f"OGD-RIS API error ({application or 'unknown application'}): {message}")
-
-    doc_results = result.get("OgdDocumentResults") or {}
-    hits_node = doc_results.get("Hits")
-    total = 0
-    page = 1
-    page_size = 20
-    if isinstance(hits_node, dict):
-        total = int(_as_text(hits_node.get("#text")) or 0)
-        page = int(_as_text(hits_node.get("@pageNumber")) or 1)
-        page_size = int(_as_text(hits_node.get("@pageSize")) or 20)
-    elif hits_node is not None:
-        total = int(_as_text(hits_node) or 0)
-
-    hits = [_parse_hit(ref) for ref in _as_list(doc_results.get("OgdDocumentReference"))]
-    return RisSearchResult(hits=hits, total=total, page=page, page_size=page_size)
-
-
-# ---------------------------------------------------------------------------
-# HTML / XML -> plain text
-# ---------------------------------------------------------------------------
-
-_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-
-
-#: The RIS page element that holds the document, and nothing else.
-#:
-#: Measured against ``GeltendeFassung.wxe`` for the Bauordnung für Wien
-#: (2026-09-04): the page is 759,687 characters of extracted text and ``#content``
-#: holds 759,015 of them. The 672 characters outside it are the site's own
-#: furniture — an accesskey menu ("Zum Inhalt (Accesskey 0)"), the navigation
-#: bar, the footer — and they sit at the FRONT, which is where they do the most
-#: damage: they are the first thing the in-app reader shows, the first thing the
-#: agent reads inside its ``max_chars`` window, and they are ingested into the
-#: session collection where they become retrievable text that is not law.
-#:
-#: Absence is not an error. A ``/Dokumente/…`` document page, an XML payload, or
-#: a future RIS template may carry no such container, and then the whole document
-#: is the answer exactly as it was before.
-_RIS_CONTENT_SELECTOR = "#content"
+    return _ENGINE.search(payload)
 
 
 def html_to_text(markup: str) -> tuple[str, str]:
-    """Convert an HTML/XML document to (title, plain text).
-
-    Uses BeautifulSoup when available; falls back to a regex tag stripper so
-    the adapter degrades gracefully rather than failing the whole tool call.
-
-    The RIS page's own navigation is dropped when the document container can be
-    found (see :data:`_RIS_CONTENT_SELECTOR`); everything else is kept verbatim,
-    because this text is what a legal answer is grounded on and what a reader
-    checks it against.
-    """
-    title = ""
-    title_match = _TITLE_RE.search(markup)
-    if title_match:
-        title = unescape(re.sub(r"\s+", " ", title_match.group(1))).strip()
-
-    try:
-        from bs4 import BeautifulSoup
-
-        soup = BeautifulSoup(markup, "html.parser")
-        for tag in soup(["script", "style", "noscript", "head"]):
-            tag.decompose()
-        # RIS states every marker twice: ``a)`` for the eye (aria-hidden) and
-        # ``Litera a`` for a screen reader (.sr-only), and every citation again
-        # spelled out ("Paragraph 118, Absatz eins"). Kept, the spoken twin was
-        # a third of the Bauordnung für Wien and half of some §§, and it pushed
-        # the provision itself out of the passage the agent reads.
-        for tag in soup.select(".sr-only"):
-            tag.decompose()
-        root = soup.select_one(_RIS_CONTENT_SELECTOR) or soup
-        text = root.get_text("\n")
-    except ImportError:  # pragma: no cover - bs4 is a declared dependency
-        text = re.sub(r"(?is)<(script|style|head)[^>]*>.*?</\1>", " ", markup)
-        text = unescape(re.sub(r"<[^>]+>", "\n", text))
-
-    # Collapse intra-line whitespace and runs of blank lines.
-    lines = [re.sub(r"[ \t\xa0]+", " ", line).strip() for line in text.splitlines()]
-    collapsed: list[str] = []
-    for line in lines:
-        if line:
-            collapsed.append(line)
-        elif collapsed and collapsed[-1] != "":
-            collapsed.append("")
-    return title, "\n".join(collapsed).strip()
+    """Convert a RIS HTML/XML document to (title, plain text) (the ``ris_xml`` engine)."""
+    return _ENGINE.text(markup)
 
 
 # ---------------------------------------------------------------------------
@@ -440,42 +173,60 @@ class RisClient:
         self.cache_max_entries = cache_max_entries
         self.max_retries = max(1, max_retries)
         self._transport = transport
+        #: The client, its requests made by the public-source fetcher (ADR-0162). Built on first use.
         self._client: httpx.AsyncClient | None = None
         self._doc_cache: dict[str, tuple[float, RisDocument]] = {}
 
     def _http_client(self) -> httpx.AsyncClient:
+        """The client whose requests the public-source fetcher makes, for the ``at-ris`` record.
+
+        There is no other path: RIS is read from the fetcher's pod, which reaches
+        public addresses and nothing in the cluster, and the guard runs there
+        (:mod:`public_sources.egress`). Without a fetcher configured, a RIS
+        request is refused (:class:`RisError`). A transport handed in (tests)
+        stands in for the network.
+        """
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=self.timeout,
-                follow_redirects=True,
-                transport=self._transport,
-                # EVERY HOP IS CHECKED, NOT THE FIRST ONE.
-                #
-                # `fetch_document_text` validates the URL it is given and then
-                # hands it to a client that follows up to twenty redirects. So
-                # the allow-list bound the REQUEST and not the FETCH: a RIS
-                # endpoint that reflects a query parameter into `Location` —
-                # and the citizen application is query-driven WebForms
-                # throughout — turned the check into a formality, and the
-                # response body came back to the caller from wherever the last
-                # hop pointed. Cloud metadata, the backend's own internal API,
-                # Dragonfly, the object store: all reachable from inside the
-                # cluster, all http, none of them RIS.
-                #
-                # That was survivable while the only caller was the agent
-                # passing URLs it had just received FROM RIS. It stopped being
-                # survivable when `GET /v1/ris/document` began taking the URL
-                # from a signed-in user, which is what made it worth closing
-                # here rather than at that route: a hook on the client covers
-                # `search()` and every future caller too, and it cannot be
-                # forgotten by one of them.
-                event_hooks={"request": [self._reject_non_ris_hop]},
-                headers={
-                    "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
-                    "User-Agent": "grid-oib-agent-ris-adapter/1.0 (+https://data.bka.gv.at/ris/api/v2.6)",
-                },
-            )
+            try:
+                transport = source_transport(RIS_SOURCE_ID, inner=self._transport)
+            except EgressRefused as exc:
+                raise RisError(f"OGD-RIS is not reachable from here: {exc}") from exc
+            self._client = self._new_client(transport)
         return self._client
+
+    def _new_client(self, transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
+        """``trust_env=False`` always: an environment proxy would take a request past the guard."""
+        return httpx.AsyncClient(
+            timeout=self.timeout,
+            follow_redirects=True,
+            transport=transport,
+            trust_env=False,
+            # EVERY HOP IS CHECKED, NOT THE FIRST ONE.
+            #
+            # `fetch_document_text` validates the URL it is given and then
+            # hands it to a client that follows up to twenty redirects. So
+            # the allow-list bound the REQUEST and not the FETCH: a RIS
+            # endpoint that reflects a query parameter into `Location` —
+            # and the citizen application is query-driven WebForms
+            # throughout — turned the check into a formality, and the
+            # response body came back to the caller from wherever the last
+            # hop pointed. Cloud metadata, the backend's own internal API,
+            # Dragonfly, the object store: all reachable from inside the
+            # cluster, all http, none of them RIS.
+            #
+            # That was survivable while the only caller was the agent
+            # passing URLs it had just received FROM RIS. It stopped being
+            # survivable when `GET /v1/ris/document` began taking the URL
+            # from a signed-in user, which is what made it worth closing
+            # here rather than at that route: a hook on the client covers
+            # `search()` and every future caller too, and it cannot be
+            # forgotten by one of them.
+            event_hooks={"request": [self._reject_non_ris_hop]},
+            headers={
+                "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
+                "User-Agent": "grid-oib-agent-ris-adapter/1.0 (+https://data.bka.gv.at/ris/api/v2.6)",
+            },
+        )
 
     async def _reject_non_ris_hop(self, request: httpx.Request) -> None:
         """Refuse a request — original or redirected — that has left RIS."""
@@ -495,9 +246,10 @@ class RisClient:
         surface to the agent.
         """
         last_error: Exception | None = None
+        client = self._http_client()  # once per request, not per retry
         for attempt in range(self.max_retries):
             try:
-                response = await self._http_client().get(url, params=params)
+                response = await client.get(url, params=params)
                 if response.status_code >= 500:
                     try:
                         parse_search_response(response.json())
@@ -511,6 +263,8 @@ class RisClient:
                     return response
             except RisError:
                 raise
+            except EgressRefused as exc:  # deterministic: a retry would be refused the same way
+                raise RisError(f"OGD-RIS request refused: {exc}") from exc
             except httpx.HTTPStatusError as exc:
                 raise RisError(f"OGD-RIS request failed with HTTP {exc.response.status_code}: {url}") from exc
             except httpx.HTTPError as exc:
@@ -539,22 +293,20 @@ class RisClient:
         Raises:
             RisError: For unknown applications, transport failures, or API errors.
         """
-        controller = CONTROLLER_FOR_APPLICATION.get(application)
-        if controller is None:
+        if application not in CONTROLLER_FOR_APPLICATION:
             valid = ", ".join(sorted(CONTROLLER_FOR_APPLICATION))
             raise RisError(f"Unknown RIS application '{application}'. Valid applications: {valid}")
 
         if page_size not in PAGE_SIZES:
             page_size = 20
 
-        query: dict[str, str] = {
-            "Applikation": application,
-            "DokumenteProSeite": PAGE_SIZES[page_size],
-            "Seitennummer": str(max(1, page)),
-        }
+        # The record's `search` operation: its `paging` parameters, then the caller's terms.
+        query = _ACCESS.params(
+            "search", {"application": application, "page_size": page_size, "page": max(1, page)}, group="paging"
+        )
         query.update({k: v for k, v in (params or {}).items() if v})
 
-        url = f"{self.base_url}/{controller}"
+        url = _ACCESS.url("search", {"application": application}, base_url=self.base_url)
         response = await self._get_with_retries(url, params=query)
         try:
             payload = response.json()
@@ -660,4 +412,4 @@ def build_document_url(reference: str, application: str = "") -> str:
             "or pass the document URL from ris_search directly."
         )
 
-    return f"https://www.ris.bka.gv.at/Dokumente/{segment}/{reference}/{reference}.html"
+    return _ACCESS.url("document", {"segment": segment, "reference": reference})

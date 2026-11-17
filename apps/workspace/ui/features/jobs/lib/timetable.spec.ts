@@ -1,13 +1,3 @@
-/**
- * The week grid's geometry.
- *
- * Three properties carry the surface, and each is a thing the grid claims about
- * the week that a list cannot: that a COLLISION renders as columns side by side,
- * that the band CROPS to the hours something happens in, and that a day is a
- * calendar day rather than 86 400 000 milliseconds — the difference that puts
- * Sunday's firings in Sunday's column on the weekend a clock changes.
- */
-
 import { describe, expect, test } from 'vitest'
 import {
   addDays,
@@ -25,7 +15,6 @@ import {
 } from './timetable'
 import type { Occurrence } from './occurrences'
 
-/** A firing at a local wall-clock time on the nth day of the shown week. */
 const at = (weekStart: Date, day: number, hour: number, minute = 0, jobId = 'j1'): Occurrence => {
   const date = addDays(weekStart, day)
   date.setHours(hour, minute, 0, 0)
@@ -34,7 +23,6 @@ const at = (weekStart: Date, day: number, hour: number, minute = 0, jobId = 'j1'
 
 describe('startOfWeek', () => {
   test('a week starts on Monday — this product is German and so is its week', () => {
-    // 2026-09-16 is a Wednesday.
     const monday = startOfWeek(new Date(2026, 8, 16, 13, 45))
     expect(monday.getDay()).toBe(1)
     expect(monday.getDate()).toBe(14)
@@ -42,7 +30,6 @@ describe('startOfWeek', () => {
   })
 
   test('Sunday belongs to the week that started six days ago, not to the next one', () => {
-    // 2026-09-20 is a Sunday.
     const monday = startOfWeek(new Date(2026, 8, 20, 23, 30))
     expect(monday.getDate()).toBe(14)
   })
@@ -78,10 +65,6 @@ describe('buildTimetable columns', () => {
   })
 })
 
-/**
- * The collision. Four schedules at Monday 06:00 is one notification storm and
- * one load spike, and the ONLY way a person sees it is four boxes side by side.
- */
 describe('lane packing', () => {
   const weekStart = startOfWeek(new Date(2026, 8, 14))
 
@@ -125,15 +108,6 @@ describe('lane packing', () => {
   })
 })
 
-/**
- * The crop and the breaks.
- *
- * An uncropped grid spends most of its height on the night nothing runs in. A
- * cropped one still can: a planning office schedules in the morning and again
- * after site visits, and the honest 05:00–17:30 band for that week is ten
- * empty hours with a thin strip at each end. So the day is also BROKEN around
- * long gaps — nothing hidden, nothing rescaled, the gap stated.
- */
 describe('the hour band', () => {
   const weekStart = startOfWeek(new Date(2026, 8, 14))
 
@@ -153,12 +127,10 @@ describe('the hour band', () => {
     )
     expect(segments).toHaveLength(2)
     expect(segments[0].end).toBeLessThan(segments[1].start)
-    // And the break says how much was skipped.
     expect(gapMinutes(segments, 0)).toBe(segments[1].start - segments[0].end)
   })
 
   test('a gap short enough to draw is drawn — the rhythm is the point', () => {
-    // Two hours apart: under the break threshold, so one continuous segment.
     const { segments } = buildTimetable(
       [at(weekStart, 0, 6), at(weekStart, 0, 8)],
       weekStart,
@@ -177,8 +149,6 @@ describe('the hour band', () => {
   test('a single early schedule still gets a segment with shape around it', () => {
     const { segments } = buildTimetable([at(weekStart, 0, 6)], weekStart)
     expect(segmentMinutes(segments[0])).toBeGreaterThanOrEqual(3 * 60)
-    // Padded above as well as below, so 06:00 is not pinned to the top edge as
-    // though nothing could happen before it.
     expect(segments[0].start).toBeLessThan(6 * 60)
     expect(segments[0].end).toBeGreaterThan(6 * 60 + BLOCK_MINUTES)
   })
@@ -233,16 +203,6 @@ describe('minuteOfDay', () => {
   })
 })
 
-/**
- * Which tasks the week contains, and in what colour.
- *
- * The regression this pins: the grid and the list beside it each filtered for
- * themselves, and when the grid learned about one-shot tasks the list did not.
- * Because the colour is an INDEX into a stable order, one missing row does not
- * just lose its own swatch — it shifts every colour after it, so cards and
- * blocks stop naming the same thing. The fix is that there is one function; the
- * test is that it answers for `dueAt` and that the index is stable.
- */
 describe('placeableSchedules', () => {
   const job = (
     id: string,
@@ -271,9 +231,6 @@ describe('seriesColorsFor', () => {
   const weekly = (id: string) => ({ id, scheduleCron: '0 6 * * 1', dueAt: null, enabled: true })
 
   test('a one-shot takes a slot rather than shifting everyone else’s', () => {
-    // 'b' is the one-shot. Before the shared filter it was absent from the
-    // list's map, so 'c' took 'b''s colour on the cards and kept its own on the
-    // grid — two colours for one task, in two views of one set.
     const colors = seriesColorsFor(
       [weekly('a'), { id: 'b', scheduleCron: null, dueAt: '2026-10-02T07:00:00.000Z', enabled: true }, weekly('c')],
       8,
