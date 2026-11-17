@@ -15,6 +15,7 @@ import {
   Library,
   LayoutGrid,
   LockKeyhole,
+  MessageCircleDashed,
   MoreHorizontal,
   PencilLine,
   Trash2,
@@ -113,7 +114,7 @@ export function NavRow({ icon: Icon, label, active = false, within = false, badg
 
 const SUB_ROW = 'relative flex h-8 min-w-0 items-center gap-2 rounded-control pl-[39px] pr-3 text-[13px]'
 
-export function ThreadMenu({ className }: { className?: string }): JSX.Element {
+export function ThreadMenu({ className, inProject = false }: { className?: string; inProject?: boolean }): JSX.Element {
   return (
     <div className={cn('bg-sheet shadow-md text-foreground absolute z-50 w-60 rounded-[16px] p-1.5 text-[13px] font-normal', className)}>
       <div className="flex h-9 items-center gap-2.5 rounded-control px-2.5">
@@ -122,7 +123,7 @@ export function ThreadMenu({ className }: { className?: string }): JSX.Element {
       </div>
       <div className="flex h-9 items-center gap-2.5 rounded-control px-2.5">
         <FolderInput className="text-muted-foreground size-4 shrink-0" aria-hidden />
-        In ein Projekt verschieben
+        {inProject ? 'Verschieben' : 'In ein Projekt verschieben'}
       </div>
       <div className="bg-desk mx-1 my-1 h-px" />
       <div className="text-destructive flex h-9 items-center gap-2.5 rounded-control px-2.5">
@@ -149,7 +150,7 @@ export function ChatRow({ chat, current = false, showProject = false, indent = t
           </span>
         )}
       </a>
-      {menuOpen && <ThreadMenu className="right-0 top-full mt-1" />}
+      {menuOpen && <ThreadMenu className="right-0 top-full mt-1" inProject={Boolean(chat.project)} />}
     </li>
   )
 }
@@ -439,6 +440,57 @@ export function ChatHeader({ title, shared = false, menuOpen = false, changed = 
         </Button>
       </div>
     </header>
+  )
+}
+
+export function TemporaryChat(): JSX.Element {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgb(15_14_13_/_0.4)] p-8">
+      <div className="bg-background shadow-lg flex h-[560px] w-full max-w-[640px] flex-col rounded-[16px]">
+        <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <MessageCircleDashed className="size-4" aria-hidden />
+            Temporärer Chat
+          </div>
+          <span className="bg-sheet shadow-press inline-flex h-8 items-center gap-1.5 rounded-control px-3 text-xs font-medium">
+            <X className="size-3.5" aria-hidden />
+            Schließen und löschen
+          </span>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 px-5 pt-2">
+          <div className="bg-desk text-name max-w-[80%] self-end rounded-[16px] px-3 py-2 font-normal">Wie sage ich meiner Projektleiterin, dass mir im Einreichplan ein Fehler passiert ist?</div>
+          <div className="flex max-w-[88%] flex-col gap-2">
+            <div className="bg-selected h-2 w-[94%] rounded" />
+            <div className="bg-selected h-2 w-[82%] rounded" />
+            <div className="bg-selected h-2 w-[58%] rounded" />
+          </div>
+        </div>
+        <div className="px-5 pb-5">
+          <div className="bg-sheet border-field-border rounded-[10px] border p-3">
+            <span className="text-muted-foreground text-sm">Frage stellen …</span>
+          </div>
+          <p className="text-muted-foreground text-meta flex items-center justify-center gap-1.5 pt-2">
+            <MessageCircleDashed className="size-3.5" aria-hidden />
+            Nur Sie sehen das. Beim Schließen wird es gelöscht, und {PRODUCT} merkt sich nichts daraus.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function NewChatButton({ temporaryOpen = false }: { temporaryOpen?: boolean }): JSX.Element {
+  return (
+    <div className="bg-sheet shadow-press flex h-9 shrink-0 items-stretch rounded-control text-[13px] font-medium">
+      <a href="#" className="flex flex-1 items-center justify-center gap-2">
+        <Plus className="size-4" aria-hidden />
+        Neuer Chat
+      </a>
+      <span aria-hidden className="bg-border my-2 w-px" />
+      <span title="Temporärer Chat" className={cn('flex w-10 items-center justify-center rounded-r-[5px]', temporaryOpen && 'bg-selected')}>
+        <MessageCircleDashed className="size-4" aria-label="Temporärer Chat" />
+      </span>
+    </div>
   )
 }
 
