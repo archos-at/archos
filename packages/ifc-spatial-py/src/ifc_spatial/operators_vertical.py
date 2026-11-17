@@ -373,6 +373,12 @@ def distance(model: SpatialModel, a: str, b: str, mode: str = "min") -> Answer[f
     )
 
 
+_SAMPLING_CAVEAT = (
+    "Ein Raster kann eine schmale Unterzugslage zwischen zwei Punkten verfehlen — "
+    "für einen Nachweis das Raster verfeinern."
+)
+
+
 def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) -> Answer[float]:
     """The lichte Raumhöhe — floor to the lowest thing above it, in metres.
 
@@ -394,9 +400,8 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
     exactly the number an OIB minimum room height is checked against, and the
     modelled height is the unsafe side of it.
 
-    Furniture, stairs and railings are excluded by type and named in the caveat:
-    neither a piano nor a spiral stair is a Raumhöhe. Everything else counts,
-    including the ceiling that made the difference here.
+    Furniture, stairs, ramps and railings are excluded by type, and what the ray
+    starts inside is underfoot. Everything else counts, including the ceiling.
     """
     method = f"clearHeight({space_global_id}, samples={samples})"
     subject = _require(model, space_global_id, method)
@@ -477,8 +482,8 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             if lowering
             else "Kein Bauteil ragt in den Raum — lichte Höhe und Raumkörper stimmen überein. "
         )
-        + "Möblierung, Treppen und Geländer sind ausgenommen. Ein Raster kann eine schmale Unterzugslage "
-        "zwischen zwei Punkten verfehlen — für einen Nachweis das Raster verfeinern."
+        + "Möblierung, Treppen, Rampen, Geländer und Bodenaufbauten sind ausgenommen. "
+        + _SAMPLING_CAVEAT
     )
 
     return computed(
@@ -495,16 +500,14 @@ def _nearest_clear_height_hit(
     model: SpatialModel, space_global_id: str, origin: tuple[float, float, float], base_z: float, length: float
 ) -> tuple[float, str] | None:
     """The NEAREST accepted hit of an upward ray as ``(run, GlobalId)``: select_ray promises no order."""
+    underfoot = {element.GlobalId for element in model.tree.select(origin)}
     nearest: tuple[float, str] | None = None
     for hit in model.tree.select_ray(origin, (0.0, 0.0, 1.0), length=length):
         element = model.file.by_id(hit.instance.id())
-        # Stairs and railings pass with their parts: an IFC4 export carries the
-        # landing as an IfcSlab and the stringer as an IfcMember under the IfcStair.
-        if element.is_a() in AIR_TYPES or _lets_a_clear_height_ray_through(element):
+        if element.is_a() in AIR_TYPES or element.GlobalId in underfoot or _lets_a_clear_height_ray_through(element):
             continue
         if element.GlobalId == space_global_id:
             continue
-        # The ray starts 10 mm up, clear of the slab; the run is measured from the floor.
         run = float(hit.distance) + (origin[2] - base_z)
         if run > 0.01 and (nearest is None or run < nearest[0]):
             nearest = (run, element.GlobalId)
@@ -512,9 +515,9 @@ def _nearest_clear_height_hit(
 
 
 def _lets_a_clear_height_ray_through(element: Any) -> bool:
-    # Every entry tested with `is_a`: IFC2X3 has no subtype relation under
-    # IfcFurnishingElement, and a chair once stopped a ray there.
-    while element is not None:
+    seen: set[int] = set()
+    while element is not None and element.id() not in seen:
+        seen.add(element.id())
         if any(element.is_a(name) for name in CLEAR_HEIGHT_TRANSPARENT):
             return True
         element = next((rel.RelatingObject for rel in getattr(element, "Decomposes", None) or ()), None)

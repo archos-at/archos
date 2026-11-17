@@ -38,16 +38,14 @@ def _overhead_hits(
 ) -> tuple[float | None, dict[str, float]]:
     """Cast one ray per sample point and report the shortest run and who stopped it.
 
-    The air and furniture half of :func:`~ifc_spatial.operators.clear_height`'s
-    exclusion, reused rather than re-derived: :data:`~ifc_spatial.model.AIR_TYPES`
-    never stops a ray (a space is air and an opening is a subtraction), and every
-    entry of :data:`HEADROOM_TRANSPARENT` is tested with ``is_a`` because
+    The exclusion discipline is :func:`~ifc_spatial.operators.clear_height`'s,
+    reused rather than re-derived: :data:`~ifc_spatial.model.AIR_TYPES` never
+    stops a ray (a space is air and an opening is a subtraction), and every entry
+    of :data:`HEADROOM_TRANSPARENT` is tested with ``is_a`` because
     ``IfcFurniture`` is only a SUBTYPE of ``IfcFurnishingElement`` in IFC4 — in
     IFC2X3 it is not, and a chair once stopped a clear-height ray for that reason.
 
-    ``clear_height`` also lets stairs and railings through; here a flight
-    overhead is what a head hits. Unlike there, ``IfcRailing`` is NOT in
-    :data:`HEADROOM_TRANSPARENT`, which records
+    ``IfcRailing`` is NOT in that list, and :data:`HEADROOM_TRANSPARENT` records
     the measurement that decided it: the balustrades this pass used to report
     were reached by the old single-plane rake across a whole dogleg, not by the
     filter, and with the flights read one at a time no railing is a candidate at
@@ -58,9 +56,6 @@ def _overhead_hits(
     ray = (float(direction[0]), float(direction[1]), float(direction[2]))
     for point in points:
         origin = point + direction * MIN_INTRUSION
-        # The NEAREST accepted hit on each ray, not the first one the tree hands
-        # back: nothing in `select_ray`'s contract promises an ordering, and the
-        # whole point of this pass is which element stops a head first.
         nearest: tuple[float, str] | None = None
         for hit in model.tree.select_ray(
             (float(origin[0]), float(origin[1]), float(origin[2])), ray, length=HEADROOM_REACH
