@@ -7,7 +7,7 @@ import time
 
 import pytest
 from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest import pdfium_lock as pdfium_lock_module
+from knowledge_layer.ingest import pdfium_guard as pdfium_lock_module
 from knowledge_layer.ingest import processing
 from PIL import Image
 

@@ -162,11 +162,11 @@ def test_comments_and_docstrings_are_not_code_but_strings_are(checker):
 
 
 def test_a_file_or_directory_named_for_a_country_source_is_a_hit_and_a_file_inside_it_is_not(checker, repo, capsys):
-    _add(repo, "packages/ris-adapter/src/ris_adapter/client.py", "def fetch(url):\n    return url\n")
+    _add(repo, "packages/ris-adapter/src/client.py", "def fetch(url):\n    return url\n")
     checker.main(["--rebaseline"])
     assert _baseline(repo) == {"packages/ris-adapter/": 1}
 
-    _add(repo, "packages/ris-adapter/src/ris_adapter/planner.py", "def plan(question):\n    return question\n")
+    _add(repo, "packages/ris-adapter/src/planner.py", "def plan(question):\n    return question\n")
     assert checker.main([]) == 0
 
     _add(repo, "apps/agent-host/src/agent_host/routes/oib_sync.py", "def sync():\n    return None\n")
