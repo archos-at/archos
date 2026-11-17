@@ -107,24 +107,20 @@ FULL_RUN = {"id": 1, "head_sha": "c" * 40}
 MARKER = [{"name": "ci-green-" + "d" * 40, "expired": False}]
 
 
-def test_a_full_run_does_not_chain_from_a_green_light_run():
+def test_the_reference_is_the_newest_full_run_never_a_newer_light_one():
     get = _api(LIGHT_RUN, FULL_RUN, artifacts={"1": MARKER})
 
-    found = selection.previous_green(get, "o/r", "branch", "h" * 40, lambda _sha: True, full_only=True)
-
-    assert found is FULL_RUN
+    assert selection.previous_green(get, "o/r", "branch", "h" * 40, lambda _sha: True) is FULL_RUN
 
 
-def test_a_light_run_chains_from_any_green_run():
-    get = _api(LIGHT_RUN, FULL_RUN, artifacts={"1": MARKER})
+def test_a_light_run_that_ran_no_python_tests_never_narrows_the_next_run():
+    get = _api(LIGHT_RUN)
 
-    found = selection.previous_green(get, "o/r", "branch", "h" * 40, lambda _sha: True)
-
-    assert found is LIGHT_RUN
+    assert selection.previous_green(get, "o/r", "branch", "h" * 40, lambda _sha: True) is None
 
 
 def test_an_expired_marker_reads_as_light():
     expired = [{"name": "ci-green-" + "d" * 40, "expired": True}]
     get = _api(FULL_RUN, artifacts={"1": expired})
 
-    assert selection.previous_green(get, "o/r", "branch", "h" * 40, lambda _sha: True, full_only=True) is None
+    assert selection.previous_green(get, "o/r", "branch", "h" * 40, lambda _sha: True) is None

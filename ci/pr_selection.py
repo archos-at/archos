@@ -249,15 +249,13 @@ def was_full(get: Get, repo: str, run_id: object) -> bool:
     return any(a.get("name", "").startswith("ci-green-") and not a.get("expired") for a in artifacts)
 
 
-def previous_green(
-    get: Get, repo: str, branch: str, head: str, is_ancestor: Callable[[str], bool], *, full_only: bool = False
-) -> dict | None:
+def previous_green(get: Get, repo: str, branch: str, head: str, is_ancestor: Callable[[str], bool]) -> dict | None:
     query = urllib.parse.urlencode({"branch": branch, "event": "pull_request", "status": "success", "per_page": 30})
     for run in get(f"/repos/{repo}/actions/workflows/ci.yml/runs?{query}").get("workflow_runs", []):
         sha = run.get("head_sha", "")
         if not (re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha))):
             continue
-        if not full_only or was_full(get, repo, run.get("id")):
+        if was_full(get, repo, run.get("id")):
             return run
     return None
 
@@ -319,12 +317,7 @@ def main(argv: list[str]) -> int:
 
         try:
             previous = previous_green(
-                get,
-                os.environ.get("GITHUB_REPOSITORY", ""),
-                os.environ.get("GITHUB_HEAD_REF", ""),
-                head,
-                is_ancestor,
-                full_only=os.environ.get("CI_DEPTH") != "light",
+                get, os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_HEAD_REF", ""), head, is_ancestor
             )
         except Exception as error:  # noqa: BLE001 - no previous run only widens the set
             print(f"previous-run lookup failed ({error}); diffing against the base", file=sys.stderr)

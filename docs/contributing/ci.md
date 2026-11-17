@@ -76,7 +76,8 @@ always proven in full, and a pull request in a few minutes
 Always full: every push, a pull request into `release/**`, a Dependabot pull
 request (it merges itself once `CI OK` passes), and a pull request labelled
 **`ci:full`**. The label is read when the run starts, so add it, then
-push or re-run. Use it for a change the light check cannot see: CI itself, a
+push or use **Re-run all jobs** (re-running only failed jobs keeps the light
+Plan). Use it for a change the light check cannot see: CI itself, a
 migration, a large refactor, or a Python change testmon cannot select tests for
 (the Plan summary says so), which otherwise gets no Python tests before the merge.
 Setting the repository variable `CI_LIGHT_RUNS` to `false` makes every pull
@@ -85,11 +86,13 @@ request full again, without a revert.
 What a light run gives up: a break in the suites it skips shows on `develop`,
 not on the pull request. The deploy waits for a green push run, so it never
 reaches staging, but it holds staging for everyone until the next commit fixes
-it. Two things keep the shortcut sound. A full run chooses its tests since the
-last *full* green run, never a light one (`previous_green` in
-[`ci/pr_selection.py`](../../ci/pr_selection.py)). And only a full run leaves the
-`ci-green-<tree>` marker a push reuses, so a push after a light run always runs
-in full.
+it. Two things keep the shortcut sound. Every run, light or full, chooses its
+tests since the last *full* green run or against the base, never since a light
+one: a light run skipped tests, so its green proves nothing about them, and a
+change testmon cannot select for keeps its warning on every light push
+(`previous_green` in [`ci/pr_selection.py`](../../ci/pr_selection.py)). And only a
+full run leaves the `ci-green-<tree>` marker a push reuses, so a push after a
+light run always runs in full.
 
 ## The jobs
 

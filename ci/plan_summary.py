@@ -23,7 +23,8 @@ def render(env: dict[str, str]) -> str:
     if env.get("DEPTH") == "light":
         lines += [
             f"**Light run** ({env.get('DEPTH_REASON')}). The test shards, suites, Hatchet tests and image "
-            "builds run on the push to develop. Label the pull request `ci:full` and push or re-run to run them here.",
+            "builds run on the push to develop. Label the pull request `ci:full`, then push or use "
+            "Re-run all jobs, to run them here.",
             "",
         ]
         if tiers.get("backend") == "true" and env.get("PY_MODE") == "full":

@@ -198,7 +198,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          CI_DEPTH: ${{ steps.depth.outputs.depth || 'full' }}
         run: python3 ci/pr_selection.py "$BASE"
 
       - name: Image pins this change adds

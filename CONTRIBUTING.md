@@ -140,7 +140,7 @@ UI. `agent-reachability.spec.ts` fails the PR otherwise. Checklist:
 
 - A pull request gets the light checks. The test shards, suites, Hatchet tests
   and image builds run on the push to `develop` after the merge, which the deploy
-  to staging waits for. Label a pull request **`ci:full`**, then push or re-run,
+  to staging waits for. Label a pull request **`ci:full`**, then push or use **Re-run all jobs**,
   to run them before the merge.
 - The single required status check is **CI OK**
   ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): it passes only when
