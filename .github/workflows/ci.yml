@@ -3,15 +3,15 @@ name: CI
 # The one pipeline, with two jobs to do:
 #
 #   pull_request  The merge gate. Prove the change, applied to its base, keeps
-#                 every check a change of its shape can break. `CI OK` is the
-#                 single required status check.
+#                 every check a change of its shape can break, at the light
+#                 depth (rule 4). `CI OK` is the single required status check.
 #   push          The release gate, on develop and release/**. Prove the merged
 #                 result, build the images for exactly that tree, and tag them
 #                 for the commit only once every check has passed. Deploy
 #                 (deploy.yml) follows a green push run and nothing else, so a
 #                 commit with `sha-<commit>` images is a commit CI passed.
 #
-# Three rules decide how much runs, and each exists because its absence cost
+# Four rules decide how much runs, and each exists because its absence cost
 # something measurable. docs/contributing/ci.md has the numbers.
 #
 #   1. Run what the change can break. `changes` diffs a pull request against its
@@ -25,6 +25,9 @@ name: CI
 #   3. Spend runner slots like they are scarce, because they are. Runs queue for
 #      a free runner, so a job that saves thirty seconds of work but costs a
 #      slot makes everyone slower. Work that shares a toolchain shares a job.
+#   4. A pull request gets the light check, develop the full suite. The shards,
+#      suites, Hatchet tests and image builds run on the push the deploy to
+#      staging waits for, and on a pull request labelled `ci:full` (ci/ci_depth.py).
 on:
   push:
     branches: [develop, "release/**"]
@@ -73,7 +76,11 @@ jobs:
       contents: read
       actions: read # the last green run, and a pull request run's green marker
       packages: read # whether GHCR already has an image with these inputs
+      pull-requests: read # the `ci:full` label as it is now, not when the event fired
     outputs:
+      # 'light' or 'full': how much of CI this run owes (ci/ci_depth.py). A
+      # failure of that step reads as full.
+      depth: ${{ steps.depth.outputs.depth || 'full' }}
       # 'true' when this push's tree already passed in full on its pull request.
       # The filter then does not run, every tier reads 'false', every check
       # skips. Images are still planned: a pull request builds, never pushes.
@@ -118,6 +125,18 @@ jobs:
           # synchronize checks out the PR head. The default PR checkout is a
           # merge commit, which would mix develop into the diff.
           ref: ${{ github.event.action == 'synchronize' && (github.event.pull_request.head.sha || github.sha) || github.sha }}
+
+      - name: How much this run owes
+        id: depth
+        continue-on-error: true
+        env:
+          EVENT: ${{ github.event_name }}
+          LIGHT_RUNS: ${{ vars.CI_LIGHT_RUNS }}
+          BASE_REF: ${{ github.base_ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/ci_depth.py
 
       # Push only. Not continue-on-error on purpose: the script falls back to
       # the root commit (everything runs) on any lookup failure, so a failure
@@ -179,6 +198,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           BASE: ${{ github.event.pull_request.base.sha }}
+          CI_DEPTH: ${{ steps.depth.outputs.depth || 'full' }}
         run: python3 ci/pr_selection.py "$BASE"
 
       - name: Image pins this change adds
@@ -198,6 +218,9 @@ jobs:
         continue-on-error: true
         env:
           EVENT: ${{ github.event_name }}
+          DEPTH: ${{ steps.depth.outputs.depth }}
+          DEPTH_REASON: ${{ steps.depth.outputs.reason }}
+          PY_MODE: ${{ steps.pysel.outputs.py_mode }}
           BASE: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
           BASE_REASON: ${{ steps.green.outputs.reason }}
           REUSED: ${{ steps.reuse.outputs.hit }}
@@ -454,7 +477,7 @@ jobs:
   backend:
     name: Backend core (shard ${{ matrix.shard }}/4)
     needs: changes
-    if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -511,7 +534,7 @@ jobs:
   backend-coverage:
     name: Backend coverage gate
     needs: [changes, backend]
-    if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
@@ -542,7 +565,7 @@ jobs:
   backend-suites:
     name: Backend suites (${{ matrix.suite }})
     needs: changes
-    if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -750,7 +773,7 @@ jobs:
     # A pull request whose change no UI spec reads since its reference (the
     # last green run or the base, ci/pr_selection.py) runs none ('none'); one that a selection can see runs only the specs
     # its change reaches ('select'); everything else, and every push, all.
-    if: needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -929,7 +952,7 @@ jobs:
   hatchet:
     name: Hatchet engine tests
     needs: changes
-    if: needs.changes.outputs.hatchet == 'true'
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.hatchet == 'true'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
@@ -1033,7 +1056,7 @@ jobs:
   image:
     name: Image build (${{ matrix.name }})
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
+    if: needs.changes.outputs.depth == 'full' && github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
@@ -1161,14 +1184,14 @@ jobs:
               sys.exit(f"Failing jobs: {failed}")
           print("All required jobs passed or were skipped.")
           PY
-      # A green pull_request run leaves a marker named for the tree it tested
+      # A green full pull_request run leaves a marker named for the tree it tested
       # (GITHUB_SHA is the merge commit every job checked out), so the push
       # that lands this exact tree on a green parent can skip its checks. After
       # the check above and without always(), so a failing gate uploads nothing.
       # Best effort: a hiccup costs the push a full run, never this gate.
       - name: Name the tree this run tested
         id: tree
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.depth == 'full'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

@@ -34,6 +34,10 @@
   color: "e4e669"
   description: "Exempt from the mandatory release note — no user can observe this change"
 
+- name: ci:full
+  color: "0e8a16"
+  description: "Run the full CI suite on this pull request, not only the light check (ci/ci_depth.py)"
+
 - name: migration:contract
   color: "d93f0b"
   description: "This PR's migration removes an old shape on purpose; production is past every build that reads it (ci/migration_contract.py)"
