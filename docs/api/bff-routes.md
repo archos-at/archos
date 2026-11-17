@@ -813,7 +813,7 @@ bytes — to every member of the organization.
 ### The query contract
 
 `POST /api/bim/models/{modelId}/query` takes a discriminated union on `op`
-(`lib/bim/query.ts`, validated with zod before anything reaches SQL):
+(`lib/bim/query-schema.ts`, validated with zod before anything reaches SQL):
 
 | `op` | Answers |
 |---|---|
