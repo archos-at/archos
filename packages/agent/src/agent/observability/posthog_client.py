@@ -46,6 +46,7 @@ from collections.abc import Callable
 from threading import Lock
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Literal
 
 from agent.common.log_redaction import scrub_presigned_urls
 from agent.observability import trace_context
@@ -58,6 +59,13 @@ HOST_ENV = "POSTHOG_HOST"
 PROJECT_TOKEN_ENV = "POSTHOG_PROJECT_TOKEN"  # pragma: allowlist secret
 APP_HOST_ENV = "POSTHOG_APP_HOST"
 IN_APP_MODULES = ["agent", "agent_host"]
+
+ServerEvent = Literal["answer_failed", "answer_finished"]
+"""Every product event a Python process sends: the closed union, as ``ServerEvent`` is in the BFF.
+
+Each has a row in ``docs/observability/posthog-events.md``; ``tests/test_posthog_boundaries.py``
+holds every ``capture`` call to this list and this list to the catalogue.
+"""
 
 _client: Posthog | None = None
 _client_lock = Lock()
@@ -179,7 +187,7 @@ def resolve_identity(distinct_id: str | None, organization_id: str | None = None
 
 
 def capture(
-    event: str,
+    event: ServerEvent,
     *,
     distinct_id: str | None,
     properties: dict[str, Any] | None = None,

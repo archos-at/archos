@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { actingProposalId, actingReaderIsAgent, currentActingSession, runAsActingSession } from './acting-session'
+import { actingDoor, actingProposalId, actingReaderIsAgent, currentActingSession, runAsActingSession } from './acting-session'
 import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
 
 
@@ -51,5 +51,17 @@ describe('the acting session', () => {
     await runAsActingSession(session, async () => expect(actingProposalId()).toBe('prop-1'), 'person', { proposalId: 'prop-1' })
     await runAsActingSession(session, async () => expect(actingProposalId()).toBeUndefined(), 'agent')
     expect(actingProposalId()).toBeUndefined()
+  })
+
+  it('names the agent door the call came through, and none outside a door', async () => {
+    const session = { userId: 'user_1' } as AuthorizedSession
+    await runAsActingSession(
+      session,
+      async () => expect(actingDoor()).toEqual({ door: 'mcp', sessionSource: 'mcp' }),
+      'agent',
+      { door: 'mcp', sessionSource: 'mcp' },
+    )
+    await runAsActingSession(session, async () => expect(actingDoor()).toBeUndefined(), 'agent')
+    expect(actingDoor()).toBeUndefined()
   })
 })

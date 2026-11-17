@@ -2,6 +2,7 @@ import 'server-only'
 
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import type { CallDoor, SessionSource } from './call-origin'
 
 export type ActingReader = 'agent' | 'person'
 
@@ -11,6 +12,8 @@ interface ActingCall {
   readonly proposalId?: string
   readonly decisionSource?: ActingDecisionSource
   readonly clientId?: string
+  readonly door?: CallDoor
+  readonly sessionSource?: SessionSource
 }
 
 export type ActingDecisionSource = 'elicitation' | 'app' | 'app-unverified'
@@ -19,6 +22,8 @@ export interface ActingOrigin {
   readonly proposalId?: string
   readonly decisionSource?: ActingDecisionSource
   readonly clientId?: string
+  readonly door?: CallDoor
+  readonly sessionSource?: SessionSource
 }
 
 const acting = new AsyncLocalStorage<ActingCall>()
@@ -36,6 +41,8 @@ export function runAsActingSession<T>(
       ...(origin.proposalId ? { proposalId: origin.proposalId } : {}),
       ...(origin.decisionSource ? { decisionSource: origin.decisionSource } : {}),
       ...(origin.clientId ? { clientId: origin.clientId } : {}),
+      ...(origin.door ? { door: origin.door } : {}),
+      ...(origin.sessionSource ? { sessionSource: origin.sessionSource } : {}),
     },
     fn,
   )
@@ -61,4 +68,9 @@ export function actingDecision(): { proposalId?: string; decisionSource?: Acting
 
 export function actingClientId(): string | undefined {
   return acting.getStore()?.clientId
+}
+
+export function actingDoor(): { door: CallDoor; sessionSource: SessionSource } | undefined {
+  const call = acting.getStore()
+  return call?.door && call.sessionSource ? { door: call.door, sessionSource: call.sessionSource } : undefined
 }

@@ -25,6 +25,7 @@
 
 const CLIENT_CONTEXT_HEADER_PREFIX = 'x-grid-'
 const CLIENT_CREDENTIAL_HEADERS = new Set(['authorization', 'x-internal-token'])
+const TURN_DOOR_HEADERS = new Set(['x-turn-door', 'x-turn-session-source'])
 
 /**
  * The same context headers under their names without the product's (`x-budget`
@@ -65,7 +66,12 @@ function stripClientContextHeaders(headers) {
   const removed = []
   for (const name of Object.keys(headers)) {
     const lower = name.toLowerCase()
-    if (lower.startsWith(CLIENT_CONTEXT_HEADER_PREFIX) || SERVICE_HEADERS.has(lower) || CLIENT_CREDENTIAL_HEADERS.has(lower)) {
+    if (
+      lower.startsWith(CLIENT_CONTEXT_HEADER_PREFIX) ||
+      SERVICE_HEADERS.has(lower) ||
+      CLIENT_CREDENTIAL_HEADERS.has(lower) ||
+      TURN_DOOR_HEADERS.has(lower)
+    ) {
       delete headers[name]
       removed.push(lower)
     }
