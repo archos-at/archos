@@ -1,3 +1,5 @@
+import { deploymentName } from '@/lib/boot'
+
 export interface PostHogConfig {
   host: string
   projectToken: string
@@ -5,6 +7,7 @@ export interface PostHogConfig {
   replaySampleRate: number
   proxy: boolean
   release?: string
+  deployment?: string
 }
 
 export interface PostHogIdentity {
@@ -22,6 +25,7 @@ export const DISABLED_POSTHOG_CONFIG: PostHogConfig = {
   replaySampleRate: 0,
   proxy: false,
   release: '',
+  deployment: '',
 }
 
 export const DEFAULT_REPLAY_SAMPLE_RATE = 1
@@ -62,4 +66,5 @@ export const postHogConfigFromEnv = (env: Record<string, string | undefined>): P
   replaySampleRate: parseReplaySampleRate(env.NEXT_PUBLIC_POSTHOG_REPLAY_SAMPLE_RATE),
   proxy: parseSwitch(env.NEXT_PUBLIC_POSTHOG_PROXY, true),
   release: (env.GIT_SHA ?? '').trim() === 'unknown' ? '' : (env.GIT_SHA ?? '').trim(),
+  deployment: deploymentName(env) ?? '',
 })

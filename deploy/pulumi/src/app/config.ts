@@ -8,7 +8,7 @@ import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from
 import { logicalName, objectName } from "../names";
 import { inboundMailAppEnv } from "../config/inbound-mail";
 import { API_TIER, CHAT_TIER } from "./tier-names";
-import { posthogEnv } from "./posthog-env";
+import { posthogDeploymentEnv, posthogEnv } from "./posthog-env";
 import { hatchetEnv } from "./hatchet-env";
 import { publicSourceFetcherEnv } from "./public-source-fetcher";
 import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
@@ -276,6 +276,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     { name: "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", value: cfg.posthog.projectToken },
     { name: "NEXT_PUBLIC_POSTHOG_SESSION_REPLAY", value: cfg.posthog.sessionReplay ? "true" : "false" },
     { name: "NEXT_PUBLIC_POSTHOG_REPLAY_SAMPLE_RATE", value: cfg.posthog.replaySampleRate },
+    posthogDeploymentEnv(),
     ...(cfg.posthog.personalApiKey
       ? [sref("POSTHOG_PERSONAL_API_KEY"), { name: "POSTHOG_PROJECT_ID", value: cfg.posthog.projectId }]
       : []),

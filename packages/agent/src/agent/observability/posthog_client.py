@@ -25,7 +25,7 @@ here. What is ours:
   exception message can embed one, and a PostHog event is retained off-cluster.
 * Every event carries the deployment's ``environment``, the emitting
   ``service`` and the deployed ``release`` (the commit, as Langfuse's release)
-  as super properties, the same values the Langfuse traces carry, and ``app_host``.
+  as super properties, the same values the Langfuse traces carry, ``app_host`` and ``deployment``.
 * Every event has a stable distinct id and the office as the ``organization``
   group (:func:`resolve_identity`): the acting user when the run knows one,
   else ``organization:<id>``, else ``system``. The last two mint no person. A
@@ -99,13 +99,14 @@ def super_properties() -> dict[str, str]:
     ``environment`` is ``APP_ENV`` exactly as Langfuse files the traces
     (``trace_context``), ``service`` is ``OTEL_SERVICE_NAME``, which tells
     the chat tier from the workers, and ``release`` is ``GIT_SHA``, the same
-    key the BFF and the browser send, as is ``app_host``: only it tells staging from production.
+    key the BFF and the browser send, as are ``app_host`` and ``deployment`` (the stack: ``prod``, ``dev``).
     """
     values = {
         "environment": trace_context.langfuse_environment(),
         "release": trace_context.langfuse_release(),
         "service": os.environ.get("OTEL_SERVICE_NAME", "").strip() or None,
         "app_host": trace_context.app_host(),
+        "deployment": trace_context.deployment(),
     }
     return {key: value for key, value in values.items() if value}
 

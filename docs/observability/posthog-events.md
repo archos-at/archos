@@ -22,19 +22,30 @@ events. `tests/test_posthog_boundaries.py` enforces that.
   else `system`, with `$process_person_profile: false`, so no person is minted
   and a per-office funnel still joins. An exception takes the acting user and
   office from the request's tenant scope (Node) or signed envelope (Python).
-- **Every server event carries `release`, `service` and `app_host`**, the
-  deployed commit (`GIT_SHA`), the process (`OTEL_SERVICE_NAME`) and the
-  deployment's host (`app.archos.tech`, `app.dev.archos.tech`, from the pinned
-  redirect URI), registered once as super properties of the server client.
-  The Python client sends `release`, `environment`, `service` and `app_host`
+- **Every event carries `deployment`**, the Pulumi stack it came from (`prod`,
+  `dev`), the same value the OTel collector stamps as
+  `deployment.environment.name` on metrics, traces and logs. Pulumi sets it as
+  `POSTHOG_DEPLOYMENT` on the BFF and on the Python tiers; the BFF hands it to
+  the browser in the PostHog config, which registers it at init. It does not
+  move when a domain does, so a query for production filters
+  `deployment = 'prod'`. Events sent before the deploy that added it carry
+  none; for those, the host properties below are all there is
+  (`deploy/posthog/views/prod_events.sql` falls back to them).
+- **Every server event carries `release`, `service`, `app_host` and
+  `deployment`**, the deployed commit (`GIT_SHA`), the process
+  (`OTEL_SERVICE_NAME`), the deployment's host (`app.archos.tech`,
+  `app.dev.archos.tech`, from the pinned redirect URI) and its stack
+  (`POSTHOG_DEPLOYMENT`), registered once as super properties of the server client.
+  The Python client sends `release`, `environment`, `service`, `app_host`
   (`POSTHOG_APP_HOST`, which Pulumi sets from the app domain, the BFF's host;
-  events sent before that change, 2026-11-17, was deployed carry none); the browser
-  registers `release` at init (and again after `reset()`) from the same
-  `GIT_SHA`, so a front-end regression ties to a deploy.
+  events sent before that change, 2026-11-17, was deployed carry none) and
+  `deployment`; the browser registers `release` and `deployment` at init (and
+  again after `reset()`), `release` from the same `GIT_SHA`, so a front-end
+  regression ties to a deploy.
   Staging and production share the project and both run `APP_ENV=production`,
-  so `app_host` is what tells their server events apart; before 2026-10-20
-  nothing did. A browser event carries neither: its deployment is `$host`. A
-  query for production therefore filters `$host` on browser events and
+  so before `deployment` only the host told them apart; before 2026-10-20
+  nothing did. A browser event carries no `app_host`: its host is `$host`. An
+  older event's production filter therefore reads `$host` on browser events and
   `app_host` on server events, and a filter on one alone reads the other half as
   zero (the first weekly report did, `deploy/posthog/README.md`). `service` is the process that SENT the event, not the one that
   did the work: `document_ingest_finished` is sent by the BFF read that noticed
@@ -126,7 +137,7 @@ capture, configured in `lib/analytics/request-error.ts` (see
 
 Sent by the Python chat host (`apps/agent-host`) through
 `agent.observability.posthog_client.capture`, which adds `release`,
-`environment`, `service` and `app_host`. Every chat turn runs there, whichever
+`environment`, `service`, `app_host` and `deployment`. Every chat turn runs there, whichever
 door its question came through (ADR-0068), so only the chat host sees every
 ending.
 
