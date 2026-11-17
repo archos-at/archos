@@ -1514,7 +1514,7 @@ exists. The audit trail holds the event under its own retention.
 | `id` | `uuid` | PK, `gen_random_uuid()` | The event's idempotency key, `document.quarantined:<id>` |
 | `organization_id` | `text` | NOT NULL | RLS: `organization_id = current_org()` |
 | `document_id` | `uuid` | NOT NULL | No FK: a reviewer may delete the file before the decision reaches the trail. The retention, not the document, ends the row |
-| `job_id` | `text` | UNIQUE with `document_id` (`document_quarantine_decisions_dispatch_key`) | The ingest job whose gate decided: one dispatch, one decision. NULL only when the row carried no job (the backend's file list said quarantined). A row that carries a job takes a failure only from that job, never from the file list, whose failed entry under the name may be an earlier dispatch's (`attributableFailure`, `lib/documents/reconcile-status.ts`) |
+| `job_id` | `text` | UNIQUE with `document_id` (`document_quarantine_decisions_dispatch_key`) | The ingest job whose gate decided: one dispatch, one decision. NULL only when the row carried no job (the backend's file list said quarantined). A row that carries a job takes a failure only from that job, never from the file list, whose failed entry under the name may be an earlier dispatch's (`attributableFailure`, `apps/workspace/bff/documents/reconcile-status/ingest-resolution.ts`) |
 | `decided_at` | `timestamptz` | NOT NULL, `now()` | The event's `occurredAt` |
 | `scope` | `text` | NOT NULL, CHECK `project`/`office_shelf`/`session` | |
 | `project_id` | `uuid` | | CHECK `(scope = 'project') = (project_id IS NOT NULL)` |
