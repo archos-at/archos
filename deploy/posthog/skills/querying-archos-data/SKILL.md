@@ -61,8 +61,9 @@ or the views below.
 - **Dates.** The project zone is Europe/Vienna. `toDate(timestamp, 'Europe/Vienna')`
   is refused; write `toDate(toTimeZone(timestamp, 'Europe/Vienna'))`. Spend and
   budgets count UTC days.
-- **Pages.** No path-cleaning rule is configured, so `$pathname` carries project
-  ids. Group with
+- **Pages.** Path cleaning (since 2026-11-17) folds project ids to `<id>` and office
+  ids to `<org>` in Web analytics, Paths and typed queries; raw `$pathname` in SQL
+  still carries them. Group with
   `replaceRegexpAll(properties.$pathname, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', ':id')`.
 - **Value lists are samples.** `read-data-schema` `event_property_values` can omit
   common values (it once left out the main production host). Confirm with a
@@ -82,7 +83,7 @@ or the views below.
 `Spend — eine Organisation` 1038206 (SQL variable `piloti_deployment`),
 `Spend — unit economics` 1085793, `Antwortqualität (prod)` 1061063,
 `Büros: Gesundheit (prod)` 1061062, `Platform health (prod)` 1040252. The
-project's primary dashboard (942030) is PostHog's starter template.
+weekly report is the project's primary dashboard.
 
 The source of this skill is `deploy/posthog/skills/querying-archos-data/SKILL.md`
 in the product's repository; the event catalogue is `docs/observability/posthog-events.md`.
