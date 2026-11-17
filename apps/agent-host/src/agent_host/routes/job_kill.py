@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 KILL_REASON = "killed by platform operator"
 
 
-# One press of the button, bounded like every other list here. A fleet with
-# more live jobs than this is killed by pressing again.
 KILL_BATCH = 1000
 
 
@@ -37,19 +35,11 @@ async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None
     loop = asyncio.get_running_loop()
 
     def _record_cancellation_event() -> None:
-        # EventStore construction and store() are blocking DB I/O; keep them
-        # off the event loop like the rest of this module.
         EventStore(db_url, job_id).store({"type": "job.cancellation_requested", "data": {"reason": reason}})
 
     await loop.run_in_executor(None, _record_cancellation_event)
     await research_workflow.cancel(db_url, job_id)
 
-    # The caller wrote the verdict, so it reports it. A running worker reports
-    # the same INTERRUPTED again when its abort lands, which the BFF absorbs;
-    # but a job no worker ever started (its Hatchet run was just cancelled) has no
-    # runner left to report anything, and the BFF's run row would stay `running`
-    # forever. No error text, exactly like the runner's own report, so the two
-    # reports write the same row.
     await notify_job_outcome_from_access(job_id=job_id, db_url=db_url, status="interrupted")
 
 
@@ -64,7 +54,6 @@ def _find_active_job_ids(db_url: str, statuses: tuple[str, ...], limit: int) -> 
     engine = EventStore._get_or_create_sync_engine(db_url)
     if not inspect(engine).has_table("job_info"):
         return []
-    # A literal statement with an expanding bind: no SQL is built from strings.
     query = text(
         "SELECT job_id FROM job_info WHERE status IN :statuses ORDER BY created_at, job_id LIMIT :limit"
     ).bindparams(bindparam("statuses", expanding=True))

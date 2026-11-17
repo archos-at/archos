@@ -110,25 +110,13 @@ from .run_ledger_client import RunLedgerClient
 
 logger = logging.getLogger(__name__)
 
-#: The snapshot event. Its data is ``{"ledger": <the whole ledger>}`` — a live
-#: client REPLACES what it holds with it rather than merging, which is what makes
-#: one fold the only fold.
 RUN_LEDGER_EVENT_TYPE = "run.ledger"
 
-#: The events this fold READS, in the spelling the runner and the callbacks
-#: already write them in (``runner.JOB_DEGRADED_EVENT_TYPE`` and the literals
-#: beside it). Named here rather than imported from the runner, which imports
-#: this module; the test asserts the fold answers to each one, so a rename that
-#: only moved the producer's side fails there rather than in a quiet run.
 ARTIFACT_EVENT_TYPE = "artifact.update"
 JOB_ERROR_EVENT_TYPE = "job.error"
 JOB_CANCELLED_EVENT_TYPE = "job.cancelled"
 JOB_DEGRADED_EVENT_TYPE = "job.degraded"
 
-#: ``job.phase`` name → ledger phase. Citation verification maps to ``checking``
-#: and the writer to ``writing`` although the deep researcher enters them the
-#: other way round (verification is inferred when the writer returns): a phase
-#: list is the order things HAPPENED, not the order they are listed in.
 PHASE_KEYS: dict[str, str] = {
     PHASE_PLANNING_STARTED: "planning",
     PHASE_RESEARCH_STARTED: "researching",
@@ -137,19 +125,12 @@ PHASE_KEYS: dict[str, str] = {
     PHASE_DONE: "filed",
 }
 
-#: What a phase's own step is for, when the run did not say it itself. German
-#: prose, like the intent field it fills: this contract carries the runner's
-#: WORDS (``RunStep.intent``), not a key a dictionary resolves — see
-#: ``run-ledger-types.ts``. The research phase has no default here because every
-#: one of its steps states its own.
 DEFAULT_INTENTS: dict[str, str] = {
     "planning": "Rechercheplan erstellen",
     "checking": "Zitate gegen die belegten Quellen prüfen",
     "writing": "Bericht schreiben",
 }
 
-#: What a cut-off, salvaged run is called. The transparency key the runner emits
-#: alongside it is what the reader's banner renders; this only moves the status.
 TRUNCATED_KEY = "research_truncated"
 
 
@@ -258,9 +239,6 @@ class _Phase:
 class RunLedgerFold:
     """One run's accumulator. Thread-safe to feed, best-effort to flush."""
 
-    #: A run narrates itself about once a second. Faster would post more often
-    #: than a reader can read; slower and a phase transition would sit unseen
-    #: behind a minute of writing. A transition and the terminal flush ignore it.
     DEBOUNCE_SECONDS = 1.0
 
     def __init__(
@@ -325,8 +303,6 @@ class RunLedgerFold:
         self._sent_phases: dict[str, str | None] = {}
         self._sent_status: str | None = None
 
-    # -- ingest ---------------------------------------------------------------
-
     def add_basis(self, doc: Any) -> None:
         """A document the reader added to the Grundlage while the run goes.
 
@@ -387,8 +363,6 @@ class RunLedgerFold:
             return self._open_round(data)
         self._enter_phase(phase)
         if phase == "filed":
-            # Filing is the run's last act and has no step of its own: what it
-            # produced is the result, which the terminal flush states.
             self._seal_open_step()
             return True
         self._begin_step(phase, phase, DEFAULT_INTENTS[phase])
@@ -406,9 +380,6 @@ class RunLedgerFold:
     def _ingest_artifact(self, data: dict[str, Any]) -> bool:
         step = self._open_step
         if step is None:
-            # Before the first phase event there is no step to attribute
-            # anything to, and inventing one would put a document under an
-            # intent nobody stated.
             return False
         if data.get("type") == "citation_source":
             return step.add_doc(data)
@@ -420,7 +391,6 @@ class RunLedgerFold:
 
     def _ingest_error(self, data: dict[str, Any]) -> bool:
         if next_run_status(self._status, "failed") != "failed":
-            # Already ended another way (its report is stored): a teardown error does not unmake that.
             return False
         reason = _clip(data.get("error"), MAX_ERROR_REASON_CHARS)
         self._error_reason = reason or "Der Lauf ist fehlgeschlagen."
@@ -429,8 +399,6 @@ class RunLedgerFold:
         return True
 
     def _ingest_cancelled(self) -> bool:
-        # No finish op: that one carries a result or an error, and a cancelled run has
-        # neither. „abgebrochen" IS the terminal fact; it travels as the last append's status.
         self._status = next_run_status(self._status, "cancelled")
         self._flush_now = True
         return True
@@ -438,8 +406,6 @@ class RunLedgerFold:
     def _ingest_degraded(self, data: dict[str, Any]) -> bool:
         if not data.get(TRUNCATED_KEY):
             return False
-        # Cut off and salvaged: the run still has a report, so this moves the status only.
-        # The caveat is already on the message (``_TRANSPARENCY_METADATA_KEYS``).
         self._status = next_run_status(self._status, "interrupted")
         return True
 
@@ -455,16 +421,10 @@ class RunLedgerFold:
             self._flush_now = True
             self._dirty = True
 
-    # -- the running shape ----------------------------------------------------
-
     def _enter_phase(self, phase: str) -> None:
         """Enter a phase, closing the one the run was in. Entering twice is a no-op."""
         if self._current_phase == phase:
             return
-        # A run that has entered a phase is running. The BFF's own moves make the
-        # same inference (``openPhase``); making it here too is what keeps the
-        # live snapshot and the stored ledger from telling the reader two
-        # different things about the same instant.
         if self._status == "created":
             self._status = "running"
         now = _now()
@@ -483,8 +443,6 @@ class RunLedgerFold:
         if any(step.id == step_id for step in self._steps):
             return
         if len(self._steps) >= MAX_STEPS:
-            # The sanitiser keeps the FIRST fifty, so stopping here is what the
-            # store would do anyway — and it keeps the snapshot honest about it.
             return
         step = _Step(id=step_id, phase=phase, intent=intent, started_at=_now())
         self._steps.append(step)
@@ -493,8 +451,6 @@ class RunLedgerFold:
     def _seal_open_step(self) -> None:
         """No more can be added to the open step; the next flush may send it."""
         self._open_step = None
-
-    # -- flushing -------------------------------------------------------------
 
     def _schedule_flush(self) -> None:
         """Ask the run's loop to flush. Called from callback threads."""
@@ -559,8 +515,6 @@ class RunLedgerFold:
             await self._client.finish(run_id, RunLedgerFinishRequest(result=result, error=error))
         except Exception:  # noqa: BLE001 — best-effort by contract
             logger.warning("Job %s: the run ledger could not be finished", self._job_id, exc_info=True)
-
-    # -- payloads -------------------------------------------------------------
 
     def snapshot(self) -> dict[str, Any] | None:
         """The whole ledger as the wire carries it, or None if it cannot be built."""
@@ -763,6 +717,4 @@ def _running_loop() -> asyncio.AbstractEventLoop | None:
     try:
         return asyncio.get_running_loop()
     except RuntimeError:
-        # Built outside a loop (a test, a sync path): flushes then happen only
-        # when somebody awaits one, which is exactly what those callers do.
         return None

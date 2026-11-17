@@ -45,13 +45,9 @@ _MAX_LIMIT = 1000
 
 
 class OgcConfig(AccessConfig):
-    #: ``features``: OGC API - Features; ``wfs``: a WFS 2.0 endpoint.
     service: Literal["features", "wfs"]
-    #: The landing page (OGC API) or the WFS endpoint, https on one of the source's hosts.
     base_url: str
-    #: Our collection name -> the service's collection id (OGC API) or feature type name (WFS).
     collections: dict[str, str] = Field(min_length=1)
-    #: WFS only: the GetFeature output format, e.g. ``application/json``.
     output_format: str = "application/json"
     default_limit: int = Field(default=100, ge=1, le=_MAX_LIMIT)
 

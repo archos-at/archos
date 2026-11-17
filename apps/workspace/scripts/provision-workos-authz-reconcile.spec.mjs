@@ -53,7 +53,6 @@ function fakeWorkos({ extraPermissions = [], heldBy = [] } = {}) {
         const holders = [...envRoles, ...Object.values(orgRoles).flat()].filter((candidate) =>
           candidate.permissions.includes(slug)
         )
-        // Stricter than WorkOS documents, so the spec holds the order.
         if (holders.length > 0) {
           throw new Error(
             `${slug} is still held by ${holders.map((holder) => holder.slug).join(', ')}`
@@ -66,7 +65,6 @@ function fakeWorkos({ extraPermissions = [], heldBy = [] } = {}) {
         )
       },
       listEnvironmentRoles: async () => ({ data: envRoles.map(copyOf) }),
-      // As WorkOS does: an organization's listing repeats the environment roles.
       listOrganizationRoles: async (organizationId) => ({
         data: [...envRoles, ...orgRoles[organizationId]].map(copyOf),
       }),
@@ -136,7 +134,6 @@ describe('reconcileAuthzCatalog', () => {
     expect(permissionSlugs()).not.toContain(RETIRED)
     expect(result.applied).toContain(`deleted retired permission ${RETIRED}`)
 
-    // The next deploy finds nothing to do.
     expect(await reconcile(client, true)).toEqual({ drift: [], applied: [] })
   })
 

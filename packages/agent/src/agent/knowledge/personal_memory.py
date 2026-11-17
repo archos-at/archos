@@ -29,11 +29,8 @@ logger = logging.getLogger(__name__)
 
 INTERNAL_PERSONAL_MEMORY_PATH = "/api/internal/personal-memory"
 
-#: ``preference``: how the person wants the agent to work. ``profile``: who
-#: they are at work (role, responsibilities, recurring topics, a confidence).
 VALID_PERSONAL_KINDS = {"preference", "profile"}
 
-#: The header line that opens the block the BFF renders (the turn context's ``personalMemory``).
 PERSONAL_MEMORY_HEADER = "PERSONAL_MEMORY v1"
 
 _REQUEST_TIMEOUT_SECONDS = 5
@@ -45,7 +42,6 @@ class PersonalMemoryWrite:
     """A personal note the BFF stored."""
 
     id: str
-    #: False when a note that said the same already existed and was refreshed.
     created: bool
 
 
@@ -85,9 +81,6 @@ def insert_personal_memory_item(
         payload["topic"] = kept_topic
     answer_message_id = turn_answer_message()
     if answer_message_id:
-        # The answer this note was saved under. The note itself is never put on
-        # that message (other people read it): the owner's browser asks for
-        # their notes of the conversation and shows each under its answer.
         payload["sourceMessageId"] = answer_message_id
     try:
         body = bff_http.post_json(
@@ -102,15 +95,12 @@ def insert_personal_memory_item(
     item_id = item.get("id") if isinstance(item, dict) else None
     if not item_id:
         raise bff_http.BffMalformedResponseError("the personal-memory route answered without an item id")
-    # So the reflection stage reads it as already recorded and does not file it again.
     record_turn_memory_write(content)
     return PersonalMemoryWrite(id=str(item_id), created=body.get("created") is not False)
 
 
-#: The agent's undo: removes the person's note a quote names (``forget_personal_memory_item``).
 INTERNAL_PERSONAL_MEMORY_FORGET_PATH = f"{INTERNAL_PERSONAL_MEMORY_PATH}/forget"
 
-#: Why a forget removed nothing: no note says that, or the person wrote or pinned it.
 ForgetRefusal = Literal["not_found", "curated"]
 
 

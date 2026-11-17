@@ -27,15 +27,9 @@ from agent.knowledge.law_lookup.trace import LookupTrace
 
 logger = logging.getLogger(__name__)
 
-#: Documents considered per call. Three is one law, the adjacent one a
-#: building-law question straddles, and one spare: past that the tool is
-#: guessing, and a miss naming what it did not read beats a third download.
+# Dev QC 2026-11-12: a building ordinance had 35-58 hits; a 2016 version was cited as today's law.
 MAX_CANDIDATES = 3
-#: Live-search page size.
 LIVE_PAGE_SIZE = 20
-#: Page size of a past day's search by the act's title. Such a search answers every version of every provision
-#: of the act (a province's building ordinance: 35 to 58 hits, dev QC 2026-11-12), and the one in force on the
-#: day has to be on the page; the source's largest page.
 VERSIONS_PAGE_SIZE = 100
 
 
@@ -352,7 +346,5 @@ async def _planned(planner, effective: dict, address: Address) -> dict:
         "collection": plan.collection,
         "terms": plan.terms,
         "title": plan.title,
-        # The caller's / project's territory outranks the planner's guess: it is a
-        # request FACT, and a planner that drops it hands one territory another's law.
         "territory": address.territory or getattr(plan, "territory", ""),
     }

@@ -1,10 +1,3 @@
-/**
- * The bin client (ADR-0088): a project's deleted folders and binned documents,
- * restoring one, purging one now, and the organization's setting for content
- * derived from deleted folders. The listing's shape is the route's own
- * (`@/lib/projects/folder-bin-wire`).
- */
-
 import { z } from 'zod'
 import {
   BIN_PAGE_MAX,
@@ -44,7 +37,6 @@ export type DeletedFolderContentPolicy = (typeof DELETED_FOLDER_CONTENT_POLICIES
 
 const PolicySchema = z.object({ policy: z.enum(DELETED_FOLDER_CONTENT_POLICIES) })
 
-/** A refusal, with the machine-readable reason when the server gave one. */
 export class FolderBinRequestError extends ApiRequestError {
   constructor(
     message: string,
@@ -69,13 +61,11 @@ async function request<T>(url: string, init: RequestInit, schema: z.ZodType<T>):
 
 const project = (projectId: string): string => `/api/projects/${encodeURIComponent(projectId)}`
 
-/** One page of the bin, as large as the route serves; `cursor` continues after the page before. */
 export function listFolderBin(projectId: string, cursor?: string): Promise<FolderBinListing> {
   const query = new URLSearchParams({ limit: String(BIN_PAGE_MAX), ...(cursor ? { cursor } : {}) })
   return request(`${project(projectId)}/bin?${query.toString()}`, { method: 'GET' }, binListingSchema)
 }
 
-/** Take a document that went to the bin on its own back out, to the folder it came from. */
 export function restoreDocument(documentId: string): Promise<DocumentRestoreResult> {
   return request(`/api/documents/${encodeURIComponent(documentId)}/restore`, { method: 'POST' }, documentRestoreResultSchema)
 }

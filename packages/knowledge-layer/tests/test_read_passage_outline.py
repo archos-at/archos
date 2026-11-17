@@ -139,8 +139,6 @@ def store(monkeypatch):
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("oib_knowledge", Shelf.BASE)],
     )
-    # The formatter's three store lookups are not what these tests are about;
-    # an empty map is the documented fail-open and keeps the run database-free.
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     return handle
@@ -165,7 +163,6 @@ def _outline(out: str) -> list[str]:
     return [line for line in out.split("## Gliederung", 1)[1].splitlines() if line.strip()]
 
 
-#: OIB 2's real top level, plus one split Punkt and one depth-3 child.
 def _oib_outline() -> list[Chunk]:
     return [
         _clause_chunk("0", 1, "Vorbemerkungen", 3, content="Diese Richtlinie gilt für …", chunk_id="v1"),
@@ -606,9 +603,6 @@ class TestTheContract:
         assert "not evidence" in returns
 
 
-#: The bytes this tool returned before the Gliederung moved inside the block.
-#: Captured from the code that appended it, so the move cannot change what the
-#: model reads (ADR-0061: the text may not move by a byte).
 OUTLINE_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "read_passage_outline.txt"
 
 

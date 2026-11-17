@@ -92,7 +92,6 @@ const ROWS: readonly StateRowSpec[] = [
   },
 ]
 
-/** The keys on the second place: on a track the ring is drawn inside the tab, beside the content round the row. */
 const KEY_ROWS: readonly StateRowSpec[] = [
   {
     label: 'Reiter auf dem Track',
@@ -110,7 +109,6 @@ const KEY_ROWS: readonly StateRowSpec[] = [
   },
 ]
 
-/** Everything that moves the reader to another place of the same page or tier. */
 export function PlacesFamily(): JSX.Element {
   return (
     <>

@@ -93,8 +93,6 @@ def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str,
         try:
             base.update(project_payload(config.get("project_facts"), status))
         except ValueError:
-            # The file is not failed over it: the facts are a copy, and the
-            # BFF's project-facts push and weekly sweep write them again.
             logger.error(
                 "Qdrant: the ingest job for %s carries project facts with status %r; not written", scope, status
             )
@@ -125,7 +123,6 @@ def licence_mark(scope: str, config: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(released, bool):
         mark[RELEASED_FIELD] = released
     elif not is_tenant_scope(scope) and COUNTRY_FIELD not in mark:
-        # A base-corpus text whose job names no country is read by nobody until a release marks it (ADR-0173).
         mark[RELEASED_FIELD] = False
     if isinstance(config.get(AI_PROCESSING_FIELD), bool):
         mark[AI_PROCESSING_FIELD] = config[AI_PROCESSING_FIELD]
@@ -157,7 +154,6 @@ def write_chunks(
     return get_store(identity).upsert(scope, records, base)
 
 
-#: The facts a folder move changes, and all a re-filed subtree needs copied.
 FOLDER_FACTS = frozenset({"folder_path", FOLDER_FIELD})
 
 

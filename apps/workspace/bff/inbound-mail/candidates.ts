@@ -1,25 +1,4 @@
 import 'server-only'
-/**
- * What a held mail's candidates are FOR THE VIEWER (ADR-0137, D9, RT-S13,
- * RT-X8): the threads it may belong to, the document its attachment
- * duplicates, the document it may be the next Fassung of.
- *
- * The receive job stores ids only (`thread_match`, `duplicate_of_document_id`,
- * `revision_candidate_document_id`), and only of screened documents; it
- * cannot know who will read the mail. Each read decides here, for the person
- * reading:
- *
- * - a document whose screening has not passed, or that is in the bin, is no
- *   candidate for anyone (the repository reads with `documentVisibleTo(SCREENED_ONLY)`);
- * - a document in a folder the viewer may not read is never named: a thread
- *   there is counted (`hiddenThreadCandidates`), a possible earlier Fassung
- *   says only that one exists („1 mögliche Fassung in einem Ordner, den Sie
- *   nicht sehen“), and an identical file there says nothing at all, since
- *   „you may not see a copy of these bytes“ is itself the leak.
- *
- * Pre-selection is the thread core's (`threadPreselection`), from the stored
- * sender evidence, so a stranger's References never pre-select (RT-S1).
- */
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds } from '@/lib/authz/folder-access'
@@ -44,31 +23,20 @@ import {
   type ThreadDocument,
 } from './repository'
 
-/** What the stored sender evidence of a mail says, in the shape the thread core reads. */
 export function senderEvidenceOf(mail: Pick<InboundMailRow, 'senderTrust' | 'senderFlags' | 'signedHeaders'>): SenderEvidence {
   return {
-    // A mail a person can read always has its trust (`inbound_mails_trust_when_shown`).
     senderTrust: mail.senderTrust ?? 'external_unverified',
     senderFlags: mail.senderFlags,
     signedHeaders: mail.signedHeaders,
   }
 }
 
-/** Whether a thread can take one more message, or only a continuation („Als Fortsetzung ablegen“, D11). */
 export function threadIsFull(thread: Pick<ThreadDocument, 'entryCount' | 'renderedBytes'>): boolean {
   return thread.entryCount >= MAIL_THREAD_MAX_ENTRIES || thread.renderedBytes >= MAIL_THREAD_MAX_RENDERED_BYTES
 }
 
-/** Whether the viewer may read something filed in `folderId` (null: the project root). */
 const readable = (folderId: string | null, hidden: ReadonlySet<string>): boolean => folderId === null || !hidden.has(folderId)
 
-/**
- * The thread candidates of one mail for this viewer, strongest first, at most
- * {@link MAX_SHOWN_THREAD_CANDIDATES}, and how many it may not see. Pure: the
- * caller loads the threads' documents and the viewer's hidden folders once for
- * a whole page. A matched thread without a live, screened document is dropped
- * for everyone; one in a hidden folder is counted, never named.
- */
 export function threadCandidatesFor(
   matches: readonly ThreadMatch[],
   sender: SenderEvidence,
@@ -102,7 +70,6 @@ export function threadCandidatesFor(
   return { shown, hidden }
 }
 
-/** A part's matched documents for this viewer. */
 export interface PartCandidates {
   duplicateOf: InboundMailDocumentRefView | null
   revisionCandidate: (InboundMailDocumentRefView & { nextVersion: number }) | null
@@ -115,7 +82,6 @@ const refOf = (document: CandidateDocument): InboundMailDocumentRefView => ({
   folderPath: document.folderPath,
 })
 
-/** {@link PartCandidates} of one part. Pure, like {@link threadCandidatesFor}. */
 export function partCandidatesFor(
   part: Pick<InboundMailPartRow, 'duplicateOfDocumentId' | 'revisionCandidateDocumentId'>,
   documents: ReadonlyMap<string, CandidateDocument>,
@@ -125,18 +91,12 @@ export function partCandidatesFor(
   const revision = part.revisionCandidateDocumentId ? documents.get(part.revisionCandidateDocumentId) : undefined
   const revisionReadable = revision !== undefined && readable(revision.folderId, hiddenFolders)
   return {
-    // Identical bytes in a folder the viewer cannot read: nothing at all (§9's case table).
     duplicateOf: duplicate && readable(duplicate.folderId, hiddenFolders) ? refOf(duplicate) : null,
     revisionCandidate: revision && revisionReadable ? { ...refOf(revision), nextVersion: revision.nextVersion } : null,
     revisionCandidateHidden: revision !== undefined && !revisionReadable,
   }
 }
 
-/**
- * Where a filed part went, for this viewer: its document's name and folder and
- * the Fassung it became, or null when it is not filed or the viewer may not
- * read the document (the same rule as `documentId`). Pure.
- */
 export function filedAsFor(
   part: Pick<InboundMailPartRow, 'documentId' | 'documentVersionId'>,
   documents: ReadonlyMap<string, CandidateDocument>,
@@ -152,27 +112,17 @@ export function filedAsFor(
   }
 }
 
-/** Everything one read needs to judge candidates for its viewer, loaded once for a page of mails. */
 export interface ViewerCandidates {
   threads(mail: Pick<InboundMailRow, 'threadMatch' | 'senderTrust' | 'senderFlags' | 'signedHeaders'>): {
     shown: InboundMailThreadCandidateView[]
     hidden: number
   }
   part(part: Pick<InboundMailPartRow, 'duplicateOfDocumentId' | 'revisionCandidateDocumentId'>): PartCandidates
-  /** Whether the viewer may read a document filed in this folder. */
   readsFolder(folderId: string | null): boolean
-  /** Whether the viewer may read this document, one of the parts' (`documentId` included): screened, live, in a folder they see. */
   readsDocument(documentId: string): boolean
-  /** Where a filed part went, when the viewer may read its document (`filedAsFor`). */
   filedAs(part: Pick<InboundMailPartRow, 'documentId' | 'documentVersionId'>): InboundMailFiledAsView | null
 }
 
-/**
- * Load the candidates of these mails and parts for `session`: the matched
- * threads' documents, the parts' matched and filed documents, the Fassungen
- * the filed parts became, and the folders the viewer may not read, four reads
- * for the whole page.
- */
 export async function candidatesFor(
   session: AuthorizedSession,
   projectId: string,

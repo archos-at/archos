@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { listAssignmentCandidates } from '@/lib/assignments/client'
 import type { DirectoryPerson } from '@/lib/sharing/types'
 
-// Mentions are limited to whoever may open the document, by permission and folder, never by role name.
 export function useMentionablePeople(
   documentId: string | null,
   attempt: number

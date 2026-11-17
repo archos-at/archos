@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The answer's designed blocks: what each element the dialect produces is
- * drawn as. Composed from `answer-atoms.tsx`; what each element IS was settled
- * by `directive-shape.ts` and is only read here.
- *
- * Module-level components with one identity, like every other override of the
- * renderer (`stable-overrides.spec.tsx`): per-render state (an open step, an
- * open `details`) lives inside them.
- */
-
 import { Children, createContext, useContext, useState, type FC, type ReactNode } from 'react'
 import type { Element } from 'hast'
 import type { ExtraProps } from 'react-markdown'
@@ -63,7 +53,6 @@ const prop = (node: Element | undefined, name: string): string | undefined => {
   return value === undefined || value === null ? undefined : String(value)
 }
 
-/** The element children of `node`, by tag, aligned with the React children they became. */
 function slots(node: Element | undefined, children: ReactNode): Map<string, ReactNode> {
   const nodes = (node?.children ?? []).filter((child) => child.type === 'element') as Element[]
   const rendered = Children.toArray(children)
@@ -72,11 +61,6 @@ function slots(node: Element | undefined, children: ReactNode): Map<string, Reac
   return out
 }
 
-// ---------------------------------------------------------------------------
-// Blocks
-// ---------------------------------------------------------------------------
-
-/** Whether the `details` being drawn is printed open inside a step, or opens on its own. */
 const DetailsModeContext = createContext<'collapsible' | 'inline'>('collapsible')
 
 function DetailsBlock({ node, children }: NodeProps) {
@@ -116,7 +100,6 @@ const DefaultSummary: FC = () => {
   return <>{t('markdown.details')}</>
 }
 
-/** A `details` label: the summary of its trigger, or a caption over its content inside a step. */
 export function AnswerBlockLabel({ children }: NodeProps) {
   const mode = useContext(DetailsModeContext)
   if (mode === 'inline') return <InlineDetailsLabel>{children}</InlineDetailsLabel>
@@ -127,7 +110,6 @@ export function AnswerBlockBody({ children }: NodeProps) {
   return <>{children}</>
 }
 
-/** Every block of the dialect: `details` opens and closes; the rest are drawn by what they hold. */
 export function AnswerBlock({ node, children }: NodeProps) {
   const name = prop(node, 'dataBlock') ?? ''
   if (name === 'details') return <DetailsBlock node={node}>{children}</DetailsBlock>
@@ -138,13 +120,8 @@ export function AnswerBlock({ node, children }: NodeProps) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Steps
-// ---------------------------------------------------------------------------
-
 const PHASES = new Set<StepPhase>(['none', 'done', 'current', 'upcoming'])
 
-/** One step of a `:::procedure`: its line, and what opens beneath it. */
 export function StepItem({ node, children }: NodeProps) {
   const [open, setOpen] = useState(false)
   const phaseValue = prop(node, 'dataPhase') as StepPhase | undefined
@@ -155,8 +132,6 @@ export function StepItem({ node, children }: NodeProps) {
   const due = parts.get('answer-step-due')
   const detail = parts.get('answer-step-detail')
   const current = phase === 'current'
-  // No aria-label: the trigger's own text (number, step, Frist, „hier stehen
-  // Sie") is its name, and a label would replace all of it.
   const line = <StepLine phase={phase} number={number} title={head} due={due} open={open} expandable={Boolean(detail)} />
   return (
     <StepStation phase={phase} number={number} last={prop(node, 'dataLast') === 'true'}>
@@ -181,14 +156,9 @@ export function StepItem({ node, children }: NodeProps) {
   )
 }
 
-/** The inline parts of a step, drawn by the step itself. */
 export function StepPart({ children }: NodeProps) {
   return <>{children}</>
 }
-
-// ---------------------------------------------------------------------------
-// Figures
-// ---------------------------------------------------------------------------
 
 const TONES = new Set<FigureTone>(['success', 'destructive', 'warning', 'info', 'muted', 'none'])
 
@@ -213,16 +183,10 @@ export function Figure({ node, children }: NodeProps) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Inline
-// ---------------------------------------------------------------------------
-
-/** A marker no list item, row or header took: its word, so nothing is lost. */
 export function AnswerMarker({ node }: NodeProps) {
   const t = useTranslations(commonCopy)
   const cases = useCasesDecision()
   const marker = prop(node, 'dataMarker')
-  // In a `by=` cases block the renderer marks the case; the model's own mark is overruled.
   if (marker === 'applies' && cases) return null
   if (marker === 'current') return <MarkChip>{t('markdown.stepCurrent')}</MarkChip>
   if (marker === 'applies') return <MarkChip>{t('markdown.caseApplies')}</MarkChip>
@@ -235,7 +199,6 @@ export function AnswerEnergy({ node, children }: NodeProps) {
   return rating ? <EnergyClassChip rating={rating} /> : <>{children}</>
 }
 
-/** A blockquote; one ending in a citation is a Fundstelle excerpt with its source in the margin. */
 export function AnswerBlockquote({ node, children }: React.ComponentPropsWithoutRef<'blockquote'> & ExtraProps) {
   const renderSource = useExcerptSourceRenderer()
   const { quoteStamps } = useAnswerData()
@@ -247,10 +210,8 @@ export function AnswerBlockquote({ node, children }: React.ComponentPropsWithout
     )
   }
   const href = prop(element, 'dataExcerptHref') ?? null
-  // The server's check of this line, matched by its wording; `unchecked` draws nothing.
   const stamp = element ? stampForQuote(quoteStamps, textOf(element), Number(number)) : null
   const checked = stamp && stamp.status !== 'unchecked' ? stamp : null
-  // Where it stands, under the stamp only when no margin names the source already.
   const locus = checked?.status === 'verbatim' && !renderSource ? stampLocus(checked) : undefined
   return (
     <ExcerptFigure
@@ -268,17 +229,11 @@ export function AnswerBlockquote({ node, children }: React.ComponentPropsWithout
   )
 }
 
-/** Where a verified quote stands: „S. 12 · Pkt. 3.5.2". */
 function stampLocus(stamp: { page?: number; clause?: string }): string | undefined {
   const parts = [stamp.clause ? `Pkt. ${stamp.clause}` : null, stamp.page ? `S. ${stamp.page}` : null].filter(Boolean)
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
-// ---------------------------------------------------------------------------
-// Actions
-// ---------------------------------------------------------------------------
-
-/** The trailing cell of an actions row: „Als Aufgabe", which only fills the composer. */
 export function TaskCellContent({ node }: NodeProps) {
   const t = useTranslations(commonCopy)
   const { prefill } = useAnswerData()
@@ -305,17 +260,10 @@ export function TaskCellContent({ node }: NodeProps) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// A documented negative
-// ---------------------------------------------------------------------------
-
-/** How many searched documents „Gesucht in" names before „+N weitere". */
 const SEARCHED_SHOWN = 6
 
 export function NotFound({ children }: NodeProps) {
   const { notRegulated } = useAnswerData()
-  // An answer whose masthead does not say „Nicht geregelt" has no documented
-  // negative to draw: its closest rule and who decides read as plain content.
   if (notRegulated === false) return <div data-block-plain="not-found">{children}</div>
   return <NotFoundFrame>{children}</NotFoundFrame>
 }
@@ -340,10 +288,6 @@ export function Pane({ node, children }: NodeProps) {
     </NotFoundPane>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Subsumption
-// ---------------------------------------------------------------------------
 
 export function Subsumption({ node, children }: NodeProps) {
   const t = useTranslations(commonCopy)
@@ -373,10 +317,6 @@ export function Subsumption({ node, children }: NodeProps) {
     </SubsumptionFrame>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Comparison, per variant
-// ---------------------------------------------------------------------------
 
 export function CompareStack({ children }: NodeProps) {
   return <CompareStackFrame>{children}</CompareStackFrame>

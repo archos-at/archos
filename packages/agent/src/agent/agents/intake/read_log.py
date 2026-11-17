@@ -29,11 +29,8 @@ from typing import Literal
 
 from agent.knowledge.project_experience import folded_for_quote
 
-#: What :meth:`IntakeReadLog.contains` answers when the quote is not in the file's text.
 NOT_FOUND: Literal[False] = False
-#: The longest passage :meth:`IntakeReadLog.closest` offers back.
 MAX_CLOSEST_CHARS = 200
-#: The share of the quote's words a passage must hold to be offered as the closest.
 MIN_CLOSEST_OVERLAP = 0.4
 
 _WORD = re.compile(r"\w+")
@@ -173,7 +170,6 @@ def _best_window(text: str, wanted: set[str], length: int) -> tuple[float, str] 
     words = text.split()
     if not words:
         return None
-    # A few words of context either side of the quote's length, so the passage reads as a sentence.
     size = max(1, min(length + max(2, length // 2), len(words)))
     keys = [{token.casefold() for token in _WORD.findall(word)} for word in words]
     best_score, best_start = -1.0, 0

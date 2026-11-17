@@ -51,8 +51,6 @@ def classify_rooms(model: SpatialModel) -> list[ClassifiedRoom]:
             if quality is None:
                 continue
             current = best.get(entry.kind)
-            # Longest term wins within a kind too, so the `note` that travels
-            # into the reasons is the one from the most specific match.
             if current is None or len(entry.term) > len(current[0].term):
                 best[entry.kind] = (entry, quality)
 
@@ -91,10 +89,6 @@ def classify_rooms(model: SpatialModel) -> list[ClassifiedRoom]:
                     f'„{winner.term}" schlägt „{other.term}" ({KIND_LABEL[other_kind]}) als längerer Treffer.'
                 )
 
-        # The window signal is only evidence in a file that publishes the
-        # relation at all. In a model with no window→room assignment, "this room
-        # has no window" is a fact about the export — using it to lower a
-        # confidence would let an export setting argue about a building.
         if lit_rooms is not None:
             if global_id in lit_rooms:
                 confidence += 0.05
@@ -145,9 +139,6 @@ def normalise(raw: str) -> str:
     text = unicodedata.normalize("NFD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     return re.sub(r"[^a-z0-9]+", " ", text).strip()
-
-
-# ── shared helpers ──────────────────────────────────────────────────────────
 
 
 def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:

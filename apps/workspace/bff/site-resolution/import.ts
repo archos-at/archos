@@ -1,32 +1,8 @@
-/**
- * Write one release of an official address register into the cell (migration
- * 0210, ADR-0172). The one writer of `address_register_entries`; the script
- * `scripts/import-address-register.ts` drives it, and the integration spec
- * drives the same function. No `server-only`: it runs outside Next.
- *
- * Three steps, each a transaction stepped up to the platform role by the
- * caller's `withPlatform` (`workers/platform-scope.js`):
- * 1. a `loading` release row;
- * 2. the entries, in batches; a lookup never reads a loading release;
- * 3. the swap: the new release becomes `active`, the previous one `retired`
- *    and its entries deleted, in one transaction.
- *
- * Fail closed: a release with no entries, one that shrinks the active release
- * by more than `maxShrink`, or one whose reference date is not after the
- * active one's (unless `allowOlder`), is refused and removed, and the active
- * release stays. A register does not lose a twentieth of its addresses between
- * two reference dates; a truncated download does. A `maxShrink` that is not a
- * number in [0, 1) is refused before anything is written. A `loading` release
- * older than a day, left by an import that died, is removed first.
- */
-
 import type { TransactionSql } from 'postgres'
 import type { RegisterEntry } from './bev'
 import type { AddressRegister } from './registers'
 
-/** Rows per INSERT: 14 columns each, under Postgres's 65,535 bind parameters a statement. */
 export const IMPORT_BATCH_SIZE = 4_000
-/** The share of the active release a new one may lose before it is refused. */
 export const DEFAULT_MAX_SHRINK = 0.05
 
 export type WithPlatform = <T>(fn: (tx: TransactionSql) => Promise<T>) => Promise<T>
@@ -38,7 +14,6 @@ export interface ImportRelease {
   sourceUrl: string | null
   entries: Iterable<RegisterEntry> | AsyncIterable<RegisterEntry>
   maxShrink?: number
-  /** Accept a reference date not after the active release's: a rollback to an earlier archive. */
   allowOlder?: boolean
 }
 
@@ -48,12 +23,10 @@ export interface ImportResult {
   retiredReleaseIds: string[]
 }
 
-/** A release refused at the swap: too small next to the active one, or empty. */
 export class ReleaseRefusedError extends Error {
   override name = 'ReleaseRefusedError'
 }
 
-/** An entry as the columns of its row. */
 export function columnsOf(releaseId: string, entry: RegisterEntry) {
   return {
     release_id: releaseId,
@@ -94,7 +67,6 @@ async function writeBatches(withPlatform: WithPlatform, releaseId: string, entri
   return written
 }
 
-/** The shrink a release may show, refused when it is no number in [0, 1): NaN would switch the guard off. */
 function maxShrinkOf(release: ImportRelease): number {
   const maxShrink = release.maxShrink ?? DEFAULT_MAX_SHRINK
   if (!Number.isFinite(maxShrink) || maxShrink < 0 || maxShrink >= 1)
@@ -131,7 +103,6 @@ async function activate(withPlatform: WithPlatform, release: ImportRelease, rele
   })
 }
 
-/** Import a release and make it the register's active one, or refuse it and leave the active release as it was. */
 export async function importRelease(withPlatform: WithPlatform, release: ImportRelease): Promise<ImportResult> {
   maxShrinkOf(release)
   await withPlatform((tx) =>

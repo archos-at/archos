@@ -1,10 +1,3 @@
-/**
- * Platform knowledge management — reclassify a base-corpus document's
- * Dokumentart (doc_class). Platform owners only. Because retrieval is
- * store-authoritative for doc_class, the change reflects immediately with no
- * re-ingest.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

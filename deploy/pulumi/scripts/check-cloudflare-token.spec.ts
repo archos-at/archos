@@ -4,15 +4,6 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The Cloudflare token check, run as an operator runs it: bash, real jq, and a
- * `curl` stub that answers per zone and records every call.
- *
- * Pinned: a zone the token cannot see fails with the fix and the exit code, a
- * visible zone prints the id the stack file needs, the write probe deletes what
- * it created, and --read-only writes nothing.
- */
-
 const SCRIPT = join(__dirname, "check-cloudflare-token.sh");
 const ROOT = mkdtempSync(join(tmpdir(), "check-cloudflare-token-"));
 const BIN = join(ROOT, "bin");
@@ -21,7 +12,6 @@ const ZONE_ID = "00000000000000000000000000abc123";
 
 beforeAll(() => {
   mkdirSync(BIN, { recursive: true });
-  // Answers by method and path. `STUB_VISIBLE` names the one zone the token sees.
   writeFileSync(
     join(BIN, "curl"),
     [
@@ -101,7 +91,6 @@ describe("check-cloudflare-token.sh", () => {
   });
 
   it("fails a refused redirect ruleset only on the zone whose baseline the stack owns", () => {
-    // Prod's stack file sets dnsZoneBaseline; its dnsZoneName is the zone it writes the www rule to.
     const prodZone = readFileSync(join(__dirname, "..", "Pulumi.prod.yaml"), "utf8").match(/:dnsZoneName: *(\S+)/)![1];
     const owner = run(["--stack", "prod", "--read-only", prodZone], prodZone, { STUB_ENTRY_CODE: "403" });
     expect(owner.status).toBe(1);

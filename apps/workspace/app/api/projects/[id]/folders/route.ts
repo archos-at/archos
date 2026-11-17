@@ -1,10 +1,3 @@
-/**
- * Project folders API — list and create folders for a project.
- * Thin handlers; the request handling is shared with the Archiv's folders
- * (`@/lib/documents/folder-route-handlers`) and authz and logic live in
- * `@/lib/projects/folder-service`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { createFolderHandler } from '@/lib/documents/folder-route-handlers'
 import { folderListQuerySchema } from '@/lib/documents/folder-wire'
@@ -18,11 +11,7 @@ export const GET = apiRoute<Params>(
     const { counts } = parseQuery(request, folderListQuerySchema)
     const [folders, rootAccess, summary] = await Promise.all([
       listProjectFolders(params.id, session),
-      // What the reader may do at the project root (ADR-0088): the project's
-      // document-write permission alone. Each folder carries its own `access`.
       projectRootAccess(session, params.id),
-      // The tree in one call: the documents filed directly in each folder, as
-      // the shelf summary counts them for this reader (one grouped query).
       counts ? summarizeProjectDocuments(session, params.id) : null,
     ])
     if (!summary) return { folders, rootAccess }

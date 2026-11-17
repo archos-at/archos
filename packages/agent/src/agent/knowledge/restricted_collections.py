@@ -28,9 +28,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-#: ``<base>_r`` and exactly twelve hex digits at the end. Case-insensitive on
-#: purpose: the BFF writes lowercase, and a reader that lowercases or uppercases
-#: names on the way must not turn a restricted collection into an open one.
 _RESTRICTED_NAME = re.compile(r"^(?P<base>.+)_r[0-9a-f]{12}$", re.IGNORECASE)
 
 

@@ -1,9 +1,3 @@
-/**
- * The blog covers hold to their system (packages/brand/docs/blog-covers.md): each file is a
- * drawing on the 1200 × 800 canvas made only of the shapes and pens the frame styles, with no
- * colour, style, text or id of its own; it has its one solid element; and each post pair has
- * a cover of its own. The schema (src/content.config.ts) already fails a post without one.
- */
 import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,7 +5,6 @@ import { join } from 'node:path';
 const COVERS = join(import.meta.dir, '../assets/covers');
 const CONTENT = join(import.meta.dir, '../content/blog');
 
-/** The pens and fills of covers.css. A new one is a change to the system, made there first. */
 const CLASSES = new Set(['cut', 'view', 'hidden', 'axis', 'dim', 'paper', 'tone', 'hatch', 'solid']);
 const ELEMENTS = new Set(['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon']);
 const ATTRIBUTES = new Set([
@@ -28,13 +21,10 @@ function tags(svg: string) {
   }));
 }
 
-/** `name` and `cover` of every post, read from its frontmatter. */
 function posts() {
   return ['de', 'en'].flatMap((locale) =>
     readdirSync(join(CONTENT, locale)).filter((file) => file.endsWith('.mdx')).map((file) => {
       const head = /^---\n([\s\S]*?)\n---/.exec(readFileSync(join(CONTENT, locale, file), 'utf8'))?.[1] ?? '';
-      // A line scan, not a regex built from `name`: the field names are ours, but a
-      // constructed pattern is what the SAST gate rightly flags.
       const field = (name: string) => {
         const line = head.split('\n').find((l) => l.startsWith(`${name}:`));
         return line?.slice(name.length + 1).trim().replace(/^'|'$/g, '') || undefined;

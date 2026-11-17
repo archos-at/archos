@@ -1,21 +1,3 @@
-/**
- * The information need (`docs/design/agentic-project-intake.md`, „The
- * information need"): which profile keys the project still needs, computed
- * from the wizard's questions, their conditions and the profile as it stands.
- * Pure. The agent's `intake_needs` tool returns its result.
- *
- * Also the two readings of a key the rest of the intake shares: which question
- * a profile key answers ({@link questionForKey}, the record gate's vocabulary),
- * and a building's building class inputs as the wizard's answers hold them
- * ({@link buildingClassInputsFor}, the derivation and the decisive needs).
- *
- * The wizard's walk, replayed: project and Grundstück questions once, building
- * questions per building (`key@bldgN`), and the Nutzungszonen of each selected
- * D0 use (`key@bldgN@use`). Conditions are evaluated on what is known, facts
- * first and suggestions under them, so a suggested `building_type = gebaeude`
- * already opens the building questions the reading should look for.
- */
-
 import { answerKeyFor, isBuildingId, modeKeyFor, type BuildingInstance } from '@/lib/project-profile/intake-building-keys'
 import { evaluateIntakeCondition } from '@/lib/project-profile/intake-conditions'
 import { answersFromProfile } from '@/lib/project-profile/intake-profile'
@@ -42,25 +24,19 @@ import {
 
 export interface ComputeNeedsOptions {
   mode: IntakeMode
-  /** Values a person dismissed, per key; never suggested again, so a select need does not offer them. */
   dismissed: ReadonlyArray<{ key: string; value: ProjectPrimitiveValue }>
-  /** Keys a person marked „nicht bekannt"; not a need. Defaults to the profile's `unknowns`. */
   unknownKeys?: ReadonlyArray<string>
-  /** The released setup records the site selects its classification from. */
   records: readonly StoredRuleset[]
 }
 
 type Answers = Record<string, ProjectPrimitiveValue>
 
-/** A question that holds for one scope instance, before the profile is consulted. */
 interface Candidate {
   question: ProjectIntakeQuestion
   type: IntakeNeedType
-  /** The profile key (`storeys_above_ground@bldg1`). */
   key: string
   baseKey: string
   buildingId: string | null
-  /** The D0 use of a Nutzungszone question, or null. */
   zone: string | null
 }
 
@@ -70,17 +46,11 @@ function isNeedType(type: string): type is IntakeNeedType {
   return NEED_TYPES.includes(type)
 }
 
-/** The fact or goal key a question writes, as the wizard's `resolveWriteTarget` reads `writesTo`. */
 function baseKeyOf(question: ProjectIntakeQuestion): string | null {
   const match = question.writesTo?.match(/^\/(?:facts|goals)\/([^/]+)/)
   return match ? match[1] : null
 }
 
-/**
- * The profile with every suggestion read as if it were answered, under the
- * facts. `answersFromProfile` reads assumptions only for number_tri; a
- * suggested select or yes/no answer must open its follow-up questions too.
- */
 function knownProfile(profile: ProjectProfile): ProjectProfile {
   const suggested: Record<string, ProjectFact> = {}
   for (const [key, assumption] of Object.entries(profile.assumptions)) {
@@ -134,7 +104,6 @@ function buildingCandidates(
   return [...own, ...zones].filter((candidate): candidate is Candidate => candidate !== null)
 }
 
-/** Every question that holds for what is known, in the wizard's order. */
 function candidatesFor(
   definition: ProjectIntakeDefinition,
   answers: Answers,
@@ -149,18 +118,12 @@ function candidatesFor(
   })
 }
 
-/** „noch offen" is the wizard's way to defer an answer, never a value a document states. B3_weise's `open` is a real Bebauungsweise. */
 function isUndecidedOption(option: { value: string; label: string }): boolean {
   return (
     (option.value === 'open' || option.value === 'undecided') && option.label.startsWith('noch')
   )
 }
 
-/**
- * The options a reading may record for `key`: the question's own, without
- * „noch offen" and without the values a person dismissed for that key.
- * Undefined for a question without options.
- */
 export function needOptionsFor(
   question: ProjectIntakeQuestion,
   key: string,
@@ -175,7 +138,6 @@ export function needOptionsFor(
     .map((option) => ({ token: option.value, label: option.label }))
 }
 
-/** The D0 uses a building can have: each opens its Nutzungszone (`key@bldgN@use`). */
 function zoneUses(definition: ProjectIntakeDefinition): Array<{ value: string; label: string }> {
   return (
     definition.stages.flatMap((stage) => stage.questions).find((question) => question.id === 'D0')
@@ -183,7 +145,6 @@ function zoneUses(definition: ProjectIntakeDefinition): Array<{ value: string; l
   )
 }
 
-/** The zone's use label beside the question's, so two zones' „Fläche der Zone" stay apart. */
 function labelFor(candidate: Candidate, definition: ProjectIntakeDefinition): string {
   if (!candidate.zone) return candidate.question.label
   const use =
@@ -191,14 +152,12 @@ function labelFor(candidate: Candidate, definition: ProjectIntakeDefinition): st
   return `${candidate.question.label} (${use})`
 }
 
-/** A known answer as the derivation reads it: `offen` and a number_tri left open are missing. */
 function knownAnswer(answers: Answers, answerKey: string): ProjectPrimitiveValue | undefined {
   if (answers[modeKeyFor(answerKey)] === 'open') return undefined
   const value = answers[answerKey]
   return value === 'open' ? undefined : value
 }
 
-/** Which building question writes each building class input, in the wizard's order. */
 function buildingClassReaders(
   definition: ProjectIntakeDefinition,
   inputs: readonly string[]
@@ -210,12 +169,6 @@ function buildingClassReaders(
     .filter(({ input }) => inputs.includes(input))
 }
 
-/**
- * One building's building class inputs from the wizard's answers, by base key;
- * undefined where nothing is known. Read through the answers, not the
- * profile, so the wizard's legacy bridges (C8's inverted `units_under_400`)
- * reach the derivation too.
- */
 function inputsFromAnswers(
   readers: ReadonlyArray<{ questionId: string; input: string }>,
   answers: Answers,
@@ -229,11 +182,6 @@ function inputsFromAnswers(
   )
 }
 
-/**
- * One building's building class inputs, by base key, as the derivation reads
- * them: facts first and suggestions under them, through the wizard's answers.
- * Every input the definition asks for is a key; undefined where it is unknown.
- */
 export function buildingClassInputsFor(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -244,7 +192,6 @@ export function buildingClassInputsFor(
   return inputsFromAnswers(buildingClassReaders(definition, inputs), answers, buildingId)
 }
 
-/** Per building, the building class inputs that are open and could still change the class. */
 function decisiveKeysFor(
   definition: ProjectIntakeDefinition,
   answers: Answers,
@@ -261,12 +208,6 @@ function decisiveKeysFor(
   return decisive
 }
 
-/**
- * What is decisive depends on where the project is (ADR-0158, ADR-0169): where
- * the site selects a classification (Austria's OIB table), what could change a
- * building's class; for a project nothing places, the site itself, since no
- * law is known until it is; elsewhere, nothing the intake knows.
- */
 function decisiveFor(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -280,16 +221,6 @@ function decisiveFor(
 
 const SITE_KEYS = ['country', 'federal_state'] as const
 
-/**
- * What the project still needs: every question whose conditions hold for what
- * is known and that writes a profile key, minus keys a person marked unknown
- * and minus confirmed keys, except a confirmed building class input: that one
- * stays as `confirmed`, never decisive, so a reading can corroborate it or
- * contradict it from a newer Stand. A key with only a suggestion stays, as
- * `suggested`. Decisive needs first ({@link decisiveFor}; none in `closing`
- * mode), then the wizard's order, the
- * confirmed ones last; at most {@link MAX_INTAKE_NEEDS}.
- */
 export function computeNeeds(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -321,11 +252,6 @@ export function computeNeeds(
   return ordered.slice(0, MAX_INTAKE_NEEDS)
 }
 
-/**
- * The needs `after` lists that `before` did not, still open: what a write
- * opened (`building_type = gebaeude` opens the building's questions), decisive
- * first as {@link computeNeeds} orders them.
- */
 export function openedNeeds(before: readonly Need[], after: readonly Need[]): OpenedNeed[] {
   const listed = new Set(before.map((need) => need.key))
   return after
@@ -363,21 +289,14 @@ function needState(key: string, profile: ProjectProfile): NeedState {
   return key in profile.assumptions ? 'suggested' : 'open'
 }
 
-// ---------------------------------------------------------------------------
-// Which question a key answers
-// ---------------------------------------------------------------------------
-
-/** The question a profile key answers, read from the key alone. */
 export interface KeyQuestion {
   question: ProjectIntakeQuestion
   type: IntakeNeedType
   baseKey: string
   buildingId: string | null
-  /** The D0 use of a Nutzungszone key, or null. */
   zone: string | null
 }
 
-/** The key's scope parts, when it has the shape the question's scope asks for. */
 function scopedParts(
   scope: 'project' | 'building' | 'zone',
   parts: string[]
@@ -389,7 +308,6 @@ function scopedParts(
   return parts.length === 3 && zone ? { buildingId, zone } : null
 }
 
-/** Every question that writes a profile key, with the scope its keys take and the zone uses it is asked for. */
 function writers(definition: ProjectIntakeDefinition): Array<{
   question: ProjectIntakeQuestion
   scope: 'project' | 'building' | 'zone'
@@ -409,14 +327,6 @@ function writers(definition: ProjectIntakeDefinition): Array<{
   ])
 }
 
-/**
- * The question `key` answers: its base key is one a question writes, and its
- * `@bldgN` / `@bldgN@use` suffix is the scope that question is asked in (a
- * project key has none, a building key one, a Nutzungszone key a building and
- * one of D0's uses). Null for any other key. Whether the question is asked
- * yet, whether its conditions hold, is not consulted: a reading may find a
- * value before the answer that opens its question.
- */
 export function questionForKey(
   definition: ProjectIntakeDefinition,
   key: string
@@ -433,12 +343,6 @@ export function questionForKey(
   return null
 }
 
-/**
- * The question `key` answers, when a reading may record it on this profile:
- * {@link questionForKey}, and its building is one the profile describes
- * (`buildingIdsOf` in `derivation-view.ts`: `bldg1` when it names none). A
- * reading does not add a building; a person does, in the wizard.
- */
 export function recordableKey(
   definition: ProjectIntakeDefinition,
   key: string,

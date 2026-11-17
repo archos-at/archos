@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Card-gallery dev page: renders every Grid card type with realistic fixture
- * data so visual changes can be reviewed (and screenshotted) in one place.
- * Not linked from anywhere and returns 404 outside development.
- *
- * The whole gallery is pinned to German with `fixedLocale`. Without it the
- * provider falls back to `defaultLocale` ('en'), which is how the committed
- * screenshot came to show an English „Ask about this" chip in the middle of a
- * German Anforderungsliste: the cards whose copy is hardcoded German looked
- * right and only the translated ones leaked. See docs/ux/visual-screenshots.md.
- */
-
 import { notFound } from 'next/navigation'
 
 import { I18nProvider } from '@/i18n'
@@ -56,9 +44,6 @@ export default function CardsGalleryPage() {
 }
 
 function Gallery() {
-  // The three proposal cards are receipts of proposals the server holds
-  // (ADR-0105); `/dev` has no server, so the proposals API is faked for them.
-  // See `/dev/proposal-receipts` for every state.
   const proposalsReady = useFakeProposalClient()
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">

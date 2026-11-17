@@ -50,14 +50,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-#: In-cluster base URL of the BFF. Set by every deployment.
 INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
-#: Second choice, for a local setup that names only the public URL.
 FALLBACK_URL_ENV = "FRONTEND_URL"
-#: The compose and Kubernetes service name, when neither is set.
 DEFAULT_BASE_URL = "http://frontend:3000"
 
-#: The shared service secret (the BFF signs request-context envelopes with it too).
 INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 INTERNAL_TOKEN_HEADER = "X-Internal-Token"
 REQUEST_CONTEXT_HEADER = "X-Request-Context"
@@ -131,7 +127,6 @@ class BffResponse:
     status: int
     content_type: str
     body: bytes
-    #: The raw ``Server-Timing`` header, empty when the route sends none.
     server_timing: str = ""
 
     def json(self) -> Any:

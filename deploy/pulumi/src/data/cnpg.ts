@@ -1,10 +1,3 @@
-/**
- * The parts of a CloudNativePG cluster that every cluster in the program shares:
- * the `Cluster` spec's common shape, its Barman PITR archive and its nightly base
- * backup. The application's cluster (`postgres.ts`) and the background-work
- * cluster Hatchet runs on (`background-work-pg.ts`) are both built from here, so
- * a fix to how a cluster is placed, tuned or backed up reaches both.
- */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import type { BarmanBackups } from "../config/barman-backups";
@@ -13,12 +6,9 @@ import { scrapeAnnotations } from "../platform/scrape";
 import { commonLabels } from "../platform/namespaces";
 import { PORT, POSTGRES_TUNING } from "../constants";
 
-/** A role CloudNativePG reconciles as superuser (`spec.managed.roles`). */
 export interface CnpgManagedRole {
   name: string;
-  /** The basic-auth Secret holding its password. */
   passwordSecret: pulumi.Input<string>;
-  /** `CONNECTION LIMIT`; omitted means unlimited (-1), the operator's default. */
   connectionLimit?: number;
 }
 
@@ -27,23 +17,16 @@ export interface CnpgClusterSpec {
   storageSize: string;
   storageClass: string;
   primaryUpdateStrategy: "unsupervised" | "supervised";
-  /** The data node group, when the stack has one (`nodeGroupData`). */
   dataNodeGroup?: string;
   resources: { requests: Record<string, string>; limits: Record<string, string> };
-  /** `postgresql.parameters`, on top of the keepalives every cluster shares. */
   parameters: Record<string, string>;
   bootstrap: { database: string; owner: string; secret: pulumi.Input<string>; postInitSQL?: string[] };
   roles: CnpgManagedRole[];
   enableSuperuserAccess: boolean;
-  /** The Barman archive; disabled leaves the spec without a `backup` key. */
   backups: BarmanBackups;
   backupSecretName: string;
 }
 
-/**
- * Login attributes of every managed role: no superuser, no CREATEDB, no
- * CREATEROLE, no BYPASSRLS. A role that needs more is not a managed role.
- */
 function managedRole(role: CnpgManagedRole) {
   return {
     name: role.name,
@@ -58,23 +41,6 @@ function managedRole(role: CnpgManagedRole) {
   };
 }
 
-/**
- * The `backup` block of a Cluster, or nothing when the archive is off.
- *
- * NOTE: this uses CNPG's in-tree `barmanObjectStore`. It is stable and works on
- * current operators but is being superseded by the barman-cloud plugin; if a
- * future auto-pulled operator (the chart is unpinned) drops the in-tree path,
- * the webhook will reject this at `pulumi up`: switch to the plugin then.
- *
- * ENCRYPTION. `encryption` is a field of `wal` and `data`, NOT of
- * `barmanObjectStore` itself, and its CRD enum is `AES256;"aws:kms"` with no
- * empty member, so "inherit the bucket policy" is the key being ABSENT; emitting
- * `encryption: ""` would be rejected by the webhook. barman-cloud turns it into
- * an `x-amz-server-side-encryption` header, which encrypts nothing unless the
- * DESTINATION implements SSE. The in-cluster SeaweedFS (3.80) does not, which
- * is why `loadBarmanBackups` refuses that combination. Said plainly in
- * docs/deployment/kubernetes.md § Encryption posture.
- */
 export function barmanBackupSpec(backups: BarmanBackups, secretName: string) {
   if (!backups.enabled) return {};
   const encryptionField = backups.encryption ? { encryption: backups.encryption } : {};
@@ -95,22 +61,10 @@ export function barmanBackupSpec(backups: BarmanBackups, secretName: string) {
   };
 }
 
-/**
- * The `spec` of a CloudNativePG `Cluster`.
- *
- * Every cluster gets the same placement and the same safety: the instances'
- * exporter annotated for the node agents (ADR-0119), a major-pinned image,
- * anti-affinity across nodes (required on a data group, which is fixed in size;
- * preferred without one so a small cluster still schedules), and the TCP
- * keepalives and idle-in-transaction timeout of `POSTGRES_TUNING`, which free
- * what a dead client held.
- */
 export function cnpgClusterSpec(spec: CnpgClusterSpec) {
   return {
     instances: spec.instances,
     inheritedMetadata: { annotations: scrapeAnnotations(PORT.postgresMetrics) },
-    // Major-pinned, patch-floating: every 17.x patch, never an automatic major,
-    // which CloudNativePG treats as a declarative migration.
     imageName: "ghcr.io/cloudnative-pg/postgresql:17",
     primaryUpdateStrategy: spec.primaryUpdateStrategy,
     affinity: {
@@ -144,7 +98,6 @@ export function cnpgClusterSpec(spec: CnpgClusterSpec) {
   };
 }
 
-/** The archive's S3 credentials, as the Secret `barmanBackupSpec` names, or nothing when the archive is off. */
 export function installBackupSecret(
   logical: string,
   name: string,
@@ -162,12 +115,6 @@ export function installBackupSecret(
   );
 }
 
-/**
- * The nightly base backup of a cluster. `immediate: true` takes the first one on
- * creation, and CloudNativePG does not retry a failed `Backup`, so whatever this
- * depends on must prove the archive bucket exists (`installScheduledBackup` in
- * `postgres.ts` explains the one topology where that ordering is load-bearing).
- */
 export function installCnpgScheduledBackup(
   logical: string,
   opts: { name: string; cluster: string; schedule: string },

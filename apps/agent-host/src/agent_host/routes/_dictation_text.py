@@ -29,41 +29,28 @@ from __future__ import annotations
 
 import re
 
-#: Hesitation sounds that are never a word in German or English, any case.
 _FILLER = r"(?:ä+h+m*|ö+h+m*|e+h+m+|u+h+m*|e+r+m+|h+m{2,}|u+m{2,})"
-#: What may trail a filler and goes with it: a comma, an ellipsis, a dash.
 _TRAIL = r"(?:\s*(?:,|…|\.{3}|\s[-–]))?"
-#: A sentence start: the text's start, or whitespace after closing punctuation.
 _SENTENCE_START = r"(?:^|(?<=[.!?…])\s+)"
 
 _FILLER_RE = re.compile(
     rf"(?P<lead>{_SENTENCE_START})?(?P<comma>,\s*)?(?<![\w-]){_FILLER}(?![\w-]){_TRAIL}\s*(?P<next>\w)?",
     re.IGNORECASE,
 )
-#: "Um," opening a sentence. The German preposition never takes a comma there.
 _UM_OPENING_RE = re.compile(rf"(?P<lead>{_SENTENCE_START})um(?:,|…|\.{{3}})\s*(?P<next>\w)?", re.IGNORECASE)
-#: ", um," as an aside. Both commas are required, so "um, sagen wir" keeps it.
 _UM_ASIDE_RE = re.compile(r"(?P<comma>,\s*)(?<![\w-])um\s*,\s*(?P<next>\w)?", re.IGNORECASE)
 
-#: Words a German comma stands before. A filler set off by commas ("ich glaube,
-#: äh, dass") keeps the first comma when one of these follows; anywhere else the
-#: commas belonged to the filler ("I think, uh, that" reads "I think that").
 _KEEP_COMMA_BEFORE = frozenset(
     {"dass", "ob", "weil", "wenn", "als", "obwohl", "damit", "sodass", "bevor", "nachdem", "während", "falls"}
     | {"sondern", "aber", "denn", "welche", "welcher", "welches", "wie", "wo", "was", "wer"}
 )
 
-#: An audio-event tag. Any short ``[...]`` without digits (``[pause]``, ``[MUSIC]``):
-#: nobody dictates square brackets. In round brackets only the known event
-#: words, because "(Statik)" may be an aside the member meant.
 _AUDIO_EVENT_RE = re.compile(
     r"\[[^\[\]\d]{1,30}\]"
     r"|\((?:laughs?|laughter|coughs?|music|applause|silence|pause|noise|inaudible|lacht|hustet|musik|stille|pause)\)",
     re.IGNORECASE,
 )
 
-#: Phrases Whisper-class models write over silence, matched against the whole
-#: transcript only, lowercased and stripped of punctuation.
 _SILENCE_HALLUCINATIONS = (
     "untertitel im auftrag des zdf",
     "untertitel der amaraorg-community",
@@ -115,9 +102,6 @@ def clean_transcript(raw: str | None) -> str:
     text = _AUDIO_EVENT_RE.sub(" ", raw or "").strip()
     if not text or is_silence_hallucination(text):
         return ""
-    # A match consumes the first letter after it, so a filler straight after
-    # another ("Ähm... hmm") is found on the next pass. Two passes cover any
-    # run a person produces; the bound keeps a pathological input cheap.
     for _ in range(3):
         before = text
         for pattern in (_FILLER_RE, _UM_OPENING_RE, _UM_ASIDE_RE):
@@ -125,5 +109,4 @@ def clean_transcript(raw: str | None) -> str:
         if text == before:
             break
     text = _tidy(text)
-    # A transcript of nothing but fillers ("Äh … ähm.") leaves punctuation only.
     return text if re.search(r"\w", text) else ""

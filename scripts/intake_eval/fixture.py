@@ -35,10 +35,8 @@ from langchain_core.tools import StructuredTool
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "intake_eval"
 
-#: As the deployment's ``knowledge_search`` config: 16 passages, at most 5 from one document.
 TOP_K = 16
 MAX_PER_DOCUMENT = 5
-#: Passages one exact search returns (``browse.MAX_MATCH_PASSAGES``).
 MAX_EXACT_PASSAGES = 8
 
 _FOLD = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -90,9 +88,6 @@ def load_answer_key(path: Path = FIXTURE_DIR / "answer_key.yaml") -> dict[str, A
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-# ── read_document's seams ────────────────────────────────────────────────────
-
-
 def available_document(fixture: Fixture, file: FixtureFile) -> Any:
     from agent.knowledge.schema import AvailableDocument
 
@@ -126,9 +121,6 @@ def page_fetcher_for(fixture: Fixture):
         return [(str(number), text) for number, text in enumerate(file.pages, 1)]
 
     return fetch_document_pages
-
-
-# ── The passages, and a token ranking over them ──────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -201,9 +193,6 @@ class PassageIndex:
         return hits[:MAX_EXACT_PASSAGES]
 
 
-# ── Rendering, as the knowledge layer renders ────────────────────────────────
-
-
 def render_passages(fixture: Fixture, hits: list[tuple[Passage, float]], tool: str, trailer: str = "") -> str:
     """Hits as ``knowledge_search`` renders them (``_format_results``), filed for the read log."""
     from agent.common.grounding_block import GroundingBlock
@@ -250,9 +239,6 @@ def _allowed(fixture: Fixture, file_name: str | None, folder: str | None, title:
     if title:
         names &= {f.name for f in fixture.files if title.strip().casefold() in f.name.casefold()}
     return None if names == set(fixture.names) else names
-
-
-# ── The three shared tools ───────────────────────────────────────────────────
 
 
 def knowledge_search_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:

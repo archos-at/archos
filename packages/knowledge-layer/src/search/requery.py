@@ -39,34 +39,16 @@ from agent.common.message_utils import response_text
 
 logger = logging.getLogger(__name__)
 
-#: How many candidates the judge is shown. Sufficiency is a property of the
-#: head of the ranking, and showing the whole reranker pool would make this
-#: call as large as the reranker's for a yes/no answer.
 _JUDGE_CANDIDATES = 12
 
-#: How many delivered passages the coverage check reads. It judges the pool the
-#: model gets, not the judge's head, because the block's claim is about that
-#: pool: judging the first 12 of 16 and saying "none of the 16" was false for
-#: four of them. The decider runs twelve calls at a time
-#: (``agent.common.decisions.DEFAULT_CONCURRENCY``), so the default
-#: ``top_k`` of 16 is one batch in two waves; past this bound (an admin's
-#: ``top_k`` up to 50) the rest is named as not judged rather than judged in
-#: three more waves.
 _COVERAGE_MAX_JUDGED = 24
 
-#: Per-candidate excerpt for the judge — enough to see whether the operative
-#: sentence is there, not enough to read the whole chunk.
 _JUDGE_EXCERPT_CHARS = 600
 
-#: Upper bound on the judge call. It runs beside the reranker, so it costs
-#: nothing while it is faster than that; past this it costs the turn.
 DEFAULT_TIMEOUT_SECONDS = 15.0
 
-#: A proposed query longer than this is a paragraph, not a search.
 _MAX_QUERY_CHARS = 300
 
-#: How much of one alternative formulation the notice below prints. The notice
-#: is a line the model reads before the excerpts, not a transcript.
 _NOTICE_QUERY_CHARS = 120
 
 _SYSTEM_PROMPT = (
@@ -153,10 +135,6 @@ def _parse_verdict(raw: str, *, original_query: str, max_queries: int) -> Suffic
     return SufficiencyVerdict(sufficient=sufficient, queries=queries)
 
 
-#: Who answers the yes/no. ``llm`` is the judge as it always was; ``jev``
-#: asks the decision model one ``noul`` per passage of the head first
-#: (``knowledge_layer.search.decisions``) and runs the judge only when the head is
-#: insufficient — for the phrasings, which a decision model cannot write.
 DECIDER_LLM = "llm"
 DECIDER_JEV = "jev"
 
@@ -266,36 +244,6 @@ def requery_notice(queries: Sequence[str]) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Coverage: the honest "nothing here answers it".
-#
-# Without this, ``knowledge_search`` fills ``top_k`` whatever it found, and a
-# question the corpus cannot answer gets sixteen formatted excerpts the model
-# reads as evidence (fill@16 = 1.000 on the golden set's should-refuse rows,
-# rag-system-audit-2026-08 §20). The cosine floor cannot fix that: answerable
-# and unanswerable top-1 similarities overlap (0.799-0.933 against
-# 0.795-0.865). What CAN tell them apart is a model reading the question
-# against the passage, and the search already asks one: the decider behind the
-# judge (``decisions.passage_verdicts``, p(answers) per passage).
-#
-# So the signal is the decider's verdict on the pool the model will actually
-# get: asked only when the judge already found the first pool insufficient,
-# after the requery round has widened and reranked it. A decision that did not
-# run, or did not run on every passage it was asked about, claims nothing.
-#
-# No cross-encoder threshold. The Cohere relevance scores are roughly
-# calibrated, but nothing in this repository measures them against labelled
-# answerable/unanswerable questions (the golden set's should-refuse rows are
-# three distinct needs, and no rerank-score run over them is recorded), and a
-# threshold without that is a guess. The scores are also not carried past the
-# reranker today. A score floor waits for that measurement.
-#
-# The verdict is said, never enforced: the pool reaches the model whole. A
-# decision never withholds a passage (ADR-0064), so the block states the gap
-# and the prompt says what to do with it.
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class CoverageGap:
     """The decider read every judged passage and none answers the question.
@@ -357,44 +305,12 @@ async def judge_coverage(
     )
 
 
-# ---------------------------------------------------------------------------
-# Latency gate: skip the judge when the pool is already decisive.
-#
-# A production trace (28 s for a 684-token OIB overview) showed the loop's
-# cost centre: 3 sequential search rounds (~9 s), 3 requery-judge firings
-# (~4 s) and 2 full-context card generations (~4 s+). Token cost is not the
-# concern; seconds and redundant work are. On lookups the judge manufactures
-# the insufficiency verdict that causes an entire second retrieval round
-# (~3 s+) plus its own latency, so the gate below skips it when the first
-# pool already answers the question, and the per-turn cap bounds the worst
-# case to one firing no matter what the judge says.
-#
-# Fail-open throughout: any missing score, unparseable query or absent
-# context reads as "judge", never as "skip".
-# ---------------------------------------------------------------------------
-
-#: Top-1 cosine at or above this reads as decisive. Calibrated against the
-#: golden set on multilingual-e5-small, where answerable questions run
-#: 0.799-0.933 and unanswerable ones 0.795-0.865: 0.88 sits above the
-#: overlap, so only a pool the embedding itself is confident about skips.
 _STRONG_TOP1_FLOOR = 0.88
 
-#: Mean of the top-3 cosines at or above this reads as decisive together
-#: with the top-1 floor. A single strong hit beside two weak ones is a
-#: neighbour, not an answer; three strong hits are the corpus agreeing.
 _STRONG_TOP3_MEAN_FLOOR = 0.80
 
-#: How many head scores the mean is read off. Fewer chunks than this never
-#: skip on scores alone (fail-open to the judge).
 _STRONG_MIN_CHUNKS = 3
 
-#: The embedding models the score floors were calibrated against. Cosine
-#: values are not comparable across embedders: 0.88 is a decisive match on
-#: one model and an arbitrary number on another, which is the same reason the
-#: relevance floor is off by default (``register.py``). The score gate
-#: therefore fires only on a model that was actually calibrated; every other
-#: model — and an unknown one — falls through to the model-independent
-#: signals (a pinned file, a known-entity lookup) and to the judge itself.
 _CALIBRATED_EMBEDDING_MODELS = ("multilingual-e5-small",)
 
 
@@ -412,17 +328,6 @@ def _is_calibrated_embedding(model_name: str | None) -> bool:
     return any(name.endswith(known) for known in _CALIBRATED_EMBEDDING_MODELS)
 
 
-#: A query naming a norm family, a Fundstelle or a file is a lookup, not an
-#: exploration: the first pool is addressed, and paraphrasing it across every
-#: collection drags in what the caller did not ask for. Casefolded search;
-#: each pattern is deliberately narrow so a topic question ("Brandschutz im
-#: Wohnbau") never matches.
-#:
-#: Entity mention alone never skips the judge — the gate additionally requires
-#: a narrow scope (see :data:`_NARROW_ANCHOR_RE` or a caller filter), so a
-#: topic question that merely mentions a table ("Welche Tabelle gilt für
-#: GK 4?") stays eligible while an addressed locator ("Tabelle 1b",
-#: "OIB-RL 2 Pkt. 5.1") skips.
 _KNOWN_ENTITY_PATTERNS = (
     r"oib[-\s_]*rl",  # OIB-RL 2, OIB_RL_2, OIB RL 2.1
     r"richtlinie\s*\d",  # Richtlinie 2
@@ -440,12 +345,6 @@ _KNOWN_ENTITY_PATTERNS = (
 
 _KNOWN_ENTITY_RE = re.compile("|".join(_KNOWN_ENTITY_PATTERNS), re.IGNORECASE)
 
-#: Narrow scope anchored to the entity mention: a specific locator, not a
-#: topic word. Each pattern names the identifier WITH its marker, so a bare
-#: "Tabelle" or a distant number elsewhere in the question ("Welche Tabelle
-#: gilt für GK 4?") does not count — only "Tabelle 1b", "Pkt. 5.1", "§ 12",
-#: "Seite 12", "OIB-RL 2" or a file name does. A question that merely
-#: mentions a table therefore stays eligible for the judge.
 _NARROW_ANCHOR_PATTERNS = (
     r"oib[-\s_]*rl\s*\d",  # OIB-RL 2
     r"richtlinie\s*\d",  # Richtlinie 2
@@ -463,17 +362,8 @@ _NARROW_ANCHOR_PATTERNS = (
 
 _NARROW_ANCHOR_RE = re.compile("|".join(_NARROW_ANCHOR_PATTERNS), re.IGNORECASE)
 
-#: Hard cap: one requery firing per turn. The flag lives on a ContextVar for
-#: the sequential case; the authoritative per-turn ledger is
-#: :data:`_REQUERY_SPENT_TURNS`, which concurrent rounds share (see
-#: :func:`claim_requery_slot`). The caller resets it per turn id with the round
-#: stamp as fallback (see :func:`reset_requery_slot_for_turn` and register.py).
 _REQUERY_FIRED: ContextVar[bool] = ContextVar("knowledge_requery_fired", default=False)
 
-#: The turn that spent the slot, when a turn id was visible at reset time.
-#: Lets sequential turns share one process-wide ContextVar without leaking
-#: the cap across turns: a new turn id opens a fresh slot even when the
-#: round stamp never reaches us.
 _REQUERY_TURN_ID: ContextVar[str | None] = ContextVar("knowledge_requery_turn", default=None)
 
 
@@ -606,13 +496,6 @@ def should_skip_judge(
         return False, ""
 
 
-#: Process-wide ledger of turns that spent their firing. The ContextVar above
-#: only holds within ONE task: concurrent retrieval rounds (``asyncio.gather``)
-#: each run in a copied context, so both can see the slot unspent and both
-#: widen — two second rounds for one turn, which is exactly what the cap
-#: exists to prevent. Keyed by turn id, bounded so a long-lived process cannot
-#: grow it without limit, and lock-guarded because a tool call may run off the
-#: event loop.
 _REQUERY_SPENT_TURNS: dict[str, None] = {}
 _REQUERY_SPENT_LIMIT = 64
 _REQUERY_SPENT_LOCK = Lock()
@@ -657,9 +540,6 @@ def claim_requery_slot() -> bool:
             _REQUERY_SPENT_TURNS[turn] = None
             while len(_REQUERY_SPENT_TURNS) > _REQUERY_SPENT_LIMIT:
                 _REQUERY_SPENT_TURNS.pop(next(iter(_REQUERY_SPENT_TURNS)))
-        # Mirror the claim into the context flag too: a later caller in this
-        # context whose turn id is no longer visible (the stamp fallback) must
-        # still read the cap as spent.
         try:
             _REQUERY_FIRED.set(True)
         except Exception:
@@ -715,9 +595,6 @@ def reset_requery_slot_for_turn(span_round: int | None = None, *, turn_id: str |
             return
         if span_round is not None:
             if span_round == 0:
-                # A new turn opened, but the id stamped for the PREVIOUS one is
-                # still visible in this context — and its ledger entry is spent,
-                # which would shadow this turn's fresh slot.
                 try:
                     _REQUERY_TURN_ID.set(None)
                 except Exception:

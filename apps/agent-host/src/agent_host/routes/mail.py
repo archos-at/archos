@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 class MailReadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    #: A presigned GET for the staged raw message, against the in-network endpoint.
     file_ref: ObjectStoreUrl
 
 

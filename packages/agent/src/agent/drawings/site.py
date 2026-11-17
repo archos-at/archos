@@ -33,11 +33,8 @@ from .dxf_source import DxfSource
 from .parcels import Parcel
 from .parcels import read_parcels
 
-#: The cadastre's building layers: surveyed outlines and those from aerial imagery (§3.6).
 CADASTRE_BUILDING_LAYERS = ("HG", "HL")
 
-#: The smallest share of a footprint that makes it stand "on" a parcel:
-#: an outline drawn a hair over the line is not on two.
 _ON_PARCEL_SHARE = 0.05
 
 
@@ -45,11 +42,9 @@ _ON_PARCEL_SHARE = 0.05
 class Footprint:
     """One building outline: where it is drawn and what it stands on."""
 
-    #: 1-based, in drawing order: how the agent names it ("building 3").
     number: int
     layer: str
     polygon: Polygon
-    #: The parcels it stands on, by :func:`identity` (a number is unique only within its KG).
     parcels: tuple[str, ...]
 
 
@@ -61,7 +56,6 @@ class Site:
     metres_per_unit: float | None
     parcels: tuple[Parcel, ...]
     footprints: tuple[Footprint, ...]
-    #: The layers the footprints were read from.
     building_layers: tuple[str, ...]
 
     @property

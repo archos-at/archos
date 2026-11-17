@@ -16,11 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('title') }
 }
 
-/**
- * One held mail in the E-Mail-Eingang: the list beside it on a wide screen,
- * the mail as a page of its own on a narrow one. The deep link a Postfach
- * item and a push open. A mail that is not this project's is a 404.
- */
 export default async function InboundMailDetailPage({ params, searchParams }: InboundMailDetailPageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id, mailId } = await params

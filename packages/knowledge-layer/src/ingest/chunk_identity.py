@@ -40,18 +40,8 @@ from knowledge_layer.env import env_int
 
 logger = logging.getLogger(__name__)
 
-#: Namespace of every chunk id; changing it re-keys every chunk ever written.
 CHUNK_ID_NAMESPACE = uuid.UUID("6f3f1c0e-8a7d-5b8e-9a51-3c1d2f7e4b60")
 
-# @environment_variable INGEST_EMBED_CACHE_TTL_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 2592000
-# @required false
-# Seconds an ingest's chunk embedding stays on the shared cache, keyed by the
-# embedder's fingerprint and the text's hash, so a retried or re-read file does
-# not embed the same chunks again. About 12 KiB per chunk at 3072 dimensions.
-# Default 30 days, like the vision cache; 0 turns the cache off.
 EMBED_CACHE_TTL_SECONDS = env_int("INGEST_EMBED_CACHE_TTL_SECONDS", 30 * 86400, minimum=0)
 
 
@@ -151,7 +141,6 @@ def embed_with_cache(
         fresh = embed([texts[index] for index in missing])
         _store([keys[index] for index in missing], fresh)
         for index, vector in zip(missing, fresh, strict=True):
-            # As float32, what the point stores: a cached and a fresh vector write the same point.
             vectors[index] = np.asarray(vector, dtype=np.float32).astype(float).tolist()
     return [vector for vector in vectors if vector is not None], len(texts) - len(missing)
 

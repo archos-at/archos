@@ -1,23 +1,10 @@
-/**
- * The reads behind the quality scope bar's pickers: which organizations had
- * any quality activity in a date range, and which projects those organizations
- * have.
- *
- * Cross-tenant on purpose (the platform owner picks among tenants), so only
- * reachable through `getQualityScopeOptions`, behind `platformApiRoute`'s
- * `platform:organizations:view` gate and its platform bypass. Every list is
- * bounded and each read is one statement.
- */
-
 import 'server-only'
 import { sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { executeRows } from '@/lib/db/execute-rows'
 
-/** Most organizations the picker lists. Ordered by activity, so a cut drops the quietest. */
 export const SCOPE_ORGANIZATION_LIMIT = 500
 
-/** Most projects the picker lists for the chosen organizations. */
 export const SCOPE_PROJECT_LIMIT = 200
 
 function list(values: readonly string[]): SQL {
@@ -27,13 +14,6 @@ function list(values: readonly string[]): SQL {
   )
 }
 
-/**
- * Organizations with any quality activity in `[start, endExclusive)`: a vote,
- * a citation check or a profiled span. The three tables are the three views on
- * the page, so an organization that appears in any of them can be picked.
- * Each half reads its own `(organization_id, created_at)` index; the union
- * dedupes and the busiest come first.
- */
 export async function listActiveOrganizationIds(
   start: Date,
   endExclusive: Date,
@@ -76,11 +56,6 @@ export interface ScopeProjectRow {
   organizationId: string
 }
 
-/**
- * The projects of the chosen organizations, by name, plus any project id the
- * request already names (a deleted one keeps its name in the chip). At most
- * `SCOPE_PROJECT_LIMIT` + the named ones.
- */
 export async function listScopeProjects(
   organizationIds: readonly string[],
   selectedProjectIds: readonly string[],

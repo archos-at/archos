@@ -43,9 +43,6 @@ logger = logging.getLogger(__name__)
 
 _HOLD = "UPDATE ingest_jobs SET held_until = {until}, run_id = COALESCE(:run_id, run_id) WHERE job_id = :job_id"
 _RELEASE = "UPDATE ingest_jobs SET held_until = NULL WHERE job_id = :job_id"
-#: What a run id begins with once a person stopped its job. In the id rather than
-#: a column of its own: the status row is written whole by the run, and only
-#: ``run_id`` is written by nobody but the dispatch and this mark.
 STOPPED_BY_PERSON = "person:"
 _MARK_STOPPED = (
     "UPDATE ingest_jobs SET run_id = :prefix || run_id "
@@ -53,8 +50,6 @@ _MARK_STOPPED = (
 )
 
 
-#: Waits between the tries of a hold. The dispatch runs inside a request the BFF
-#: aborts after ten seconds, so the whole of it stays near one.
 _HOLD_RETRY_WAITS = (0.25, 0.75)
 
 
@@ -71,7 +66,6 @@ def _try_update(statement: str, params: dict, seconds: int = 0) -> bool | None:
     try:
         store._ensure_table(url)
         with DocumentMetadataStore._get_or_create_sync_engine(url).connect() as conn:
-            # Built from module constants and dialect literals; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             matched = conn.execute(text(statement.format(until=store._from_now(url, seconds))), params)
             conn.commit()
@@ -116,7 +110,6 @@ def hold_cutover_rows() -> int:
     try:
         store._ensure_table(url)
         with DocumentMetadataStore._get_or_create_sync_engine(url).begin() as conn:
-            # Built from module constants and dialect literals.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             return conn.execute(text(statement)).rowcount or 0
     except Exception:

@@ -1,14 +1,3 @@
-/**
- * INTERNAL service endpoint — the agent's undo for personal memory (ADR-0180):
- * its `remember` tool with scope `personal` and `supersedes`, when the person
- * asks it to drop or correct a note. The body quotes the note as the agent's
- * `PERSONAL_MEMORY` block showed it; the owner is ALWAYS the person of the
- * verified request envelope, and the delete runs as that person, so row-level
- * security on `personal_memory` holds it too. Answers 200 `{ removedId,
- * refused }`: `not_found` when no note of theirs says that, `curated` when the
- * note is one they wrote or pinned (theirs to remove in the panel).
- */
-
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'
 import { withTenant } from '@/lib/db/tenant-context'

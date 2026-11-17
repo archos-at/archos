@@ -1,10 +1,3 @@
-/**
- * The JSON Schema of every record type a change request takes (ADR-0170): what
- * `records-propose` parses, generated from the same zod, with the citation's
- * shape, the batch limit and the kit's checks. Platform staff with
- * `platform:settings:view`; an unknown type is refused, never guessed.
- */
-
 import { parseQuery } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

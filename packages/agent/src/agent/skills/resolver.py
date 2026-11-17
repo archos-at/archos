@@ -31,65 +31,11 @@ from agent.skills.models import build_skill_from_payload
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable SKILLS_CACHE_TTL_SECONDS
-# @category Server
-# @type int
-# @required false
-# Seconds an org's resolved skill set is cached before re-resolving via the
-# BFF internal endpoint. Default 60. Invalid values fall back to 60.
 _DEFAULT_TTL_SECONDS = 60
 _REQUEST_TIMEOUT_SECONDS = 5.0
 
-#: Agents allowed in the ``grid-agents`` metadata comma-list.
-#:
-#: These are the ``AGENT_REGISTRY`` identifiers (see
-#: ``apps/agent-host/src/agent_host/registry.py``) — the same strings a schedule's
-#: ``agent_type`` and the job-submit path use, so the feature has ONE agent
-#: vocabulary rather than one per layer. An unknown name in ``grid-agents`` is
-#: logged and ignored rather than silently narrowing a skill to nothing: a typo
-#: there would otherwise make a skill vanish with no diagnostic.
-#:
-#: Both names are DELIVERED, and they are delivered differently. Piloti
-#: resolves inside a live request and builds a ``SkillRuntime`` per
-#: turn (``piloti/register.py``). Deep research runs in a research worker
-#: with no request headers to read an organization off, so it resolves per RUN
-#: through :func:`resolve_served_skills`, keyed on an organization the job runner
-#: captured at submit time and put on the agent state — see
-#: ``deep_researcher/agent.py::_build_skill_runtime``, and
-#: ``test_seeded_platform_skills.py`` for the guard that keeps a name in this set
-#: from outliving its channel. ``deep_researcher`` sat here for months WITHOUT
-#: one, which cost the product's longest answers its house voice in silence:
-#: naming an agent nothing resolves for is not a smaller mistake than naming an
-#: agent that does not exist, it is only a quieter one.
-#:
-#: ``researcher`` and not ``piloti`` although the package was renamed to
-#: ``agents/piloti``: this string is stored in ``platform_skills.grid_agents``
-#: and hand-written into every skill's frontmatter, so it is a wire name.
-#: Moving it needs a migration and read-side aliases, the way ``0081`` and
-#: ``AGENT_ALIASES`` below did for the last one.
 KNOWN_AGENTS = frozenset({"researcher", "deep_researcher"})
 
-#: Retired ``grid-agents`` names and the agent each one now means.
-#:
-#: ``shallow_researcher`` was renamed to ``researcher``. Skill authors write
-#: this key by hand and ten past migrations seeded it, so rows carrying the old
-#: name outlive the rename: the forward migration
-#: (``apps/workspace/migrations/0081_grid_agents_researcher_rename.sql``) rewrites the
-#: ones we can see, and this map covers everything else — a row written by an
-#: older BFF mid-deploy, a restored backup, an org skill somebody re-imports.
-#:
-#: An alias, and not merely a second member of ``KNOWN_AGENTS``, because the
-#: failure it prevents is silent in BOTH directions. Left out entirely, an
-#: allowlist of only unknown names reads as absent (see ``_agent_allows``) and
-#: every chat-only skill would quietly become available to deep research too.
-#: Added as a known name instead, ``{"shallow_researcher"}`` would be a known
-#: set that does not contain ``researcher``, and the skill would vanish from
-#: chat. Normalising is the only reading that keeps the author's intent.
-#:
-#: Mirrored in ``apps/workspace/bff/skills/service.ts::skillTargetsAgent`` and
-#: ``apps/workspace/ui/features/skills/lib/agent-scope.ts``; the three are a
-#: contract set and ``test_resolver.py`` / ``service.spec.ts`` /
-#: ``agent-scope.spec.ts`` pin them against the same case.
 AGENT_ALIASES: dict[str, str] = {"shallow_researcher": "researcher"}
 
 
@@ -109,16 +55,6 @@ def _cache_ttl_seconds() -> float:
     return float(ttl) if ttl > 0 else float(_DEFAULT_TTL_SECONDS)
 
 
-#: ``grid-catalog`` — whether a PLATFORM skill is offered to organizations.
-#:
-#: Absent (the default) means the skill is pipeline machinery: never listed on
-#: the Skills tab, never switchable, always resolved. ``curated`` means it is a
-#: capability published to organizations; this resolver drops it from
-#: ``always_on`` and only includes it when the BFF payload says the org took
-#: it up. The mirror of
-#: ``apps/workspace/bff/skills/types.ts::isCuratedPlatformSkill``, and the
-#: two are a contract pair — ``test_resolver.py`` and ``service.spec.ts`` pin
-#: them against the same cases.
 METADATA_CATALOG = "grid-catalog"
 CATALOG_CURATED = "curated"
 
@@ -158,8 +94,6 @@ def _agent_allows(skill: Skill, agent: str | None) -> bool:
             sorted(KNOWN_AGENTS),
         )
     known = names & KNOWN_AGENTS
-    # Every listed name was a typo — treat the allowlist as absent rather than
-    # letting one bad character silently delete the skill from every agent.
     if not known:
         return True
     return agent in known
@@ -203,11 +137,6 @@ def _build_org_skills(payload: Any) -> list[Skill]:
             "compatibility": row.get("compatibility"),
             "allowed_tools": row.get("allowed_tools"),
         }
-        # A `standard` marker on the row is ignored: every resolved skill is an
-        # offer in the L1 catalog the model chooses from, and nothing forces one
-        # onto a turn. Standing instructions travel as prompt text (the platform
-        # prompt and the office's own instruction block), never as a skill the
-        # model is told to open.
         try:
             skill = build_skill_from_payload(payload_flat, origin="org")
         except SkillValidationError as exc:
@@ -314,13 +243,6 @@ class SkillResolver:
         import httpx
 
         base_url = (os.environ.get("FRONTEND_INTERNAL_URL") or "http://frontend:3000").rstrip("/")
-        # Param names are the BFF's `resolveQuerySchema` contract verbatim:
-        # snake_case `organization_id`, and `agent` OMITTED when unset (the
-        # schema requires a non-empty string, so sending `agent=""` is a 400).
-        # Both were wrong here once; because resolution fails open to the
-        # builtin set, the only symptom was org skills never appearing — which
-        # is exactly the kind of silence a contract test has to cover, so
-        # `test_resolver.py` now asserts the query it puts on the wire.
         params = {"organization_id": organization_id}
         if self.agent:
             params["agent"] = self.agent
@@ -363,8 +285,5 @@ def resolve_served_skills(agent: str, organization_id: str | None) -> tuple[Skil
     except Exception as exc:  # noqa: BLE001 - skills are additive; a run must survive their absence
         logger.warning("Skill resolution failed for agent %s: %s", agent, type(exc).__name__)
         return ()
-    # The BFF re-sends machinery with origin stamped ``org``. Origin is therefore
-    # not the file/row split. Drop names the filesystem already owns as
-    # machinery; standard, offers and org-authored names stay.
     machinery = {skill.name for skill in discover_builtin_skills() if not _is_curated(skill)}
     return tuple(skill for skill in resolved if skill.name not in machinery)

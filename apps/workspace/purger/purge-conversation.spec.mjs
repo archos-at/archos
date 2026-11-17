@@ -60,8 +60,6 @@ describe('purgeConversation (the retry of a chat erasure)', () => {
     expect(init.method).toBe('POST')
     expect(init.headers['x-internal-token']).toBe('tok')
     expect(JSON.parse(init.body)).toEqual({ organizationId: 'org_1' })
-    // Bounded, so a hung BFF is recorded as a failed attempt rather than
-    // outliving the stale-claim window.
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
 
@@ -147,8 +145,6 @@ describe('purgeConversation (the retry of a chat erasure)', () => {
 
     const error = await purgeConversation(tx, entry, deps).catch((e) => e)
 
-    // The BFF gives the same answer on every attempt, so the caller marks the
-    // row failed at once (markFailedPermanent), with a reason an admin can read.
     expect(error.code).toBe(PERMANENT_FAILURE_CODE)
     expect(error.message).toMatch(/not marked deleting.*nothing was erased/)
     expect(fetchImpl).toHaveBeenCalledTimes(1)

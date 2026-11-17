@@ -1,10 +1,3 @@
-/**
- * The revision probe (ADR-0099): for dropped file names, the documents of one
- * shelf (`projectId`, or `scope: office_shelf`) each would be the next revision
- * of. A project's probe also takes `folders`, where each name lands; the office
- * shelf has one collection and ignores it. Thin handler.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { probeProjectRevisionCandidates } from '@/lib/documents/revision-candidates'
 import { revisionCandidatesRequestSchema, type RevisionCandidatesResponse } from '@/lib/documents/name-probe-types'

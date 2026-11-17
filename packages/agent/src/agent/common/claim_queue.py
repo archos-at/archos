@@ -80,34 +80,21 @@ logger = logging.getLogger(__name__)
 QUEUED = "queued"
 CLAIMED = "claimed"
 DEAD = "dead"
-#: A job a person stopped before it finished. Terminal, and NOT work: not
-#: runnable, not running, and not in the autoscaler's depth (like DEAD), but it
-#: did not fail — the status store settles the job as ``cancelled``, not as the
-#: failure a dead row leaves. The row is kept as the trace that it was stopped,
-#: and ``purge_retired`` deletes it on the same clock as a dead row.
 CANCELLED = "cancelled"
 
-#: A status a job is never claimed in again: dead (gave up) or cancelled (stopped).
 RETIRED = (DEAD, CANCELLED)
 
-#: The statuses a row can have, for the depth gauge's zero fill.
 STATUSES = (QUEUED, CLAIMED, DEAD, CANCELLED)
 
-#: Lower runs first. Stored as an integer so the order is an index order.
 PRIORITY_INTERACTIVE = 0
 PRIORITY_BULK = 1
 PRIORITIES = {"interactive": PRIORITY_INTERACTIVE, "bulk": PRIORITY_BULK}
 DEFAULT_PRIORITY = "interactive"
 
-#: The lane of a row that names none: written before its table had lanes.
 NO_LANE = ""
 
-#: Why a row went dead, as stored in ``dead_reason``.
 REASON_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
 
-#: Lanes ranked per claim. More than one, so a claim still succeeds while
-#: racing claimers hold the top lane's next job; each costs one row lock
-#: for the length of the claim.
 _PG_LANES_PER_CLAIM = 4
 
 _SQLITE_TIME = "%Y-%m-%d %H:%M:%S"
@@ -134,9 +121,6 @@ class Claim:
     payload: str
     attempts: int
     priority: int = PRIORITY_INTERACTIVE
-
-
-# ---------------------------------------------------------------- telemetry
 
 
 class _Instruments:
@@ -196,9 +180,6 @@ def instruments() -> _Instruments:
         return _instruments
 
 
-# -------------------------------------------------------------------- queue
-
-
 class ClaimQueue:
     """The claim algorithm over one table (see the module docstring).
 
@@ -223,11 +204,8 @@ class ClaimQueue:
         self._db_url = db_url
         self._engine_for = engine_for
         self._reap_lock_id = reap_lock_id
-        #: URLs whose table is known to exist and be current (tests clear it).
         self.initialized: set[str] = set()
         self._claim_sql = self._build_pg_claim()
-
-    # ----------------------------------------------------------------- schema
 
     def ensure_table(self, url: str, conn=None) -> None:
         """Create the queue and its lane-turn table, and bring an older table up to date; idempotent.
@@ -256,7 +234,6 @@ class ClaimQueue:
         ts = "TIMESTAMP WITH TIME ZONE" if postgres else "DATETIME"
         now = "NOW()" if postgres else "CURRENT_TIMESTAMP"
         t = self.table
-        # Replicas start together: the lock holds until the caller's commit.
         lock_schema(conn, t)
         statements = [
             f"CREATE TABLE IF NOT EXISTS {t} ("
@@ -280,10 +257,7 @@ class ClaimQueue:
             _execute_constant(conn, statement)
         self._add_missing_columns(conn, ts)
         ensure_status_guard(conn, t, born=QUEUED, live=(QUEUED, CLAIMED), retired=RETIRED)
-        # Only the MISSING indexes: ``CREATE INDEX IF NOT EXISTS`` takes the table's
-        # SHARE lock before it checks the name, so run on every start it blocked every
-        # heartbeat and claim, and behind one idle-in-transaction writer it wedged the
-        # whole queue (2026-10-11). On a current table this issues no DDL.
+        # CREATE INDEX IF NOT EXISTS takes a SHARE lock first; run on every start it wedged the queue (2026-10-11).
         present = present_indexes(conn, t)
         for name, columns in (
             (f"ix_{t}_status_created", "status, created_at"),
@@ -292,7 +266,6 @@ class ClaimQueue:
         ):
             if name not in present:
                 _execute_constant(conn, f"CREATE INDEX IF NOT EXISTS {name} ON {t} ({columns})")
-        # Superseded by the priority index above; a second index is write cost for no read.
         if f"ix_{t}_lane_created" in present:
             _execute_constant(conn, f"DROP INDEX IF EXISTS ix_{t}_lane_created")
 
@@ -312,8 +285,6 @@ class ClaimQueue:
         }
         upgrade_columns(conn, self.table, wanted, postgres="WITH TIME ZONE" in ts)
 
-    # ----------------------------------------------------------------- intake
-
     def enqueue(self, job_id: str, lane: str, payload: str, priority: str | None = None) -> bool:
         """Store a claimable job; whether this call stored it. Raises when the queue cannot be written.
 
@@ -328,7 +299,6 @@ class ClaimQueue:
         self.ensure_table(url)
         with self._engine_for(url).connect() as conn:
             result = conn.execute(
-                # Only module constants are interpolated; every value is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     f"INSERT INTO {self.table} (job_id, lane, payload, status, attempts, priority) "
@@ -338,8 +308,6 @@ class ClaimQueue:
             )
             conn.commit()
         return (result.rowcount or 0) > 0
-
-    # ------------------------------------------------------------------ claim
 
     def _runnable(self) -> str:
         return (
@@ -415,7 +383,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         started = time.monotonic()
         with self._engine_for(url).connect() as conn:
             if _is_postgres(url):
-                # The statement is built from module constants; every value is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 row = conn.execute(text(self._claim_sql), params).first()
             else:
@@ -447,7 +414,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         else:
             fresh = "heartbeat_at >= :threshold"
         others = conn.execute(
-            # `fresh` is a dialect-chosen literal, the rest module constants; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"SELECT COUNT(*) FROM {self.table} "
@@ -465,7 +431,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             conn.commit()
             return False
         conn.execute(
-            # Only module constants are interpolated; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"UPDATE {self.table} SET status = :queued, claimed_by = NULL, claimed_at = NULL, "
@@ -486,7 +451,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         t = self.table
         running = dict(
             conn.execute(
-                # Only module constants are interpolated; values are bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"SELECT lane, COUNT(*) FROM {t} WHERE status = :claimed AND heartbeat_at >= :t GROUP BY lane"),
                 {"claimed": CLAIMED, "t": threshold},
@@ -494,13 +458,11 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         )
         turns = dict(
             conn.execute(
-                # Only module constants are interpolated.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"SELECT lane, last_claimed_at FROM {self.turns_table}")
             ).all()
         )
         rows = conn.execute(
-            # Only module constants are interpolated; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 "SELECT job_id, lane, payload, attempts, priority, oldest FROM ("
@@ -518,7 +480,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             return None
         stamp = now.strftime("%Y-%m-%d %H:%M:%S.%f")
         conn.execute(
-            # Only module constants are interpolated; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"UPDATE {t} SET status = :claimed, claimed_by = :worker, claimed_at = :now, "
@@ -527,7 +488,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             {"claimed": CLAIMED, "worker": params["worker"], "now": stamp, "id": best[0]},
         )
         conn.execute(
-            # Only module constants are interpolated; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"INSERT INTO {self.turns_table} (lane, last_claimed_at) VALUES (:lane, :now) "
@@ -537,8 +497,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         )
         return (best[0], best[1], best[2], best[3] + 1, best[4])
 
-    # -------------------------------------------------------------- lifecycle
-
     def heartbeat(self, job_id: str, worker: str) -> bool:
         """Refresh a claim; False when it is not this worker's any more."""
         url = self._db_url()
@@ -547,7 +505,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         now = "NOW()" if _is_postgres(url) else "CURRENT_TIMESTAMP"
         with self._engine_for(url).connect() as conn:
             result = conn.execute(
-                # `now` is a dialect literal, the rest module constants; values are bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     f"UPDATE {self.table} SET heartbeat_at = {now} "
@@ -576,7 +533,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             params["worker"] = worker
             params["claimed"] = CLAIMED
         with self._engine_for(url).connect() as conn:
-            # Only module constants are interpolated; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             conn.execute(text(sql), params)
             conn.commit()
@@ -596,7 +552,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         self.ensure_table(url)
         with self._engine_for(url).connect() as conn:
             result = conn.execute(
-                # Only module constants are interpolated; the ids and values are bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     f"UPDATE {self.table} SET status = :queued, claimed_by = NULL, claimed_at = NULL, "
@@ -636,7 +591,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         with self._engine_for(url).connect() as conn:
             prior = next((live for live in (QUEUED, CLAIMED) if self._cancel_if(conn, job_id, live, now)), None)
         if prior is None:
-            # Retired, absent, or finished under us: nothing to stop.
             return None
         logger.info("%s: job %s cancelled (was %s)", self.name, job_id, prior)
         return prior
@@ -644,7 +598,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
     def _cancel_if(self, conn: Any, job_id: str, live: str, now: str) -> bool:
         """Cancel ``job_id`` if its row is ``live`` right now, in one statement; whether it was."""
         result = conn.execute(
-            # `now` is a dialect literal, the rest module constants; values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"UPDATE {self.table} SET status = :cancelled, cancelled_at = {now}, payload = '' "
@@ -663,7 +616,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         self.ensure_table(url)
         with self._engine_for(url).connect() as conn:
             row = conn.execute(
-                # Only module constants are interpolated; the id is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"SELECT status FROM {self.table} WHERE job_id = :id"),
                 {"id": job_id},
@@ -684,7 +636,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         now = "NOW()" if _is_postgres(url) else "CURRENT_TIMESTAMP"
         with self._engine_for(url).connect() as conn:
             result = conn.execute(
-                # `now` is a dialect literal, the rest module constants; values are bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     f"UPDATE {self.table} SET status = :dead, dead_at = {now}, dead_reason = :reason, payload = '' "
@@ -724,7 +675,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
                 return []
             ids = list(
                 conn.execute(
-                    # `stale` and `now` are dialect-chosen literals; values are bound.
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(
                         f"UPDATE {self.table} SET status = :dead, dead_at = {now}, dead_reason = :reason, "
@@ -758,7 +708,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             params = {"threshold": _sqlite_threshold(older_than_seconds)}
         with self._engine_for(url).connect() as conn:
             result = conn.execute(
-                # `cutoff` is a dialect-chosen literal, the rest module constants; values are bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"DELETE FROM {self.table} WHERE status IN :retired AND {cutoff}").bindparams(
                     bindparam("retired", expanding=True)
@@ -768,8 +717,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             conn.commit()
         return result.rowcount or 0
 
-    # ------------------------------------------------------------ inspection
-
     def counts(self) -> dict[str, int]:
         """Rows by status (a status with none is 0): what the depth gauge and the tests read."""
         url = self._db_url()
@@ -778,7 +725,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             return counts
         self.ensure_table(url)
         with self._engine_for(url).connect() as conn:
-            # Only module constants are interpolated.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             rows = conn.execute(text(f"SELECT status, COUNT(*) FROM {self.table} GROUP BY status")).all()
         counts.update({str(status): int(n) for status, n in rows})
@@ -792,7 +738,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         self.ensure_table(url)
         with self._engine_for(url).connect() as conn:
             waiting = conn.execute(
-                # Only module constants are interpolated; the lane and the status are bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"SELECT COUNT(*) FROM {self.table} WHERE lane = :lane AND status = :q"),
                 {"lane": lane, "q": QUEUED},
@@ -811,7 +756,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             age = "(julianday('now') - julianday(MIN(created_at))) * 86400.0"
         with self._engine_for(url).connect() as conn:
             value = conn.execute(
-                # `age` is a dialect-chosen literal; the status is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"SELECT {age} FROM {self.table} WHERE status = :q"),
                 {"q": QUEUED},
@@ -847,7 +791,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             return {}
         self.ensure_table(url)
         t = self.table
-        # Only module constants are interpolated; the ids and the status are bound.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         query = text(
             f"SELECT q.job_id, (SELECT COUNT(*) FROM {t} o"
@@ -861,8 +804,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             rows = conn.execute(query, {"q": QUEUED, "ids": list(job_ids)}).all()
         return {str(job_id): int(ahead) for job_id, ahead in rows}
 
-    # ---------------------------------------------------------------- metrics
-
     def observe(self) -> None:
         """Report this queue's depth and oldest age from this process (call where workers claim)."""
         instruments().watch(self)
@@ -870,9 +811,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
     def record_duration(self, seconds: float, kind: str) -> None:
         """Record how long a claimed job of ``kind`` ran."""
         instruments().job_duration.record(max(0.0, seconds), {"queue": self.name, "kind": kind})
-
-
-# ------------------------------------------------------------------ helpers
 
 
 def _is_postgres(url: str) -> bool:

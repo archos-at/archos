@@ -1,19 +1,4 @@
 import 'server-only'
-/**
- * SQL of „Verlauf folgen“ (ADR-0137, DECISION D31): a person's follow of one
- * E-Mail-Verlauf, started, renewed and ended, and the one transaction in which
- * the follow job turns a reply's text into the follower's decision. No
- * authorization here: `./follows.ts` and `lib/inbound-mail/follow-job.ts`
- * decide who may, and row-level security is the backstop.
- *
- * The rules the rows keep are the migration's (0196): one running follow per
- * person and thread (`uniq_mail_thread_follows_active`), at most 180 days from
- * its start, an end always with its reason and, for a person's reason, the
- * right person; a follow decision is the follower's own (the composite key to
- * `mail_thread_follows`) and appends text only. Every write here is a
- * compare-and-set on `ended_at IS NULL`, so two hands ending one follow end it
- * once, and the second learns it.
- */
 
 import { and, count, eq, gt, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -31,7 +16,6 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** The follow a person runs on a thread, run out or not; null when none is running. */
 export async function findRunningFollow(threadId: string, userId: string): Promise<MailThreadFollowRow | null> {
   const [row] = await getDb()
     .select()
@@ -47,7 +31,6 @@ export async function findRunningFollow(threadId: string, userId: string): Promi
   return row ?? null
 }
 
-/** One follow by id in the project, whatever its state. */
 export async function findFollow(projectId: string, followId: string): Promise<MailThreadFollowRow | null> {
   const [row] = await getDb()
     .select()
@@ -57,20 +40,11 @@ export async function findFollow(projectId: string, followId: string): Promise<M
   return row ?? null
 }
 
-/**
- * Start a follow. Null when the person already runs one on the thread (the
- * partial unique index answered first): the caller renews that one instead.
- */
 export async function startFollow(row: NewMailThreadFollowRow): Promise<MailThreadFollowRow | null> {
   const [inserted] = await getDb().insert(mailThreadFollows).values(row).onConflictDoNothing().returning()
   return inserted ?? null
 }
 
-/**
- * Renew a running follow to `until`, never past 180 days from its start (the
- * migration's window; after that the person follows again, which is a new
- * decision). The day-55 notice is owed again. Null when it ended meanwhile.
- */
 export async function renewFollow(followId: string, until: Date, now: Date): Promise<MailThreadFollowRow | null> {
   const [renewed] = await getDb()
     .update(mailThreadFollows)
@@ -84,13 +58,11 @@ export async function renewFollow(followId: string, until: Date, now: Date): Pro
   return renewed ?? null
 }
 
-/** How a follow ends: the reason, and the person who ended it (null when the system noticed). */
 export interface FollowEnd {
   reason: MailThreadFollowEndReason
   endedBy: string | null
 }
 
-/** End a running follow. Null when it had ended already: ending twice changes nothing. */
 export async function endFollow(followId: string, end: FollowEnd, now: Date = new Date()): Promise<MailThreadFollowRow | null> {
   const [ended] = await getDb()
     .update(mailThreadFollows)
@@ -100,12 +72,6 @@ export async function endFollow(followId: string, end: FollowEnd, now: Date = ne
   return ended ?? null
 }
 
-/**
- * Where a thread's document stands for a reader: `live` (there, active, not in
- * a binned folder), `gone` (deleted, archived, or in the bin: the follows of
- * the thread end, D31), or `unseen` (there, but held from this reader by its
- * screening, which may still pass).
- */
 export type ThreadDocumentState = 'live' | 'gone' | 'unseen'
 
 export async function findThreadDocumentState(
@@ -130,55 +96,28 @@ export async function findThreadDocumentState(
   return document.lifecycle === 'active' && document.folderBinnedAt === null ? 'live' : 'gone'
 }
 
-/** What the follow job asks the transaction to write: the follower's decision about a reply's text. */
 export interface FollowDecisionInput {
   follow: { id: string; userId: string; threadId: string }
   mail: { id: string; organizationId: string; projectId: string; receivedAt: Date }
   partId: string
-  /** The decision row, less what the transaction fixes (who, how, which follow). */
   decision: Pick<NewInboundMailDecisionRow, 'id' | 'messageText' | 'documentType'>
   claimExpiresAt: Date
   now: Date
 }
 
-/**
- * What the transaction did. Anything but `written` leaves the mail exactly as
- * it was: it waits for a person.
- */
 export type FollowDecisionWrite =
   | { kind: 'written'; decision: InboundMailDecisionRow }
-  /** The follow ended, ran out, or is younger than the mail (D31 condition 1). */
   | { kind: 'follow_not_running' }
-  /** The follow made its `daily_cap` appends in the last day (condition 8). */
   | { kind: 'follow_cap' }
-  /** The project's follows made {@link MAIL_THREAD_FOLLOW_PROJECT_DAILY_CAP} appends in the last day (condition 8). */
   | { kind: 'project_cap' }
-  /** The mail is no longer waiting, or its text is no longer: a person decided first. */
   | { kind: 'not_waiting' }
 
-/** Thrown inside the transaction to roll it back with an answer. */
 class FollowDecisionRefused extends Error {
   constructor(readonly outcome: Exclude<FollowDecisionWrite, { kind: 'written' }>) {
     super(outcome.kind)
   }
 }
 
-/**
- * The follower's decision about a reply's text, all or nothing (D31, DECISION
- * §6 "Follow" step 3):
- *
- * 1. Lock the follow and require it running, made before the mail arrived.
- * 2. Lock the mail and require it waiting.
- * 3. Under the project's lock, count the appends of the last day: the
- *    follow's own against its `daily_cap`, the project's against
- *    {@link MAIL_THREAD_FOLLOW_PROJECT_DAILY_CAP}. Two follow jobs of one
- *    project count one after the other, so neither cap is passed by a race.
- * 4. Insert the decision (`via = 'follow'`, as the follower, `append` to the
- *    follow's thread) and claim the text part `waiting → filing` with it.
- *
- * The database refuses the rest: a decision by anyone but the follower, on
- * another thread, or one that acknowledges or releases anything.
- */
 export async function writeFollowDecision(input: FollowDecisionInput): Promise<FollowDecisionWrite> {
   const { follow, mail, now } = input
   const since = new Date(now.getTime() - DAY_MS)

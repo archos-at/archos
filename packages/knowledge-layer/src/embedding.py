@@ -15,53 +15,19 @@ from agent.common.cost_tracking import meter_openai_client
 from .env import env_float
 from .env import env_int
 
-# @environment_variable EMBED_BATCH_SIZE
-# @category Knowledge Layer
-# @type int
-# @default 64
-# @required false
-# Texts per embedding API request. The llama-index default (10) serialises far
-# too many round-trips on large documents — a 500-chunk PDF costs ~50
-# sequential HTTP calls. Every OpenAI-compatible embeddings endpoint accepts
-# far more per call (OpenAI 2048, NVIDIA NIM 259); 64 is conservative.
 EMBED_BATCH_SIZE = max(1, env_int("EMBED_BATCH_SIZE", 64))
 
 
-# @environment_variable EMBED_TIMEOUT_SECONDS
-# @category Knowledge Layer
-# @type float
-# @default 60
-# @required false
-# Per-request timeout on the embeddings client. The client's own defaults are
-# 120s with five retries, so a hung embeddings endpoint could hold the query
-# embedding, and with it the whole chat turn, for ten minutes; retrieval fails
-# open everywhere else, and this is what lets it fail open here. Two retries
-# stay for the transient 5xx a batch of EMBED_BATCH_SIZE texts occasionally
-# meets; 60s covers such a batch with room.
 EMBED_TIMEOUT_SECONDS = max(1.0, env_float("EMBED_TIMEOUT_SECONDS", 60.0))
 
 
 EMBED_MAX_RETRIES = 2
 
 
-# @environment_variable QUERY_EMBED_TIMEOUT_SECONDS
-# @category Knowledge Layer
-# @type float
-# @default 3
-# @required false
-# Per-request timeout for the QUERY embeddings a chat turn waits on, as opposed
-# to the ingestion batches above. A query is one short text: 0.66 s at the
-# median across 276 live calls (September 2026 census), but 8.5 s at p99 and
-# 11.8 s at worst, and a turn makes 5-15 of them before the model starts, so a
-# single tail request held a whole turn for 11 s. At 3 s the client gives up on
-# that one and retries (EMBED_MAX_RETRIES), which a fresh request answers in
-# well under a second: the worst turn pays ~4 s instead of 11.
+# Query embeddings: 0.66 s median, 8.5 s p99 over 276 live calls (September 2026 census).
 QUERY_EMBED_TIMEOUT_SECONDS = max(0.5, env_float("QUERY_EMBED_TIMEOUT_SECONDS", 3.0))
 
 
-#: Collection-metadata keys recording which embedding produced a collection's vectors
-#: (``qdrant.schema.EMBED_IDENTITY_KEYS``): stamped when a Qdrant collection is
-#: created, compared before every write and every read of it.
 EMBED_FINGERPRINT_KEY = "embed_fingerprint"
 
 
@@ -139,7 +105,5 @@ def make_embed_model(*, base_url: str, model: str, api_key: str, **kwargs: Any):
         async_http_client=pinned_async_http_client(),
         **kwargs,
     )
-    # Metered: llama-index calls the OpenAI SDK itself, so no callback sees an
-    # embedding; its usage lands in whatever tracker is active (ingest job or turn).
     meter_openai_client(getattr(embed_model, "_client", None), role=USAGE_ROLE_EMBEDDING)
     return embed_model

@@ -42,15 +42,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
 
-#: Records kept per document. A long specification cites hundreds of standards;
-#: the first 60 in order of appearance are what a person reads in a side panel.
 MAX_REFERENCES = 60
 
 KINDS = ("norm", "law", "plan", "document")
 
 _PART = r"\d{1,5}(?:[-‑]\d{1,4})*(?:\s?[A-Z](?![A-Za-z]))?"
 
-#: Standards, longest designator first so "DIN EN ISO 13788" is one record, not three.
 _NORMS = re.compile(
     rf"""
     \b(?P<designation>
@@ -64,7 +61,6 @@ _NORMS = re.compile(
     re.VERBOSE,
 )
 
-#: A ``§`` (or ``§§``) with its number, optional subdivisions, then the law's abbreviation.
 _LAWS = re.compile(
     r"""
     §§?\s*(?P<number>\d{1,4}[a-z]?)
@@ -81,18 +77,14 @@ _LAWS = re.compile(
 
 _PLAN_TOKEN = r"(?:\d{1,3}\s?/\s?)?[A-Z]{1,4}[-_ .]?\d{1,4}(?:[-_./]\d{1,4})?[a-z]?"
 
-#: A plan number after a designator ("Plan Nr. EP-05", "Detail 3/A-501").
 _PLANS_DESIGNATED = re.compile(
     rf"\b(?:Plan(?:-?\s?Nr\.?)?|Blatt(?:-?Nr\.?)?|Zeichnung(?:s-?Nr\.?)?|Detail)\s*:?\s*(?:Nr\.?\s*)?"
-    # Not a scale: "Plan M 1:100" names no plan.
     rf"(?P<token>{_PLAN_TOKEN})\b(?![:\d])"
 )
-#: A sheet-number-shaped token after a pointing word ("siehe EP-05").
 _PLANS_CUED = re.compile(
     r"\b(?:siehe|s\.|vgl\.|gem\.|gemäß|lt\.|laut)\s+(?P<token>(?:\d{1,3}/)?[A-Z]{1,4}-\d{1,4}(?:[-./]\d{1,4})?[a-z]?)\b"
 )
 
-#: Words that name a kind of document, as the dossier's ``document_type`` keys.
 _DOCUMENT_WORDS: dict[str, str] = {
     r"Brandschutz(?:konzept|gutachten|nachweis)": "fire_safety_concept",
     r"(?:statische[nrs]?\s+(?:Berechnung|Nachweis|Vorbemessung)|Statik)": "structural_analysis",
@@ -109,7 +101,6 @@ _DOCUMENT_WORDS: dict[str, str] = {
     r"(?:Besprechungs|Bau)?[Pp]rotokoll": "meeting_minutes",
 }
 
-#: What must stand just before a document word for it to be a reference to one.
 _DOCUMENT_CUE = (
     r"(?:gem\.|gemäß|lt\.|laut|siehe|s\.|vgl\.|nach|im|in\s+der|in\s+dem|des|der|dem|beiliegende[nrs]?|"
     r"beigelegte[nrs]?|Beilage|Anlage|Anhang|aktuelle[nrs]?|vorliegende[nrs]?)"
@@ -151,9 +142,7 @@ def plan_key(token: str) -> str:
     return re.sub(r"[\s_]+", "-", token).casefold()
 
 
-#: A lone series letter against its number in a norm key: ``b 1600`` / ``b1600``, ``trvb n 115``.
 _NORM_LETTER_NUMBER = re.compile(r"(?<![^\W\d_])([^\W\d_]) ?(?=\d)")
-#: A plan key's letter prefix against its first digit: ``ep05`` / ``ep-05`` / ``ep.05``.
 _PLAN_PREFIX = re.compile(r"^((?:\d{1,3}/)?[^\W\d_]{1,4})[-.]?(?=\d)")
 
 

@@ -21,30 +21,14 @@ interface ProjectLayoutProps {
   params: Promise<{ id: string }>
 }
 
-/**
- * Seed the browser-tab title with the project name and a per-section template,
- * so nested pages resolve to "<Project> · <Section> — Piloti" (the project root
- * redirects to Chat and never renders a title of its own). The project name is
- * user data and is not translated; sections localize their own `title`. Fails
- * soft: any lookup problem falls back to the root template rather than
- * crashing metadata generation.
- */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   try {
-    // `generateMetadata` is its own render entry point — React runs it
-    // independently of the layout body below, so it opens its own tenant slot
-    // rather than inheriting one.
     return await withPageSession(async (session) => {
       const { id } = await params
-      // Org tenancy is not enough to put a project's NAME in the browser tab.
-      // A member who lacks `project:view` would otherwise learn the name of a
-      // project the page below is about to refuse them — the same read ADR-0038
-      // draws the line at. A denial throws and is caught below, degrading to
-      // the root title.
       await requireProjectAccess(session, id, 'project:view')
       const project = await findProjectInOrg(id, session.organizationId)
 
@@ -62,48 +46,23 @@ export async function generateMetadata({
   }
 }
 
-/**
- * The project segment: an ACCESS GATE and the project's own section chrome.
- *
- * It no longer renders a rail or a `<main>`. Both moved up to the `(shell)`
- * layout, because mounting them here is what made them disappear the moment the
- * reader stepped out of a project — the rail, the content column and the scroll
- * container all belonged to a segment that unmounts. What is genuinely
- * per-project stays: the access check, the soft-delete 404, the trail label, and
- * the section header/actions frame.
- */
 export default async function ProjectLayout({
   children,
   params,
 }: ProjectLayoutProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id } = await params
-    // View access is enough to enter the project shell; per-section controls
-    // (danger zone, member management) are gated inside their own pages.
     const access = await requireProjectAccess(session, id, 'project:view')
 
-    // Soft-deleted projects are gone for everyone — including org admins, who
-    // bypass the per-project check inside requireProjectAccess. `findProjectInOrg`
-    // excludes them by default, so a missing row IS the soft-deleted case.
-    // Beside it, what the reader may do at the project's root (ADR-0088), where
-    // a file dropped on any page is filed. An outage refuses the drop rather
-    // than failing every page of the project, and is logged.
     const [current, rootAccess, inboundMail] = await Promise.all([
       findProjectInOrg(id, session.organizationId),
       projectRootAccess(session, id).catch((error: unknown): 'read' => {
         console.error('[projects] could not ask the root access for the project drop:', error)
         return 'read'
       }),
-      // Whether Dateien shows the E-Mail-Eingang as a tab: whoever may decide the project's mail (ADR-0137),
-      // asked only where the office has the feature. A refusal or an outage hides the tab, never the page.
       isInboundMailEnabled(session) ? requireMailReviewer(session, id).then(() => true, () => false) : Promise.resolve(false),
     ])
     if (!current) notFound()
-    // Whether the banner of a paused or closed project offers the way out of
-    // it; an active project has no banner, so asks nothing.
-    // Asked as a permission (`project:manage`), never read off the role name.
-    // An outage hides the banner's control rather than failing every page of
-    // the project, and is logged, so it does not pass for a missing permission.
     const canChangeStatus =
       current.status !== 'active' &&
       (await holdsManageEvenWhenClosed(session, id).catch((error: unknown) => {

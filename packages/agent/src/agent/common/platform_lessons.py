@@ -31,33 +31,17 @@ from typing import Literal
 
 logger = logging.getLogger(__name__)
 
-# In-process cache TTLs, same rationale as retrieval_settings: a curation
-# change reaches the fleet within a minute; failures are retried sooner so a
-# BFF blip does not suppress the lessons for long.
 _POSITIVE_TTL_SECONDS = 60.0
 _NEGATIVE_TTL_SECONDS = 30.0
 _REQUEST_TIMEOUT_SECONDS = 3.0
 
-# Hard ceiling on what this module will inject, whatever the BFF sent. The BFF
-# bounds the digest to 1600 chars (lib/platform-lessons/service.ts); this is
-# the read-side seatbelt, not the budget.
 _MAX_DIGEST_CHARS = 2400
 
 _EXPECTED_HEADER = "PLATFORM_LESSONS"
 
-# Lesson ids are uuids (platform_lessons.id). More than the BFF's active-lesson
-# cap (20) is not a digest this module produced, and the ids ride a trace
-# attribute, so they are bounded and shape-checked like the digest.
 _LESSON_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _MAX_LESSON_IDS = 20
 
-#: Which side of the lessons experiment a turn was on, as the trace records it.
-#: ``treated``: the holdout is measuring and this conversation got the digest;
-#: ``holdout``: it is measuring and this conversation is the control that got
-#: none; ``off``: no experiment ran for this turn (``lessons.holdout_pct`` is 0,
-#: there is no conversation to key on, or the setting could not be read). The
-#: same three states the BFF stamps on a vote (``answer_feedback.lessons_holdout``:
-#: true, false, NULL), so a vote and its trace carry the same label.
 LessonsArm = Literal["treated", "holdout", "off"]
 
 
@@ -65,10 +49,8 @@ LessonsArm = Literal["treated", "holdout", "off"]
 class LessonsResolution:
     """What one turn's lessons lookup decided: the digest, the arm, the lessons in it."""
 
-    #: The bounded digest to inject, or None (holdout, none active, or fail-open).
     digest: str | None
     arm: LessonsArm
-    #: The ids of the lessons whose text is in ``digest`` (empty without one).
     lesson_ids: tuple[str, ...] = ()
 
 
@@ -124,7 +106,6 @@ def _fetch_digest() -> tuple[str | None, tuple[str, ...]]:
     """One HTTP round-trip to the BFF's internal platform-lessons endpoint: the digest and its lesson ids."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
-        # No internal-token trust channel — no lessons, and no error.
         return None, ()
 
     import httpx
@@ -140,7 +121,6 @@ def _fetch_digest() -> tuple[str | None, tuple[str, ...]]:
     if not isinstance(payload, dict):
         return None, ()
     digest = sanitize_lessons_digest(payload.get("digest"))
-    # The ids describe the digest; without one they describe nothing.
     return digest, sanitize_lesson_ids(payload.get("lessonIds")) if digest else ()
 
 
@@ -228,16 +208,6 @@ def get_platform_lessons_digest(conversation_id: str | None = None) -> str | Non
     return resolve_platform_lessons(conversation_id).digest
 
 
-#: The framing that travels WITH the lessons, rendered once here rather than
-#: copied into each agent's template.
-#:
-#: The wording is load-bearing and was the subject of an explicit review: a
-#: lesson is a META process caution with zero factual authority, most turns it
-#: does not apply, and everything else the agent has — retrieval, documents,
-#: the project profile, the live conversation — outranks it. Two prompts
-#: carrying two versions of that caveat is how one of them quietly becomes
-#: "helpful background knowledge", which is exactly the failure the meta-only
-#: rule exists to prevent.
 _LESSONS_BLOCK_HEADER = (
     "### PLATFORM_LESSONS — process cautions from reported failures. Meta-level only.\n"
     "A `PLATFORM_LESSONS v1` block follows. Each line is a caution distilled from answers users "

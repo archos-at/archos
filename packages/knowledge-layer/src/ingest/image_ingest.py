@@ -26,7 +26,6 @@ from .coverage import image_coverage
 
 logger = logging.getLogger(__name__)
 
-#: The failure of an image the model could not read. Its wording is matched by the failure classifier.
 IMAGE_UNREAD_ERROR = "Image could not be decoded or captioned (corrupted file or VLM failure)"
 
 
@@ -70,14 +69,12 @@ def read_standalone_image(
     from knowledge_layer.ingest.photo_facts import read_photo_facts
 
     if not vision.get("vlm_api_key"):
-        # Nothing of it is read, so nothing is screened: it passes on its name.
         ingestor._record_screening(job, index, rules, "unchecked")
         ingestor._thumbnail_after_screen(thumbnail_upload_url, file_path)
         error = "vlm_not_configured: image ingestion requires VLM_API_KEY"
         ingestor._update_file_status(job, index, FileStatus.FAILED, error=error)
         logger.warning("Image ingestion skipped (VLM not configured): %s", file_name)
         return ImageRead(None)
-    # From the ORIGINAL bytes: the re-encode for the model drops EXIF.
     photo = read_photo_facts(file_path)
     with _adapter._stage(stages, "vision"):
         documents = _adapter._build_image_documents(
@@ -96,7 +93,6 @@ def read_standalone_image(
     return ImageRead(documents, photo, image_coverage(read=True))
 
 
-#: An image's format by its name, when its bytes did not say (``adapter._looks_like_image``).
 _FORMAT_BY_SUFFIX = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".webp": "webp"}
 
 

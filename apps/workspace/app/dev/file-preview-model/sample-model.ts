@@ -1,12 +1,3 @@
-/**
- * A tiny but REAL IFC — the repository's geometry fixture
- * (`tests/fixtures/ifc/sample-building-geometry.ifc`), inlined so the dev
- * preview route can hand the viewport an actual building to parse without a
- * backend, an object store or a file in `public/`.
- *
- * Dev-only: the route that imports it 404s outside development.
- */
-
 export const SAMPLE_IFC = `ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('ViewDefinition [CoordinationView_V2.0]'),'2;1');

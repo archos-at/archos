@@ -30,5 +30,4 @@ DOCUMENT_TYPE_DESCRIPTION = (
     "is a 422. Omit to let the classifier decide, as for every upload before this field existed."
 )
 
-#: The request field, description included, so a model declares it as ``document_type: DocumentTypeField = None``.
 DocumentTypeField = Annotated[DocumentTypeTag | None, Field(description=DOCUMENT_TYPE_DESCRIPTION)]

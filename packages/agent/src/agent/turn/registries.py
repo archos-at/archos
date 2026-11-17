@@ -50,28 +50,12 @@ logger = logging.getLogger(__name__)
 class TurnRegistries:
     """The registries bound for this turn, and what they recorded once it ended."""
 
-    #: The conversation's card registry, cleared at turn start so a card never
-    #: leaks between turns; ``snapshot()`` after the turn is the turn's cards.
     cards: CardRegistry
-    #: What the ``remember`` tool wrote DURING the turn. Filled when the
-    #: context exits — the log is unbound at that moment.
     memory_writes: tuple[str, ...] = field(default_factory=tuple)
-    #: The project and organization notes those writes created, for the answer's noted chip.
     memory_notes: tuple[TurnMemoryNote, ...] = field(default_factory=tuple)
-    #: The part of ``memory_writes`` stored as restricted memory (ADR-0087).
     restricted_memory_writes: tuple[str, ...] = field(default_factory=tuple)
-    #: The retrieval collections of every source the conversation's citation
-    #: registry holds once the turn ended — this turn's and the earlier ones,
-    #: whose passages are in the history. Read by the memory restriction
-    #: decision (ADR-0087). Filled when the context exits.
     source_collections: tuple[str, ...] = field(default_factory=tuple)
-    #: The restricted memory EARLIER turns of the conversation were shown, with
-    #: their collections (ADR-0087, ``memory/shown_notes.py``). Read by the
-    #: memory restriction decision; bound for the ``remember`` tool as well.
     shown_notes: ShownNotes = field(default_factory=ShownNotes)
-    #: How many image views of the turn rendered a REGION of a page
-    #: (``image_view_budget``): whether it looked at the box a person drew.
-    #: Filled when the context exits.
     regions_viewed: int = 0
 
 
@@ -164,8 +148,6 @@ async def turn_registries(
             schedule_shown_notes_persist(conversation_id, merged(earlier, shown_now, restricted_scope))
 
 
-# Strong references to in-flight persistence tasks so the event loop cannot
-# garbage-collect them mid-run. Entries discard themselves on completion.
 _persist_tasks: set[asyncio.Task] = set()
 
 

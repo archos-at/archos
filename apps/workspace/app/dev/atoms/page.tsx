@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the workspace atoms (`ui/components/ui`), grouped by job, so
- * the brand's radius ladder reads at a glance: inline 4px, controls 6px, surfaces
- * 10px, overlays 14px, round what is round (chips, badges, avatars, dots). Fixture
- * props only, no data. Not linked from anywhere; 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { ControlsSection } from './controls-section'

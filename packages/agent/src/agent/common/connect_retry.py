@@ -31,18 +31,11 @@ import time
 
 import httpx
 
-#: Connect attempts after the first, backing off 0, 0.5, 1, 2, 4, 8 s: about
-#: 15 s in all, longer than the BFF's restart and database blips PostHog Logs
-#: has shown.
 CONNECT_RETRIES = 6
 
-#: Per connect attempt. Each of the retries gets its own bound, so a store that
-#: drops SYNs cannot hold a worker for the whole read budget times seven.
 CONNECT_TIMEOUT_SECONDS = 5.0
 
 
-#: How long a host whose connect retries were all spent fails fast, like the
-#: 30 s negative cache of ``llm_credentials``.
 HOST_DOWN_SECONDS = 30.0
 
 _down_until: dict[str, float] = {}

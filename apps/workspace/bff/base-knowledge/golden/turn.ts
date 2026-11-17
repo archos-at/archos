@@ -1,14 +1,3 @@
-/**
- * What a golden turn reads in place of a project (ADR-0165 amendment): the
- * knowledge context of the site its case states, and the case's facts where a
- * project's profile would stand. Everything else of the turn is the ordinary
- * one's.
- *
- * Only a conversation a golden run asked in has a case, and a run asks in the
- * platform organization, so every other organization's turn returns before any
- * read: an office's turn pays nothing for this.
- */
-
 import 'server-only'
 import { getPlatformOrganizationId } from '@/lib/authz/platform'
 import { knowledgeContextForStatedSite } from '../context/service'
@@ -18,11 +7,9 @@ import { goldenCaseOfConversation } from './repository'
 
 export interface GoldenTurn {
   knowledgeContext: KnowledgeContext
-  /** The case's stated facts, as the turn's project context; null when it states none. */
   projectContext: string | null
 }
 
-/** The stated facts as the lines a turn reads: `key=value`, sorted, under one line saying whose they are. Pure. */
 export function statedFactsBlock(golden: Pick<GoldenCase, 'context'>): string | null {
   const facts = Object.entries(golden.context.facts).sort(([a], [b]) => a.localeCompare(b))
   const lines = [
@@ -33,10 +20,6 @@ export function statedFactsBlock(golden: Pick<GoldenCase, 'context'>): string | 
   return lines.length === 0 ? null : ['Stated facts of the building in question (no project is open):', ...lines].join('\n')
 }
 
-/**
- * The golden turn of a conversation, or null for every conversation that is not a golden run's. Never throws:
- * a read that fails is logged and the turn is the ordinary one, which a golden run then scores as it finds it.
- */
 export async function goldenTurnFor(organizationId: string, conversationId: string | null | undefined): Promise<GoldenTurn | null> {
   if (!conversationId) return null
   try {

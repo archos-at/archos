@@ -24,7 +24,3 @@ _LIST_FILES_DESCRIPTION = (
     "and a summary does not say what a file contains. File names are written exactly as returned; each becomes "
     "a link the reader can open."
 )
-
-# ---------------------------------------------------------------------------
-# Agent-runtime registration
-# ---------------------------------------------------------------------------

@@ -1,22 +1,6 @@
-/**
- * The wire of the two prompt-facing ruleset types (design §3.7 and §9b(b),
- * ADR-0174): what a country says about legal advice, and the words it uses.
- *
- * - `advice_policy.v1`: per topic of legal advice, one of three codes
- *   (`assert`, `hedge`, `decline`). Codes only: the text an answer carries for
- *   a code is a fixed template in `rulesets/advice.ts`, so a policy proposed
- *   from a fetched page cannot put an instruction into every office's prompt.
- * - `terminology.v1`: term and gloss pairs keyed by a BCP 47 language tag,
- *   each at most 200 characters on one line. These are the only record text a
- *   prompt may read (design §3.7, "capped term pairs").
- *
- * Pure zod; the content of a country's policy is that country's onboarding.
- */
-
 import { z } from 'zod'
 import { ADVICE_MODES, ADVICE_TOPICS } from './vocab'
 
-/** One topic's code. Unknown topics are refused: a code nothing renders would be a silent pass. */
 export const advicePolicySchema = z
   .object({
     topics: z
@@ -27,20 +11,10 @@ export const advicePolicySchema = z
   .strict()
 export type AdvicePolicy = z.infer<typeof advicePolicySchema>
 
-/**
- * BCP 47 as products use it: a language, then an optional script and region
- * (`de`, `de-CH`, `sr-Latn-RS`). Extensions and private use are refused, since
- * nothing keys on them.
- */
 export const languageTagSchema = z
   .string()
   .regex(/^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\d{3}))?$/, 'a BCP 47 tag such as de, de-CH or sr-Latn-RS')
 
-/**
- * One line of at most 200 printable characters: no line break, no control
- * character, no markup bracket, so a pair cannot open a block of its own in a
- * prompt.
- */
 const termText = z
   .string()
   .trim()
@@ -56,7 +30,6 @@ export const terminologyEntrySchema = z
   })
   .strict()
 
-/** At most 200 pairs per record; one term once per language. */
 export const terminologySchema = z
   .object({ entries: z.array(terminologyEntrySchema).min(1).max(200) })
   .strict()

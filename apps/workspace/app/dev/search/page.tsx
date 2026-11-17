@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the workspace search (ADR-0136): the REAL organism
- * (`SearchWorkspaceView`) over a fixture answer, the scene of
- * `docs/design/document-search.md` — 08:55, „Fluchtweg GK 4“ across two
- * projects and the Büroablage, and 09:10, the register sorted by Plannummer.
- *
- * The question lives in memory here instead of the URL, so every control
- * works (facets toggle, filters set chips, headers sort), and the answer is
- * the fixture filtered and sorted to match it (`searchFixtureAnswer`): a
- * capture never shows a chip its rows contradict. `?view=register` opens on the register, `?view=list`
- * on the list; without it both stand one above the other for a capture.
- * `?filters=open` opens the rail's typed filters. `?state=empty` is an answer
- * with no hits while a shelf's facts are still being read, `?state=loading`
- * the first answer on its way, `?state=error` a search that did not answer.
- * `?scope=project` is the search inside one project's Dateien. Each document
- * hit carries its ⋯ (Öffnen, Piloti fragen, Aktuelle Fassung öffnen, Offene Punkte,
- * Im Ordner zeigen, Link kopieren).
- * `?composer=1` is the chat composer's `#` picker (`composer-preview.tsx`).
- * The rail's free-text filters (Plannummer, Index, Maßstab, Ort, a party's
- * name, Verweist auf, an Angabe's value) complete from the fixture office
- * (`searchFixtureSuggest`); `?filters=open` shows them all.
- *
- * German, pinned: the copy that has to fit is German.
- */
-
 import type { JSX } from 'react'
 import { Suspense, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -53,12 +28,10 @@ const PROJECT_SURFACE: SearchSurface = { kind: 'project', projectId: '0b6f0c1e-3
 
 type PreviewState = 'answer' | 'empty' | 'loading' | 'error'
 
-/** The filter fields' completions, answered from the fixture as the route would (`searchFixtureSuggest`). */
 const FIXTURE_SUGGEST: SuggestSource = async (question) => searchFixtureSuggest(question)
 
 const EMPTY_RESPONSE: SearchResponse = {
   ...SEARCH_FIXTURE_RESPONSE,
-  // The answer to words: every kind was searched and found nothing, so each tab knows its count.
   sections: Object.fromEntries(SEARCH_KINDS.map((kind) => [kind, { hits: [], total: 0, totalIsLowerBound: false, nextCursor: null }])),
   facets: {},
   building: ['office_shelf', 'p-hernals'],

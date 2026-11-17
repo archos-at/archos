@@ -50,7 +50,6 @@ _spec.loader.exec_module(reuse_green_run)
 
 Get = Callable[[str], Any]
 Run = dict[str, Any]
-# The conclusions that count as red: a run that timed out failed as much as one that failed.
 RED = ("failure", "timed_out")
 PAGES = 10
 
@@ -88,11 +87,6 @@ def merge_to_staging(ci_runs: Iterable[Run], deploy_runs: Iterable[Run]) -> tupl
     by_sha = {r["head_sha"]: r for r in pushes if r.get("conclusion") == "success"}
     samples: list[Sample] = []
     for push in pushes:
-        # The first green deploy that shipped this push: its own commit's, or a
-        # newer commit's, whose CI run started no earlier than this push's.
-        # Develop is linear (no force pushes), so a newer run's commit contains
-        # this one; a deploy of an older commit that merely finished later
-        # does not.
         deploy = next(
             (
                 d

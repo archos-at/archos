@@ -25,53 +25,8 @@ from __future__ import annotations
 from agent.common.tool_calls import tool_basename
 from agent.tools.bim.measurement_evidence import result_carries_measurement
 
-#: Tools whose results constitute a MEASUREMENT of the building.
-#:
-#: Only ``ifc_measure``. ``ifc_query`` is deliberately absent: it reads the
-#: extracted index and its renderer carries no provenance contract, so a caller
-#: cannot tell a published quantity from an inferred one by reading the result —
-#: which is the whole basis on which measurement grounding is granted here.
-#:
-#: AUDITED — do not re-derive this from the tool's name. „Carries no provenance
-#: contract" is right, but the tempting shorter reason („it returns no numbers")
-#: is FALSE and would not survive contact with the renderer. ``ifc_query``
-#: returns quantities routinely, several of them with an explicit unit:
-#:
-#:     op='schedule'  „EG: 86.4 m² (2 Räume)"     — unit from `schedule.units`
-#:     op='takeoff'   „IfcWall / Beton: 412,8 m² (96 Bauteile, 3 ohne Wert)"
-#:     op='element'   „Qto_WallBaseQuantities: NetSideArea=24,6, Width=0,30"
-#:
-#: What none of them carries is the thing this gate reads. Grep
-#: ``knowledge/bim_query.py`` and ``knowledge/ifc_spatial_client.py`` — the
-#: whole ``ifc_query`` path — and ``tolerance``, ``provenance`` and ``declared``
-#: do not occur once; that vocabulary exists only on the ``ifc_measure`` side
-#: (``bim/measure_register.py``). So a caller cannot tell 86.4 m² read off a
-#: published Qto_* from 86.4 m² the exporter guessed, and there is no
-#: ``measurement_evidence`` trailer to state the count either.
-#:
-#: The exclusion is consequently BELT AND BRACES rather than the only guard:
-#: adding ``ifc_query`` here would change no behaviour at all, because
-#: :func:`tool_result_is_measurement` also requires the trailer that only
-#: ``measure_register._render`` emits. It is kept as a statement of intent.
-#:
-#: The cost is real but is not payable here: an answer built purely on a
-#: Raumbuch or a Massenermittlung is a genuinely measured answer that gets no
-#: measurement grounding and stays at "low" when uncited. Fixing that means
-#: giving ``ifc_query`` a provenance contract of its own — a widening of the
-#: grounding surface that deserves its own review, not a name added to a
-#: frozenset.
-#:
-#: Matched on the tool's BASE name (``tool_calls.tool_basename``): the agent runtime delivers
-#: a function-group or MCP tool as ``group__ifc_measure``, and an exact compare
-#: against the bare name silently switched measurement grounding off for every
-#: deployment that uses grouping — reinstating the "low" floor this whole gate
-#: exists to lift, by nothing but topology.
 MEASUREMENT_TOOL_NAMES: frozenset[str] = frozenset({"ifc_measure"})
 
-#: Every error path in ``ifc_measure`` — rejected arguments, an unreachable
-#: model service, a missing engine, an oversized file — returns a string opening
-#: with this token. None of them carries the evidence trailer either (they never
-#: reach the renderer); this is the second, cheaper check.
 _TOOL_ERROR_PREFIX = "error:"
 
 

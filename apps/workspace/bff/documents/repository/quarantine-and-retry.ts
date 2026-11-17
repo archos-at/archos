@@ -1,5 +1,3 @@
-/** Quarantined documents and the failed-ingest walk for retry. */
-
 import 'server-only'
 import { and, asc, desc, eq, inArray, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -12,22 +10,13 @@ import { CURRENT_INGEST_READER_VERSION } from '../retry-policy'
 import { cursorCreatedAtColumn } from './list'
 import { dispatchedHash } from './reconcile'
 
-/** Bound on one read of the quarantine queue. A queue longer than this is a policy problem, not a list. */
 export const QUARANTINE_LIST_LIMIT = 200
 
-/** Where the next page of the quarantine starts: the last row of the previous one. */
 export interface QuarantineCursor {
   updatedAt: Date
   id: string
 }
 
-/**
- * One page of the organization's held documents at rest (`heldAtRest`: a
- * quarantine, or a file whose reading ended without a verdict), newest first,
- * after `cursor`. Authorization is the caller's, which is why it pages: a reviewer of
- * one project must not lose their documents behind a page of another project's
- * (`listQuarantineQueue` reads on until its own list is full).
- */
 export async function listQuarantinedDocuments(
   organizationId: string,
   cursor: QuarantineCursor | null = null,
@@ -49,46 +38,8 @@ export async function listQuarantinedDocuments(
   )
 }
 
-/**
- * Documents whose ingestion failed and is worth retrying, org-wide, a keyset
- * page at a time.
- *
- * The rescan behind "Rescan failed ingestions" in Organization > Enterprise:
- * every row stuck at `failed`/`error` - plus rows stranded at the `uploaded`
- * birth status that never dispatched - is a file that was stored but never
- * read. Bounded like every other list query; the rescan job re-dispatches each
- * id through `reingestDocument`, so access checks and status guards stay in one
- * place instead of being restated here.
- *
- * A failure the retry rule refuses ({@link retryAllowedSql}) is left out here,
- * not skipped later: the walk never pays a request for a file that would fail
- * the same way, and the audit's counts say what was actually sent back.
- */
 export const FAILED_INGEST_RESCAN_STATUSES = ['failed', 'uploaded'] as const
 
-/**
- * `canRetry` (`./retry-policy`) in SQL, for the queries that choose what a bulk
- * retry sends: true unless the row is FAILED for a reason reading it again will
- * not change. Kept beside the TypeScript rule rather than replacing it, because
- * a single document's retry decides on the row it already holds and a walk
- * must not fetch the rows it will not send; `retry-policy.spec.ts` states the
- * rule and `retry-policy.integration.spec.ts` holds this SQL to it row by row.
- *
- *   - not in the failed family: the rule says nothing (`uploaded` rows of the
- *     rescan pass);
- *   - `deterministic`: refused unless the bytes changed since the dispatch
- *     that failed (`ingestContentHash`, both sides known) or the deployed
- *     reader is newer than the one that failed (dotted numbers compared as
- *     integer arrays; a version missing or not dotted numbers counts as older,
- *     as `isNewerReader` counts it);
- *   - no category: refused only when the flag says `false`, so every row from
- *     before migration 0134 passes;
- *   - any other category: refused only for `quarantined`.
- *
- * Each branch is a non-null boolean, and the whole is `coalesce`d besides:
- * `NOT NULL` in a WHERE drops the row, which would quietly withhold exactly the
- * rows the rule means to keep.
- */
 export function retryAllowedSql(): SQL {
   const failedStatuses = sql.join(
     declaredStatusesIn('failed').map((status) => sql`${status}`),
@@ -110,14 +61,8 @@ export function retryAllowedSql(): SQL {
   return sql`NOT coalesce(${refused}, false)`
 }
 
-/** Most ids one page of the failed-ingestion walk returns. */
 export const FAILED_INGEST_PAGE_LIMIT = 100
 
-/**
- * The rows AFTER `cursor` in the failed walk's order: oldest first, id as the
- * tiebreak. Ascending twin of {@link afterDocumentListCursor}, with the same
- * microsecond text so a row the cursor was built from is never served twice.
- */
 function afterFailedWalkCursor(cursor: DocumentListCursor): SQL {
   const at = sql`(${cursor.createdAt}::timestamp AT TIME ZONE 'UTC')`
   return sql`(${documents.createdAt} > ${at} OR (${documents.createdAt} = ${at} AND ${documents.id} > ${cursor.id}::uuid))`
@@ -125,16 +70,9 @@ function afterFailedWalkCursor(cursor: DocumentListCursor): SQL {
 
 export interface FailedDocumentPage {
   ids: string[]
-  /** Where the next page starts, or `null` when the failed set is exhausted. */
   nextCursor: DocumentListCursor | null
 }
 
-/**
- * One page of the failed set. A keyset rather than an exclusion list: rows that
- * stay failed after a retry cannot starve the rows behind them, and the walk's
- * state stays one position however many rows there are, so a job can keep it
- * in its payload and resume from it.
- */
 export async function listFailedDocumentPageInOrg(
   organizationId: string,
   { limit = FAILED_INGEST_PAGE_LIMIT, cursor }: { limit?: number; cursor?: DocumentListCursor | null } = {},
@@ -154,7 +92,6 @@ export async function listFailedDocumentPageInOrg(
         ),
       )
       .orderBy(asc(documents.createdAt), asc(documents.id))
-      // One more than asked, which is how "is there more" is answered without a COUNT.
       .limit(bounded + 1),
   )
   const hasMore = fetched.length > bounded
@@ -166,18 +103,6 @@ export async function listFailedDocumentPageInOrg(
   }
 }
 
-/**
- * Send a held document back through the content gate with the rules in force
- * now (ADR-0086, „Erneut prüfen"): the screen was corrected, or the office
- * changed its list, since it was held. Not a release: nothing about the bytes
- * is lifted, the row stays held from everyone but its uploader and reviewers
- * until the new reading passes, and a match quarantines it again. The hold is
- * the verdict columns and not the status (`passedScreening` in `../visibility`),
- * which is why a quarantined row may take this way out (migration 0225's
- * trigger allows it only while the outcome still says `quarantined`). Guarded on
- * the row still being held at rest with the bytes the reviewer saw. Returns
- * whether it took; the caller dispatches.
- */
 export async function markForRescreening(
   documentId: string,
   organizationId: string,
@@ -190,12 +115,7 @@ export async function markForRescreening(
       .set({
         status: 'uploaded',
         errorMessage: null,
-        // Only a quarantined row carries a verdict (migration 0148's CHECK).
         quarantine: null,
-        // What holds the row once its status says `uploaded` (migration 0225):
-        // a quarantined row keeps the holding outcome, or takes it when an
-        // older writer left another one beside the status. Any other held row
-        // keeps what it has.
         screeningOutcome: sql`CASE WHEN ${documents.status} = 'quarantined' THEN 'quarantined' ELSE ${documents.screeningOutcome} END`,
         ingestFailureCategory: null,
         ingestRetryable: null,

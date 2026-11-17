@@ -51,15 +51,10 @@ import random
 import sys
 from pathlib import Path
 
-#: Pages sampled per corpus document. Four is enough for a file to register in
-#: a file-level ranking and keeps one recording inside a few hundred embeddings.
 PAGES_PER_DOC = 4
 
-#: Deterministic page sampling, so a re-recording without a corpus change
-#: produces the same pages and the diff shows model drift, not sampling noise.
 SAMPLE_SEED = 0
 
-#: Chunk text cap, near production's chunk size.
 MAX_CHUNK_CHARS = 2000
 
 _BATCH = 64

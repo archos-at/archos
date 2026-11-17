@@ -1,15 +1,3 @@
-/**
- * One project's view of the office's sensitive-data list, and its changes to
- * the name terms (ADR-0086, amendment of 2026-10-20; ticket 26, step „Ablage").
- *
- * Read by every member who may upload into the project, because the browser
- * screens names with the project's policy before a byte is sent. Changed by
- * whoever manages the project (`project:manage`): the same people who review
- * the project's quarantine and may already release any held file in it one by
- * one, so setting a term aside for the project gives nobody a power they did
- * not hold. Audited with counts, never the terms.
- */
-
 import 'server-only'
 import { recordAuditEvent } from '@/lib/audit/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -30,17 +18,11 @@ import {
   hasSavedUploadScreeningPolicy,
 } from './service'
 
-/** `GET /api/projects/{id}/upload-screening`. */
 export interface ProjectUploadScreening {
-  /** The policy uploads into this project are screened with. */
   policy: UploadScreeningPolicy
-  /** The office's own list, for showing what the project changes. */
   office: UploadScreeningPolicy
-  /** The office is still on Piloti's suggested list. */
   officeSuggested: boolean
-  /** What this project changes, as it means something against the office's list. */
   override: ProjectScreeningOverride
-  /** The reader may change the project's terms (`project:manage`, project not closed). */
   canManage: boolean
 }
 
@@ -61,7 +43,6 @@ async function viewOf(session: AuthorizedSession, projectId: string, closed: boo
   }
 }
 
-/** The project's policy and what it changes. Any member who may read the project. */
 export async function getProjectUploadScreening(
   session: AuthorizedSession,
   projectId: string
@@ -70,11 +51,6 @@ export async function getProjectUploadScreening(
   return viewOf(session, projectId, access.closed)
 }
 
-/**
- * Save what the project changes (already validated by the route's schema).
- * Kept only as far as it changes something against the office's list now; an
- * override that changes nothing removes the row.
- */
 export async function saveProjectUploadScreening(
   session: AuthorizedSession,
   projectId: string,
@@ -82,8 +58,6 @@ export async function saveProjectUploadScreening(
   request: Request
 ): Promise<ProjectUploadScreening> {
   await requireProjectAccess(session, projectId, 'project:manage')
-  // The office's list as it is now; unreadable is a failed save, never a save
-  // measured against Piloti's suggestion.
   const office = await getUploadScreeningPolicy(session.organizationId)
   const override = effectiveOverride(office, input)
   await saveProjectScreeningOverride(session.organizationId, projectId, override, session.userId)

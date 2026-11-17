@@ -3,8 +3,6 @@
 import math
 from typing import Any
 
-# ── rendering ────────────────────────────────────────────────────────────────
-
 
 def _decimals(tolerance: Any) -> int | None:
     """How many decimals a value carrying this tolerance may be shown to.
@@ -26,8 +24,6 @@ def _decimals(tolerance: Any) -> int | None:
     """
     if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
         return None
-    # NaN and inf reach here from a division in an operator, and `math.log10`
-    # would raise on one and overflow the decimal count on the other.
     if not math.isfinite(tolerance) or tolerance <= 0:
         return None
     return min(6, max(0, math.floor(-math.log10(tolerance)) + 1))
@@ -76,7 +72,6 @@ def _tolerance_text(tolerance: Any) -> str:
     value = float(tolerance)
     if not math.isfinite(value) or value <= 0:
         return _num(tolerance)
-    # Two significant figures: one decade past the leading digit.
     decimals = min(6, max(0, math.floor(-math.log10(value)) + 2))
     text = f"{value:.{decimals}f}"
     return text.rstrip("0").rstrip(".") if "." in text else text
@@ -95,29 +90,6 @@ def _angle(value: Any) -> str:
     return str(int(value)) if float(value).is_integer() else _num(float(value), 1)
 
 
-#: Keys whose value is DIMENSIONLESS and must not inherit the answer's band.
-#:
-#: `_decimals` derives its precision from the answer's tolerance, which carries
-#: the answer's UNIT. Applied to a ratio that is a different quantity entirely,
-#: it destroys the number: `envelope/areaByOrientation` has a tolerance of
-#: ±2.3 m², which earns zero decimals, and the window-to-wall ratios then
-#: rendered `windowWallRatio=0` for north (0.193), south (0.405) and the
-#: building as a whole (0.177). The WWR is the entire point of that operator,
-#: and a facade reported at 0 reads as one with no glazing in it — a claim about
-#: the building, made by a rounding rule, and false.
-#:
-#: Two decimals rather than the band's, because these are ratios in 0…1 and
-#: their own resolution has nothing to do with how well an area was measured.
-#:
-#: Bare `ratio` is deliberately NOT in this set, and the exclusion is the whole
-#: reason the set is a set rather than a regex on the name. Two operators return
-#: a key called `ratio` and only one of them is unitless:
-#: `lightEntryArea.ratio` is a fraction, but `compactness.ratio` is A/V in
-#: **1/m** — the answer's own main value, whose ±0.021 1/m band is exactly the
-#: right precision for it. Overriding that one would be this same bug pointed
-#: the other way. `lightEntryArea` loses nothing by the omission: its headline
-#: line already states the share as „**14.21 %**" at full precision.
-
 _UNITLESS_KEYS = frozenset({"windowWallRatio", "percent", "confidence"})
 
 
@@ -128,19 +100,13 @@ def _value_text(value: Any, decimals: int | None = None) -> str:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return _num(value, decimals)
     if isinstance(value, dict):
-        # `extent`, `elevation`, `sillAndHead` — a handful of named numbers.
-        # Nested one level (extent's `box`), the flat join produced
-        # "box=min=[…], max=[…]", which reads as one key with two values.
         parts = []
         for key, inner in value.items():
             text = _value_text(inner, 2 if key in _UNITLESS_KEYS else decimals)
             parts.append(f"{key}=({text})" if isinstance(inner, dict) else f"{key}={text}")
         return ", ".join(parts)
     if isinstance(value, list):
-        # A coordinate is a list of three numbers, and counting it — "centroid=3
-        # entries" — throws away the only part anybody wanted.
         if value and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in value):
             return "[" + ", ".join(_num(item, decimals) for item in value) + "]"
-        # A renderer that substitutes into one template produces "1 entries".
         return "1 entry" if len(value) == 1 else f"{len(value)} entries"
     return str(value)

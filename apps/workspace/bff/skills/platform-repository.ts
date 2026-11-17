@@ -1,33 +1,10 @@
-/**
- * Platform skills repository — the only module that queries `platform_skills`,
- * the fleet-wide curated catalogue written in Platform → Skills (ADR-0016).
- *
- * Deliberately separate from `./repository`, which owns the org-scoped `skills`
- * table. Every query there takes an `organizationId` and scopes its WHERE
- * clause with it; NONE of these do, because this table holds no tenant data —
- * one row is offered to every organization at once. Keeping the two apart means
- * the missing org predicate is a property of the module rather than something a
- * reader has to check per function.
- *
- * Writes run only under the platform bypass (`platformApiRoute`); the tenant
- * role has SELECT and nothing else, enforced in SQL by
- * `secure_platform_table` (0031).
- */
-
 import 'server-only'
 import { and, asc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { platformSkills, type NewPlatformSkillRow, type PlatformSkillRow } from '@/lib/db/schema/platform-skills'
 
-/** Hard cap for the curated catalogue. */
 export const PLATFORM_SKILLS_LIST_LIMIT = 200
 
-/**
- * Every curated skill, drafts included — the platform dashboard's list.
- *
- * Ordered by name rather than by creation date: this is a catalogue somebody
- * scans for a name they half-remember, not a feed.
- */
 export async function listPlatformSkillRows(
   limit = PLATFORM_SKILLS_LIST_LIMIT,
 ): Promise<PlatformSkillRow[]> {
@@ -35,13 +12,6 @@ export async function listPlatformSkillRows(
   return db.select().from(platformSkills).orderBy(asc(platformSkills.name)).limit(limit)
 }
 
-/**
- * The published OFFERS — what organizations are shown and may switch on.
- *
- * Capped, like every list read here. Truncating this list costs an organization
- * a listing for a capability it was never running anyway, which is what a safety
- * rail on a catalogue read is for.
- */
 export async function listPublishedOfferRows(
   limit = PLATFORM_SKILLS_LIST_LIMIT,
 ): Promise<PlatformSkillRow[]> {
@@ -60,7 +30,6 @@ export async function findPlatformSkillRow(skillId: string): Promise<PlatformSki
   return row ?? null
 }
 
-/** By name — the fleet-wide unique key an activation decision refers to. */
 export async function findPlatformSkillRowByName(name: string): Promise<PlatformSkillRow | null> {
   const db = getDb()
   const [row] = await db.select().from(platformSkills).where(eq(platformSkills.name, name)).limit(1)
@@ -75,7 +44,6 @@ export async function insertPlatformSkillRow(
   return row
 }
 
-/** The columns a service may update on a curated skill. */
 export type PlatformSkillUpdate = Partial<
   Pick<
     PlatformSkillRow,

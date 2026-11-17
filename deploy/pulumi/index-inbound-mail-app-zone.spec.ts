@@ -4,21 +4,6 @@ import { baseStackConfig } from "./src/test-support/stack-config";
 import { APP_ZONE, APP_ZONE_ID, appZoneStackConfig, mailStackConfig } from "./src/test-support/app-zone-config";
 import { LEGACY_PROJECT } from "./src/names";
 
-/**
- * The whole program as production runs it: project mail on a subdomain of the
- * product's own zone (`inbox.<zone>`), the zone this stack already manages for
- * DNS, and switched off (`inboundMailEnabled: false`), the state a stack
- * passes through on the way to removing the feature.
- *
- * A separate file for the reason `index-dns.spec.ts` gives: `index.ts` works at
- * module scope and Pulumi's runtime is process-global.
- *
- * What only the whole program shows: with no `inboundMailZoneId`, routing and
- * the rule land on the app zone, beside the DNS module's records, with routing
- * on the subdomain and never the apex; and switched off, the rule stays
- * (disabled) while the Worker and the frontend's domain go.
- */
-
 type Recorded = { type: string; name: string; inputs: Record<string, unknown> };
 const RESOURCES: Recorded[] = [];
 
@@ -75,7 +60,6 @@ describe("the program with project mail on a subdomain of the app zone, switched
       [`${LEGACY_PROJECT}:seaweedfsTopology`]: "single",
       [`${LEGACY_PROJECT}:seaweedfsPerOrgBuckets`]: "false",
       [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
-      // No inboundMailZoneId: under the app zone it defaults to dnsZoneId.
       [`${LEGACY_PROJECT}:inboundMailDomain`]: INBOX,
       [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false",
     });
@@ -97,7 +81,6 @@ describe("the program with project mail on a subdomain of the app zone, switched
     const rules = byType("cloudflare:index/emailRoutingRule:EmailRoutingRule");
     const literal = (r: Recorded) => (r.inputs.matchers as Array<{ value: string }>)[0].value;
     expect(rules.map((r) => [literal(r), r.inputs.zoneId, r.inputs.enabled]).sort()).toEqual([
-      // Switched off, the domain keeps its MX at Cloudflare: its postmaster still answers.
       [`abuse@${INBOX}`, APP_ZONE_ID, true],
       [`postmaster@${INBOX}`, APP_ZONE_ID, true],
       [`project@${INBOX}`, APP_ZONE_ID, false],

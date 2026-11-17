@@ -37,7 +37,6 @@ from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
-#: The message-row metadata key naming the OTel/Langfuse trace (32 lowercase hex).
 TRACE_ID_METADATA_KEY = "trace_id"
 
 

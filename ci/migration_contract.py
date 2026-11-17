@@ -1,34 +1,4 @@
 #!/usr/bin/env python3
-"""Fail a PR whose new migration takes something away that a running build still reads.
-
-A rollback (docs/deployment/rollback.md) deploys older images on the current
-schema: the migration Job runs `drizzle-kit migrate` forward only, so nothing
-undoes a migration. That is safe while migrations only add. A migration that
-drops, renames or narrows something breaks every older build that reads it,
-and with it the rollback, and during a rollout it breaks the old pods that are
-still serving for the minute before the new ones are ready.
-
-So schema changes are expand/contract. The expand migration adds (a table, a
-nullable or defaulted column, an index, a compatibility view: 0189 kept each
-old table name as a view for a release). The contract migration removes the
-old shape, in a later release, once production is pinned past every build that
-reads it. This check makes a contract migration visible: it fails on one, and
-the `migration:contract` label on the PR, read when the job runs, says the
-author knows production has moved past the old shape. The label is the same
-escape as `no-release-note`.
-
-It reads only the migrations the PR adds (an edited old migration is not
-re-run anywhere), never a `.down.sql`, and ignores comments. It matches
-statements, not a parse tree: a drop inside a string literal would be flagged
-too, and the label is the answer to that.
-
-A purpose-built linter (Squawk's ban-drop-column, renaming-table and their
-siblings) answers the same question with a parser; it was not adopted here only
-because it could not be run and its noise on this repository's style measured
-in the change that added this. Adopting it is the upgrade path.
-
-Usage: migration_contract.py <base-sha> <head-sha>
-"""
 
 from __future__ import annotations
 
@@ -42,8 +12,6 @@ LABEL = "migration:contract"
 RULES: list[tuple[str, re.Pattern[str]]] = [
     ("drops a table, view, type or schema", re.compile(r"\bDROP\s+(MATERIALIZED\s+VIEW|TABLE|VIEW|TYPE|SCHEMA)\b")),
     ("drops a column", re.compile(r"\bDROP\s+COLUMN\b")),
-    # A table or column, which code names. A function, policy or index rename
-    # (0190, 0191) is invisible to an older build.
     (
         "renames a table or column",
         re.compile(r"\bALTER\s+TABLE\s+(IF\s+EXISTS\s+)?(ONLY\s+)?\S+\s+RENAME\s+(TO|COLUMN)\b"),
@@ -58,15 +26,12 @@ _STRING_OR_COMMENT = re.compile(r"'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/", re.DOTALL)
 
 
 def strip_comments(sql: str) -> str:
-    """Drop comments, leaving quoted strings as they are: a `--` inside a string starts no comment."""
     return _STRING_OR_COMMENT.sub(lambda m: m.group(0) if m.group(0).startswith("'") else " ", sql)
 
 
 def findings(sql: str) -> list[str]:
-    """What this migration takes away, one line per rule it breaks."""
     text = " ".join(strip_comments(sql).upper().split())
     found = [reason for reason, pattern in RULES if pattern.search(text)]
-    # Type arguments such as numeric(12,2) hold commas, which would end the clause.
     flat = re.sub(r"\([^()]*\)", "", text)
     for match in ADD_COLUMN.finditer(flat):
         clause = match["clause"]

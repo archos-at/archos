@@ -111,17 +111,10 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
     width_declared, width_on = _declared_length(model, schedule_sources, _FLIGHT_WIDTH_NAMES)
 
     if not measured:
-        # No body to read. A declared schedule is still an answer — an existing
-        # building surveyed into a pset is a real case — and it is reported as
-        # `declared`, never dressed up as a measurement.
         if riser_declared is None and tread_declared is None and count is None:
             geo, missing = _geometry_or_answer(model, subject, method)
             if geo is None:
                 return missing  # type: ignore[return-value]
-            # Two different absences, and they must not be reported as one. The
-            # body that shows no horizontal face at all is an export defect; the
-            # body that shows steps the reader would not measure is a stair this
-            # engine cannot measure, and the reason it refused is the answer.
             return undecidable(
                 from_=[global_id],
                 method=method,
@@ -157,10 +150,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
                 ),
             )
 
-        # The same key shape as the measured route, with the measured half empty.
-        # A consumer that reads `value["riserHeight"]["agreement"]` must not have
-        # to know which route produced the answer — provenance already says that,
-        # and a KeyError is a worse way to learn it.
         def _declared_block(quantity: DeclaredQuantity | None) -> dict[str, Any]:
             return {
                 "value": None if quantity is None else quantity.value,
@@ -188,8 +177,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
             "flights": [],
             "landings": len(landings),
             "declaredLandings": len(landings),
-            # Not zero: nothing was measured here, and a zero would read as „am
-            # Körper ist kein Podest" about a body that was never read.
             "measuredLandings": None,
         }
         return declared(
@@ -211,10 +198,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
     risers: list[float] = []
     goings: list[float] = []
     per_flight: list[dict[str, Any]] = []
-    # How many flights came out of each body, so that a body split into three can
-    # say WHICH of the three each row is. The GlobalId cannot say it — the three
-    # flights of „Treppe-EG" are one IfcStair — and a reader looking at three rows
-    # with the same id has to be able to tell them apart.
     per_body = {element.GlobalId: len(body.flights) for element, body in readings}
     seen: dict[str, int] = {}
     for element, flight in measured:
@@ -237,9 +220,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
                 "totalRise": flight.total_rise,
                 "totalGoing": flight.total_going,
                 "treadSurfaces": len(flight.treads),
-                # A flight read out of a body that was not split into flights in
-                # the file. The number is a measurement either way; where it came
-                # from is not the same statement and the reader may need both.
                 "fromBody": per_body[element.GlobalId] > 1 or not flights,
                 "landingBelow": flight.landing_below,
                 "landingAbove": flight.landing_above,
@@ -290,10 +270,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
         "totalRise": total_rise,
         "totalGoing": total_going,
         "flights": per_flight,
-        # Landings from BOTH routes, because a file states them in either. The
-        # synthetic assembly declares its Podest as an IfcSlab/LANDING part; the
-        # Institute's dogleg declares nothing at all and its two Podeste are only
-        # in the solid, where `landings 0` used to be reported over them.
         "landings": len(landings) + measured_landings,
         "declaredLandings": len(landings),
         "measuredLandings": measured_landings,
@@ -313,10 +289,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
                 "im Rahmen der Tessellierungsgenauigkeit gleich hoch."
             )
     if tread_stats is not None and tread_stats["count"] > 1 and tread_stats["spread"] > 2 * COORDINATE_TOLERANCE:
-        # „Auch" only when the risers were the previous sentence's finding. On a
-        # stair with equal risers and a 25 mm spread in the goings — the
-        # Institute's dogleg, where the top tread is the floor slab's own face —
-        # it made the answer read as if the risers had been unequal too.
         uneven_risers = riser_stats is not None and riser_stats["spread"] > COORDINATE_TOLERANCE
         caveats.append(
             f"{'Auch die' if uneven_risers else 'Die'} Auftritte sind ungleich "
@@ -337,10 +309,6 @@ def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]
             "zwischen zwei sichtbaren Trittflächen."
         )
     if len(per_flight) > 1:
-        # Which flights, and where they came from. „landings 0" over a body with
-        # two Podeste in it was the previous answer on the Institute's dogleg,
-        # and a reader had no way to see that the three flights had been averaged
-        # into one.
         from_body = sum(1 for f in per_flight if f["fromBody"])
         caveats.append(
             f"Gemessen sind {len(per_flight)} Läufe"

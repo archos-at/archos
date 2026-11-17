@@ -1,24 +1,3 @@
-/**
- * INTERNAL service endpoint — issues one presigned PUT slot for a raster the
- * ingest pipeline cut out of a document, so the backend (which holds only a
- * read credential for SeaweedFS) can store it beside the file as
- * `<doc dir>/_img/<index>.jpg`. Called by the pipeline once per extracted
- * image; the read side is `GET /api/internal/document-file?imageIndex=`, and
- * the delete side is the `_img/` sweep in `lib/documents/object-cleanup.ts`.
- *
- * Service-to-service only: `INTERNAL_API_TOKEN` via `internalApiRoute`,
- * fail-closed when unconfigured. The row is addressed by the `documentId` the
- * dispatch sent AND the collection it was sent for — both unguessable, and
- * requiring both means one document's id cannot mint objects under it from
- * another shelf's ingest. The backend sends an `organizationId` only for an
- * Archiv collection (derived from its `archiv_<orgId>` prefix), which narrows
- * the lookup to that tenant; for `proj_<uuid>` it has none, exactly as on the
- * read route. The key is built from the row's own storage key
- * (`buildImageStorageKey`), so the only free variable is a bounded integer:
- * `MAX_STORED_IMAGES_PER_DOCUMENT` is enforced here, as a 404 the backend
- * treats as "stop asking".
- */
-
 import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withOptionalTenant } from '@/lib/db/tenant-context'

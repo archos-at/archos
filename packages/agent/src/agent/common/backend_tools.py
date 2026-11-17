@@ -24,8 +24,6 @@ from __future__ import annotations
 from typing import Any
 from typing import Final
 
-#: The tools served beside the chat. Adding one is a statement that it only
-#: reads, and that everything it reads is scoped by the signed envelope.
 BACKEND_READ_TOOLS: Final[tuple[str, ...]] = (
     "knowledge_search",
     "read_passage",
@@ -36,8 +34,6 @@ BACKEND_READ_TOOLS: Final[tuple[str, ...]] = (
     "law_lookup",
 )
 
-#: MCP ``ToolAnnotations`` of every tool here. They all read, change nothing,
-#: repeat to the same answer, and stay inside the office's own data and RIS.
 READ_ONLY_ANNOTATIONS: Final[dict[str, bool]] = {
     "readOnlyHint": True,
     "destructiveHint": False,

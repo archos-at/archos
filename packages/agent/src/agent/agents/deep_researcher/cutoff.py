@@ -36,8 +36,6 @@ from .models import last_message_text
 
 logger = logging.getLogger(__name__)
 
-#: The failures a run is SALVAGED from rather than failed by. Anything else
-#: propagates untouched.
 _CUTOFF_ERRORS: tuple[type[BaseException], ...] = (
     TimeoutError,
     GraphRecursionError,
@@ -188,9 +186,6 @@ def salvage_cutoff(
     try:
         finalized = finalize(last_state)
     except Exception as salvage_error:
-        # Salvage failed its own guards (no report, nothing grounded). The
-        # cutoff is the real story, so raise THAT — with the salvage failure
-        # attached so the log shows why nothing was recoverable.
         _fail_cutoff(
             f"nothing salvageable ({type(salvage_error).__name__}: {salvage_error})",
             report_chars=0,
@@ -200,8 +195,6 @@ def salvage_cutoff(
         )
     report_chars = _salvaged_report_length(last_message_text(finalized) or "")
     if report_chars < MIN_SALVAGE_REPORT_CHARS:
-        # A stub under a truncation banner still reads as an answer, so it is
-        # treated as nothing to salvage and the cutoff is raised loudly.
         _fail_cutoff(
             f"salvaged only {report_chars} char(s), below the {MIN_SALVAGE_REPORT_CHARS}-char bar "
             "— failing the run instead of shipping a stub",

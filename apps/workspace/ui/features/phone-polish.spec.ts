@@ -1,10 +1,4 @@
 // @disk-inputs: app/app/(shell)/inbox/inbox-sheet.tsx, ui/features/bim/components/viewer/viewer-tool-button.tsx, ui/features/chat/components/AgentPrompt.tsx, ui/features/chat/components/effort-dial/EffortDial.tsx, ui/features/documents/components/file-workspace.tsx
-/**
- * Static ratchets for the phone details that fail without a sound: a list that
- * ends under the home indicator, a caption that ellipsizes, a layout animation
- * written by hand. Each reads the source because the pixels are a capture's job
- * (`docs/ux/visual-screenshots.md`) and the class of defect is a missing line.
- */
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'

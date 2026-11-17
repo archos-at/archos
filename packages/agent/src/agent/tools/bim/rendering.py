@@ -8,9 +8,6 @@ from typing import Any
 from agent.tools.bim.failures import NO_MODEL_TEXT
 from agent.tools.bim.failures import NOT_READY_TEXT
 
-#: Plural noun → its singular. A lookup rather than a rule because English
-#: plurals are not derivable either ("storeys", "properties"), and
-#: "1 more rooms" in an answer an architect reads is worse than a wrong number.
 _SINGULAR = {
     "storeys": "storey",
     "elements": "element",
@@ -62,10 +59,6 @@ def listed(
     return lines + [f"{indent}{note}"] if note else lines
 
 
-#: The reasons no argument fixes within this turn, each with the sentence that
-#: says so. ``ambiguous`` and ``no_match`` are deliberately absent: there a
-#: second call with a different ``model_name`` is the right move, and the
-#: listed alternatives are what it is made from.
 _NOTHING_TO_READ = {
     "no_models": NO_MODEL_TEXT,
     "extraction_failed": NO_MODEL_TEXT,

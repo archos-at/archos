@@ -1,44 +1,3 @@
-/**
- * The `inbox_push` job: tell one person's devices about one inbox item
- * (ADR-0112). Queued by `./enqueue.ts` at the inbox's write path, run by the
- * `bff-jobs` pool, so the request that wrote the item never waits on a push
- * service.
- *
- * ## It decides again, at the moment it sends
- *
- * The payload is three ids and a stamp; everything that decides whether and what
- * to send is read when the job runs, because a job can wait, and a notification
- * cannot be taken back once it is on a lock screen:
- *
- *   1. the person is still a member of the organization (today's role, from the
- *      identity provider). If the identity provider says not, their devices
- *      here are removed; if it could not be asked, the job throws and retries;
- *   2. the item is still theirs, unread and not resolved, archived or inert;
- *      for a type that folds across rows (5), its job still tells the rest of
- *      its burst when only its own row stopped being news;
- *   3. nothing newer superseded it: a burst of occurrences folds into one row,
- *      and only the job carrying the row's latest stamp sends, so twenty
- *      messages are one notification;
- *   4. the person's categories include its type;
- *   5. for a type that folds across rows (`fold` in its push policy), no newer
- *      row of the person's burst of that type arrived within the hold: the
- *      newest row's job tells the whole burst in one counted notification
- *      (`./fold.ts`), so the morning's due reminders are one notification;
- *   6. the person could see it in the inbox right now (`viewInboxItemAs`), the
- *      same re-authorization the list does, each row of a burst on its own.
- *      Not visible, nothing is sent: never a vaguer notification in its place;
- *   7. the payload says what the person's lock-screen choice allows.
- *
- * ## Failure
- *
- * A subscription the push service has forgotten (404, 410) is removed. A final
- * refusal counts against the device and removes it past
- * {@link MAX_CONSECUTIVE_FAILURES}. A transient failure throws so the queue tries
- * again with its backoff; sends are safe to repeat, because the tag and the Topic
- * replace an earlier message for the same group. On the last attempt the failure
- * is counted and the job ends quietly: the item is in the inbox either way.
- */
-
 import 'server-only'
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { resolvePinnedRequesterSessionStrict } from '@/lib/auth/pinned-session'
@@ -65,13 +24,11 @@ import {
 } from './repository'
 import { createWebPushSender, type PushSender, type PushSendOutcome } from './sender'
 
-/** Consecutive refused or failed sends after which a device is dropped. */
 export const MAX_CONSECUTIVE_FAILURES = 5
 
 export interface InboxPushPayload {
   itemId: string
   recipientUserId: string
-  /** The row's `updated_at` when the job was queued; a newer row has its own job. */
   stamp: string
 }
 
@@ -90,7 +47,6 @@ interface Tally {
   transient: number
 }
 
-/** Apply one device's outcome to its row. */
 async function settle(
   id: string,
   outcome: PushSendOutcome,
@@ -109,19 +65,11 @@ async function settle(
   }
   if (outcome.kind === 'transient') tally.transient += 1
   else tally.rejected += 1
-  // A transient failure that will be retried is not yet the device's fault.
   if (outcome.kind === 'transient' && !attempt.last) return
   const failures = await recordFailure(id)
   if (failures !== null && failures >= MAX_CONSECUTIVE_FAILURES) await deleteSubscriptionById(id)
 }
 
-/**
- * The rows of a burst the person wants and may see right now, as their own
- * session reads them (`viewInboxItemAs`): newest first, the job's own row
- * (`own`, already checked, or null when it is no longer news) first. Rule 6
- * holds per row: a row they may no longer see is not counted, never worded
- * more vaguely; a row of the burst no longer news is not told.
- */
 async function visibleViews(
   session: AuthorizedSession,
   own: InboxItem | null,
@@ -147,8 +95,6 @@ export async function runInboxPush(
   if (!config) return { sent: false, reason: 'off' }
   const { recipientUserId: userId } = payload
 
-  // Strict: a WorkOS lookup that fails throws (the queue retries) instead of
-  // reading as "left the organization", which would remove every device.
   const session = await resolvePinnedRequesterSessionStrict({ userId, email: null, organizationId })
   if (!session) {
     await deleteAllSubscriptionsOf(organizationId, userId)
@@ -159,8 +105,6 @@ export async function runInboxPush(
   if (!row) return { sent: false, reason: 'no-longer-news' }
   const policy = pushPolicyFor(row.type)
   const news = isPushStillDue(row)
-  // Rule 2, except that the newest row of a folding type's burst speaks for the
-  // rows before it, which left the telling to its job: read alone, it still tells them.
   if (!news && !policy?.fold) return { sent: false, reason: 'no-longer-news' }
   if (row.updatedAt.toISOString() !== payload.stamp) return { sent: false, reason: news ? 'superseded' : 'no-longer-news' }
 
@@ -168,11 +112,9 @@ export async function runInboxPush(
   const preferences = resolvePushPreferences(prefs?.pushNotifications)
   if (!isPushWanted(row.type, preferences, row.payload)) return { sent: false, reason: 'category-off' }
 
-  // The burst of the rows this person's categories push: one they get no notification for is not part of it.
   const burst = policy?.fold
     ? await readBurst(row, (candidate) => isPushWanted(candidate.type, preferences, candidate.payload))
     : []
-  // A newer row of the same burst arrived within the hold: its job tells them all.
   if (burst === 'later') return { sent: false, reason: 'folded' }
 
   const views = await visibleViews(session, news ? row : null, burst, preferences)
@@ -196,7 +138,6 @@ export async function runInboxPush(
       const outcome = await send.send(device, body, {
         ttlSeconds: PUSH_TTL_SECONDS[urgency],
         urgency,
-        // The notification's own tag: its group's, or the burst's for a folded one.
         topic: message.tag,
       })
       await settle(device.id, outcome, attempt, tally)
@@ -215,7 +156,6 @@ export async function runInboxPush(
       category: pushCategoryOf(row.type, row.payload),
       urgency,
       devices: devices.length,
-      // How many inbox rows this one notification told about: more than 1 for a folded burst.
       items: message.itemId ? 1 : views.length,
       ...tally,
     },

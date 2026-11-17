@@ -1,17 +1,3 @@
-/**
- * A dependency failure the BFF answered itself, to PostHog error tracking.
- *
- * `onRequestError` (`request-error.ts`) only sees errors Next.js catches. An
- * `UpstreamError` never gets that far: `errorResponse` turns it into a 502, so
- * an object store that refused every new organization's first upload
- * (2026-10-20) reached the user and nothing else. This is the capture for that
- * case, called from `errorResponse`.
- *
- * Filed under the acting member and office when known, with the same scrubber and super properties as every BFF event
- * (the shared client carries both), and rate limited per fingerprint like
- * `request-error.ts`, so an outage that every client retries costs a burst per
- * window rather than the free tier.
- */
 import 'server-only'
 
 import type { UpstreamError } from '@/lib/api/errors'
@@ -20,18 +6,11 @@ import { getTenantContext } from '@/lib/db/tenant-context'
 
 import { getPosthogServer, serverEventIdentity } from './posthog-server'
 
-/**
- * The same budget as `request-error.ts` (5 per fingerprint per 5 minutes),
- * counted here rather than with `@posthog/core`'s `BucketedRateLimiter`: only
- * `request-error.ts` may import a PostHog package beside the two clients
- * (`tests/test_posthog_boundaries.py`), and a fixed window is a few lines.
- */
 export const UPSTREAM_ERROR_BURST = 5
 const UPSTREAM_ERROR_WINDOW_MS = 5 * 60_000
 
 let windows = new Map<string, { startedAt: number; count: number }>()
 
-/** Whether this fingerprint has spent its burst in the current window. */
 const isRateLimited = (fingerprint: string, now: number): boolean => {
   const window = windows.get(fingerprint)
   if (!window || now - window.startedAt >= UPSTREAM_ERROR_WINDOW_MS) {
@@ -45,13 +24,11 @@ const isRateLimited = (fingerprint: string, now: number): boolean => {
   return window.count > UPSTREAM_ERROR_BURST
 }
 
-/** What an upstream error's details may say about itself; anything else is ignored. */
 export interface UpstreamContext {
   operation?: string
   code?: string
 }
 
-/** `operation` and `code` from the thrower's details, when it put strings there. */
 export const upstreamContext = (error: UpstreamError): UpstreamContext => {
   const details = (error.details ?? {}) as { operation?: unknown; code?: unknown }
   return {
@@ -60,15 +37,12 @@ export const upstreamContext = (error: UpstreamError): UpstreamContext => {
   }
 }
 
-/** Queue the exception; whether it was queued. Never throws. */
 export const captureUpstreamError = (error: UpstreamError, requestId: string): boolean => {
   const posthog = getPosthogServer()
   if (!posthog) return false
   const context = upstreamContext(error)
   if (isRateLimited(`${error.message}|${context.code ?? ''}`, Date.now())) return false
   try {
-    // The acting member and office when the request got far enough to have a
-    // tenant scope; otherwise a stable per-office or system id, never a fresh UUID.
     const scope = getTenantContext()
     const tenant = scope?.kind === 'tenant' ? scope : null
     const identity = serverEventIdentity(tenant?.userId, tenant?.organizationId)

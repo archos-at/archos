@@ -75,12 +75,6 @@ describe('the log bridge reads the same code set', () => {
 })
 
 describe('the code set is spelled once', () => {
-  // Three copies of this set existed (lib/db/errors.ts, the log bridge's
-  // regex, and the workers had none), and the regex had already lost EPIPE.
-  // A fourth copy fails here, by file name, rather than in a review.
-  // What a copy looks like: a quoted shutdown SQLSTATE, the regex form of it
-  // or of class 08, or a driver code no prose would mention. A log line that
-  // merely names a code, `database unavailable (57P03)`, is not a copy.
   const SPELLED = /CONNECTION_DESTROYED|['"`]57P0[0-9]['"`]|57P0\[|08\[0-9A-Z\]/
   const ROOTS = ['app', 'bff', 'ui', 'i18n', 'shared', 'types', 'utils', 'purger', 'workers', 'observability', 'server.js']
   const HOME = path.join('workers', 'database-unavailable.js')

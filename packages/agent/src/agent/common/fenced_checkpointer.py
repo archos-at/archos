@@ -55,7 +55,6 @@ class FencedCheckpointer(BaseCheckpointSaver):
     def get_next_version(self, current: Any, channel: Any) -> Any:
         return self._inner.get_next_version(current, channel)
 
-    # ---- reads: never fenced ------------------------------------------------
     def get(self, config: RunnableConfig) -> Checkpoint | None:
         return self._inner.get(config)
 
@@ -95,7 +94,6 @@ class FencedCheckpointer(BaseCheckpointSaver):
     async def aget_delta_channel_history(self, *, config: RunnableConfig, channels: Sequence[str]) -> Mapping[str, Any]:
         return await self._inner.aget_delta_channel_history(config=config, channels=channels)
 
-    # ---- writes: refused once the turn is fenced, bounded while it is not ---
     def put(
         self,
         config: RunnableConfig,

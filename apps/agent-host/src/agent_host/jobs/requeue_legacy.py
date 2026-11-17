@@ -57,20 +57,13 @@ from .worker import decode_payload
 logger = logging.getLogger(__name__)
 
 TABLE = "research_job_queue"
-#: The claim queue's lane for a job of no organization, and for a row written before lanes.
 _NO_ORGANIZATION_LANES = ("", research_workflow.PLATFORM_LANE)
-#: The claim queue's stored priority ranks.
 _PRIORITY_NAMES = {0: "interactive", 1: "bulk"}
 _TERMINAL = ("success", "failure", "interrupted")
-#: The old worker's drain budget; the deployment set it as ``agentWorkerDrainSeconds``.
 DRAIN_ENV = "RESEARCH_WORKER_DRAIN_SECONDS"
-#: Added to the drain budget: the pod's kill comes 30 s after it, and clocks differ.
 CLAIM_MARGIN_SECONDS = 60
-#: Rows one pass moves at most; the next pass, a minute later, takes the rest.
 BATCH = 500
-#: How often the worker runs a pass.
 CUTOVER_EVERY_SECONDS = 60
-#: How long the table must hold nothing to move before the worker stops asking.
 CUTOVER_QUIET_SECONDS = 3600
 
 
@@ -114,7 +107,6 @@ def _movable_query(postgres: bool, skip: int, every_claim: bool):
     lock = " FOR UPDATE OF q SKIP LOCKED" if postgres else ""
     left = " AND q.job_id NOT IN :skip" if skip else ""
     silent = "TRUE" if every_claim else f"COALESCE(q.heartbeat_at, q.claimed_at, q.created_at) < {threshold}"
-    # Only module constants are interpolated; every value is bound.
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     query = text(
         f"SELECT q.job_id, q.lane, q.payload, q.priority, i.status FROM {TABLE} q "
@@ -195,7 +187,6 @@ async def move_next(db_url: str, result: Requeued, *, min_claim_age: int, skip: 
         await asyncio.to_thread(conn.commit)
         return True
     finally:
-        # Closing a connection with its transaction open rolls it back.
         await asyncio.to_thread(conn.close)
 
 

@@ -157,38 +157,31 @@ class TestTheNextRoundReadsTheNote:
 
         result = await _run(_agent(model))
 
-        # The read ran, the write chosen before the note did not; the one after it did.
         assert RAN == ["look:1", "mark:Treppe"]
         held = [m for m in result.messages if isinstance(m, ToolMessage) and m.tool_call_id == "m1"]
         assert [m.content for m in held] == [HELD_FOR_STEER]
-        # Every call of round one got exactly one result.
         round_one = [m for m in result.messages if isinstance(m, ToolMessage) and m.tool_call_id in {"l1", "m1"}]
         assert sorted(m.tool_call_id for m in round_one) == ["l1", "m1"]
 
-        # Round two's request carries the note right after round one's results, and only round two onward.
         first, second, third = model.requests
         assert _notes_in(first) == []
         assert isinstance(second[0], SystemMessage)
         assert _notes_in(second) == [len(second) - 1]
         assert isinstance(second[-2], ToolMessage)
-        # The same bytes at the same index in round three: the prefix stays cacheable.
         assert third[: len(second)] == second
         assert _notes_in(third) == _notes_in(second)
         assert 'author="Anna Asker"' in second[-1].content and "round 2" in second[-1].content
 
-        # Never in the state: the turn boundary is the question, as before.
         assert not any(isinstance(m, HumanMessage) and _NOTE in str(m.content) for m in result.messages)
         assert [m.content for m in result.messages if isinstance(m, HumanMessage)] == [_QUESTION]
         assert len(this_turn(result.messages)) == len(result.messages) - 1
         assert [steer.steer_id for steer in result.steering] == ["s1"]
 
-        # The reader is told which round read it, and the hold left its record.
         applied = [body.value for body in emitted if isinstance(body, SteerAppliedBody)]
         assert [(value.steer_id, value.round) for value in applied] == [("s1", 2)]
         record = emitted.step("status:steered:0")
         assert record.detail == {"round": 0, "withheld": 1}
         assert record.channel == turn_status.CHANNEL_TECHNICAL
-        # The round cost what it costs without a note: two decisions that asked for tools.
         assert result.tool_iterations == 2
         assert inbox.applied and not inbox.has_pending()
 
@@ -271,9 +264,7 @@ class TestWithoutAnInbox:
 
         result = await _run(_agent(model))
 
-        # One round runs its calls concurrently: what ran is the claim, not the order.
         assert sorted(RAN) == ["look:1", "mark:Tür"]
-        # System prompt, turn context, the question: nothing human after them.
         assert all(not isinstance(m, HumanMessage) for m in model.requests[1][3:])
         assert result.steering == []
 

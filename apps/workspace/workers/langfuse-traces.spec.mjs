@@ -169,7 +169,6 @@ describe('eraseSessionTraces', () => {
     expect(error).toBeInstanceOf(LangfuseError)
     expect(error.transient).toBe(true)
     expect(error.status).toBe(status)
-    // The message names the path and status, never the conversation id.
     expect(error.message).toBe(`Langfuse GET /api/public/v2/observations answered ${status}`)
   })
 
@@ -255,7 +254,6 @@ describe('deleteTracesBefore (the retention sweep)', () => {
     expect(result).toEqual({ traces: 3000, batches: 3, capped: true })
     expect(deletes).toHaveLength(3)
     expect(deletes.every((d) => d.body.traceIds.length === 1000)).toBe(true)
-    // It stopped listing too: no page was read for the batches it may not send.
     expect(lists).toHaveLength(3)
   })
 

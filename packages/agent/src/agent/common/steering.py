@@ -52,17 +52,8 @@ from pydantic import ConfigDict
 from agent.common.tool_calls import tool_basename
 from agent.common.wire_v2 import FocusRegion
 
-#: Notes one turn takes. The gateway's frame limiter counts only questions
-#: (``ws-frames.js``), so this is the bound on what steering can cost: each
-#: note is about a hundred tokens and maybe one more round.
 MAX_STEERS_PER_TURN = 5
 
-#: The basenames of the tools that WRITE something other people see or that
-#: changes state: the canvas writes (``tools/canvas``: marks, replies, the
-#: pointer and the highlight, and the update and delete still to come), the
-#: draft filed into the project and a proposed file operation. A round the
-#: model chose before a note arrived does not run these; it runs its reads.
-#: A basename, so ``canvas__mark`` and a bare ``mark`` both match.
 WRITE_TOOL_BASENAMES: frozenset[str] = frozenset(
     {
         "mark",
@@ -76,9 +67,6 @@ WRITE_TOOL_BASENAMES: frozenset[str] = frozenset(
     }
 )
 
-#: What a held-back write is answered with. Like the other withholding
-#: notices, an INSTRUCTION: the call did not fail, the person said
-#: something since, and the useful move is to read it and choose again.
 HELD_FOR_STEER = (
     "Not executed: The person has added something since you chose this call. "
     "Read the addition and decide again; make the call again only if it still fits afterwards."
@@ -97,10 +85,8 @@ class SteerNote:
 
     steer_id: str
     text: str
-    #: Who wrote it, by the verified display name; None when the socket has none.
     author: str | None = None
     focus_region: FocusRegion | None = None
-    #: ``time.monotonic()`` when the inbox took it, for the span's wait time.
     received_at: float = field(default_factory=time.monotonic)
 
 
@@ -118,7 +104,6 @@ class SteerInbox:
         self.limit = limit
         self._pending: list[SteerNote] = []
         self._seen: set[str] = set()
-        #: How many notes the graph took, in the order it took them.
         self.applied: list[SteerNote] = []
 
     def offer(self, note: SteerNote) -> Offered:

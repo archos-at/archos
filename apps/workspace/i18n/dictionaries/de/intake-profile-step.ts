@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** intakeProfileStep: Schritt 5, Steckbrief: Gebäudeklasse, was gilt, was Piloti gefunden hat, Abschluss. */
 export const intakeProfileStep: typeof en.intakeProfileStep = {
   heading: 'Steckbrief',
   confidence: {

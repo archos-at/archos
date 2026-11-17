@@ -247,7 +247,6 @@ function isProjectRecipient(recipient, env) {
   const domain = asciiLower(env.ADDRESS_DOMAIN ?? "");
   const localPart = asciiLower(env.ADDRESS_LOCAL_PART ?? "");
   if (domain === "" || localPart === "") {
-    // A fault of ours, never the sender's: a retry, not a bounce.
     throw new Error("inbound-mail: ADDRESS_DOMAIN or ADDRESS_LOCAL_PART is not bound; asking the sender to retry");
   }
   const trimmed = recipient.trim().replace(/^<|>$/g, "");
@@ -395,7 +394,6 @@ export default {
     }
     if (env.PAUSED === "true") {
       report("paused", null);
-      // Before a byte is read: the sending server keeps the message.
       throw new Error("inbound-mail: deliveries are paused; asking the sender to retry");
     }
 
@@ -409,10 +407,6 @@ export default {
       env,
     });
 
-    // A network error or the timeout rejects here and propagates: Cloudflare
-    // answers the sending server with a temporary failure and it retries.
-    // The body is a Uint8Array, so the runtime sends the Content-Length the
-    // signature covers.
     /** @type {Response} */
     let response;
     try {
@@ -424,7 +418,6 @@ export default {
         signal: AbortSignal.timeout(BFF_TIMEOUT_MS),
       });
     } catch (error) {
-      // No answer at all (network, timeout): still one line, then the same throw.
       report("retry", null);
       throw error;
     }
@@ -441,8 +434,6 @@ export default {
     }
 
     report("retry", response);
-    // Not an explicit verdict: a misconfiguration, an outage or back-pressure
-    // on our side. Throw, so the sender retries and nothing is lost.
     throw new Error(
       `inbound-mail: the BFF answered ${response.status} without a reject verdict; ` +
         "asking the sender to retry",

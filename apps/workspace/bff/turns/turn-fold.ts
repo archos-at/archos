@@ -1,31 +1,3 @@
-/**
- * The one interpretation of the chat wire (`docs/design/chat-wire-v2.md` §e.1).
- *
- * `foldTurnEvent(view, event)` turns one v2 event into the next {@link TurnView}.
- * The asker's live socket, the replay after `attach` and the spectator stream
- * all fold through it, so there is no second reader to drift. It is pure: no
- * store, no React, no clock. Every rule is the event table in §a:
- *
- * - `seq` orders a turn. A duplicate returns the same object, so nothing
- *   re-renders. A jump past `lastSeq + 1` is NOT applied: `gap` is set and the
- *   driver sends `attach{after_seq: lastSeq}`, whose replay fills it. The first
- *   event a view sees is taken at any `seq` (a spectator joins mid-turn).
- *   `seq: 0` (`rejected`) is out of band and never folded.
- * - Steps are keyed by id, newest wins, and stored in the persisted shape
- *   (§e.4). A `sources` step's lanes are stored as they came, renamed to the
- *   stored field names; nothing is parsed out of text.
- * - Cards sit at their index; an equal `key` keeps the object, so the node is
- *   kept. `STATE_SNAPSHOT` replaces text, sources and masthead;
- *   `answer_retracted` clears them and the cards; `RUN_FINISHED`'s result is
- *   authoritative for all four, except after a Stop pressed on this page,
- *   which keeps what was on screen (`stoppedHere`).
- * - A steering note (`steer_received`, then `steer_applied`) is kept under its
- *   id in `steers` and drawn as a status row of the turn (`steer:<id>`), so
- *   the transcript says „Ergänzt …“ and then which round read it. A note with
- *   no `round` when the terminal lands was never read: the driver asks it as
- *   the next question.
- */
-
 import type { ShownAnswer, TurnResult, WireEvent } from '@/adapters/api/wire-v2'
 import type {
   StoredActionCounts,
@@ -46,10 +18,8 @@ export type StageValue = Named<'stage'>['value']
 export type StageId = StageValue['stage']
 export type TurnOutcome = Extract<WireEvent, { type: 'RUN_FINISHED' }>['outcome']
 
-/** A note the asker typed into the running turn: its (masked) text, and the round that read it. */
 export interface SteerView {
   text: string
-  /** The decision that read it, from 1; absent while it waits in the turn's inbox. */
   round?: number
 }
 
@@ -61,18 +31,11 @@ export interface TurnView {
   gap: boolean
   phase: 'running' | 'finished' | 'failed'
   outcome?: TurnOutcome
-  /** Between TEXT_MESSAGE_START and its END, a retraction or the terminal. */
   streaming: boolean
   text: string
-  /**
-   * The last snapshot's text, while `text` is still that snapshot or grows
-   * from it: its `[N]` resolve to `sources`. What a Stop keeps of a streamed
-   * text differs from a settled one (`stopped-answer.ts`).
-   */
   settled?: string
   sources: WireSource[]
   answerMeta?: Record<string, unknown>
-  /** By index: `null` refused, `undefined` not arrived. */
   cards: (KeyedCard | null | undefined)[]
   steps: Record<string, StoredThinkingStep>
   stepOrder: string[]
@@ -82,33 +45,10 @@ export interface TurnView {
   beatEveryMs?: number
   result?: TurnResult
   error?: { code: string; message: string }
-  /**
-   * The Aufwand the asker sent this turn with. The one field not folded from
-   * the wire: it is what this browser said in `user_message`, set when it
-   * opens the turn (`beginTurn`), so only the asker's view carries it. The
-   * projection prefers `result.reasoning_effort`, the level the turn resolved
-   * to server-side, once the terminal reports one.
-   */
   effort?: ChatEffort
-  /**
-   * The text on screen when the reader pressed Stop on this page
-   * (`stopTurnView`). Kept whole, before the cut, because a terminal that
-   * crossed the Stop is cut again against it.
-   */
   shownAtStop?: string
-  /**
-   * The Stop crossed the server's finished answer: the server stored all of
-   * it, and the store asks the BFF to cut that row to what was on screen
-   * (`cutStoppedAnswer`).
-   */
   stoppedLate?: boolean
-  /** The asker's steering notes, by `steer_id`, as the server acknowledged them. */
   steers?: Record<string, SteerView>
-  /**
-   * Piloti's viewer actions (ADR-0144), in arrival order, one per `tool_call_id`.
-   * Folded for every reader; only the asker's driver hands them on to be run
-   * (`viewer-actions.ts`), and nothing of them is stored with the answer.
-   */
   viewerActions?: ViewerActionValue[]
 }
 
@@ -129,7 +69,6 @@ export const initialTurnView = (turnId: string, conversationId: string): TurnVie
   stages: {},
 })
 
-/** `{ [name]: value }` when the value says something, else nothing: a stored row omits what is empty. */
 const some = <K extends string, V>(name: K, value: V | null | undefined): Partial<Record<K, V>> => {
   const empty =
     value === null ||
@@ -156,13 +95,11 @@ const lanesOf = (step: StepOf<'sources'>): TraceLaneCard[] =>
     })),
   }))
 
-/** The fields one step kind contributes to its stored row. */
 const storedFields = (step: StepOf<string>, previous?: StoredThinkingStep): Partial<StoredThinkingStep> => {
   switch (step.kind) {
     case 'status':
       return {
         slot: step.slot,
-        // Only a live key speaks; a technical record carries none by contract, and is refused here too.
         ...(step.channel === 'live' && step.key ? { turnEvent: { key: step.key, ...some('values', step.values) } } : {}),
         ...some('detail', step.detail),
       }
@@ -170,7 +107,6 @@ const storedFields = (step: StepOf<string>, previous?: StoredThinkingStep): Part
       return {
         round: step.round,
         turnEvent: { key: step.key, ...some('values', step.values), ...some('reason', step.reason), ...some('tools', step.tools) },
-        // The decision's round 0: the Herleitung draws no row for it (ADR-0132).
         ...(step.prefetch ? { detail: { prefetch: true } } : {}),
       }
     case 'sources':
@@ -178,20 +114,15 @@ const storedFields = (step: StepOf<string>, previous?: StoredThinkingStep): Part
     case 'tool':
       return {
         tool: step.tool,
-        // A file tool's mount (ADR-0133) rides in `detail`, like a status: an estate `read_file` is a read, a
-        // `read_file` under /drafts/ is drafting, and the tool name alone cannot tell them apart.
         ...(step.status === 'error' || step.mount
           ? { detail: { ...(step.status === 'error' ? { status: 'error' } : {}), ...some('mount', step.mount) } }
           : {}),
       }
     case 'skill': {
-      // The one live skill sentence: an activation with an authored title, not hidden (`skills/events.py`).
       const live = step.phase === 'activated' && step.channel === 'live' && !step.hidden && step.title
       return {
         ...some('skill', step.skill),
         ...(live ? { turnEvent: { key: 'skill.activated', values: { skill: live } } } : {}),
-        // A later phase of the same skill replaces the row; its authored title
-        // must survive that, so it is carried from the row it replaces.
         detail: {
           phase: step.phase,
           hidden: step.hidden,
@@ -203,7 +134,6 @@ const storedFields = (step: StepOf<string>, previous?: StoredThinkingStep): Part
     case 'clarification':
       return { detail: { max_turns: step.max_turns } }
     case 'look': {
-      // The look's address (ADR-0128), flat in `detail` until the row has a renderer of its own.
       const [x, y, w, h] = step.region ?? []
       return {
         ...some('round', step.round),
@@ -249,7 +179,6 @@ const storedFields = (step: StepOf<string>, previous?: StoredThinkingStep): Part
   }
 }
 
-/** The counts a call reported, without the ones it does not count. */
 const actionCountsOf = (counts: StepOf<'action'>['counts']): StoredActionCounts => ({
   ...some('hits', counts?.hits),
   ...some('documents', counts?.documents),
@@ -258,11 +187,6 @@ const actionCountsOf = (counts: StepOf<'action'>['counts']): StoredActionCounts 
   ...some('folders', counts?.folders),
 })
 
-/**
- * When the step began: the first event's time, kept by the row that replaces
- * it. An action that arrives only as its end (a replay that missed the start)
- * began `elapsed_ms` before it.
- */
 const startedAt = (event: Extract<WireEvent, { type: 'STEP_STARTED' | 'STEP_FINISHED' }>, previous?: StoredThinkingStep): string => {
   if (previous) return previous.timestamp
   const { step } = event
@@ -290,19 +214,10 @@ const foldStep = (view: TurnView, event: Extract<WireEvent, { type: 'STEP_STARTE
   }
 }
 
-/** The step id a subagent invocation's own row is kept under. */
 export const subagentStepId = (runId: string): string => `subagent:${runId}`
 
-/** How a subagent invocation stands, as its row's `detail.status` says it. */
 export type SubagentStatus = 'running' | 'ok' | 'error'
 
-/**
- * A subagent invocation (AG-UI 1.0 `SUBAGENT_*`) as one technical status row,
- * `subagent:<run id>`, so it is stored and bounded like every other step and
- * needs no second column. The row's `subagentRunId` is its PARENT, the same
- * field a step uses for the invocation that took it, so nesting and membership
- * read one way. An invocation ends once; an error is never overwritten.
- */
 const foldSubagent = (
   view: TurnView,
   event: Extract<WireEvent, { type: 'SUBAGENT_STARTED' | 'SUBAGENT_FINISHED' | 'SUBAGENT_ERROR' }>
@@ -338,7 +253,6 @@ const foldSubagent = (
   }
 }
 
-/** The card at `index`, keeping the object already there when its key is equal. */
 const placeCard = (cards: TurnView['cards'], index: number, card: KeyedCard | null): TurnView['cards'] => {
   const current = cards[index]
   if (card && current && current.key === card.key) return cards
@@ -347,30 +261,18 @@ const placeCard = (cards: TurnView['cards'], index: number, card: KeyedCard | nu
   return next
 }
 
-/** The terminal's cards, each reusing the live object with the same key. */
 const settleCards = (cards: TurnView['cards'], final: readonly KeyedCard[]): KeyedCard[] => {
   const byKey = new Map(cards.filter((card): card is KeyedCard => Boolean(card)).map((card) => [card.key, card]))
   return final.map((card) => byKey.get(card.key) ?? card)
 }
 
-/** Every open row closed: the turn is over, nothing is still running. */
 export const closeSteps = (steps: TurnView['steps']): TurnView['steps'] =>
   Object.values(steps).every((step) => step.isComplete)
     ? steps
     : Object.fromEntries(Object.entries(steps).map(([id, step]) => [id, step.isComplete ? step : { ...step, isComplete: true }]))
 
-/**
- * The reader pressed Stop on this page (`stopStreaming` marks the view
- * cancelled before the server has said anything) and the terminal has not
- * landed yet. What was on screen at the press is the answer: the deltas still
- * in flight and the cancelled terminal's text, sources, masthead and cards
- * (everything the model had written) are not taken. Only the asker's own
- * view is ever in this state; a replay or a spectator folds the terminal as
- * the server sent it.
- */
 const stoppedHere = (view: TurnView): boolean => view.outcome === 'cancelled' && !view.result
 
-/** What an event adds to the answer itself, as opposed to the turn around it. */
 const CONTENT_EVENTS: ReadonlySet<string> = new Set([
   'TEXT_MESSAGE_START',
   'TEXT_MESSAGE_CONTENT',
@@ -380,24 +282,12 @@ const CONTENT_EVENTS: ReadonlySet<string> = new Set([
   'card',
   'card_refused',
   'answer_retracted',
-  // A turn the reader stopped does not move their viewer afterwards.
   'viewer_action',
 ])
 
-/** `next` when it holds the same cards as `cards`, so a cut that kept them all keeps the array. */
 const sameCards = <T>(cards: T[], next: T[]): T[] =>
   cards.length === next.length && cards.every((card, index) => card === next[index]) ? cards : next
 
-/**
- * The view a Stop pressed on this page leaves, and the position the cancel
- * names. `shown` is the text the reveal had on screen; a reveal that is not a
- * prefix of the view's text (a snapshot replaced the stretch it was showing)
- * counts as the whole text, as the server reads the same position.
- *
- * The answer is cut by the rule the server applies (`stopped-answer.ts`): the
- * row this browser writes and the one the server writes are the same bytes,
- * whichever lands first.
- */
 export const stopTurnView = (view: TurnView, shown: string | undefined): { view: TurnView; shown: ShownAnswer } => {
   const onScreen = shown !== undefined && view.text.startsWith(shown) ? shown : view.text
   const chars = Array.from(onScreen).length
@@ -416,13 +306,6 @@ export const stopTurnView = (view: TurnView, shown: string | undefined): { view:
   return { view: stopped, shown: { seq: view.lastSeq, chars } }
 }
 
-/**
- * A terminal other than the cancelled one reached a view stopped here: the
- * server had finished before the Stop reached it (it answers the cancel with
- * `turn_not_found`) and stored the whole answer. The answer becomes that
- * result cut where the text on screen and the result part, by the same rule
- * the BFF applies to the stored row, so the two agree byte for byte.
- */
 const stoppedLate = (view: TurnView, result: TurnResult): TurnView => {
   const chars = sharedPrefixChars(view.shownAtStop ?? view.text, result.text)
   const kept = stoppedAnswer(
@@ -442,14 +325,9 @@ const stoppedLate = (view: TurnView, result: TurnResult): TurnView => {
 const afterLocalStop = (view: TurnView, event: WireEvent): TurnView | undefined => {
   if (event.type === 'RUN_FINISHED') {
     const closed = { ...view, result: event.result, steps: closeSteps(view.steps) }
-    // A turn that answered somewhere else (a commissioned run, a queue
-    // refusal) has no answer here to cut.
     const elsewhere = Boolean(event.result.run || event.result.job_admission_rejected)
     return event.outcome === 'cancelled' || elsewhere ? closed : stoppedLate(closed, event.result)
   }
-  // The run failing after the reader stopped it (the cancel tearing down a
-  // tool call, a stream cut on the way out) is not news to them: the answer
-  // they stopped stays stopped, not dimmed under an error card.
   if (event.type === 'RUN_ERROR') return { ...view, steps: closeSteps(view.steps) }
   return CONTENT_EVENTS.has(event.type === 'CUSTOM' ? event.name : event.type) ? view : undefined
 }
@@ -506,8 +384,6 @@ const apply = (view: TurnView, event: WireEvent): TurnView => {
       }
     case 'CUSTOM':
       return applyCustom(view, event)
-    // A type, step kind or CUSTOM name from a server newer than this bundle:
-    // passed over, so its seq still counts and the turn stays continuous.
     case 'UNKNOWN':
       return view
   }
@@ -549,14 +425,8 @@ const applyCustom = (view: TurnView, event: Extract<WireEvent, { type: 'CUSTOM' 
   }
 }
 
-/** The step id a note's row is kept under: newest wins, so the „angewendet“ row replaces „ergänzt“. */
 export const steerStepId = (steerId: string): string => `steer:${steerId}`
 
-/**
- * One note, kept in `steers` and drawn as a live status row. The note's own
- * words are the asker's, echoed back like the query of a retrieval line, so
- * they travel as a value; the sentence around them is the dictionary's.
- */
 const foldSteer = (view: TurnView, steerId: string, steer: SteerView, ts: number): TurnView => {
   const id = steerStepId(steerId)
   const previous = view.steps[id]
@@ -581,10 +451,8 @@ const foldSteer = (view: TurnView, steerId: string, steer: SteerView, ts: number
   }
 }
 
-/** Whether the turn read this note (`steer_applied` folded). A note it never acknowledged was not read either. */
 export const isSteerRead = (view: TurnView, steerId: string): boolean => view.steers?.[steerId]?.round !== undefined
 
-/** One event folded into the turn's view. `view` undefined starts the turn from this event. */
 export const foldTurnEvent = (view: TurnView | undefined, event: WireEvent): TurnView => {
   const current = view ?? initialTurnView(event.turn_id, event.conversation_id)
   if (event.seq === 0 || event.seq <= current.lastSeq) return current

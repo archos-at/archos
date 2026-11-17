@@ -35,16 +35,13 @@ from .models import CalendarEvent
 
 logger = logging.getLogger(__name__)
 
-#: The office's clock.
 VIENNA = ZoneInfo("Europe/Vienna")
 
 
 @dataclass(frozen=True)
 class CalendarRead:
     events: tuple[CalendarEvent, ...]
-    #: More events than :data:`~.limits.MAX_CALENDAR_EVENTS`; the rest were dropped.
     truncated: bool
-    #: The part did not parse as a calendar at all.
     malformed: bool
 
 

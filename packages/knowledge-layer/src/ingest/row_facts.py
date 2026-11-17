@@ -28,16 +28,10 @@ def store_read_facts(
 
     Returns the title block's facts it read, which the revision step matches Fassungen by.
     """
-    # The page count the listing and the tree show: the highest page
-    # any chunk reaches. A text file has none, which clears an old count.
     from agent.knowledge import set_document_page_count
     from agent.knowledge.page_count import largest_page
 
     set_document_page_count(collection_name, file_name, largest_page(doc.metadata for doc in documents))
-    # The title block (Plankopf) the vision model read on the first drawing
-    # page that has one: Plannummer, Index, Datum. Read from the same
-    # analysis as the chunks, so it costs no further call. A re-upload
-    # without one clears the old sheet's facts.
     revision_facts = revisions.revision_facts_from_documents(documents)
     if revision_facts or replaced:
         from agent.knowledge import set_document_revision_facts
@@ -47,8 +41,5 @@ def store_read_facts(
         from agent.knowledge import set_document_capture
 
         set_document_capture(collection_name, file_name, photo.as_metadata())
-    # A filed mail (ADR-0137): the Verlauf's newest message and count, or the
-    # message an attachment came with. Each Fassung states its own, so a
-    # re-upload of the name as an ordinary file clears what the mail said.
     filed_mail.store_mail_facts(collection_name, file_name, config, replaced=replaced)
     return revision_facts

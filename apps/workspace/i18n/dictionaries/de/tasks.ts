@@ -1,15 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Tasks — die delegierte Arbeit eines Projekts (ADR-0051).
- *
- * Eine Aufgabe ist Arbeit, die jemand an Piloti übergeben und dann losgelassen
- * hat: eine Übergabe im Chat, ein „Piloti überarbeiten lassen“ aus einer
- * Freigabe, oder ein Zeitplan nach Timer. Die Wörter hier handeln von ARBEIT,
- * nicht von einem Lauf — deshalb heißen die Zeilen jetzt in beiden Sprachen
- * „Tasks“. „Läufe“ stand für genau dieselben Zeilen, und wer um etwas gebeten
- * hat, denkt über das Ergebnis nicht als Lauf von irgendetwas nach.
- */
 export const tasks: typeof en.tasks = {
   cadence: {
     once: 'Einmalig',
@@ -17,16 +7,13 @@ export const tasks: typeof en.tasks = {
   create: {
     delegate: 'Delegieren',
     delegateHint: 'Übergeben wird im Chat: Bitten Sie {productName}, etwas zu übernehmen.',
-    /** Die eine Erstell-Geste: eine Aufgabe, deren Assistent das WANN als einen seiner Schritte fragt. */
     task: 'Neue Aufgabe',
   },
-  /** Liste und Zeitplan lesen dieselben Tasks — die Umschaltung ist eine Vorliebe, nie ein Ziel. */
   view: {
     label: 'Ansicht',
     list: 'Liste',
     timetable: 'Zeitplan',
   },
-  /** Die stehenden Vereinbarungen hinter den Läufen — mit oder ohne Rhythmus. */
   standing: {
     heading: 'Stehende Aufgaben',
     emptyTitle: 'Noch keine stehenden Aufgaben',
@@ -37,7 +24,6 @@ export const tasks: typeof en.tasks = {
     label: 'Aufgaben filtern',
     all: 'Alle',
     active: 'Läuft',
-    /** Fertig, und niemand hat gesagt, ob es taugt. Eine offene Schleife. */
     unreviewed: 'Ungeprüft',
     failed: 'Fehlgeschlagen',
     showAll: 'Alle Aufgaben zeigen',
@@ -51,16 +37,10 @@ export const tasks: typeof en.tasks = {
   card: {
     openAria: '„{title}“ öffnen',
     unreviewed: 'Noch nicht geprüft',
-    /** Das sichtbare Wort für den Punkt rechts oben: auf dem Telefon gibt es kein Hover. */
     toReview: 'Zu prüfen',
   },
   result: {
     document: 'Dokument öffnen',
-    /**
-     * Die eigene Nachricht des Laufs im Verlauf — Bericht, Herleitung und
-     * Fehlschlag in einem (ADR-0062). „Bericht öffnen" und „Gedankengang
-     * ansehen" sind mit dem Panel verschwunden, das beides getrennt zeigte.
-     */
     conversation: 'Im Chat fortsetzen',
   },
   detail: {
@@ -70,28 +50,16 @@ export const tasks: typeof en.tasks = {
     request: 'Aufgabe',
     schedule: 'Zeitplan',
     prompt: 'Prompt',
-    /** Die Läufe einer stehenden Aufgabe: jeder davon ein Lauf (CONTEXT.md, „Lauf“). */
     runs: 'Läufe',
-    /** Macht aus einem Einmaligen eine stehende Aufgabe, vorausgefüllt. */
     promote: 'Als stehende Aufgabe speichern',
     promoteHint: 'Öffnet den Aufgaben-Assistenten mit dieser Aufgabe. Gespeichert wird erst im letzten Schritt, dieser Lauf bleibt unverändert.',
     gone: 'Das gibt es nicht mehr — möglicherweise wurde es gelöscht.',
-    /**
-     * Ein Deep Link, der in diesem Projekt auf keine Zeile passt. Der Link zeigt
-     * möglicherweise auf ein anderes Projekt, oder der Eintrag wurde gelöscht,
-     * bevor diese Liste lud. „Nicht hier" statt „weg": Die Detailansicht hat ihn
-     * nie gesehen, also kann sie nicht behaupten, er sei gegangen.
-     */
     goneUnresolved:
       'Das wurde hier nicht gefunden. Der Link zeigt möglicherweise auf ein anderes Projekt, oder der Eintrag wurde gelöscht.',
     goneTitle: 'Nicht gefunden',
-    /** Die Überschrift, solange ein Deep Link noch geprüft wird — kein Befund. */
     loadingTitle: 'Wird geladen',
-    /** Solange der Ablauf des Laufs für den Block geladen wird. */
     runLoading: 'Der Ablauf wird geladen …',
-    /** Die Abfrage wurde abgelehnt. Stattdessen stehen die Angaben der Zeile da. */
     runUnavailable: 'Der vollständige Ablauf dieses Laufs konnte nicht geladen werden.',
-    /** In den Verlauf, neben dem Ergebnis — Lesen ist nicht Verfolgen. */
     openThread: 'Im Verlauf öffnen',
   },
   list: {
@@ -120,12 +88,8 @@ export const tasks: typeof en.tasks = {
     running: 'Läuft',
     succeeded: 'Fertig',
     failed: 'Fehlgeschlagen',
-    // Angehalten — von einem Menschen oder von einem Budget. Kein Fehler, dem
-    // jemand nachgehen müsste.
     interrupted: 'Angehalten',
-    // Ein Start, der den Agenten nie erreicht hat (Obergrenze, Feature aus).
     skipped: 'Übersprungen',
-    // Ein Start, dessen Übermittlung gebrochen ist.
     error: 'Übermittlung fehlgeschlagen',
   },
   review: {

@@ -1,18 +1,6 @@
-/**
- * A country's public sources on the platform door (ADR-0174, design §4.5):
- * the operations an operator's agent uses beside `records-propose` to bring a
- * source in and keep it current. A source is proposed as a `source` record in
- * a change request; these test it, read its state, and set its key.
- *
- * The status takes `platform:settings:view`; a test (it may fetch live) and the key
- * `platform:knowledge:write`; the key is the person's own yes. A monitor's
- * work is found with `platform-knowledge-change-request-list {origin: monitor}`.
- */
-
 import { sourceCredentialBodySchema, sourceParamsSchema, sourceStatusQuerySchema, sourceTestBodySchema } from '@/lib/base-knowledge/platform/source-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
 
-/** Where the person sets a source's key in the app: the platform's countries view. */
 const IN_COUNTRIES_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/countries' }
 
 export const platformSourceOperations = [

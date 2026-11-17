@@ -127,10 +127,6 @@ def emit(body: EventBody) -> None:
     writer(body)
 
 
-#: Which agent is taking the steps emitted in this context. The deep researcher
-#: binds ``deep`` around its run (:func:`step_scope`), so every step its nodes,
-#: tools and callbacks emit is drawn as deep research's, with no producer
-#: having to know which agent called it.
 _step_scope: ContextVar[Scope] = ContextVar("step_scope", default="chat")
 
 
@@ -150,21 +146,13 @@ class SubagentFrame:
 
     run_id: str
     parent_run_id: str | None
-    #: The tool call that spawned it, when the subagent is a tool (deepagents' ``task``).
     tool_call_id: str | None = None
-    #: Its SUBAGENT_ERROR is sent: the invocation is closed, and no FINISHED follows.
     failed: bool = False
 
 
-#: The innermost subagent invocation running in this context, or None for the
-#: turn's own agent. Bound by :func:`subagent_run` and inherited the way every
-#: ContextVar is: by the tasks LangGraph and ``asyncio.gather`` start inside it,
-#: so a subagent's nodes, tools and callbacks see it without being told.
 _subagent: ContextVar[SubagentFrame | None] = ContextVar("turn_subagent", default=None)
 
 
-#: What a person reads when a subagent fails. The exception stays in the logs
-#: and the trace: its text may carry a tool's output, which never rides the wire.
 SUBAGENT_FAILED_MESSAGE = "The subagent failed; the turn goes on without its result."
 
 
@@ -238,7 +226,6 @@ def fail_subagent(frame: SubagentFrame, code: str) -> None:
     emit(SubagentErrorBody(subagent_run_id=frame.run_id, message=SUBAGENT_FAILED_MESSAGE, code=code[:64] or None))
 
 
-#: ``emit_step``'s default: attribute the row to the subagent running here.
 _INHERIT: Any = object()
 
 
@@ -261,21 +248,6 @@ def emit_step(step: Step, *, started: bool = False, subagent_run_id: str | None 
     )
 
 
-#: Which retrieval round the agent is in RIGHT NOW — the slot ``emit_retrieval``
-#: just announced. Knowledge-layer Trace-Lanes read this so a hit is stamped
-#: with the fetch that produced it, even after the UI merges two
-#: ``knowledge_search`` completions onto one thinking step.
-#:
-#: **It has to be set where the tool RUNS.** ``emit_retrieval`` sets it too, but
-#: that call happens in Piloti's *agent* node, and LangGraph runs every
-#: node in its own task built with ``copy_context()``: the tools node inherits
-#: the context the RUN started with, never the one the previous node mutated.
-#: For a release every hit was therefore unstamped and the Herleitung fell back
-#: to stream order, which puts both fetches on the first checkpoint. The
-#: authoritative set is ``ChatAgent._tools_node`` via
-#: :func:`retrieval_round_scope`, immediately around the ToolNode invocation —
-#: parallel tool calls copy the context when their sibling tasks are created,
-#: so setting it once in the parent covers the whole batch.
 _retrieval_round: ContextVar[int | None] = ContextVar("retrieval_round", default=None)
 
 
@@ -308,23 +280,6 @@ def retrieval_round_scope(round_index: int | None) -> Iterator[None]:
         _retrieval_round.reset(token)
 
 
-#: Which tool's results are being turned into lane hits RIGHT NOW.
-#:
-#: The round stamp says WHEN a hit was fetched; this says by WHAT. The
-#: retrieval ledger needs both: "did an earlier round OPEN this document, or
-#: merely rank it" decides whether reading it again is a re-fetch, and a round
-#: that searched and opened in one batch returns hits from both calls with
-#: nothing on the hit to tell them apart.
-#:
-#: Set by the producing TOOL around the call that renders its fan-out, for the
-#: same reason the round is set in the tools node: the value has to be live in
-#: the context the emitter runs in. ``asyncio.to_thread`` copies the context
-#: when the call is made, so a tool that formats off the loop enters the scope
-#: BEFORE that await, never inside the thread.
-#:
-#: Unset is a real state, not a defect: a tool that never enters the scope
-#: (RIS, web, the surfacing tools) records unstamped hits, and the ledger has
-#: a coarser fallback for a round whose hits carry no stamp.
 _lane_tool: ContextVar[str | None] = ContextVar("lane_tool", default=None)
 
 
@@ -348,21 +303,6 @@ def lane_tool_scope(tool: str | None) -> Iterator[None]:
         _lane_tool.reset(token)
 
 
-#: Lane hits this turn's tools returned, as the emitters stated them: one
-#: entry per hit with the round stamp, the producing tool, name, title, detail
-#: and shelf the Trace-Lanes block carries. The round is read HERE, off the same
-#: ContextVar the stamp reads, so a captured hit and its stamped twin can never
-#: disagree.
-#:
-#: ``tool`` is IN-PROCESS only. It travels from this capture to
-#: :func:`~agent.common.retrieval_ledger.build_retrieval_ledger` and stops
-#: there: the ledger's wire docs carry name/title/detail/shelf and nothing
-#: else, because which tool fetched a passage is how the repeat verdict is
-#: DERIVED, not something a reader is shown.
-#:
-#: Why a SECOND capture beside the turn_sources log: that log dedups
-#: documents across rounds (right for citation-health denominators, wrong for
-#: a per-round ledger). This one keeps every round's hits apart, in order.
 _lane_captured_hits: ContextVar[list[dict[str, Any]] | None] = ContextVar("lane_captured_hits", default=None)
 
 
@@ -418,36 +358,18 @@ def get_lane_captures() -> list[dict[str, Any]]:
     return list(_lane_captured_hits.get() or [])
 
 
-#: Step-id prefix for the status rows in this module. The suffix is the SLOT
-#: (``status:context``, ``status:routing``, …): the same id replaces the row,
-#: so one slot is one row.
 STATUS_STEP_PREFIX = "status:"
 
 
-#: ``channel`` on the step. ``live`` may be shown as the single running
-#: one-liner; ``technical`` is for the opt-in details panel ONLY. The
-#: distinction is the difference between what the reader is told and what an
-#: operator can go look up, and the frontend must not blur it: this product
-#: already shipped a phantom "web search" line because an availability signal
-#: was rendered as activity.
 CHANNEL_LIVE: Channel = "live"
 
 
 CHANNEL_TECHNICAL: Channel = "technical"
 
 
-#: Room for the quoted retrieval query inside a status line, after the label
-#: and the punctuation around it. Budgeted here rather than in the frontend
-#: because the backend is the only side that sees the untruncated query, and a
-#: status that overflows its one line is worse than one that says slightly
-#: less. (The line as a whole is budgeted by the dictionary copy: every
-#: template under ``chat.thinking.turnStatus`` is written to fit one narrow
-#: row with this much query in it.)
 MAX_QUERY_CHARS = 32
 
 
-#: Reason strings (routing, escalation) travel in full-ish as a separate field
-#: rather than being crammed into the one-liner.
 MAX_REASON_CHARS = 160
 
 

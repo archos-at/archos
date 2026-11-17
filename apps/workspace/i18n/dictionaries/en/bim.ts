@@ -1,4 +1,3 @@
-/** IFC/BIM model surfaces: the viewer, the model explorer, the viewer card. */
 export const bim = {
   title: 'Model',
   tabs: {
@@ -7,9 +6,6 @@ export const bim = {
     structure: 'Structure',
     quantities: 'Quantities',
     revisions: 'Revisions',
-    // The Büroablage has no project — so no Gebäudeklasse and no Hauptnutzung
-    // to check against. Disabled rather than hidden: a missing tab reads as
-    // the Prüfbuch having been lost.
     complianceNeedsProject: 'Available inside a project',
     complianceNeedsProjectDescription:
       'Requirements are checked against Gebäudeklasse and Hauptnutzung, and both live in the project brief. Open this model inside a project to see the Prüfbuch. Structure, quantities and revisions are fully available here.',
@@ -48,18 +44,12 @@ export const bim = {
     grossFloorArea: 'Gross floor area',
     netVolume: 'Net volume',
     lengthUnit: 'Length unit',
-    // Scoped: only the area and volume totals are complete. The same string
-    // is rendered under the element table and above the model check, and it
-    // was reassuring across two boundaries it does not cover.
     truncated:
       'This model has more than {limit} elements. Area and volume totals are complete; the element list, the model check and the filters see only that part.',
   },
   health: {
     title: 'Model check',
     score: 'Model quality {score}/100',
-    // Not "every element": validation does not see the elements past the
-    // extraction cap, so on a capped model this was a clean bill of health
-    // issued over a subset — see `extract.ts`.
     clean:
       'No findings in these checks. Of the elements checked, every one is placed, uniquely identified and named.',
     showElements: 'Show elements',
@@ -168,22 +158,11 @@ export const bim = {
     unknowns: 'Not decidable:',
     showInModel: 'show in model',
     more: '{count} more elements',
-    // A rule with seven findings shows six and would otherwise render "1 more".
-    // The sibling key predates the plural blocks `i18n/translate.ts` now
-    // understands; it is correct as it stands, so it keeps its shape.
     moreOne: 'One more element',
     truncated: 'Further elements are affected — see the counts above.',
     missingFacts:
       'Some rules depend on project data this brief does not carry: {facts}. Those rules stood down rather than guessing.',
     setFacts: 'Set it with the assistant',
-    /**
-     * What each missing fact is CALLED, resolved by the panel from a key.
-     *
-     * `Gebäudeklasse` stays German in both locales — it is the legal term, it
-     * appears on the Einreichung, and an English translation of it would name
-     * nothing. `Hauptnutzung` has an English name and this is where it lives,
-     * matching `profile.key.main_use` on the same screen.
-     */
     factName: {
       buildingClass: 'Gebäudeklasse',
       mainUse: 'Main use',
@@ -288,16 +267,6 @@ export const bim = {
     quantity: 'Quantity',
     byMaterial: 'Split by material',
     group: 'Type',
-    /**
-     * What each quantity is CALLED, and what it is measured in.
-     *
-     * The dropdown and the value column used the raw IFC token — `NetSideArea`
-     * — and the column carried no unit at all, so a Massenermittlung read
-     * "NetSideArea · 412" where a Kostenschätzung needs "Netto-Seitenfläche ·
-     * 412 m²". The sibling Raumbuch has always appended its unit; this table
-     * did not. The `dim` half says which unit symbol from the model applies,
-     * because the model declares them and this table must not invent one.
-     */
     quantityName: {
       NetSideArea: 'Net side area',
       GrossSideArea: 'Gross side area',
@@ -359,33 +328,11 @@ export const bim = {
     copied: 'Copied',
     failed: 'The link could not be copied',
   },
-  /**
-   * The full-screen viewer inside Dateien.
-   *
-   * Six controls and two lists. Every string here is written for someone who
-   * has never opened a BIM tool: "See through", not "X-ray context"; "Storey",
-   * not "IfcBuildingStorey"; "Fit the whole model", not "Zoom extents".
-   *
-   * Plain language, but ONE word per thing. This surface used to say "Levels"
-   * and "components" where the drawer's tables — on the same screen, over the
-   * same building — said "Storeys" and "elements", so the two halves of the
-   * page read as two products. The German never had the split: Geschoß and
-   * Bauteil throughout. Neither "storey" nor "element" is jargon.
-   */
   stage: {
     dialogLabel: 'Model {name}',
     fileActions: 'File actions',
     close: 'Close',
     home: 'Fit the whole model',
-    /**
-     * One step back through the STAGE, not through the browser.
-     *
-     * Not "Back", which on a full-screen surface reads as "leave" — and this
-     * one never leaves the model. Not "the previous view" either, which it
-     * used to say: the step it takes back is just as often a hide or an
-     * isolate, and those are not views. "The last change" is the only phrase
-     * that is true of every step in the stack.
-     */
     back: 'Undo the last change',
     views: 'View',
     advanced: 'Details & checks',
@@ -396,37 +343,16 @@ export const bim = {
       'A link can carry {shown} of the {total} highlighted elements. The rest are in the model but not marked here.',
     otherModel:
       'This link names “{wanted}”, which is not in this project. Showing “{opened}” instead.',
-    /**
-     * The reset, next to the undo — and it had to stop saying "hidden".
-     *
-     * It clears isolation too, and isolating hides nothing: it takes away
-     * everything else. A reader who had isolated one wall was offered
-     * "restore hidden elements" for the one control that would give them
-     * their building back, and nothing they had done was called hiding.
-     */
     showEverything: 'Show all elements again',
     elevation: '{value} m',
     notReady: 'The model is still being read. This usually takes a few moments.',
     elementsFailed:
-      // NOT "the building itself is fine" — this product never delivers a
-      // verdict on a building, least of all from an error toast, and the model
-      // may carry a hundred Modellprüfung findings while this is on screen.
-      // The German has always said only that the failure is not the building's
-      // doing.
       'The element list could not be loaded, so nothing in the model can be selected or filtered. Nothing about the building caused this.',
     readFailed:
-      // "The extractor" is an internal component; the German names none. What
-      // the reader needs is the fact and the next step.
       'This file could not be read. Re-export it from your authoring tool and upload it again.',
     loading: 'Loading model…',
     building: 'Putting the building together…',
     ready: 'The model is on screen',
-    /**
-     * The phone's tool bar. The name is ON the button here, because a finger
-     * has no tooltip: `tool.*` are the short captions under the glyphs, and
-     * the long names stay the accessible names. "Fit" is inside "Fit the
-     * whole model".
-     */
     tool: {
       fit: 'Fit',
       more: 'More',
@@ -453,9 +379,6 @@ export const bim = {
     selection: {
       close: 'Close',
       loading: 'Loading…',
-      // `Element`, not `Component`. The one-word rule stated at the top of
-      // this block: the drawer's tables say `elements`, and this heading sits
-      // beside them. German said `Bauteil` in both places all along.
       about: 'Element',
       hide: 'Hide',
       isolate: 'Isolate',
@@ -468,7 +391,6 @@ export const bim = {
     keyboardHint:
       'Arrow keys orbit, Shift with an arrow pans, plus and minus zoom, F fits the model. While measuring, Enter places a point and Escape cancels. Every element is also listed as text under Details.',
     xray: 'See through',
-    // The same answer without the name in front, for the row that already carries "See through".
     xrayHint: 'Select an element or open a highlighted answer first',
     xrayNeedsTarget: 'See through — select an element or open a highlighted answer first',
     view: {
@@ -482,7 +404,6 @@ export const bim = {
     projection: {
       parallel: 'Parallel',
     },
-    /** Capturing the view as an image someone will keep. */
     capture: {
       action: 'Save image',
       failed: 'The image could not be captured',
@@ -494,18 +415,12 @@ export const bim = {
       down: 'Looking down',
       up: 'Looking up',
     },
-    /**
-     * Measuring. `hint` sits in the dock while the tool is live — a measure
-     * tool that does not say where the next click goes is a crosshair you have
-     * to experiment with.
-     */
     measure: {
       toggle: 'Measure',
       horizontal: 'horizontal',
       vertical: 'vertical',
       first: 'Click the first point',
       second: 'Click the second point — Esc cancels',
-      // With a finger: no "click", and no Esc key — the tool button itself cancels.
       firstTouch: 'Tap the first point',
       secondTouch: 'Tap the second point — Measure ends the measurement',
       clear: 'Clear measurements',
@@ -521,22 +436,13 @@ export const bim = {
     unsupported: {
       title: '3D view not available in this browser',
       description:
-        // Same rule as `elementsFailed`: this is a browser limitation, not a
-        // clean bill of health for the model.
         'The viewer needs WebGPU, which this browser does not provide. This is a browser limitation, not a problem with the model — the assistant can still answer questions about it, and Chrome, Edge or a current Safari will show it.',
     },
   },
-  /** The model's own facts, in the file preview's metadata rail. */
   facts: {
     title: 'From the model',
     caption: 'Read from the IFC when it was indexed. An unpublished quantity is left out rather than shown as zero.',
   },
-  /**
-   * The model as a FILE — what the Dateien preview says while the building is
-   * not (yet) showable. Each state is its own sentence: "still being read",
-   * "could not be read" and "there is no model" are different answers, and a
-   * single "no preview" would hide which one the reader is looking at.
-   */
   preview: {
     loading: 'Loading model…',
     extracting: '{productName} is still reading this model. The building appears here as soon as that finishes.',
@@ -560,23 +466,10 @@ export const bim = {
     highlightsFailed:
       'The highlighted set could not be resolved, so nothing is marked here. That is not a result about the building.',
     noModel: 'The referenced model is not available in this project.',
-    /**
-     * The opposite failure to `noModel`, and it must not borrow its sentence:
-     * the model is in the project TWICE over. `ifc_query` refuses an ambiguous
-     * name rather than picking a revision, and the card refuses to draw one —
-     * telling the reader the file is missing would send them to re-upload a
-     * building that is already there.
-     */
     ambiguousModel:
       'Several models in this project match that name, so this card cannot say which building it is about.',
   },
-  /**
-   * The model picker — the project's models as tiles that open the viewer on
-   * click, offered instead of a prose list of file names to retype.
-   */
   modelPicker: {
-    // "Could not look" is not "the project has no models" — the picker says
-    // which, rather than quietly rendering nothing when the list request failed.
     failed: 'The models for this project could not be loaded.',
     openAria: 'Open {name} in the model workspace',
   },

@@ -1,8 +1,3 @@
-/**
- * Every part of an Outlook archive is sent: join them and queue the filing job
- * (ADR-0085). Thin handler; all logic lives in `@/lib/mail-import/service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { completeMailImportUpload } from '@/lib/mail-import/service'
 

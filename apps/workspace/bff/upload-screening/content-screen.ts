@@ -1,55 +1,3 @@
-/**
- * The content screen in TypeScript: the office's content terms and number
- * detectors, found and masked in a text (ADR-0086, "Chat messages are screened
- * too").
- *
- * The composer runs it before a chat message leaves the browser, and the BFF
- * runs it on every user message it stores, so what a person typed reaches
- * neither a model nor the stored history with an IBAN in it. It is the twin of
- * `agent.common.content_screen`, which the ingest job and the chat socket
- * run. Both read the ONE shared fixture, `tests/fixtures/content_screen_cases.json`
- * at the repository root, and must give the same matches, masked text and
- * findings for every case. Change one and the other's spec fails.
- *
- * The twins agree by construction: neither uses its runtime's own idea of
- * whitespace (`\s` differs between the two), case folding or digits, and the
- * detectors are the same small parsers on both sides, with regular expressions
- * only to find where a candidate may start. The Python module's docstring is
- * the full statement of the rules; in one line each:
- *  - Whitespace is `SCREENING_WHITESPACE`, Unicode's `White_Space` property.
- *    A word character is a letter or a number (`\p{L}`, `\p{N}`). A digit is any
- *    `\p{Nd}`, read as its value (`decimalDigitValue`).
- *  - The fold is `foldForScreening` (`./name-screen`: NFKC, lowercase, umlauts)
- *    with final sigma as sigma, applied per character and its combining marks,
- *    so a span in the folded text maps back to the characters it came from and
- *    a decomposed `ü` folds like the composed one.
- *  - Every rule runs on the text as a person reads it (`read`): invisible
- *    characters (`SCREENING_IGNORABLE`, `./reading`) left out, and a hyphen that
- *    breaks a word across ONE line break joined; before a capital only the break
- *    goes (`Büro-Honorar`). A span is given back in the original text.
- *  - A term matches at a word start and may run on (`Honorar` finds
- *    `Honorarvereinbarung`), never after a letter (`Ehrenhonorar`, judged on the
- *    reading); a digit before it is a label (`2024Honorar`). Its span runs to the
- *    end of that word. A multi-word term matches across any whitespace; a
- *    single word of eight or more characters across one space or hyphen
- *    (`splitTermEnd`).
- *  - A detector counts only a checksum-valid number (IBAN mod 97 at its
- *    country's registered length, the Austrian social-security check digit,
- *    Luhn in a card network's issuer range); the shapes around the checksum are wide (any case, any whitespace
- *    run, `-` or `.` between groups, a label against the number; an IBAN in
- *    groups of four or two). A card is found by layout inside a run of digit
- *    groups (`cardsIn`, `./card-numbers`), never across a tab; across one line
- *    break only as four groups of four. An unbroken number is a card only with
- *    a card's word within reach (`Kreditkarte`, `Visa`, `CVC`).
- *    The digits of an IBAN are not also a card or a social-security number.
- *  - Placeholders are protected: a match overlapping one does not count, so
- *    masking a masked text changes nothing. Masking repeats until a pass finds
- *    nothing, because removing one number can expose another its digits were
- *    hiding.
- *
- * Pure and client-safe. Offsets are UTF-16 indices into the text given.
- */
-
 import {
   CARD_CONTEXT_WORDS,
   CARD_PAGE_LABELS,
@@ -78,11 +26,6 @@ import { SCREENING_IGNORABLE, SPLIT_TERM_MIN, splitTermEnd, TERM_FRAGMENT } from
 
 export type ContentScreenKind = ScreeningDetector | 'term'
 
-/**
- * What a masked span is replaced with. Domain data, in German, defined once in
- * Python (`content_screen.PLACEHOLDERS`) and mirrored here; the shared fixture
- * holds both to the same strings.
- */
 export { luhnValid } from './card-numbers'
 export { validAtSvnr } from './svnr-numbers'
 export { decimalDigitValue, SCREENING_WHITESPACE } from './screen-chars'
@@ -104,21 +47,17 @@ const MASK = '••••'
 export interface ContentScreenRules {
   terms: readonly string[]
   detectors: readonly ScreeningDetector[]
-  /** One per term, same order: the term's folded words, matched literally (`termMatches`). */
   patterns: readonly (readonly string[])[]
 }
 
-/** One match. `findSpans` gives it in the ORIGINAL text. */
 export interface ContentSpan {
   kind: ContentScreenKind
   start: number
   end: number
   term?: string
-  /** A masked sample of a detector's match; never the value. */
   sample?: string
 }
 
-/** What a mask removed, per rule. Carries the office's own term or a masked sample, never a matched value. */
 export interface ContentFinding {
   kind: ContentScreenKind
   count: number
@@ -131,9 +70,6 @@ export interface MaskedText {
   findings: ContentFinding[]
 }
 
-// ------------------------------------------------------------ characters
-
-/** A run of `SCREENING_WHITESPACE`. */
 const SPACE_RUN = /[\t-\r \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/u
 
 const LETTER_OR_NUMBER = /[\p{L}\p{N}]/u
@@ -144,13 +80,11 @@ const MARK = /\p{M}/u
 const ASCII_LETTER = /^[A-Za-z]$/
 const FINAL_SIGMA = /ς/g
 
-/** The code point starting at `index`, or '' outside the text. */
 function codePointAt(text: string, index: number): string {
   if (index < 0 || index >= text.length) return ''
   return String.fromCodePoint(text.codePointAt(index) ?? 0)
 }
 
-/** The code point that ends just before `index`, or '' at the start. */
 function codePointBefore(text: string, index: number): string {
   if (index === 0) return ''
   const low = text.charCodeAt(index - 1)
@@ -170,40 +104,25 @@ function splitWords(text: string): string[] {
   return text.split(SPACE_RUN).filter(Boolean)
 }
 
-// --------------------------------------------------------------- reading
-
-/** Hyphens a line may be broken at; with a letter or digit on both sides of the break they are not part of the text. */
 const BREAK_HYPHENS = '-\u2010\u2011'
 const LINE_BREAKS = '\n\v\f\r\x85\u2028\u2029'
-/** Whitespace that keeps a line. */
 const HORIZONTAL_SPACE = [...SCREENING_WHITESPACE]
   .filter((char) => !LINE_BREAKS.includes(char))
   .join('')
 
-/** Where a reading may differ from the text: an invisible character, or a hyphen that may break a line. */
-// The ASCII hyphen first, where a class reads it as itself rather than a range.
 const DROP_SITE = new RegExp(`[${BREAK_HYPHENS}${SCREENING_IGNORABLE}]`, 'g')
 
-/**
- * The text as a person reads it, and for each of its UTF-16 units where it
- * stands in the original (`starts`; null when the reading is the text itself).
- * `soft` holds the reading's indices where an invisible character was left out
- * right before: it joins a word, but may have stood where a space would (two
- * numbers printed against each other), so a number's boundary treats it as one.
- */
 interface Reading {
   text: string
   starts: number[] | null
   soft: ReadonlySet<number>
 }
 
-/** The original span of the reading's `start`..`end`. */
 function originalSpan(reading: Reading, start: number, end: number): [number, number] {
   if (!reading.starts) return [start, end]
   return [reading.starts[start], reading.starts[end - 1] + 1]
 }
 
-/** `index` moved past one line break (`\r\n` is one); unchanged when none stands there. */
 function lineBreakAt(text: string, index: number): number {
   if (text.startsWith('\r\n', index)) return index + 2
   return index < text.length && LINE_BREAKS.includes(text[index]) ? index + 1 : index
@@ -215,14 +134,6 @@ function skipChars(text: string, index: number, chars: string): number {
   return cursor
 }
 
-/**
- * Where a hyphen at `index` that breaks a word across lines ends, counting the
- * break; `index` when it is none. `Gehalts-` + line break + `abrechnung` and
- * `05-` + line break + `32` are one word and one number. `before` is the
- * character the reading has just before the hyphen. One line break only: a
- * blank line is a paragraph, and a hyphen with a space before it is a dash.
- * Invisible characters around the break do not count.
- */
 function hyphenationEnd(text: string, index: number, before: string): number {
   if (!LETTER_OR_NUMBER.test(before)) return index
   const cursor = skipChars(text, index + 1, HORIZONTAL_SPACE + SCREENING_IGNORABLE)
@@ -232,11 +143,6 @@ function hyphenationEnd(text: string, index: number, before: string): number {
   return broken < text.length && wordCharAt(text, broken) ? broken : index
 }
 
-/**
- * `text` without invisible characters and hyphenation breaks; every rule runs
- * on this. Only the places a reading can differ (`DROP_SITE`) are looked at;
- * the text between them is copied whole, and a text with none is its own reading.
- */
 function read(text: string): Reading {
   if (text.search(DROP_SITE) === -1) return { text, starts: null, soft: new Set() }
   const parts: string[] = []
@@ -265,8 +171,6 @@ function read(text: string): Reading {
     parts.push(text[index])
     starts.push(index)
     before = text[index]
-    // A capital after the break is a compound written with its hyphen
-    // (`Büro-` + line break + `Honorar`): only the break goes.
     if (end > index) cursor = end
   }
   parts.push(text.slice(cursor))
@@ -274,9 +178,6 @@ function read(text: string): Reading {
   return { text: parts.join(''), starts, soft }
 }
 
-// ------------------------------------------------------------------ fold
-
-/** `[start, end)` of each character with the combining marks that follow it. */
 function clusters(text: string): Array<[number, number]> {
   const out: Array<[number, number]> = []
   let index = 0
@@ -293,7 +194,6 @@ function foldCluster(cluster: string): string {
   return foldForScreening(cluster).replace(FINAL_SIGMA, 'σ')
 }
 
-/** The fold both a term and the text are compared in, built per cluster. */
 export function foldContent(text: string): string {
   return clusters(text)
     .map(([start, end]) => foldCluster(text.slice(start, end)))
@@ -322,7 +222,6 @@ function foldMapped(text: string): Folded {
 }
 
 function escapeRegExp(text: string): string {
-  // No `-`: outside a class, `\-` is an invalid escape under the `u` flag.
   return text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 }
 
@@ -330,19 +229,12 @@ function termPattern(term: string): string[] {
   return splitWords(foldContent(term))
 }
 
-/**
- * Whether folded `index` begins a cluster that no LETTER precedes in the text
- * the rules read. A letter before it makes it part of another word
- * (`Ehrenhonorar`); a digit does not (`2024Honorar`, `Pos.3Honorar`): a number
- * glued to a word is a label, not a compound.
- */
 function startsAWord(folded: Folded, text: string, index: number): boolean {
   if (index === 0) return true
   const previous = folded.starts[index - 1]
   return previous !== folded.starts[index] && !LETTER.test(codePointAt(text, previous))
 }
 
-/** Where the words end when they stand at `start` with whitespace between them; -1 when they do not. */
 function matchWordsAt(text: string, start: number, words: readonly string[]): number {
   let cursor = start
   for (let w = 0; w < words.length; w += 1) {
@@ -357,10 +249,8 @@ function matchWordsAt(text: string, start: number, words: readonly string[]): nu
   return cursor
 }
 
-/** What may split a long term in prose (`splitTermEnd`): a space, or one hyphen (folded text keeps U+2010 for U+2011). */
 const TERM_JOINERS = ' -\u2010\u2011'
 
-/** `termMatches` for one word of `SPLIT_TERM_MIN` or more characters, which may be split once. */
 function* longTermMatches(folded: Folded, text: string, word: string): Generator<[number, number]> {
   const anchor = word.slice(0, TERM_FRAGMENT)
   let index = folded.text.indexOf(anchor)
@@ -377,12 +267,6 @@ function* longTermMatches(folded: Folded, text: string, word: string): Generator
   }
 }
 
-/**
- * `[start, end)` of each match of a term's words in folded text, leftmost
- * first and not overlapping. Done without a regex built from office input, so
- * no term can be read as a pattern (Semgrep `detect-non-literal-regexp`, the
- * precedent in `features/layout/lib/file-reference-markers.ts`).
- */
 function* termMatches(
   folded: Folded,
   text: string,
@@ -405,13 +289,10 @@ function* termMatches(
   }
 }
 
-// ----------------------------------------------------------------- rules
-
 function codePointLength(text: string): number {
   return Array.from(text).length
 }
 
-/** Stripped, in bounds, first spelling of each folded form kept, at most 200. */
 function normalisedTerms(terms: readonly string[]): string[] {
   const kept = new Map<string, string>()
   for (const term of terms) {
@@ -424,7 +305,6 @@ function normalisedTerms(terms: readonly string[]): string[] {
   return [...kept.values()].slice(0, MAX_TERMS)
 }
 
-/** Rules from terms and detector names, normalised; `null` when nothing is left to check. */
 export function buildContentRules(
   terms: readonly string[],
   detectors: readonly string[]
@@ -436,24 +316,11 @@ export function buildContentRules(
   return { terms: keptTerms, detectors: keptDetectors, patterns: keptTerms.map(termPattern) }
 }
 
-/**
- * What a chat message is screened with: the policy's CONTENT terms and its
- * detectors. Never the name terms, which are for file and folder names and far
- * too broad for prose. `null` when the office switched screening off.
- */
 export function chatScreeningRules(policy: UploadScreeningPolicy): ContentScreenRules | null {
   if (!policy.enabled) return null
   return buildContentRules(policy.contentTerms, policy.detectors)
 }
 
-// ------------------------------------------------------------- detectors
-
-/**
- * Every country that issues IBANs, and the one length its IBANs have: the SWIFT
- * registry plus the countries that issue IBANs outside it, as Python's
- * `content_screen.IBAN_LENGTHS` lists them (the shared fixture holds both to
- * the same table). A country not listed issues no IBAN.
- */
 // prettier-ignore
 export const IBAN_LENGTHS: ReadonlyMap<string, number> = new Map(
   Object.entries({
@@ -473,19 +340,8 @@ export const IBAN_LENGTHS: ReadonlyMap<string, number> = new Map(
   })
 )
 
-/**
- * Where an IBAN may start: an ASCII letter followed by one, not right after a
- * digit. A label may stand against it (`IBAN:AT61`, `SWIFTAT61`): the country
- * fixes the length and the check digits decide, so the boundary adds no
- * precision. The parse is `ibanAt`.
- */
 const IBAN_START = /(?<!\p{Nd})[A-Za-z](?=[A-Za-z])/gu
-/**
- * A maximal run of digit groups joined by spaces (never a tab: that is a table
- * cell), one `-` or `.`: where a card may be printed.
- */
 const CARD_RUN = /\p{Nd}(?:(?:[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]+|[-.])?\p{Nd})*/gu
-/** The same, where ONE line break may also join two groups: a card wrapped at a line end. */
 const WRAPPED_CARD_RUN =
   /\p{Nd}(?:(?:[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]+|[-.]|[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]*(?:\r\n|[\n\v\f\r\x85\u2028\u2029])[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]*)?\p{Nd})*/gu
 const DIGIT_GROUP = /\p{Nd}+/gu
@@ -502,7 +358,6 @@ export function validIban(compact: string): boolean {
   return remainder === 1
 }
 
-/** The IBAN character at `index`: a digit as ASCII, or (past the check digits) an ASCII letter upper-cased. */
 function ibanChar(text: string, index: number, digitsOnly: boolean): Digit | null {
   const digit = digitAt(text, index)
   if (digit || digitsOnly || index >= text.length) return digit
@@ -515,17 +370,10 @@ interface IbanMatch {
   end: number
 }
 
-/**
- * The IBAN printed at `start`: its compact form and where it ends. The country
- * fixes the length, so the parse reads exactly that many characters and stops;
- * a separator may stand after the country code and before each group of four,
- * or of two.
- */
 function ibanAt(text: string, start: number, soft: ReadonlySet<number>): IbanMatch | null {
   return ibanInGroups(text, start, soft, 4) ?? ibanInGroups(text, start, soft, 2)
 }
 
-/** `ibanAt` for an IBAN printed in groups of `width` (four, or two), or unbroken. */
 function ibanInGroups(
   text: string,
   start: number,
@@ -553,11 +401,6 @@ function maskIban(compact: string): string {
   return [compact.slice(0, 4), ...Array<string>(hidden).fill(MASK), compact.slice(-4)].join(' ')
 }
 
-/**
- * The social-security number printed at `start`: `SSSS DDMMYY`, with or without
- * a separator after the serial; the date's own parts are either all joined
- * (`010180`) or all separated (`01 01 80`, `01.01.80`).
- */
 function svnrAt(
   text: string,
   start: number,
@@ -584,16 +427,13 @@ function svnrAt(
   return unbroken && !pageSays(text, SVNR_LABELS) ? null : { digits, end: year.end }
 }
 
-/** What joins two parts of a number: `''`, `' '` for any whitespace, or the mark itself. */
 const separatorKind = (text: string, start: number, end: number): string =>
   start === end ? '' : isWhitespace(text[start]) ? ' ' : text[start]
 
-/** Whether one of `labels` stands anywhere in `text`, at a word start. */
 function pageSays(text: string, labels: readonly string[]): boolean {
   return hasWord(foldContent(text), labels)
 }
 
-/** The digit groups of a run (ASCII digits, start, end). */
 function digitGroups(run: string): DigitGroup[] {
   return [...run.matchAll(DIGIT_GROUP)].map((match) => ({
     digits: asciiDigits(match[0]),
@@ -602,7 +442,6 @@ function digitGroups(run: string): DigitGroup[] {
   }))
 }
 
-/** The run cut into runs of its own at `cuts`, each as its digit groups (offsets stay those of `run`). */
 function cutRuns(run: string, cuts: readonly number[]): DigitGroup[][] {
   const bounds = [0, ...cuts, run.length]
   return bounds.slice(1).map((end, i) =>
@@ -614,7 +453,6 @@ function cutRuns(run: string, cuts: readonly number[]): DigitGroup[][] {
   )
 }
 
-/** Where a number may start: where `pattern` finds it, and right after an invisible character between digits. */
 function startsOf(
   text: string,
   soft: ReadonlySet<number>,
@@ -635,7 +473,6 @@ function digitBefore(text: string, index: number): boolean {
 
 const isAsciiLetter = (char: string | undefined): boolean => !!char && ASCII_LETTER.test(char)
 
-/** Every IBAN, in one pass: each start is parsed on its own, and the scan resumes after a match. */
 function* ibanSpans(text: string, soft: ReadonlySet<number>): Generator<ContentSpan> {
   let resume = 0
   const fits = (i: number) => isAsciiLetter(text[i]) && isAsciiLetter(text[i + 1])
@@ -669,12 +506,6 @@ const hasLineBreak = (text: string): boolean => [...text].some((char) => LINE_BR
 const overlapsCard = (card: DigitGroup, others: readonly DigitGroup[]): boolean =>
   others.some((other) => card.start < other.end && other.start < card.end)
 
-/**
- * Cards in each run of digit groups, then cards wrapped at one line end. Where
- * an invisible character stood between digits, a run is tried cut there too. A
- * wrapped card is found only in the strictest layout (four groups of four) and
- * only where no card of the first pass stands.
- */
 function* cardSpans(text: string, soft: ReadonlySet<number>): Generator<ContentSpan> {
   const found = [...unwrappedCards(text, soft)].sort((a, b) => a.start - b.start)
   found.push(...[...wrappedCards(text)].filter((card) => !overlapsCard(card, found)))
@@ -709,14 +540,12 @@ function* unwrappedCards(text: string, soft: ReadonlySet<number>): Generator<Dig
   }
 }
 
-/** The cards among a run's groups (`cardsIn`), an unbroken one only with a card's word beside it. */
 function* cardsSaid(text: string, offset: number, groups: readonly DigitGroup[]): Generator<DigitGroup> {
   for (const card of cardsIn(groups)) {
     if (!card.unbroken || hasCardContext(text, offset + card.start, offset + card.end)) yield card
   }
 }
 
-/** Whether a card's word stands within `CARD_CONTEXT_REACH` code points of `text[start, end)`. */
 function hasCardContext(text: string, start: number, end: number): boolean {
   const [begin, stop] = contextWindow(text, start, end)
   return hasWord(foldContent(text.slice(begin, stop)), CARD_CONTEXT_WORDS) || pageSays(text, CARD_PAGE_LABELS)
@@ -745,7 +574,6 @@ function* deSvnrSpans(text: string, soft: ReadonlySet<number>): Generator<Conten
   }
 }
 
-/** Tax identification numbers, only on a page that names one: eleven digits are often something else. */
 function* deTaxIdSpans(text: string, soft: ReadonlySet<number>): Generator<ContentSpan> {
   if (!pageSays(text, TAX_ID_LABELS)) return
   let resume = 0
@@ -769,9 +597,6 @@ const DETECTOR_SPANS: Readonly<
     de_tax_id: deTaxIdSpans,
   }
 
-// ----------------------------------------------------------------- spans
-
-/** `end` moved over the rest of the word it is in: letters, digits and their combining marks. */
 function wordEnd(text: string, end: number): number {
   let cursor = end
   while (cursor < text.length) {
@@ -798,10 +623,8 @@ const PLACEHOLDER_RE = new RegExp(
   'g'
 )
 
-/** The detectors whose digits an IBAN can hold: never reported inside one. */
 const NUMBER_KINDS: ReadonlySet<ContentScreenKind> = new Set(['at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'])
 
-/** `spans` without the card and social-security matches that lie inside an IBAN's own digits. */
 function outsideIbans(spans: readonly ContentSpan[]): ContentSpan[] {
   const ibans = spans.filter((span) => span.kind === 'iban')
   return spans.filter(
@@ -811,13 +634,6 @@ function outsideIbans(spans: readonly ContentSpan[]): ContentSpan[] {
   )
 }
 
-/**
- * Every match of every rule: terms in the rules' order, then the detectors,
- * each by position. The rules read the text as a person does (`read`), and each
- * span is given back in the ORIGINAL text. Overlapping matches are all kept,
- * except that digits inside a recognised IBAN are not also a card or a
- * social-security number; a match overlapping a placeholder is dropped.
- */
 export function findSpans(text: string, rules: ContentScreenRules): ContentSpan[] {
   if (!text) return []
   const protectedRegions = [...text.matchAll(PLACEHOLDER_RE)].map(
@@ -833,8 +649,6 @@ export function findSpans(text: string, rules: ContentScreenRules): ContentSpan[
     })
     .filter((span) => !protectedRegions.some(([start, end]) => span.start < end && start < span.end))
 }
-
-// --------------------------------------------------------------- masking
 
 function merged(spans: readonly ContentSpan[]): ContentSpan[] {
   const out: ContentSpan[] = []
@@ -875,15 +689,6 @@ function findingsOf(spans: readonly ContentSpan[], rules: ContentScreenRules): C
   return findings
 }
 
-/**
- * `text` with every term and detector match replaced by its placeholder, and
- * what was found. `null` rules mask nothing. Idempotent: masking the result
- * again returns it unchanged with no findings, because the loop runs until a
- * pass finds nothing (no pass limit that could leave a match behind). It ends:
- * each pass turns at least one character outside a placeholder into a
- * placeholder, and placeholders never overlap, so the characters outside them
- * strictly decrease.
- */
 export function maskText(text: string, rules: ContentScreenRules | null): MaskedText {
   if (!rules || !text) return { text, findings: [] }
   const found: ContentSpan[] = []

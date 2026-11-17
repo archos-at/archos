@@ -22,10 +22,6 @@ from .operators import FENESTRATION
 from .operators import _require
 from .operators import _wrong_kind
 
-# ════════════════════════════════════════════════════════════════════════════
-# 3 — balustrade check
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def balustrade_check(
     model: SpatialModel, space_or_element_global_id: str, fall_height: float | None = None
@@ -296,9 +292,6 @@ def _railings(model: SpatialModel) -> list[Any]:
     try:
         return [r for r in model.file.by_type("IfcRailing") if getattr(r, "GlobalId", None)]
     except RuntimeError:
-        # A schema that has never heard of IfcRailing is not a file without
-        # railings; both are handled the same way by the caller, which reports
-        # the absence as undecidable rather than as an answer.
         return []
 
 
@@ -318,9 +311,6 @@ def _fall_at(model: SpatialModel, opening: Any, railings: list[Any], space: Any 
     if len(known) < 2:
         return None
 
-    # "Inside" is the side with the room on it; with rooms on both sides the
-    # higher floor is inside, because the fall is measured from where somebody
-    # stands down to where they land.
     with_space = [s for s in sides if s["space"] is not None]
     if len(with_space) == 1:
         inside = with_space[0]

@@ -1,17 +1,3 @@
-/**
- * The schedule fixtures both Zeitplan previews run on.
- *
- * One project's week as it actually looks once somebody has been using the
- * section for a month: a weekday-morning scan, a Monday research report, a
- * monthly certificate, one paused schedule and one that only runs by hand. The
- * two morning schedules deliberately COLLIDE at 06:00 — that is the thing the
- * timetable exists to make visible, and a fixture where nothing overlaps would
- * be evidence of the easy case only.
- *
- * Shared rather than copied into each page: two fixtures drifting apart is how
- * two screenshots of one surface stop being comparable.
- */
-
 import type { Job } from '@/adapters/api/jobs-client'
 
 const base = {
@@ -59,11 +45,6 @@ export const SCHEDULES: Job[] = [
     ...base,
     id: 'j2',
     name: 'Monatlicher Schallschutz-Nachweis',
-    // The playbook is NAMED in the prompt, the way a person names one in the
-    // composer, so the wizard's field shows the chip the chat composer shows.
-    // `skillName` is a LEGACY row's leftover: the wizard no
-    // longer reads them, and a fixture that still carries them is evidence
-    // that an old job edits cleanly rather than losing its prompt.
     prompt: [
       '/schallschutz-bericht — fasse den Stand des Nachweises für dieses Projekt zusammen.',
       '',
@@ -80,7 +61,6 @@ export const SCHEDULES: Job[] = [
   {
     ...base,
     id: 'j3',
-    // Fires at the same minute as j1 — the collision the grid is for.
     name: 'Einreichcheck Montagfrüh',
     prompt: 'Was fehlt noch für die Einreichung? Liste jeden offenen Punkt mit Zuständigem.',
     output: 'deep-research',
@@ -118,10 +98,6 @@ export const SCHEDULES: Job[] = [
     scheduleCron: null,
     nextRunAt: null,
   },
-  // A one-shot still pending: the shape the section could not express until
-  // migration 0090, and the one a planning office asks for most — run this
-  // once, the day before the Abgabe. It lands in the week grid like any
-  // recurring task, which is the point of putting it in the fixture.
   {
     ...base,
     id: 'j7',
@@ -133,9 +109,6 @@ export const SCHEDULES: Job[] = [
     dueAt: '2026-09-17T13:00:00Z',
     nextRunAt: '2026-09-17T13:00:00Z',
   },
-  // The same shape after it has fired: the scheduler cleared `next_run_at`
-  // when it claimed the row, so a due date with nothing pending reads as
-  // finished — deliberately NOT as paused, which is a different thing.
   {
     ...base,
     id: 'j8',
@@ -150,7 +123,6 @@ export const SCHEDULES: Job[] = [
   },
 ]
 
-/** The fetch shim both previews install: schedules, skills and data sources. */
 export function installScheduleShim(flag: string): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
   const w = window as unknown as Record<string, boolean | undefined>
@@ -161,8 +133,6 @@ export function installScheduleShim(flag: string): void {
     const url =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     if (url.includes('/api/skills/invocable')) {
-      // What the `/` menu offers, and what resolves a name already in the text
-      // back to a chip.
       return Response.json({
         skills: [{ name: SCHEDULE_SKILL.name, description: SCHEDULE_SKILL.description, origin: 'org' }],
       })

@@ -5,7 +5,6 @@ import { WeekEntry, WeekTimeline } from '@/features/whats-new/components'
 import { getTranslations } from '@/i18n/server'
 import { whatsNewCopy } from '@/i18n/namespaces/whats-new'
 
-/** Route-level loading state, in the page's own shapes, so the arrival from the user menu shows at once. */
 export default async function WhatsNewLoading(): Promise<JSX.Element> {
   const t = await getTranslations(whatsNewCopy)
   return (

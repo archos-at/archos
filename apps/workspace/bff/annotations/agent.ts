@@ -1,46 +1,3 @@
-/**
- * Piloti's hands on a document's Anmerkungen: read them, propose findings,
- * and, when the asker asks, everything the asker may do themselves: set a
- * mark, change one, delete one they set, answer in a thread
- * (`POST /api/internal/document-annotations`).
- *
- * ## Whether Piloti acts, or only proposes
- *
- * The ops that APPLY a change for the asker (`create`, `update`, `delete`)
- * run only for an organization with `piloti-acts` on (an entitlement, off by
- * default: an office starts with Piloti proposing and turns acting on when it
- * trusts it). Off, they are refused with `piloti-acts-off` before anything is
- * read or written, and the tool tells the model to propose instead. Reads, the
- * room, pointing, highlighting, replies and proposals never ask.
- *
- * ## Which document
- *
- * By default the CONVERSATION's subject, resolved here from the conversation
- * row the signed envelope names. The subject was set by a person's own session
- * when they opened a chat about the document, so the pair is exactly the
- * authority the turn already had (the argument `readVersionForService` makes for
- * the subject's bytes).
- *
- * A turn may also name another document („Mach eine Anmerkung im Grundriss
- * EG"), from any chat. That id is the MODEL's choice, so it is admitted only
- * the way the turn's other reads are (`internal/document-file`, ADR-0088): the
- * document must sit in a collection the envelope's signed scope covers, and a
- * restricted folder is admitted against the conversation's audience. Every
- * refusal is the same 404 as an unknown document. Beyond the scope, the asker's
- * own access rules hold, because `./service` runs as their pinned session.
- *
- * ## As whom
- *
- * As the asker: the pinned session the envelope names (ADR-0054 §4), so every
- * rule `./service` applies to a person applies here, and a proposal is filed
- * on their behalf. Beyond that, two rules only a model needs:
- *   - a held upload reaches no model, not even its own uploader's turn
- *     (ADR-0086), so the subject must have passed screening;
- *   - a subject in a restricted folder is admitted against the conversation's
- *     audience first (ADR-0087, ADR-0093), exactly as the subject's bytes are,
- *     because what Piloti reads lands in an answer everyone in the thread sees.
- */
-
 import 'server-only'
 import { ApiError, BadRequestError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -69,7 +26,6 @@ import {
 import type { AnnotationView, InternalAnnotationRequest, InternalMarkFields } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** Thrown when the conversation is not about a document: the tool relays it as „open a chat on the document". */
 export class NoDocumentSubjectError extends UnprocessableError {
   constructor() {
     super('This conversation is not about a document. Open the document and ask ' + PRODUCT_NAME + ' from there.', {
@@ -78,17 +34,10 @@ export class NoDocumentSubjectError extends UnprocessableError {
   }
 }
 
-/** The machine-readable reason of {@link AgentActsOffError}: the tool keys its sentence on it. */
 export const PILOTI_ACTS_OFF = 'piloti-acts-off'
 
-/** The ops that apply a change in the asker's name, and so wait for `piloti-acts`. */
 const ACTING_OPS: ReadonlySet<InternalAnnotationRequest['op']> = new Set(['create', 'update', 'delete'])
 
-/**
- * 403: the organization has Piloti propose only (`piloti-acts` off). Its own
- * code, so the tool can tell it from a missing permission: the person may well
- * make the change themselves, Piloti may not make it for them.
- */
 export class AgentActsOffError extends ApiError {
   constructor(op: InternalAnnotationRequest['op']) {
     super(
@@ -101,17 +50,12 @@ export class AgentActsOffError extends ApiError {
   }
 }
 
-/** The document a turn acts on: its id, the name a person knows it by, and its project (null on the Büroablage). */
 export interface AgentDocument {
   id: string
   name: string
   projectId: string | null
 }
 
-/**
- * The document Piloti acts on, admitted for a model to read: the one the turn
- * named, or else the conversation's subject.
- */
 export async function resolveAgentDocument(
   context: VerifiedRequestContext,
   requestedId: string | null,
@@ -135,18 +79,12 @@ export async function resolveAgentDocument(
   return { id: document.id, name: document.filename, projectId: document.projectId ?? null }
 }
 
-/** Who the turn acts for in a room: the conversation, on behalf of the asker. */
 interface AgentInRoom {
   organizationId: string
   conversationId: string
   onBehalfOf: string
 }
 
-/**
- * Who has the document open, for Piloti: names, where each looks, the mark
- * each has selected (by its number, the handle people say) and the box each
- * is drawing. Piloti's own peer for this conversation is left out.
- */
 async function readRoom(session: AuthorizedSession, document: AgentDocument, agent: AgentInRoom) {
   const { annotations } = await listAnnotationsForAgent(session, document.id)
   const numbers = new Map(annotations.map((annotation) => [annotation.id, annotation.number]))
@@ -170,11 +108,6 @@ async function readRoom(session: AuthorizedSession, document: AgentDocument, age
   }
 }
 
-/**
- * A gesture in the room, as Piloti for this conversation. The asker must be
- * able to read the document; presence is renewed with every gesture, so a
- * Piloti that stops gesturing times out of the room on its own.
- */
 async function gesture(session: AuthorizedSession, document: AgentDocument, agent: AgentInRoom, ops: AgentRoomOp[]) {
   await getAccessibleDocument(session, document.id, 'read')
   for (const op of ops) {
@@ -183,7 +116,6 @@ async function gesture(session: AuthorizedSession, document: AgentDocument, agen
   return { documentId: document.id, documentName: document.name, ok: true as const }
 }
 
-/** A mark Piloti set, as the activity card draws it. */
 const setMark = (annotation: AnnotationView) => ({
   id: annotation.id,
   number: annotation.number,
@@ -197,7 +129,6 @@ const setMark = (annotation: AnnotationView) => ({
   body: annotation.body,
 })
 
-/** The fields a change moved, as they stood in one read: the card's before and after, and its undo. */
 const movedFields = (view: AnnotationView, changed: readonly ChangeableField[]): InternalMarkFields => ({
   ...(changed.includes('status') && { status: view.status }),
   ...(changed.includes('assigneeUserId') && { assigneeUserId: view.assigneeUserId, assigneeName: view.assigneeName }),
@@ -206,19 +137,11 @@ const movedFields = (view: AnnotationView, changed: readonly ChangeableField[]):
   ...(changed.includes('body') && { body: view.body }),
 })
 
-// ---------------------------------------------------------------------------
-// What a write leaves behind: one change record per change it applied
-// (`lib/changes`, ADR-0109), and the attention it asks of people
-// (`./attention`). Both after the write committed, both best-effort.
-// ---------------------------------------------------------------------------
-
-/** The turn a write belongs to. */
 interface Turn {
   origin: ChangeOrigin
   document: AgentDocument
 }
 
-/** Tell whoever the mark concerns that Piloti wrote on it; never fails the write. */
 async function tellAttention(
   turn: Turn,
   mark: Pick<AnnotationView, 'id' | 'number' | 'assigneeUserId'>,
@@ -246,7 +169,6 @@ const markChange = (mark: AnnotationView, change: Pick<AppliedChange, 'op' | 'be
   ...change,
 })
 
-/** Marks Piloti set, proposed or open: a `create` each, and each one's attention. */
 async function afterSet(turn: Turn, marks: readonly AnnotationView[]): Promise<void> {
   await recordAgentChanges(
     turn.origin,
@@ -289,9 +211,6 @@ async function update(session: AuthorizedSession, turn: Turn, request: UpdateReq
 
 async function remove(session: AuthorizedSession, turn: Turn, annotationId: string) {
   const { document } = turn
-  // Read first, for the number and the text the card names, and for the
-  // record's `before`: once deleted, the mark and its thread are gone. The
-  // delete applies the asker's rule.
   const mark = await readAnnotation(session, document.id, annotationId)
   await deleteAnnotation(session, document.id, annotationId, AGENT)
   await recordAgentChanges(turn.origin, [markChange(mark, { op: 'delete', before: markState(mark), after: null })])
@@ -323,7 +242,6 @@ async function reply(session: AuthorizedSession, turn: Turn, annotationId: strin
   }
 }
 
-/** Run one of Piloti's operations on the document, as the asker. */
 export async function runAgentAnnotationRequest(
   session: AuthorizedSession,
   document: AgentDocument,
@@ -366,7 +284,6 @@ export async function runAgentAnnotationRequest(
       ])
     }
     case 'look': {
-      // A box when all four are given, the whole page otherwise; kept on the page.
       const { page, x, y, w, h } = request
       const box =
         x !== undefined && y !== undefined && w !== undefined && h !== undefined

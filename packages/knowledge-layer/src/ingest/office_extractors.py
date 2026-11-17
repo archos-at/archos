@@ -33,12 +33,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Bounds. A schedule or BoQ can carry tens of thousands of rows, and each sheet is
-# indexed as row groups that repeat its header, so a long sheet costs chunks, not
-# legibility. The row cap only bounds embedding cost on a pathological workbook; what
-# it cuts is stated in the last group's text AND counted (``rows_over_cap``) so the
-# ingest can put it on the file's result instead of dropping it silently. It used to
-# be 1000 rows, cut without a count.
 MAX_TABLE_ROWS = 10_000
 MAX_TABLE_COLS = 60
 MAX_CELL_CHARS = 500
@@ -170,20 +164,14 @@ def _extract_pptx_notes(file_path: str) -> list[tuple[str, str]]:
     return units
 
 
-#: Extension → handler. Adding a format is one function plus one entry here;
-#: macro-enabled variants share their sibling's handler (same XML inside).
 _HANDLERS: dict[str, Callable[[str], list[tuple[str, str, dict]]]] = {
     ".xlsx": _extract_xlsx,
     ".xlsm": _extract_xlsx,
 }
 
-#: Formats this module handles (advertisable to capability probes/tests).
 SUPPORTED_EXTENSIONS = frozenset(_HANDLERS)
 
 
-#: Extension → the part of the ORIGINAL a PDF rendition loses. Consulted only
-#: when the text and pictures come from the rendition (ADR-0071); a format
-#: without an entry loses nothing worth indexing in the conversion.
 _RENDITION_COMPANIONS: dict[str, Callable[[str], list[tuple[str, str]]]] = {
     ".pptx": _extract_pptx_notes,
     ".pptm": _extract_pptx_notes,

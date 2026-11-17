@@ -27,23 +27,12 @@ from typing import Any
 
 import numpy as np
 
-#: |dot| above which two unit normals count as parallel (≈ 10°).
 PARALLEL_DOT = 0.985
 
-#: |n_z| above which a face counts as horizontal for `plan_footprint` (≈ 25°).
-#:
-#: Deliberately loose. A room floor is flat, but a triangulated one picks up
-#: a degree or two of noise, and a threshold tight enough to be "horizontal"
-#: in the strict sense drops facets the footprint needs — leaving a polygon
-#: with holes in it, which reads as a room a grid point can fall outside of.
 HORIZONTAL_DOT = 0.9
-#: A parallel face smaller than this fraction of the largest one is a sliver.
 FACE_AREA_FRACTION = 0.05
-#: Absolute floor under the sliver test, m² — keeps tiny elements usable.
 MIN_FACE_AREA = 0.01
-#: Offsets closer than this along the normal are the same face, metres.
 FACE_MERGE = 0.01
-#: |normal.z| below which a face counts as vertical.
 VERTICAL_TOLERANCE = 0.05
 
 
@@ -71,8 +60,6 @@ class Plane:
 
     normal: np.ndarray
     point: np.ndarray
-    #: Summed triangle area of the winning bin, in m² — a vote weight for
-    #: choosing the plane, never the area of the face. See the class docstring.
     support: float
 
 
@@ -105,29 +92,12 @@ def dominant_plane(triangles: np.ndarray) -> np.ndarray | None:
     ``None`` for a mesh with no non-degenerate triangle.
     """
     normals, areas = triangle_normals_areas(triangles)
-    # Gated on the NORMAL, not on `areas > 0`. `triangle_normals_areas` zeroes a
-    # normal at |cross| <= 1e-12 and still reports area = |cross| / 2, so a
-    # triangle in the band 0 < |cross| <= 1e-12 passes an area filter carrying no
-    # direction at all: it folds to the sign fallback 1.0, lands in the (0, 0, 0)
-    # bin and votes with a zero vector. For a mesh whose triangles are ALL in that
-    # band this returned array([0., 0., 0.]) instead of None, and `azimuth` reads
-    # |n_z| = 0.0 as vertical — a compass bearing off a body with no measurable
-    # face, which is the exact failure this function was added to prevent.
-    # No triangle in any fixture is anywhere near the band (the sample house's
-    # smallest of 25 312 has |cross| = 2.6e-07, five orders above it), so this
-    # moves no measured number; it closes the door.
     usable = np.linalg.norm(normals, axis=1) > 0
     if not usable.any():
         return None
     normals = normals[usable]
     areas = areas[usable]
 
-    # ±n folded together and binned at ~3°, as in `dominant_vertical_plane` — a
-    # mesh's winding is not a statement about which side is outside, so the top
-    # and bottom faces of a slab have to land in ONE bin or neither wins.
-    # The sign is taken from the first component that is not numerically zero,
-    # in the order z, x, y. A fixed reference direction would be unstable for
-    # normals nearly orthogonal to it, and this rule is exact for every normal.
     sign = np.zeros(len(normals))
     for axis in (2, 0, 1):
         undecided = sign == 0
@@ -168,7 +138,6 @@ def dominant_vertical_plane(triangles: np.ndarray) -> np.ndarray | None:
     normals = normals[vertical]
     areas = areas[vertical]
 
-    # Fold ±n together by forcing a canonical sign, then bin at ~3°.
     flip = (normals[:, 0] < 0) | ((np.abs(normals[:, 0]) < 1e-9) & (normals[:, 1] < 0))
     folded = np.where(flip[:, None], -normals, normals)
     keys = np.round(folded[:, :2] / 0.05).astype(np.int64)
@@ -180,7 +149,6 @@ def dominant_vertical_plane(triangles: np.ndarray) -> np.ndarray | None:
         area = float(areas[member].sum())
         if area > best_area:
             best_area = area
-            # Area-weighted mean direction of the bin, re-normalised.
             mean = (folded[member] * areas[member, None]).sum(axis=0)
             mean[2] = 0.0
             norm = np.linalg.norm(mean)
@@ -220,8 +188,6 @@ def outermost_parallel_face(triangles: np.ndarray, normal: np.ndarray) -> Plane 
         placed = False
         for b in bins:
             if abs(float(b["offset"]) - float(offset)) <= FACE_MERGE:
-                # Area-weighted so the merged offset tracks the dominant face
-                # rather than drifting toward whichever sliver was within range.
                 total = float(b["area"]) + float(area)
                 b["offset"] = (float(b["offset"]) * float(b["area"]) + float(offset) * float(area)) / total
                 b["sum"] = b["sum"] + centroid * float(area)  # type: ignore[operator]
@@ -333,13 +299,8 @@ def plan_footprint(triangles: np.ndarray) -> Any | None:
     if triangles.size == 0:
         return None
     normals, areas = triangle_normals_areas(triangles)
-    # Downward-facing and non-degenerate. The normal gate rather than `areas > 0`
-    # for the reason `dominant_plane` documents: a zeroed normal still reports an
-    # area, and it would vote here as a horizontal face pointing nowhere.
     usable = (np.linalg.norm(normals, axis=1) > 0) & (normals[:, 2] < -HORIZONTAL_DOT) & (areas > 1e-9)
     if not usable.any():
-        # A room whose floor was not modelled as a distinct facet still has a
-        # silhouette, and a silhouette is a better answer than refusing.
         usable = (np.linalg.norm(normals, axis=1) > 0) & (areas > 1e-9)
         if not usable.any():
             return None

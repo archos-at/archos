@@ -53,17 +53,10 @@ from agent.common import turn_status
 from agent.common.tool_calls import FETCH_FAILED_MARKER
 from agent.common.turn_status import current_retrieval_round
 
-#: The research budget these tests run on. Small, so a runaway loop hits the
-#: ceiling inside the test rather than inside the recursion limit.
 _CEILING = 7
 
-#: Which tools actually ran, in execution order. Module level because a
-#: LangChain ``@tool`` is a module-level object; cleared per test.
 RAN: list[str] = []
 
-#: ``(tool, the round stamp it saw)`` for every tool that RAN. The stamp is
-#: what files a result under a layer of the Herleitung, and it is only readable
-#: from inside the running tool.
 STAMPS: list[tuple[str, int | None]] = []
 
 
@@ -97,9 +90,6 @@ def read_passage(document: str, clause: str | None = None, page: int | None = No
     return f"Passage aus {document}"
 
 
-#: Queries the fake store refuses, once each: the first call comes back as the
-#: tool's own failure PROSE (marked), the retry succeeds — the exact shape of a
-#: store that was briefly unreachable.
 FAILING_QUERIES: set[str] = set()
 
 
@@ -223,15 +213,9 @@ class TestTheSecondIdenticalFetch:
         result = await _run(agent)
 
         assert RAN == ["knowledge_search:Fluchtweglänge GK4|"]
-        # The repeat is answered with what the first call returned, not with a
-        # pointer at the transcript.
         assert _answer_for(result, "b") == f"{_REPEAT_FETCH_PREFIX}\n\nTreffer zu: Fluchtweglänge GK4"
-        # One round for the search that ran, and one for the round that asked
-        # again: the guard saves the FETCH, not the round.
         assert result.tool_iterations == 2
-        # The call stays on the AIMessage: the transcript shows what was asked.
         assert _asked(result) == ["a", "b"]
-        # And a round that fetched nothing is not a layer of the spine.
         assert [step.id for step in steps.steps if step.id.startswith("status:retrieval")] == ["status:retrieval:0"]
 
     async def test_the_withheld_round_is_reported_as_its_own_technical_event(self, scripted_agent, steps):
@@ -261,7 +245,6 @@ class TestTheSecondIdenticalFetch:
         result = await _run(agent)
 
         assert RAN == ["read_passage:OIB-Richtlinie 2|3.5.2|"]
-        # Its own batch's result, which the round produced a moment earlier.
         assert _answer_for(result, "b") == f"{_REPEAT_FETCH_PREFIX}\n\nPassage aus OIB-Richtlinie 2"
         assert result.tool_iterations == 1
 
@@ -358,14 +341,10 @@ class TestTheGuardIsTheOnlyOneOnTheSeam:
 
         result = await _run(agent)
 
-        # A set: one batch's parallel calls run concurrently and their append
-        # order is the scheduler's (docs/contributing/gotchas.md).
         assert set(RAN) == {"knowledge_search:Fluchtweg|", "knowledge_search:Treppenraum|"}
         assert len(RAN) == 2
         assert _answer_for(result, "b") == f"{_REPEAT_FETCH_PREFIX}\n\nTreffer zu: Fluchtweg"
         assert not _is_repeat_notice(_answer_for(result, "c"))
-        # ONE round: three calls the model decided on in one go, minus the
-        # repeat that never ran, is still one decision and costs one.
         assert result.tool_iterations == 1
 
 
@@ -443,7 +422,6 @@ class TestTheLoopStillTerminates:
         assert result.messages[-1].content == "Die Antwort [1]."
         assert result.research_truncated is True
         assert result.tool_iterations >= _CEILING
-        # Bounded well inside what ``_recursion_limit`` was sized for.
         assert rounds["n"] <= _CEILING
 
 
@@ -495,9 +473,6 @@ class TestWhatTheSurvivingCallIsFiledUnder:
 
         assert STAMPS == [
             ("read_passage", 0),
-            # Round 1 fetched nothing: its only fetch was the repeat. What ran
-            # is an action, and an action belongs to no layer of the spine —
-            # stamping it 0 would hang the card on the search before it.
             ("emit_card", None),
         ]
 

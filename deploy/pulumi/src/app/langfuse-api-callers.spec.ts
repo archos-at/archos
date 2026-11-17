@@ -5,26 +5,6 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 
-/**
- * Who may call Langfuse's public API (ADR-0044), and for what. The purger
- * erases an erased chat's traces and those of a folder purge's removed answers;
- * the bff-jobs pool's Hatchet sweeps (`bff/scheduling/sweeps.ts`, ADR-0150)
- * erase the traces of chats the BFF erased and the ones past retention:
- * deletion is theirs alone. The frontend writes every answer vote as a score
- * (Amendment 3) and deletes nothing. bff-jobs does not inherit the frontend's
- * Langfuse settings; it gets the API keys on their own.
- *
- * Two layers say so and must agree. The network policy admits exactly those
- * pods into Langfuse web (`platform/network-policies.ts`, rules 11b and
- * 11c), and only their environments carry the API's host and keys. Trace
- * deletion run from anywhere but the two workers fails silently or by
- * accident, which is how the Papierkorb's „Endgültig löschen" once "erased"
- * traces from the BFF while it held no keys: the client answered "not
- * configured", the count read 0 and the traces stayed. So the deletion client
- * stays out of the BFF's code, and the folder purge hands its traces to the
- * purger instead.
- */
-
 pulumi.runtime.setMocks(
   {
     newResource: (args: pulumi.runtime.MockResourceArgs) => ({ id: `${args.name}-id`, state: args.inputs }),
@@ -72,7 +52,6 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
   });
 
   it("are in the purger's and bff-jobs', the two pods the network policy admits, once each", () => {
-    // Not vacuous: the pattern finds all three names where they belong.
     expect(apiNames(envs.purger).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
     expect(apiNames(envs.bffJobs).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
     const policies = readFileSync(join(repoRoot, "deploy", "pulumi", "src", "platform", "network-policies.ts"), "utf8");
@@ -80,8 +59,6 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
   });
 
   it("are not reached for by the BFF's own code, outside the sweeps only bff-jobs runs", () => {
-    // The trace client lives in `workers/` for the purger and bff-jobs' sweeps.
-    // A module the frontend runs that imports it erases nothing, and says it did.
     const BFF_JOBS_ONLY = new Set([join("scheduling", "sweeps.ts")]);
     const importers = ["app", "bff", "ui", "i18n", "shared", "types", "utils"].flatMap((dir) => {
       const root = join(repoRoot, "apps", "workspace", dir);

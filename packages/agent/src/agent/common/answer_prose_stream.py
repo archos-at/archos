@@ -48,32 +48,16 @@ from agent.citations.references import _GROUPED_CITATION_RE
 from agent.citations.references import REFERENCE_HEADING_LINE_RE
 from agent.citations.references import expand_grouped_citations
 
-#: How far into the reply the ``"answer"`` key may start. Only the masthead
-#: comes before it (a verdict with its reference and a summary fit well
-#: inside); a reply that has not reached it by here put something else first,
-#: and streaming the rest would mean guessing where the prose is.
 _ANSWER_KEY_WITHIN = 1600
 _ANSWER_KEY_RE = re.compile(r'"answer"\s*:\s*"')
 _CARDS_KEY_RE = re.compile(r'"cards"\s*:\s*\[')
-#: A tail that may still become the ``"answer"`` key, whitespace of any length
-#: included, held until it completes or cannot.
 _ANSWER_KEY_PREFIX_RE = re.compile(r'"(?:a(?:n(?:s(?:w(?:e(?:r(?:"\s*(?::\s*)?)?)?)?)?)?)?)?$')
 
-#: A line is held back until it ends or grows past this many visible
-#: characters, so a sources heading is recognized whole before any of it is
-#: shown. Longer than every heading the verifier accepts ("**Quellenangaben:**"
-#: is 19). Whitespace does not count: the verifier's heading allows any run of
-#: it around and inside the label.
 _LINE_HOLD = 30
-#: A line with at most ``_LINE_HOLD`` visible characters. Reads no further than
-#: the one after them, so a long line costs no more than a short one.
 _SHORT_LINE_RE = re.compile(rf"[^\S\n]*(?:\S[^\S\n]*){{0,{_LINE_HOLD}}}\Z")
 
-#: A tail that may still become a citation or card marker, held until it
-#: completes or cannot.
 _MARKER_PREFIX_RE = re.compile(r"\[(?:\d[\d,\s–-]*|\[(?:c(?:a(?:r(?:d(?::\s*\d*\s*\]?)?)?)?)?)?)?$")
 
-#: What may still become the four hex digits of a ``\u`` escape.
 _HEX_PREFIX_RE = re.compile(r"[0-9A-Fa-f]{0,4}")
 
 _ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
@@ -87,31 +71,18 @@ class AnswerProseStream:
         self._state = "detect"  # detect -> seek -> prose -> sources | off
         self._pending = ""  # decoded prose not yet shown
         self._line_start = True  # whether ``_pending`` begins a line
-        #: How much of ``_pending`` was read and kept: it holds no newline and
-        #: ``_ticks`` backticks, so the next token is read from there on
-        #: rather than the held line rescanned per token.
         self._scanned = 0
         self._ticks = 0
-        #: Whether ``_pending`` is one open code span from its backtick on,
-        #: which only a newline or a backtick can release; the text decoded
-        #: meanwhile waits in ``_code_parts`` rather than being copied onto it.
         self._code_held = False
         self._code_parts: list[str] = []
         self._emitted: list[str] = []
         self._sources: list[str] = []
-        #: Whether the ``answer`` string has closed: no more prose will come.
         self.closed = False
-        #: The fields written before ``answer``, once its key appeared; None
-        #: when there were none or they did not parse.
         self.masthead: dict | None = None
         self._head = ""  # reply text before the ``answer`` key, for the masthead
-        #: Reply text after the ``answer`` string that no card has taken yet;
-        #: once the cards key is read, it starts at the array's next element.
         self._tail = ""
         self._in_cards = False
         self._cards: list[dict] = []
-        #: The card object still being written: its scan, and its text so far,
-        #: kept across feeds so each token is read once and copied never.
         self._card: _ObjectScan | None = None
 
     @property
@@ -154,9 +125,6 @@ class AnswerProseStream:
     def _seek(self) -> None:
         match = _ANSWER_KEY_RE.search(self._raw)
         if match is None:
-            # Keep the tail the key could still straddle, however much
-            # whitespace it holds; count what was read, once (a per-call count
-            # of the kept tail cut off a reply fed a character at a time).
             partial = _ANSWER_KEY_PREFIX_RE.search(self._raw)
             cut = partial.start() if partial else len(self._raw)
             self._head += self._raw[:cut]
@@ -256,10 +224,6 @@ class AnswerProseStream:
                 self._scanned = self._ticks = 0
         self._pending = rest
         self._code_held = self._state == "prose" and not self.closed and not hold_line and self._ticks % 2 == 1
-        # A range marker is held whole (see ``_MARKER_PREFIX_RE``), so it is
-        # expanded as it is shown: ``[2–5]`` as four pills. Expanded with what
-        # was shown before it, which says whether it is inside code, where
-        # ``grid[1, 2]`` is an index and stays one.
         shown = _expanded_after(self._emitted, shown)
         if shown:
             self._line_start = shown.endswith("\n")
@@ -283,8 +247,6 @@ class AnswerProseStream:
             ended = newline >= 0 or self.closed
             if line_start and ended and REFERENCE_HEADING_LINE_RE.fullmatch(line.rstrip()):
                 self._state = "sources"
-                # The lines before it go out as written: trimming them here
-                # would trim only what this chunk carried.
                 return shown, text, False
             if newline < 0:
                 return shown, text, line_start and _is_short(line)

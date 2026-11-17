@@ -1,19 +1,12 @@
-/**
- * Bases and knowledge contexts for the rule catalogue's specs: every rule
- * settled, and a context with the uses a spec states.
- */
-
 import type { ContextUse, KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import type { GateState } from '@/lib/base-knowledge/wire/vocab'
 import type { RuleBasis } from './rule-basis'
 import { BIM_RULES } from './rules'
 
-/** Every rule of the catalogue may give a verdict: its edition binds at a settled site. */
 export const SETTLED_BASES: Readonly<Record<string, RuleBasis>> = Object.fromEntries(
   BIM_RULES.map((rule) => [rule.id, { kind: 'verdict' } satisfies RuleBasis]),
 )
 
-/** One use, binding unless stated: the designation and the label are what a basis reads. */
 export function contextUse(designation: string, editionLabel: string, overrides: Partial<ContextUse> = {}): ContextUse {
   return {
     workId: `work:${designation}`,
@@ -41,7 +34,6 @@ export function contextUse(designation: string, editionLabel: string, overrides:
   }
 }
 
-/** A context at one leaf with the given gate and uses. */
 export function contextAt(territoryId: string, gate: GateState, uses: ContextUse[] = []): KnowledgeContext {
   return {
     gate: {
@@ -60,6 +52,5 @@ export function contextAt(territoryId: string, gate: GateState, uses: ContextUse
   }
 }
 
-/** A settled site where every rule's edition binds: each rule may give a verdict. */
 export const settledContext = (): KnowledgeContext =>
   contextAt('AT-9', 'core', BIM_RULES.map((rule) => contextUse(rule.designation, rule.edition)))

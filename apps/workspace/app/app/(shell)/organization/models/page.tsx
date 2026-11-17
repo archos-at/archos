@@ -1,18 +1,3 @@
-/**
- * Organization → models. Which LLM the organization runs on, and whose account
- * pays for it.
- *
- * The chrome, the back link and the section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it.
- *
- * Both cards carry the same double gate the API enforces: the caller's
- * `org:models:manage` permission AND the deployment's feature flag. Model
- * configuration (ADR-0014) and BYOK credentials (ADR-0022) share the permission
- * but ship on separate flags, so an organization can have one without the other
- * — hence two independent conditions rather than one section-wide gate. With
- * neither available the section says so instead of rendering an empty column.
- */
-
 import type { JSX } from 'react'
 import { Cpu, KeyRound, ShieldAlert } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
@@ -29,7 +14,6 @@ export default async function OrganizationModelsPage(): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const t = await getTranslations(organizationCopy)
 
-    // Permission AND feature flag — the cards mirror the API's double gate.
     const models =
       canManageModels(session) && isFeatureEnabled(session, FEATURE_FLAGS.modelConfiguration)
     const byok = canManageModels(session) && isFeatureEnabled(session, FEATURE_FLAGS.byokLlm)

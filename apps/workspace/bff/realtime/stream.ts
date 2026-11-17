@@ -1,28 +1,3 @@
-/**
- * The one copy of the live channels' SSE plumbing (ADR-0110): a tab's channels
- * on one `text/event-stream`.
- *
- * In order:
- *
- * 1. Every key is resolved and authorized before anything is opened. A key no
- *    channel knows is `unsupported{ch}`, a channel the reader may not be in is
- *    `revoked{ch}`; the others are subscribed. A failure that is not a refusal
- *    (the database is down) fails the whole request, so the browser retries
- *    rather than dropping a channel it may be in.
- * 2. `welcome` names who the server takes the reader to be.
- * 3. Each channel's hub topics are listened to; an event that does not parse as
- *    the channel's vocabulary is dropped.
- * 4. Every channel re-authorizes on its own cadence while open, uncached. A
- *    refusal sends `revoked{ch}` and drops that channel; a stream left with no
- *    channel ends.
- * 5. The stream ends after {@link MAX_STREAM_AGE_MS} regardless, so a session
- *    that expired or changed organization is re-resolved by the reconnect
- *    rather than outliving itself on an open socket.
- *
- * Teardown is idempotent: the abort, the cancel, a failed write, the age limit
- * and the last revoke may each come first, and the second is a no-op.
- */
-
 import 'server-only'
 import { BadRequestError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -31,11 +6,8 @@ import { subscribe } from './hub'
 import { CHANNELS, resolveChannel, type ResolvedChannel } from './registry'
 import { channelKeySchema, MAX_CHANNELS_PER_CONNECTION, type RealtimeFrame, type RealtimeSelf } from './types'
 
-/** Heartbeat cadence, under the 60s idle timeout of typical proxies. */
 export const HEARTBEAT_MS = 25_000
-/** The browser's reconnect delay after a drop. */
 export const RETRY_MS = 2_000
-/** How long one stream lives before the browser reconnects and the session is resolved again. */
 export const MAX_STREAM_AGE_MS = 10 * 60_000
 
 export interface StreamOptions {
@@ -44,12 +16,10 @@ export interface StreamOptions {
   channels?: Readonly<Record<string, AnyChannel>>
 }
 
-/** Who the session is on a channel: the server's word for it, never the client's. */
 export function selfOf(session: AuthorizedSession): RealtimeSelf {
   return { userId: session.userId, name: session.name ?? session.email, kind: 'person' }
 }
 
-/** The distinct channel keys of a request, validated: 400 for none, too many, or a malformed one. */
 export function channelKeysOf(request: Request): string[] {
   const keys = [...new Set(new URL(request.url).searchParams.getAll('ch'))]
   if (keys.length === 0) throw new BadRequestError('Name at least one channel (?ch=<kind>:<id>).')
@@ -90,7 +60,6 @@ async function authorizeAll(
   return { allowed, refused }
 }
 
-/** Open the SSE response for a session's channels. Throws only before the stream exists. */
 export async function openRealtimeStream(
   session: AuthorizedSession,
   keys: readonly string[],
@@ -191,7 +160,6 @@ export async function openRealtimeStream(
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
-      // nginx-class proxies buffer otherwise, and pointers arrive in batches.
       'X-Accel-Buffering': 'no',
     },
   })

@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organisation → Anweisungen: the standing instruction block
- * every turn in the organization carries.
- *
- * Renders the REAL `OrgInstructionsForm` twice, because the two states answer
- * different questions and only one of them is the interesting one:
- *
- *   - an organization that has written a block, counter part-used;
- *   - an organization that has pasted more than fits, counter over the cap and
- *     Save refused. That is the state the surface exists to make survivable —
- *     an instruction cut at 1500 characters says something its author never
- *     wrote, so the editor refuses rather than truncates.
- *
- * The fetch shim is installed at MODULE scope, not in an effect: a child's
- * effect fires first and would race a parent's fetch patch.
- * Not linked from anywhere and 404s outside development (see ../layout.tsx).
- */
-
 import type { JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { OrgInstructionsForm } from '@/app/app/(shell)/organization/org-instructions-form'
@@ -31,7 +13,6 @@ const WRITTEN = [
   'Bei Prüfaufträgen immer eine Mängelliste anhängen, auch wenn sie leer ist.',
 ].join('\n')
 
-/** Twelve characters past the cap — the counter has to say by how much. */
 const TOO_LONG = `${WRITTEN}\n${'ü'.repeat(ORG_INSTRUCTIONS_MAX_CHARS + 12 - WRITTEN.length - 1)}`
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {

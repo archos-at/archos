@@ -1,13 +1,3 @@
-/**
- * The SQL behind a conversation's restricted use (ADR-0087, ADR-0088, migration
- * 0111): which folders not every member can read it drew on, who it is shared with, and the lock that
- * makes a check of the one against the other a single step.
- *
- * Repository rules: drizzle only, organization in every WHERE, lists bounded.
- * Every function takes the executor it runs on, because the service calls them
- * inside the transaction that holds {@link lockConversationAudience}.
- */
-
 import 'server-only'
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import type { DbExecutor } from '@/lib/db/executor'
@@ -20,30 +10,12 @@ import { projects } from '@/lib/db/schema/projects'
 import { resourceShares, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { taskRuns } from '@/lib/db/schema/task-model'
 
-/**
- * How many source folders one conversation records at most, read back. A
- * project has a handful of restricted folders; the bound is for the query.
- */
 export const RECORDED_FOLDERS_LIMIT = 200
 
-/** Rows read back for a whole list of conversations: a list is at most `CONVERSATION_LIST_LIMIT`, each with a handful of folders. */
 const RECORDED_FOLDERS_BATCH_LIMIT = 5_000
 
-/** How many grantees the audience read returns; the sharing roster cap is far below. */
 const AUDIENCE_GRANT_LIMIT = 500
 
-/**
- * Serialize every change to who a conversation reaches with every record of
- * what it drew on, until the transaction ends.
- *
- * `admitRestrictedUse` checks the audience and records a collection; a
- * widening (a grant, a wider visibility, an escalation) checks the record and
- * writes the audience. Both take this lock first, so neither can slip between
- * the other's check and write. Keyed by the conversation, which may not exist
- * yet (its first turn runs before the row), so a row lock would not do.
- * Namespaced so it never shares a key with another advisory lock
- * (`storage_quota:`, `document_versions:`).
- */
 export async function lockConversationAudience(
   tx: DbExecutor,
   organizationId: string,
@@ -54,11 +26,6 @@ export async function lockConversationAudience(
   )
 }
 
-/**
- * The subject id of a revision run, as a uuid when it is one, else null (a plan
- * is jsonb). Built when asked rather than at import: narrow schema doubles in
- * unit specs that import this module carry no `taskRuns`.
- */
 function subjectDocumentId() {
   return sql`case
   when ${taskRuns.plan}->'subject'->>'documentId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -66,14 +33,6 @@ function subjectDocumentId() {
 end`
 }
 
-/**
- * The current folder of every document a revision task written into these
- * conversations revises (ADR-0093). Read alongside the record: the thread holds
- * the draft's text and the revised draft, so it is read as a conversation that
- * drew on the folder the document is in NOW. Not stored: a document moved, or
- * a folder loosened, changes the answer at the next read. A document that is
- * gone, or that sits at a project's root, adds nothing.
- */
 async function listRevisionSubjectFolders(
   executor: DbExecutor,
   organizationId: string,
@@ -101,10 +60,6 @@ async function listRevisionSubjectFolders(
   )
 }
 
-/**
- * The source folders this conversation recorded, sorted, with the current
- * folders of the documents its revision tasks revise.
- */
 export async function listRecordedSourceFolders(
   executor: DbExecutor,
   organizationId: string,
@@ -127,12 +82,6 @@ export async function listRecordedSourceFolders(
     .slice(0, RECORDED_FOLDERS_LIMIT)
 }
 
-/**
- * The source folders each of these conversations recorded, and the current
- * folders of the documents their revision tasks revise, for the conversations
- * with any: how a list asks "which of these did restricted content enter" in
- * one read per table. Absent from the map means none.
- */
 export async function listRecordedSourceFoldersFor(
   executor: DbExecutor,
   organizationId: string,
@@ -162,7 +111,6 @@ export async function listRecordedSourceFoldersFor(
   return recorded
 }
 
-/** Record that the conversation drew on these folders; a repeat bumps `last_at`. */
 export async function recordSourceFolders(
   executor: DbExecutor,
   organizationId: string,
@@ -183,14 +131,6 @@ export async function recordSourceFolders(
     })
 }
 
-/**
- * Mark one answer of this conversation as drawing on a folder with restricted
- * access, when the database's rule says the conversation does
- * (`conversation_restricted_use`, migration 0124, ADR-0093). Keyed by the
- * answer's message id, which the agent mints for the turn and the vote names,
- * so the mark exists whether or not the answer is ever persisted. Idempotent;
- * the runtime role may insert marks and never lift one.
- */
 export async function markAnswerRestrictedUse(
   executor: DbExecutor,
   organizationId: string,
@@ -204,7 +144,6 @@ export async function markAnswerRestrictedUse(
     ON CONFLICT DO NOTHING`)
 }
 
-/** Forget what a conversation drew on: its erasure. */
 export async function deleteRecordedSourceFolders(
   executor: DbExecutor,
   organizationId: string,
@@ -220,19 +159,8 @@ export async function deleteRecordedSourceFolders(
     )
 }
 
-/**
- * How many other projects one conversation records at most, read back. The
- * lookups search at most a page of projects per call; the bound is for the query.
- */
 export const RECORDED_PROJECTS_LIMIT = 200
 
-/**
- * Whether a recorded project still restricts who may read what came from it:
- * every one except a project closed now, whose open folders every office member
- * reads (ADR-0090). A deleted project, or one that is gone, still restricts.
- * Judged at read time, so a reopened project restricts again. Its restricted
- * folders are recorded by id and judged on their own, closed or not.
- */
 function stillRestricts() {
   return sql<boolean>`NOT EXISTS (
     SELECT 1 FROM ${projects}
@@ -243,11 +171,6 @@ function stillRestricts() {
   )`
 }
 
-/**
- * The other projects this conversation drew on (ADR-0094, migration 0125) that
- * still restrict its readers ({@link stillRestricts}), sorted. Every judge of
- * the record reads this, never the raw rows.
- */
 export async function listRestrictingSourceProjects(
   executor: DbExecutor,
   organizationId: string,
@@ -268,10 +191,6 @@ export async function listRestrictingSourceProjects(
   return rows.map((row) => String(row.projectId))
 }
 
-/**
- * The names of these projects, by id; a project that is deleted or gone is
- * absent. Bounded by the caller's list, which comes from a conversation's record.
- */
 export async function listProjectNames(
   executor: DbExecutor,
   organizationId: string,
@@ -294,7 +213,6 @@ export async function listProjectNames(
   return names
 }
 
-/** {@link listRestrictingSourceProjects} for many conversations; absent from the map means none. */
 export async function listRestrictingSourceProjectsFor(
   executor: DbExecutor,
   organizationId: string,
@@ -324,7 +242,6 @@ export async function listRestrictingSourceProjectsFor(
   return recorded
 }
 
-/** Record that the conversation drew on these other projects; a repeat bumps `last_at`. */
 export async function recordSourceProjects(
   executor: DbExecutor,
   organizationId: string,
@@ -345,12 +262,6 @@ export async function recordSourceProjects(
     })
 }
 
-/**
- * The project each of these folders belongs to, for the folders of this
- * organization that belong to one (an Archiv folder has none). How a record
- * that names a folder of ANOTHER project (ADR-0094) finds the tree that judges
- * it; a folder id not found stays unknown, which is a folder nobody may read.
- */
 export async function projectsOfFolders(
   executor: DbExecutor,
   organizationId: string,
@@ -367,7 +278,6 @@ export async function projectsOfFolders(
   return found
 }
 
-/** Who can read a conversation: its row (absent before the first message) and its grants. */
 export interface ConversationAudienceRow {
   exists: boolean
   projectId: string | null

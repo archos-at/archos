@@ -46,13 +46,8 @@ from oib_retrieval import metrics
 from oib_retrieval import qrels
 from oib_retrieval import structure
 
-#: How deep each channel retrieves before scoring. Well above the largest reported K so
-#: that removing production's excluded files afterwards still leaves a full ranking to
-#: score — see ``_apply_production_filter``.
 RETRIEVE_DEPTH = 120
 
-#: The cutoff the language-parity headline is quoted at, because it is production's top_k
-#: (``configs/config_oib_openrouter.yml``); the runner asserts that at start-up.
 PARITY_K = 16
 
 CHANNELS = ("lexical", "dense", "hybrid")
@@ -243,9 +238,6 @@ def run_arm(
         for channel, ranked in raw.items():
             unfiltered[channel].append(ranked)
             kept, was_short = _apply_production_filter(ranked, settings.exclude_file_names, max(metrics.K_VALUES))
-            # The lexical channel legitimately returns fewer than K results (an empty
-            # result is its correct answer for an English question), so a short ranking
-            # there is not an artefact of the post-filter and must not be counted as one.
             if was_short and len(ranked) >= max(metrics.K_VALUES):
                 short += 1
             rankings[channel].append(kept)
@@ -395,10 +387,6 @@ def main(argv: list[str] | None = None) -> int:
         file=stream,
     )
 
-    # An empty `data/oib` is the ordinary state of a fresh clone, not a bug in the
-    # harness, so it exits with the instruction rather than a traceback. This is also
-    # why there is no CI job here any more: no CI checkout can hold the corpus
-    # (ADR-0058, "Update (2026-09-09)").
     try:
         report = structure.measure_structure(index)
     except corpus.CorpusMissingError as exc:
@@ -437,10 +425,6 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     settings = corpus.production_retrieval_settings()
-    # The assertion PARITY_K's comment promises, and did not make. Without it a top_k
-    # change in configs/config_oib_openrouter.yml leaves the language-parity headline
-    # quoted at a depth production no longer uses -- silently, and in the one number the
-    # report leads with.
     if settings.top_k != PARITY_K:
         print(
             f"\nWARNING: PARITY_K={PARITY_K} but production top_k={settings.top_k}. "

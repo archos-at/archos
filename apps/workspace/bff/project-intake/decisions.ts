@@ -1,26 +1,3 @@
-/**
- * What a person's decisions on the review do to the profile (ADR-0111). Pure:
- * the service reads the profile, applies the plan through
- * `patchProjectProfile` (the profile's one door) and remembers what was
- * dismissed.
- *
- *  - `confirm`: the suggestion, or the alternative at `alternativeIndex`,
- *    becomes a confirmed fact carrying its evidence. The profile's prune
- *    retires the suggestion. A contradiction on a fact is settled: confirming
- *    the fact keeps it and drops its alternatives; confirming an alternative
- *    replaces it.
- *  - `dismiss`: the suggestion goes, and its value is remembered so no reading
- *    suggests it again; a dismissed suggestion with alternatives leaves the
- *    first of them as the suggestion. With `alternativeIndex`, only that
- *    alternative goes.
- *  - `answer`: the person's own value, as a fact with `person` evidence.
- *  - `unknown`: the key is recorded as „nicht bekannt".
- *
- * Decisions apply in request order on one working copy, so two decisions on
- * one key see each other. A decision that cannot apply says why and changes
- * nothing; the others still apply.
- */
-
 import { validateProfilePatchVocabulary } from '@/lib/project-profile/intake-vocabulary'
 import type { ProfileAlternative, ProfileEvidence } from '@/lib/project-profile/evidence-schema'
 import type { ProjectAssumption, ProjectFact, ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
@@ -28,7 +5,6 @@ import { reasonFromEvidence } from './evidence'
 import { confirmedFact, pointerSegment, suggestedAssumption, withoutAlternative } from './profile-edits'
 import type { DismissedValue, IntakeDecision, IntakeDecisionResult } from './types'
 
-/** Why a decision did not apply. Machine-readable; the review words it. */
 export const DECISION_REFUSALS = {
   nothingToConfirm: 'nothing-to-confirm',
   nothingToDismiss: 'nothing-to-dismiss',
@@ -36,10 +12,8 @@ export const DECISION_REFUSALS = {
   vocabulary: 'vocabulary',
 } as const
 
-/** A decision on something a reading suggested, for the `piloti-decision` score. */
 export interface ScoredDecision {
   key: string
-  /** Which alternative, when the decision was on one. */
   alternativeIndex: number | null
   decision: 'accepted' | 'dismissed'
 }
@@ -64,7 +38,6 @@ const refuse = (profile: ProjectProfile, key: string, reason: string): Step => (
   result: { key, ok: false, reason },
 })
 
-/** Was this suggested by a reading (a value with document or derivation evidence, or an `agent_suggested` one)? */
 function fromReading(entry: { evidence?: ProfileEvidence[] }, assumption?: ProjectAssumption): boolean {
   if (assumption?.source === 'agent_suggested') return true
   return (entry.evidence ?? []).some((evidence) => evidence.kind === 'document' || evidence.kind === 'derivation')
@@ -93,7 +66,6 @@ function confirmAlternative(profile: ProjectProfile, key: string, index: number,
 function confirm(profile: ProjectProfile, key: string, now: string): Step {
   const fact = profile.facts[key]
   if (fact) {
-    // The confirmed value stands; what the documents said beside it is settled.
     const settled: ProjectFact = { ...fact }
     delete settled.alternatives
     return { profile: withFact(profile, key, settled), result: { key, ok: true } }
@@ -127,7 +99,6 @@ function dismissAlternative(profile: ProjectProfile, key: string, index: number)
   }
 }
 
-/** The suggestion that takes a dismissed one's place: its first alternative, or none. */
 function successorOf(assumption: ProjectAssumption, now: string): ProjectAssumption | null {
   const [next, ...rest] = assumption.alternatives ?? []
   if (!next) return null
@@ -187,7 +158,6 @@ function step(profile: ProjectProfile, decision: IntakeDecision, userId: string,
   }
 }
 
-/** The profile after these decisions, one result per decision in order, what to remember and what to score. */
 export function planDecisions(
   profile: ProjectProfile,
   decisions: readonly IntakeDecision[],

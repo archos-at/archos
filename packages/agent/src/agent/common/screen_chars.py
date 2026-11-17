@@ -11,16 +11,12 @@ from __future__ import annotations
 
 import unicodedata
 
-#: Unicode's ``White_Space`` property, all 25 code points. The one definition of
-#: whitespace on both sides (the TypeScript twin lists the same, and its spec
-#: holds the list to ``\p{White_Space}``).
 WHITESPACE = (
     "\t\n\x0b\x0c\r \x85\xa0\u1680"
     "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a"
     "\u2028\u2029\u202f\u205f\u3000"
 )
 _LINE_BREAKS = "\n\x0b\x0c\r\x85\u2028\u2029"
-#: Whitespace that keeps a line: what may join the groups of a card number.
 _HORIZONTAL_SPACE = "".join(char for char in WHITESPACE if char not in _LINE_BREAKS)
 
 

@@ -1,5 +1,3 @@
-/** The review operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
-
 import { quarantineDecisionsSchema } from '@/lib/upload-screening/decisions-wire'
 import { z } from 'zod'
 import {
@@ -47,11 +45,6 @@ const replyParams = annotationParams.extend({
   replyId: z.string().describe('The reply id, from the annotation’s `replies` in annotation-get.'),
 })
 
-/**
- * `GET …/versions/diff` reads `from` and `to` straight off the URL (the route
- * has no query schema), so this one is written for the agent; the route
- * answers 400 when either is missing.
- */
 const versionDiffQuery = z.object({
   from: z.string().describe('The version id to compare from, from document-version-list.'),
   to: z.string().describe('The version id to compare to, from document-version-list.'),
@@ -71,7 +64,6 @@ export const reviewOperations = [
     spansProjects: 'unlessScoped',
     load: () => import('@/app/api/review/queue/route'),
   },
-  // ---- Versions: the document lifecycle (draft, in review, approved, published) ----
   {
     name: 'document-version-list',
     domain: 'review',
@@ -213,7 +205,6 @@ export const reviewOperations = [
     load: () => import('@/app/api/documents/[id]/versions/[versionId]/publish/route'),
   },
 
-  // ---- Annotations: marks and their threads on a document ----
   {
     name: 'annotation-list',
     domain: 'review',
@@ -240,7 +231,6 @@ export const reviewOperations = [
     examples: [
       {
         params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },
-        // A region in page shares (origin top left); a point has x and y only.
         body: { page: 2, shape: 'region', x: 0.42, y: 0.31, w: 0.18, h: 0.12, kind: 'question', body: 'Is this door 90 cm clear?' },
       },
     ],
@@ -332,7 +322,6 @@ export const reviewOperations = [
     load: () => import('@/app/api/documents/[id]/thread/route'),
   },
 
-  // ---- Quarantine: an upload held back by screening ----
   {
     name: 'document-quarantine-get',
     domain: 'review',
@@ -390,7 +379,6 @@ export const reviewOperations = [
     load: () => import('@/app/api/quarantine/decisions/route'),
   },
 
-  // ---- Revisions: how one document replaces another ----
   {
     name: 'document-revision-compare',
     domain: 'review',
@@ -441,7 +429,6 @@ export const reviewOperations = [
     method: 'GET',
     path: '/api/documents/[id]/annotations/export',
     params: documentParams,
-    // The route's schema transforms (`includeProposals` becomes a boolean); the agent sends the URL's own values.
     query: z.object({
       format: z.enum(ANNOTATION_EXPORT_FORMATS).optional().describe('pdf (default), docx or md.'),
       scope: z.enum(ANNOTATION_EXPORT_SCOPES).optional().describe('open (default): what still asks something; all: closed ones too.'),

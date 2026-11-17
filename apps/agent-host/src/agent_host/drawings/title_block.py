@@ -42,7 +42,6 @@ NORTH_CELL_MM = 24.0
 SCALE_CELL_MM = 58.0
 TITLE_CELL_MM = 132.0
 
-#: The app icon's tile at the sheet's foot, and its corner (20/96 of the side, as the brand's icon).
 _ICON_MM = 3.4
 
 
@@ -65,11 +64,8 @@ class SheetFacts:
     second_row: list[SheetField]
     notes: list[str] = field(default_factory=list)
     scale: int | None = None
-    #: Why there is no scale, when there is none.
     unscaled_reason: str = ""
-    #: Whether up is (grid) north, so the arrow may be drawn.
     north_up: bool = False
-    #: Set on a page with no drawing (the parcel list): shown where the scale bar would be.
     page_label: str = ""
 
 

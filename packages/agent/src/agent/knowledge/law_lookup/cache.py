@@ -19,9 +19,6 @@ from agent.knowledge.law_lookup.client import Document
 
 logger = logging.getLogger(__name__)
 
-#: The shape of the text the engine makes, in the document key. The cache holds
-#: CONVERTED text for days, so a change to the conversion is invisible until every
-#: entry expires unless the key moves with it. 2: screen-reader twins dropped.
 DOC_TEXT_VERSION = 2
 _SECONDS_PER_DAY = 24 * 60 * 60
 

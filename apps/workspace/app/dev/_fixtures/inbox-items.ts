@@ -1,30 +1,12 @@
-/**
- * The inbox the previews render (`/dev/inbox`, `/dev/inbox-dock`): one fixture
- * row per interesting treatment, and the `fetch` shim that serves them. One
- * copy, so the list and the dock are shown the same inbox.
- *
- * The fixtures deliberately exercise every interesting row: an unread actionable
- * mention request, a resolved one, a grouped activity row, a shared-with-you
- * row, a READ grouped row with `count: 0`, the OPERATIONAL storage-quota
- * warning (ADR-0042), a row whose type this build does not know (the runtime
- * fallback), an INERT row whose target is gone (IB-13), and the marks, Fassungen
- * and the agent's rows of the review. `?variant=mail` serves the E-Mail-Eingang's seven
- * types alone (ADR-0137).
- */
-
 import type { InboxItemView } from '@/lib/inbox/types'
 import { MENTIONABLE, VIEWER_ID, replyToMark, withProjects } from './inbox-rows'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// Relative to now, so „vor 4 Minuten“ reads as it would in the product rather
-// than every row claiming months.
 const now = Date.now()
 
 const ago = (minutes: number): string => new Date(now - minutes * 60_000).toISOString()
 
 export const ITEMS: InboxItemView[] = [
-  // Platform lane: a member elsewhere in the fleet sent product feedback. The
-  // reader is a platform owner; the row lives in the platform organization.
   {
     id: 'i0',
     type: 'feedback.submitted',
@@ -165,15 +147,6 @@ export const ITEMS: InboxItemView[] = [
     updatedAt: ago(2_600),
   },
   {
-    /*
-      The OPERATIONAL row (ADR-0042) — the one item type that is not a
-      collaboration event. It has to be in the evidence because it is the only
-      row with no actor (a system alert that fell back to the actor placeholder
-      would invent a colleague), the only one carrying `tone: 'warning'`, and the
-      only one pointing at the organization rather than a conversation. It is
-      also the row a tenant WITHOUT collaboration sees on its own, so how it
-      reads unaccompanied is the whole design question.
-    */
     id: 'i5a',
     type: 'storage.quota_warning',
     state: 'unread',
@@ -182,15 +155,11 @@ export const ITEMS: InboxItemView[] = [
     actionable: false,
     resourceType: 'organization',
     resourceId: 'org-1',
-    // The crossed threshold bucket, which is what makes the alert fire once per
-    // crossing rather than once per sweep.
     anchorId: '80',
     actorName: null,
     actorUserId: null,
     count: 1,
     href: '/app/organization/storage',
-    // Locale-neutral token: the sentence around it is translated, the number is
-    // not, so the server never formats an English sentence.
     subject: '82%',
     related: null,
     excerpt: null,
@@ -201,14 +170,6 @@ export const ITEMS: InboxItemView[] = [
     updatedAt: ago(140),
   },
   {
-    /*
-      `count: 0` — a grouped row that has been READ, so nothing has arrived since.
-      It is the ordinary state of every activity row a user has already opened, and
-      it renders the third counted title (`titleNone`, "Neue Nachrichten"): picking
-      `titleOne` for it made a group of twenty claim "1 neue Nachricht". Without a
-      zero-count row in the fixture that string is unreachable, so the fix could not
-      be seen.
-    */
     id: 'i5b',
     type: 'conversation.activity',
     state: 'read',
@@ -232,16 +193,6 @@ export const ITEMS: InboxItemView[] = [
     updatedAt: ago(2_050),
   },
   {
-    /*
-      A row whose type this build does not know — written by a newer deploy, or read
-      across a rollback. It used to index `INBOX_TYPE_PRESENTATION` to `undefined`
-      and throw, taking the whole /app/inbox route down rather than costing one row.
-      The fallback presentation must therefore be in the evidence: one unremarkable
-      row ("Es gibt etwas Neues"), not a blank page.
-
-      The cast is the point: the type is deliberately outside the compile-time union,
-      which is exactly the situation the runtime fallback exists for.
-    */
     id: 'i5c',
     type: 'conversation.summarized' as unknown as InboxItemView['type'],
     state: 'read',
@@ -265,7 +216,6 @@ export const ITEMS: InboxItemView[] = [
     updatedAt: ago(3_400),
   },
   {
-    // Target unshared/deleted: no link, no excerpt (IB-13/IB-14).
     id: 'i6',
     type: 'conversation.activity',
     state: 'inert',
@@ -288,11 +238,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(4_100),
     updatedAt: ago(4_100),
   },
-  // A newer Fassung of a document you follow (ADR-0099), as a sentence about
-  // the person who uploaded it. The older document is the subject (without its
-  // extension, as `revisionRowNames` writes it), the newer one the second name,
-  // and the excerpt is the first line of what changed: the row's only body.
-  // „Fassungen vergleichen" opens the newer one with the comparison open.
   {
     id: 'i-revision',
     type: 'document.new_revision',
@@ -311,7 +256,6 @@ export const ITEMS: InboxItemView[] = [
     related: 'Grundriss EG Index C',
     excerpt: 'Die Tür zum Technikraum wurde verschoben, die Wandstärke im Kern von 25 auf 30 cm erhöht.',
     mentions: [],
-    // The open marks Index B leaves behind: the row says how many to check.
     variant: 'marks_earlier',
     openMarks: 4,
     marksRevision: null,
@@ -319,7 +263,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(9),
     updatedAt: ago(9),
   },
-  // A same-name Fassung: its open marks all sit on Fassung 2.
   {
     id: 'i-revision-marks',
     type: 'document.new_revision',
@@ -345,9 +288,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(55),
     updatedAt: ago(55),
   },
-  // The content check held files back (ADR-0086): a collapsed row of three
-  // naming the newest and its kind of reason, never the value found; and an
-  // uploader asking for one held file's review, caught in a scan's transcript.
   {
     id: 'i-quarantined',
     type: 'document.quarantined',
@@ -394,9 +334,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(13),
     updatedAt: ago(13),
   },
-  // What the agent did, told to the person whose act woke it (ADR-0106): which
-  // mark in which document, why it did not work (the failure's `variant`),
-  // and what to do now. The excerpt is what the mark says, or the agent's question.
   {
     id: 'i-agent-failed',
     type: 'piloti.work_failed',
@@ -439,7 +376,6 @@ export const ITEMS: InboxItemView[] = [
     excerpt: 'Gilt für die Brüstung die Höhe ab Fertigfußboden oder ab Rohdecke?',
     mentions: [],
     variant: null,
-    // Events do not wake the agent (the default): the answer goes in the Prüfansicht, which asks the agent.
     answerIn: 'review',
     createdAt: ago(5),
     updatedAt: ago(5),
@@ -467,8 +403,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(40),
     updatedAt: ago(40),
   },
-  // A colleague made the reader responsible for a mark: the row opens at the
-  // mark, and the reader can answer or resolve it from here.
   {
     id: 'i-mark-assigned',
     type: 'annotation.assigned_to_you',
@@ -493,8 +427,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(7),
     updatedAt: ago(7),
   },
-  // The daily reminder of a Frist, in the Zuständige's row for the mark: near,
-  // then passed (the same row upgraded). No actor: the calendar did it.
   {
     id: 'i-mark-due-soon',
     type: 'annotation.assigned_to_you',
@@ -543,7 +475,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(4000),
     updatedAt: ago(4),
   },
-  // A colleague moved the date of a mark the reader is Zuständige for.
   {
     id: 'i-mark-redated',
     type: 'annotation.assigned_to_you',
@@ -568,8 +499,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(300),
     updatedAt: ago(40),
   },
-  // A colleague @mentioned the reader in a mark's thread, with the chat's
-  // picker: the row opens at the mark, and the reader can answer from here.
   {
     id: 'i-mark-mentioned',
     type: 'annotation.mentioned',
@@ -587,16 +516,13 @@ export const ITEMS: InboxItemView[] = [
     subject: 'Grundriss EG',
     related: '11',
     excerpt: '@Miriam Hofer passt die Brüstungshöhe im Zimmer 1 zur Einreichung?',
-    // Drawn as the thread's chip, louder: Miriam is the reader here.
     mentions: [{ targetId: VIEWER_ID, display: 'Miriam Hofer' }],
     variant: null,
     answerIn: 'row',
-    // Events wake the agent in this office: „Antworten" opens the thread's composer with @{productName} beside Send.
     pilotiWakes: true,
     createdAt: ago(3),
     updatedAt: ago(3),
   },
-  // Two replies on a mark the reader wrote, the newest by Markus.
   {
     id: 'i-mark-activity',
     type: 'annotation.activity',
@@ -620,7 +546,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(30),
     updatedAt: ago(14),
   },
-  // A colleague's review of a document the reader is Verantwortlich for: fifteen new marks, one counted row.
   {
     id: 'i-marks-set',
     type: 'annotation.activity',
@@ -644,8 +569,6 @@ export const ITEMS: InboxItemView[] = [
     createdAt: ago(48),
     updatedAt: ago(9),
   },
-  // The agent's proposals a colleague took over, on a document the reader uploaded:
-  // a proposal tells nobody until then, and then reads as the agent's marks for them.
   {
     id: 'i-marks-taken-over',
     type: 'annotation.activity',
@@ -676,7 +599,6 @@ export const ITEMS: InboxItemView[] = [
     archived: false,
     read: false,
     actionable: true,
-    // A filing suggestion no chat made: it waits on its file under Dateien.
     resourceType: 'project',
     resourceId: 'p1',
     anchorId: 'prop-1',
@@ -694,8 +616,6 @@ export const ITEMS: InboxItemView[] = [
     updatedAt: ago(12),
   },
   {
-    // A request a colleague answered before the reader opened it: resolved and
-    // still unread. The badge counts it, so the queue must show it as news.
     id: 'i-answered-unread',
     type: 'mention.requested',
     state: 'resolved',
@@ -720,11 +640,6 @@ export const ITEMS: InboxItemView[] = [
   },
 ]
 
-/**
- * The E-Mail-Eingang's types (ADR-0137, DECISION §9, and the sender rule's), served alone under
- * `?variant=mail`: what each row says, with the project's name and codes only
- * (no sender, no subject, no file name ever reaches a row or a push).
- */
 const mailRow = (
   id: string,
   type: InboxItemView['type'],
@@ -772,7 +687,6 @@ const MAIL_ITEMS: InboxItemView[] = [
     href: '/app/projects/p1/files?folder=f-bescheide',
     updatedAt: ago(150),
   }),
-  // The sender rule's notices (ADR-0137, amendment of 2026-11-03), each to the member the From names.
   mailRow('m-held', 'inbound_mail.held', { actionable: true, anchorId: 'mail-3', href: '/app/projects/p1/files/mail/mail-3', updatedAt: ago(2) }),
   mailRow('m-held-done', 'inbound_mail.held', {
     actionable: true,
@@ -816,15 +730,12 @@ const MAIL_ITEMS: InboxItemView[] = [
 const isMailVariant = (): boolean =>
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('variant') === 'mail'
 
-/** Newest first, as the server orders a page. */
 const NEWEST_FIRST = [...withProjects(ITEMS)].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
 
 const isOpenRequest = (item: InboxItemView) => item.actionable && item.state !== 'resolved' && item.state !== 'inert'
 
-/** The badge's set: outstanding requests + unread. */
 const PENDING = NEWEST_FIRST.filter((item) => isOpenRequest(item) || (!item.read && item.state !== 'inert'))
 
-/** What each `?filter=` returns (`InboxListFilter`). Nothing is archived in this fixture. */
 const BY_FILTER: Record<string, InboxItemView[]> = {
   pending: PENDING,
   requests: NEWEST_FIRST.filter(isOpenRequest),
@@ -833,24 +744,11 @@ const BY_FILTER: Record<string, InboxItemView[]> = {
   archived: [],
 }
 
-/** A page size small enough that „Ältere Einträge laden“ shows in the evidence. */
 const PAGE = 12
 
-/**
- * `?variant=empty` serves an inbox with nothing in it, so the crafted empty state
- * is captured as its own piece of evidence (NF-10 lists "empty inbox" separately).
- * Read at request time rather than at install time so a client-side navigation
- * between the two variants still serves the right fixture.
- */
 export const isEmptyVariant = (): boolean =>
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('variant') === 'empty'
 
-/**
- * Serves the fixture inbox to `fetch`, once per page, in development only: the
- * previews render the real list, queue and dock with no backend. Installed at
- * MODULE SCOPE by each preview, because a child's effects run before its
- * parent's and the list's first read would otherwise race the shim.
- */
 export function installInboxShim(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
   const w = window as unknown as { __inboxShim?: boolean }
@@ -864,7 +762,6 @@ export function installInboxShim(): void {
         return Response.json({ pending: empty ? 0 : PENDING.length })
       }
       if (url.startsWith('/api/inbox') && (init?.method ?? 'GET') !== 'GET') {
-        // Every mutation lands; the list re-reads the same fixture.
         return Response.json({ affected: 1, pending: empty ? 0 : PENDING.length })
       }
       if (url.startsWith('/api/inbox')) {
@@ -880,18 +777,13 @@ export function installInboxShim(): void {
         const hasMore = start + PAGE < rows.length
         return Response.json({ items, pending: PENDING.length, counts, hasMore, nextCursor: hasMore ? String(start + PAGE) : null })
       }
-      // „Antworten" from a mark's row: the thread's composer asks who may open
-      // the document for its „@" picker, and sends through the reply route.
       if (/^\/api\/assignments\/document\/[^/]+\/candidates/.test(url)) {
         return Response.json({ candidates: MENTIONABLE })
       }
-      // „Antworten" on a mark's row sends through the reply route.
       const reply = /^\/api\/documents\/([^/]+)\/annotations\/([^/?]+)\/replies$/.exec(url)
       if (reply && init?.method === 'POST') {
         return Response.json(replyToMark(reply[1], reply[2], JSON.parse(String(init.body ?? '{}'))), { status: 201 })
       }
-      // The live channel is deliberately absent here: the list must render fully
-      // from the plain fetch (spec RT-3/RT-4), which is what a screenshot proves.
       if (url.startsWith('/api/stream')) {
         return new Response(null, { status: 404 })
       }

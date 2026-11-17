@@ -57,8 +57,6 @@ class LLMProvider:
     def __init__(self) -> None:
         self._llms: dict[LLMRole, BaseChatModel] = {}
         self._default: BaseChatModel | None = None
-        # Agent-group tags used by with_model_overrides() to apply per-org
-        # runtime model overrides (see agent.common.model_overrides).
         self._groups: dict[LLMRole, AgentGroup] = {}
         self._default_group: AgentGroup | None = None
 
@@ -125,9 +123,6 @@ class LLMProvider:
         if not applied_groups:
             return self
 
-        # Observability: this per-group override path (used by the async deep
-        # research worker) was previously silent, unlike apply_model_override.
-        # Log which groups actually take an override so a run can be diagnosed.
         logger.info(
             "Applying model overrides: %s",
             {g.value: overrides[g.value] for g in sorted(applied_groups, key=lambda g: g.value)},

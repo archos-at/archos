@@ -1,13 +1,3 @@
-/**
- * The fixed as-of set (ADR-0171, ticket 30): procedures whose answer to "which
- * edition applied when this was submitted" is known, each with the edition it
- * must name or the facts it must ask for. Synthetic works and rules
- * (`work:fixture-…`, provisions marked "fixture"): the shapes are the design's
- * (§3.6: a Land Stichtag, a transition in the shape of NÖ BO § 70, BauGB and
- * BayBO choosing separately, BauNVO by the plan's adoption), the content is
- * not a statement about any law.
- */
-
 import type { ProcedureInput } from '@/lib/base-knowledge/wire/time'
 import {
   procedureSchema,
@@ -23,7 +13,6 @@ const ruleset = (id: string, values: RulesetValuesInput): StoredRuleset => ({
   values: rulesetValuesSchema.parse(values),
 })
 
-/** A node's rule: the reference date is the filing day. */
 export function filingRule(
   id: string,
   territoryId: string,
@@ -54,7 +43,6 @@ export function filingRule(
   })
 }
 
-/** A plan-bound work: the edition in force when the governing plan was adopted (the BauNVO shape). */
 const planRule = ruleset('rule-de-plan', {
   purpose: 'reference_date',
   territoryIds: ['DE'],
@@ -92,7 +80,6 @@ export const AS_OF_RULESETS: StoredRuleset[] = [
   planRule,
 ]
 
-/** Old law for a procedure filed before the boundary and not decided before it (the shape of NÖ BO § 70). */
 export const OLD_LAW_IF_PENDING = transitionTableSchema.parse({
   inputs: [
     { key: 'filed_on', type: 'date' },
@@ -189,7 +176,6 @@ export interface AsOfCase {
     { edition: string } | { asks: string[] } | { reason: string } | { choice: [string, string] }
 }
 
-/** The clock of the set: an open procedure's window runs to this day in Vienna. */
 export const NOW = new Date('2026-11-10T09:00:00Z')
 
 export const AS_OF_SET: AsOfCase[] = [

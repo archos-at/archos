@@ -19,7 +19,6 @@ describe('useTransientFlag', () => {
     act(() => result.current[1]())
     act(() => vi.advanceTimersByTime(TRANSIENT_FLAG_MS - 100))
     act(() => result.current[1]())
-    // The first raise's timeout would have fired here.
     act(() => vi.advanceTimersByTime(200))
     expect(result.current[0]).toBe(true)
     act(() => vi.advanceTimersByTime(TRANSIENT_FLAG_MS))

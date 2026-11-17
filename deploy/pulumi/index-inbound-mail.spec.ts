@@ -4,21 +4,6 @@ import { baseStackConfig } from "./src/test-support/stack-config";
 import { MAIL_ZONE_ID, mailStackConfig, SIGNING_KEY_ID, SIGNING_KEYS, SIGNING_SECRET } from "./src/test-support/app-zone-config";
 import { LEGACY_PROJECT } from "./src/names";
 
-/**
- * The whole program with project mail on, on a zone of its own.
- *
- * A separate file for the reason `index-dns.spec.ts` gives: `index.ts` works at
- * module scope and Pulumi's runtime is process-global, so one process builds
- * one configuration.
- *
- * What only the whole program can show is that the two halves meet: the Worker
- * Cloudflare runs signs with one key of a map and posts to one origin, and the
- * frontend pod must hold the same map under the name the BFF reads, with
- * `WORKOS_REDIRECT_URI` on the origin the Worker signs for. The per-module
- * specs each see one side. The program on the app zone's apex is
- * `index-inbound-mail-app-zone.spec.ts`.
- */
-
 type Recorded = { type: string; name: string; inputs: Record<string, unknown> };
 const RESOURCES: Recorded[] = [];
 
@@ -38,7 +23,6 @@ pulumi.runtime.setMocks(
         return { id: args.inputs.zoneId, name: "post.example.test", account: { id: "account-1", name: "Office" } };
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
-        // The MX guard's lookup: Cloudflare's own MX, as after a first `up`.
         return { results: [{ name: DOMAIN, content: "route1.mx.cloudflare.net", type: "MX" }] };
       }
       return {};
@@ -51,7 +35,6 @@ pulumi.runtime.setMocks(
 
 type EnvVar = { name: string; value?: string; valueFrom?: { secretKeyRef?: { key: string } } };
 
-/** Unwrap a mock input that Pulumi marked secret. */
 function reveal<T>(value: unknown): T {
   const sig = "4dabf18193072939515e22adb298388d"; // pragma: allowlist secret (Pulumi secret-marker constant, not a credential)
   const secret = typeof value === "object" && value !== null && sig in value && "value" in value;
@@ -109,7 +92,6 @@ describe("the program constructs with project mail on", () => {
       (r) => r.type === "cloudflare:index/emailRoutingRule:EmailRoutingRule" && /^inbound-mail-(postmaster|abuse)$/.test(r.name),
     );
     expect(forwards).toHaveLength(2);
-    // The mock's address has no `verified` timestamp, as after the first `up`.
     expect(outputs.inboundMailOperator).toMatch(/^mail-ops@company\.example \(NOT verified/);
   });
 
@@ -118,10 +100,8 @@ describe("the program constructs with project mail on", () => {
     expect(env.find((e) => e.name === "INBOUND_MAIL_DOMAIN")?.value).toBe(DOMAIN);
     expect(env.find((e) => e.name === "INBOUND_MAIL_LOCAL_PART")?.value).toBe("project");
     expect(env.find((e) => e.name === "INBOUND_MAIL_PAUSED")?.value).toBe("true");
-    // Direct filing is on unless switched off.
     expect(env.find((e) => e.name === "INBOUND_MAIL_DIRECT_FILING")?.value).toBe("true");
     const keys = env.find((e) => e.name === "INBOUND_MAIL_SIGNING_KEYS");
-    // Never inline: anything with `get pod` could read it.
     expect(keys?.value).toBeUndefined();
     expect(keys?.valueFrom?.secretKeyRef?.key).toBe("INBOUND_MAIL_SIGNING_KEYS");
   });
@@ -150,8 +130,6 @@ describe("the program constructs with project mail on", () => {
   });
 
   it("points the Worker at the origin the BFF checks @target-uri against", () => {
-    // `configuredAppOrigin()` is the origin of WORKOS_REDIRECT_URI; a Worker
-    // signing for another origin is refused `bad-signature`, every time.
     const redirect = containerEnv("frontend").find((e) => e.name === "WORKOS_REDIRECT_URI")?.value;
     const script = RESOURCES.find((r) => r.type === "cloudflare:index/workersScript:WorkersScript");
     const bindings = reveal<Array<{ name: string; text: string }>>(script?.inputs.bindings);
@@ -162,7 +140,6 @@ describe("the program constructs with project mail on", () => {
     const names = containerEnv("bff-jobs").map((e) => e.name);
     expect(names).toContain("INBOUND_MAIL_DOMAIN");
     expect(names).toContain("INBOUND_MAIL_LOCAL_PART");
-    // The receive job classifies the sender there: the kill switch must reach it.
     expect(names).toContain("INBOUND_MAIL_DIRECT_FILING");
     expect(names).not.toContain("INBOUND_MAIL_SIGNING_KEYS");
     expect(names).not.toContain("INBOUND_MAIL_PAUSED");

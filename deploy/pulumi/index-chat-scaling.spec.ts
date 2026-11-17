@@ -3,15 +3,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * With chat affinity off, KEDA scales the chat tier on the fleet's running
- * turns (ADR-0080). After the switch (`src/app/tier-names.ts`) that tier is
- * `chat`: the legacy one takes no new turns, so a ScaledObject on it would size
- * a draining tier to the whole fleet's load, and KEDA's NetworkPolicy must
- * admit the tier it polls.
- */
-
-// The project name is the config namespace; read it from `Pulumi.yaml` rather than spell it here.
 const PROJECT = /^name:\s*(\S+)/m.exec(readFileSync(new URL("./Pulumi.yaml", import.meta.url), "utf8"))![1];
 
 const NAMED: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];

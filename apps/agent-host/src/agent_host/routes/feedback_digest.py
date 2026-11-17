@@ -47,8 +47,6 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-# Bounds. The caller already truncates, but a route that trusts its caller's
-# bounds is one refactor away from posting a megabyte of chat history.
 _MAX_SAMPLES = MAX_DIGEST_SAMPLES
 _MAX_QUESTION_CHARS = 240
 _MAX_ITEMS = 3
@@ -126,9 +124,6 @@ def _build_brief(request: FeedbackDigestRequest, causes: dict[str, int] | None =
         )
     if request.trend_delta_points is not None:
         direction = "improved" if request.trend_delta_points > 0 else "worsened"
-        # Spelled out as a within-window comparison. A live smoke run against the
-        # shorter phrasing came back describing it as a change "compared to the
-        # previous period", which is a claim about data this route never sees.
         lines.append(
             f"Direction: WITHIN this window, the helpful rate {direction} by "
             f"{abs(request.trend_delta_points):.1f} percentage points from its first third "
@@ -187,9 +182,6 @@ def _build_brief(request: FeedbackDigestRequest, causes: dict[str, int] | None =
                 continue
             if len(question) > _MAX_QUESTION_CHARS:
                 question = question[:_MAX_QUESTION_CHARS] + "…"
-            # Every `<`, not just the two literal markers: a model reads
-            # `</QUESTION>` and `< /question >` as closing tags too, and a
-            # delimiter that only survives lowercase is not a delimiter.
             question = question.replace("<", "‹")
             tags = f" [{', '.join(entry.topics)}]" if entry.topics else ""
             reason = f" (reason: {entry.reason})" if entry.reason else ""
@@ -216,8 +208,6 @@ def _clean_item(value: object) -> str | None:
     """One list entry, or None if it is not usable text."""
     if not isinstance(value, str):
         return None
-    # The model is told not to use markdown; strip the bullet characters it adds
-    # anyway rather than rendering them inside a list that draws its own.
     text = value.strip().lstrip("-•* ").strip()
     if not text:
         return None
@@ -292,9 +282,6 @@ def add_feedback_digest_routes(router: APIRouter) -> None:
     )
     async def feedback_digest(
         request: FeedbackDigestRequest,
-        # Forwarded by the BFF so this route resolves credentials the same way
-        # its siblings do. The digest itself is cross-tenant, so in practice this
-        # is the platform organization.
         x_grid_organization_id: str | None = Header(default=None),
     ) -> FeedbackDigestResponse:
         """Summarise one window of answer feedback, or say why it could not be.
@@ -304,17 +291,12 @@ def add_feedback_digest_routes(router: APIRouter) -> None:
         empty digest plus a code the UI can turn into a sentence.
         """
         if request.up + request.down == 0:
-            # Nothing was rated. There is no digest to write, and a model asked
-            # to summarise an empty window writes a confident paragraph about
-            # nothing — the page's own empty state is the honest answer.
             return FeedbackDigestResponse(headline="", error="no_feedback")
 
         language = "German" if request.locale.lower().startswith("de") else "English"
         causes = await _label_causes(request, x_grid_organization_id)
         brief = _build_brief(request, causes)
 
-        # Cross-tenant: the questions come from every organization, so the
-        # request is pinned as if each of them had ZDR on.
         cred = await asyncio.to_thread(_llm_settings, x_grid_organization_id, data_policy=ZERO_DATA_RETENTION)
         if not cred.api_key:
             return FeedbackDigestResponse(headline="", error="llm_not_configured")
@@ -327,9 +309,6 @@ def add_feedback_digest_routes(router: APIRouter) -> None:
                 "model": cred.model,
                 "temperature": 0.2,
                 "max_tokens": 700,
-                # Same endpoint-level JSON contract the other two JSON routes send:
-                # asking for an object in the prompt alone leaves the model free to
-                # answer in prose, which this route can only report as malformed.
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -380,8 +359,6 @@ def add_feedback_digest_routes(router: APIRouter) -> None:
             return FeedbackDigestResponse(headline="", error="llm_response_malformed")
 
         if not headline and not strengths and not concerns:
-            # Valid JSON, nothing in it. Reported as malformed rather than cached
-            # as an empty digest that looks like a considered "no comment".
             logger.warning("Feedback-digest LLM returned an empty digest")
             return FeedbackDigestResponse(headline="", error="llm_response_malformed")
 

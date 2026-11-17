@@ -1,13 +1,3 @@
-/**
- * `feedbackExport` namespace — the words inside the answer-feedback workbook
- * (Plattform → Antwortqualität → Bewertungen → Exportieren).
- *
- * The file leaves the product, so every header, sheet name and note in it is
- * written down here rather than in the builder. `columns` and `weeklyColumns`
- * are keyed by the column's stable CSV key (`lib/feedback/export-columns.ts`);
- * the column definitions are typed against these keys, so a column without a
- * label or a description does not compile.
- */
 export const feedbackExport = {
   sheets: {
     votes: 'Votes',

@@ -5,22 +5,6 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 
-/**
- * The chat tier's scale-out (ADR-0080).
- *
- * What goes wrong here plans clean and deploys green:
- *   - A ScaledObject whose URL, field or header drifted from the Python route
- *     errors on every KEDA poll; the HPA then holds whatever count it has, and
- *     the tier never scales. Both sides are read as source below.
- *   - Autoscaling beside the hash routing (affinity on) remaps live
- *     conversations at every scale event and sends sockets to replicas that do
- *     not exist yet.
- *   - A grace period shorter than the drain kills a long answer on every
- *     rollout, which the old fixed 90 s did.
- *   - A NetworkPolicy that does not admit the KEDA namespace turns the trigger
- *     into a timeout, again silently.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
 pulumi.runtime.setMocks(
@@ -39,7 +23,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 const route = read("apps", "agent-host", "src", "agent_host", "routes", "chat_occupancy.py");
@@ -138,12 +121,10 @@ describe("the chat tier's scale-out", () => {
     const spec = await resolve(find(SCALED, "chat").inputs.spec);
     const trigger = spec.triggers.find((t: { type: string }) => t.type === "metrics-api");
 
-    // The operator is in another namespace: the Service name must be qualified.
     expect(trigger.metadata.url).toBe("http://chat.grid.svc.cluster.local:8000/v1/internal/chat-occupancy");
     expect(trigger.metricType).toBe("AverageValue");
     expect(trigger.metadata.targetValue).toBe(String(cfg.backend.turnsPerReplica));
 
-    // Both sides, as source: the route's path, the JSON field it answers, the header it guards on.
     expect(route).toContain(`CHAT_OCCUPANCY_PATH = "${new URL(trigger.metadata.url).pathname}"`);
     expect(route).toContain(`"${trigger.metadata.valueLocation}": active`);
     expect(read("apps", "agent-host", "src", "agent_host", "routes", "internal_auth.py")).toContain(
@@ -166,7 +147,6 @@ describe("the chat tier's scale-out", () => {
     const behavior = spec.advanced.horizontalPodAutoscalerConfig.behavior;
     expect(behavior.scaleDown.stabilizationWindowSeconds).toBeGreaterThanOrEqual(600);
     expect(behavior.scaleDown.policies).toEqual([{ type: "Pods", value: 1, periodSeconds: 300 }]);
-    // KEDA refuses `fallback` beside a cpu trigger; a scaler it cannot read holds the count instead.
     expect(spec).not.toHaveProperty("fallback");
   });
 
@@ -176,8 +156,6 @@ describe("the chat tier's scale-out", () => {
     expect(pol.podSelector.matchLabels).toEqual({ "app.kubernetes.io/name": "chat" });
     expect(pol.ingress).toEqual([
       {
-        // The operator runs the scalers; the metrics server and the webhooks in the
-        // same namespace poll nothing and get no connection into `grid`.
         from: [
           {
             namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": "keda" } },
@@ -209,7 +187,6 @@ describe("the chat tier's scale-out", () => {
   });
 
   it("leaves the replica count to KEDA once it exists", () => {
-    // `ignoreChanges` is a resource option, which the mocks do not carry.
     expect(read("deploy", "pulumi", "src", "app", "backend.ts")).toMatch(
       /ignoreChanges: autoscaled \? \["spec\.replicas"\] : \[\]/,
     );

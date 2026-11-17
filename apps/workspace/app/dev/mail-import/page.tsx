@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Outlook archive import dev preview (ADR-0085): the REAL import dialog over
- * fixture state, so every row shape can be reviewed and captured without an
- * archive, a job or a backend. Not linked anywhere; the `/dev` layout 404s it
- * outside development.
- *
- * Variants via `?variant=`:
- *   - default  — a project with history: one import filing (with its progress
- *                bar), one that finished with skipped files, one that failed,
- *                one cancelled, and a colleague's waiting import.
- *   - sending  — this tab sending an archive, with the resumable upload row.
- *   - empty    — nothing imported yet: the picker and the empty history.
- *   - error    — a refused pick (not an archive) above the history.
- */
-
 import { useSearchParams } from 'next/navigation'
 import { MailImportDialogView } from '@/features/documents/components/mail-import-dialog'
 import type { UseMailImports } from '@/features/documents/hooks/use-mail-imports'
@@ -96,7 +81,6 @@ const HISTORY: MailImportView[] = [
     filename: 'Projektpostfach.pst',
     status: 'queued',
     ownedByViewer: false,
-    // The viewer administers every project, so may stop a colleague's import.
     cancellable: true,
     startedBy: { userId: 'u-max', email: 'max.gruber@buero.at' },
     folderId: null,

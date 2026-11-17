@@ -8,7 +8,6 @@ import type { ChangeRequestSummary } from '@/lib/base-knowledge/platform/wire'
 
 const TONE = { due: 'warning', confirmed: 'success', disputed: 'destructive', void: 'secondary' } as const
 
-// Platform-internal: offices never see approval marks.
 export function ApprovalBadges({
   approval,
   secondReview,

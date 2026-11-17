@@ -73,8 +73,6 @@ from pathlib import Path
 
 from .model import SpatialModel
 
-#: Every cache's spill table, so the interpreter can remove the files it wrote
-#: even though the cache itself must not (see ``SpatialCache._temp``).
 _TEMP_FILES: list[dict[str, str]] = []
 
 
@@ -88,8 +86,6 @@ def _remove_spilled_files() -> None:
                 pass
 
 
-#: Read size for hashing. One megabyte keeps a 150 MB file off the heap without
-#: turning the hash into a syscall storm.
 _CHUNK = 1 << 20
 
 
@@ -129,28 +125,14 @@ class SpatialCache:
     """Opened models, keyed by the sha256 of their bytes."""
 
     def __init__(self, max_entries: int = 4) -> None:
-        #: Insertion order IS the LRU order: a hit moves the key to the end, so
-        #: the oldest key is always the first one iteration yields. No second
-        #: structure, no timestamps to keep in step with the entries they
-        #: describe.
         self._models: OrderedDict[str, SpatialModel] = OrderedDict()
         self._in_flight: dict[str, _Pending] = {}
         self._lock = threading.Lock()
         self._max_entries = max(1, max_entries)
         self._hits = 0
         self._misses = 0
-        #: Temporary files this cache created for byte-sourced models.
-        #:
-        #: Never deleted on eviction, and that is deliberate. ``SpatialModel``
-        #: holds the PATH, and IfcOpenShell reads the file again for the
-        #: geometry pass and the OCCT tree — so an evicted model handed out
-        #: earlier is still live in a caller's hands and still needs its file.
-        #: Unlinking it would turn an eviction (a memory decision) into a broken
-        #: model (a correctness one). They are cleaned up when the process ends.
         self._temp: dict[str, str] = {}
         _TEMP_FILES.append(self._temp)
-
-    # ── introspection ───────────────────────────────────────────────────────
 
     @property
     def stats(self) -> dict[str, int]:
@@ -206,8 +188,6 @@ class SpatialCache:
         with self._lock:
             return list(self._models)
 
-    # ── loading ─────────────────────────────────────────────────────────────
-
     def load(self, path: str | os.PathLike[str]) -> SpatialModel:
         """The model for this file — from the cache, from a read already
         running, or from a read this call starts. Exactly one of the three."""
@@ -249,13 +229,6 @@ class SpatialCache:
                 return resident
             running = self._in_flight.get(content)
             if running is not None:
-                # Single-flight, and it matters more here than it does for a
-                # graph: two concurrent opens of one model would run two
-                # geometry passes and hold two full tessellations at the same
-                # instant, which is precisely when memory is tightest. That is
-                # not a rare race — it is the ordinary shape of a user
-                # double-clicking, a retry landing on the same replica, or an
-                # agent firing two tool calls at one building.
                 self._hits += 1
                 pending = running
             else:
@@ -276,20 +249,12 @@ class SpatialCache:
         except BaseException as error:  # noqa: BLE001 — re-raised to every waiter
             pending.error = error
             with self._lock:
-                # Cleared on BOTH outcomes. Leaving a failed read in the map
-                # would poison the hash for the life of the process: every later
-                # caller would join a read that already failed and receive its
-                # error, turning one transient failure — a truncated upload, a
-                # momentary allocation failure — into a permanent one for those
-                # exact bytes.
                 self._in_flight.pop(content, None)
             pending.done.set()
             raise
         else:
             pending.model = model
             with self._lock:
-                # Admission on the success path only: a read that threw must
-                # never leave a half-built model behind a cache hit.
                 self._models[content] = model
                 self._models.move_to_end(content)
                 self._evict(keep=content)

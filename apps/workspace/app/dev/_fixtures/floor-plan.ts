@@ -1,17 +1,3 @@
-/**
- * A drawing for the `/dev` previews, as a data URI.
- *
- * The file peek exists to hold a PLAN beside a conversation, and every preview
- * of it was reviewed against a grey "Vorschau konnte nicht geladen werden" box:
- * `/dev` has no backend, so the preview endpoint 403s and the pane falls back to
- * its failure state. Judging the pane's seams, its ground, its shadow and its
- * behaviour at width against an error message is judging the wrong thing.
- *
- * SVG rather than bytes on disk: it renders identically in every browser and at
- * every width (the peek runs from 280px to 960px), it costs no fixture file, and
- * a vector plan is what an architect's drawing actually is.
- */
-
 const PLAN = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595 500" width="595" height="500">
   <rect width="595" height="500" fill="#ffffff"/>
@@ -47,5 +33,4 @@ const PLAN = `
   </g>
 </svg>`
 
-/** The plan as a `data:` URI, ready for an `<img src>`. */
 export const FLOOR_PLAN_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(PLAN.trim())}`

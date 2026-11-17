@@ -24,19 +24,8 @@ from agent.common import bff_http
 
 logger = logging.getLogger(__name__)
 
-# The query itself is a bounded aggregate over one model's rows; 10s covers a
-# cold page cache on a large model without letting a stuck BFF hold the turn.
 _REQUEST_TIMEOUT_SECONDS = 10
 
-# Ops that read the WHOLE element set rather than a page, and are therefore
-# allowed longer than the default.
-#
-# Two numbers have to be kept on the right side of each other: the BFF's
-# `statement_timeout` is 30s, so a client that gives up sooner abandons a query
-# the server is still running — the pool slot stays held, the work still
-# completes, and the agent is told "the model could not be read" about a model
-# that was being read perfectly well. A ceiling above the server's means the
-# server always loses the race and reports the real reason.
 _LONG_OPERATIONS = frozenset({"compare", "compliance", "compliance-diff", "schedule", "takeoff", "profile"})
 _LONG_TIMEOUT_SECONDS = 35
 
@@ -106,8 +95,6 @@ def _rejection_message(exc: bff_http.BffRefusedError) -> str:
     by `.strict()`) reached the agent as "the query was refused (400)".
     """
     body = exc.body
-    # `message` is accepted as a fallback so this keeps working if the envelope
-    # ever grows one; `error` is what it actually carries today.
     headline = body.get("error") or body.get("message")
     headline = headline if isinstance(headline, str) and 0 < len(headline) <= 300 else ""
     issues = _issue_summary(body.get("details"))
@@ -156,14 +143,8 @@ def run_bim_query(
     except bff_http.BffNotConfiguredError as exc:
         raise BimQueryUnavailableError(str(exc)) from exc
     except bff_http.BffRefusedError as exc:
-        # Never log the body: it can carry element names and property values
-        # from a tenant's model. The status is what a reader needs.
         logger.warning("BIM query rejected by the frontend (status=%s)", exc.status)
         if is_correctable(exc):
-            # The endpoint understood the request and refused it. Its message
-            # was written for a caller who can fix the arguments, so it is the
-            # one part of the body worth reading — and it describes the
-            # REQUEST, never the tenant's model.
             raise BimQueryRejectedError(_rejection_message(exc)) from exc
         raise BimQueryUnavailableError(f"internal BIM endpoint returned {exc.status}") from exc
     except bff_http.BffMalformedResponseError as exc:

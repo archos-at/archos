@@ -23,88 +23,31 @@ import {
 } from "../constants";
 import { logicalName, objectName } from "../names";
 
-/**
- * Where a connection goes (ADR-0083). There is no default, on purpose: a caller
- * that does not have to choose picks the same one every time, and the one it
- * picks for a session-scoped feature is the wrong one.
- *
- * - `pooler`: the transaction pooler. For anything whose every statement is
- *   self-contained or runs inside one transaction. `SET LOCAL`, `FOR UPDATE SKIP
- *   LOCKED`, `pg_advisory_xact_lock` and prepared statements all work.
- * - `direct`: the primary (`grid-pg-rw`). For anything that needs the SAME
- *   server connection across statements: `LISTEN`, session advisory locks, DDL
- *   Jobs, and third-party software that issues session `SET`s of its own.
- */
 export type PgRoute = "pooler" | "direct";
 
 export interface PgDsnOptions {
-  /** One of the logical databases. */
   db: string;
   via: PgRoute;
   driver?: string;
-  /** A non-default role: the least-privilege runtime login (ADR-0041), the scaler, the filer, Langfuse. */
   as?: { user: string; password: pulumi.Output<string> };
-  /**
-   * Host by FQDN, for a client in another namespace: KEDA's operator resolves a
-   * bare `grid-pg-rw` in `keda`, finds nothing, and the queue never scales out.
-   */
   clusterWide?: boolean;
 }
 
 export interface Postgres {
   operator: k8s.helm.v3.Release;
   cluster: k8s.apiextensions.CustomResource;
-  /** Job that ensures job/checkpoint tables exist (idempotent). */
   initJob: k8s.batch.v1.Job;
-  /**
-   * The Job that renames the row-level-security roles once the migrations have
-   * run (`postgres-rename.ts`). Everything that logs in as one of them waits on it.
-   */
   renameRlsRoles: (dependsOn: pulumi.Resource[]) => k8s.batch.v1.Job;
-  /** The transaction pooler (ADR-0083); the pooled DSNs name its Service. */
   pooler: k8s.apiextensions.CustomResource;
-  /** Read/write service host (the CNPG primary), e.g. `grid-pg-rw`. */
   rwHost: string;
-  /** Build a DSN for one of the logical databases, through the pooler or straight to the primary. */
   dsn: (opts: PgDsnOptions) => pulumi.Output<string>;
-  /**
-   * Resources the SeaweedFS filer must wait for before it can open its store
-   * (ADR-0043): the dedicated role, its database, and the grant lockdown.
-   * Empty when the filer is not using Postgres.
-   */
   filerStoreDeps: pulumi.Resource[];
-  /**
-   * DSN for the Langfuse database as its own owning role (ADR-0044), or
-   * undefined when the tier is not deployed.
-   */
   langfuseDsn?: pulumi.Output<string>;
-  /**
-   * Resources Langfuse must wait for before its Prisma migrations can run: the
-   * dedicated role and its database. Empty when the tier is not deployed.
-   */
   langfuseStoreDeps: pulumi.Resource[];
 }
 
 export const CLUSTER_NAME = objectName("pgCluster");
 
-/**
- * Which TLS query parameter this driver understands.
- *
- * A named function rather than an inline ternary because the two names are not
- * interchangeable and the failure is not a downgrade — it is a refusal to
- * connect, at runtime, on a stack that planned and deployed cleanly.
- *
- * `asyncpg` takes `ssl`. SQLAlchemy's asyncpg dialect passes the URL's query
- * keys straight through — `opts.update(url.query)`, with no translation
- * (verified against the installed SQLAlchemy 2.0.51,
- * `dialects/postgresql/asyncpg.py`) — and `asyncpg.connect()` has an `ssl`
- * parameter and no `**kwargs`, so a `sslmode` key arrives as an unexpected
- * keyword argument and the job store dies on its first connection.
- *
- * Everything else here is libpq or postgres-js (psycopg, psql, barman, node),
- * all of which take `sslmode`. `ssl=require` means to asyncpg what
- * `sslmode=require` means to them: encrypt, do not verify the CA.
- */
 export function sslParamFor(driver: string): "ssl" | "sslmode" {
   return driver.includes("asyncpg") ? "ssl" : "sslmode";
 }
@@ -113,14 +56,10 @@ export function installPostgres(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
-  /** Gate the ScheduledBackup on the SeaweedFS bucket-init when backups are on. */
   backupDeps: pulumi.Resource[] = [],
 ): Postgres {
-  // Before the first resource: a budget that cannot fit fails the plan, not a
-  // reconnect at 3 a.m. (ADR-0083).
   assertPgConnectionBudget(cfg);
 
-  // 1. CloudNativePG operator (cluster-wide; installs the CRDs we use below).
   const opNs = new k8s.core.v1.Namespace(
     "cnpg-system-ns",
     { metadata: { name: "cnpg-system" } },
@@ -131,21 +70,13 @@ export function installPostgres(
     "cloudnative-pg",
     {
       chart: "cloudnative-pg",
-      // Unpinned: track the latest CloudNativePG operator chart.
       namespace: opNs.metadata.name,
       repositoryOpts: { repo: "https://cloudnative-pg.github.io/charts" },
-      // The chart ships no resources by default; set both (autoscaler prereq).
       values: { resources: PLATFORM_RESOURCES.cnpgOperator },
     },
     { provider, dependsOn: opNs },
   );
 
-  // The CNPG chart ships no `startupapicheck` hook, so a "ready" operator
-  // Deployment can briefly precede its validating/mutating webhook actually
-  // serving TLS on :9443. Applying the Cluster CR into that window fails first
-  // `pulumi up` with `failed calling webhook "vcluster.cnpg.io": ... connection
-  // refused`, and Pulumi does not retry a CustomResource apply. Gate the Cluster
-  // on the webhook endpoint actually accepting connections.
   const webhookReady = new k8s.batch.v1.Job(
     "cnpg-webhook-wait",
     {
@@ -165,8 +96,6 @@ export function installPostgres(
                 resources: BOOTSTRAP_JOB_RESOURCES,
                 command: ["/bin/sh", "-c"],
                 args: [
-                  // Any HTTP response (even 404) means the webhook TLS listener
-                  // is up; connection-refused/timeout keeps us waiting.
                   "echo 'waiting for cnpg webhook…'; " +
                     "until curl -sk -o /dev/null --max-time 5 " +
                     "https://cnpg-webhook-service.cnpg-system.svc:443/readyz; do sleep 3; done; " +
@@ -181,8 +110,6 @@ export function installPostgres(
     { provider, dependsOn: operator },
   );
 
-  // 2. App-role credentials as a basic-auth secret the cluster bootstrap uses,
-  //    so the password is deterministic and we can build DSNs from it.
   const appSecret = new k8s.core.v1.Secret(
     "pg-app-credentials",
     {
@@ -196,11 +123,6 @@ export function installPostgres(
     { provider },
   );
 
-  /**
-   * Login for `app_rw`, the least-privilege role the app tier connects as
-   * under row-level security (ADR-0041). The rename Jobs set the role's
-   * password from it, as superuser (`postgres-rename.ts`).
-   */
   const runtimeCredentials = new k8s.core.v1.Secret(
     "pg-runtime-credentials",
     {
@@ -214,18 +136,6 @@ export function installPostgres(
     { provider },
   );
 
-  /**
-   * Login for `keda_scaler`, the read-only role KEDA's `postgresql` scaler
-   * counts the queue tables with (ADR-0079), where it used to borrow the owner
-   * (`jobs`) and the schema owner (`app`): a credential held by an
-   * operator in another namespace that could write every table in both.
-   *
-   * The rename Jobs keep the role, as superuser, before the grants Job
-   * (`app/queue-scaler-grants.ts`) tries to grant it anything. It has no
-   * attribute beyond LOGIN: what it may read is exactly what that Job grants,
-   * which is SELECT on the queue tables and nothing else. One role for both
-   * databases, because a role is cluster-wide and its grants are per database.
-   */
   const scalerCredentials = new k8s.core.v1.Secret(
     "pg-keda-scaler-credentials",
     {
@@ -236,21 +146,6 @@ export function installPostgres(
     { provider },
   );
 
-  /**
-   * Login for the SeaweedFS filer's metadata store (ADR-0043).
-   *
-   * Its own role and its own database, deliberately not one of the three
-   * application databases and deliberately not the application login. The
-   * filer store holds an AES key for every chunk in the object store, so a
-   * credential that reaches it must not also reach `app`, and vice versa:
-   * compromising the storage daemon should not yield the tenant database, and
-   * compromising the app should not yield the keys to decrypt objects it was
-   * never authorized to read.
-   *
-   * Declared here for the same reason the RLS roles are: CloudNativePG
-   * reconciles it as superuser, so the role exists before anything tries to log
-   * in as it.
-   */
   const filerStoreEnabled =
     cfg.seaweedfs.topology === "split" && cfg.seaweedfs.filerStore === "postgres";
 
@@ -269,17 +164,6 @@ export function installPostgres(
       )
     : undefined;
 
-  /**
-   * Login for Langfuse's own database (ADR-0044).
-   *
-   * Its own role and its own database, on the same reasoning as the filer's
-   * above. Langfuse runs Prisma migrations at startup — `CREATE TABLE`,
-   * `ALTER TABLE`, `DROP` — so whatever credential it holds is a credential
-   * with DDL rights. Confining that to a database it owns is what keeps a
-   * third-party image's migrator away from `app`, where every tenant's
-   * conversations live. It has no CREATEDB and no CREATEROLE, so it cannot
-   * give itself another database either.
-   */
   const langfuseCredentials = cfg.langfuse.enabled
     ? new k8s.core.v1.Secret(
         "pg-langfuse-credentials",
@@ -295,12 +179,6 @@ export function installPostgres(
       )
     : undefined;
 
-  // 2b. Object-store credentials for continuous backup (only when enabled). The
-  //     provider's StorageClasses reclaim `Delete`, so WAL archiving + scheduled
-  //     base backups are the only path to point-in-time recovery after an
-  //     accidental PVC/volume loss. They default to the in-cluster SeaweedFS
-  //     identity (and the in-cluster SeaweedFS endpoint, `config/postgres.ts`),
-  //     overridable for an external S3 endpoint: offsite PITR.
   const backupSecretName = objectName("pgBackupSecret"); // pragma: allowlist secret
   const backupSecret = cfg.postgres.backups.enabled
     ? installBackupSecret("pg-backup-s3", backupSecretName, namespace, provider, {
@@ -309,21 +187,12 @@ export function installPostgres(
       })
     : undefined;
 
-  // 3. The Postgres cluster. `jobs` is the bootstrapped app DB; the other
-  //    two databases are created by postInitSQL (as superuser, once) owned by
-  //    the agent role, so the same credentials reach all three. A cluster made
-  //    before ADR-0145 has them as `aiq_*`, renamed by `pg-rename-legacy-names`.
   const cluster = new k8s.apiextensions.CustomResource(
     logicalName("grid-pg"),
     {
       apiVersion: "postgresql.cnpg.io/v1",
       kind: "Cluster",
       metadata: { name: CLUSTER_NAME, namespace, labels: commonLabels("postgres") },
-      // The row-level-security roles (ADR-0041) are NOT managed here: their names
-      // change after the migrations (ADR-0145 row 10d), so the rename Jobs keep
-      // them (`postgres-rename.ts`), as `<cluster>-superuser`, which is why
-      // superuser access is on. `max_connections` is the ceiling
-      // `assertPgConnectionBudget` holds the pooler and the direct connections under.
       spec: cnpgClusterSpec({
         instances: cfg.postgres.instances,
         storageSize: cfg.postgres.storageSize,
@@ -341,8 +210,6 @@ export function installPostgres(
             `CREATE DATABASE ${APP_DB} OWNER ${cfg.postgres.appUser}`,
           ],
         },
-        // The SeaweedFS filer's (ADR-0043) and Langfuse's (ADR-0044) own logins:
-        // each owns exactly one database and needs DDL inside it, nothing outside.
         roles: [
           ...(filerCredentials
             ? [{ name: cfg.seaweedfs.filerDatabaseUser, passwordSecret: filerCredentials.metadata.apply((m) => m!.name!) }]
@@ -358,54 +225,14 @@ export function installPostgres(
     },
     {
       provider,
-      // `backupDeps` gates the CLUSTER on the archive bucket existing, where
-      // the ordering allows it: WAL archiving starts the moment the cluster
-      // boots and would otherwise race bucket-init into NoSuchBucket-degraded
-      // ContinuousArchiving on every first deploy. It is EMPTY in the one
-      // configuration where SeaweedFS depends on Postgres rather than the other
-      // way round (split topology, Postgres filer store), because there the
-      // gate would be a cycle. That is survivable for WAL — `archive_command`
-      // retries indefinitely — which is exactly why the one-shot base backup is
-      // NOT created here; see `installScheduledBackup`.
       dependsOn: [operator, webhookReady, ...(backupSecret ? [backupSecret] : []), ...backupDeps],
-      // The single most destructive resource in the program. CloudNativePG OWNS
-      // the cluster's PVCs, so unlike the StatefulSets (whose PVCs are pinned
-      // Retain) deleting this CR takes every database with it — irreversibly on
-      // a `Delete`-reclaim StorageClass, and completely if pgBackupsEnabled is
-      // off. `protect` makes Pulumi refuse the delete/replace outright.
-      // Deliberate teardown: `pulumi state unprotect <urn>` first.
       protect: cfg.protectDataResources,
     },
   );
 
   const rwHost = `${CLUSTER_NAME}-rw`;
 
-  /**
-   * The transaction pooler (ADR-0083), CloudNativePG's `Pooler` running PgBouncer
-   * against the primary. Every Python process opens ~130 server connections
-   * (seven or eight SQLAlchemy engines at pool 5 + overflow 10, the job store's asyncpg
-   * engines, the checkpoint pool at 10) and the BFF tiers another ~100, against
-   * `max_connections` 200: the cluster was one extra replica from "too many
-   * clients". In transaction mode a server connection is held for one
-   * transaction, not for a client's life, so the clients keep their pools and
-   * the server sees `pgPoolerPoolSize` per (database, role).
-   *
-   * `type: rw`, so it follows the primary through a failover the way `grid-pg-rw`
-   * does. Its Service is named after the Pooler, which is what `via: "pooler"`
-   * DSNs resolve.
-   *
-   * `max_prepared_statements` is what lets psycopg3 and asyncpg keep their
-   * protocol-level prepared statements in transaction mode (PgBouncer >= 1.21);
-   * it is why the image is pinned and why no client carries a
-   * `prepare_threshold=None` workaround. The BFF's postgres.js stays on
-   * `prepare: false`, which predates this.
-   */
   const poolerLabels = commonLabels("pgbouncer");
-  // The operator overwrites `app.kubernetes.io/name` and `managed-by` on the
-  // pods it builds from the template, so `poolerLabels` match no pooler pod.
-  // Select on the label it sets itself. Until 2026-10 the spread and the PDB
-  // used `poolerLabels`: both matched nothing, and both PgBouncers ran on one
-  // node.
   const poolerPods = { "cnpg.io/poolerName": POSTGRES_POOLER.name };
   const pooler = new k8s.apiextensions.CustomResource(
     logicalName("grid-pg-pooler-rw"),
@@ -427,18 +254,14 @@ export function installPostgres(
           },
         },
         template: {
-          // PgBouncer's pools, clients and waits, for the node agents (ADR-0119).
           metadata: { labels: poolerLabels, annotations: scrapeAnnotations(PORT.poolerMetrics) },
           spec: {
-            // Two poolers on one node are one pooler when that node drains.
-            // Required on a data group (fixed in size), soft without one.
             ...(cfg.postgres.pooler.instances > 1
               ? { topologySpreadConstraints: spreadAcrossNodes(poolerPods, Boolean(cfg.nodeGroups.data)) }
               : {}),
             ...onNodeGroup(cfg.nodeGroups.data),
             containers: [
               {
-                // The operator picks the PgBouncer container by this name.
                 name: "pgbouncer",
                 image: cfg.postgres.pooler.image,
                 resources: POSTGRES_POOLER.resources,
@@ -450,28 +273,10 @@ export function installPostgres(
     },
     { provider, dependsOn: [cluster] },
   );
-  // A voluntary drain takes one pooler at a time. Not for a single pooler: a
-  // PDB on one replica would block the provider's automatic node upgrades.
   if (cfg.postgres.pooler.instances > 1) {
     installPdb(POSTGRES_POOLER.name, namespace, provider, poolerPods, [pooler]);
   }
 
-  /**
-   * The filer's database, declared rather than bootstrapped.
-   *
-   * `bootstrap.initdb.postInitSQL` — where `checkpoints` and `app` are
-   * created — runs EXACTLY ONCE, at cluster initialisation. Adding a fourth
-   * database there would create it on a fresh stack and silently do nothing on
-   * every existing one, which is the worst of both: the manifest would claim a
-   * database that, on the cluster that matters, does not exist. The `Database`
-   * CR is reconciled continuously by the operator instead, so it converges on
-   * a running cluster.
-   *
-   * `databaseReclaimPolicy: retain` (the CRD default, pinned here because it is
-   * load-bearing): deleting this CR must not drop the database. Under volume
-   * encryption that database holds the only copy of every chunk key — dropping
-   * it turns the entire object store into ciphertext nobody can open.
-   */
   const filerDatabase = filerCredentials
     ? new k8s.apiextensions.CustomResource(
         "pg-seaweedfs-filer-db",
@@ -479,13 +284,6 @@ export function installPostgres(
           apiVersion: "postgresql.cnpg.io/v1",
           kind: "Database",
           metadata: {
-            // The CR's own object name, which must be a DNS-1123 subdomain —
-            // no underscores. The DATABASE and the ROLE keep the underscore
-            // (`spec.name` / `spec.owner` below), because those are Postgres
-            // identifiers and a hyphen there would need quoting everywhere it
-            // appears. Getting this wrong is not a subtle failure: the API
-            // server rejects the CR outright, `pg-init-tables` never runs
-            // because it waits on it, and the filer never starts.
             name: cfg.seaweedfs.filerDatabase.replace(/_/g, "-"),
             namespace,
             labels: commonLabels("postgres"),
@@ -502,20 +300,6 @@ export function installPostgres(
       )
     : undefined;
 
-  /**
-   * Langfuse's database (ADR-0044), declared as a `Database` CR for the same
-   * reason the filer's is: `bootstrap.initdb.postInitSQL` runs EXACTLY ONCE at
-   * cluster initialisation, so adding a database there would create it on a
-   * fresh stack and silently do nothing on every existing one. The operator
-   * reconciles this CR continuously, so it converges on a running cluster —
-   * which is the only case that matters, since this tier is being added to
-   * clusters that already exist.
-   *
-   * `databaseReclaimPolicy: retain`: deleting the CR (turning
-   * `langfuseEnabled` off, renaming a resource) must not drop the database.
-   * It holds the API keys, the SSO account links and the prompt history —
-   * none of which is in ClickHouse and none of which the traces can rebuild.
-   */
   const langfuseDatabase = langfuseCredentials
     ? new k8s.apiextensions.CustomResource(
         "pg-langfuse-db",
@@ -523,8 +307,6 @@ export function installPostgres(
           apiVersion: "postgresql.cnpg.io/v1",
           kind: "Database",
           metadata: {
-            // DNS-1123 for the CR's object name; the DATABASE and ROLE keep
-            // their Postgres-identifier spelling in `spec` below.
             name: LANGFUSE.database.replace(/_/g, "-"),
             namespace,
             labels: commonLabels("postgres"),
@@ -542,38 +324,11 @@ export function installPostgres(
     : undefined;
 
   const appUser = encodeURIComponent(cfg.postgres.appUser);
-  /**
-   * Build a DSN. `via` is the route (see {@link PgRoute}) and has no default.
-   * `as` selects a non-default role — used for the least-privilege runtime
-   * credential (ADR-0041), which is the same cluster with a different login, not
-   * a different database. `clusterWide` names the host by its FQDN, for a client
-   * in ANOTHER namespace.
-   */
   const dsn = (opts: PgDsnOptions): pulumi.Output<string> => {
     const scheme = opts.driver ?? "postgresql";
     const service = opts.via === "pooler" ? POSTGRES_POOLER.name : rwHost;
     const user = opts.as ? encodeURIComponent(opts.as.user) : appUser;
     const password = opts.as ? opts.as.password : cfg.postgres.appPassword;
-    // Percent-encode the password. The `pgAppPassword` value is documented as
-    // `openssl rand -base64 24`, which routinely contains `/` or `+` — raw
-    // interpolation there breaks URI parsing (asyncpg/psycopg/node-pg/psql all
-    // misparse the authority), which looks like an auth failure across the whole
-    // stack. Encoding in the DSN keeps the Postgres role password itself intact.
-    // `sslmode=require` on every DSN. CloudNativePG serves TLS on 5432 with a
-    // cert it manages, but nothing was asking for it: postgres-js defaults to
-    // `ssl: false` and libpq defaults to `prefer`, which silently downgrades.
-    // So the role password crossed the pod network in the startup packet, and
-    // every row of every query followed it in cleartext — on a namespace where
-    // the NetworkPolicy lets ANY pod reach 5432.
-    //
-    // `require` (encrypt, do not verify the CA) rather than `verify-full`
-    // deliberately: CNPG issues its own internal CA, and pinning it here means
-    // shipping that CA to five different clients (node, asyncpg, psycopg, psql,
-    // barman) and rotating it in lockstep. `require` closes the passive-sniff
-    // hole today with no moving parts; `verify-full` closes active MITM and is
-    // the documented follow-up.
-    //
-    // The parameter NAME is driver-specific — see `sslParamFor`.
     const sslParam = sslParamFor(scheme);
     return pulumi.all([password, namespace]).apply(([pw, ns]) => {
       const host = opts.clusterWide ? `${service}.${ns}.svc.cluster.local` : service;
@@ -584,8 +339,6 @@ export function installPostgres(
     });
   };
 
-  // 4. Idempotent table bootstrap. Waits for the cluster's -rw service to
-  //    answer, then applies the DDL to jobs and checkpoints.
   const initSqlCm = new k8s.core.v1.ConfigMap(
     "pg-init-sql",
     {
@@ -598,24 +351,16 @@ export function installPostgres(
           : {}),
       },
     },
-    // Preserve the bootstrap Job rerun when its SQL changes.
     { provider, replaceOnChanges: ["data"] },
   );
 
-  // DSNs embed the app password — put them in a Secret and env them via
-  // secretKeyRef, so `kubectl get job/pod -o yaml` in the namespace doesn't
-  // hand out the DB credential (the app tier already works this way).
   const initDsnSecret = new k8s.core.v1.Secret(
     "pg-init-dsns",
     {
       metadata: { namespace },
       stringData: {
-        // Direct: DDL Jobs, and `pg_isready` waiting on the primary itself.
         JOBS_DSN: dsn({ db: JOBS_DB, via: "direct" }),
         CHECKPOINTS_DSN: dsn({ db: CHECKPOINTS_DB, via: "direct" }),
-        // As the filer's own role, which is the only login that can revoke a
-        // grant on the database it owns — the app user has no rights there at
-        // all, which is the whole point.
         ...(filerCredentials
           ? {
               SEAWEED_FILER_DSN: dsn({
@@ -654,8 +399,6 @@ export function installPostgres(
       metadata: { namespace },
       spec: {
         backoffLimit: JOB_DEFAULTS.backoffLimit,
-        // Re-runs whenever the Job spec changes or `pulumi up --refresh` notices
-        // the TTL reaped it — DDL is idempotent either way.
         ttlSecondsAfterFinished: JOB_DEFAULTS.ttlSecondsAfterFinished,
         template: {
           metadata: { labels: commonLabels("pg-init") },
@@ -677,11 +420,6 @@ export function installPostgres(
                     'until pg_isready -d "$JOBS_DSN" >/dev/null 2>&1; do sleep 2; done;',
                     'psql "$JOBS_DSN" -v ON_ERROR_STOP=1 -f /sql/jobs.sql;',
                     'psql "$CHECKPOINTS_DSN" -v ON_ERROR_STOP=1 -f /sql/checkpoints.sql;',
-                    // The filer database is reconciled by the CNPG operator, not
-                    // by the cluster bootstrap, so it can appear seconds AFTER
-                    // the cluster is ready. Wait for it rather than racing it —
-                    // and wait with a real connection, because `pg_isready`
-                    // reports the SERVER, not whether this database exists yet.
                     ...(filerCredentials
                       ? [
                           "echo 'waiting for the seaweedfs filer database…';",
@@ -713,18 +451,8 @@ export function installPostgres(
     },
   );
 
-  // The filer must not open its store until the role, the database and the
-  // CONNECT lockdown are all in place. The init Job is the last of the three,
-  // so it is the one to gate on — and it is also the step that proves the
-  // database is actually reachable, not merely declared.
   const filerStoreDeps: pulumi.Resource[] = filerDatabase ? [filerDatabase, initJob] : [];
 
-  // Langfuse gates on the DATABASE CR only, not on `initJob` the way the filer
-  // does. The difference is real: the filer needs the init Job because that Job
-  // is what revokes `CONNECT` from `PUBLIC` on its database, and it needs
-  // tables created for it. Langfuse creates its own schema with Prisma and
-  // needs nothing bootstrapped, so gating it on a Job that does no work on its
-  // behalf would only couple its rollout to unrelated DDL.
   const langfuseStoreDeps: pulumi.Resource[] = langfuseDatabase ? [langfuseDatabase] : [];
 
   return {
@@ -738,8 +466,6 @@ export function installPostgres(
     dsn,
     filerStoreDeps,
     langfuseStoreDeps,
-    // Direct: Prisma opens sessions it configures itself and takes its own
-    // advisory locks around migrations.
     langfuseDsn: cfg.langfuse.enabled
       ? dsn({
           db: LANGFUSE.database,
@@ -750,31 +476,10 @@ export function installPostgres(
   };
 }
 
-/**
- * The nightly base backup, as a resource of its own rather than part of
- * `installPostgres`.
- *
- * It is separated because of an ordering problem that only appears in one
- * configuration and is invisible in the others. `immediate: true` fires a
- * Backup the moment the CR is created, and CloudNativePG does **not** retry a
- * failed `Backup` object — the next attempt is the cron, i.e. 02:00 the
- * following day. So a first Backup that lands before the archive bucket exists
- * leaves the stack with archived WAL and no base backup, which is not a
- * recoverable PITR, while `kubectl cnpg status` reports continuous archiving as
- * healthy.
- *
- * Under the split topology with the Postgres filer store, Postgres has to be
- * created BEFORE SeaweedFS (the filer cannot open its store otherwise), so the
- * bucket genuinely does not exist yet at that point. WAL archiving survives
- * that — `archive_command` retries indefinitely and pg_wal buffers — but the
- * one-shot base backup does not. Creating the schedule here, after
- * `bucketInitJob`, is what makes the first backup succeed in every topology.
- */
 export function installScheduledBackup(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
-  /** The cluster, and the Job that proves the archive bucket exists. */
   dependsOn: pulumi.Resource[],
 ): k8s.apiextensions.CustomResource | undefined {
   if (!cfg.postgres.backups.enabled) return undefined;

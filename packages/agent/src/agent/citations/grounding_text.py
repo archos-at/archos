@@ -18,20 +18,6 @@ from agent.common.source_kinds import parse_shelf
 logger = logging.getLogger(__name__)
 
 
-# --- The LEGACY path: reading a grounding block back out of its text --------
-#
-# Everything from here to ``parse_knowledge_layer`` reconstructs hits from the
-# rendered block. On a live turn it does not run: the producer's records are
-# captured by the renderer and read by ``_entry_from_hit`` (ADR-0061). It stays
-# for the callers that hold the text and never had the records: a registry
-# hydrated from the shared cache, a turn replayed out of Postgres, and the job
-# runner's callback, which can run outside the tool's context.
-#
-# It is not deprecated and it is not allowed to rot: those callers are real, and
-# the pipeline contract test asserts that both paths produce the same entries.
-#
-# Knowledge layer is the only source that needs a specific parser because
-# it uses citation keys (e.g., "report.pdf, p.15") instead of URLs.
 _KL_CITATION_RE = re.compile(r"^Citation:\s*(.+)$", re.MULTILINE)
 
 
@@ -41,64 +27,28 @@ _KL_SOURCE_RE = re.compile(r"^Source:\s*(.+)$", re.MULTILINE)
 _KL_COLLECTION_RE = re.compile(r"^Collection:\s*(.+)$", re.MULTILINE)
 
 
-# The shelf the hit came from, stated by the producer (ADR-0047). Absent from
-# output produced before the shelf travelled — absent means unknown.
 _KL_SHELF_RE = re.compile(r"^Shelf:\s*(.+)$", re.MULTILINE)
 
 
-# Machine-readable doc_class field emitted by the knowledge layer's
-# `_format_results` (``Dokumentart: <doc_class_key>``). ``Doc-Class:`` is
-# accepted as an alias for robustness.
 _KL_DOC_CLASS_RE = re.compile(r"^(?:Dokumentart|Doc-Class):\s*(.+)$", re.MULTILINE)
-# The document's FORMAT (``grounding_block._header_lines``): ``Format: mail — E-Mail``.
-# Only the leading machine token is read, the way ``Dokumentart:`` is.
 _KL_FORMAT_RE = re.compile(r"^Format:\s*(.+)$", re.MULTILINE)
 
 
-# WHO WROTE the document, stated by ``_format_results`` as a ``Herkunft:`` line
-# whose value BEGINS with the frozen ``Piloti-Dokument`` token
-# (``source_kinds.AGENT_AUTHORED_LANE_LABEL``) and continues with the German
-# approval clause. Only the leading token is read here: it is an identity in
-# this position, the way a shelf qualifier is inside a citation key, and the
-# rest of the line is rendering. The machine-readable approval fields travel
-# structured, in the Trace-Lanes ``provenance`` object — never re-derived from
-# this sentence.
 _KL_PROVENANCE_RE = re.compile(r"^Herkunft:\s*(.+)$", re.MULTILINE)
 
 
-# The Punkt the excerpt belongs to, as the chunker established it
-# (``clause_chunking.py``, measured 946/946 against the corpus's contents
-# pages) and ``_format_results`` states it. This is the citation form Austrian
-# building law actually uses ("OIB-RL 2, Pkt. 3.5.2"); until it was parsed here
-# the number reached the model as prose and died before the citation the reader
-# sees. Absent for page-fallback chunks and web documents. The value is the
-# rest of the line, not one token: the corpus form is ``3.5.2``, a RIS passage
-# states its locus the way a lawyer reads it, ``§ 63 Abs 1``, and squeezing that
-# to ``§63Abs1`` to fit a one-token rule put an unreadable locus on every chip.
-#: ``Projekt: Name — abgeschlossen (project_id …)`` (``grounding_block._project_line``, ADR-0094).
 _KL_PROJECT_RE = re.compile(r"^Projekt:\s*(.+?)\s+—\s+(\S+)\s+\(project_id\s+([^\s)]+)\)\s*$", re.MULTILINE)
 
 
 _KL_CLAUSE_RE = re.compile(r"^Punkt:\s*(.+?)\s*$", re.MULTILINE)
 
 
-#: ``Bundesland: …`` under the ``Projekt:`` line (``grounding_block._header_lines``), when the project's Land is stated.
 _KL_FEDERAL_STATE_RE = re.compile(r"^Bundesland:\s*(.+?)\s*$", re.MULTILINE)
 
 
-# The retrieval score ``_format_results`` prints, a true cosine similarity since
-# the audit's F6 fix. Parsed from the WHOLE block rather than the header region:
-# the header is defined as everything above this very line. A body could in
-# principle contain the same words, but the header's line precedes it and
-# ``_first`` takes the first match.
 _KL_SCORE_RE = re.compile(r"^Relevance Score:\s*(-?\d+(?:\.\d+)?)\s*$", re.MULTILINE)
 
 
-# Per-hit block/body markers, mirroring register.py:_format_results layout: each
-# hit is a ``--- Result N ---`` block whose passage body follows the
-# ``Relevance Score:`` header line + a blank line, running until the next block
-# / the ``## Trace-Lanes`` fan-out summary / end. A very long body is truncated
-# with a trailing ``... [truncated]`` marker we strip back off.
 _KL_RESULT_BLOCK_RE = re.compile(r"^--- Result \d+ ---[^\S\n]*$", re.MULTILINE)
 
 
@@ -209,7 +159,6 @@ def _parse_kl_doc_class(raw: str | None) -> str | None:
         return None
     from agent.knowledge.document_classification import canonical_doc_class
 
-    # A tool result kept in an older conversation names the German key.
     return canonical_doc_class(key) or key
 
 
@@ -275,7 +224,6 @@ def _kl_entry(
     )
 
 
-#: The ``Projekt:`` line's status labels back to the wire's status.
 _PROJECT_STATUS_BY_LABEL = {label: status for status, label in PROJECT_STATUS_LABELS.items()}
 
 
@@ -319,13 +267,9 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
 
     if blocks:
         for block in blocks:
-            # Header fields come from the header region ONLY; the rest of the
-            # block is retrieved document text and must never be able to supply
-            # a field the producer omitted. See ``_kl_block_header``.
             header = _kl_block_header(block)
             citation_key = _first(_KL_CITATION_RE, header)
             if not citation_key:
-                # A block without a Citation: field identifies nothing citable.
                 continue
             entries.append(
                 _kl_entry(
@@ -341,19 +285,12 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
                     clause=_first(_KL_CLAUSE_RE, header),
                     project=_parse_kl_project(header),
                     project_federal_state_note=_first(_KL_FEDERAL_STATE_RE, header),
-                    # The score line is the header's last line by definition of
-                    # ``_kl_block_header``, so it is read off the whole block.
                     score=_parse_kl_score(_first(_KL_SCORE_RE, block)),
                 )
             )
     else:
         entries = _kl_positional_entries(content, tool_name)
 
-    # No Citation: line, no sources. A URL in a passage body is part of the
-    # retrieved text, and a knowledge tool that FAILED returns an error message
-    # whose links are nobody's evidence. Both used to register as web sources
-    # through the generic URL extractor, which is why a turn that tripped a
-    # pydantic validation error showed a source card for errors.pydantic.dev.
     return entries
 
 

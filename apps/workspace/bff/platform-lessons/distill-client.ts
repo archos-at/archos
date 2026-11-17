@@ -1,11 +1,3 @@
-/**
- * HTTP client for the backend's `/v1/lesson-distill` route — the LLM half of
- * the platform-lessons pipeline (canonicalize + anonymize + match + audit).
- * Same transport discipline as the feedback digest (`lib/feedback/digest.ts`):
- * the BFF owns the data and the decision, the Python tier owns the model call,
- * and every failure returns a diagnosable error rather than throwing.
- */
-
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-url'
 import type { DistillOutcome } from './types'
@@ -25,16 +17,13 @@ interface BackendDistillResponse {
 }
 
 export interface DistillRequest {
-  /** Already PII-scrubbed and truncated by the service. */
   question: string | null
   answer: string | null
   reason: string | null
   comment: string | null
-  /** The live register the matcher compares against (bounded). */
   existingLessons: { id: string; content: string }[]
 }
 
-/** One round trip to the distiller. Never throws. */
 export async function distillReport(request: DistillRequest): Promise<DistillOutcome> {
   const failed = (error: string): DistillOutcome => ({
     matchLessonId: null,
@@ -81,9 +70,6 @@ export async function distillReport(request: DistillRequest): Promise<DistillOut
   }
   if (payload.error) return failed(payload.error)
 
-  // Never trust shapes from over the wire: an unknown category falls back to
-  // 'other' (the CHECK constraint would reject it otherwise), a match id must
-  // be one the caller offered, and boolean gates default CLOSED.
   const matchLessonId =
     typeof payload.match_lesson_id === 'string' &&
     request.existingLessons.some((lesson) => lesson.id === payload.match_lesson_id)

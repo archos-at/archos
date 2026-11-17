@@ -108,9 +108,6 @@ export function blankComments(source, { lineComments = true } = {}) {
  */
 export function parseStaticUtilities(css) {
   const names = []
-  // Comments are blanked first: a commented-out `--modifier(…)` inside a static
-  // block would exempt the utility and blind the guard, and a commented-out
-  // `@utility foo {` would declare one that does not exist.
   const scannable = blankComments(css, { lineComments: false })
   const declaration = /@utility\s+([a-zA-Z0-9_-]+(?:-\*)?)\s*\{/g
 
@@ -118,8 +115,6 @@ export function parseStaticUtilities(css) {
     const name = match[1]
     if (name.endsWith('-*')) continue
 
-    // Walk to the block's matching close brace so nested rules (@media, &:hover)
-    // do not truncate the body we search for `--modifier(`.
     let depth = 0
     let i = match.index + match[0].length - 1
     const start = i

@@ -1,8 +1,3 @@
-/**
- * The values the CMS offers that the website owns in code (src/fields/choices.ts):
- * a cover drawing, a category, a figure or a call-to-action target the website
- * does not know would publish a post it cannot draw.
- */
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

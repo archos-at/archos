@@ -43,22 +43,16 @@ from ..look.resolve import resolve_document
 
 DOCUMENT_FILE_PATH = "/api/internal/document-file"
 
-#: As large as the rendition route takes (``agent_host.routes.drawing_renditions.MAX_DXF_BYTES``).
 MAX_DXF_BYTES = 150 * 1024 * 1024
 
-#: Sites kept per process, and the most source bytes they may stand for together: a parsed
-#: drawing holds several times its file size, so the bound is on bytes, not only on entries.
 CACHE_SIZE = 4
 CACHE_BYTES = 300 * 1024 * 1024
 
-#: The longest one parse may keep the caller waiting. The thread cannot be killed, but the
-#: per-file lock below makes the next caller for the same file wait on it rather than start a second.
 PARSE_TIMEOUT_S = 90
 
 _CacheKey = tuple[str, str, tuple[str, ...]]
 _CACHE: OrderedDict[_CacheKey, tuple[Site, int]] = OrderedDict()
 _CACHE_LOCK = threading.Lock()
-#: One lock per file being parsed, so parallel calls in one round parse it once.
 _PARSING: dict[_CacheKey, threading.Lock] = {}
 
 NO_ENVELOPE = (
@@ -94,8 +88,6 @@ async def load_site(document: str, building_layers: tuple[str, ...] = ()) -> Loa
             f"'{resolved.file_name}' is no DXF. dxf_measure reads .dxf files; for an IFC model use ifc_measure, "
             "for a PDF or an image use look."
         )
-    # Always the turn's own envelope, echoed (never signed here): `resolved.signed` is dropped by the
-    # resolver when the canvas id lookup fails, and the BFF answers an unsigned lookup outside the turn's scope.
     header, signature = project_context.get_request_envelope_from_context()
     if not (header and signature):
         return NO_ENVELOPE
@@ -109,8 +101,6 @@ async def load_site(document: str, building_layers: tuple[str, ...] = ()) -> Loa
         return str(exc)
     except TimeoutError:
         return f"'{resolved.file_name}' takes too long to read; ask for an extract of the area in question."
-    # What the answer tells the model comes from this collection's file: reported, so a restricted folder's
-    # drawing is admitted for the turn like a passage of it (ADR-0088, ``restricted_use``).
     note_collections_read([resolved.collection])
     return LoadedSite(resolved.file_name, site)
 
@@ -177,7 +167,6 @@ def _read(bucket: str, key: str) -> bytes:
         head = client.head_object(Bucket=bucket, Key=key)
         if int(head.get("ContentLength") or 0) > MAX_DXF_BYTES:
             raise SiteUnavailableError(_TOO_LARGE)
-        # Bounded even when the store states no length: never more than one byte past the limit.
         data = client.get_object(Bucket=bucket, Key=key)["Body"].read(MAX_DXF_BYTES + 1)
         if len(data) > MAX_DXF_BYTES:
             raise SiteUnavailableError(_TOO_LARGE)

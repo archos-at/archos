@@ -1,7 +1,3 @@
-/**
- * intakeProjectStep namespace: step 1, Projekt: what the dialog took, and the people in the project (`/app/projects/[id]/setup`, ticket 26,
- * `docs/design/project-setup-five-steps.md`).
- */
 export const intakeProjectStep = {
   title: 'Is this right, and who is working on it?',
   intro: 'Everything here is optional and can be changed later.',

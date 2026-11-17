@@ -1,9 +1,3 @@
-/**
- * Record a reviewer's verdicts on claims of a submitted change request
- * (ADR-0165): accepted, edited or rejected, one claim each. A verdict is no
- * approval and changes nothing offices read.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

@@ -73,10 +73,6 @@ class OtelCollectorRedactionTelemetryExporter(
     name="otelcollector_redaction",
 ):
     resource_attributes: dict[str, str] = Field(default_factory=dict, description="Resource attributes to attach.")
-    # The parent mixin declares `endpoint: str`, but the config interpolates
-    # `${OTEL_EXPORTER_OTLP_ENDPOINT:-}` to None (not "") when the
-    # observability tier is not deployed, which crashed agent-runtime startup with a
-    # pydantic str-validation error before the no-op path below could run.
     endpoint: str | None = Field(default=None, description="The endpoint of the telemetry collector service.")
 
 
@@ -94,10 +90,6 @@ class _DisabledSpanExporter(BaseExporter):
     """
 
     def export(self, event: Any) -> None:
-        # Synchronous, like BaseExporter.export: the agent runtime calls it without awaiting
-        # (base_exporter's on_next_wrapper), so an `async def` here made an
-        # unawaited coroutine per trace event in every deployment without a
-        # collector ("RuntimeWarning: coroutine ... was never awaited").
         return None
 
 
@@ -105,11 +97,6 @@ class _DisabledSpanExporter(BaseExporter):
 async def otelcollector_redaction_telemetry_exporter(
     config: OtelCollectorRedactionTelemetryExporter, _builder: Builder
 ):
-    # Blank endpoint == the observability tier is not deployed. Pulumi injects
-    # OTEL_EXPORTER_OTLP_ENDPOINT only when it is (and the config interpolates
-    # `${OTEL_EXPORTER_OTLP_ENDPOINT:-}` to "" otherwise), so this is the
-    # capability check, not a user-facing toggle. Compose and local dev land
-    # here and pay nothing.
     if not config.endpoint or not config.endpoint.strip():
         logger.info(
             "otelcollector_redaction: no OTLP endpoint configured "
@@ -127,8 +114,6 @@ async def otelcollector_redaction_telemetry_exporter(
         "telemetry.sdk.version": get_opentelemetry_sdk_version(),
         "service.name": config.project,
     }
-    # The commit, as the logs and metrics resources already carry it; spans
-    # carry it per span too, as Langfuse's release (`observability.trace_context`).
     release = langfuse_release()
     if release:
         default_resource_attributes["service.version"] = release
@@ -152,11 +137,6 @@ async def otelcollector_redaction_telemetry_exporter(
         tags=config.tags,
     )
 
-    # Always installed, at `position=0` (ahead of redaction), because what each ADDS is not personal data:
-    # usage attribution (counts and the model name onto generation observations, read out of `nat.metadata`
-    # before a redaction pass covering metadata would blank it), prompt linkage (a prompt name and version),
-    # and the processing location (where a generation ran and through whom, ADR-0167). Each is
-    # redaction-proof by content and stays redactable like every other attribute we add.
     for processor, name, lost in (
         (UsageAttributeProcessor, "usage_attributes", "usage"),
         (PromptLinkProcessor, "prompt_link", "a prompt version"),
@@ -174,10 +154,6 @@ async def otelcollector_redaction_telemetry_exporter(
                 exc_info=True,
             )
 
-    # Environment, release, observation type, trace name and the turn's
-    # outcome (ADR-0089). A deployment name, a commit, a span type and the
-    # labels a finished turn carries are not personal data, so this is always
-    # installed, ahead of redaction like the two above.
     if TraceContextProcessor is not None:
         try:
             exporter.add_processor(TraceContextProcessor(), name="trace_context", position=0)
@@ -188,22 +164,8 @@ async def otelcollector_redaction_telemetry_exporter(
                 exc_info=True,
             )
 
-    # Langfuse session/user attribution (ADR-0044). Same availability rule as
-    # the exporter itself: the deployment sets TRACE_IDENTITY_ATTRIBUTES
-    # only where the Langfuse tier exists, so a stack without it builds the
-    # identical pipeline it did before.
-    #
-    # `position=0` puts it AHEAD of the agent runtime's redaction processor — see the
-    # processor's docstring; attributes added after redaction could never be
-    # redacted, which would quietly make `redaction_attributes` a lie for
-    # exactly the fields that identify a person.
-    # The agent runtime 1.9 names the session's user on every span; with identity attributes
-    # off, that must not reach the trace store either.
     if not identity_attributes_enabled() and UserIdentityStripProcessor is not None:
         exporter.add_processor(UserIdentityStripProcessor(), name="strip_user_identity", position=0)
-    # What tools recorded (feature tags, usage rollup, dialect census) is not
-    # identity either; with the identity half off it still has to reach the
-    # trace, or the privacy switch would also switch off cost and quality.
     if not identity_attributes_enabled() and LangfuseTraceAttributeProcessor is not None:
         exporter.add_processor(LangfuseTraceAttributeProcessor(identity=False), name="trace_contributions", position=0)
     if identity_attributes_enabled() and LangfuseTraceAttributeProcessor is not None:
@@ -215,17 +177,12 @@ async def otelcollector_redaction_telemetry_exporter(
             )
             logger.info("otelcollector_redaction: Langfuse trace identity attributes enabled.")
         except Exception:
-            # A telemetry enrichment must not be able to stop the agent from
-            # booting; without it the traces are anonymous, not absent.
             logger.warning(
                 "otelcollector_redaction: could not install the Langfuse trace attribute "
                 "processor - traces will export without session/user attribution.",
                 exc_info=True,
             )
 
-    # No image bytes in a trace, whatever the redaction policy says. Installed
-    # first (the last `position=0` insert wins the front) so no later processor
-    # copies or measures a payload that still holds pixels.
     if InlineImageRedactionProcessor is not None:
         exporter.add_processor(InlineImageRedactionProcessor(), name="inline_image_redaction", position=0)
 

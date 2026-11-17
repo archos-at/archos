@@ -190,7 +190,6 @@ function createTraceClient(config, fetchImpl = fetch) {
       throw transportError(error)
     }
     if (!res.ok) {
-      // The path only: no query (it carries a conversation id), no body.
       const transient = res.status === 429 || res.status >= 500
       throw new LangfuseError(`Langfuse ${method} ${path} answered ${res.status}`, {
         status: res.status,
@@ -268,14 +267,10 @@ async function flushBatches(client, pending, { all, room }) {
  * @returns {Promise<{ traces: number, batches: number }>}
  */
 async function eraseSessionTraces(client, sessionId) {
-  // Without this an empty id is a request with no `sessionId` filter, which is
-  // every trace in the project.
   if (typeof sessionId !== 'string' || sessionId.trim() === '') {
     throw new TypeError('eraseSessionTraces needs a session id')
   }
   const pending = new Set()
-  // Every trace id seen, not only those waiting: one trace's spans arrive on
-  // several pages, and the count should say traces, not sightings.
   const seen = new Set()
   let batches = 0
   for await (const page of client.observationPages({ sessionId, fields: 'core,basic' })) {

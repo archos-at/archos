@@ -30,7 +30,6 @@ from .title_block import SheetField
 from .title_block import SheetPen
 from .title_block import draw_sheet
 
-#: What "Fläche lt. Mappe" is, said where the numbers are.
 AREA_NOTE = (
     "Fläche lt. Mappe: aus der gezeichneten Grenze berechnet, nicht das Flächenausmaß des Grundbuchs. "
     "Angrenzend: Grundstücke mit gemeinsamer Grenze in dieser Datei."
@@ -38,10 +37,8 @@ AREA_NOTE = (
 
 ROW_MM = 6.2
 HEADER_MM = 17.0
-#: A whole cadastral community holds thousands of parcels; past this the list says how many it left out.
 MAX_PAGES = 120
 
-#: Column left edges as fractions of the table width, and whether the column is right-aligned.
 _COLUMNS = (
     ("Grundstück", 0.0, False),
     ("KG", 0.17, False),

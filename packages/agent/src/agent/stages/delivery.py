@@ -22,8 +22,6 @@ from agent.common.wire_v2 import StageValue
 
 logger = logging.getLogger(__name__)
 
-#: ``(conversation_id, turn_id, value) -> delivered``. Returning ``False`` (no
-#: socket for that conversation on any replica) is a normal, expected result.
 StageFrameSink = Callable[[str, str, StageValue], Awaitable[bool]]
 
 _sink: StageFrameSink | None = None

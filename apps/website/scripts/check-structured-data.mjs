@@ -112,8 +112,6 @@ function checkPage(page, html) {
     if (!crumbs) problems.push(`${page}: inner page without BreadcrumbList`)
     else if (!last || new URL(last).pathname !== page) problems.push(`${page}: breadcrumbs end at ${last}, not at the page`)
   }
-  // The FAQ component's questions: the <details> inside the block it marks `data-faq`. Not the
-  // `ui-faq` class: the changelog folds its weeks with the same styling and is no FAQ.
   const faqBlock = /<div [^>]*\bdata-faq\b[^>]*>([\s\S]*?)<\/div>/.exec(html)?.[1] ?? ''
   const questions = (faqBlock.match(/<details/g) ?? []).length
   const faq = all.find((n) => n['@type'] === 'FAQPage')
@@ -121,7 +119,6 @@ function checkPage(page, html) {
     if (!faq) problems.push(`${page}: renders an FAQ without FAQPage`)
     else if (faq.mainEntity.length !== questions) problems.push(`${page}: FAQPage has ${faq.mainEntity.length} questions, the page ${questions}`)
   }
-  // A post, ticked off the content's list; anything left on it was never built.
   if (POSTS.delete(page) && !types.includes('BlogPosting')) problems.push(`${page}: blog post without BlogPosting`)
 }
 

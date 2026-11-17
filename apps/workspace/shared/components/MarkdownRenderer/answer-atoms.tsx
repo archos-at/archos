@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The answer's own kit: the atoms its designed blocks are drawn from.
- *
- * `directive-blocks.tsx` and the table overrides compose these and nothing
- * else, so the look of a check, a procedure or a figure is decided here, once,
- * in the tokens of `design-language.md`. They carry the visual language
- * of the cards they replace: `process_map`'s rail and node, `condition_tree`'s
- * tinted case, the checklist's pills, the energy label's ladder, the verdict's
- * figure scale. Colour never travels alone: every tint has its word beside it.
- */
-
 import { useState, type FC, type ReactNode } from 'react'
 import { ArrowDown, Check, ChevronDown, CircleAlert, CircleCheck, ExternalLink, ListPlus, PencilLine } from 'lucide-react'
 import { Chip } from '@/components/ui/chip'
@@ -25,26 +14,15 @@ import type { StatusTone } from './status-marks'
 import type { BoundFactState } from '@/lib/project-profile/answer-bindings'
 import type { Ruler } from './cases'
 
-// ---------------------------------------------------------------------------
-// Value against limit
-// ---------------------------------------------------------------------------
-
 export interface ValueBarProps {
   value: number
   limit: number
   bound: 'min' | 'max'
   pass: boolean
-  /** The value and the limit as the answer wrote them, for the accessible name. */
   valueText: string
   limitText: string
 }
 
-/**
- * A value drawn against its limit: a track, the value's fill in pass or fail
- * ink, and a tick at the limit. The scale reaches a tenth past the larger of
- * the two, so the tick never sits on the edge and a failing value shows by how
- * much. What the acoustic, thermal and area cards drew per row.
- */
 export const ValueBar: FC<ValueBarProps> = ({ value, limit, bound, pass, valueText, limitText }) => {
   const t = useTranslations(commonCopy)
   const top = Math.max(Math.abs(value), Math.abs(limit)) * 1.1 || 1
@@ -76,25 +54,14 @@ export const ValueBar: FC<ValueBarProps> = ({ value, limit, bound, pass, valueTe
   )
 }
 
-// ---------------------------------------------------------------------------
-// Rows that hold, rows that do not
-// ---------------------------------------------------------------------------
-
-/** The row classes of an answer table: the case that holds is tinted, the others muted when one does. */
 export const tableRowClass = ({ active, muted, conflict = false }: { active: boolean; muted: boolean; conflict?: boolean }): string =>
   cn(
-    // The rule between two rows belongs to the LOWER one: a row arriving
-    // brings its own line instead of adding one under the row above, which
-    // moved it and everything after it down by a pixel per row while a table
-    // streamed (stream audit 2026-10).
     'border-base border-t first:border-t-0',
-    // A row whose written status contradicts its own numbers: the reader must look.
     conflict && 'bg-warning-subtle',
     active && 'bg-success-subtle',
     muted && '[&>td]:text-muted-foreground'
   )
 
-/** A list item of the same kinds. */
 export const ListCase: FC<{ active: boolean; muted: boolean; id?: string; compact: boolean; children: ReactNode }> = ({
   active,
   muted,
@@ -115,7 +82,6 @@ export const ListCase: FC<{ active: boolean; muted: boolean; id?: string; compac
   </li>
 )
 
-/** The word beside a tint: „trifft zu", „hier stehen Sie", „empfohlen". */
 export const MarkChip: FC<{ tone?: 'success' | 'muted'; children: ReactNode }> = ({ tone = 'success', children }) => (
   <span
     data-testid="answer-mark"
@@ -128,22 +94,13 @@ export const MarkChip: FC<{ tone?: 'success' | 'muted'; children: ReactNode }> =
   </span>
 )
 
-// ---------------------------------------------------------------------------
-// A procedure
-// ---------------------------------------------------------------------------
-
 export type StepPhase = 'none' | 'done' | 'current' | 'upcoming'
 
-/** The list a procedure's steps hang from. */
 export const StepList: FC<{ ordered: boolean; children: ReactNode }> = ({ ordered, children }) => {
   const Tag = ordered ? 'ol' : 'ul'
   return <Tag className="my-4 flex list-none flex-col pl-0">{children}</Tag>
 }
 
-/**
- * One station: the rail and its node in a 26px gutter (decoration, never a
- * click target), the step beside it. `process_map`'s geometry.
- */
 export const StepStation: FC<{ phase: StepPhase; number: string; last: boolean; children: ReactNode }> = ({
   phase,
   number,
@@ -170,10 +127,8 @@ export const StepStation: FC<{ phase: StepPhase; number: string; last: boolean; 
   </li>
 )
 
-/** The step's own line: its name, its Frist, and whether the project is at it. */
 export const StepLine: FC<{
   phase: StepPhase
-  /** The step's number, spoken: the rail's node that shows it is decoration. */
   number?: string
   title: ReactNode
   due?: ReactNode
@@ -225,14 +180,8 @@ export const StepLine: FC<{
   )
 }
 
-/**
- * A disclosure's content, kept in the page while closed so paper shows it
- * open: hidden on screen until opened, always printed (a `details` block, a
- * step's detail, the rows of an all-clear check).
- */
 export const PRINT_OPEN_CONTENT = 'data-[state=closed]:hidden print:data-[state=closed]:block'
 
-/** The row a step or a `details` block opens from. */
 export const disclosureRowClass = ({ current, open }: { current: boolean; open: boolean }): string =>
   cn(
     'flex w-full min-w-0 items-start gap-2 rounded-control px-2 py-1.5 text-left touch-target',
@@ -241,7 +190,6 @@ export const disclosureRowClass = ({ current, open }: { current: boolean; open: 
     current ? 'bg-success-subtle' : open ? 'bg-muted/60' : 'hover:bg-muted/50'
   )
 
-/** What a step or a `details` block holds, once opened: dashed on muted ground (charter §A4). */
 export const DisclosurePanel: FC<{ current?: boolean; children: ReactNode }> = ({ current, children }) => (
   <div
     className={cn(
@@ -253,17 +201,14 @@ export const DisclosurePanel: FC<{ current?: boolean; children: ReactNode }> = (
   </div>
 )
 
-/** A `details` block's label, above its content where it is printed open (inside a step). */
 export const InlineDetailsLabel: FC<{ children: ReactNode }> = ({ children }) => (
   <SectionLabel as="p" className="mb-1">
     {children}
   </SectionLabel>
 )
 
-/** The block a `details` stands in: its row, then its panel. */
 export const DetailsFrame: FC<{ children: ReactNode }> = ({ children }) => <div className="my-3">{children}</div>
 
-/** A `details` summary line. */
 export const DetailsSummary: FC<{ children: ReactNode; open: boolean }> = ({ children, open }) => (
   <>
     <span className="min-w-0 flex-1 text-answer font-medium leading-[1.5] text-foreground">{children}</span>
@@ -277,10 +222,6 @@ export const DetailsSummary: FC<{ children: ReactNode; open: boolean }> = ({ chi
   </>
 )
 
-// ---------------------------------------------------------------------------
-// Figures
-// ---------------------------------------------------------------------------
-
 export type FigureTone = StatusTone | 'none'
 
 const FIGURE_INK: Record<FigureTone, string> = {
@@ -292,7 +233,6 @@ const FIGURE_INK: Record<FigureTone, string> = {
   none: 'text-foreground',
 }
 
-/** The status swatch (design language §Component patterns): a 10px square on the label line, never a rail. */
 const FIGURE_SWATCH: Record<FigureTone, string> = {
   success: 'bg-success',
   destructive: 'bg-danger',
@@ -302,11 +242,6 @@ const FIGURE_SWATCH: Record<FigureTone, string> = {
   none: '',
 }
 
-/**
- * The tiles, laid out so none sits alone on a row: one or two side by side,
- * three in one row (stacked where three do not fit), four as two by two, and
- * in one row where there is room.
- */
 export const FigureGrid: FC<{ count: number; children: ReactNode }> = ({ count, children }) => (
   <div className="my-4 @container break-inside-avoid">
     <div
@@ -325,13 +260,11 @@ export const FigureGrid: FC<{ count: number; children: ReactNode }> = ({ count, 
   </div>
 )
 
-/** One figure: the value at the verdict's figure scale, its label, its limit underneath. */
 export const FigureTile: FC<{
   tone: FigureTone
   value: ReactNode
   label: ReactNode
   limit?: ReactNode
-  /** The verdict in words, beside its swatch: colour never travels alone. */
   verdict?: string
 }> = ({ tone, value, label, limit, verdict }) => {
   const t = useTranslations(commonCopy)
@@ -357,11 +290,6 @@ export const FigureTile: FC<{
   )
 }
 
-// ---------------------------------------------------------------------------
-// Energy class
-// ---------------------------------------------------------------------------
-
-/** The Energieeffizienzklasse as the certificate prints it: the letter on its band's colour. */
 export const EnergyClassChip: FC<{ rating: string }> = ({ rating }) => {
   const t = useTranslations(commonCopy)
   const band = (ENERGY_CLASSES as readonly string[]).indexOf(rating) + 1
@@ -382,22 +310,10 @@ export const EnergyClassChip: FC<{ rating: string }> = ({ rating }) => {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Excerpt
-// ---------------------------------------------------------------------------
-
-/**
- * A Fundstelle excerpt: the passage at a reading measure on a quiet ground,
- * its source in the margin beside it where there is room and under it where
- * there is not. `LegalBasisCard`'s blockquote, with the Fundstelle moved from
- * the card's header to where a commentary sets it.
- */
 export const ExcerptFigure: FC<{
   number: string
   source: ReactNode
-  /** The server's stamp under the quote („Wortlaut belegt [3]"), when it checked it. */
   stamp?: ReactNode
-  /** The server found no passage holding the wording: set as a paraphrase, not as a quotation. */
   paraphrase?: boolean
   children: ReactNode
 }> = ({ number, source, stamp, paraphrase = false, children }) => (
@@ -419,7 +335,6 @@ export const ExcerptFigure: FC<{
   </figure>
 )
 
-/** The margin note itself: „Fundstelle", the document, its place, an action. */
 export const ExcerptMargin: FC<{ title: ReactNode; locus?: ReactNode; action?: ReactNode }> = ({ title, locus, action }) => {
   const t = useTranslations(commonCopy)
   return (
@@ -432,15 +347,6 @@ export const ExcerptMargin: FC<{ title: ReactNode; locus?: ReactNode; action?: R
   )
 }
 
-// ---------------------------------------------------------------------------
-// Comparison, per variant (a phone)
-// ---------------------------------------------------------------------------
-
-/**
- * Below 30rem of the comparison's own width the columns do not fit, and a
- * sideways scroll hides the variants the reader came to compare. The table
- * gives way to one block per variant, each criterion under its name.
- */
 export const CompareStackFrame: FC<{ children: ReactNode }> = ({ children }) => (
   <div data-testid="compare-stack" className="my-4 hidden flex-col gap-2 @max-[30rem]/compare:flex">
     {children}
@@ -478,32 +384,20 @@ export const CompareVariantValue: FC<{ children: ReactNode }> = ({ children }) =
   <span className="min-w-0 text-foreground">{children}</span>
 )
 
-// ---------------------------------------------------------------------------
-// Tables
-// ---------------------------------------------------------------------------
-
 export type TableVariant = 'plain' | 'check' | 'cases' | 'compare' | 'actions'
 
 export const tableVariant = (value: unknown): TableVariant =>
   value === 'check' || value === 'cases' || value === 'compare' || value === 'actions' ? value : 'plain'
 
-/** The frame around a table and its tally. A comparison gives way to its per-variant blocks on a phone. */
 export const tableFrameClass = (variant: TableVariant): string =>
   cn(
     'my-4 flex flex-col gap-2 [container:answer-table/inline-size] break-inside-avoid',
     variant === 'compare' && '@max-[30rem]/compare:hidden'
   )
 
-/**
- * Zebra rows and tabular figures. A row that holds keeps its tint over the
- * zebra. A comparison's first column (the criterion) stays in view while the
- * variants scroll.
- */
 export const tableClass = (variant: TableVariant): string =>
   cn(
     'min-w-full caption-bottom tabular-nums [&>tbody>tr:nth-child(even):not([data-active]):not([data-conflict])]:bg-muted/30',
-    // Every cell on the first line of its row, so a status pill in one sits
-    // level with the words in the next instead of floating to the middle.
     (variant === 'compare' || variant === 'actions' || variant === 'cases') && '[&_td]:align-top [&_th]:align-bottom',
     variant === 'compare' &&
       '[&_tr>*:first-child]:sticky [&_tr>*:first-child]:left-0 [&_tr>*:first-child]:z-10 [&_td:first-child]:bg-card [&_th:first-child]:bg-muted'
@@ -515,11 +409,6 @@ export const headerCellClass = ({ align, recommended }: { align: string; recomme
 export const dataCellClass = ({ align, recommended }: { align?: string; recommended: boolean }): string =>
   cn('text-foreground px-3 py-2 text-sm', align, recommended && 'bg-success-subtle')
 
-// ---------------------------------------------------------------------------
-// Check outcomes
-// ---------------------------------------------------------------------------
-
-/** The renderer's own outcome words (`directive-shape.ts`), in the reader's language. */
 export function useOutcomeLabel(): (word: string, where: 'cell' | 'tally') => string {
   const t = useTranslations(commonCopy)
   return (word, where) => {
@@ -530,10 +419,6 @@ export function useOutcomeLabel(): (word: string, where: 'cell' | 'tally') => st
   }
 }
 
-/**
- * A check every row of which passes: one line that says so („4 von 4
- * erfüllt"), the rows behind it. Nothing to decide is not worth a screen.
- */
 export const PassedCheck: FC<{ passed: number; children: ReactNode }> = ({ passed, children }) => {
   const t = useTranslations(commonCopy)
   const [open, setOpen] = useState(false)
@@ -566,28 +451,13 @@ export const PassedCheck: FC<{ passed: number; children: ReactNode }> = ({ passe
   )
 }
 
-/** A status pill set inside a table cell: its box no taller than the line, so the row keeps its rhythm. */
 export const cellChipClass = '-my-0.5 align-[1px]'
 
-// ---------------------------------------------------------------------------
-// Project binding
-// ---------------------------------------------------------------------------
-
-/**
- * A project fact as the answer binds it (`:project[key]`): the value from the
- * profile, never the model's. Solid when confirmed, dashed with „Annahme"
- * when the agent assumed it, hatched amber „fehlt · ergänzen" when the
- * profile lacks it, which fills the composer with a request to set it.
- */
 export const ProjectValueChip: FC<{
   state: BoundFactState
-  /** The value, or the fact's name when it is missing. */
   children: ReactNode
-  /** The fact's name, for the accessible name and the tooltip. */
   label: string
-  /** Why the agent assumed it. */
   reason?: string
-  /** Fill the composer with a request to set the fact; absent where there is no composer. */
   onFill?: () => void
 }> = ({ state, children, label, reason, onFill }) => {
   const t = useTranslations(commonCopy)
@@ -634,11 +504,6 @@ export const ProjectValueChip: FC<{
   )
 }
 
-/**
- * The Projektbezug strip under the masthead: the project facts the answer
- * reads, in the chips they read as in the prose („Wien · GK 4 · Fluchtniveau
- * 10,8 m · Wohnen").
- */
 export const ProjectStrip: FC<{ children: ReactNode }> = ({ children }) => {
   const t = useTranslations(commonCopy)
   return (
@@ -651,14 +516,12 @@ export const ProjectStrip: FC<{ children: ReactNode }> = ({ children }) => {
   )
 }
 
-/** The dot between two strip facts. */
 export const StripSeparator: FC = () => (
   <span aria-hidden="true" className="text-muted-foreground">
     ·
   </span>
 )
 
-/** „Ihr Projekt: GK 4" over a cases block, the value the renderer marks the case from. */
 export const CaseProjectLine: FC<{ children: ReactNode }> = ({ children }) => {
   const t = useTranslations(commonCopy)
   return (
@@ -669,23 +532,10 @@ export const CaseProjectLine: FC<{ children: ReactNode }> = ({ children }) => {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Threshold ruler
-// ---------------------------------------------------------------------------
-
-/**
- * A scale of consecutive cases (Fluchtniveau bis 7 m, bis 11 m, bis 22 m):
- * a tick at every threshold, the case the project is in tinted, and a pin at
- * the project's value with how far the next threshold is („0,2 m unter GK 5").
- * Drawn only when every case is a range the value can be held against.
- */
 export const ThresholdRuler: FC<{
   ruler: Ruler
-  /** The project's value as the profile shows it („10,8 m"). */
   valueText: string
-  /** A threshold as text, in the value's unit. */
   format: (value: number) => string
-  /** The fact's name, for the accessible name. */
   label: string
 }> = ({ ruler, valueText, format, label }) => {
   const t = useTranslations(commonCopy)
@@ -755,15 +605,6 @@ export const ThresholdRuler: FC<{
   )
 }
 
-// ---------------------------------------------------------------------------
-// Row actions that fill the composer
-// ---------------------------------------------------------------------------
-
-/**
- * „Als Aufgabe": puts the row into the composer as a request to create the
- * task. It creates nothing: the agent's `create_task` does, once the reader
- * sends (guardrail 11). Never printed.
- */
 export const PrefillButton: FC<{ label: string; title: string; onClick: () => void; ariaLabel?: string }> = ({
   label,
   title,
@@ -787,18 +628,12 @@ export const PrefillButton: FC<{ label: string; title: string; onClick: () => vo
   </button>
 )
 
-/** Who acts, in an actions row: a role, set as a quiet chip. */
 export const RoleChip: FC<{ children: ReactNode }> = ({ children }) => (
   <Chip size="sm" variant="secondary" className={cellChipClass}>
     {children}
   </Chip>
 )
 
-// ---------------------------------------------------------------------------
-// A documented negative
-// ---------------------------------------------------------------------------
-
-/** `:::not-found`: where it was looked for, the closest rule, who decides. */
 export const NotFoundFrame: FC<{ children: ReactNode }> = ({ children }) => (
   <div data-testid="not-found" className="my-4 @container break-inside-avoid">
     <div className="grid gap-2 @[40rem]:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,0.9fr)]">{children}</div>
@@ -818,7 +653,6 @@ export const NotFoundPane: FC<{ label: string; pane: string; children: ReactNode
   </section>
 )
 
-/** The documents „Gesucht in" lists, from the turn's own retrieval record. */
 export const SearchedList: FC<{ items: readonly { title: string; detail?: string }[]; more: number }> = ({ items, more }) => {
   const t = useTranslations(commonCopy)
   if (items.length === 0) return <p className="card-caption text-muted-foreground">{t('markdown.notFound.nothingRecorded')}</p>
@@ -835,11 +669,6 @@ export const SearchedList: FC<{ items: readonly { title: string; detail?: string
   )
 }
 
-// ---------------------------------------------------------------------------
-// Subsumption
-// ---------------------------------------------------------------------------
-
-/** `:::subsumption`: the legal argument, Norm → Sachverhalt → Ergebnis, down a rail. */
 export const SubsumptionFrame: FC<{ children: ReactNode }> = ({ children }) => (
   <ol data-testid="subsumption" className="my-4 flex list-none flex-col pl-0 break-inside-avoid">
     {children}
@@ -877,15 +706,6 @@ export const SubsumptionStep: FC<{
   </li>
 )
 
-// ---------------------------------------------------------------------------
-// Quote stamp
-// ---------------------------------------------------------------------------
-
-/**
- * The server's word on a quote line: „Wortlaut belegt [N]" when a retrieved
- * passage holds the wording, „Wortlaut nicht belegt" when none does. Nothing
- * for a quote it could not check. Never the model's own claim.
- */
 export const QuoteStampLine: FC<{ verbatim: boolean; number?: number; locus?: string; action?: ReactNode }> = ({
   verbatim,
   number,
@@ -909,7 +729,6 @@ export const QuoteStampLine: FC<{ verbatim: boolean; number?: number; locus?: st
   )
 }
 
-/** „Stelle öffnen": the passage, with the quoted sentence marked. */
 export const OpenPassageButton: FC<{ onOpen: () => void }> = ({ onOpen }) => {
   const t = useTranslations(commonCopy)
   return (

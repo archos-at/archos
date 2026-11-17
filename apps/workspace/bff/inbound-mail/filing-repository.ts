@@ -1,17 +1,4 @@
 import 'server-only'
-/**
- * SQL of the filing job (ADR-0137, DECISION §6 "File"): the work a run reads
- * off the decision rows, the claim it renews, each part's outcome, and the
- * settle that scrubs a mail nothing of which waits any more. No authorization
- * here: the job runs as the decider, and each upload asks their rights again.
- *
- * Every write is a compare-and-set on the part's claim (`state = 'filing'` and
- * its own `decision_id`): a part the claim sweep handed back, or another run
- * finished, is left alone, so a run that lost its claim changes nothing. The
- * migration holds the rest: a filed part names a `file` decision and a clean
- * scan, its staged bytes are gone unless a hold deferred their erasure, a
- * settled mail names no third party.
- */
 
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -24,20 +11,12 @@ import type {
 import type { StoredScan } from './repository'
 import { byFilingOrder } from './thread-groups'
 
-/** One mail the run files: the row, every part of it, and each filing or filed part's decision. */
 export interface FilingWork {
   mail: InboundMailRow
   parts: InboundMailPartRow[]
-  /** By part id: the `file` decision a filing or filed part names. */
   decisions: Map<string, InboundMailDecisionRow>
 }
 
-/**
- * The mails of the payload that are still held in this project, with their
- * parts and decisions, in filing order (`byFilingOrder`: sent, then received):
- * several replies to one thread become its Fassungen in the order they were
- * written, which is what the list promised („wird Fassung 4–7“).
- */
 export async function findFilingWork(
   projectId: string,
   mailIds: readonly string[]
@@ -89,7 +68,6 @@ export async function findFilingWork(
   })
 }
 
-/** The claim on a part this run is filing, by its decision. */
 const claimed = (partId: string, decisionId: string) =>
   and(
     eq(inboundMailParts.id, partId),
@@ -97,7 +75,6 @@ const claimed = (partId: string, decisionId: string) =>
     eq(inboundMailParts.decisionId, decisionId)
   )
 
-/** Hold the claim a little longer; false when the part is no longer this run's to file. */
 export async function renewClaim(
   partId: string,
   decisionId: string,
@@ -111,7 +88,6 @@ export async function renewClaim(
   return renewed.length === 1
 }
 
-/** A fresh clean scan of a part being filed (its verdict was older than a day). */
 export async function recordFilingScan(
   partId: string,
   decisionId: string,
@@ -129,11 +105,6 @@ export async function recordFilingScan(
     .where(claimed(partId, decisionId))
 }
 
-/**
- * The part waits again, and says why its filing made no document. A scan that
- * is no longer clean is stored with it, in the same update: a filing part must
- * be clean (`inbound_mail_parts_filed_is_clean`), a waiting one need not.
- */
 export async function returnPartToWaiting(
   partId: string,
   decisionId: string,
@@ -162,12 +133,6 @@ export async function returnPartToWaiting(
   return returned.length === 1
 }
 
-/**
- * An attachment is a document now: `filed`, naming the document and the
- * Fassung. Its staged bytes were erased first (by their key), so the key and
- * the name go in this update; under a legal hold they stay, with the erasure
- * deferred for sweep 10.
- */
 export async function markAttachmentFiled(
   partId: string,
   decisionId: string,
@@ -183,7 +148,6 @@ export async function markAttachmentFiled(
       lastFailure: null,
       documentId: filed.documentId,
       documentVersionId: filed.versionId,
-      // The suggestion names a file and goes with its bytes (`inbound_mail_parts_suggestion_with_bytes`).
       ...(filed.erasureDeferred
         ? { erasureDeferredAt: now }
         : { storageKey: null, filename: null, suggestion: null }),
@@ -194,7 +158,6 @@ export async function markAttachmentFiled(
   return done.length === 1
 }
 
-/** Whether a legal hold covers the project now (the 0093 function the triggers ask). */
 export async function projectIsHeld(projectId: string, organizationId: string): Promise<boolean> {
   const rows = await getDb().execute<{ held: boolean }>(
     sql`SELECT legal_hold_blocks('project', ${projectId}::text, ${organizationId}) AS held`
@@ -202,7 +165,6 @@ export async function projectIsHeld(projectId: string, organizationId: string): 
   return Boolean(Array.from(rows)[0]?.held)
 }
 
-/** What scrubbing a settled mail writes besides the status: the counts of what was never staged, by reason. */
 export function ignoredCounts(
   notStaged: readonly InboundMailNotStaged[],
   ignored: InboundMailIgnoredCounts
@@ -212,13 +174,6 @@ export function ignoredCounts(
   return counts
 }
 
-/**
- * Settle a mail every part of which is filed (D9 "Settle"): scrubbed to ids, its
- * staged objects forgotten (the caller erased them by key first), unless a hold
- * deferred the erasure, which keeps the keys for sweep 10. Only a mail still
- * `waiting` with no part open; false otherwise (another run settled it, or
- * something waits again).
- */
 export async function settleFiledMail(
   mail: InboundMailRow,
   erasureDeferred: boolean
@@ -255,7 +210,6 @@ export async function settleFiledMail(
   return settled.length === 1
 }
 
-/** The mail's raw message as the row names it now: moved to an entry's original, or still staged. */
 export async function findMailKeys(
   mailId: string
 ): Promise<Pick<

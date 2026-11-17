@@ -48,7 +48,6 @@ from collections import Counter
 from pathlib import Path
 
 BASELINE = Path("ci/nesting_baseline.json")
-#: The trees the convention covers: the Python packages' sources and the agent host's.
 SCOPE = ("packages/*/src/*.py", "packages/*/src/**/*.py", "apps/agent-host/src/**/*.py")
 RUFF = (
     "check",

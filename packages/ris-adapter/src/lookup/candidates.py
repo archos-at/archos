@@ -29,11 +29,7 @@ from ris_adapter.register import match_entries
 
 logger = logging.getLogger(__name__)
 
-#: Documents considered per call. Three is one law, the adjacent one a
-#: building-law question straddles, and one spare — past that the tool is
-#: guessing, and a miss naming what it did not read beats a third download.
 MAX_CANDIDATES = 3
-#: Live-search page size, matching ``ris_search``'s configured page.
 LIVE_PAGE_SIZE = 20
 
 
@@ -231,8 +227,5 @@ async def _planned(planner, effective: dict, address: Address) -> dict:
         "application": plan.application,
         "query": plan.suchworte,
         "title": plan.titel,
-        # The caller's / project's Bundesland outranks the planner's guess: it
-        # is a request FACT, and a planner that drops it hands a Tyrolean
-        # project Viennese law.
         "federal_state": address.federal_state or plan.federal_state,
     }

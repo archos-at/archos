@@ -7,22 +7,7 @@ import { load } from "js-yaml";
 import { baseStackConfig } from "../test-support/stack-config";
 import { LEGACY_PROJECT, objectName } from "../names";
 
-/** The namespace the legacy project deploys into, as the program names it. */
 const NAMESPACE = objectName("namespace", LEGACY_PROJECT);
-
-/**
- * ClamAV, the malware scanner (ADR-0157).
- *
- * Every mistake worth catching here plans clean and runs green, while the
- * scanner quietly vouches for bytes it never inspected:
- *   - a clamd.conf without the alert settings answers `OK` for an encrypted
- *     archive, a macro document or a file over a limit (RT-S4);
- *   - a readiness probe on PING alone stays green on week-old signatures;
- *   - a scanner any pod may call, or one only the frontend may call while the
- *     bff-jobs pool scans what arrives;
- *   - Compose and Pulumi running different images or files (deploy/README.md, "Rules for changes");
- *   - the BFF and the probe disagreeing on how old is too old.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -55,7 +40,6 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 const NETPOL = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
 const REPO = join(__dirname, "..", "..", "..", "..");
 
-/** clamd.conf as `Directive value` pairs, comments dropped. */
 function directives(text: string): Map<string, string> {
   const map = new Map<string, string>();
   for (const line of text.split("\n")) {
@@ -138,9 +122,7 @@ describe("clamav", () => {
     ]) {
       expect(conf.get(alert), alert).toBe("yes");
     }
-    // A signature match is reported by name even inside an encrypted or oversized container.
     expect(conf.get("HeuristicScanPrecedence")).toBe("no");
-    // The reply the BFF parses: `stream: <name> FOUND`, without a hash suffix.
     expect(conf.get("ExtendedDetectionInfo")).toBe("no");
     expect(conf.get("StreamMaxLength")).toBe("30M");
     expect(Number(conf.get("MaxScanTime"))).toBeGreaterThan(0);
@@ -150,7 +132,6 @@ describe("clamav", () => {
 
   it("holds the BFF to the limits clamd enforces, and to the same signature age as the probe", () => {
     const bff = readFileSync(join(REPO, "apps", "workspace", "bff", "malware-scan", "config.ts"), "utf8");
-    // `export const MAX_SIGNATURE_AGE_MS = 48 * 60 * 60 * 1000`
     const age = bff.match(/MAX_SIGNATURE_AGE_MS = (\d+) \* 60 \* 60 \* 1000/);
     expect(age?.[1]).toBe("48");
     const stream = bff.match(/STREAM_MAX_BYTES = (\d+) \* 1024 \* 1024/);
@@ -165,13 +146,11 @@ describe("clamav", () => {
     expect(pod.automountServiceAccountToken).toBe(false);
     for (const c of [...pod.initContainers, clamd, freshclam]) {
       expect(c.image, c.name).toBe(cfgImage);
-      // `command` replaces `/init`, which would start as root and run both daemons in one container.
       expect(c.command, c.name).toBeDefined();
       expect(c.securityContext, c.name).toMatchObject({ runAsUser: 100, allowPrivilegeEscalation: false });
     }
     expect(clamd.command).toEqual(["clamd", "--foreground", "--config-file=/etc/clamav/clamd.conf"]);
     expect(freshclam.command).toEqual(expect.arrayContaining(["freshclam", "--daemon", "--config-file=/etc/clamav/freshclam.conf"]));
-    // Seeded from the image's baked signatures, so a new pod serves without a download.
     expect(pod.initContainers[0].command.join(" ")).toContain("cp /var/lib/clamav/* /seed/");
     expect(pod.volumes.find((v: { name: string }) => v.name === "database").emptyDir).toBeDefined();
     expect(clamd.resources.requests.memory).toBe("2Gi");
@@ -184,7 +163,6 @@ describe("clamav", () => {
     expect(clamd.readinessProbe.exec.command).toEqual(["sh", "-c", readinessScript()]);
     expect(readinessScript()).toContain("zVERSION");
     expect(readinessScript()).toContain(`-lt ${48 * 3600}`);
-    // A stale database is no reason to restart clamd: liveness is PING alone.
     expect(clamd.livenessProbe.exec.command).toEqual(["sh", "-c", livenessScript()]);
     expect(livenessScript()).toContain("zPING");
     expect(livenessScript()).not.toContain("VERSION");
@@ -194,7 +172,6 @@ describe("clamav", () => {
   it("lets pulumi up go on without waiting for fresh signatures, and gives the app tiers a URL, not the Deployment", async () => {
     const metadata = await resolve(find("kubernetes:apps/v1:Deployment", "clamav").inputs.metadata);
     expect(metadata.annotations).toEqual({ "pulumi.com/skipAwait": "true" });
-    // A constant: an Output of the Deployment would order the frontend after its readiness.
     expect(readFileSync(join(__dirname, "clamav.ts"), "utf8")).toContain("url: pulumi.output(`tcp://${name}:${CLAMAV.port}`)");
   });
 
@@ -213,7 +190,6 @@ describe("clamav", () => {
       const url = list.find((e) => e.name === "MALWARE_SCAN_URL");
       expect(await resolve(url?.value)).toBe("tcp://clamav:3310");
     }
-    // Absent, never `fake://`: the BFF then fails every scan closed.
     expect(envDisabled.some((e) => e.name === "MALWARE_SCAN_URL")).toBe(false);
   });
 
@@ -229,7 +205,6 @@ describe("clamav", () => {
         ports: [{ protocol: "TCP", port: 3310 }],
       },
     ]);
-    // Allows are additive: left in the intra-namespace allow, any pod could call it.
     const intra = await resolve(find(NETPOL, "allow-same-namespace").inputs.spec);
     expect(intra.podSelector.matchExpressions[0].values).toContain("clamav");
   });
@@ -246,12 +221,9 @@ describe("clamav", () => {
         "./clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro",
       ]),
     );
-    // Compose escapes `$` as `$$`.
     expect(svc.healthcheck.test[0]).toBe("CMD-SHELL");
     expect(svc.healthcheck.test[1].split("$$").join("$")).toBe(readinessScript());
-    // The entrypoint's default is one check a day; freshclam.conf says twelve.
     expect(svc.environment).toContain("FRESHCLAM_CHECKS=12");
-    // Unset by default, never the fake: a plain `up` scans nothing and files nothing unscanned.
     expect(composeService("frontend").environment).toContain("MALWARE_SCAN_URL=${MALWARE_SCAN_URL:-}");
   });
 

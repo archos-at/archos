@@ -1,5 +1,3 @@
-"""Print one query of this directory as the single-line JSON the PostHog MCP takes."""
-
 import json
 import re
 import sys

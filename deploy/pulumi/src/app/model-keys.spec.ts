@@ -7,16 +7,7 @@ import { baseStackConfig } from "../test-support/stack-config";
 import { OPENROUTER_KEY_ENV, OPENROUTER_SECRET_KEY } from "./model-keys";
 import { LEGACY_PROJECT } from "../names";
 
-/** A stack config key under the project these specs run as. */
 const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
-
-/**
- * One OpenRouter key per workload. On 2026-11-02 (and 10-12, 10-19) a bulk
- * ingest held the one shared key's balance in flight and OpenRouter answered
- * 402 to chat and research in the same minute. A per-key credit limit only
- * helps if each tier really carries only its own key, which nothing at plan
- * time would otherwise notice: every key is a valid key.
- */
 
 pulumi.runtime.setMocks(
   {
@@ -30,7 +21,6 @@ pulumi.runtime.setMocks(
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
@@ -74,7 +64,6 @@ async function load(config: Record<string, string>) {
   return { tiers, stringData };
 }
 
-/** The Secret key each OpenRouter-key env name of a tier is read from. */
 function keyRefs(env: EnvVar[]): Record<string, string> {
   return Object.fromEntries(
     env
@@ -101,7 +90,6 @@ describe("one OpenRouter key per workload", () => {
       expect(Object.keys(refs).length, tier).toBeGreaterThan(0);
       expect(new Set(Object.values(refs)), tier).toEqual(new Set([own]));
       const backendTier = tier !== "frontend" && tier !== "bff-jobs";
-      // The Python tiers read all three names; the BFF reads OPENROUTER_API_KEY only.
       expect(Object.keys(refs).sort(), tier).toEqual(
         backendTier ? [...OPENROUTER_KEY_ENV].sort() : ["OPENROUTER_API_KEY"],
       );

@@ -26,11 +26,8 @@ from collections import OrderedDict
 
 import httpx
 
-#: One block per request. Large enough that a message and its attachments are a
-#: handful of requests, small enough that a cache of them stays bounded.
 BLOCK_SIZE = 1024 * 1024
 
-#: Blocks kept per open archive: 64 MiB.
 CACHE_BLOCKS = 64
 
 
@@ -49,7 +46,6 @@ class RangeFile(io.RawIOBase):
         self._position = 0
         self._blocks: OrderedDict[int, bytes] = OrderedDict()
         self._lock = threading.Lock()
-        #: The fetch that failed since :meth:`clear_error`, if one did.
         self.last_error: RemoteFileError | None = None
 
     def clear_error(self) -> None:

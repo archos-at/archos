@@ -51,13 +51,9 @@ from .client import lookup_document_id
 
 _UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
-#: How many candidates an ambiguity names before it stops.
 _MAX_NAMED = 8
-#: How many collections a file the inventory does not list is looked for in.
 _MAX_PROBED_COLLECTIONS = 8
 
-#: The shelves a person's document sits on. The platform corpus (`base`) is
-#: nobody's to mark.
 _DOCUMENT_SHELVES = frozenset({Shelf.PROJECT, Shelf.OFFICE_SHELF, Shelf.SESSION})
 
 
@@ -95,7 +91,6 @@ class Unresolved:
     """Why no document could be addressed, in the words the model gets back."""
 
     message: str
-    #: The name meant more than one row: a question for the person, never a probe for the file.
     ambiguous: bool = False
 
 

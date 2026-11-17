@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the avatar menu. Not
- * linked anywhere and 404s outside development.
- *
- * What this is evidence of: theme and language are SUBMENU rows now — one row
- * each naming the current value, instead of the eight standing rows that made
- * the menu taller than the rail's footer. The menu is driven open by keyboard
- * (the trigger opens on pointerdown, which a synthetic click never produces),
- * the same way the folder-menu fixture drives its dropdown.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -21,8 +10,6 @@ export default function UserMenuDevPage(): JSX.Element {
     notFound()
   }
 
-  // `?variant=header`: the compact avatar of the org header, opening DOWN, the
-  // way the menu opens on a phone. The default is the rail footer's, opening up.
   const header = useSearchParams()?.get('variant') === 'header'
   const driven = useRef(false)
   useEffect(() => {

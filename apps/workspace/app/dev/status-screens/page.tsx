@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the status screens and their drawings (`StatusDrawing`), with
- * the real boundaries where they can run outside a crash:
- *
- *   ?screen=not-found  the not-found page: a door onto a room never built
- *   ?screen=access     `error.tsx` on a denial: the door swings shut
- *   ?screen=error      `error.tsx` on a fault thrown on the server (with a
- *                      digest, so its reference line shows): the propped beam
- *   ?screen=global     `global-error.tsx`'s screen, the same drawing
- *   (none)             all three drawings side by side, small
- *
- * `&lang=en` for English (German by default). Reload to watch a drawing draw
- * itself again; with reduced motion it is still from the start. The `/dev`
- * layout 404s this outside development.
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -29,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { I18nProvider, isLocale, useTranslations, type Locale } from '@/i18n'
 import { errorsCopy } from '@/i18n/namespaces/errors'
 
-/** A server-thrown error as the client boundary receives it: a redacted message and a digest. */
 const SERVER_ERROR = Object.assign(new Error('An error occurred in the Server Components render.'), {
   digest: '3812047752',
 })

@@ -1,11 +1,3 @@
-/**
- * Synthetic setup records for Germany and Switzerland (ADR-0169): distinct
- * from Austria's in every field a project could see, so a spec can tell whose
- * record answered. Not law. The German table classifies by storeys alone and
- * the Swiss pack has no classification at all; neither ships. A spec hands them
- * to a reader as an array, or stores them and reads them back from a database (`setup-records.integration.spec.ts`).
- */
-
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import { rulesetValuesSchema, type RulesetValuesInput } from '@/lib/base-knowledge/wire/ruleset'
 import { AT_SETUP_RECORDS } from './at-setup.fixtures'
@@ -134,10 +126,8 @@ export const SWISS_RECORDS: readonly StoredRuleset[] = [
   }),
 ]
 
-/** Austria's records (the pack an operator proposes) with Germany's and Switzerland's beside them: what every project selects from in a spec. */
 export const THREE_COUNTRIES: readonly StoredRuleset[] = [...AT_SETUP_RECORDS, ...GERMAN_RECORDS, ...SWISS_RECORDS]
 
-/** A profile placed by confirmed facts. */
 export function placedProfile(facts: Record<string, ProjectPrimitiveValue>): ProjectProfile {
   const profile = emptyProjectProfile()
   for (const [key, value] of Object.entries(facts))

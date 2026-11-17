@@ -108,13 +108,8 @@ from agent.knowledge.title_block import title_block_label
 
 logger = logging.getLogger(__name__)
 
-#: Bump when the kernel schema changes shape. Part of the VLM cache identity so
-#: a schema change never serves output produced under the previous schema.
-#: v5 added ``document.title_block`` (Plannummer, Index, Datum, Maßstab, Planinhalt).
 SCHEMA_VERSION = 5
 
-# Bounds applied during normalisation. The model is instructed to be complete;
-# these caps keep a runaway reply from turning one chunk into megabytes.
 _MAX_SEGMENTS = 12
 _MAX_LIST_ITEMS = 60
 _MAX_STR = 2000
@@ -122,10 +117,6 @@ _MAX_STR = 2000
 SOURCES = ("text", "visual", "inferred")
 CONFIDENCES = ("high", "medium", "low")
 
-#: Offered alongside the real values instead of allowing null. A nullable enum
-#: is the one shape that falls outside the intersection every structured-output
-#: implementation accepts, and "unknown" says the same thing in a plain string
-#: enum. The parser maps it back to ``None``, since it is an absence.
 UNKNOWN = "unknown"
 
 _SOURCE_SET = frozenset(SOURCES)
@@ -141,11 +132,6 @@ def cache_prompt_type(registry: DomainRegistry) -> str:
     for the whole cache TTL.
     """
     return f"visual:v{SCHEMA_VERSION}:{registry.fingerprint}"
-
-
-# ---------------------------------------------------------------------------
-# JSON Schema
-# ---------------------------------------------------------------------------
 
 
 def json_schema(registry: DomainRegistry) -> dict[str, Any]:
@@ -312,11 +298,6 @@ def json_schema(registry: DomainRegistry) -> dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Prompt
-# ---------------------------------------------------------------------------
-
-
 def _sketch(node: dict[str, Any], indent: int = 0) -> str:
     """A compact, readable shape derived FROM the JSON Schema.
 
@@ -444,15 +425,8 @@ not in English.
 
 {schema_text}"""
     if context:
-        # What the pixels cannot show — a photo's capture date from its EXIF.
-        # The model may date what it sees by it; it never invents a date.
         prompt += f"\n\nKnown about this image (from the file, not the pixels): {context}"
     return prompt
-
-
-# ---------------------------------------------------------------------------
-# Normalisation helpers (lenient by design — model JSON is best-effort)
-# ---------------------------------------------------------------------------
 
 
 def _clip(value: Any, limit: int = _MAX_STR) -> str | None:
@@ -465,8 +439,6 @@ def _clip(value: Any, limit: int = _MAX_STR) -> str | None:
 
 def _str_list(value: Any) -> list[str]:
     if not isinstance(value, list):
-        # A model that answers with a comma-joined string instead of a list
-        # still carries signal — split rather than drop.
         single = _clip(value)
         return [part.strip() for part in single.split(",") if part.strip()][:_MAX_LIST_ITEMS] if single else []
     out: list[str] = []
@@ -506,10 +478,6 @@ def _normalise_entity(item: dict[str, Any], domain: Domain) -> dict[str, Any] | 
     name = _clip(item.get("name"), 300)
     if not name:
         return None
-    # This is where the domain-conditional check lives that the JSON Schema
-    # cannot express. An unknown category is filed as "other" rather than
-    # dropped: the thing WAS recognised, and losing it because the model
-    # coined a word is the worse failure.
     category = _term(item.get("category"), domain.category_keys) or "other"
     return {
         "name": name,
@@ -550,8 +518,6 @@ def _normalise_quantity(item: dict[str, Any]) -> dict[str, Any] | None:
     value = _clip(item.get("value"), 100)
     obj = _clip(item.get("object"), 300)
     if not value or not obj:
-        # A bare number with no object is exactly the "71 %" failure the
-        # schema exists to prevent — drop it rather than index it.
         return None
     return {
         "object": obj,
@@ -585,8 +551,6 @@ def _normalise_bbox(value: Any) -> list[float] | None:
         raw = [float(part) for part in value]
     except TypeError, ValueError:
         return None
-    # A NaN clamps to 0.0 and an infinity to an edge, and both would then pass
-    # as a plausible box, so a non-finite coordinate drops the box.
     if not all(math.isfinite(part) for part in raw):
         return None
     coords = [min(1.0, max(0.0, part)) for part in raw]
@@ -602,10 +566,6 @@ def _normalise_segment(raw: Any, registry: DomainRegistry) -> dict[str, Any] | N
     domain = registry.get(_term(raw.get("domain"), frozenset(registry.domain_ids)))
     segment_type = _term(raw.get("segment_type"), domain.segment_type_keys)
     if segment_type is None:
-        # The type named is not one this domain has. Rather than guess a
-        # domain that does have it — which would silently re-file the segment
-        # under a vocabulary the model did not choose — fall back to "other"
-        # within the domain it did choose.
         segment_type = "other" if "other" in domain.segment_type_keys else domain.segment_types[0].key
 
     segment = {
@@ -624,7 +584,6 @@ def _normalise_segment(raw: Any, registry: DomainRegistry) -> dict[str, Any] | N
         "source": _term(raw.get("source"), _SOURCE_SET),
         "confidence": _term(raw.get("confidence"), _CONFIDENCE_SET),
     }
-    # A segment that carries nothing at all is model noise, not a depiction.
     has_content = any(
         segment[key] for key in ("title", "scale", "summary", "entities", "compositions", "quantities", "annotations")
     )
@@ -663,10 +622,6 @@ def _normalise_document(raw: Any) -> dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Parsing
-# ---------------------------------------------------------------------------
-
 _FENCE_RE = re.compile(r"^```[a-zA-Z]*\s*|\s*```$", re.MULTILINE)
 
 
@@ -698,9 +653,6 @@ def parse_visual_analysis(reply: str | None, registry: DomainRegistry | None = N
     segments: list[dict[str, Any]] = []
     if isinstance(raw_segments, list):
         if len(raw_segments) > _MAX_SEGMENTS:
-            # Said out loud rather than inferred from a short chunk list: a
-            # sheet with more depictions than the cap keeps its first twelve
-            # and silently loses the rest otherwise.
             logger.warning(
                 "Visual analysis holds %d segments, keeping %d; excess depictions are not indexed",
                 len(raw_segments),
@@ -729,11 +681,6 @@ def content_type_for(analysis: dict[str, Any], registry: DomainRegistry | None =
     """
     registry = registry or resolve_registry()
     return registry.content_type_for(analysis.get("segments") or [])
-
-
-# ---------------------------------------------------------------------------
-# Legacy-field mapping (flat dict, so every pre-schema consumer keeps working)
-# ---------------------------------------------------------------------------
 
 
 def legacy_fields(analysis: dict[str, Any]) -> dict[str, str]:
@@ -795,11 +742,6 @@ def legacy_fields(analysis: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-# ---------------------------------------------------------------------------
-# Rendering (analysis → embedding-friendly text)
-# ---------------------------------------------------------------------------
-
-
 def render_segment_text(
     segment: dict[str, Any],
     registry: DomainRegistry | None = None,
@@ -837,8 +779,6 @@ def render_segment_text(
     if segment.get("summary"):
         lines.append(segment["summary"])
 
-    # Entities grouped by category, in the domain's declared order, so the
-    # rendering is stable and every line is labelled in the domain's words.
     grouped: dict[str, list[str]] = {}
     for entity in segment.get("entities") or []:
         rendered = entity["name"]
@@ -916,7 +856,6 @@ def render_document_text(document: dict[str, Any]) -> str:
     title_block = document.get("title_block") or {}
     label = title_block_label(title_block)
     if label:
-        # So a query for a plan number or an Index finds the sheet it is printed on.
         extras = [f"Scale {title_block['scale']}" if title_block.get("scale") else "", title_block.get("title") or ""]
         lines.append("Title block: " + ", ".join(part for part in (label, *extras) if part))
     if document.get("slogans"):
@@ -945,11 +884,6 @@ def render_analysis_text(analysis: dict[str, Any], registry: DomainRegistry | No
     for segment in analysis.get("segments") or []:
         parts.append(render_segment_text(segment, registry))
     return "\n\n".join(part for part in parts if part)
-
-
-# ---------------------------------------------------------------------------
-# Index payloads (analysis → one chunk per segment)
-# ---------------------------------------------------------------------------
 
 
 def segment_payloads(analysis: dict[str, Any], registry: DomainRegistry | None = None) -> list[dict[str, Any]]:

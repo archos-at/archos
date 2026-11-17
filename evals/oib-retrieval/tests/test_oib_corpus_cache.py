@@ -1,11 +1,3 @@
-"""The OIB harness's page cache round-trips what the production extractor returns.
-
-``_extract_text_from_pdf`` puts captioned tables into ``page["tables"]`` as
-``PageTable`` dataclasses. ``json.dump`` cannot write those, so the first
-``extract_pages`` call raised and left a truncated cache file that every later
-run failed to parse. Offline: the extractor is replaced by a stub.
-"""
-
 from pathlib import Path
 
 import pytest

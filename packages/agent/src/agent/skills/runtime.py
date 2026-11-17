@@ -54,9 +54,6 @@ from .models import skill_hidden
 
 logger = logging.getLogger(__name__)
 
-#: The catalog both agents read, in place of Deep Agents' stock text (which
-#: tells the model about "Deepagents" sources and helper scripts it has none
-#: of). The three slots are the middleware's; it fills them.
 SKILLS_PROMPT = (
     "## Skills\n"
     "Working methods you may follow, one line each. A skill is an offer: you decide whether the task is its subject.\n"

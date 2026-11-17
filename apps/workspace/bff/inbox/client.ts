@@ -1,18 +1,3 @@
-/**
- * The typed client for the inbox API (ADR-0035, ADR-0055): the paths, the verbs
- * and the response shapes, written once. The inbox list and badge, the review
- * (which marks have unread news, and opening a mark reads it) and the
- * notification offer all call this,
- * and the route spec drives the real handlers through it, so no consumer can
- * disagree with another about what `POST /api/inbox/read` expects.
- *
- * The service worker is the one consumer that cannot import it (a classic
- * script with no build step, `public/sw.js`); it names the read path itself and
- * its spec holds it to {@link INBOX_READ_PATH}.
- *
- * No `server-only`: the browser imports this.
- */
-
 import { z } from 'zod'
 import type {
   InboxItemType,
@@ -29,10 +14,8 @@ const defaultFetch: InboxFetch = (path, init) => fetch(path, init)
 
 const BASE = '/api/inbox'
 
-/** `POST` here marks read: item ids, everything, or the news about one mark. */
 export const INBOX_READ_PATH = `${BASE}/read`
 
-/** A request the API refused, with its status. */
 export class InboxRequestError extends Error {
   constructor(
     readonly status: number,
@@ -46,11 +29,6 @@ export class InboxRequestError extends Error {
 const mutationResultSchema = z.object({ affected: z.number(), pending: z.number() })
 const unreadAnchorsSchema = z.object({ anchorIds: z.array(z.string()) })
 const summarySchema = z.object({ pending: z.number() })
-/**
- * The page's envelope is checked; its rows are the server's `InboxItemView`s,
- * which the row renderer already reads defensively (an unknown type falls back,
- * IB-6), so they are not re-validated field by field here.
- */
 const itemSchema = z.custom<InboxItemView>(
   (value) =>
     typeof value === 'object' &&
@@ -68,14 +46,12 @@ const listSchema: z.ZodType<InboxListResponse> = z.object({
 
 export interface ListInboxQuery {
   filter?: InboxListFilter
-  /** The previous page's `nextCursor`. */
   cursor?: string | null
   type?: InboxItemType
   projectId?: string
   limit?: number
 }
 
-/** The mark whose news the reader just opened. */
 export interface MarkRef {
   documentId: string
   annotationId: string
@@ -86,11 +62,8 @@ export interface InboxClient {
   summary(): Promise<InboxSummaryResponse>
   markRead(itemIds: readonly string[]): Promise<InboxMutationResult>
   markAllRead(): Promise<InboxMutationResult>
-  /** The informational items anchored on one mark: what opening it in the review reads. */
   markMarkRead(mark: MarkRef): Promise<InboxMutationResult>
-  /** The rows about new marks on a document („15 Anmerkungen gesetzt“): what opening its review reads. */
   markMarksSetRead(documentId: string): Promise<InboxMutationResult>
-  /** The marks of one document whose news the reader has not read: the review's dots. */
   unreadMarks(documentId: string): Promise<string[]>
   markUnread(itemIds: readonly string[]): Promise<InboxMutationResult>
   archive(itemId: string): Promise<InboxMutationResult>

@@ -13,7 +13,6 @@ from public_sources.engines.pdf_document import PdfDocument
 from public_sources.engines.ris_xml import IN_FORCE_UNTIL as RIS_IN_FORCE_UNTIL
 from public_sources.engines.ris_xml import RisXml
 
-#: Every format a source record may name. A new one is code, written once.
 ENGINES: dict[str, type[Engine]] = {cls.name: cls for cls in (RisXml, Akn, HtmlStatute, GeoJson, PdfDocument)}
 
 

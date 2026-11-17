@@ -89,7 +89,6 @@ from .schema import JobState
 from .schema import RetrievalResult
 
 __all__ = [
-    # Schema
     "AvailableDocument",
     "Chunk",
     "ContentType",
@@ -97,23 +96,18 @@ __all__ = [
     "IngestionJobStatus",
     "JobState",
     "RetrievalResult",
-    # Base classes
     "BaseRetriever",
     "BaseIngestor",
-    # Factory
     "get_retriever",
     "get_ingestor",
     "register_retriever",
     "register_ingestor",
-    # Active ingestor (for Knowledge API)
     "get_active_ingestor",
     "set_active_ingestor",
     "clear_active_ingestor",
-    # Active retriever (for Knowledge API — document search)
     "get_active_retriever",
     "set_active_retriever",
     "clear_active_retriever",
-    # Summary Registry (SQLAlchemy-backed, backend-agnostic)
     "configure_summary_db",
     "register_summary",
     "unregister_summary",

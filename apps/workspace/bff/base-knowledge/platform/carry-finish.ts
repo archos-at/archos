@@ -1,15 +1,3 @@
-/**
- * The carry's last steps (ADR-0181), after a country is published to stable (`./carry.ts`):
- *
- * - Wait, bounded, until the base corpus holds every carried text ingested with the country's mark. Read from the
- *   corpus's own state, since an index run's `queued` says only that the corpus accepted the file. A failed index
- *   run, or the deadline, fails the carry.
- * - Give each text the document class and display title it carries on the source (the manifest's `texts`).
- * - Once every bundle is settled: delete each base-corpus file whose bytes are a released text's and that no record
- *   names (the legacy copies uploaded before the records, as dev did on 2026-11-12). Every other file stays.
- *   Idempotent: a second run finds nothing to delete.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { NotFoundError } from '@/lib/api/errors'
@@ -32,7 +20,6 @@ async function failedRuns(changeRequestId: string): Promise<{ corpus_file: strin
   )
 }
 
-/** Wait for the country's texts, then label them as the source does. */
 export async function settleTexts(
   entry: CarriedBundle,
   changeRequestId: string,
@@ -70,7 +57,6 @@ export async function settleTexts(
   ctx.log('texts labelled', { countryId: entry.countryId, changed: labelled })
 }
 
-/** Delete the legacy copies of released texts: same bytes, another name, named by no record. */
 export async function retireLegacyCopies(bundles: readonly ReleaseBundle[], ctx: { log: CarryLog }): Promise<string[]> {
   const released = new Set(bundles.flatMap((bundle) => bundle.texts.map((text) => text.sha256)))
   const releasedNames = new Set(bundles.flatMap((bundle) => bundle.texts.map((text) => text.fileName)))
@@ -87,7 +73,6 @@ export async function retireLegacyCopies(bundles: readonly ReleaseBundle[], ctx:
     try {
       await deleteKnowledgeBaseDocument(file.fileName)
     } catch (error) {
-      // Gone since the status was read: nothing left to delete.
       if (!(error instanceof NotFoundError)) throw error
     }
     deleted.push(file.fileName)

@@ -34,9 +34,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: The file error for an original the job could not download. A stable,
-#: machine-readable prefix, like ``office_rendition_required``: the
-#: failed-document UX and anyone grepping logs key on it.
 ORIGINAL_DOWNLOAD_FAILED = (
     "original_download_failed: the uploaded file could not be read from storage for indexing "
     "(the link expired, the object is gone, or storage was unreachable)"
@@ -63,21 +60,12 @@ def resolve_original(entry: str | Callable[[], str], downloaded: list[str]) -> s
     return path
 
 
-#: The first wait before a download is tried again; each later wait doubles.
 DOWNLOAD_RETRY_FIRST_WAIT_SECONDS = 3.0
-#: No attempt starts once this long has passed since the first: waits of 3, 6,
-#: 12 and 24 s, four more tries over 45 s, longer than a restart of the store.
 DOWNLOAD_RETRY_BUDGET_SECONDS = 50.0
 
-#: Exceptions (by name, anywhere in the MRO) that say the store was not there:
-#: httpx's connect, read and write errors (``NetworkError``), a connection
-#: dropped mid-answer, a connect that timed out, and the builtin family. A read
-#: that timed out is not among them: it already waited a full minute.
 _RETRYABLE_ERRORS = frozenset({"NetworkError", "RemoteProtocolError", "ConnectTimeout", "ConnectionError"})
-#: The answers of a store that is restarting, or of a proxy in front that lost it.
 _RETRYABLE_STATUSES = frozenset({502, 503, 504})
 
-#: Seams for the tests: the wait and the clock.
 _sleep = time.sleep
 _monotonic = time.monotonic
 

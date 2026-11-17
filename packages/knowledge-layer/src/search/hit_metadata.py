@@ -22,17 +22,11 @@ def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
     try:
         from agent.knowledge.factory import get_document_doc_classes
     except Exception:
-        # Fail-open, but never silent: with the store unreachable every hit
-        # falls back to its chunk metadata, and that fallback looks exactly
-        # like a correct answer from the outside.
         logger.warning(
             "document metadata store unavailable; %s falls back to chunk metadata", "doc_class", exc_info=True
         )
         return resolved
 
-    # Group the distinct documents by collection so each collection needs a
-    # single batched query (there are only 1-3 in scope: base + session +
-    # project) instead of one round-trip per hit.
     by_collection: dict[str, list[str]] = {}
     seen: set[tuple[str, str]] = set()
     for chunk in chunks:
@@ -47,8 +41,6 @@ def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
         by_collection.setdefault(collection, []).append(file_name)
 
     for collection, file_names in by_collection.items():
-        # Fail open per collection: one collection's error yields an empty map
-        # for it (callers fall back to chunk metadata), never a total failure.
         try:
             stored_map = get_document_doc_classes(collection, file_names)
         except Exception:
@@ -94,9 +86,6 @@ def resolve_display_titles(chunks) -> dict[tuple[str, str], str]:
     try:
         from agent.knowledge.factory import get_document_display_titles
     except Exception:
-        # Fail-open, but never silent: with the store unreachable every hit
-        # falls back to its chunk metadata, and that fallback looks exactly
-        # like a correct answer from the outside.
         logger.warning(
             "document metadata store unavailable; %s falls back to chunk metadata", "display_title", exc_info=True
         )
@@ -173,9 +162,6 @@ def resolve_folder_paths(chunks) -> dict[tuple[str, str], str]:
     try:
         from agent.knowledge.factory import get_document_folder_paths
     except Exception:
-        # Fail-open, but never silent: with the store unreachable every hit
-        # falls back to its chunk metadata, and that fallback looks exactly
-        # like a correct answer from the outside.
         logger.warning(
             "document metadata store unavailable; %s falls back to chunk metadata", "folder_path", exc_info=True
         )

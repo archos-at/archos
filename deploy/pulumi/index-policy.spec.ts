@@ -7,28 +7,8 @@ import { LEGACY_PROJECT } from "./src/names";
 import { SIGNING_KEYS } from "./src/test-support/app-zone-config";
 import { baseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * The policy pack's mandatory WORKLOAD rules (deploy/pulumi/policy/index.ts),
- * applied to the dev stack's plan before a deploy does.
- *
- * The pack runs only in `pulumi preview --policy-pack`, which needs the stack's
- * credentials, so CI never ran it on a pull request: the first staging preview
- * with the RabbitMQ operator failed on its Deployment (no soak, no deadline, no
- * surge) after the change had merged. This spec reads every Deployment,
- * StatefulSet and DaemonSet the program builds, including the objects a
- * `yaml/v2` ConfigGroup or ConfigFile carries inline, the way the pack sees
- * them. A Helm release is one resource to the pack, so its chart's workloads
- * are not here, as they are not there. A manifest the program references by URL
- * (a `ConfigFile` with `file`) is read by the deploy, not by these mocks; the
- * Deployments in one are exempt by name in the pack (`UPSTREAM_SOAK_EXEMPT`),
- * and the last test keeps that list to the ones we mean.
- *
- * Kept in step with the pack by hand: a rule added there gets its check here.
- */
-
 type Resource = { type: string; name: string; inputs: Record<string, any> };
 
-/** The public zone ids the stack files name, and their zones. */
 const ZONE_NAMES: Record<string, string> = {
   "66de14f8d07a729634f5d230418bb907": "piloti.at", // pragma: allowlist secret (public zone id)
   "31df51fbdd7ea2d7ef63bcaab9a09559": "archos.tech", // pragma: allowlist secret (public zone id)
@@ -42,8 +22,6 @@ pulumi.runtime.setMocks(
       return { id: `${args.name}-id`, state: { ...args.inputs, metadata: args.inputs.metadata ?? { name: args.name } } };
     },
     call: (args: pulumi.runtime.MockCallArgs) => {
-      // Project mail's zone check and MX guard read Cloudflare; answer as the real
-      // zones do after a first `up` (the zone ids are the stack files' own).
       if (args.token === "cloudflare:index/getZone:getZone") {
         return { id: args.inputs.zoneId, name: ZONE_NAMES[args.inputs.zoneId as string], account: { id: "account-1", name: "Office" } };
       }
@@ -58,11 +36,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-/**
- * Pulumi.dev.yaml's config over the suite's base config, which stands in for the
- * secrets the dev stack reads from its ESC environment; a `secure:` value in the
- * file becomes a placeholder.
- */
 function devStackConfig(): Record<string, string> {
   const file = load(readFileSync(join(__dirname, "Pulumi.dev.yaml"), "utf8")) as { config: Record<string, unknown> };
   return { ...baseStackConfig(), ...Object.fromEntries(
@@ -75,22 +48,17 @@ function devStackConfig(): Record<string, string> {
           : JSON.stringify(value),
     ]),
   ),
-    // In the dev stack's ESC environment, not its file.
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
-    // The platform Connect application's secret: the gate in front of Langfuse and the CMS.
     [`${LEGACY_PROJECT}:otelOidcClientSecret`]: "placeholder-secret-value",
     [`${LEGACY_PROJECT}:cloudflareApiToken`]: "placeholder-secret-value",
-    // Project mail's signing key, also in ESC (runbook §5); the plan refuses the domain without it.
     [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: SIGNING_KEYS,
   };
 }
 
 type Workload = { kind: string; name: string; spec: Record<string, any> };
 
-/** The pack's CREATED_WITH_POD_MANAGEMENT_POLICY, the StatefulSets created with the field. */
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
-/** The pack's UPSTREAM_SOAK_EXEMPT, read from it (the last test). */
 const UPSTREAM_SOAK_EXEMPT = (() => {
   const pack = readFileSync(join(__dirname, "policy/index.ts"), "utf8");
   const table = pack.match(/const UPSTREAM_SOAK_EXEMPT[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
@@ -116,7 +84,6 @@ function workloads(): Workload[] {
   return [...direct, ...fromManifests];
 }
 
-/** The pack's mandatory checks, one message per violation, as the pack words the rule. */
 function violations(w: Workload): string[] {
   const out: string[] = [];
   const pod = w.spec.template?.spec ?? {};
@@ -174,7 +141,6 @@ describe("the dev stack's plan against the policy pack's mandatory workload rule
     expect(Object.fromEntries(refused)).toEqual({});
   });
 
-  // The pack exempts an upstream manifest's Deployment from the soak by name. The list holds exactly the manifests the program references by URL.
   it("exempts only the Deployments of the release manifests it references", () => {
     const exempt = UPSTREAM_SOAK_EXEMPT;
     const referenced = RESOURCES.filter((r) => r.type === "kubernetes:yaml/v2:ConfigFile" && /^https:/.test(r.inputs.file))

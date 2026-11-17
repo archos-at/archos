@@ -41,11 +41,6 @@ def _no_footprint(model: SpatialModel, subject: Any, method: str) -> Answer[Any]
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# 2 — threshold height
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def threshold_height(model: SpatialModel, door_global_id: str) -> Answer[dict[str, Any]]:
     """The step at a door: the height difference between the floors on either side.
 
@@ -118,10 +113,6 @@ def threshold_height(model: SpatialModel, door_global_id: str) -> Answer[dict[st
     finishes = _floor_finishes(model)
     declared_lining = _lining_thresholds(model, subject)
 
-    # The room body and the slab under it are two independent statements about
-    # the same floor. Where they disagree the export is saying two things, and
-    # the difference is usually the unmodelled build-up — which is the whole
-    # subject of this operator, so it is reported and not averaged away.
     drift = [
         s
         for s in known

@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** The right-side settings panel + the project Settings page. */
 export const settings: typeof en.settings = {
   title: 'Einstellungen',
   loading: 'Einstellungen werden geladen …',
@@ -15,11 +14,6 @@ export const settings: typeof en.settings = {
     ariaLabel: 'Sprache der Oberfläche',
   },
   openProfile: 'Vollständiges Profil öffnen',
-  /**
-   * Die Projekt-Einstellungen: eine Route je Bereich, verbunden über eine
-   * Bereichsnavigation (wie bei der Organisation). Jeder Bereich beantwortet
-   * eine Frage zum Projekt; die Texte sind genauso gruppiert.
-   */
   project: {
     nav: {
       label: 'Projekteinstellungen',

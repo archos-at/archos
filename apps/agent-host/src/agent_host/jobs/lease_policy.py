@@ -18,13 +18,9 @@ logger = logging.getLogger(__name__)
 
 SECONDS_PER_DAY = 86_400
 
-#: Claims of one job before it is given up as dead.
 MAX_ATTEMPTS = 3
-#: How often a worker refreshes the claims it holds.
 HEARTBEAT_SECONDS = 30
-#: How long a stopping worker waits for its jobs before it gives them back.
 DRAIN_SECONDS = 600
-#: How long a dead row is kept as a trace.
 DEAD_RETENTION_DAYS = 14
 
 

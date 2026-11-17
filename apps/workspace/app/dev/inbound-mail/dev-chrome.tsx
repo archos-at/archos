@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The previews' own chrome: a fixed strip at the bottom centre that switches
- * the fixture (`?variant=`), the locale (`?locale=en`) and hides itself for a
- * capture (`?chrome=0`). Plain and obviously not part of the design under
- * test; it never ships (the `/dev` layout 404s outside development).
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 

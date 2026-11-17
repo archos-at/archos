@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The chat socket's statechart, walked without a socket. The table below is
- * every resting state against every event, through XState's pure `transition`;
- * the scenarios after it run the chart as an actor with fake actors and fake
- * timers. What a reader of the chat sees is held by `turn-socket.spec.ts`,
- * through the driver; this spec holds the chart itself.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createActor, fromCallback, initialTransition, transition, type SnapshotFrom } from 'xstate'
 import { createRetryLadder, type RetryLadderOptions } from '@/shared/utils/backoff'
@@ -21,7 +14,6 @@ import {
 
 type Snapshot = SnapshotFrom<typeof turnSocketMachine>
 
-/** The page as the two guards read it. */
 interface Page {
   hidden: boolean
   offline: boolean
@@ -30,7 +22,6 @@ interface Page {
 const machineFor = (page: Page) =>
   turnSocketMachine.provide({ guards: { pageHidden: () => page.hidden, pageOffline: () => page.offline } })
 
-/** `active.connected.open` for `{ active: { connected: 'open' } }`. */
 const pathOf = (value: unknown): string => {
   if (typeof value === 'string') return value
   const [[key, inner]] = Object.entries(value as Record<string, unknown>)
@@ -38,7 +29,6 @@ const pathOf = (value: unknown): string => {
 }
 
 const RUNG_DUE = { type: 'xstate.after.rung.turnSocket.active.reconnecting' } as unknown as TurnSocketEvent
-/** The dial's own bound: a socket that was made and never opened. */
 const DIAL_DUE = {
   type: 'xstate.after.dialLimit.turnSocket.active.connected.dialing',
 } as unknown as TurnSocketEvent
@@ -46,9 +36,7 @@ const DIAL_DUE = {
 interface Walk {
   snapshot: Snapshot
   state: string
-  /** Every status announced, in order. */
   announced: TurnSocketStatus[]
-  /** Every action of the walk by type, in order, with XState's own. */
   actions: string[]
 }
 
@@ -78,7 +66,6 @@ const REFUSED_AS_OUTDATED: TurnSocketEvent = { type: 'SOCKET_CLOSED', code: 4426
 const TO_DIALING: TurnSocketEvent[] = [{ type: 'CONNECT' }, PREPARED]
 const TO_OPEN: TurnSocketEvent[] = [...TO_DIALING, { type: 'SOCKET_OPENED' }, { type: 'HELLO' }]
 
-/** How each resting state is reached: the events, the ladder and the page. */
 const REACH: Record<string, { events: TurnSocketEvent[]; ladder: RetryLadderOptions; page: Page }> = {
   idle: { events: [], ladder: { delaysMs: [100, 100] }, page: HERE },
   closed: { events: [{ type: 'CLOSE' }], ladder: { delaysMs: [100, 100] }, page: HERE },
@@ -102,7 +89,6 @@ const REACH: Record<string, { events: TurnSocketEvent[]; ladder: RetryLadderOpti
   'active.outdated': { events: [...TO_DIALING, REFUSED_AS_OUTDATED], ladder: { delaysMs: [100, 100] }, page: HERE },
 }
 
-/** Every event the chart declares, each payload that changes a move, and the ladder's own timer. */
 const EVENTS: Record<string, TurnSocketEvent> = {
   CONNECT: { type: 'CONNECT' },
   RECONNECT: { type: 'RECONNECT' },
@@ -133,7 +119,6 @@ const OPENING: Move = ['active.opening', 'connecting']
 const CLOSED: Move = ['closed', 'closed']
 const RECONNECTING: Move = ['active.reconnecting', 'reconnecting']
 const OUTDATED: Move = ['active.outdated', 'outdated']
-/** What the caller and the page do to a state with no socket and no attempt in flight. */
 const RESTING = {
   CONNECT: OPENING,
   RECONNECT: OPENING,
@@ -142,7 +127,6 @@ const RESTING = {
   'PAGE_RESUMED(went quiet)': OPENING,
 }
 
-/** Every move that leaves a state or announces something. An event not listed changes nothing and says nothing. */
 const MOVES: Record<keyof typeof REACH, Record<string, Move>> = {
   idle: { CONNECT: OPENING, RECONNECT: OPENING, CLOSE: CLOSED },
   closed: { CONNECT: OPENING, RECONNECT: OPENING, CLOSE: CLOSED },
@@ -186,7 +170,6 @@ const MOVES: Record<keyof typeof REACH, Record<string, Move>> = {
     'WATCHDOG_EXPIRED(page away)': RECONNECTING,
     'PAGE_RESUMED(went quiet)': OPENING,
   },
-  // A suspend on a page that is still visible and online (the table's page) is no failed attempt.
   'active.reconnecting': { ...RESTING, RUNG_DUE: OPENING },
   'active.suspended': { ...RESTING, PAGE_SUSPENDED: ['active.suspended', 'suspended'] },
   'active.offline': { ...RESTING, PAGE_SUSPENDED: ['active.offline', 'offline'] },
@@ -204,7 +187,6 @@ describe('every state, every event', () => {
           return Object.keys(child.states).length === 0 ? [path] : declared(child, `${path}.`)
         }
       )
-    // `retry` rests nowhere: it decides and moves on in the same step.
     const resting = declared(turnSocketMachine.root).filter((path) => path !== 'active.retry')
     expect(Object.keys(REACH).toSorted()).toEqual(resting.toSorted())
     for (const [state, { events, ladder, page }] of Object.entries(REACH)) {
@@ -382,7 +364,6 @@ describe('a page away', () => {
     page.hidden = true
     const hidden = walk([{ type: 'PAGE_SUSPENDED' }], { delaysMs: [10] }, page, waiting.snapshot)
     expect(hidden.state).toBe('active.suspended')
-    // The rung that was waiting is cancelled with the state it belonged to.
     expect(hidden.actions).toContain('xstate.cancel')
 
     page.hidden = false
@@ -406,7 +387,6 @@ describe('a page away', () => {
     expect(nudged.state).toBe('active.reconnecting')
     expect(nudged.announced).toEqual([])
     expect(nudged.snapshot.context.attempts).toBe(1)
-    // The rung that is waiting still falls due.
     expect(nudged.actions).not.toContain('xstate.cancel')
 
     const spent = walk([...TO_DIALING, DROPPED], { delaysMs: [] }, HERE)
@@ -476,7 +456,6 @@ describe('what the chart asks of its driver, and in which order', () => {
 })
 
 describe('run as an actor, with fake actors', () => {
-  /** Each provided actor, recording when the chart starts and stops it. */
   const harness = (ladder: RetryLadderOptions, page: Page = { hidden: false, offline: false }) => {
     const log: string[] = []
     const recorded = <TInput = unknown>(name: string, describe: (input: TInput) => string = () => '') =>
@@ -634,7 +613,6 @@ describe('run as an actor, with fake actors', () => {
       const closing = since()
       expect(state(), name).toBe('closed')
       expect(closing.filter((entry) => !entry.startsWith('stop ') && entry !== 'drop'), name).toEqual(['closed'])
-      // Whatever was started and had not been stopped before the close is stopped by it.
       const running = new Set(started.map((entry) => entry.split(' ')[1]))
       for (const stopped of closing.filter((entry) => entry.startsWith('stop '))) {
         expect(running.has(stopped.split(' ')[1]), `${name}: ${stopped}`).toBe(true)

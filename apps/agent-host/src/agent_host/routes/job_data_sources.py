@@ -73,12 +73,6 @@ async def validate_data_sources_for_agent(
     data_sources: list[str] | None,
 ) -> None:
     """Raise HTTP 422 if requested sources are unknown or unavailable to the selected agent."""
-    # Semantic fast path: omit/null/empty means "use all data-source tools available
-    # to the chosen agent" (or, for empty list, "use no data-source tools"). In both
-    # cases there is nothing for the caller to validate against, so we skip.
-    #
-    # Bonus: this also avoids a builder.get_tools() round-trip on the default code
-    # path -- pinned by test_submit_job_forwards_omitted_data_sources_without_resolving_tools.
     if not data_sources:
         return
 
@@ -101,9 +95,6 @@ async def validate_data_sources_for_agent(
 
     available_by_lower = {source_id.lower(): source_id for source_id in available_ids}
 
-    # Single-pass partition: walk requested IDs once, deduping case-insensitively
-    # and routing each unique ID into either "unknown to system" or "known but
-    # unavailable to this agent." Preserves first-seen casing and request order.
     seen: set[str] = set()
     invalid_ids: list[str] = []
     unavailable_for_agent: list[str] = []
@@ -127,11 +118,6 @@ async def validate_data_sources_for_agent(
         parts.append(f"Data source(s) are not available for agent '{agent_type}': {', '.join(unavailable_for_agent)}")
     message = ". ".join(parts)
 
-    # Echo back the caller's request annotated with which IDs were unknown vs
-    # unavailable, plus the global registry list (which is also discoverable via
-    # /v1/data_sources). The per-agent capability list is intentionally NOT
-    # returned -- it's not exposed anywhere else and would reveal agent
-    # capability boundaries.
     raise HTTPException(
         status_code=422,
         detail={

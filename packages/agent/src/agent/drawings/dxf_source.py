@@ -40,9 +40,6 @@ from ezdxf.entities import Insert
 
 logger = logging.getLogger(__name__)
 
-#: ``$INSUNITS`` to metres per drawing unit. 0 (unitless) is absent on purpose:
-#: a drawing that names no unit has no scale, and guessing one prints a wrong
-#: one with a straight face.
 METRES_PER_INSUNIT: dict[int, float] = {
     1: 0.0254,  # inches
     2: 0.3048,  # feet
@@ -54,17 +51,12 @@ METRES_PER_INSUNIT: dict[int, float] = {
     14: 0.1,  # decimetres
 }
 
-#: Meridian strip (degrees east of Ferro) to the EPSG code of its Greenwich-based
-#: Gauß-Krüger zone, as BEV's spec lists them (§2).
 CADASTRE_EPSG_BY_MERIDIAN: dict[int, int] = {28: 31254, 31: 31255, 34: 31256}
 
-#: Layers only a Katastralmappe uses together.
 _CADASTRE_LAYERS = frozenset({"GG", "GN"})
 
-#: Parcel-number blocks of the Grundsteuerkataster (no ``G`` suffix).
 _TAX_CADASTRE_NUMBER_BLOCKS = frozenset({"GN1", "GNP", "RN1"})
 
-#: Parcel-number blocks of either cadastre, on the layers that name an area.
 _PARCEL_NUMBER_BLOCKS = _TAX_CADASTRE_NUMBER_BLOCKS | {"GN1G", "GNPG"}
 
 
@@ -88,10 +80,8 @@ class DxfSource:
     """A read drawing and the facts the page is laid out from."""
 
     doc: Drawing
-    #: ``None`` when the file names no unit: the page is then not to scale.
     metres_per_unit: float | None
     cadastre: CadastreFacts | None
-    #: Block names the file used and did not define (see the module docstring).
     standin_blocks: tuple[str, ...]
 
 
@@ -142,9 +132,6 @@ def define_missing_blocks(doc: Drawing) -> tuple[str, ...]:
     return tuple(missing)
 
 
-#: Stand-in patterns for line types a partial file names and does not define, in
-#: drawing units: BEV's dotted "ideelle Grenze" (``DOT``, §3.2) and its dashed
-#: underground line (``UGROUND``, §3.7). Anything else unknown is drawn dashed.
 _STANDIN_LINETYPES: dict[str, list[float]] = {
     "DOT": [0.8, 0.0, -0.8],
     "UGROUND": [2.0, 1.4, -0.6],

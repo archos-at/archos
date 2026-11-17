@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Länder (ADR-0165). Renders the REAL
- * CountryKnowledge (the list) on fixture data, or with `?country=AT` the REAL
- * CountryPage (`&section=works|sources|rules|review|quality`, `&empty=1` for a
- * country with nothing yet); with `?country=AT&section=review&request=1` a
- * submitted change request opened in its sheet, with an
- * authority, a std-asi listing and claims half reviewed; with `?request=alone`,
- * a published one its author approved alone, its second review due (ADR-0176);
- * with `?request=draft`, a draft with an edition whose text is attached and one
- * that still waits for its text (ADR-0165, "Texts are attached in the request").
- *
- * A module-scope fetch shim (browser + dev only) serves the overview and the
- * change request. Not linked from anywhere; 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
@@ -130,7 +115,6 @@ const REQUEST = {
   ],
 }
 
-/** The same records, published after its author approved it alone; nobody has given the second review yet. */
 const ALONE = {
   ...REQUEST,
   ...DUE,
@@ -174,7 +158,6 @@ const manifestation = (revisionId: string, key: string, corpusFile: string | nul
   ],
 })
 
-/** A draft: one edition's text fetched from the publisher, the other still to attach. */
 const DRAFT = {
   ...REQUEST,
   id: DRAFT_ID,
@@ -244,7 +227,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url === '/api/platform/knowledge') return Response.json(OVERVIEW)
       if (url.startsWith('/api/platform/knowledge/change-requests?status=draft')) return Response.json(DRAFTS)
-      // `?empty=1`: a country nothing has been started for, so every section shows its empty state.
       const empty = new URLSearchParams(window.location.search).get('empty') === '1'
       if (url.startsWith('/api/platform/knowledge/change-requests?countryId=')) {
         return Response.json(empty ? { changeRequests: [], nextCursor: null } : { changeRequests: [...OVERVIEW.queue.filter((one) => one.countryId === 'AT'), DRAFTS.changeRequests[0]], nextCursor: null })
@@ -267,10 +249,8 @@ export default function PlatformCountriesDevPage(): JSX.Element {
 
 function Preview(): JSX.Element {
   const t = useTranslations(platformCopy)
-  // `?country=AT` renders that country's page (with `&section=` for a section, `&empty=1` for its empty states).
   const [country, setCountry] = useState<string | null>(null)
   useEffect(() => setCountry(new URLSearchParams(window.location.search).get('country')), [])
-  // `?request=1` opens the first request in the queue, `?request=alone` the one approved alone, through the real button.
   useEffect(() => {
     const which = new URLSearchParams(window.location.search).get('request')
     if (which !== '1' && which !== 'alone') return

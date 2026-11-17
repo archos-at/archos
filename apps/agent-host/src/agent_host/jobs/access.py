@@ -43,10 +43,6 @@ _JOB_ACCESS_CLEANUP_SQL = text(
 _JOB_INFO_DELETE_SQL = text("DELETE FROM job_info WHERE job_id = :job_id")
 _JOB_EVENTS_DELETE_SQL = text("DELETE FROM job_events WHERE job_id = :job_id")
 
-# Terminal (non-active) job statuses. Mirrors the agent runtime's JobStatus terminal set
-# (SUCCESS/FAILURE/INTERRUPTED); hard-coded here — as it already is in
-# jobs/submit.py and routes/jobs.py — to keep this module free of the heavy agent-runtime
-# import on the admission hot path.
 _TERMINAL_STATUSES = ("SUCCESS", "FAILURE", "INTERRUPTED")
 
 
@@ -149,8 +145,6 @@ def job_exists(job_id: str, db_url: str) -> bool:
         row = conn.execute(text("SELECT 1 FROM job_access WHERE job_id = :job_id"), {"job_id": job_id}).first()
         if row is not None:
             return True
-        # job_info is created lazily by the agent runtime's JobStore; on a fresh database it
-        # may not exist yet (same guard as research_runs.find_research_runs).
         if inspect(conn.engine).has_table("job_info"):
             row = conn.execute(text("SELECT 1 FROM job_info WHERE job_id = :job_id"), {"job_id": job_id}).first()
             return row is not None
@@ -225,8 +219,6 @@ def _expire_terminal_jobs(conn: Connection, db_url: str, delete_grace_seconds: i
     is_pg = _is_postgres(db_url)
     status_params: dict[str, Any] = {f"s{i}": s for i, s in enumerate(_TERMINAL_STATUSES)}
     placeholders = ", ".join(f":s{i}" for i in range(len(_TERMINAL_STATUSES)))
-    # Never touch the newest finished job (matches the agent runtime's "always keep the most
-    # recent finished job"); COALESCE guards the empty-table case.
     keep_newest = (
         f"job_id <> COALESCE((SELECT job_id FROM job_info WHERE status IN ({placeholders}) "
         "ORDER BY updated_at DESC LIMIT 1), '')"
@@ -244,8 +236,6 @@ def _expire_terminal_jobs(conn: Connection, db_url: str, delete_grace_seconds: i
 
     marked = (
         conn.execute(
-            # Interpolated fragments are trusted dialect literals + generated ":sN"
-            # placeholders; status values are bound, so this is not injectable.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"UPDATE job_info SET {set_expired} "
@@ -258,8 +248,6 @@ def _expire_terminal_jobs(conn: Connection, db_url: str, delete_grace_seconds: i
 
     stale_ids = list(
         conn.execute(
-            # Interpolated fragments are trusted dialect literals + generated ":sN"
-            # placeholders; grace/status values are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"SELECT job_id FROM job_info WHERE status IN ({placeholders}) "
@@ -273,7 +261,6 @@ def _expire_terminal_jobs(conn: Connection, db_url: str, delete_grace_seconds: i
 
     for table in ("job_events", "job_access", "job_info"):
         conn.execute(
-            # Fixed table names from the literal tuple above; job ids are bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(f"DELETE FROM {table} WHERE job_id IN :ids").bindparams(bindparam("ids", expanding=True)),
             {"ids": stale_ids},
@@ -392,13 +379,8 @@ def derive_project_collection(collection_scope: list[str] | None) -> str | None:
     return None
 
 
-#: How long a signed envelope may authorize a job request, in milliseconds.
-#: The BFF verifier's window, ``REQUEST_CONTEXT_MAX_AGE_MS`` in
-#: ``apps/workspace/bff/request-context.ts``. The two must stay equal.
 JOB_ENVELOPE_MAX_AGE_MS = 6 * 60 * 60 * 1000
 
-#: What a request does to a job. A ``read`` follows it (status, stream, state,
-#: report, the listing); a ``control`` steers it (cancel, write-now, documents).
 JobAction = Literal["read", "control"]
 
 
@@ -596,20 +578,9 @@ def _ensure_job_access_schema(db_url: str) -> None:
 
 def _create_job_access_schema(conn: Connection, db_url: str) -> None:
     conn.execute(text(_job_access_table_sql(db_url)))
-    # Every index and column is checked before its DDL: ``CREATE INDEX IF NOT
-    # EXISTS`` and ``ADD COLUMN IF NOT EXISTS`` lock the table before they check,
-    # so issued on every start they block its writers or readers for nothing, and
-    # queue behind any session a dead node left holding the table
-    # (``agent.common.db_utils.present_columns``). On a current table this
-    # issues no DDL at all.
     indexes = present_indexes(conn, "job_access")
     if "idx_job_access_owner" not in indexes:
         conn.execute(text(_JOB_ACCESS_INDEX_SQL))
-    # Backfill columns onto pre-existing tables BEFORE creating the
-    # project_collection index below -- on a deployment where job_access
-    # already existed without that column, CREATE TABLE IF NOT EXISTS is a
-    # no-op and the index creation would otherwise fail with
-    # "column project_collection does not exist".
     if _is_postgres(db_url):
         for statement in _job_access_add_column_statements(db_url, present_columns(conn, "job_access")):
             conn.execute(text(statement))
@@ -637,7 +608,6 @@ def _job_access_table_sql(db_url: str) -> str:
     )
 
 
-#: Columns added after ``job_access`` first shipped, and the statement that adds each.
 _JOB_ACCESS_BACKFILL_COLUMNS = {
     "conversation_id": "ALTER TABLE job_access ADD COLUMN IF NOT EXISTS conversation_id VARCHAR",
     "project_collection": "ALTER TABLE job_access ADD COLUMN IF NOT EXISTS project_collection VARCHAR",

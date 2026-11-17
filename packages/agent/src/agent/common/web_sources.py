@@ -51,20 +51,15 @@ from agent.common.url_safety import host_problem
 
 logger = logging.getLogger(__name__)
 
-#: Said above every web result the agent reads.
 WEB_RESULT_NOTE = (
     "Web results are unverified information: none is a requirement for this project or names which edition "
     "binds; the building-law block and the knowledge base say that."
 )
 
-#: The key a labelled hit carries its note under; the search tool prints it inside the hit.
 SOURCE_NOTE_KEY = "source_note"
 
-#: File types that are a document's own bytes: a hit of one that names a held work is a copy of it, where
-#: an HTML page naming the work is a page about it.
 DOCUMENT_SUFFIXES = (".pdf", ".docx", ".doc", ".odt", ".rtf")
 
-#: A name too short to identify a work on its own (one short word) matches nothing.
 _MIN_SINGLE_TOKEN_CHARS = 8
 
 _TOKEN_RE = re.compile(r"\d+(?:\.\d+)*[a-z]?|[^\W\d_]+")
@@ -86,11 +81,8 @@ class HeldWork:
 
     designation: str
     where: Where
-    #: The names a page may call it by, as token runs (designation, short title, aliases).
     names: tuple[tuple[str, ...], ...] = ()
-    #: The knowledge base's file names for it, lower case.
     files: frozenset[str] = frozenset()
-    #: The country whose legal database holds it; None for a knowledge-base work.
     country: str | None = None
 
 
@@ -100,7 +92,6 @@ class Assessment:
 
     withheld: str | None = None
     note: str | None = None
-    #: The work the hit copies or names, when it does.
     work: str | None = None
 
 
@@ -130,9 +121,6 @@ def is_product_site(url: str) -> bool:
     from agent.common.brand import PRODUCT_DOMAINS
 
     return on_host(host_of(url), PRODUCT_DOMAINS)
-
-
-# -- the records -----------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -195,7 +183,6 @@ def _registry_hosts() -> set[str]:
     return {host_of(url) for entry in entries for url in (entry.citation_url, entry.full_law_url, entry.source_url)}
 
 
-#: The European Legislation Identifier: the one scheme whose value is an address (``platform/wire.ts`` checks it).
 _ELI = "eli"
 
 
@@ -294,9 +281,6 @@ def held_works() -> tuple[HeldWork, ...]:
         except Exception:  # noqa: BLE001 - one unreadable record set never fails a search
             logger.warning("web_sources: a set of held works could not be read", exc_info=True)
     return tuple(works)
-
-
-# -- one hit ---------------------------------------------------------------
 
 
 def contains_run(haystack: tuple[str, ...], run: tuple[str, ...]) -> bool:

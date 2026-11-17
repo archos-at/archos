@@ -77,10 +77,6 @@ async def notify_job_outcome(
         "status": status,
         "error": error,
     }
-    # The finished report rides along so the BFF can file it as the requester
-    # (the task row's pinned person) instead of leaving it to expire with the
-    # job store. The interactive report GET stays the other way to file it;
-    # both key on this job id, so they cannot file twice.
     if report:
         payload["report"] = report
         if cards:
@@ -93,10 +89,8 @@ async def notify_job_outcome(
 
     response = await send_with_retry(_send, label=f"Job {job_id}: outcome report", retry_not_found=expect_run)
     if response is None:
-        # Every attempt raised; send_with_retry logged the last one in full.
         return False
     if response.status_code == 404:
-        # Not a scheduled run: nothing to notify, nobody to tell.
         logger.debug("Job %s: no job run to report an outcome on", job_id)
         return False
     if response.status_code not in (200, 201):

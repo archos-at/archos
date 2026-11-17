@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the organization "Usage & budgets" card. Renders the REAL
- * card twice — the admin view (meters, 30-day trend, composition bar + table,
- * limit editors, member and project limits) and the member view (the same
- * spend visualization without any editor) — so the visualization can be
- * reviewed and screenshotted without a backend.
- *
- * The fixture is deliberately awkward for a chart: ten models, so the tail has
- * to fold into "Other"; a long OpenRouter-style model id, so truncation is
- * exercised; a month meter deliberately pushed over its limit, so the over
- * state and the limit tick are both on screen; and a day meter comfortably
- * under, so both meter states are visible side by side.
- *
- * A module-scope fetch shim (browser + dev only) serves the four endpoints the
- * card reaches for. Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { Gauge } from 'lucide-react'
@@ -24,7 +7,6 @@ import { Gauge } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BudgetUsageCard } from '../../app/(shell)/organization/budget-usage-card'
 
-/** Amounts in the tenant's unit (ADR-0053) — credits here; the card never sees cost. */
 const spend = (amount: number, events: number) => ({ amount, events })
 
 const MODELS = [
@@ -49,7 +31,6 @@ const MONTH = spend(
   MODELS.reduce((sum, m) => sum + m.month.events, 0),
 )
 
-/** Deterministic 30-day series with a visible ramp and two quiet days. */
 const DAILY_TREND = Array.from({ length: 30 }, (_, index) => {
   const day = new Date(Date.UTC(2026, 5, 29))
   day.setUTCDate(day.getUTCDate() + index)
@@ -70,8 +51,6 @@ const USAGE = {
     { userId: 'user_02', day: spend(230, 31), month: spend(3910, 610) },
     { userId: 'user_03', day: spend(90, 14), month: spend(2240, 402) },
   ],
-  // The month is deliberately over its limit and the day comfortably under, so
-  // both meter states — and the over-limit tick — are on screen at once.
   orgBudget: { dailyLimit: 2500, monthlyLimit: 10000, explicit: true },
   status: { blocked: true, blockedScope: 'organization' },
   dailyTrend: DAILY_TREND,

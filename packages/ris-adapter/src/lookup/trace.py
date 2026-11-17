@@ -21,18 +21,10 @@ class LookupTrace:
     its own question had been asked.
     """
 
-    #: The search terms actually used (planner output, or the caller's words).
     searched: str = ""
-    #: The RIS application searched ("LrKons", "Vwgh", …).
     application: str = ""
-    #: Every document considered, fetched or not.
     candidates: list[Any] = field(default_factory=list)
-    #: URLs actually downloaded this call.
     fetched: list[str] = field(default_factory=list)
-    #: § headings of a document that was read but answered nothing — an INDEX,
-    #: never evidence. See ``render.miss_message``.
     headings: list[str] = field(default_factory=list)
-    #: The day asked for (``as_of``), empty for today's law.
     as_of: str = ""
-    #: Hits of an ``as_of`` search left unread because no version of that day.
     versions_dropped: int = 0

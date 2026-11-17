@@ -4,7 +4,6 @@ import type { NavLink } from './nav-link';
 
 export interface CTABandProps {
   title: string;
-  /** lead in ink */
   text?: string;
   primary?: NavLink;
   secondary?: NavLink;

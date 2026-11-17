@@ -52,7 +52,6 @@ class TurnFenced(RuntimeError):
 class WriteFence(Protocol):
     """What a write path needs of a turn's fence."""
 
-    #: The longest one guarded write may take, in seconds.
     write_timeout: float
 
     def fenced(self) -> bool:
@@ -110,7 +109,6 @@ async def guarded_write(fence: WriteFence | None = None) -> AsyncIterator[None]:
             keeper = asyncio.create_task(_follow_the_deadline(scope, fence, loop))
             yield
     except TimeoutError as exc:
-        # Only the bound's own expiry is a fenced write: a TimeoutError the write raised itself passes through.
         if scope.expired() and fence.fenced():
             raise TurnFenced("a write outlived the turn's hold on its conversation and was cut off") from exc
         raise

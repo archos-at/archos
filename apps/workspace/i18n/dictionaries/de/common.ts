@@ -1,8 +1,6 @@
 import type { en } from '../en'
 
-/** Shared strings used across many surfaces. */
 export const common: typeof en.common = {
-  /** The product's name, from `PRODUCT_NAME` (`lib/brand.ts`): every other string says `{productName}`. */
   productName: '{productName}',
   tagline: 'Arbeitsbereich für Planungsbüros',
   actions: {
@@ -29,22 +27,16 @@ export const common: typeof en.common = {
     empty: 'Noch nichts vorhanden',
     copyFailed: 'Kopieren nicht möglich',
   },
-  /**
-   * Leaving an editor with unsaved changes (`components/ui/unsaved-edit-confirm.tsx`): Escape, the X and a
-   * scrim click ask first. Never „verwerfen“: in the E-Mail-Eingang that word says no to a whole mail.
-   */
   unsavedEdit: {
     title: 'Änderungen nicht übernehmen?',
     text: 'Was Sie hier geändert haben, ist noch nicht übernommen.',
     confirm: 'Nicht übernehmen',
     keep: 'Weiter bearbeiten',
   },
-  /** A value a press copies (`components/ui/copyable-value.tsx`): an IFC GlobalId, a project's mail address. */
   copyableValue: {
     copy: 'Kopieren: {value}',
     copied: 'Kopiert',
   },
-  /** The shared „failed to load, retry" block (`components/ui/load-error.tsx`). */
   loadError: {
     retry: 'Erneut versuchen',
     title: 'Konnte nicht geladen werden',
@@ -69,8 +61,6 @@ export const common: typeof en.common = {
     english: 'English',
     german: 'Deutsch',
   },
-  // GFM-Fußnoten: die Überschrift und den Rücksprung-Link schreibt der
-  // Markdown-Konverter, also müssen sie hier stehen, nicht auf Englisch.
   markdown: {
     footnotes: 'Fußnoten',
     backToReference: 'Zurück zu Verweis {n}',
@@ -156,7 +146,6 @@ export const common: typeof en.common = {
       open: 'Stelle öffnen',
     },
   },
-  /** Content drawn from a folder that has since been deleted (ADR-0088). */
   derivedSource: {
     deletedOn: 'Quelle gelöscht am {date}',
     deletedOnTitle: 'Der Ordner, aus dem das stammt, wurde am {date} endgültig gelöscht.',

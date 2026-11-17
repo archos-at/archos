@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Dev preview — `LoadError`, the one block for a load that failed where its
- * content should be, and `CountPill`'s cap.
- *
- *  1. **The fallback.** No title from the surface: the generic sentence.
- *  2. **A surface that says what failed.** Its own title and hint, and a retry
- *     whose promise takes 1.5 s, so the busy state (shown after 150 ms, never
- *     disabled, width held) can be seen and pressed twice.
- *  3. **With a further action.** A retry beside „Filter zurücksetzen", the
- *     shape the feedback health card uses.
- *  4. **Counts.** 0, 7, 99, 100 and 12 345 in both tones: from 100 the pill
- *     reads „99+" and the exact figure moves to `title` and the screen reader.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): the copy
- * under review is the German copy. 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
 import { Button } from '@/components/ui/button'

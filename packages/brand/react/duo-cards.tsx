@@ -6,20 +6,15 @@ export interface DuoItem {
   title: ReactNode;
   text?: ReactNode;
   media?: ReactNode;
-  /** default: first light, second dark */
   theme?: 'light' | 'dark';
-  /** Photo filling the whole card; keeps its width while the card widens on hover */
   photo?: string;
   alt?: string;
   photoStyle?: CSSProperties;
-  /** Text in on-ink over a light photo */
   onPhoto?: boolean;
-  /** Shows the AI tag */
   ai?: boolean;
 }
 
 export interface DuoCardsProps {
-  /** Exactly two */
   items: DuoItem[];
   className?: string;
 }

@@ -40,7 +40,6 @@ import sys
 
 NOTES_PREFIX = "releasenotes/notes/"
 
-# Product surfaces: touching one of these is what makes a note mandatory.
 PRODUCT_PATTERNS = [
     re.compile(r"^packages/agent/src/agent/"),
     re.compile(r"^sources/[^/]+/src/"),
@@ -48,7 +47,6 @@ PRODUCT_PATTERNS = [
     re.compile(r"^apps/workspace/(app|bff|ui|i18n|shared)/"),
 ]
 
-# ...except for the parts of them that only a developer ever sees.
 EXEMPT_PATTERNS = [
     re.compile(r"(^|/)tests?/"),
     re.compile(r"\.spec\.(ts|tsx|js|jsx)$"),

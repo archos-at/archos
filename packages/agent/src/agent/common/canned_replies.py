@@ -10,36 +10,27 @@ under, a turn that produced one. Building that gate's prefix list from these
 names is what stops a rewording from silently unhooking it.
 """
 
-#: A turn that failed on our side. Retry-able and never an escalation.
 GENERIC_ERROR_MESSAGE = (
     "Bei der Recherche zu Ihrer Frage ist ein Fehler aufgetreten. Bitte versuchen Sie es noch einmal."
 )
 
-#: A data-source tool was queried and nothing citable came back.
 NO_SOURCES_MESSAGE = (
     "Ich habe die verfügbaren Quellen durchsucht, aber nichts gefunden, worauf sich "
     "eine Antwort auf diese Frage stützen ließe. Das kann vorübergehend sein – "
     "versuchen Sie es bitte noch einmal oder formulieren Sie die Frage um."
 )
 
-#: The same miss inside a scope the user set (this file, this shelf): a valid
-#: empty answer, so the advice is to widen the scope rather than to retry.
 SCOPED_NO_SOURCES_MESSAGE = (
     "Ich habe die verfügbaren Quellen durchsucht, aber nichts gefunden, worauf sich "
     "eine Antwort stützen ließe. Stellen Sie die Frage gern weiter gefasst, oder "
     "ohne sie auf eine einzelne Datei einzugrenzen."
 )
 
-#: Some search tools failed their pre-flight check. The tool names and the
-#: missing keys go to the log, never to the reader.
 TOOLS_UNAVAILABLE_MESSAGE = (
     "Einige Suchfunktionen stehen derzeit nicht zur Verfügung. Bitte wenden Sie sich "
     "an Ihre Administration oder versuchen Sie es später noch einmal."
 )
 
-#: The model provider refused the turn because no endpoint of the chosen model
-#: satisfies the organization's zero-data-retention setting (ADR-0074). Not
-#: retry-able: only an admin choosing another model changes the outcome.
 ZDR_MODEL_REFUSED_MESSAGE = (
     "Diese Frage konnte nicht beantwortet werden, weil das eingestellte Modell keinen Anbieter "
     "ohne Datenspeicherung hat und Ihre Organisation Zero Data Retention verlangt. Eine "
@@ -47,12 +38,8 @@ ZDR_MODEL_REFUSED_MESSAGE = (
     "Zero-Data-Retention-Anbieter wählen."
 )
 
-#: The chat response when the turn produced no assistant message at all.
 NO_RESPONSE_TEXT = "Es wurde keine Antwort erzeugt."
 
-#: What the post-answer gate matches on: an answer that STARTS with one of
-#: these is a non-answer, and neither memory reflection nor follow-up
-#: suggestions run on it.
 NON_ANSWER_PREFIXES: tuple[str, ...] = (
     NO_RESPONSE_TEXT,
     GENERIC_ERROR_MESSAGE,

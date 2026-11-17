@@ -1,10 +1,3 @@
-/**
- * The website's CMS (ADR-0155): Payload 3 in its own Next.js app, its own
- * Postgres, its files in SeaweedFS. Everything an agent or a reviewer needs to
- * know about the model, the rules and the hooks is in `src/`; this file wires
- * it together and reads the environment (docs/deployment/environment-variables.md,
- * "The website's CMS").
- */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { postgresAdapter } from '@payloadcms/db-postgres';
@@ -34,7 +27,6 @@ export default buildConfig({
   serverURL,
   secret: env.PAYLOAD_SECRET ?? '',
   telemetry: false,
-  // Cookies are accepted from the CMS's own origin only; no browser elsewhere calls this API.
   csrf: [serverURL],
   cors: [],
   graphQL: { disable: true },
@@ -56,14 +48,12 @@ export default buildConfig({
       { code: 'en', label: 'English' },
     ],
     defaultLocale: 'de',
-    // A post without an English title has no English page; nothing borrows the German one.
     fallback: false,
   },
   collections: [Posts, Media, Authors, SocialPosts, SocialAccounts, Users],
   upload: { limits: { fileSize: 20_000_000 } },
   jobs: {
     tasks: [draftSocialPostsTask],
-    // The scheduled publishes and the social drafts, run inside the server once a minute.
     autoRun: [{ cron: '* * * * *', limit: 20, queue: 'default' }],
     shouldAutoRun: () => env.CMS_JOBS_AUTORUN !== 'false',
     access: {
@@ -75,7 +65,6 @@ export default buildConfig({
   db: postgresAdapter({
     pool: { connectionString: env.DATABASE_URL ?? '', max: Number(env.DATABASE_POOL_MAX ?? 10) },
     migrationDir: path.resolve(dirname, 'migrations'),
-    // Schema changes are migrations (`bun run payload migrate:create`), applied when a production server starts.
     push: false,
     prodMigrations: migrations,
   }),
@@ -85,7 +74,6 @@ export default buildConfig({
     mcpPlugin(MCP_OPTIONS),
     s3Storage({
       enabled: Boolean(s3Bucket),
-      // The same schema with and without S3, so one migration chain serves both.
       alwaysInsertFields: true,
       collections: { media: true },
       bucket: s3Bucket ?? 'cms-files',

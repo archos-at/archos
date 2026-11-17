@@ -40,15 +40,8 @@ from ..internal_api import post_internal_run_report
 
 logger = logging.getLogger(__name__)
 
-#: Namespace for the deterministic message ids below.
 _JOB_MESSAGE_NAMESPACE = uuid.NAMESPACE_URL
 
-#: What a reader is told when the run did not produce an answer.
-#:
-#: German, because the product is German and this text lands in a thread a
-#: person opens. Factual and short: the run's real status and error live on the
-#: job, and inventing an error taxonomy here would mean maintaining a second
-#: one that drifts.
 FAILURE_NOTICE = (
     "Dieser Job wurde ausgeführt, hat aber kein Ergebnis geliefert. "
     "Den Status und die Fehlermeldung finden Sie im Ausführungsverlauf des Jobs."
@@ -58,20 +51,6 @@ INTERRUPTED_NOTICE = (
 )
 
 
-#: The marks a run may have left on its own answer, in the spelling they travel
-#: in everywhere else on the wire (the agent state, the socket's `TurnResult`,
-#: the job's persisted output, ``chat_socket.persist_turn_result``).
-#:
-#: Spelling is the whole point. The BFF normalises a backend-written message with
-#: ``normalizeAgentAnswerMetadata``, which recognises the snake_case originals and
-#: nothing else; a "tidier" camelCase key here would be stored under a name that
-#: reader never looks at, and the message would come back tomorrow looking like a
-#: clean, complete answer — the exact failure this whole path exists to prevent,
-#: reintroduced one layer lower and silently.
-#:
-#: An allowlist rather than "copy the dict": this metadata is a public contract
-#: read by surfaces that never see this file, and a caller that one day hands us
-#: a richer dict must not be able to seed new keys in it by accident.
 _TRANSPARENCY_METADATA_KEYS = (
     "research_truncated",
     "truncation_reason",
@@ -80,9 +59,6 @@ _TRANSPARENCY_METADATA_KEYS = (
     "answer_confidence",
     "answer_confidence_reason",
     "answer_confidence_capped_reason",
-    # The report's anatomy and findings, read off the finished report by the
-    # runner; the run's own retrieval ledger and muted skills; and the
-    # follow-up questions, under the key the client mirrors a stage frame to.
     "answer_meta",
     "findings",
     "retrieval_ledger",
@@ -109,7 +85,6 @@ def _transparency_metadata(transparency: dict[str, Any] | None) -> dict[str, Any
     for key in _TRANSPARENCY_METADATA_KEYS:
         value = transparency.get(key)
         if isinstance(value, bool):
-            # Literal ``True`` only, and nothing at all for ``False``.
             if value:
                 metadata[key] = True
             continue
@@ -157,26 +132,15 @@ def _answer_metadata(
     thread turn — so the two cannot come to describe the same answer differently.
     """
     metadata: dict[str, Any] = {"job_id": job_id}
-    # The trace the run ran in (a handed-off job inherits its chat turn's), so a
-    # vote on the report can be scored there (`observability.turn_trace`).
     if trace_id:
         metadata[TRACE_ID_METADATA_KEY] = trace_id
     if cards:
         metadata["cards"] = cards
-    # The persisted assistant row carries the backend job id, so the existing
-    # "view report" affordance lights up on it for free — the UI keys that off
-    # `deep_research_job_id` on the message, not off anything job-specific. Kept
-    # alongside the run id the message row itself now carries (migration 0091):
-    # the UI retires this key on its own schedule, not on this file's.
     metadata["deep_research_job_id"] = job_id
     if skills_activated:
         metadata["skills_activated"] = list(skills_activated)
     if sources:
         metadata["sources"] = list(sources)
-    # Guarded on its own, like the writes it feeds: transparency is bookkeeping
-    # ABOUT a finished answer and must never cost the reader the answer itself.
-    # A malformed payload costs them the caveat — bad, and logged — where an
-    # unguarded merge would cost them the whole thread message (non-fatal).
     try:
         metadata.update(_transparency_metadata(transparency))
     except Exception:  # noqa: BLE001 — best-effort by contract; see module docstring
@@ -275,12 +239,6 @@ async def write_job_turn(
         trace_id=trace_id,
     )
 
-    # THE RUN'S OWN MESSAGE FIRST. A run is one message in the thread that
-    # commissioned it, minted empty when the run was submitted and carrying its
-    # ledger since; the report belongs IN it, not in a second turn beside a
-    # question nobody typed. ``False`` means this run has no such message — an
-    # interactive deep-research job, or a run older than the design — and the
-    # question-and-answer pair below is what those still get.
     landed = await _write_into_run_message(job_id=job_id, text=answer, metadata=metadata, expect_run=expect_run)
     if landed is not None:
         return landed
@@ -296,11 +254,6 @@ async def write_job_turn(
         )
         return None
 
-    # ORDER IS BY TIMESTAMP, NOT BY INSERTION. The reader sorts by createdAt
-    # and breaks ties on a random uuid, so two rows written in the same
-    # millisecond would show in a coin-flip order. Stamping the question one
-    # second earlier is what guarantees the thread reads as a question and its
-    # answer rather than the reverse.
     now = datetime.now(UTC)
     asked_at = (now - timedelta(seconds=1)).isoformat()
 
@@ -414,8 +367,6 @@ def run_message_for_outcome(
             cards=cards if isinstance(cards, list) else None,
             skills_activated=None,
             sources=sources if isinstance(sources, list) else None,
-            # The output IS the transparency dict plus the report; the allowlist
-            # in ``_transparency_metadata`` keeps exactly the keys it would have.
             transparency=output,
         )
         return {"content": report, "metadata": metadata}

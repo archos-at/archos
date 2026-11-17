@@ -31,13 +31,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-#: What ends the stretch a locus may stand in before its marker: a sentence end,
-#: a semicolon, a line break, or another marker. A period ends a sentence only
-#: before a capital, so „§ 5 Abs. 2 [1]" and „Pkt. 3.2 [1]" stay one stretch.
 _CLAUSE_END_RE = re.compile(r"(?<!\d)\.(?=\s+[A-ZÄÖÜ„\"])|[;!?\n]|\[\d+\]")
 
-#: How far back from the marker a locus is looked for. A locus further away is
-#: the sentence's subject, not the marker's address.
 _LOOKBACK_CHARS = 80
 
 _CLAUSE_NUMBER_RE = re.compile(r"\b(?:Punkt|Pkt\.?|Pt\.)\s*(\d+(?:\.\d+)+)\b", re.IGNORECASE)

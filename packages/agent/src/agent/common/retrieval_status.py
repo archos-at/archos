@@ -44,9 +44,6 @@ from agent.common.wire_v2 import StatusStep
 
 logger = logging.getLogger(__name__)
 
-#: Where the reader's own documents live, as SHELF IDS. ``base`` is absent on
-#: purpose: the OIB corpus is read on every research turn, so announcing it
-#: would be announcing a constant — and it is not "your documents" in any case.
 _SHELF_IDS = {
     "office_shelf": "officeShelf",
     "project": "project",
@@ -54,8 +51,6 @@ _SHELF_IDS = {
 }
 
 
-#: More than one shelf collapses into one line rather than listing them: a
-#: conjunction of three dative noun phrases is a sentence, not a status.
 _SHELF_SEVERAL = "several"
 
 
@@ -85,15 +80,9 @@ def documents_loading_step(shelves: list[str] | None = None) -> StatusStep | Non
     return status_step("documents", f"{KEY_DOCUMENTS_PREFIX}{where}", shelves=[str(shelf) for shelf in shelves or ()])
 
 
-#: Slot for the subject-document read that runs before the graph starts. Its own
-#: slot rather than ``documents``, because the same step id replaces the row and
-#: this event would otherwise replace the shelf line the reader was just shown.
 SUBJECT_DOCUMENT_SLOT = "documents:subject"
 
 
-#: Why the subject version could not be read. Stable tokens, because the question
-#: this event exists to answer is an operator's: *how often does a conversation
-#: about an unpublished document fall back to a corpus that cannot see it?*
 SUBJECT_UNREACHABLE = "unreachable"
 
 
@@ -106,12 +95,6 @@ SUBJECT_EMPTY = "empty"
 SUBJECT_NOT_STORED = "not_stored"
 
 
-#: The read route said the version is not this conversation's subject (``404``).
-#: Its own token, and not :data:`SUBJECT_REFUSED`, because it is not a fault: a
-#: reopened conversation, a subject that moved on, a version the reader is no
-#: longer looking at. It answers a different operator question — how often the
-#: composer and the BFF disagree about what the turn is about — and it is the one
-#: miss that is logged at ``INFO`` rather than ``WARNING``.
 SUBJECT_ABSENT = "absent"
 
 
@@ -163,10 +146,6 @@ def subject_document_step(
     )
 
 
-#: (A `purpose` field once sat here and was removed before release: it was
-#: inferred, not observed, and mislabelled a first locator round. The facts a
-#: renderer needs — corpora, query, key, new_docs — are recorded without a
-#: guessed enum.)
 def _describe_calls(calls: list[dict[str, Any]]) -> dict[str, Any]:
     """What one batch of tool calls SAYS: corpora, tools, query, key, values.
 
@@ -183,9 +162,6 @@ def _describe_calls(calls: list[dict[str, Any]]) -> dict[str, Any]:
     for call in calls:
         base = tool_basename(str(call.get("name") or ""))
         if not base or is_skill_read(call):
-            # The skills substrate narrates its own activation with the skill's
-            # human title; repeating it here as a tool name would say the same
-            # thing twice, worse.
             continue
         tools.append(base)
         corpus = call_corpus(base, call.get("args"))
@@ -207,10 +183,6 @@ def _describe_calls(calls: list[dict[str, Any]]) -> dict[str, Any]:
             values["query"] = clip(query, MAX_QUERY_CHARS)
             key = KEY_RETRIEVAL_WITH_QUERY
         elif locator is not None:
-            # A round that BOTH searched and located shows the search query: it
-            # is the reader's own words and the one thing they can still say no
-            # to. The locator line is for the round that only opens a passage,
-            # which is the round this tool exists to make possible.
             key, values = locator
         else:
             key = KEY_RETRIEVAL_PLAIN
@@ -218,7 +190,6 @@ def _describe_calls(calls: list[dict[str, Any]]) -> dict[str, Any]:
         key = action_key
         values = {}
     else:
-        # Nothing left to say but an internal tool name. Say nothing.
         key = None
         values = {}
     return {"corpora": corpora, "tools": tools, "query": query, "key": key, "values": values}
@@ -320,15 +291,11 @@ def emit_retrieval(
     key = described["key"]
     values = described["values"]
     if key is None:
-        # Nothing left to say but an internal tool name. Say nothing.
         return False
 
     reason_text, conclusion_source = resolve_conclusion(calls, conclusion)
     reason = clip(reason_text, MAX_REASON_CHARS) or None
     if corpora:
-        # Search fetches own the spine. Stamp the round so tool results that
-        # land later (and get merged onto one thinking step) still know which
-        # fetch they belonged to.
         turn_status.stamp_retrieval_round(round_index)
         turn_status.emit_step(
             RetrievalStep(
@@ -341,23 +308,13 @@ def emit_retrieval(
                 prefetch=prefetch,
             )
         )
-        # Emitted HERE rather than by the caller so the two can never disagree:
-        # ``hasConclusion`` is exactly "this layer got a body", read off the same
-        # ``reason`` the spine will render, and ``source`` says which channel
-        # produced it.
         emit_checkpoint(round_index=round_index, has_conclusion=reason is not None, source=conclusion_source)
         return True
-    # An action round is not a retrieval round. Putting one on
-    # ``status:retrieval:N`` stole the next search's row.
-    # The slot is derived from the KEY rather than from the tool name, so the
-    # two verbs that share :data:`KEY_ACTION_FILE_PROPOSAL` share one slot as
-    # well: one key, one line, one step — which is what that key was for.
     slot = f"action:{key.rsplit('.', 1)[-1]}"
     turn_status.emit_status(slot, key, values=values, tools=tools, reason=reason)
     return False
 
 
-#: Step id prefix of a look's Herleitung row; the turn's look number follows.
 LOOK_STEP_PREFIX = "look:"
 
 
@@ -403,10 +360,6 @@ def emit_look_step(
     turn_status.emit_step(step)
 
 
-#: Slot prefix for the Herleitung checkpoint record. The round is part of the
-#: STEP ID, like ``status:retrieval:N`` and for the same reason: two steps
-#: sharing an id collapse into one row, and a spine of
-#: three rounds that reports one checkpoint is not countable.
 CHECKPOINT_SLOT = "checkpoint"
 
 

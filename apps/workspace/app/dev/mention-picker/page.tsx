@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the `@` mention picker — the REAL `MentionPicker` with fixture
- * candidates, above a mock composer card that reproduces the composer's geometry
- * (same `max-w-3xl` column, same card surface), so the placement and the row design
- * can be reviewed and screenshotted without a backend.
- *
- * Fetch-free by construction: the component takes its candidates as props (the
- * composer is what talks to `useMentionCandidates`), so no shim is needed here.
- *
- * Variants via `?variant=`:
- *   - default      — two blocks. First the whole list: the assistant pinned first
- *                    in its own group, then the people in the chat, then the
- *                    colleagues who would be invited. Then the TYPED state, because
- *                    an empty query filters nothing and emphasises nothing — so the
- *                    first block alone can show neither, and the registry entry that
- *                    promised "the matched substring emphasised" was unbacked.
- *   - filter       — mid-typing (`@an`), so the matched fragment emphasis shows.
- *   - restricted   — the same list without invite rights: the invitable colleagues
- *                    are DISABLED with the reason, never hidden (MN-5, SH-19).
- *   - empty        — no match for the typed query.
- *   - loading      — the skeleton state.
- *
- * The mock textarea is wired to the picker's keyboard handle, so the preview is
- * genuinely operable (↑↓ to move, ↵/⇥ to insert, esc to close) rather than a still.
- *
- * Pinned to German: it is the product's primary language, so that is the copy the
- * evidence should carry regardless of which locale cookie the capture happens to
- * run with.
- */
-
 import type { JSX } from 'react'
 import { useRef, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -71,19 +41,11 @@ const CANDIDATES: MentionCandidate[] = [
     needsInvite: false,
   },
   candidate('u-anna', 'Anna Weber'),
-  // An umlaut name, on purpose: the search folds diacritics, so `@mu` has to find
-  // "Müller". Without a single such name in the fixture that behaviour — and the
-  // offset-safe emphasis that goes with it — could not appear in any screenshot.
   candidate('u-juergen', 'Jürgen Müller'),
   candidate('u-sabine', 'Sabine Gruber', { isParticipant: false, needsInvite: true }),
   candidate('u-daniel', 'Daniel Brandstetter', { isParticipant: false, needsInvite: true }),
 ]
 
-/**
- * One picker over one mock composer — the geometry the picker actually ships in.
- * Self-contained (its own text state and its own handle) so a page can stack two
- * of them and each stays operable.
- */
 function PickerBlock({
   label,
   query,
@@ -169,11 +131,6 @@ export default function MentionPickerPreviewPage() {
     <I18nProvider initialLocale="de" fixedLocale>
     <main
       data-testid="mention-picker-preview"
-      // `text-foreground`: the root layout only sets a surface colour, so the mock
-      // composer's textarea (which carries no colour of its own, exactly like the
-      // real one) inherited the browser default and rendered the typed `@…`
-      // fragment black on black in dark mode — the one string the picker is
-      // filtering on was invisible in half the evidence.
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 text-foreground"
     >
       <PickerBlock

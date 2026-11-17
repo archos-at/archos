@@ -214,7 +214,6 @@ class TestAskThroughNat:
         assert isinstance(prompt, HumanPromptRadio)
         assert [option.value for option in prompt.options] == ["Alpha", "Beta"]
         assert prompt.text == "**Focus**: which area?"
-        # A radio answer has no `.text`; reading it wrong would feed the LLM junk.
         assert reply == "Alpha"
 
     @pytest.mark.asyncio
@@ -299,5 +298,4 @@ class TestDepsForRequest:
 
         deps = await clarifier.deps_for(request_with())
 
-        # The chained provider's own model answered both roles.
         assert deps.planner_llm is not None

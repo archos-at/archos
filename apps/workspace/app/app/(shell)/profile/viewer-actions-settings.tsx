@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Whether Piloti opens the places it cites on its own (profile page, ADR-0144).
- *
- * The same choice as the switch under an answer that moved the viewer
- * (`ViewerActionRow`): one store, one key in this browser's storage. It is here
- * too because a choice that can only be made after the thing happened is not a
- * choice a person can make in advance. Per browser, like the row's: what it
- * governs is this screen. It starts off when the system asks for reduced motion.
- */
-
 import { type FC } from 'react'
 import { PanelRight } from 'lucide-react'
 

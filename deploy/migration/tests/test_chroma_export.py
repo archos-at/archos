@@ -1,20 +1,3 @@
-"""The Chroma exporter, against a real Chroma, and the whole move: exporter, importer, Qdrant.
-
-``chromadb`` is not a dependency of this repository, so these tests run in an
-environment of their own, never in ``task be:test*`` (``deploy/`` is outside
-pytest's ``testpaths``):
-
-    task be:test:migration
-    uvx --python 3.12 --with-requirements deploy/migration/chroma_export.py --with pytest \
-        pytest deploy/migration/tests -q -p no:cacheprovider
-
-The end-to-end test hands the export to ``scripts/import_vectors.py`` in the
-repository's own venv (``.venv/bin/python``, or ``PILOTI_VENV_PYTHON``), which
-has no ``chromadb``: the two halves share the file format and nothing else, as
-in production. It needs ``QDRANT_TEST_URL``; without it it skips locally
-and fails on CI.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -57,7 +40,6 @@ def _vector(seed: str) -> list[float]:
 
 
 def _seed(path: pathlib.Path) -> dict[str, dict[str, dict]]:
-    """A persist directory with two collections; returns what each chunk holds, by collection and id."""
     client = chromadb.PersistentClient(path=str(path))
     held: dict[str, dict[str, dict]] = {}
     for name, count, metadata in (
@@ -73,7 +55,6 @@ def _seed(path: pathlib.Path) -> dict[str, dict[str, dict]]:
         ]
         embeddings = [_vector(chunk_id) for chunk_id in ids]
         collection.add(ids=ids, documents=texts, embeddings=embeddings, metadatas=metadatas)
-        # What Chroma holds, which is float32 but not always the nearest float32 of what it was given.
         stored = collection.get(ids=ids, include=["embeddings"])
         vectors = dict(zip(stored["ids"], (vector.tolist() for vector in stored["embeddings"]), strict=True))
         held[name] = {
@@ -134,14 +115,12 @@ def test_export_writes_the_manifest_and_every_record(chroma_dir, tmp_path):
     assert manifest["created_at"]
     alpha = manifest["collections"]["proj_alpha"]
     assert (alpha["count"], alpha["dimension"], alpha["batches"]) == (23, DIM, 4)
-    # The embedder identity travels with the collection; a collection without one says nothing.
     assert alpha["metadata"]["aiq:embed_fingerprint"] == "fp-test"
     assert "aiq:embed_fingerprint" not in manifest["collections"]["oib_knowledge"]["metadata"]
     for name, chunks in held.items():
         entry = manifest["collections"][name]
         assert entry["id_digest"] == _digest(chunks)
         assert _read(out, name, manifest) == chunks
-    # The persist directory was copied, never opened in place.
     assert _tree(persist) == before
     assert not list(tmp_path.glob(".chroma-export-*"))
 
@@ -166,8 +145,6 @@ def test_a_directory_that_is_not_chroma_exits_two(tmp_path):
 
 
 class _Changing:
-    """A collection that gains a chunk while it is read."""
-
     metadata: dict = {}
 
     def __init__(self):
@@ -198,20 +175,15 @@ def chroma_server(chroma_dir, tmp_path):
     persist, held = chroma_dir
     port = _free_port()
     chroma_cli = pathlib.Path(sys.executable).with_name("chroma")
-    # The server's own output, so a start that fails says why (CI showed only
-    # "did not come up" while its output went to /dev/null).
     log_path = tmp_path / "chroma-server.log"
     log = log_path.open("wb")
     process = subprocess.Popen(
-        # Bind the address the test polls: `localhost`, the default, is ::1 on
-        # the CI runner, where polling 127.0.0.1 never connected.
         [str(chroma_cli), "run", "--path", str(persist), "--host", "127.0.0.1", "--port", str(port)],
         stdout=log,
         stderr=subprocess.STDOUT,
     )
     url = f"http://127.0.0.1:{port}"
     try:
-        # A cold CI runner takes longer than a laptop to start the server.
         deadline = time.monotonic() + 60
         while True:
             try:
@@ -241,8 +213,6 @@ def test_http_mode_exports_what_the_server_holds(chroma_server, tmp_path):
     assert set(manifest["collections"]) == {"proj_alpha"}
     assert _read(out, "proj_alpha", manifest) == held["proj_alpha"]
 
-
-# ---------------------------------------------------------------------- exporter -> importer -> Qdrant
 
 _DRIVER = textwrap.dedent(
     """
@@ -319,7 +289,6 @@ def test_exported_vectors_arrive_in_qdrant_unchanged(chroma_dir, tmp_path):
     report = json.loads(result.stdout.strip().splitlines()[-1])
     assert report["code"] == 0
     seen = report["seen"]
-    # The collection with a fingerprint keeps its own; the one without takes the configured embedder.
     assert seen["proj_alpha"]["identity"] == "fp-test"
     assert seen["oib_knowledge"]["identity"] == "fp-config"
     for name, chunks in held.items():
@@ -332,11 +301,8 @@ def test_exported_vectors_arrive_in_qdrant_unchanged(chroma_dir, tmp_path):
                 chunk["metadata"]["file_name"],
                 chunk["metadata"]["page_label"],
             )
-            # Qdrant stores cosine vectors normalised: the same direction, unit length.
             norm = sum(value * value for value in chunk["embedding"]) ** 0.5
             assert point["dense"] == pytest.approx([value / norm for value in chunk["embedding"]], abs=1e-5)
-        # Each file's chunks are numbered in the order Chroma was given them (the chunker's, at
-        # ingest), read back through pages of four: the order the readers sort a page by.
         for file_name in ("a.pdf", "b.pdf"):
             inserted = [chunk_id for chunk_id, chunk in chunks.items() if chunk["metadata"]["file_name"] == file_name]
             assert [points[chunk_id]["ordinal"] for chunk_id in inserted] == list(range(len(inserted)))

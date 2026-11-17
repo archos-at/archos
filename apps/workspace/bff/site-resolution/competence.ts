@@ -1,19 +1,3 @@
-/**
- * Which authority is competent for a site: the competence rulesets in force
- * for its chain, decided by the one evaluator (ADR-0166, `decide`), and the
- * authority records they name (ADR-0165). Nothing here knows a country.
- *
- * The facts a competence table may read, all territory ids of the site's
- * chain as the territory records hold it: `municipality` (`AT:gkz:60101`),
- * `district` (a Bezirk, when recorded), `state` (`AT-6`), `country` (`AT`). A
- * municipality with no territory record has no chain: `undetermined:
- * no_territory`.
- * A table that reads another fact gets it as unknown and answers
- * `undetermined: unknown_inputs`, naming it. No ruleset for the chain is
- * `undetermined: no_rule`, never a guess; Austria's rulesets arrive with
- * pack 1 (build split S8).
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -26,18 +10,10 @@ import type { SiteAuthority } from './wire'
 const isState = (id: string): boolean => /^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(id)
 const isCountry = (id: string): boolean => /^[A-Z]{2}$/.test(id)
 
-/**
- * The facts a competence table reads, from a chain read from the territory
- * records (leaf first): `municipality` the leaf, `state` its ISO 3166-2
- * subdivision, `country` its ISO 3166-1 code, and `district` a node between the
- * municipality and the state (a Bezirk), when the records hold one. A chain
- * whose leaf is a state or a country has no municipality.
- */
 export function siteFacts(chain: readonly string[]): Record<string, string> {
   const [leaf, ...above] = chain
   const state = chain.find(isState)
   const country = chain.find(isCountry)
-  // A site placed only to its Land (`AT-6`) has no municipality: its leaf is the state itself.
   const municipality = leaf && !isState(leaf) && !isCountry(leaf) ? leaf : undefined
   const district = municipality ? above.find((id) => id !== state && id !== country) : undefined
   return {
@@ -48,7 +24,6 @@ export function siteFacts(chain: readonly string[]): Record<string, string> {
   }
 }
 
-/** The evaluator's answer as the wire says it, with authority names from `names`. Pure. */
 export function authorityOf(
   rulesets: readonly StoredRuleset[],
   chain: readonly string[],
@@ -71,7 +46,6 @@ export function authorityOf(
   return { status: 'undetermined', reason: result.reason }
 }
 
-/** Every authority id the competence tables of `rulesets` name. */
 function namedAuthorities(rulesets: readonly StoredRuleset[]): string[] {
   const ids = new Set<string>()
   for (const ruleset of rulesets) {
@@ -84,7 +58,6 @@ function namedAuthorities(rulesets: readonly StoredRuleset[]): string[] {
   return [...ids]
 }
 
-/** Names of the authority records this organization sees, by record id. */
 async function authorityNames(organizationId: string, ids: readonly string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map()
   const rows = await withTenant({ organizationId }, () =>
@@ -96,11 +69,6 @@ async function authorityNames(organizationId: string, ids: readonly string[]): P
   return new Map(rows.map((row) => [row.id, row.name]))
 }
 
-/**
- * The competent authority for each chain, read once for all of them. A read
- * that was truncated or found a body the evaluator cannot read decides
- * nothing: `rules_unreadable`.
- */
 export async function competentAuthorities(
   organizationId: string,
   chains: readonly (readonly string[])[],

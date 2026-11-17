@@ -1,23 +1,3 @@
-/**
- * Änderungen anfordern — a refusal that expects another version.
- *
- * The comment is REQUIRED, by a CHECK on the row as well as by the schema here:
- * it is quoted to the next turn and to the revision task, and a refusal with
- * nothing in it is a decision the next attempt cannot act on (ADR-0051's
- * `review_reason`, one level down).
- *
- * `delegateRevision` is the reviewer's THIRD action and not a third route.
- * „Änderungen anfordern" leaves the work with whoever wrote it; „Piloti
- * überarbeiten lassen" additionally opens a `revision` task. The version makes
- * the same move either way — `changes_requested`, comment on the row, review
- * inbox resolved — so a second op would have been a row of the transition table
- * identical to this one in every column that decides anything. What the flag
- * changes is one effect's condition, and the effect explains it
- * (`openRevisionTask`). On a document in a folder some project member may not
- * read, `delegateRevision` is refused with a typed 403 (`CONVERSATION_CONFINED`,
- * `details.action: revision`) in the reader's language, before anything changes.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { toDocumentVersionView, transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import { refuseRequestSchema } from '@/lib/documents/lifecycle-types'

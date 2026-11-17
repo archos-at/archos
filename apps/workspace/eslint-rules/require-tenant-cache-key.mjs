@@ -92,7 +92,6 @@ function returnedExpressions(fn) {
   const found = []
   const walk = (node) => {
     if (!node || typeof node.type !== 'string') return
-    // Do not descend into a nested function: its returns are not this one's.
     if (node !== fn && /Function(Declaration|Expression)$/.test(node.type)) return
     if (node !== fn && node.type === 'ArrowFunctionExpression') return
     if (node.type === 'ReturnStatement' && node.argument) found.push(node.argument)
@@ -153,7 +152,6 @@ function classifyKey(node, sourceCode, depth) {
     return worstOf(returns.map((returned) => classifyKey(returned, sourceCode, depth + 1)))
   }
 
-  // `a ? x : y` and `x ?? y` both have to hold, or one branch is the leak.
   if (node.type === 'ConditionalExpression') {
     return worstOf([
       classifyKey(node.consequent, sourceCode, depth + 1),
@@ -167,7 +165,6 @@ function classifyKey(node, sourceCode, depth) {
     ])
   }
 
-  // String concatenation: one org-bearing half is enough, same as a template.
   if (node.type === 'BinaryExpression' && node.operator === '+') {
     if (namesAnOrganization(node, sourceCode)) return 'scoped'
     return worstOf([

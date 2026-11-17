@@ -28,9 +28,7 @@ logger = logging.getLogger(__name__)
 
 ANNOTATIONS_PATH = "/api/internal/document-annotations"
 
-#: A list reads at most 500 marks with their threads; a proposal is one insert.
 REQUEST_TIMEOUT_SECONDS = 20
-#: Leaving the room is presence, sent once a turn has ended: short, and never retried.
 LEAVE_TIMEOUT_SECONDS = 3
 
 
@@ -78,8 +76,6 @@ def post_canvas(
     return body
 
 
-#: The lookup a NAMED document goes through: the one ``look``'s renderer
-#: already uses, which answers only inside the scope the echoed envelope signs.
 DOCUMENT_FILE_PATH = "/api/internal/document-file"
 
 

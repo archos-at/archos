@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** onboarding namespace — die Einrichtung der Organisation und die Produkttour. */
 export const onboarding: typeof en.onboarding = {
   validation: {
     nameRequired: 'Der Organisationsname ist erforderlich.',

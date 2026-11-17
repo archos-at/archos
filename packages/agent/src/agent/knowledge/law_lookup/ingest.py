@@ -25,7 +25,6 @@ from agent.knowledge.law_lookup.source import LawSource
 
 logger = logging.getLogger(__name__)
 
-#: Room for the readable part of the name, leaving space for the document number that anchors it.
 _NAME_TITLE_CHARS = 60
 
 
@@ -100,7 +99,6 @@ def safe_document_name(reference: str, title: str, law: LawSource) -> str:
     copies.
     """
     base = re.sub(r"[^\w.\- ]+", "_", clean_title(title, law)).strip("_ ").replace(" ", "_")
-    # Trim on the truncation boundary too: a trailing "." collided with the extension.
     base = re.sub(r"[._\-]+$", "", base[:_NAME_TITLE_CHARS])
     parts = [part for part in (base, document_anchor(reference, law)) if part]
     prefix = law.wording.title_prefix or law.namespace

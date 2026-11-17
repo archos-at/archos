@@ -7,20 +7,6 @@ import { dump } from "js-yaml";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POSTHOG_LOG_ATTRIBUTES, POSTHOG_LOG_REDACTION, WITHHELD, posthogLogs } from "./otel-collector";
 
-/**
- * No office text reaches PostHog Logs (configs/subprocessors/posthog.yaml).
- *
- * The positive control: a WARN line naming a document and quoting a licensed
- * norm goes through the real collector, with the processors the PostHog logs
- * pipeline runs, into a file exporter that stands in for PostHog. Neither the
- * name nor the quote may arrive; the area tag, the severity and the code
- * location must. A collector that cannot run the statements fails the spec
- * instead of exporting the line as it came.
- *
- * Needs `OTELCOL_BIN` (CI's infra job installs the pinned build), like
- * `collector-validate.spec.ts`; without it the end-to-end half is skipped.
- */
-
 const OTELCOL_BIN = process.env.OTELCOL_BIN;
 const DOCUMENT = "Gutachten_Brandschutz_Mueller_Haus7.pdf";
 const LICENSED = "Fluchtwege sind so anzuordnen, dass sie von jeder Stelle eines Raumes erreichbar sind";

@@ -127,44 +127,22 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 DEFAULT_CORPUS_DIR = "data/oib"
-#: Every spelling the OIB publishes a Richtlinie under: ``oib-rl_<n>_…`` for most
-#: parts, ``oib-richtlinie_2.2_…`` for OIB-RL 2.2 (see ``canonical_oib_file_name``).
 DEFAULT_PREFIXES = ("oib-rl_", "oib-richtlinie_")
 DEFAULT_OUT = "evals/oib-retrieval/fixtures/clause_index.json"
 
-#: A numbered heading: up to four dot-separated levels, then a non-space title.
 HEADING_RE = re.compile(r"^(\d+(?:\.\d+){0,3})\s+(\S.*)$")
 
-#: A table-of-contents line: dot leaders followed by a page number.
 DOT_LEADER_RE = re.compile(r"\.{6,}\s*\d+\s*$")
 
-#: Largest jump tolerated at a single numbering level. 1 is the norm; a little
-#: slack absorbs the occasional heading pdfplumber glues to the previous line
-#: without letting ``3`` -> ``135`` through.
 MAX_SUCCESSOR_DELTA = 3
 
-#: A file is only worth reporting as "no usable numbering" if it has real text.
 MIN_CHAIN_LENGTH = 2
 
-#: Weight of a ToC-confirmed heading in the chain search. Any value large enough
-#: that one anchor outweighs a whole table's worth of rows works; 100 is well
-#: clear of the ~80-row Außenlärmpegel tables, the longest run in this corpus.
 ANCHOR_WEIGHT = 100
 
-#: Characters of normalised title that must agree for a candidate to be judged
-#: the ToC's heading. Long enough to be decisive, short enough to survive the
-#: hyphenated line wrap PDFs put in headings ("…für die Konditionie-").
 TITLE_MATCH_CHARS = 12
 
-# A page of extracted text: ``{"page_number": int, "text": str}`` — the shape
-# ``_extract_text_from_pdf`` returns. Injected so the core is testable without
-# a PDF on disk.
 PageReader = Callable[[str], list[dict[str, Any]]]
-
-
-# =============================================================================
-# Pure core (no pdfplumber, no filesystem, no agent runtime)
-# =============================================================================
 
 
 @dataclass(frozen=True)
@@ -263,8 +241,6 @@ def find_toc_titles(pages: list[dict[str, Any]]) -> dict[str, str]:
             match = HEADING_RE.match(line)
             if match is None or not DOT_LEADER_RE.search(line):
                 continue
-            # First occurrence wins: a two-page ToC never contradicts itself, but
-            # a body heading that happens to end in dots must not overwrite it.
             titles.setdefault(match.group(1), normalize_title(match.group(2)))
     return titles
 
@@ -356,8 +332,6 @@ def extract_file(pages: list[dict[str, Any]], file_name: str) -> FileExtraction:
     result.rejected = len(candidates) - len(chain)
 
     for index, candidate in enumerate(chain):
-        # A Punkt owns every page from its heading up to (but excluding) the page
-        # the next Punkt starts on — that is the page range its chunks land on.
         if index + 1 < len(chain):
             end_page = max(candidate.page, chain[index + 1].page - 1)
             if chain[index + 1].page == candidate.page:
@@ -389,11 +363,6 @@ def guideline_key(file_name: str) -> str:
     from knowledge_layer.ingest import guideline_key as shared_key
 
     return shared_key(file_name)
-
-
-# =============================================================================
-# I/O shell
-# =============================================================================
 
 
 def make_page_reader() -> PageReader | None:
@@ -457,10 +426,6 @@ def build_index(
             logger.info("No usable Punkt numbering in %s (%d candidate line(s))", file_name, extraction.candidates)
             continue
 
-        # `guideline_key` is not injective — two Ausgaben of the same Richtlinie reduce
-        # to the same key — and assigning over the top silently discarded the first
-        # file's Punkte while `stats.clauses` still counted both, so the printed totals
-        # disagreed with the written index and nothing said why.
         if key in index:
             collisions.append(f"{key}: {source_by_key[key]} and {file_name} share a Richtlinie key")
             logger.warning(
@@ -566,8 +531,6 @@ def main(argv: list[str] | None = None) -> int:
         handle.write("\n")
     print(f"Wrote {args.out}")
 
-    # A partial index is reported to CI, but the index that was built is still
-    # written — a missing PDF should not also cost us the 38 that read fine.
     return 1 if stats.files_failed else 0
 
 

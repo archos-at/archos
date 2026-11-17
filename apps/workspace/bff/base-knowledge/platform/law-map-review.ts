@@ -1,15 +1,3 @@
-/**
- * What one confirmation in the law map covers (country-onboarding-ux.md, C2),
- * grouped by what a person decides rather than by record: an adoption
- * statement with the act it names, a region's building act, the imported
- * regions in one, a guideline series' editions of one year with their works
- * and texts in one ("OIB-RL 2023: 9 editions, 9 texts"), and every other kind
- * of record in one per kind (the sources, the rules, the test questions). A confirmation is the existing review verdict on each of
- * those records' claims, sent through the review route in batches; approval,
- * four eyes and the source check stay where they are (`decide.ts`, the
- * migrations' triggers). Pure.
- */
-
 import { editionOrder, reviewOf, type LawMap, type ReviewState } from './law-map'
 import type { ChangeRequestView, ReviewDecisionBody, RevisionView } from './wire'
 
@@ -18,19 +6,14 @@ export type ReviewUnitKind = 'regions' | 'statement' | 'statute' | 'batch' | 'ki
 export interface ReviewUnit {
   key: string
   kind: ReviewUnitKind
-  /** A batch's name ("OIB-RL 2023") or a kind unit's record type; empty for the others, whose rows name them. */
   label: string
   revisions: RevisionView[]
   review: ReviewState
-  /** Who wrote its revisions: a confirmation by one of them needs one operator alone (dev) or waits for another person. */
   authors: string[]
-  /** The revisions that cite a page or name a text nobody fetched: only their claims carry the reviewer's source check. */
   uncheckedRevisionIds: string[]
-  /** Those pages, for the reviewer to compare against before saying so. */
   uncheckedSources: { url: string; quote: string | null }[]
 }
 
-/** The review route takes at most this many verdicts per call (`reviewBodySchema`). */
 export const VERDICTS_PER_CALL = 500
 
 type View = Pick<ChangeRequestView, 'revisions' | 'captures' | 'texts'>
@@ -44,7 +27,6 @@ const nameOf = (revision: RevisionView): string => {
 function unit(key: string, kind: ReviewUnitKind, revisions: RevisionView[], view: View, label = ''): ReviewUnit {
   const unfetched = new Map((view.captures ?? []).filter((capture) => !capture.countsAsFetched).map((capture) => [capture.captureId, capture]))
   const unfetchedTexts = new Map((view.texts ?? []).filter((text) => text.countsAsFetched === false).map((text) => [text.recordId, text]))
-  // Per record, as the old review and the triggers (0218, 0233) decide it.
   const unchecked = revisions.filter((revision) => unfetchedTexts.has(revision.recordId) || revision.citations.some((citation) => citation.captureId && unfetched.has(citation.captureId)))
   const sources = unchecked.flatMap((revision) => [
     ...revision.citations.flatMap((citation) => {
@@ -67,7 +49,6 @@ function unit(key: string, kind: ReviewUnitKind, revisions: RevisionView[], view
 
 const claimOf = (revision: RevisionView, path: string): unknown => revision.claims.find((claim) => claim.path === path)?.value
 
-/** A work's short name: its designation, else its title. */
 function designationOf(revision: RevisionView | undefined): string {
   if (!revision) return ''
   const identifiers = claimOf(revision, 'identifiers')
@@ -75,16 +56,13 @@ function designationOf(revision: RevisionView | undefined): string {
   return typeof designation === 'string' && designation ? designation : nameOf(revision)
 }
 
-/** The series a designation belongs to: "OIB-RL 2.1" and "OIB-RL 6" are both "OIB-RL". */
 export const seriesOf = (designation: string): string => designation.replace(/[\s-]*\d[\d.]*[a-z]?\s*$/i, '').trim() || designation
 
-/** An edition's year, from its issue day or its label; the label when it names none. */
 const yearOf = (revision: RevisionView): string => {
   const order = editionOrder({ issuedOn: typeof claimOf(revision, 'issuedOn') === 'string' ? (claimOf(revision, 'issuedOn') as string) : null, label: String(claimOf(revision, 'label') ?? '') } as Parameters<typeof editionOrder>[0])
   return /^\d{4}/.test(order) ? order.slice(0, 4) : order
 }
 
-/** Every unit of the request, each record in exactly one, in the order the outline shows them. */
 export function reviewUnitsOf(map: LawMap, view: View): ReviewUnit[] {
   const byRecord = new Map(view.revisions.map((revision) => [revision.recordId, revision]))
   const taken = new Set<string>()
@@ -109,15 +87,6 @@ export function reviewUnitsOf(map: LawMap, view: View): ReviewUnit[] {
   return units
 }
 
-/**
- * The editions not yet in a unit, by publisher and year, each with its texts
- * and the works whose newest edition it holds: one decision ("these are the
- * 2023 guidelines and their companion documents, and these files are their
- * texts") for what a publisher issued together. Editions of one year are one
- * publisher's when they share a mark of it: the work's issuer, the site their
- * text was taken from, or the series. The batch is named for the series most
- * of its works carry ("OIB-Richtlinie 2023", Erläuterungen and Leitfäden included).
- */
 function batchesOf(revisions: readonly RevisionView[], taken: ReadonlySet<string>, captures: View['captures']): { label: string; ids: string[] }[] {
   const byRecord = new Map(revisions.map((revision) => [revision.recordId, revision]))
   const captureUrl = new Map((captures ?? []).map((capture) => [capture.captureId, capture.url]))
@@ -133,7 +102,6 @@ function batchesOf(revisions: readonly RevisionView[], taken: ReadonlySet<string
     })
   const editions = revisions.filter((revision) => revision.type === 'edition' && !taken.has(revision.recordId))
   const textsOf = (edition: RevisionView) => revisions.filter((revision) => revision.type === 'manifestation' && claimOf(revision, 'editionId') === edition.recordId)
-  // One union-find over editions: two of a year join when they share a mark of their publisher.
   const parent = editions.map((_, index) => index)
   const root = (index: number): number => (parent[index] === index ? index : (parent[index] = root(parent[index] ?? index)))
   const seen = new Map<string, number>()
@@ -168,11 +136,9 @@ function batchesOf(revisions: readonly RevisionView[], taken: ReadonlySet<string
   return [...batches.values()]
     .map((batch) => ({ label: `${[...batch.series.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? batch.fallback} ${batch.year}`.trim(), ids: batch.ids }))
     .sort((a, b) => a.label.localeCompare(b.label))
-    // Two publishers may share a series name in a year: each batch keeps a key of its own.
     .map((batch, index, all) => (all.findIndex((one) => one.label === batch.label) === index ? batch : { ...batch, label: `${batch.label} (${index + 1})` }))
 }
 
-/** The review calls that give one verdict on every claim of a unit not yet carrying it, at most `VERDICTS_PER_CALL` each. */
 export function verdictCalls(target: ReviewUnit, decision: 'accepted' | 'rejected', options: { note?: string; sourceChecked?: boolean } = {}): ReviewDecisionBody[] {
   const unchecked = new Set(target.uncheckedRevisionIds)
   const decisions = target.revisions.flatMap((revision) =>
@@ -183,7 +149,6 @@ export function verdictCalls(target: ReviewUnit, decision: 'accepted' | 'rejecte
         claimPath: claim.path,
         decision,
         ...(options.note ? { note: options.note } : {}),
-        // The check is said only of a record whose page or text nobody fetched, never of the rest of the unit.
         sourceChecked: decision === 'accepted' && Boolean(options.sourceChecked) && unchecked.has(revision.revisionId),
       })),
   )

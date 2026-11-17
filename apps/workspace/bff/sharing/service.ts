@@ -1,20 +1,3 @@
-/**
- * Sharing service — visibility changes, grants, the roster, and the participant
- * set (ADR-0032, spec SH-1…SH-20).
- *
- * Owns authorization: every mutation requires `owner` on the resource, every
- * read requires at least `viewer`, and both go through
- * `@/lib/sharing/access`. Route handlers stay thin.
- *
- * Invariants enforced here, each with a test:
- *   - a person cannot be granted access to a resource whose CONTAINER they
- *     cannot reach (spec SH-5) — sharing is never a back door into a project;
- *   - a resource always keeps at least one owner (spec SH-11);
- *   - only visibilities the registry permits for the type can be set (spec SH-2);
- *   - every mutation is audited (spec SH-14), with self-escalation by a project
- *     admin distinguishable from a normal grant (spec SH-10).
- */
-
 import 'server-only'
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEvent } from '@/lib/audit/service'
@@ -39,14 +22,6 @@ import { SHARING_ERROR_REASONS, type ResourceAccessEntry, type ResourceSharingSt
 
 export type { ResourceAccessEntry, ResourceSharingState }
 
-/**
- * Refuse a widening the resource's content forbids (ADR-0087): letting a person
- * into a conversation that drew on a restricted folder they are not cleared
- * for, or making such a conversation visible to the whole project. Asked before
- * every path that lets someone else in — a wider visibility, a grant (and so a
- * mention's invite), an escalation — and before any write or rate-limit spend.
- * Not the guarantee: {@link widen} checks again with the write.
- */
 async function assertMayWiden(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -57,12 +32,6 @@ async function assertMayWiden(
   if (guard) await guard(session, resourceId, widening)
 }
 
-/**
- * Run a widening's write under the type's guard, which checks the content
- * again and writes in one step, so nothing the guard reads can change between
- * its check and the write (`widenConversationAudience`). A type with no guard
- * writes as it always did.
- */
 async function widen<T>(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -74,18 +43,11 @@ async function widen<T>(
   return guard ? guard(session, resourceId, widening, write) : write()
 }
 
-/**
- * Read a resource's sharing state. Requires `viewer` — a participant is entitled
- * to know who else is in the room, which is also what the participant strip
- * renders.
- */
 export async function getSharingState(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
   resourceId: string,
 ): Promise<ResourceSharingState> {
-  // The roster is the party's own place, not the content: someone who may no
-  // longer read the resource still sees who is in it, and that they are not.
   const access = await requireResourceAccess(session, resourceType, resourceId, 'viewer', { allowLocked: true })
   const descriptor = describeResource(resourceType)
   const probe = await descriptor.probe(resourceId)
@@ -94,8 +56,6 @@ export async function getSharingState(
 
   const entries: ResourceAccessEntry[] = []
 
-  // The creator is always an owner, and is listed first so the roster reads
-  // "whose thread is this" at a glance.
   if (probe?.createdBy) {
     entries.push({
       person: directory.get(probe.createdBy) ?? unknownPerson(probe.createdBy),
@@ -121,8 +81,6 @@ export async function getSharingState(
     visibility: access.visibility,
     allowedVisibilities: descriptor.allowedVisibilities,
     myRole: access.role,
-    // Managing a resource is acting on it: a caller locked out of its content
-    // is shown the roster and offered nothing the server would refuse.
     canManage: roleSatisfies(access.role, 'owner') && !access.contentLocked,
     canEscalate: access.canEscalate,
     entries: await markLostAccess(session, descriptor, resourceId, entries),
@@ -130,11 +88,6 @@ export async function getSharingState(
   }
 }
 
-/**
- * Flag each person on the roster who may no longer read what the resource was
- * drawn from, for a type that judges that (`readersAmong`). The roster is
- * bounded (`SHARE_ROSTER_LIMIT`), so is the question. Never says which folder.
- */
 async function markLostAccess(
   session: AuthorizedSession,
   descriptor: ShareableDescriptor,
@@ -151,13 +104,6 @@ async function markLostAccess(
   return entries.map((entry) => ({ ...entry, lostAccess: !readers.has(entry.person.userId) }))
 }
 
-/**
- * Change a resource's blanket visibility (spec SH-2, SH-13).
- *
- * Narrowing is the interesting direction: everyone who only had project-derived
- * access loses it immediately, which is why the change is announced to the
- * previous participant set — losing sight of a thread must not be silent.
- */
 export async function setResourceVisibility(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -176,17 +122,13 @@ export async function setResourceVisibility(
   }
 
   if (visibility === access.visibility) {
-    // No-op saves must not produce an audit entry or an event storm.
     return getSharingState(session, resourceType, resourceId)
   }
 
-  // Narrowing back to `private` is always allowed; anything wider is a share.
   if (visibility !== 'private') {
     await assertMayWiden(session, resourceType, resourceId, { kind: 'visibility' })
   }
 
-  // Capture who could see it BEFORE the change, so a narrowing can tell the
-  // people who are about to lose it.
   const previousAudience = await resolveParticipants(session.organizationId, resourceType, resourceId)
 
   const write = (executor?: DbExecutor) =>
@@ -223,13 +165,6 @@ export interface GrantAccessInput {
   role: ResourceRole
 }
 
-/**
- * Grant (or re-grant) a person access (spec SH-3, SH-5, SH-16).
- *
- * The container check is the security-critical part: the invitee must ALREADY be
- * able to reach the resource's container. Inviting someone who cannot is refused
- * with an explanation, and never accompanied by a silent container grant.
- */
 export async function grantResourceAccess(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -252,7 +187,6 @@ export async function grantResourceAccess(
   const widening: AudienceWidening = { kind: 'person', userId: input.subjectUserId, self: false }
   await assertMayWiden(session, resourceType, resourceId, widening)
 
-  // Rate limit BEFORE any write (spec SH-16, NF-5).
   const limit = await consumeLimit(SHARE_LIMIT, memberSubject(session))
   if (!limit.allowed) {
     throw new ForbiddenError('Too many sharing changes. Please wait a few minutes and try again.', {
@@ -260,7 +194,6 @@ export async function grantResourceAccess(
     })
   }
 
-  // Roster cap — a "share with everyone" action is not a feature (spec SH-16).
   const existing = await countGrantsForResource(resourceType, resourceId)
   if (existing >= SHARE_ROSTER_LIMIT) {
     throw new ConflictError(`This resource already has the maximum of ${SHARE_ROSTER_LIMIT} people.`, {
@@ -304,24 +237,6 @@ export async function grantResourceAccess(
   return getSharingState(session, resourceType, resourceId)
 }
 
-/**
- * The invitee preconditions (spec SH-5), stated as their own function because
- * they are the rules most likely to be forgotten by a future caller.
- *
- * **Two of them, and the second one is easy to lose.**
- *
- *   1. Same organization. Always. There is no shape of resource for which a grant
- *      may name a stranger: a grant row for a foreign user id is unreachable
- *      nonsense on the read path, but `publishToUsers` would still write to that
- *      foreign user's event channel, and the roster would claim they have access.
- *   2. The container, when there IS one. A person who cannot reach the container
- *      must not receive a grant, because the grant would be inert at best (access
- *      resolution gates on the container anyway) and misleading at worst.
- *
- * Rule 2 subsumes rule 1 — `canUserAccessProject` fails closed on a subject with
- * no membership in the caller's organization — which is exactly why the
- * no-container path has to state rule 1 for itself instead of returning early.
- */
 async function assertInviteeCanReachContainer(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -337,10 +252,6 @@ async function assertInviteeCanReachContainer(
   )
 
   if (!probe.projectId) {
-    // No container to gate on (a legacy organization-level resource), so the
-    // organization membership IS the whole precondition — and it is checked here
-    // rather than deferred to "tenancy is checked when they read it", because a
-    // grant and a published event are written before anyone reads anything.
     if (!(await isUserInOrganization(session, subjectUserId))) {
       throw new BadRequestError(
         'That person is not a member of this organization.',
@@ -359,19 +270,6 @@ async function assertInviteeCanReachContainer(
   }
 }
 
-/**
- * Change an existing person's role, enforcing the last-owner invariant
- * (spec SH-11).
- *
- * "Existing" is a precondition, not a description: `upsertGrant` is
- * create-or-update, so without the check below a `role_changed` call naming an
- * arbitrary user id would be a second, unchecked GRANT path — one that skips
- * every invitee precondition `grantResourceAccess` enforces (the container check
- * of spec SH-5, organization membership, the roster cap, the rate limit) and
- * publishes no `resource.access.changed`, so the subject would gain access their
- * clients never hear about. Access is only ever created by
- * `grantResourceAccess`.
- */
 export async function changeResourceRole(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -382,9 +280,6 @@ export async function changeResourceRole(
   await requireResourceAccess(session, resourceType, resourceId, 'owner')
   await requireResourceWriteAccess(session, resourceType, resourceId)
 
-  // Party to the resource by grant, or by having created it — the creator's
-  // ownership is not a grant row, yet the roster offers their role like any
-  // other (a no-op in effect, since resolution always re-adds `owner`).
   const grants = await listGrantsForResource(session.organizationId, resourceType, resourceId)
   const currentRole = grants.find((grant) => grant.subjectUserId === input.subjectUserId)?.role
   if (!currentRole) {
@@ -392,9 +287,6 @@ export async function changeResourceRole(
     if (probe?.createdBy !== input.subjectUserId) throw new NotFoundError()
   }
 
-  // Already what was asked for. Returning here keeps a repeated click out of the
-  // audit log and off the subject's event channel: a no-op is not a change, and a
-  // change is what both of those record.
   if (currentRole === input.role) {
     return getSharingState(session, resourceType, resourceId)
   }
@@ -410,10 +302,6 @@ export async function changeResourceRole(
     grantedBy: session.userId,
   })
 
-  // Downgrading to `viewer` removes the ability to CONTRIBUTE, so any request
-  // waiting on this person can no longer be answered by them — the thread would
-  // wait forever on someone the product has just silenced. Void it, exactly as a
-  // revocation does (spec MN-9.4). Upgrades need no cleanup.
   if (input.role === 'viewer') {
     const { voidRequestsForSubject } = await import('@/lib/mentions/service')
     await voidRequestsForSubject(resourceType, resourceId, input.subjectUserId)
@@ -429,11 +317,6 @@ export async function changeResourceRole(
     request,
   })
 
-  // The subject's own clients have to learn. A downgrade to `viewer` takes the
-  // composer away, and a UI that only finds out on its next full reload lets
-  // somebody keep typing into a thread they may no longer contribute to — and lets
-  // an upgrade go unnoticed until then too. `role_changed` rather than `granted`
-  // because they already had access; what changed is what they may DO.
   await publishToUsers([input.subjectUserId], {
     kind: 'resource.access.changed',
     resourceType,
@@ -444,11 +327,6 @@ export async function changeResourceRole(
   return getSharingState(session, resourceType, resourceId)
 }
 
-/**
- * Revoke a person's grant (spec SH-13). Access ends immediately; the event tells
- * their open sessions to drop the resource from view rather than leaving a stale
- * thread on screen.
- */
 export async function revokeResourceAccess(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -456,14 +334,10 @@ export async function revokeResourceAccess(
   subjectUserId: string,
   request?: Request,
 ): Promise<ResourceSharingState> {
-  // Leaving your own share needs no ownership; removing someone else does.
   const isSelfRemoval = subjectUserId === session.userId
-  // Removing a person only takes access away, and leaving is the way out of a
-  // resource one may no longer read: neither is refused for a locked caller.
   await requireResourceAccess(session, resourceType, resourceId, isSelfRemoval ? 'viewer' : 'owner', {
     allowLocked: true,
   })
-  // Taking someone else out is a change to the resource; leaving is not.
   if (!isSelfRemoval) await requireResourceWriteAccess(session, resourceType, resourceId)
   await assertNotLastOwner(session, resourceType, resourceId, subjectUserId, false)
 
@@ -480,9 +354,6 @@ export async function revokeResourceAccess(
     request,
   })
 
-  // Void any outstanding request against them, and neutralise their inbox items
-  // for this resource — an inbox must never be a loophole for revoked access
-  // (spec IB-14, MN-9).
   const { voidRequestsForSubject } = await import('@/lib/mentions/service')
   await voidRequestsForSubject(resourceType, resourceId, subjectUserId)
   const { markItemsInertForSubject } = await import('@/lib/inbox/service')
@@ -495,7 +366,6 @@ export async function revokeResourceAccess(
     change: 'revoked',
   })
 
-  // Self-removal means the caller can no longer read the state they just changed.
   if (isSelfRemoval) {
     return {
       resourceType,
@@ -512,15 +382,6 @@ export async function revokeResourceAccess(
   return getSharingState(session, resourceType, resourceId)
 }
 
-/**
- * A resource must never be left with zero owners and no in-app way to recover
- * (spec SH-11). Mirrors the project last-admin invariant, including the
- * machine-readable reason so the UI can localise the block.
- *
- * The creator counts as an owner and cannot be stripped of it, so the invariant
- * can only be violated by demoting/removing an explicit owner grant on a
- * resource whose creator is gone.
- */
 async function assertNotLastOwner(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
@@ -532,7 +393,6 @@ async function assertNotLastOwner(
 
   const descriptor = describeResource(resourceType)
   const probe = await descriptor.probe(resourceId)
-  // The creator is an immovable owner; while they exist the invariant holds.
   if (probe?.createdBy && probe.createdBy !== targetUserId) return
 
   const grants = await listGrantsForResource(session.organizationId, resourceType, resourceId)
@@ -546,37 +406,18 @@ async function assertNotLastOwner(
   }
 }
 
-/**
- * A project admin takes ownership of a resource in their project (spec SH-10).
- *
- * Deliberately an explicit, audited action rather than an implicit right: if
- * project admins silently owned every private thread in the project, `private`
- * would be a lie. This gives them the operational capability without the
- * dishonesty, and leaves a trail distinguishable from a normal grant.
- *
- * Only on a resource the admin can ALREADY read (ADR-0032 decision 5, amended
- * 2026-11-11). A private chat they are not party to answers 404 like every
- * other denial here: otherwise the takeover is a way to read a colleague's
- * private conversation. The role is required here, not only through
- * `canEscalate`, so the rule holds whatever `canEscalate` one day says. The
- * resource's other owners are told in their inbox (`resource.ownership_taken`).
- */
 export async function escalateToOwner(
   session: AuthorizedSession,
   resourceType: ShareableResourceType,
   resourceId: string,
   request?: Request,
 ): Promise<ResourceSharingState> {
-  // `allowLocked`: a reader locked out of a restricted folder is refused below
-  // by `assertMayWiden` with its own reason, as before.
   const access = await requireResourceAccess(session, resourceType, resourceId, 'viewer', { allowLocked: true })
   if (!access.canEscalate) {
     throw new NotFoundError()
   }
-  // Read before the grant lands, so the admin is not told about themselves.
   const owners = await resolveOwners(session.organizationId, resourceType, resourceId)
   await requireResourceWriteAccess(session, resourceType, resourceId)
-  // A project admin is not necessarily cleared for the folders the conversation drew on.
   const widening: AudienceWidening = { kind: 'person', userId: session.userId, self: true }
   await assertMayWiden(session, resourceType, resourceId, widening)
 
@@ -600,22 +441,10 @@ export async function escalateToOwner(
     action: 'resource.ownership.escalated',
     targetType: resourceType,
     targetId: resourceId,
-    // The distinguishing marker: this was a project admin taking ownership of
-    // something they could read but did not own.
     metadata: { previousRole: access.role, via: 'project-admin' },
     request,
   })
 
-  // Every other mutation in this module publishes; this one did not, so an owner
-  // watching the same thread kept seeing a roster without the new owner in it
-  // until a focus event or the disconnected poll came round a minute later.
-  //
-  // Best-effort, like the conversation fan-out: the grant and its audit record
-  // are already committed by the time we get here, and the participant lookup
-  // this needs is two further reads that are no part of them. Letting either
-  // throw answered 500 for an escalation that had in fact succeeded, so the
-  // admin retried an act already in the audit log. Live delivery is latency, not
-  // mechanism — the roster is one plain fetch away either way.
   try {
     await publishToUsers(
       await resolveParticipants(session.organizationId, resourceType, resourceId),
@@ -635,18 +464,6 @@ export async function escalateToOwner(
   return getSharingState(session, resourceType, resourceId)
 }
 
-/**
- * Everyone who should receive live updates and notifications about a resource.
- *
- * This is the participant set used for fan-out, and it is deliberately NOT
- * "everyone who can read it": under `project` visibility that would be the whole
- * project, and access is not subscription (spec OQ-9/CC-20). It is the creator
- * plus everyone holding an explicit grant — the people who were invited, or who
- * chose to be involved.
- *
- * Session-less on purpose: notification fan-out runs from paths that have already
- * authorized (a message persist, a mention) and needs the audience, not a check.
- */
 export async function resolveParticipants(
   organizationId: string,
   resourceType: ShareableResourceType,

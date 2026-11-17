@@ -63,10 +63,7 @@ from .store import with_retry
 logger = logging.getLogger(__name__)
 
 DEFAULT_PAGE_SIZE = 256
-#: Points whose BM25 length a measurement reads.
 LENGTH_SAMPLE = 5000
-#: A measured mean this close to the source's ``avg_len`` keeps the source's: rewriting
-#: every lexical vector for a few percent is churn, not tuning.
 AVG_LEN_TOLERANCE = 0.10
 
 
@@ -79,7 +76,6 @@ class RebuildReport:
     copied: int
     source_count: int
     target_count: int
-    #: The target's BM25 length normalisation, and whether the lexical vectors were recomputed for it.
     bm25_length: dict[str, float] | None = None
     relexed: bool = False
 
@@ -204,6 +200,7 @@ def _copied_vector(record: Any, relex: Mapping[str, float] | None) -> Any:
     return vector
 
 
+# Qdrant 1.19.2 accepts init_from and ignores it, leaving the new collection empty (drilled 2026-10-13).
 def copy_collection(
     client: QdrantClient,
     physical: Physical,
@@ -241,10 +238,7 @@ def copy_collection(
     else:
         target_length = effective_bm25_length(source_length)
     relex = target_length if target_length != effective_bm25_length(source_length) else None
-    # A collection left on Qdrant's defaults records none, as it always has.
     recorded = None if target_length == BM25_DEFAULT_LENGTH else target_length
-    # The live collection's shape unless told otherwise, never the environment's:
-    # the process running this need not carry the backend's QDRANT_* values.
     create_collection(
         client,
         physical,

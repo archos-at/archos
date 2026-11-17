@@ -56,14 +56,9 @@ class SubjectVersion:
         return bool(self.document_id) and bool(self.version_id) and self.state in _OPEN_VERSION_STATES
 
 
-#: The version states in which a document is still being worked on and therefore
-#: has no chunks. Mirrors ``OPEN_DOCUMENT_VERSION_STATES`` in
-#: ``apps/workspace/bff/documents/lifecycle-types.ts``; there is no shared
-#: schema between the two, exactly as for the source kinds.
 _OPEN_VERSION_STATES = frozenset({"draft", "in_review", "changes_requested"})
 
 
-#: Where a question was asked, as Langfuse slices turns by it (``turn_surface``).
 TurnSurface = Literal["chat", "review_canvas", "annotation_thread"]
 
 
@@ -89,28 +84,13 @@ class TurnInputs(NamedTuple):
     """
 
     query_text: str
-    #: None: not stated (a plain question), so every configured tool. A list,
-    #: even an empty one, is the composer's selection.
     data_sources: list[str] | None
     focus_file_name: str | None
     focus_shelf: str | None
-    #: The subject's open version, or an empty :class:`SubjectVersion`. NOT read
-    #: back from a ContextVar like the two fields above it: nothing in retrieval
-    #: consumes it, so it never becomes turn-wide state.
     subject: SubjectVersion = SubjectVersion()
-    #: The box drawn on a page of the conversation's document, or None. The
-    #: prompt names it and tells the model to look at that crop first.
     focus_region: FocusRegion | None = None
-    #: Post the answer into the thread of ``focus_region.annotation_id``
-    #: (:mod:`agent.turn.annotation_reply`). Only ever True with a region
-    #: that names its Anmerkung: the wire flag alone has no thread to answer in.
     reply_in_thread: bool = False
-    #: The event that woke this turn when nobody typed it (``wire_v2.TurnTrigger``),
-    #: or None. The prompt says who woke it and to answer where it happened.
     trigger: TurnTrigger | None = None
-    #: The name the sender stamped on the message (``user_message.author_name``).
-    #: A woken turn has no signed-in principal, so this is the only place the
-    #: person who woke it is named; the „Woken by“ block reads it.
     author_name: str | None = None
 
     @property
@@ -142,7 +122,6 @@ def extract_turn_inputs(request: UserMessage | str) -> TurnInputs:
         document_id=request.focus_document_id,
     )
     set_turn_reasoning_effort(request.reasoning_effort)
-    # The frontend tools the asking page can run (ADR-0144); a headless sender declares none.
     set_turn_client_tools(request.client_tools)
     subject = SubjectVersion(request.focus_document_id, request.focus_version_id, request.focus_version_state)
     return TurnInputs(

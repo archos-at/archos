@@ -9,10 +9,6 @@ The workflow folds its own bodies too, to log when ``RUN_FINISHED`` replaced
 the settled text (:func:`note_settled_replaced`, counted by the answer suite).
 """
 
-# No `from __future__ import annotations` here: the agent runtime resolves
-# the converter's return annotation (``fold_turn`` -> str) to build the
-# workflow's single output type, so it must already be an object, not a
-# string.
 import logging
 import re
 from dataclasses import dataclass
@@ -33,25 +29,11 @@ from agent.common.wire_v2 import WireSource
 
 logger = logging.getLogger(__name__)
 
-# Every class below is ASCII and spelled out: whitespace is `` \t\n\r\f\v``, a
-# digit is ``0-9``. Python's ``\s``, ``\d`` and ``str.strip()`` are Unicode-wide and
-# JavaScript's differ from them (Python strips U+0085 and U+001C, ``trim`` strips
-# U+FEFF; Python's ``\d`` matches a full-width digit), and any difference is a
-# reload that shows other bytes than the reader stopped on. ``stopped-answer.ts``
-# spells the same classes; ``stopped-cases.jsonl`` holds a case for each.
 
-#: The whitespace the stop rule knows, for ``str.strip``: the ASCII set both languages agree on.
 _STOP_WHITESPACE = " \t\n\r\f\v"
-#: A citation marker the settle has not resolved yet: the streamed ``[N]``.
 _PENDING_MARKER = re.compile(r"[ \t\n\r\f\v]*\[[0-9]+\]")
-#: A card's place in the prose. A stopped turn carries no cards, so the place would never fill.
 _CARD_MARKER = re.compile(r"[ \t\n\r\f\v]*\[\[card:[0-9]+\]\]")
-#: A card's place, with its number, for a stopped turn that keeps the cards the reader saw.
 _NUMBERED_CARD_MARKER = re.compile(r"[ \t\n\r\f\v]*\[\[card:([0-9]+)\]\]")
-#: A marker the reader's cut left open at the very end (``[1``, ``[[card:``, ``[[card:1]``): half a
-#: marker means nothing. The last one holds a ``]``, which the first alternative stops at.
-#: ``\Z``, not ``$``: ``$`` also matches before a final newline, so ``[1\n`` read as a half marker
-#: here and not in ``stopped-answer.ts``, whose ``$`` is the end of the text.
 _OPEN_MARKER_TAIL = re.compile(r"[ \t\n\r\f\v]*(?:\[\[?[^\[\] \t\n\r\f\v]*|\[\[card:[0-9]+\])\Z")
 
 
@@ -64,14 +46,10 @@ class _Stretch:
     """
 
     text: str = ""
-    #: The snapshot's text this stretch began with, whose ``[N]`` resolve to ``sources``; None for streamed prose.
     settled: str | None = None
     sources: list[WireSource] = field(default_factory=list)
-    #: ``(seq, answer_meta)`` in order: the masthead as it stood at any seq of this stretch (None: none shown).
     mastheads: list[tuple[int, dict[str, Any] | None]] = field(default_factory=list)
-    #: By index: ``(seq it arrived at, the card or None when refused)``. A snapshot keeps them; a retraction does not.
     cards: dict[int, tuple[int, KeyedCard | None]] = field(default_factory=dict)
-    #: The seq of the body that replaced it; None while it is the answer.
     ended_at: int | None = None
 
 

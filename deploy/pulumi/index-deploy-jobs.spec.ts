@@ -6,19 +6,6 @@ import { baseStackConfig, forProject } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
 import { ONLINE_INDEXES } from "./src/app/online-indexes-job";
 
-/**
- * Two steps a release runbook used to ask an operator for, now part of every
- * deploy (docs/deployment/kubernetes.md §3c, "The migration's lock"):
- *
- * - the indexes a migration would build under ACCESS EXCLUSIVE are built
- *   online first, and the migration Job waits for that Job;
- * - one base-corpus sync cycle runs once the api tier rolled out, without the
- *   deploy waiting for it.
- *
- * Nothing here contacts a cluster. It reads what the SDK registers, as the
- * `workspace` project (names.ts), whose names carry no brand.
- */
-
 const JOB = "kubernetes:batch/v1:Job";
 const CRONJOB = "kubernetes:batch/v1:CronJob";
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
@@ -81,7 +68,6 @@ describe("deploy Jobs around the migrations and the rollout", () => {
         'CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key" ON "public"."document_versions" ("id", "project_id")',
       );
       expect(script).toContain('DROP INDEX CONCURRENTLY IF EXISTS "public"."document_versions_id_project_id_key"');
-      // A missing table (a fresh database) and an applied migration are no-ops.
       expect(script).toContain("no-table|no-columns|constraint|valid) ;;");
       const env = container.env ?? [];
       expect(env.map((e) => e.name)).toContain("APP_MIGRATION_DATABASE_URL");
@@ -90,8 +76,6 @@ describe("deploy Jobs around the migrations and the rollout", () => {
     });
 
     it("names an index the migration it serves adopts by that name", () => {
-      // An entry whose name the migration does not use is built for nothing,
-      // and the migration then builds its own under the lock.
       for (const ix of ONLINE_INDEXES) {
         const [file] = readdirSync(MIGRATIONS)
           .filter((f) => f.startsWith(`${ix.migration}_`) && f.endsWith(".sql") && !f.endsWith(".down.sql"));

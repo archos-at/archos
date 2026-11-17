@@ -1,17 +1,3 @@
-/**
- * A project's mail address (ADR-0138).
- *
- * GET    — read it. Whoever reviews the project's E-Mail-Eingang
- *          (`project:documents:write`) may; a read never mints an address, it
- *          answers `none` until a manager created one.
- * POST   — give the project its address (`project:manage`). Idempotent.
- * DELETE — switch it off (`project:manage`): mail to it bounces from now on,
- *          and every follow on the project ends.
- *
- * With the office's `inbound-mail` entitlement off, every method is a 404.
- * Thin handlers; the logic is `@/lib/inbound-mail/address-service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import {
   createInboundMailAddress,

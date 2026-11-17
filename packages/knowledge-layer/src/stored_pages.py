@@ -39,20 +39,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: The schema this reader understands (``page_text_store.SCHEMA_VERSION``).
 SCHEMA_VERSION = 1
 
-#: The two parts, as the writer names them.
 PAGES_PART = "pages.md"
 INDEX_PART = "index.json"
 
-#: Where a version's text lives, beside its file.
 TEXT_DIRECTORY = "_text/"
 
-#: Seconds one fetch of a part may take before the reader falls back to the chunks.
 FETCH_TIMEOUT_SECONDS = 6.0
 
-#: Where the page came from: printed text, a vision model's transcription of a scan, or its reading of a drawing.
 SOURCE_TEXT_LAYER = "text_layer"
 SOURCE_OCR = "ocr"
 SOURCE_VLM_READING = "vlm_reading"
@@ -66,9 +61,7 @@ class Page:
 
     number: int
     text: str
-    #: ``text_layer`` | ``ocr`` | ``vlm_reading`` for stored text; ``chunks`` for a page rebuilt from the index.
     source: str = SOURCE_TEXT_LAYER
-    #: For a page rebuilt from chunks: the content types of the chunks it was built from.
     content_types: tuple[str, ...] = ()
 
     @property
@@ -81,13 +74,9 @@ class PageText:
     """A document's pages, and where they came from."""
 
     pages: list[Page]
-    #: ``stored`` (``_text/``) or ``chunks`` (rebuilt from the index).
     origin: str
-    #: Every page the document has; for a rebuild, the highest page any chunk names.
     page_count: int
-    #: Pages the ingest could not read (stored text only).
     failed_pages: tuple[int, ...] = ()
-    #: Why stored text was not used although it was looked for ("mismatch", "schema"), for the log and the header.
     refused: str | None = None
     by_number: dict[int, Page] = field(default_factory=dict, repr=False)
 
@@ -99,11 +88,8 @@ class PageText:
         return self.origin == "chunks"
 
 
-#: ``(collection, file_name) -> location`` (``view_image.StorageLocation``) or ``None``.
 Resolver = Callable[[str, str], Awaitable[Any]]
-#: ``(key, bucket, byte_range) -> bytes`` or ``None``; ``byte_range`` is ``(start, end)`` inclusive, or ``None``.
 Fetcher = Callable[[str, str | None, tuple[int, int] | None], bytes | None]
-#: ``(collection, file_name) -> [(page_label, text, metadata)]`` in reading order, or ``None``.
 ChunkReader = Callable[[str, str], list[tuple[Any, str, dict[str, Any]]] | None]
 
 

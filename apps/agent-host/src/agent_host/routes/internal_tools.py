@@ -57,10 +57,8 @@ from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-#: How many images one door call may render: a ``document-look`` is one look, whatever it asks.
 DOOR_LOOKS_PER_CALL = 1
 
-#: Where a read tool is served; the BFF's ``backend-operations.ts`` posts here.
 INTERNAL_TOOL_PATH = "/v1/internal/tools/{name}"
 
 
@@ -176,8 +174,6 @@ def add_internal_tool_routes(router: APIRouter) -> None:
     async def run_tool(name: str, call: ToolCall, request: Request) -> dict[str, Any]:
         _require_internal_token(request)
         if not is_backend_read_tool(name):
-            # The allowlist answers before the workflow is asked, so a tool that
-            # exists but is not a read looks the same as one that does not.
             raise HTTPException(status_code=404, detail={"error": "unknown_tool", "tool": name})
         context = _verified_context(request)
 
@@ -187,7 +183,6 @@ def add_internal_tool_routes(router: APIRouter) -> None:
         try:
             function = await builder.get_function(name)
         except ValueError as exc:
-            # The allowlist names it and this deployment's config does not bind it.
             raise HTTPException(status_code=404, detail={"error": "tool_not_configured", "tool": name}) from exc
         try:
             arguments = function.input_schema.model_validate(call.arguments)

@@ -1,41 +1,3 @@
-/**
- * `GET /api/conversations/:id/live` — watch a turn as it happens.
- *
- * Server-Sent Events carrying the agent's outbound events for ONE conversation,
- * so a colleague sees the answer being written and the reasoning being done
- * rather than a spinner followed by a finished block of text. The asker gets the
- * same events over their own agent WebSocket; this is the read-only version for
- * everyone else in the thread.
- *
- * **The stream.** `data: {"kind":"frame","payload":<v2 event>}` per event,
- * relayed verbatim from the bus (`docs/api/websocket-protocol.md`), and once
- * each `{"kind":"unsupported"}` (no shared cache tier) or `{"kind":"revoked"}`
- * (access withdrawn), after which the stream ends. The observer parses and
- * folds each payload exactly as the asker does (`foldTurnEvent`), keyed by the
- * event's own `(turn_id, seq)`.
- *
- * **Why a second stream rather than `/api/stream`.** That one is per user and
- * carries change hints for the whole session — inbox badges, sharing changes,
- * thread activity — at a rate of a handful of events per minute. This is per
- * conversation, carries a few dozen events per turn, exists only while a turn is
- * running, and is subscribed to only by people looking at that thread. Folding
- * token deltas into the session channel would push them at every open tab.
- *
- * **Nothing here is authoritative** (spec RT-4 is intact). Not one byte of this
- * stream is state a client has to converge on: the finished answer is persisted
- * and arrives through the ordinary `conversation.message` → refetch path whether
- * or not any of this was delivered. That is what lets the whole route degrade to
- * a single `unsupported` event when there is no shared cache tier to read from.
- *
- * **No replay, in this cut.** A subscriber sees events from the moment it
- * attaches, and the fold accepts a first event with `seq > 1` without asking
- * to fill the gap. Opening the thread mid-turn loses only the tokens already
- * spoken: the banner is still there, and the finished answer still lands.
- * ADR-0039 §4 refused replay because the stream could not tell turns apart;
- * every v2 event names its turn now, so a spectator replay is possible and is
- * follow-up F4 of the wire v2 design, not built here.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { requireCollaborationEnabled } from '@/lib/authz/feature-flags'
 import {
@@ -50,16 +12,9 @@ import {
 
 type Params = { id: string }
 
-/** Heartbeat cadence. Comfortably under the 60s idle timeout of typical proxies. */
 const HEARTBEAT_MS = 25_000
-/**
- * Reconnect delay after a drop. Shorter than `/api/stream`'s five seconds: this
- * connection only exists while a turn is running, and five seconds of a
- * ninety-second turn is a visible hole in the answer.
- */
 const RETRY_MS = 2_000
 
-/** Long-lived response: never prerender, never cache. */
 export const dynamic = 'force-dynamic'
 
 export const GET = apiRoute<Params>(
@@ -67,8 +22,6 @@ export const GET = apiRoute<Params>(
     const gated = requireCollaborationEnabled(session)
     if (gated) return gated
 
-    // Before anything is opened. Throws `NotFoundError` for a thread this reader
-    // may not see, which the factory renders as a 404.
     await requireConversationSpectator(session, params.id)
 
     const conversationId = params.id
@@ -78,7 +31,6 @@ export const GET = apiRoute<Params>(
     let unsubscribe: (() => Promise<void>) | null = null
     let closed = false
 
-    /** Idempotent: whichever exit path fires first wins, the other is a no-op. */
     const teardown = async (): Promise<void> => {
       if (closed) return
       closed = true
@@ -98,11 +50,6 @@ export const GET = apiRoute<Params>(
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        /**
-         * Enqueueing on a closed stream throws, and the close can happen between
-         * a frame arriving and this running. Swallow it and stop writing: the
-         * observer is gone, and there is nothing to report to.
-         */
         const write = (chunk: string): void => {
           if (closed) return
           try {
@@ -122,17 +69,12 @@ export const GET = apiRoute<Params>(
 
         write(`retry: ${RETRY_MS}\n\n`)
 
-        // No cross-process frame channel (no REDIS_URL): say so once and end,
-        // rather than holding a connection that can never deliver. The browser
-        // reads this as "fall back to the turn banner" and does not reconnect.
         if (!conversationFramesAvailable()) {
           write(`data: ${JSON.stringify({ kind: 'unsupported' })}\n\n`)
           close()
           return
         }
 
-        // An immediate comment so the connection is established (and any
-        // buffering proxy has flushed) before the first frame.
         write(': connected\n\n')
         heartbeat = setInterval(() => write(': ping\n\n'), HEARTBEAT_MS)
 
@@ -140,22 +82,16 @@ export const GET = apiRoute<Params>(
           write(`data: ${JSON.stringify({ kind: 'frame', payload: frame.payload })}\n\n`)
         })
         if (!release) {
-          // Configured but unreachable. Same answer as "not configured": the
-          // observer keeps the banner and the finished answer still lands.
           write(`data: ${JSON.stringify({ kind: 'unsupported' })}\n\n`)
           close()
           return
         }
-        // The observer can disconnect while subscribe() is still in flight;
-        // without this the handle would be stored after teardown already ran.
         if (closed) {
           await release().catch(() => {})
           return
         }
         unsubscribe = release
 
-        // Access can be revoked while this is open, and a stream that outlives the
-        // grant is a subscription to a thread the reader may no longer read.
         recheck = setInterval(() => {
           void stillMayWatchConversation(session, conversationId).then((allowed) => {
             if (allowed || closed) return
@@ -177,8 +113,6 @@ export const GET = apiRoute<Params>(
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
-        // Tell nginx-class proxies not to buffer, or frames arrive in batches —
-        // which for a token stream is the whole feature gone.
         'X-Accel-Buffering': 'no',
       },
     })

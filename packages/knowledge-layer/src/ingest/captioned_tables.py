@@ -28,15 +28,9 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 
-#: „Tabelle 3: Anforderungen an …", „Tabelle 1a: …". The caption's own line.
 CAPTION_RE = re.compile(r"^Tabelle\s+(?P<id>\d+[a-z]?)\s*:\s*(?P<title>.*)$")
-#: How far above a table its caption may sit, in PDF points (the corpus: 12-40).
 _CAPTION_REACH = 72
-#: A caption-less table this close to the top of a page continues the last
-#: captioned table of the previous page.
 _CONTINUATION_TOP = 140
-#: One chunk's Markdown, header included; ~500 tokens, far inside the
-#: splitter's budget, so a group is never cut into a headerless tail.
 MAX_CHUNK_CHARS = 1600
 
 
@@ -151,12 +145,8 @@ def _markdown_row(row: list[str], width: int) -> str:
 def _header_markdown(table: Table, width: int) -> list[str]:
     header = table.rows[: table.header_rows]
     if not header:
-        # A fragment read without its table's header: an empty header row, so
-        # no data row is promoted to column labels.
         return [_markdown_row([], width), "|" + "---|" * width]
     if len(header) == 2:
-        # A two-row header („GK 5" over „≤ 6 / > 6 Geschoße") becomes one row of
-        # joined labels, so every column still names what it holds.
         merged, last = [], ""
         for top, sub in zip(header[0] + [""] * width, header[1] + [""] * width, strict=False):
             last = top or last

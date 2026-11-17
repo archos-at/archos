@@ -134,9 +134,6 @@ class IfcMeasureInput(BaseModel):
         default=0,
         description=("How many rows: 'find_elements' up to 500, 'survey' up to 50. 0 leaves the server's default."),
     )
-    # `None`, not `0.0`: „not given" must stay distinguishable from „zero
-    # degrees". The bounds are the tool's own, so the schema refuses what the
-    # engine would.
     angle_deg: float | None = Field(
         default=None,
         gt=0.0,

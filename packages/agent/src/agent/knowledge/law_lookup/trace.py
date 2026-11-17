@@ -21,24 +21,14 @@ class LookupTrace:
     as if its own question had been asked.
     """
 
-    #: The search terms actually used (planner output, or the caller's words).
     searched: str = ""
-    #: The source's collection searched (the record's ``lookup.collections``).
     collection: str = ""
-    #: Every document considered, fetched or not.
     candidates: list[Any] = field(default_factory=list)
-    #: URLs actually downloaded this call.
     fetched: list[str] = field(default_factory=list)
-    #: Headings of a document that was read but answered nothing: an INDEX, never evidence.
     headings: list[str] = field(default_factory=list)
-    #: The day asked for (``as_of``), empty for today's law.
     as_of: str = ""
-    #: A day asked for that was today or later, and so read as today's law (``as_of.reads_today``).
     as_of_today: str = ""
-    #: Hits of an ``as_of`` search left unread because no version of that day.
     versions_dropped: int = 0
-    #: Which source record answered: its id, its revision (a released record's), and how the call came to read
-    #: it (``turn``: the record the turn carries; ``repository``: the fallback file).
     source: str = ""
     source_revision: str = ""
     source_origin: str = ""

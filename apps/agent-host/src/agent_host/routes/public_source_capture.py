@@ -39,9 +39,7 @@ class CaptureRequest(BaseModel):
         ..., pattern=r"^[a-z]{2}-[a-z0-9-]{1,60}$", description="The configured source's id, e.g. at-ris."
     )
     url: str = Field(..., min_length=8, max_length=2000)
-    #: A source configured in the database (ADR-0174), whole; absent for a repository record.
     config: dict[str, Any] | None = None
-    #: A keyed source's key, held write-only by the BFF and handed over for this one fetch.
     credential: str | None = Field(default=None, min_length=1, max_length=4000)
 
 
@@ -126,7 +124,6 @@ def _page_facts(page) -> dict:
 class CorpusTextRequest(CaptureRequest):
     """A PDF of a configured source to keep as a base-corpus file (ADR-0165, "Texts are attached in the request")."""
 
-    #: What the file is named after: its manifestation's key. The name itself carries the bytes' hash.
     fileStem: str = Field(..., pattern=r"^[a-z0-9][a-z0-9._-]{0,99}$", description="The manifestation's key.")
 
 
@@ -157,7 +154,6 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
     try:
         oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
     except corpus_store.CorpusFileImmutable:
-        # Somebody stored other bytes under the name between the read above and the store's lock.
         return "name_taken"
     return "stored"
 
@@ -218,7 +214,6 @@ async def check_public_source(body: SourceRequest, _: None = Depends(_require_in
     }
 
 
-#: The built-in sources' answer, made once per process: a repository record cannot change inside an image.
 _built_in: list[dict] | None = None
 
 
@@ -314,7 +309,6 @@ def add_public_source_capture_routes(router: APIRouter) -> None:
         "/v1/public-sources/capture",
         tags=["public-sources"],
         summary="Capture a page of a configured public source (internal)",
-        # A refusal with a problem code is a JSONResponse beside the dict, which no response model describes.
         response_model=None,
     )(capture_public_source_page)
     router.post(

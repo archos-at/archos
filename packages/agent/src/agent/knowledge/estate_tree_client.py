@@ -33,10 +33,8 @@ logger = logging.getLogger(__name__)
 
 ESTATE_TREE_PATH = "/api/internal/estate-tree"
 
-#: Two indexed reads and a reach the BFF already computes for the search.
 REQUEST_TIMEOUT_SECONDS = 10
 
-#: The BFF's bound on one page (``ESTATE_TREE_PAGE_MAX``).
 PAGE_MAX = 500
 
 Shelf = Literal["project", "office_shelf", "session"]
@@ -67,7 +65,6 @@ class EstateFolder:
     id: str
     parent_id: str | None
     name: str
-    #: Slash-separated from the shelf's root (``Einreichung/Pläne``).
     path: str
     description: str | None
     card: FolderCardMark | None
@@ -76,7 +73,6 @@ class EstateFolder:
 @dataclass(frozen=True)
 class EstateDocument:
     id: str
-    #: ``documents.filename``, the path's leaf; ``piloti/<name>`` for an agent-filed one.
     filename: str
     display_name: str | None
     folder_id: str | None
@@ -86,7 +82,6 @@ class EstateDocument:
     file_size: int | None
     status: str
     authored_by: str
-    #: What the dossier read, from the search's projection. Not ``doc_class``, which is human-set and wins.
     document_type: str | None
     page_count: int | None
     superseded: bool
@@ -104,10 +99,8 @@ class EstateTree:
     shelf: Shelf
     collection: str
     folders: tuple[EstateFolder, ...]
-    #: More folders than the BFF lists in one answer (``ESTATE_TREE_FOLDERS_MAX``).
     folders_truncated: bool
     documents: tuple[EstateDocument, ...]
-    #: Pass back as ``cursor`` for the next page of documents; None on the last.
     next_cursor: str | None
 
 

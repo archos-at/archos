@@ -155,9 +155,6 @@ export default {
     const sourceCode = context.sourceCode ?? context.getSourceCode()
     const filename = context.filename ?? context.getFilename()
 
-    // Only entry points: pages, layouts, templates and server actions. Route
-    // handlers are covered by their factories, and library code inherits the
-    // caller's scope by design.
     const isEntryPoint =
       /(?:^|[\\/])app[\\/]/.test(filename) && !/[\\/]route\.tsx?$/.test(filename) && !/\.spec\.tsx?$/.test(filename)
     if (!isEntryPoint) return {}
@@ -173,7 +170,6 @@ export default {
       CallExpression(node) {
         const callee = calleeIdentifier(node)
         if (!callee || !SESSION_ACCESSORS.has(callee.name)) return
-        // `withPageSession` resolves the session itself, inside its own slot.
         if (insideScope(node, sourceCode)) return
         context.report({ node, messageId: 'unscoped' })
       },

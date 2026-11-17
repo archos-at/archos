@@ -1,14 +1,3 @@
-/**
- * Download log client (ADR-0088): the admin read and the retention write,
- * through their first-party BFF routes.
- *
- *   - read      → `GET /api/organization/download-log`
- *   - retention → `PUT /api/organization/download-log/retention`
- *
- * The server types live in `lib/download-log/service.ts`, which is server-only,
- * so the wire shape is declared here and parsed, not trusted.
- */
-
 import { z } from 'zod'
 import { DOWNLOAD_LOG_KINDS, DOWNLOAD_LOG_SCOPES } from '@/lib/download-log/kinds'
 import { ApiRequestError } from './api-error'
@@ -21,14 +10,11 @@ const EntrySchema = z.object({
   person: z.object({ name: z.string(), email: z.string().nullable() }).nullable(),
   kind: z.enum(DOWNLOAD_LOG_KINDS),
   access: z.enum(['download', 'open']),
-  // An entry written before the rename keeps `archiv` (the log is immutable); a server not yet rolled sends it as is.
   scope: z.preprocess((value) => (value === 'archiv' ? 'office_shelf' : value), z.enum(DOWNLOAD_LOG_SCOPES)),
   projectId: z.string().nullable(),
   projectName: z.string().nullable(),
-  // Optional for a response from a build before ADR-0090.
   projectStatus: z.enum(PROJECT_STATUSES).nullable().optional(),
   documentId: z.string(),
-  /** Null when `nameWithheld`: the viewer may not read the folder the row was logged in. */
   documentName: z.string().nullable(),
   versionId: z.string().nullable(),
   folderId: z.string().nullable(),
@@ -46,13 +32,10 @@ const PageSchema = z.object({
 export type DownloadLogEntry = z.infer<typeof EntrySchema>
 export type DownloadLogPage = z.infer<typeof PageSchema>
 
-/** What the admin typed. Empty strings mean "no filter". */
 export interface DownloadLogFilters {
   userId: string
   document: string
-  /** `YYYY-MM-DD`, inclusive. */
   from: string
-  /** `YYYY-MM-DD`, inclusive. */
   to: string
   kind: string
 }
@@ -68,7 +51,6 @@ async function requestError(response: Response, fallback: string): Promise<ApiRe
   )
 }
 
-/** One page of the log. A refused read (403, or an audit event that could not be written) throws `ApiRequestError`. */
 export async function fetchDownloadLog(
   filters: DownloadLogFilters,
   cursor: string | null,
@@ -84,7 +66,6 @@ export async function fetchDownloadLog(
   return PageSchema.parse(await response.json())
 }
 
-/** Save how many days the log is kept. The server refuses anything outside 30 to 365. */
 export async function saveDownloadLogRetention(days: number): Promise<{ days: number; previous: number }> {
   const response = await fetch('/api/organization/download-log/retention', {
     method: 'PUT',

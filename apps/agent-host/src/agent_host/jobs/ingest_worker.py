@@ -54,9 +54,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_CONFIG = "/app/configs/config_oib_openrouter.yml"
 _LIVENESS_EVERY_SECONDS = 15
-#: How often the worker moves what the retired claim queue holds onto Hatchet.
 CUTOVER_EVERY_SECONDS = 60
-#: How long that queue must hold nothing before the worker stops asking.
 CUTOVER_QUIET_SECONDS = 3600
 
 
@@ -82,7 +80,6 @@ async def ingestor_lifespan() -> AsyncIterator:
     from nat.runtime.loader import load_config
 
     config_file = os.environ.get("CONFIG_FILE") or os.environ.get("NAT_CONFIG_FILE") or _DEFAULT_CONFIG
-    # Grid's telemetry `_type`s register at import; load_config fails without them.
     register_telemetry()
     clock = BootClock("ingest-worker")
     with clock.phase("load_config"):
@@ -166,9 +163,6 @@ def _folder_cards(pool: str) -> dict:
 def main() -> None:
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
     suppress_noisy_dependency_logs()
-    # Every file takes a `keyed_lock` while it replaces its predecessor, which
-    # needs the direct DSN (ADR-0083). It never LISTENs. Fail the boot, not the
-    # first file.
     require_direct_dsns(listen=False)
     assert_no_latent_vendor()
     assert_residency()  # no model call outside the cell's zone (ADR-0167)

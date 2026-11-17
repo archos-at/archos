@@ -1,29 +1,3 @@
-/**
- * What happens when documents come to rest (ADR-0086): their upload completes
- * and its uploader is told, and a quarantined file's quarantine is audited and
- * its reviewers are told. A batch opened quiet (migration 0195) sets off only
- * the effects it kept; a quarantine is announced whatever the batch says.
- *
- * `onDocumentsSettled` is called by status reconciliation for every row it
- * moved to a terminal status, on a reader's read or the sweep's, and by a
- * retry that finds the job already finished. It never throws into its caller:
- * a read that reconciled a status must not fail because a notification could
- * not be sent. What it leaves undone is mostly not lost:
- *
- *  - A batch that did not complete stays open (`completed_at` NULL), and the
- *    seal and the sweep complete it later (`settleUploadBatches`).
- *  - A batch that completed but whose uploader's inbox item could not be
- *    written is reopened, so the sweep completes it and tells them again. Lost
- *    only if the database refuses the reopen too.
- *  - An unsent quarantine stays owed in `document_quarantine_decisions` until
- *    the sweep sends it.
- *
- * The reviewers' inbox item is the exception: it is sent by the read that
- * moved the row, once, and a write of it that fails is not retried.
- *
- * Imports nothing from reconciliation, which imports this.
- */
-
 import 'server-only'
 import type { Document } from '@/lib/db/schema/documents'
 import type { UploadBatch } from '@/lib/db/schema/upload-batches'
@@ -45,11 +19,9 @@ import { uploadReportFor } from './upload-report-service'
 export interface SettledDocument {
   id: string
   status: string
-  /** A row healed from a wrong verdict, not a fresh arrival: no Fassung notice, no document check. */
   correction?: boolean
 }
 
-/** Settle after reconciliation moved these rows. Never throws. */
 export async function onDocumentsSettled(organizationId: string, settled: readonly SettledDocument[]): Promise<void> {
   if (settled.length === 0) return
   try {
@@ -60,15 +32,6 @@ export async function onDocumentsSettled(organizationId: string, settled: readon
       settled.map((row) => row.id)
     )
     await settleUploadBatches(organizationId, batchIds)
-    // A same-name upload is held until now; the people who followed the
-    // document hear about the new Fassung once it is readable, as far as the
-    // batch that brought it lets them (`revision_notice`, read there). Detached:
-    // it asks the directory about each person and logs its own failures.
-    //
-    // A stopped read announces nothing: it is not in the index, so "the new
-    // Fassung is here" would be false, and its row is the uploader's own to
-    // act on again. Held back is left out for the same reason, and so is a
-    // correction: its Fassung arrived weeks ago, it only read wrong since.
     void announceSettledVersions(
       organizationId,
       settled
@@ -80,17 +43,6 @@ export async function onDocumentsSettled(organizationId: string, settled: readon
   }
 }
 
-/**
- * Complete every given batch that is ready, and tell each uploader once. When
- * the uploader cannot be told, the completion is undone and the error thrown:
- * a completed batch is never settled again, so its item would be lost.
- *
- * What a completion sets off is the batch's own (`UploadBatchEffects`,
- * migration 0195): a batch opened with `announcesCompletion` off tells nobody
- * here, and the intake and filing triggers read their own switch (the revision
- * notice and the document check read theirs per document). All five
- * are on unless a server-side caller opened the batch quiet.
- */
 export async function settleUploadBatches(organizationId: string, batchIds: readonly string[]): Promise<UploadBatch[]> {
   const completedAt = new Date()
   const completed = await completeSettledBatches(organizationId, batchIds, completedAt)
@@ -107,21 +59,11 @@ export async function settleUploadBatches(organizationId: string, batchIds: read
     )
     throw error
   }
-  // Each trigger leaves out the batches whose switch is off (`startsIntake`,
-  // `reviewsFiling`), so the rule sits beside the effect it governs.
   await startIntakeReadings(organizationId, completed)
-  // What ingestion read may sharpen or withdraw the filing suggestion the seal
-  // queued; never throws, so it cannot undo the completion either.
   await queueFilingReviewsAfterSettle(organizationId, completed)
   return completed
 }
 
-/**
- * A completed batch on a project whose intake is not finished starts a reading
- * of what it brought (ADR-0111). After the uploader was told, and outside the
- * reopen above: a reading that could not be queued must not undo a completion,
- * and the next upload, or „Lesen starten", asks again.
- */
 async function startIntakeReadings(organizationId: string, completed: readonly UploadBatch[]): Promise<void> {
   try {
     await queueIntakeReadsAfterUpload(organizationId, completed)
@@ -130,24 +72,12 @@ async function startIntakeReadings(organizationId: string, completed: readonly U
   }
 }
 
-/** Where an upload went, as the row's subject: the project's name, or the shelf. */
-/**
- * The project's name, the one subject an upload has that is data rather than
- * copy. The Büroablage and a chat get none: the payload is rendered verbatim,
- * so a place name written here would reach every reader in this language.
- */
 async function projectNameOf(batch: UploadBatch): Promise<string | null> {
   if (batch.scope !== 'project' || !batch.projectId) return null
   const project = await findProjectInOrg(batch.projectId, batch.organizationId)
   return project?.name ?? null
 }
 
-/**
- * The uploader's row: where the upload went, and for a project upload the
- * Eingangsbericht, what it brought the project (`./upload-report`). The report
- * is a courtesy and never costs the row: it answers null rather than throw or
- * wait past its bound (`uploadReportFor`), and the row goes out without it.
- */
 async function completionEmission(batch: UploadBatch): Promise<InboxEmission> {
   const [subject, report] = await Promise.all([
     projectNameOf(batch),
@@ -166,17 +96,6 @@ async function completionEmission(batch: UploadBatch): Promise<InboxEmission> {
   }
 }
 
-/**
- * Who may release or delete this quarantined document: the organization's
- * admins, the project's admins, and for the Büroablage its curators — the
- * same rule `mayReviewQuarantine` applies to a session, asked here about each
- * member of the organization because there is no session to ask
- * (`isQuarantineReviewer`).
- *
- * The directory is the whole roster (`autoPagination`), and each member is
- * asked once. An unreadable directory reads as an empty one, so nobody is
- * notified; that failure is not cached (`loadOrganizationDirectory`).
- */
 export async function quarantineReviewersOf(organizationId: string, document: Document): Promise<string[]> {
   const directory = await loadOrganizationDirectory(organizationId)
   const verdicts = await Promise.all(
@@ -187,10 +106,6 @@ export async function quarantineReviewersOf(organizationId: string, document: Do
   return verdicts.filter((userId): userId is string => userId !== null)
 }
 
-/**
- * The content gate quarantined these documents: send its decisions to the
- * audit trail (AI Act), then tell the reviewers.
- */
 async function onQuarantined(organizationId: string, documentIds: readonly string[]): Promise<void> {
   await auditOwedQuarantines(organizationId, documentIds)
   const documents = (
@@ -201,16 +116,6 @@ async function onQuarantined(organizationId: string, documentIds: readonly strin
   await notifyQuarantineReviewers(organizationId, documents)
 }
 
-/**
- * Tell the reviewers that files wait for them. One collapsed row per reviewer
- * and organization, counted, pointing at the quarantine queue — which is where
- * each file and its reasons are. The row names the newest file and the kind of
- * reason it was held for (`quarantineNoticeVariant`), never a matched value.
- * Each emission goes only to the reviewers of that file, cleared for its
- * project and its folder (`quarantineReviewersOf`), so a row only ever names a
- * file its reader could open in the queue anyway; a reviewer of one project
- * learns nothing of another's.
- */
 async function notifyQuarantineReviewers(organizationId: string, documents: readonly Document[]): Promise<void> {
   const emissions: InboxEmission[] = []
   for (const document of documents) {

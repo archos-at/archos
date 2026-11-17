@@ -1,13 +1,3 @@
-/**
- * The citation style an office's lines are written in: the `citation_style`
- * ruleset released for its home country, in force today (country-as-data plan
- * row 6, `@/shared/citation-style`). Read for the browser
- * (`GET /api/citations/style`) and for the door's evidence.
- *
- * FALLBACK, delete after rollover: `null` while no style is released, and the
- * reader then writes the line in the fallback style (`citation-style.fallback.json`).
- */
-
 import 'server-only'
 import type { CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
 import { readRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'

@@ -42,7 +42,6 @@ from typing import Protocol
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FALLBACK_FILE = REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md"
-#: The wire name. Shared with ``agents/piloti/prompt.py::STATIC_PROMPT_NAME``.
 PROMPT_NAME = "piloti-system-static"
 
 EXIT_OK = 0

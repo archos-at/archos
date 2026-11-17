@@ -73,28 +73,21 @@ from agent.knowledge.folder_cards.inputs import input_hash
 logger = logging.getLogger(__name__)
 
 MONTHLY_TOKENS_ENV = "FOLDER_CARDS_MONTHLY_TOKENS"
-#: About 400 folder builds of 5k tokens a month, a few dollars on a mid-tier summary model.
 DEFAULT_MONTHLY_TOKENS = 2_000_000
-#: How long one run starts new folders. What is still due afterwards is the next sweep's run.
 RUN_BUDGET_SECONDS = 20 * 60
-#: A collection reconciled less than this ago is skipped: under a day, so the nightly
-#: run finds every collection due; long enough that a retried run repeats nothing.
 RECONCILE_EVERY_SECONDS = 20 * 3600
 SCORE_WRITER = "folder-card-worker"
 
 Outcome = Literal["fresh", "unchanged", "stale", "failed", "skipped"]
 
 
-#: Starts a run for a collection: (collection, organization id) -> whether this call started one.
 Trigger = Callable[[str, str], bool]
 
 
 @dataclass
 class RunReport:
     outcomes: dict[str, int] = field(default_factory=dict)
-    #: The first generation's trace, where the run's score is written.
     trace_id: str | None = None
-    #: What each failed folder raised, in order. Never the folder: its path is a person's words.
     failures: list[Exception] = field(default_factory=list)
 
     def count(self, outcome: Outcome) -> None:
@@ -111,11 +104,8 @@ class RunReport:
 class _Collection:
     organization_id: str
     rows: list[Any]
-    #: Stored cards by folder path; updated as this pass writes, so a parent reads its child's new abstract.
     cards: dict[str, dict[str, Any]]
-    #: Every living folder's description by path, whether it has a card or not.
     descriptions: dict[str, str] = field(default_factory=dict)
-    #: Paths of the living folders whose documents live in this collection; ``None`` when the BFF did not say.
     owned: set[str] | None = None
 
 
@@ -146,11 +136,6 @@ def _load(collection: str, organization_id: str) -> _Collection:
     queue.remember_collection(collection, organization_id)
     cards, descriptions, owned = client.read_collection(organization_id, collection)
     return _Collection(organization_id, collection_rows(collection), cards, descriptions, owned)
-
-
-# ---------------------------------------------------------------------------
-# The card's Qdrant point (derived; never fails the card)
-# ---------------------------------------------------------------------------
 
 
 def _publish_point(collection: str, card: dict[str, Any]) -> None:
@@ -187,11 +172,6 @@ def _drop_point(collection: str, folder_path: str) -> None:
         folders.delete_folder_card(get_store(), collection, folder_path)
     except Exception:  # noqa: BLE001
         logger.warning("folder cards: could not delete the point of %s in %s", folder_path, collection, exc_info=True)
-
-
-# ---------------------------------------------------------------------------
-# Writes through the BFF
-# ---------------------------------------------------------------------------
 
 
 def _mark_parent(folder: queue.Due, context: _Collection) -> None:
@@ -265,11 +245,6 @@ def _store(
     return True
 
 
-# ---------------------------------------------------------------------------
-# One folder
-# ---------------------------------------------------------------------------
-
-
 def _ledger(organization_id: str):
     """The usage ledger the call is booked to: the organization's, as ingest activity."""
     from agent.common.cost_tracking import USAGE_ACTIVITY_INGEST
@@ -318,7 +293,6 @@ def _prune(
     return _store(folder, context, existing, digest, draft, existing.get("model") or "", manifest)
 
 
-#: A stem shorter than this ("A", "Nr 1") is too common a word to prove the abstract names the document.
 _MIN_NAMED_STEM = 4
 
 
@@ -346,7 +320,6 @@ async def _write(
 
 async def _build(folder: queue.Due, context: _Collection, llm: Any, report: RunReport) -> Outcome:
     if context.owned is not None and folder.folder_path not in context.owned:
-        # Marked here, but its documents live in another collection (a restricted child marks its open ancestors).
         return "skipped"
     inputs = folder_inputs(folder.collection, folder.folder_path, context.rows, context.cards, context.descriptions)
     existing = context.cards.get(inputs.folder_path)
@@ -357,7 +330,6 @@ async def _build(folder: queue.Due, context: _Collection, llm: Any, report: RunR
         return outcome
     update = incremental.plan(existing, await asyncio.to_thread(_stored_manifest, folder), inputs)
     if update.mode == "prune" and existing is not None and names_removed(existing["abstract"], update.diff.removed):
-        # The abstract speaks of a document that is gone: the model rewrites it from the diff.
         update = incremental.Plan("incremental", update.diff, increments=update.increments + 1, reason="named removal")
     if update.mode == "prune" and existing is not None:
         stored = await asyncio.to_thread(_prune, folder, context, existing, inputs, digest, update)
@@ -448,8 +420,6 @@ async def build_collection(
         logger.info("folder cards: no summary model is configured; nothing is built")
         return report
     if not await asyncio.to_thread(gate.check, organization_id):
-        # Switched off for the organization: nothing is built, and its folders go. Switching it on
-        # again is found by the nightly reconcile, which marks what lacks a card.
         report.outcomes["skipped"] = await asyncio.to_thread(queue.drop, collection)
         return report
     context = await asyncio.to_thread(_load, collection, organization_id)
@@ -530,11 +500,6 @@ def give_up_run(collection: str) -> dict[str, int]:
             queue.GIVE_UP_ROUNDS,
         )
     return {"deferred": deferred, "dropped": dropped}
-
-
-# ---------------------------------------------------------------------------
-# The nightly reconcile
-# ---------------------------------------------------------------------------
 
 
 def _folders(rows: list[Any]) -> set[str]:

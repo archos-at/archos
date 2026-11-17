@@ -1,10 +1,3 @@
-/**
- * Client-side authentication hook powered by WorkOS AuthKit v4.
- *
- * Provides a backward-compatible `AuthContext` interface for existing UI
- * features while delegating session handling to AuthKit.
- */
-
 'use client'
 
 import { useCallback, useMemo } from 'react'
@@ -15,9 +8,6 @@ import { forgetThisDevice } from '@/lib/push/browser'
 import { pushClient } from '@/lib/push/client'
 import type { AuthContext } from './types'
 
-/**
- * Default user returned when authentication is disabled.
- */
 const DEFAULT_USER = {
   id: 'default-user',
   name: 'Default User',
@@ -25,17 +15,6 @@ const DEFAULT_USER = {
   image: null,
 }
 
-/**
- * Hook for accessing the current authentication state and actions.
- *
- * Automatically handles the disabled-auth case (REQUIRE_AUTH=false) by
- * returning a mock authenticated user without contacting WorkOS.
- *
- * @example
- * ```tsx
- * const { user, isAuthenticated, isLoading, accessToken, signIn, signOut } = useAuth()
- * ```
- */
 export const useAuth = (): AuthContext => {
   const { authRequired } = useAppConfig()
   const {
@@ -60,10 +39,6 @@ export const useAuth = (): AuthContext => {
   const handleSignOut = useCallback(async (): Promise<void> => {
     if (!authRequired) return
     resetPosthog()
-    // A shared computer must not keep showing this person's inbox to the next
-    // one (Web Push, ADR-0112). The browser unsubscribes and closes what is on
-    // screen first; the server's row is removed while the session still lets
-    // the request through, bounded so signing out never waits on the network.
     await forgetThisDevice(pushClient, { serverWithinMs: 1500 })
     await authKitSignOut({ returnTo: '/' })
   }, [authRequired, authKitSignOut])

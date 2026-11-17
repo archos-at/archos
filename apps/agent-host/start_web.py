@@ -96,29 +96,11 @@ import os
 import sys
 import warnings
 
-#: uvicorn's WebSocket implementation, named because its default is the wrong
-#: one. ``auto`` picks websockets' legacy protocol, whose ``ping()`` returns
-#: ``asyncio.shield(pong_waiter)``: when a peer closes while a keepalive ping is
-#: unanswered, the keepalive task (and with it the shield) is cancelled first
-#: and the waiter fails afterwards, which Python 3.12+ logs at ERROR as
-#: "ConnectionClosed... exception in shielded future" (#758). The sans-I/O
-#: implementation keeps its pings on a timer and has no such future.
-#: ``tests/test_websocket_implementation.py`` holds both to that.
 WS_IMPLEMENTATION = "websockets-sansio"
 
-#: Server keepalive: ping every ``WS_PING_INTERVAL`` seconds, and close with
-#: 1011 "keepalive ping timeout" (logged only at TRACE) when the pong is more
-#: than ``WS_PING_TIMEOUT`` seconds late. uvicorn's default timeout is 20 s, and
-#: a throttled background tab, a mobile radio waking up or a short event-loop
-#: stall on either side can exceed that without the peer being gone, which
-#: dropped a chat socket mid-turn. The chat client recovers by replaying
-#: ``/frames?after=``, but a socket that is still there should not be killed.
-#: A dead peer is still found within 80 s. ``tests/test_websocket_implementation.py``
-#: holds ``main()`` to both.
 WS_PING_INTERVAL = 20.0
 WS_PING_TIMEOUT = 60.0
 
-# Suppress warnings unless PYTHONWARNINGS is explicitly set
 if not os.environ.get("PYTHONWARNINGS"):
     warnings.filterwarnings("ignore")
 
@@ -127,7 +109,6 @@ def configure_logging():
     """Configure logging to match nat serve behavior."""
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 
-    # Configure root logger
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
         format=("%(asctime)s - %(levelname)-8s - %(name)s:%(lineno)d - %(message)s"),
@@ -136,13 +117,10 @@ def configure_logging():
         force=True,
     )
 
-    # Set specific loggers to appropriate levels
-    # These match the agent runtime's default logging configuration
     logger_names = ("nat", "agent", "agent_host", "knowledge_layer")
     for logger_name in logger_names:
         logging.getLogger(logger_name).setLevel(getattr(logging, log_level, logging.INFO))
 
-    # Reduce noise from third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -177,10 +155,8 @@ def main():
     3. Sets up environment variables required by the agent runtime's FastAPI app
     4. Starts uvicorn directly (bypassing nat serve's asyncio.run wrapper)
     """
-    # Configure logging first (before any imports that might log)
     log_level = configure_logging()
 
-    # Read configuration from environment (set by Docker or defaults)
     config_file = os.environ.get(
         "CONFIG_FILE",
         "/app/configs/config_oib_openrouter.yml",
@@ -198,46 +174,17 @@ def main():
     print("=" * 60)
     print()
 
-    # -------------------------------------------------------------------------
-    # STEP 1: Load and validate the agent-runtime configuration
-    # -------------------------------------------------------------------------
-    # The agent runtime's load_config() discovers plugins then validates YAML `_type` tags
-    # against the registry. Grid's otelcollector_logs / otelcollector_redaction
-    # register at import and are not in the runtime's stock set. They used to ride in
-    # on chat_researcher.register; after that package dissolved, this process
-    # called load_config in a clean interpreter and CrashLoopBackOff'd.
-    # pytest already imported the plugins, so an in-process test cannot catch
-    # a miss — see test_shipped_config_loads_in_a_clean_interpreter.
     print("Loading configuration...")
     config = load_nat_config(config_file)
     print("✓ Configuration loaded and validated")
 
-    # -------------------------------------------------------------------------
-    # STEP 2: Set NAT_CONFIG_FILE for the agent runtime's FastAPI app
-    # -------------------------------------------------------------------------
-    # The agent runtime's FastAPI app (nat.front_ends.fastapi.main:get_app) expects the
-    # config to be available via the NAT_CONFIG_FILE environment variable.
-    #
-    # We pass the original config file path since load_config() has already
-    # validated it. The runtime will re-load it internally when the app starts.
     print("Setting NAT_CONFIG_FILE...")
     os.environ["NAT_CONFIG_FILE"] = config_file
     print(f"✓ NAT_CONFIG_FILE set to {config_file}")
 
-    # -------------------------------------------------------------------------
-    # STEP 3: Set up the worker class for the agent runtime's FastAPI frontend
-    # -------------------------------------------------------------------------
-    # The agent runtime's FastAPI app needs to know which worker class to use for handling
-    # requests. This is normally set by nat serve, but since we're bypassing
-    # that, we need to set it ourselves.
-    #
-    # IMPORTANT: We need to use the runner_class from the config file, not the
-    # default agent-runtime worker. The config specifies aiq_async.plugin.AsyncAPIWorker
-    # which provides async job infrastructure with SSE streaming.
     print("Setting up FastAPI worker...")
     from nat.front_ends.fastapi.utils import get_class_name
 
-    # Get the runner_class from the loaded config
     try:
         runner_class_name = getattr(
             config.general.front_end,
@@ -245,19 +192,15 @@ def main():
             None,
         )
         if runner_class_name:
-            # The runner_class in config is already a string like
-            # "aiq_async.plugin.AsyncAPIWorker".
             os.environ["NAT_FRONT_END_WORKER"] = runner_class_name
             print(f"✓ Worker class (from config): {runner_class_name}")
         else:
-            # Fallback to default agent-runtime worker if not specified in config
             from nat.front_ends.fastapi.fastapi_front_end_plugin import FastApiFrontEndPlugin
 
             worker_class = FastApiFrontEndPlugin.get_worker_class(None)
             os.environ["NAT_FRONT_END_WORKER"] = get_class_name(worker_class)
             print(f"✓ Worker class (default): {os.environ['NAT_FRONT_END_WORKER']}")
     except AttributeError as e:
-        # If config structure is different, fall back to default
         print(f"⚠ Could not read runner_class from config: {e}")
         print("  Using default NAT worker")
         from nat.front_ends.fastapi.fastapi_front_end_plugin import FastApiFrontEndPlugin
@@ -266,19 +209,6 @@ def main():
         os.environ["NAT_FRONT_END_WORKER"] = get_class_name(worker_class)
         print(f"✓ Worker class (default): {os.environ['NAT_FRONT_END_WORKER']}")
 
-    # -------------------------------------------------------------------------
-    # STEP 4: Run uvicorn directly
-    # -------------------------------------------------------------------------
-    # This is the key part that avoids the asyncio conflict.
-    #
-    # uvicorn.run() parameters:
-    # - "nat.front_ends.fastapi.main:get_app": The ASGI app factory path
-    # - factory=True: Tells uvicorn that get_app is a factory function
-    # - loop="asyncio": Let uvicorn create and manage the event loop
-    #
-    # By using loop="asyncio", uvicorn creates a fresh event loop without
-    # conflicting with any existing loops. This is the standard way to run
-    # ASGI apps and avoids the nested loop issues that nat serve causes.
     print()
     print("Starting uvicorn server...")
     print(f"Server will be available at: http://{host}:{port}")

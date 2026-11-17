@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * The zero-data-retention part of the model card: the switch, the
- * confirmation that guards turning it off, and every state the admin must see
- * without having to go looking.
- *
- * ZDR is on unless the organization opted out. Turning it ON is instant.
- * Turning it OFF lets model providers store (and, depending on the provider,
- * train on) the organization's prompts, documents and answers, so it needs a
- * destructive confirmation with an explicit "I understand", and while it is
- * off a banner says so for as long as it stays off, not just the switch.
- *
- * With ZDR on, a task whose effective model has no ZDR endpoint is refused by
- * the provider. The server reports those (`zdrCoverage`); this section
- * summarises them and `ZdrGroupNotice` marks each affected row. A ZDR list the
- * server could not read is reported as unknown, never as all clear.
- */
-
 import { type FC, useState } from 'react'
 import { ShieldAlert, ShieldCheck, ShieldOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -37,12 +20,9 @@ export type { ZdrBlockedGroup, ZdrCoverage }
 
 export const ZdrPolicySection: FC<{
   zdrOnly: boolean
-  /** False for a BYOK key on a provider other than OpenRouter: Piloti cannot enforce ZDR there. */
   zdrApplicable: boolean
-  /** The BYOK provider, for the not-applicable hint. */
   provider: string | null
   coverage: ZdrCoverage | null
-  /** Re-read the configuration after a toggle, so coverage and the picker follow. */
   onChanged: () => Promise<void>
 }> = ({ zdrOnly, zdrApplicable, provider, coverage, onChanged }) => {
   const t = useTranslations(organizationCopy)
@@ -67,9 +47,6 @@ export const ZdrPolicySection: FC<{
         return
       }
       if (!res.ok) throw new Error(String(res.status))
-      // No success toast: the switch lands in its new position once the
-      // configuration is re-read, and the coverage line under it follows.
-      // That is the confirmation, on the control the admin pressed.
       await onChanged()
     } catch {
       toast.error(t('models.zdrError'))
@@ -79,7 +56,6 @@ export const ZdrPolicySection: FC<{
   }
 
   const onToggle = (enabled: boolean): void => {
-    // On is strictly safer: no friction. Off is the direction that exposes data.
     if (enabled) {
       void apply(true)
       return
@@ -143,8 +119,6 @@ export const ZdrPolicySection: FC<{
         </div>
         <Switch
           id="zdr-only-toggle"
-          // Not applicable: shown off and disabled, because it is not in effect
-          // for this org's traffic. The stored choice is kept for when it is.
           checked={enforced}
           disabled={saving || !zdrApplicable}
           onCheckedChange={onToggle}
@@ -175,7 +149,6 @@ export const ZdrPolicySection: FC<{
   )
 }
 
-/** Under one task's row: why its requests are refused while ZDR is on, or that its status is unknown. */
 export const ZdrGroupNotice: FC<{ groupId: string; coverage: ZdrCoverage | null }> = ({ groupId, coverage }) => {
   const t = useTranslations(organizationCopy)
   if (!coverage) return null

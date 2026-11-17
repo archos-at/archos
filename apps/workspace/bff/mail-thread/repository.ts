@@ -1,16 +1,4 @@
 import 'server-only'
-/**
- * SQL for reading the E-Mail-Verläufe of a project (ADR-0137): the thread
- * list, one thread with its entries, follows and attachments. No
- * authorization here (`./service.ts` decides who may ask; row-level security
- * is the backstop), and every list is bounded.
- *
- * A thread is only as visible as its document: every read joins the thread's
- * document under `documentVisibleTo(SCREENED_ONLY)` (a thread whose document
- * has not passed its screening is nobody's to list, D9) and leaves out a
- * document in the bin or in a folder the reader may not open (`hiddenFolders`,
- * the caller's `getHiddenFolderIds`).
- */
 
 import { and, desc, eq, inArray, isNull, notInArray, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -25,7 +13,6 @@ import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'
 import type { MailThreadAttachmentDisposition, MailThreadAttachmentNotFiledReason } from './mail-thread-wire'
 import { MAIL_THREAD_MAX_ENTRIES } from './mail-thread-vocabulary'
 
-/** A thread as a list shows it, with its document's name and where it sits. */
 export interface ThreadRow {
   id: string
   documentId: string
@@ -35,17 +22,14 @@ export interface ThreadRow {
   lastEntryAt: Date | null
   participantDomains: string[]
   continuesThreadId: string | null
-  /** `created_at` as `to_char(… 'US')` wrote it: the list's keyset position. */
   createdAtText: string
 }
 
-/** A position in the thread list's `created_at DESC, id ASC` order. */
 export interface ThreadListPosition {
   createdAt: string
   id: string
 }
 
-/** The threads of the project whose live, screened document sits outside `hiddenFolders`. */
 function visibleThreads(projectId: string, hiddenFolders: readonly string[]) {
   return and(
     eq(mailThreads.projectId, projectId),
@@ -93,11 +77,6 @@ const toThreadRow = (row: ThreadColumns): ThreadRow => ({
   createdAtText: String(row.createdAtText),
 })
 
-/**
- * One page of the project's threads the reader may see, newest first; one row
- * more than `limit`, so the caller knows a page follows. `documentId` narrows
- * it to the thread of one document (the „E-Mails“ tab of a preview).
- */
 export async function listVisibleThreads(
   projectId: string,
   hiddenFolders: readonly string[],
@@ -125,7 +104,6 @@ export async function listVisibleThreads(
   return rows.map(toThreadRow)
 }
 
-/** One thread of the project, if the reader may see its document; null otherwise (and for a thread with no document yet). */
 export async function findVisibleThread(projectId: string, threadId: string, hiddenFolders: readonly string[]): Promise<ThreadRow | null> {
   const [row] = await getDb()
     .select(threadColumns)
@@ -137,17 +115,11 @@ export async function findVisibleThread(projectId: string, threadId: string, hid
   return row ? toThreadRow(row) : null
 }
 
-/** A filed message, and the number of the Fassung it first appeared in. */
 export interface EntryRow {
   entry: MailThreadEntryRow
   firstVersion: { id: string; number: number } | null
 }
 
-/**
- * A thread's entries in the order its document renders them (sent time),
- * at most {@link MAIL_THREAD_MAX_ENTRIES}, each with its first Fassung's number,
- * read through the thread document, which the caller already let through.
- */
 export async function findThreadEntries(threadId: string): Promise<EntryRow[]> {
   const rows = await getDb()
     .select({ entry: mailThreadEntries, versionId: documentVersions.id, versionNumber: documentVersions.versionNumber })
@@ -167,7 +139,6 @@ export async function findThreadEntries(threadId: string): Promise<EntryRow[]> {
   }))
 }
 
-/** One attachment of an entry, before the reader's folder rule is applied (D36). */
 export interface EntryAttachment {
   entryId: string
   position: number
@@ -176,17 +147,9 @@ export interface EntryAttachment {
   notFiledReason: MailThreadAttachmentNotFiledReason | null
   documentId: string | null
   documentVersionId: string | null
-  /** Where the document is filed now, when it is screened and live; null when it is not (or there is none). */
   document: { folderId: string | null } | null
 }
 
-/**
- * Every attachment of these entries, by entry and position, with where each
- * filed document is now: the one door to an entry's attachments
- * (`mail_thread_entry_attachments`, D36), so the thread view asks nothing else.
- * A document that is held, binned or gone answers `document: null`, which the
- * view shows as not visible.
- */
 export async function entryAttachments(entries: readonly MailThreadEntryRow[]): Promise<EntryAttachment[]> {
   if (entries.length === 0) return []
   const rows = await getDb()
@@ -213,7 +176,6 @@ export async function entryAttachments(entries: readonly MailThreadEntryRow[]): 
     )
     .where(inArray(mailThreadEntryAttachments.entryId, entries.map((entry) => entry.id)))
     .orderBy(mailThreadEntryAttachments.entryId, mailThreadEntryAttachments.position)
-    // An entry carries at most as many attachments as its mail had parts (100) and unstaged files (100).
     .limit(entries.length * 200)
   return rows.map((row) => ({
     entryId: row.entryId,
@@ -227,7 +189,6 @@ export async function entryAttachments(entries: readonly MailThreadEntryRow[]): 
   }))
 }
 
-/** One mail that brought (a Fassung of) a document, through a thread the reader may read (D36). */
 export interface MailOriginRow {
   documentVersionId: string | null
   threadId: string
@@ -235,22 +196,14 @@ export interface MailOriginRow {
   sentAt: Date
   receivedAt: Date
   senderName: string | null
-  /** A forwarded message's original author (migration 0198); both null when it was not forwarded. */
   authorName: string | null
   authorAddress: string | null
   signerDomain: string | null
   senderTrust: MailThreadEntryRow['senderTrust']
 }
 
-/** The most mails one document names as its origins: far beyond any real Fassung history. */
 export const MAIL_ORIGINS_LIMIT = 100
 
-/**
- * The mails that brought this document, one row per filed or already present
- * attachment, oldest first: only through a thread whose document the reader
- * may read (screened, live, outside `hiddenFolders`), so a restricted Verlauf
- * names nothing. The caller already let the reader through to the document.
- */
 export async function findMailOrigins(
   projectId: string,
   documentId: string,
@@ -287,10 +240,6 @@ export async function findMailOrigins(
   return rows.map((row) => ({ ...row, sentAt: new Date(row.sentAt), receivedAt: new Date(row.receivedAt) }))
 }
 
-/**
- * The running follows of a thread (D31), oldest first: not ended, and not run
- * out either, though sweep 12 may not have ended one that did yet.
- */
 export async function findActiveFollows(threadIds: readonly string[]): Promise<MailThreadFollowRow[]> {
   if (threadIds.length === 0) return []
   return getDb()
@@ -307,7 +256,6 @@ export async function findActiveFollows(threadIds: readonly string[]): Promise<M
     .limit(threadIds.length * 50)
 }
 
-/** How many mails waiting in the E-Mail-Eingang matched this thread (`thread_match`), for a writer's „3 neue E-Mails“. */
 export async function countWaitingForThread(projectId: string, threadId: string): Promise<number> {
   const [row] = await getDb()
     .select({ count: sql<string>`count(*)` })

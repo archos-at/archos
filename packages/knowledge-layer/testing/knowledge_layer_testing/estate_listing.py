@@ -1,5 +1,3 @@
-"""The estate listing suites' rows and backend, with no file in flight."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -30,8 +28,6 @@ ROWS = [
     FileRow(file_name="Vorlage.docx", shelf="office_shelf", collection="office_shelf_org", folder="Vorlagen"),
     FileRow(file_name="oib-rl_2_ausgabe_mai_2023.pdf", shelf="base", collection="oib_knowledge"),
 ]
-#: A restricted folder's documents never reach the listable rows (``browse._turn_rows`` filters them),
-#: so the backend under test gets exactly those; the restricted ones exist only as readable rows.
 SECRET = FileRow(file_name="Vertrag.pdf", shelf="project", collection="proj_a_r0123456789ab", folder="Personal")
 
 

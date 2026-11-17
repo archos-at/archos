@@ -48,18 +48,13 @@ from .read_log import current_read_log
 logger = logging.getLogger(__name__)
 
 READ_DOCUMENT_TOOL = "read_document"
-#: The shared tools whose results are logged, and the one of them that counts as opening a file.
 SEARCH_TOOL = "knowledge_search"
 PASSAGE_TOOL = "read_passage"
 
-#: Characters one ``read_document`` call returns (about 3 000 tokens): a few dense pages.
 MAX_READ_CHARS = 12_000
-#: Pages one call may name.
 MAX_PAGES_PER_CALL = 30
-#: Page numbers a truncated read offers as the next call.
 NEXT_PAGES_OFFERED = 10
 
-#: A citation as the tools print it: ``Plan.pdf, p.3`` (a grounding key), or ``Plan.pdf, S. 3`` / ``Seite 3``.
 _KEY_PAGE = re.compile(r"^(?P<name>.*?),\s*(?:p\.|S\.|Seite)\s*(?P<page>\d+)$", re.IGNORECASE)
 
 
@@ -99,9 +94,6 @@ def group_pages(chunks: Iterable[tuple[Any, str]]) -> list[DocumentPage]:
             continue
         pages.append(DocumentPage(label=label, number=_page_number(label), parts=[body]))
     return pages
-
-
-# ── Where a document is ──────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -172,9 +164,6 @@ def _unknown_document(name: str, documents: list[ProjectDocument]) -> str:
         f"No document named „{name}“ in this project ({len(names)} documents in scope).{hint} "
         "Call list_files for the exact names, or knowledge_search to find which document holds a value."
     )
-
-
-# ── read_document ────────────────────────────────────────────────────────────
 
 
 def _header(document: ProjectDocument, pages: list[DocumentPage]) -> list[str]:
@@ -291,9 +280,6 @@ def make_read_document_tool() -> StructuredTool:
     )
 
 
-# ── Logging what the shared tools returned ───────────────────────────────────
-
-
 def _strip_qualifier(name: str) -> str:
     """``Plan.pdf (Projektwissen)`` → ``Plan.pdf``: the shelf qualifier a citation key carries when ambiguous."""
     for qualifier in SHELF_QUALIFIERS.values():
@@ -388,7 +374,6 @@ class IntakeToolMiddleware(AgentMiddleware):
         self.max_steps = max_steps
         self.finish_tool = finish_tool
         self.finished = finished
-        #: Run after every tool call, once the read log has it: the run's progress report.
         self.after_call = after_call
         self.steps = 0
 
@@ -420,9 +405,6 @@ class IntakeToolMiddleware(AgentMiddleware):
                 status="error",
             )
         if (SEARCH_TOOL in name or PASSAGE_TOOL in name) and isinstance(result, ToolMessage):
-            # Logged from the bytes the knowledge layer filed its records under, THEN
-            # the fan-out JSON goes: it is ~1 000 tokens a search that the model
-            # re-reads on every later call and has no use for (Piloti strips it too).
             log_tool_result(name, result.content)
             if isinstance(result.content, str):
                 stripped = strip_trace_lanes(result.content)

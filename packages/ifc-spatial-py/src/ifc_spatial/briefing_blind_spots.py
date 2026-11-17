@@ -11,8 +11,6 @@ from ifc_spatial.briefing_rooms import _spaces_of
 
 from .model import SpatialModel
 
-# ── blind spots ─────────────────────────────────────────────────────────────
-
 
 def find_blind_spots(model: SpatialModel, dialect_sample: int | None = None) -> list[BlindSpot]:
     """What this file cannot answer, worked out before anybody asks.
@@ -61,10 +59,6 @@ def find_blind_spots(model: SpatialModel, dialect_sample: int | None = None) -> 
             )
         )
     elif fillers > 0:
-        # The relation exists — but existing and RESOLVING are different facts,
-        # and only the second one answers "which wall is this window in". A file
-        # with fills for the doors and none for the windows passes the test
-        # above and still cannot answer the question for a window.
         unresolved = sum(1 for e in [*_by_type(model, "IfcWindow"), *_by_type(model, "IfcDoor")] if not _hosts_of(e))
         if unresolved > 0:
             spots.append(

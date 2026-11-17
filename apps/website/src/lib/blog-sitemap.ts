@@ -1,8 +1,3 @@
-/**
- * The entries of the blog's sitemap (src/pages/sitemap-blog.xml.ts): the listing and its
- * category pages in both locales, and every indexable post, each with its twin and its date.
- * Pure, for its tests.
- */
 import { ROUTES, type Locale } from '../i18n/paths';
 import { CATEGORY_IDS, blogPath } from './categories';
 import type { Post } from './post-model';

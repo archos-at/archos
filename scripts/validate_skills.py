@@ -23,18 +23,12 @@ from pathlib import Path
 
 import yaml
 
-# Skill name contract: lowercase and hyphen-separated, with no product prefix.
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
-# Names that predate the contract and are allowed to keep their existing form.
 GRANDFATHERED_NAMES: set[str] = set()
 
-# Anthropic Agent Skills cap the matching ``description`` at 1024 characters.
 MAX_DESCRIPTION_CHARS = 1024
 
-# Only relative links pointing into these in-bundle subdirectories are checked
-# for on-disk existence. Anchors, external URLs, and links into the wider repo
-# are intentionally left to markdown-link-check.
 BUNDLE_DIRS = ("references", "scripts", "templates", "assets")
 
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", re.DOTALL)
@@ -70,7 +64,6 @@ def _check_bundle_links(skill_md: Path, text: str, dir_name: str, report: Report
     """Verify relative links into references/scripts/templates/assets resolve."""
     for target in MD_LINK_RE.findall(text):
         target = target.strip()
-        # Skip external schemes and pure anchors.
         if target.startswith(("http://", "https://", "mailto:", "#")) or "://" in target:
             continue
         path_part = target.split("#", 1)[0]

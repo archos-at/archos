@@ -12,31 +12,6 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
-/**
- * LLM spend limits + auditable usage ledger (ADR-0015,
- * docs/architecture/usage-budgets.md).
- *
- * `budget_policies` — the configured limits. Append-only with the repo's
- * supersede idiom (project_memory): changing a limit writes a new `active`
- * row and marks the old one `superseded`, so every limit change is auditable
- * (who, when, from what to what). One active policy per (org, scope, subject).
- *
- * Scopes:
- *  - `organization`  — the org-wide cap (subjectId NULL). Defaults come from
- *    the active pricing version's allowance until an admin changes them.
- *  - `member`        — per-person cap (subjectId = WorkOS user id). Must not
- *    exceed the org limits (validated in the service layer).
- *  - `project`       — per-project cap (subjectId = project uuid as text).
- *    Settable by project admins and org admins; must not exceed org limits.
- *
- * `llm_usage_events` — append-only ledger, one row per LLM generation, written
- * only via the token-guarded internal endpoint (single-writer rule). Cost is
- * stored in USD exactly as OpenRouter reports it (`usage.cost`); the tenant's
- * price and credits are computed at write time from the active pricing version
- * and frozen on the row (ADR-0053). `generation_id` allows post-hoc
- * reconciliation against OpenRouter's GET /api/v1/generation endpoint.
- */
-
 export const BUDGET_SCOPES = ['organization', 'member', 'project'] as const
 export type BudgetScope = (typeof BUDGET_SCOPES)[number]
 
@@ -52,21 +27,12 @@ export const budgetPolicies = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     organizationId: text('organization_id').notNull(),
     scope: text('scope').$type<BudgetScope>().notNull(),
-    /** NULL for org scope; WorkOS user id (member) or project uuid (project). */
     subjectId: text('subject_id'),
-    /** Limits in credits (ADR-0053); NULL = no limit for that window. */
     dailyLimit: numeric('daily_limit', { precision: 12, scale: 4 }),
     monthlyLimit: numeric('monthly_limit', { precision: 12, scale: 4 }),
-    /**
-     * The unit the limit is in (CHECK: `credit` | `token`); the column predates
-     * the concept. `credit` for a platform-billed organization, `token` for one
-     * on its own key (0080). A policy is honoured only while the organization
-     * is on that unit.
-     */
     currency: text('currency').$type<BudgetUnit>().notNull().default('credit'),
     status: text('status').$type<BudgetPolicyStatus>().notNull().default('active'),
     supersedesId: uuid('supersedes_id'),
-    /** WorkOS user id of whoever set this policy. */
     createdBy: text('created_by').notNull(),
     note: text('note'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -78,30 +44,15 @@ export const budgetPolicies = pgTable(
       table.subjectId,
       table.status
     ),
-    // NOTE: a PARTIAL UNIQUE index enforcing "one active policy per
-    // (org, scope, subject)" lives in the hand-written part of the migration
-    // (uniq_budget_policies_active) — drizzle's builder can't express
-    // COALESCE-expression partial indexes (same pattern as 0010).
   })
 )
 
 export const COST_SOURCES = ['usage_field', 'missing', 'generation_api', 'estimate'] as const
 export type CostSource = (typeof COST_SOURCES)[number]
 
-/**
- * What kind of work a generation served (migrations 0101 and 0107,
- * CHECK-enforced). NULL is everything interactive or unclassified: chat turns,
- * their stages, research jobs and every row from before the column.
- */
 export const USAGE_ACTIVITIES = ['ingest', 'dictation'] as const
 export type UsageActivity = (typeof USAGE_ACTIVITIES)[number]
 
-/**
- * Activities nobody is billed for and no budget counts: priced at nothing and
- * kept out of `llm_usage_rollups`, while the real `cost_usd` stays on the
- * ledger for the platform. Voice dictation is the one (migration 0107, whose
- * CHECK refuses a priced dictation row).
- */
 export const UNBILLED_USAGE_ACTIVITIES: ReadonlySet<UsageActivity> = new Set(['dictation'])
 
 export const llmUsageEvents = pgTable(
@@ -109,54 +60,28 @@ export const llmUsageEvents = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     organizationId: text('organization_id').notNull(),
-    /** WorkOS user id of the requesting member (NULL for anonymous mode). */
     userId: text('user_id'),
-    /** Project uuid as text — no FK so ledger rows survive project deletion (audit). */
     projectId: text('project_id'),
     conversationId: text('conversation_id'),
-    /** Async job id when the generation ran inside a research worker. */
     jobId: text('job_id'),
-    /**
-     * The chat answer this generation belongs to (migration 0098): every call
-     * of the turn up to the answer, and its post-answer stages. What lets the
-     * answer's details show the credits it cost. NULL for jobs and older rows.
-     */
     messageId: text('message_id'),
-    /**
-     * What the call was for, when it was not an agent's chat completion: the
-     * backend's usage role (`rerank`, `decision`, `ingest_vision`,
-     * `ingest_embedding`, …). NULL for an agent's own calls.
-     */
     agentGroup: text('agent_group'),
-    /** {@link USAGE_ACTIVITIES}: `ingest` for a document ingestion job, `dictation` for voice input, else NULL. */
     activity: text('activity').$type<UsageActivity>(),
-    /** Seconds of audio a transcription call processed (migration 0107); NULL for every other call. */
     audioSeconds: numeric('audio_seconds', { precision: 10, scale: 2 }),
-    /** Model id the request asked for (post-override). */
     requestedModel: text('requested_model'),
-    /** Model id OpenRouter actually served (from the response). */
     model: text('model'),
-    /** OpenRouter generation id (`gen-…`) for reconciliation. */
     generationId: text('generation_id'),
     promptTokens: integer('prompt_tokens').notNull().default(0),
     completionTokens: integer('completion_tokens').notNull().default(0),
     totalTokens: integer('total_tokens').notNull().default(0),
     cachedTokens: integer('cached_tokens').notNull().default(0),
-    /** Tokens the call wrote to the provider's prompt cache (1.25x on Claude and GPT-5.6+); 0 before 0220. */
     cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
     reasoningTokens: integer('reasoning_tokens').notNull().default(0),
-    /** Cost in USD exactly as reported by OpenRouter usage accounting. */
     costUsd: numeric('cost_usd', { precision: 14, scale: 8 }).notNull().default('0'),
     costSource: text('cost_source').$type<CostSource>().notNull().default('missing'),
     isByok: boolean('is_byok'),
-    /**
-     * What the tenant pays for this generation, frozen at write time from the
-     * pricing version active then (ADR-0053). Never recomputed.
-     */
     priceUsd: numeric('price_usd', { precision: 14, scale: 8 }).notNull().default('0'),
-    /** The tenant-facing unit: `priceUsd / usdPerCredit` of the same version. */
     credits: numeric('credits', { precision: 14, scale: 6 }).notNull().default('0'),
-    /** NULL = priced at the boot floor (no pricing version existed). */
     pricingVersionId: uuid('pricing_version_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -181,29 +106,17 @@ export const llmUsageEvents = pgTable(
   })
 )
 
-/**
- * `llm_usage_rollups` — write-through daily spend aggregate (ADR-0019).
- *
- * One row per (org, UTC day, user, project); maintained in the SAME
- * transaction as the `llm_usage_events` insert, so it is exact, not a cache.
- * Budget enforcement reads a handful of rollup rows instead of aggregating
- * the month's ledger on every WebSocket upgrade. Empty string stands in for
- * "no user"/"no project" so the composite primary key stays non-null.
- */
 export const llmUsageRollups = pgTable(
   'llm_usage_rollups',
   {
     organizationId: text('organization_id').notNull(),
-    /** UTC day the spend belongs to. */
     day: date('day').notNull(),
     userId: text('user_id').notNull().default(''),
     projectId: text('project_id').notNull().default(''),
     costUsd: numeric('cost_usd', { precision: 14, scale: 8 }).notNull().default('0'),
     priceUsd: numeric('price_usd', { precision: 14, scale: 8 }).notNull().default('0'),
     credits: numeric('credits', { precision: 14, scale: 6 }).notNull().default('0'),
-    /** Sum of `total_tokens` — the unit an organization on its own key is limited in (0080). */
     tokens: bigint('tokens', { mode: 'number' }).notNull().default(0),
-    /** The share of `cost_usd` that was the tenant's own provider bill (`is_byok`). */
     ownKeyCostUsd: numeric('own_key_cost_usd', { precision: 14, scale: 8 }).notNull().default('0'),
     events: integer('events').notNull().default(0),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

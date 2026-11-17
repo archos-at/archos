@@ -172,8 +172,6 @@ class TestWhatItSends:
         assert by_path["/api/internal/cross-project/search"]["from"] == "2019-01-01"
 
     async def test_every_body_names_the_answer_this_turn_writes(self, monkeypatch, calls, turn, schema) -> None:
-        # The BFF marks that answer with the hand-out (ADR-0093); the id is the
-        # one the turn streams and persists the answer under.
         monkeypatch.setattr(project_context, "get_conversation_id_from_context", lambda: "s_conv_1")
         monkeypatch.setattr(project_context, "get_user_message_id_from_context", lambda: "m_user_7")
         _answering(monkeypatch, calls, SEARCH_BODY)
@@ -272,7 +270,6 @@ class TestTheSearchAnswer:
         _answering(monkeypatch, calls, SEARCH_BODY)
         result = await lookup.run_project_lookup("search", query="Traufe")
 
-        # A replayed turn holds the text without the records: the registered parser reads it.
         replayed = parse_knowledge_layer(result, "project_lookup")
 
         assert [(e.project_id, e.project_name, e.project_status) for e in replayed] == [
@@ -325,9 +322,6 @@ class TestTheSearchAnswer:
         assert "`find`" in await lookup.run_project_lookup("brief", project_id=OTHER)
 
 
-# Module-level: the collection-read inventory names it as the tool's proof. The
-# answer holds a restricted folder of the (closed) project: that narrows the
-# chat's readers, closed or not, so the doors shut.
 async def test_project_lookup_admits_what_the_bff_handed_out_and_shuts_the_turns_doors(
     monkeypatch, calls, turn
 ) -> None:
@@ -607,7 +601,6 @@ class TestTheRecordedDecisions:
     async def test_an_older_bff_without_origin_is_read_by_its_confirmed_flag(
         self, monkeypatch, calls, turn, confirmed, marker
     ) -> None:
-        # An older BFF predates `origin` and `evidence`, so the current schema refuses its answer: it is read as before.
         older = {
             k: v
             for k, v in _decision("Stiegenhaus in Stahlbeton.", confirmed=confirmed).items()
@@ -689,7 +682,6 @@ class TestFindAndBrief:
         ) in result
         assert "this chat's own project" in result
         assert turn.admitted == {OTHER_COLLECTION}
-        # A closed project: every office member reads it, so naming it shuts nothing.
         assert not turn.drew_on_others
 
     async def test_find_naming_a_running_project_shuts_the_doors(self, monkeypatch, calls, turn) -> None:
@@ -792,10 +784,6 @@ class TestFindAndBrief:
         assert "No confirmed key facts." in read
         assert extract_sources_from_tool_result("project_lookup", read) == []
 
-    # An answer that states a project's facts from its brief cited it, and the
-    # brief had no citation key: the verifier stripped the citation, and the
-    # reader was told a source had been removed as unverifiable from the one
-    # claim the office's own record backed.
     async def test_a_brief_is_one_citable_source_and_an_answer_citing_it_keeps_the_citation(
         self, monkeypatch, calls, turn, schema
     ) -> None:
@@ -860,7 +848,6 @@ class TestTheWire:
         wire = source_entry_to_wire(self._entry(), number=1)
 
         assert wire["project"] == {"id": OTHER, "name": "Wohnbau Graz", "status": "closed"}
-        # The key names the project after the file; the file is called Detail Traufe.pdf.
         assert wire["file_name"] == "Detail Traufe.pdf"
         assert wire["page"] == 3
 
@@ -1127,7 +1114,6 @@ class TestTheProjectFacts:
         assert "Only projects with these key facts: Niederösterreich, Nutzungsänderung." in found
         assert "Only projects with these key facts: Vorarlberg." in none
         assert "key facts" not in plain
-        # The line is preamble, not a source: the hit still cites as before.
         assert "Citation: Detail Traufe.pdf (Wohnbau Graz), p.3" in searched
 
     async def test_langfuse_records_the_facts_as_their_enum_values_and_nothing_else(

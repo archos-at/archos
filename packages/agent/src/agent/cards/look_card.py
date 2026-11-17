@@ -10,20 +10,15 @@ from pydantic import model_validator
 
 from agent.cards.card_model import CardModel
 
-#: How many items one card carries: the turn's look budget is 6, plus the
-#: gestures that point at the same document.
 MAX_LOOK_ITEMS = 12
 
 
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-#: A text that is not a `data:` URL, as a pattern, so the generated JSON Schema
-#: and Zod schema refuse one too (a lookahead: these models use Python's `re`).
 NOT_A_DATA_URL = r"^(?!\s*[dD][aA][tT][aA]:)"
 
 
-#: A share of the page or image: 0 to 1.
 Share = Annotated[float, Field(ge=0, le=1)]
 
 

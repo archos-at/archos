@@ -4,19 +4,8 @@ import { baseStackConfig } from "../test-support/stack-config";
 import { PRODUCTION_STACK } from "./barman-backups";
 import { LEGACY_PROJECT } from "../names";
 
-/** A stack config key under the project these specs run as. */
 const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
 
-/**
- * Where the app cluster's PITR archive may go.
- *
- * Production archives the app cluster to the in-cluster SeaweedFS, the single
- * pod that restarted five times on 2026-11-02, on the same Delete-reclaim
- * storage as the database. Both refusals here are about plans that deploy
- * cleanly and leave no restorable archive: one that keeps the app's archive in
- * the cluster after an off-cluster bucket exists, and one that points an
- * external bucket at SeaweedFS's credentials.
- */
 pulumi.runtime.setMocks(
   { newResource: (args) => ({ id: `${args.name}-id`, state: args.inputs }), call: () => ({}) },
   LEGACY_PROJECT,
@@ -35,13 +24,11 @@ async function planWith(values: Record<string, string>): Promise<Error | null> {
   }
 }
 
-/** Production's archive as `Pulumi.prod.yaml` sets it today: on, default (in-cluster) endpoint. */
 const PROD_TODAY = {
   [key("pgBackupsEnabled")]: "true",
   [key("pgBackupRetention")]: "30d",
 };
 
-/** The background-work cluster archiving off-cluster (ADR-0150): the stack has an external bucket. */
 const BACKGROUND_WORK_OFFSITE = {
   [key("backgroundWorkPgBackupsEnabled")]: "true",
   [key("backgroundWorkPgBackupEndpoint")]: "https://s3.offsite.example.test",

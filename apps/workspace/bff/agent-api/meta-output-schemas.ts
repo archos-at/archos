@@ -1,18 +1,3 @@
-/**
- * The result shapes of three meta-tools, as `outputSchema` in `tools/list`
- * (MCP: a client validates `structuredContent` against it). Declared only where
- * every non-error result has that shape; `call-operation` answers whatever the
- * operation answers, so it declares none.
- *
- * The SDK turns a non-error result WITHOUT `structuredContent` into an error,
- * and `success()` (discovery.ts) leaves it out when the text was cut at
- * MAX_RESULT_CHARS. `meta-output-schemas.spec.ts` holds that these three cannot
- * reach the cap: at most 50 search hits, and the largest description.
- *
- * Not part of `metaToolsFor`: Piloti's own client fixture
- * (`tools/workspace/meta_tools.json`) stays as it is.
- */
-
 export const SEARCH_OUTPUT_SCHEMA = {
   type: 'object',
   properties: {

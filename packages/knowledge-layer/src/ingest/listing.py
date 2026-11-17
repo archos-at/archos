@@ -37,7 +37,6 @@ LISTING_FIELDS = (
     "content_type",
     "page_label",
 )
-#: Fields a file takes from its first chunk that has them.
 _FIRST_SEEN = ("file_size", "file_type", "creation_date", "last_modified_date")
 
 
@@ -68,7 +67,6 @@ def files_from_payloads(collection_name: str, payloads: Iterable[Mapping[str, An
         for key in _FIRST_SEEN:
             if key in m and seen.get(key) is None:
                 seen[key] = m[key]
-        # The newest write is the Fassung the collection holds now.
         if isinstance(m.get("indexed_at"), int | float):
             seen["indexed_at"] = max(seen.get("indexed_at") or 0, m["indexed_at"])
         if "content_type" in m:

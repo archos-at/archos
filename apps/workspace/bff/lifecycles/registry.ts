@@ -1,13 +1,3 @@
-/**
- * Every declared lifecycle in the workspace (ADR-0179), in one list: what the
- * generated reference (`docs/architecture/lifecycles.generated.md`) draws and
- * what `registry.spec.ts` checks against a statechart interpreter.
- *
- * A record whose legal moves are declared with `defineLifecycle` is listed
- * here in the same change. `where` names the module that owns the declaration
- * and `column` the place the state is stored, so a reader arriving from a
- * table finds the rule and a reader arriving from the rule finds the table.
- */
 import { AGENT_WAKE_LIFECYCLE, ANNOTATION_LIFECYCLE } from '@/lib/annotations/lifecycles'
 import { ASK_LIFECYCLE } from '@/lib/agent-asks/ask-wire'
 import { MAIL_IMPORT_LIFECYCLE } from '@/lib/db/schema/mail-imports'
@@ -24,11 +14,8 @@ import type { Lifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 export interface RegisteredLifecycle {
   readonly lifecycle: Lifecycle<string, string>
-  /** What the record is, in one sentence a newcomer can read. */
   readonly what: string
-  /** The module that declares it, relative to `apps/workspace`. */
   readonly where: string
-  /** Where the state is stored. */
   readonly column: string
 }
 

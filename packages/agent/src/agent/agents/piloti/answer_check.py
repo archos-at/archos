@@ -33,19 +33,11 @@ from agent.observability.langfuse_scores import answer_check_scores
 from agent.observability.langfuse_scores import answer_check_unavailable_scores
 from agent.observability.langfuse_scores import emit_scores
 
-#: A trailing reference list, in the headings this agent and the models it runs
-#: actually produce.
 _REFERENCES_SECTION_RE = re.compile(
     r"\n\s*(?:\*\*(?:References|Sources|Quellen):?\*\*|#{2,3}\s+(?:References|Sources|Quellen))\s*(?:\n|$)",
     re.IGNORECASE,
 )
 
-#: What a reference list is allowed to consist of: a blank line, or a line that
-#: carries an actual REFERENCE, a URL or a „[n]" citation marker. List
-#: punctuation is not enough and never was: „- " is available to any sentence,
-#: so accepting it let „- Damit ist der Raum unzulässig …" under a
-#: „**Quellen:**" heading count as a bibliography entry and leave the text
-#: before the brake ever read it.
 _REFERENCE_LINE_RE = re.compile(r"^\s*$|\[\d+\]|<?https?://")
 
 

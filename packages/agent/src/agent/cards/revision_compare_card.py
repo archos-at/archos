@@ -14,11 +14,9 @@ from agent.cards.look_card import UUID_PATTERN
 from agent.cards.look_card import Share
 from agent.cards.look_card import refuse_data_urls
 
-#: Changes one card carries: the comparison returns at most this many boxes.
 MAX_REVISION_CHANGES = 12
 
 
-#: Sentences one card carries: the comparison returns at most this many.
 MAX_REVISION_SUMMARY = 8
 
 
