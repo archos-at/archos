@@ -6,13 +6,7 @@ import {
   useLayoutEffect,
   useMemo,
   useId,
-  type ClipboardEvent,
-  type KeyboardEvent,
-  type ReactNode,
 } from 'react'
-import { AtSign, Eye } from 'lucide-react'
-import { toast } from 'sonner'
-
 import {
   motionQuick,
   motionQuickExit,
@@ -23,68 +17,43 @@ import { useWebSocketChat, useIsCurrentSessionBusy } from '@/features/chat'
 import { useChatStore } from '@/features/chat/store'
 import { useRestrictingOtherProjects } from '@/features/chat/hooks/use-restricting-other-projects'
 import { useChatScreening } from '@/features/chat/hooks/use-chat-screening'
-import type { MaskedText } from '@/lib/upload-screening/content-screen'
 import { composerCapabilities } from '@/features/collaboration/lib/composer-capabilities'
-import { resolveAddressee, sendMessageOptions } from '@/features/collaboration/lib/composer-routing'
+import { resolveAddressee } from '@/features/collaboration/lib/composer-routing'
+import { useAwaitingState } from '@/features/collaboration/hooks/use-sharing'
+import { useTypingBroadcast } from '@/features/collaboration/hooks/use-typing-broadcast'
+import {
+  useThreadRole,
+  useThreadSharing,
+  useTurnActorName,
+} from '@/shared/collaboration/thread-sharing'
+import { insertMention } from '@/lib/mentions/mention-text'
+import { type MentionCandidate } from '@/lib/mentions/types'
+import { useSlashCommand } from '@/features/skills/hooks/use-slash-command'
+import { useDocumentReference } from '@/features/search'
+import type { DocumentHit } from '@/lib/search/search-wire'
 import { useLayoutStore } from '../../store'
 import { computePresetSourceIds } from '../../lib/source-presets'
-import {
-  FIELD_SIZING_CONTENT,
-  SEND_CONTROL_SWAP_GUARD_MS,
-  TEXTAREA_MAX_HEIGHT_PX,
-  mentionRefusalMessage,
-  normalizeSendResult,
-  releaseSoftKeyboard,
-} from './composer-helpers'
-import { useChatDropTarget } from '../chat-drop-zone'
-import { composerDropRefusal } from '../../lib/composer-drop-refusal'
+import { FIELD_SIZING_CONTENT, TEXTAREA_MAX_HEIGHT_PX } from './composer-helpers'
+import type { ComposerNote, ScreeningHold } from './composer-types'
+import { renderComposerHint } from './composer-hint'
+import { useComposerSubject } from '../../hooks/use-composer-subject'
+import { useComposerMentions } from '../../hooks/use-composer-mentions'
+import { useComposerSubmit } from '../../hooks/use-composer-submit'
+import { useComposerKeyboard } from '../../hooks/use-composer-keyboard'
+import { useComposerAttachments } from '../../hooks/use-composer-attachments'
 import { useAppConfig } from '@/shared/context'
 import { useLocale, useTranslations } from '@/i18n'
-import { captureCopy } from '@/i18n/namespaces/capture'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { createDictationChannel, insertTranscript, type ComposerCaret } from '@/features/dictation'
-import { photoIntake, prepareSitePhotos } from '@/features/documents/lib/site-photo'
-import { type AttachSource } from '../ComposerAttach'
 import { useFileUpload } from '@/features/documents'
 import type { TrackedFile } from '@/features/documents/types'
-
-import type { ResolvedSubjectIdentity } from '@/features/documents/components/composer-subject-bar'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { useFilePeekBesideChat } from '@/features/documents/components/file-preview-host'
 
-import {
-  type MentionPickerAria,
-  type MentionPickerHandle,
-} from '@/features/collaboration/components/MentionPicker'
-import { useAwaitingState, useMentionCandidates } from '@/features/collaboration/hooks/use-sharing'
-import {
-  bumpThreadRevision,
-  useThreadRole,
-  useThreadSharing,
-  useTurnActorName,
-} from '@/shared/collaboration/thread-sharing'
-import { useTypingBroadcast } from '@/features/collaboration/hooks/use-typing-broadcast'
-import {
-  findMentionQuery,
-  insertMention,
-  type DraftMention,
-  type MentionQuery,
-} from '@/lib/mentions/mention-text'
-import { type MentionCandidate } from '@/lib/mentions/types'
-import { useSlashCommand } from '@/features/skills/hooks/use-slash-command'
-import { useDocumentReference } from '@/features/search'
-import type { DocumentHit } from '@/lib/search/search-wire'
-
 export type ConnectionMode = 'sse' | 'websocket'
-
-interface ScreeningHold {
-  original: string
-  masked: MaskedText
-  heldText?: string
-}
 
 export interface InputAreaProps {
   placeholder?: string
@@ -108,9 +77,7 @@ export function useInputAreaController({
   const { locale } = useLocale()
   const [message, setMessage] = useState('')
   const dictationCaretRef = useRef<ComposerCaret | null>(null)
-  const [composerNote, setComposerNote] = useState<{ text: string; tone: 'error' | 'info' } | null>(
-    null
-  )
+  const [composerNote, setComposerNote] = useState<ComposerNote | null>(null)
   const rememberDictationCaret = useCallback((e: { currentTarget: HTMLTextAreaElement }) => {
     dictationCaretRef.current = {
       start: e.currentTarget.selectionStart,
@@ -118,20 +85,10 @@ export function useInputAreaController({
     }
   }, [])
 
-  const [mentions, setMentions] = useState<DraftMention[]>([])
-  const [mentionQuery, setMentionQuery] = useState<MentionQuery | null>(null)
-  const [mentionDismissed, setMentionDismissed] = useState(false)
-  const [mentionRequested, setMentionRequested] = useState(false)
-  const [mentionAria, setMentionAria] = useState<MentionPickerAria>({
-    listboxId: null,
-    activeOptionId: null,
-  })
-  const mentionPickerRef = useRef<MentionPickerHandle>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const pendingCaretRef = useRef<number | null>(null)
 
   const [previewFile, setPreviewFile] = useState<TrackedFile | null>(null)
-  const boundSessionUploadRef = useRef<string | null>(null)
   const [manageFilesOpen, setManageFilesOpen] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -148,7 +105,6 @@ export function useInputAreaController({
 
   const currentConversationId = useChatStore((state) => state.currentConversation?.id)
   const ensureSession = useChatStore((state) => state.ensureSession)
-  const ensureConversationExists = useChatStore((state) => state._ensureConversationExists)
 
   const composerPrefill = useChatStore((state) => state.composerPrefill)
   const consumeComposerPrefill = useChatStore((state) => state.consumeComposerPrefill)
@@ -164,25 +120,17 @@ export function useInputAreaController({
 
   const getComposerDraft = useChatStore((state) => state.getComposerDraft)
   const setComposerDraft = useChatStore((state) => state.setComposerDraft)
-  const clearComposerDraft = useChatStore((state) => state.clearComposerDraft)
 
   const currentSessionId = currentConversationId
   const loadedDraftSessionRef = useRef<string | undefined>(undefined)
 
   const chatProjectId = useChatStore((state) => state.projectId)
   const otherProjects = useRestrictingOtherProjects(currentConversationId)
-  const {
-    uploadFiles,
-    sessionFiles,
-    deleteFile,
-    retryFile,
-    isUploading,
-    error: uploadError,
-    clearError,
-  } = useFileUpload({
+  const upload = useFileUpload({
     collectionName: currentConversationId,
     conversationProjectId: chatProjectId,
   })
+  const { sessionFiles, deleteFile, retryFile, isUploading, error: uploadError, clearError } = upload
 
   const pendingCount = sessionFiles.filter(
     (f) => f.status === 'uploading' || f.status === 'ingesting'
@@ -192,56 +140,11 @@ export function useInputAreaController({
   const [screeningHold, setScreeningHold] = useState<ScreeningHold | null>(null)
   const screenChat = useChatScreening()
 
-  useEffect(() => {
-    const ready = sessionFiles.filter(
-      (file) => file.status === 'success' || file.status === 'ingesting'
-    )
-    if (ready.length === 0) {
-      boundSessionUploadRef.current = null
-      return
-    }
-    const latest = ready[ready.length - 1]
-    const id = latest.serverFileId ?? latest.id
-    if (boundSessionUploadRef.current === id) return
-    const current = useChatStore.getState().composerSubject
-    if (current && current.resourceId !== boundSessionUploadRef.current) return
-    boundSessionUploadRef.current = id
-    setComposerSubject({
-      resourceType: 'document',
-      resourceId: id,
-      title: latest.fileName,
-      filename: latest.fileName,
-      shelf: 'session',
-    })
-  }, [sessionFiles, setComposerSubject])
-
-  const handleSubjectResolved = useCallback(
-    ({ title, filename, shelf, versionId, versionState }: ResolvedSubjectIdentity) => {
-      const current = useChatStore.getState().composerSubject
-      if (!current) return
-      setComposerSubject({
-        ...current,
-        ...(title ? { title } : {}),
-        ...(filename ? { filename } : {}),
-        ...(shelf ? { shelf } : {}),
-        ...(versionId !== undefined ? { versionId } : {}),
-        ...(versionState !== undefined ? { versionState } : {}),
-      })
-    },
-    [setComposerSubject]
-  )
-
-  const {
-    sendMessage,
-    isLoading,
-    respondToInteraction,
-    pendingInteraction,
-    noteSendIntent,
-    steer,
-    canSteer,
-  } = wsChat
+  const subject = useComposerSubject(sessionFiles)
 
   const setRespondToInteractionFn = useChatStore((state) => state.setRespondToInteractionFn)
+  const { sendMessage, isLoading, respondToInteraction, pendingInteraction, noteSendIntent, canSteer } =
+    wsChat
   useEffect(() => {
     setRespondToInteractionFn(respondToInteraction)
     return () => setRespondToInteractionFn(null)
@@ -266,7 +169,6 @@ export function useInputAreaController({
   }, [composerSubject?.resourceId, composerSubject?.shelf, applySourcePreset])
 
   const isStreaming = useChatStore((s) => s.isStreaming)
-  const stopStreaming = useChatStore((s) => s.stopStreaming)
 
   const isResponseMode = !!pendingInteraction
 
@@ -296,7 +198,7 @@ export function useInputAreaController({
     mayChatInProject: canChatInProject,
     isBusy,
     isResponseMode,
-    otherPersonsTurn: Boolean(otherPersonsTurnName),
+    otherPersonsTurnName: Boolean(otherPersonsTurnName),
     ownTurnStreaming: showStop,
   })
 
@@ -314,6 +216,21 @@ export function useInputAreaController({
   const typingAhead = disabled && !draftLocked
   const steering = typingAhead && showStop && Boolean(canSteer)
   const typeAheadHintId = useId()
+
+  const {
+    mentions,
+    setMentions,
+    mentionQuery,
+    setMentionQuery,
+    setMentionDismissed,
+    mentionAria,
+    setMentionAria,
+    mentionPickerRef,
+    mentionData,
+    mentionsLoading,
+    syncMentionQuery,
+    mentionPickerOpen,
+  } = useComposerMentions({ currentSessionId, canCollaborate, draftLocked })
 
   useLayoutEffect(() => {
     if (FIELD_SIZING_CONTENT) return
@@ -372,38 +289,6 @@ export function useInputAreaController({
     }
     return placeholder ?? tChat('composer.placeholder')
   }
-
-  const {
-    data: mentionData,
-    loading: mentionsLoading,
-    restart: restartMentionCandidates,
-  } = useMentionCandidates(currentSessionId ?? null, canCollaborate && mentionRequested)
-
-  const mentionRetryRef = useRef<(() => void) | null>(null)
-  mentionRetryRef.current =
-    mentionData === null && !mentionsLoading ? restartMentionCandidates : null
-  const ensureConversationRef = useRef<() => void>(() => {})
-  ensureConversationRef.current = () => {
-    ensureSession()
-    void ensureConversationExists()
-  }
-  const mentionFragmentOpenRef = useRef(false)
-
-  const syncMentionQuery = useCallback((value: string, caret: number | null) => {
-    const range = caret === null ? null : findMentionQuery(value, caret)
-    setMentionQuery(range)
-    if (range) {
-      if (!mentionFragmentOpenRef.current) {
-        ensureConversationRef.current()
-        mentionRetryRef.current?.()
-      }
-      mentionFragmentOpenRef.current = true
-      setMentionRequested(true)
-      return
-    }
-    mentionFragmentOpenRef.current = false
-    setMentionDismissed(false)
-  }, [])
 
   const handleValueChange = useCallback(
     (value: string, caret: number | null = value.length) => {
@@ -548,236 +433,50 @@ export function useInputAreaController({
   const taggedHumans = addressee.humans
   const agentTagged = addressee.agentTagged
 
-  const mentionPickerOpen =
-    canCollaborate &&
-    mentionQuery !== null &&
-    !mentionDismissed &&
-    !draftLocked &&
-    (mentionsLoading || mentionData !== null)
+  const {
+    handleSubmit,
+    sendScreenedMasked,
+    editScreened,
+    sendHeldNow,
+    handleSendControlClick,
+    handleSendControlKeyDown,
+  } = useComposerSubmit({
+    wsChat,
+    message,
+    setMessage,
+    mentions,
+    setMentions,
+    setMentionQuery,
+    canCollaborate,
+    threadAwaitsHuman,
+    currentConversationId,
+    disabled,
+    steering,
+    isResponseMode,
+    showStop,
+    pendingCount,
+    heldForUpload,
+    setHeldForUpload,
+    screeningHold,
+    setScreeningHold,
+    screenChat,
+    onStoppedTyping,
+    textareaRef,
+    sendControlSwappedAtRef,
+  })
 
-  const handleSubmit = useCallback(
-    async (heldText?: string, maskedText?: string) => {
-      const source = maskedText ?? heldText ?? message
-      if (!source.trim() || (disabled && !steering)) return
-      noteSendIntent()
-      const currentMessage = source.trim()
-
-      if (maskedText === undefined) {
-        const screened = screenChat(currentMessage)
-        if (screened.findings.length > 0) {
-          setScreeningHold({ original: currentMessage, masked: screened, heldText })
-          return
-        }
-      }
-      const submittingSessionId = currentConversationId
-
-      if (disabled && steering) {
-        if (!steer({ text: currentMessage })) return
-        setMessage('')
-        setMentionQuery(null)
-        onStoppedTyping()
-        if (submittingSessionId) clearComposerDraft(submittingSessionId)
-        return
-      }
-
-      if (isResponseMode && respondToInteraction) {
-        setMessage('')
-        releaseSoftKeyboard(textareaRef.current)
-        onStoppedTyping()
-        if (submittingSessionId) clearComposerDraft(submittingSessionId)
-        respondToInteraction(currentMessage)
-        return
-      }
-
-      const sent = resolveAddressee({
-        text: currentMessage,
-        mentions,
-        awaitingHuman: threadAwaitsHuman,
-        canCollaborate,
-      })
-      const sentHumans = sent.humans
-
-      if (heldText === undefined && pendingCount > 0) {
-        setHeldForUpload(currentMessage)
-        setMessage('')
-        setMentionQuery(null)
-        onStoppedTyping()
-        return
-      }
-
-      setMessage('')
-      setMentionQuery(null)
-      releaseSoftKeyboard(textareaRef.current)
-      onStoppedTyping()
-      try {
-        const { ok, outcome } = normalizeSendResult(
-          await (() => {
-            const options = sendMessageOptions(sent.routing)
-            return options ? sendMessage(currentMessage, options) : sendMessage(currentMessage)
-          })()
-        )
-        if (!ok) {
-          setMessage(currentMessage)
-          const refusal = mentionRefusalMessage(outcome, sentHumans, tCollab)
-          toast.error(refusal ?? t('inputArea.messageNotSent'), {
-            description: refusal ? undefined : t('inputArea.messageNotSentDesc'),
-          })
-          return
-        }
-        if (submittingSessionId) clearComposerDraft(submittingSessionId)
-        setMentions([])
-        if (sent.mentions.length > 0 && submittingSessionId) {
-          bumpThreadRevision(submittingSessionId)
-        }
-      } catch (error) {
-        console.error('Failed to send message:', error)
-        setMessage(currentMessage)
-        toast.error(t('inputArea.messageNotSent'), {
-          description: t('inputArea.messageNotSentDesc'),
-        })
-      }
-    },
-    [
-      message,
-      mentions,
-      disabled,
-      steering,
-      steer,
-      pendingCount,
-      isResponseMode,
-      respondToInteraction,
-      sendMessage,
-      noteSendIntent,
-      screenChat,
-      threadAwaitsHuman,
-      canCollaborate,
-      currentConversationId,
-      clearComposerDraft,
-      onStoppedTyping,
-      t,
-      tCollab,
-    ]
-  )
-
-  useEffect(() => {
-    if (heldForUpload === null || pendingCount > 0) return
-    const text = heldForUpload
-    setHeldForUpload(null)
-    void handleSubmit(text)
-  }, [heldForUpload, pendingCount, handleSubmit])
-
-  const sendScreenedMasked = useCallback(() => {
-    if (screeningHold === null) return
-    setScreeningHold(null)
-    void handleSubmit(screeningHold.heldText, screeningHold.masked.text)
-  }, [screeningHold, handleSubmit])
-
-  const editScreened = useCallback(() => {
-    if (screeningHold === null) return
-    setScreeningHold(null)
-    if (screeningHold.heldText !== undefined && !message.trim()) setMessage(screeningHold.original)
-    textareaRef.current?.focus()
-  }, [screeningHold, message])
-
-  const sendHeldNow = useCallback(() => {
-    if (heldForUpload === null) return
-    const text = heldForUpload
-    setHeldForUpload(null)
-    void handleSubmit(text)
-  }, [heldForUpload, handleSubmit])
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.nativeEvent.isComposing || e.keyCode === 229) return
-
-      if (slash.handleKeyDown(e, handleSubmit)) return
-      if (reference.handleKeyDown(e, handleSubmit)) return
-
-      if (mentionPickerOpen) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault()
-          mentionPickerRef.current?.move(1)
-          return
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault()
-          mentionPickerRef.current?.move(-1)
-          return
-        }
-        if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
-          e.preventDefault()
-          if (mentionPickerRef.current?.selectActive()) return
-          setMentionDismissed(true)
-          if (e.key === 'Enter') handleSubmit()
-          return
-        }
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          e.stopPropagation()
-          setMentionDismissed(true)
-          textareaRef.current?.focus()
-          return
-        }
-      }
-
-      if (e.key !== 'Enter') return
-      if (e.shiftKey) return
-      if (e.repeat) {
-        e.preventDefault()
-        return
-      }
-      e.preventDefault()
-      handleSubmit()
-    },
-    [handleSubmit, mentionPickerOpen, slash, reference]
-  )
-
-  const composerHadFocusRef = useRef(false)
-  useEffect(() => {
-    const onFocusIn = (e: FocusEvent) => {
-      composerHadFocusRef.current =
-        e.target instanceof Node && (composerRootRef.current?.contains(e.target) ?? false)
-    }
-    const onClick = (e: MouseEvent) => {
-      if (e.target instanceof Node && composerRootRef.current?.contains(e.target)) return
-      composerHadFocusRef.current = false
-    }
-    document.addEventListener('focusin', onFocusIn)
-    document.addEventListener('click', onClick, true)
-    return () => {
-      document.removeEventListener('focusin', onFocusIn)
-      document.removeEventListener('click', onClick, true)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!showStop || cannotContribute) return
-    const onKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || e.keyCode === 229) return
-      const target = e.target
-      const fromComposer =
-        (target === document.body && composerHadFocusRef.current) ||
-        (target instanceof Node && (composerRootRef.current?.contains(target) ?? false))
-      if (!fromComposer) return
-      e.preventDefault()
-      stopStreaming?.()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [showStop, cannotContribute, stopStreaming])
-
-  const handleSendControlClick = useCallback(() => {
-    if (performance.now() - sendControlSwappedAtRef.current < SEND_CONTROL_SWAP_GUARD_MS) return
-    if (showStop) {
-      stopStreaming?.()
-      return
-    }
-    void handleSubmit()
-  }, [showStop, stopStreaming, handleSubmit])
-
-  const handleSendControlKeyDown = useCallback((e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.repeat && e.key === 'Enter') e.preventDefault()
-  }, [])
+  const { handleKeyDown } = useComposerKeyboard({
+    slash,
+    reference,
+    handleSubmit,
+    mentionPickerOpen,
+    mentionPickerRef,
+    setMentionDismissed,
+    textareaRef,
+    composerRootRef,
+    showStop,
+    cannotContribute,
+  })
 
   const handleMentionSelect = useCallback(
     (candidate: MentionCandidate) => {
@@ -797,150 +496,27 @@ export function useInputAreaController({
     [handleValueChange, message, mentionQuery, tCollab]
   )
 
-  const photos = photoIntake(fileUploadConfig)
-  const tCapture = useTranslations(captureCopy)
-
-  const handleFilesSelected = useCallback(
-    async (selected: File[], source: AttachSource = 'picker') => {
-      if (selected.length === 0 || cannotContribute || isUploading || isBusy) return
-
-      const { files, unconvertibleHeic } = await prepareSitePhotos(selected, {
-        source,
-        prefix: tCapture('photos.fileNamePrefix'),
-        taken: sessionFiles.map((file) => file.fileName),
-        imagesAccepted: photos.available,
-      })
-      if (unconvertibleHeic.length > 0) {
-        setComposerNote({
-          text: tCapture('photos.heicUnconvertible', { name: unconvertibleHeic.join(', ') }),
-          tone: 'error',
-        })
-      }
-      if (files.length === 0) return
-
-      const sessionId = ensureSession()
-      if (!sessionId) {
-        console.error('Failed to create session for upload')
-        return
-      }
-
-      await ensureConversationExists()
-      await uploadFiles(files, { collectionOverride: sessionId })
-    },
-    [
-      ensureSession,
-      ensureConversationExists,
-      uploadFiles,
-      cannotContribute,
-      isUploading,
-      isBusy,
-      sessionFiles,
-      photos.available,
-      tCapture,
-    ]
-  )
-
-  const attachDropped = useCallback(
-    (files: File[]) => void handleFilesSelected(files),
-    [handleFilesSelected]
-  )
-  const dropRefusal = composerDropRefusal({
-    canContribute: !cannotContribute,
-    isStreaming,
-    awaitsAnswer: isResponseMode,
-    isUploading,
-    knowledgeLayerAvailable,
+  const attachments = useComposerAttachments({
+    isAuthenticated,
+    cannotContribute,
+    isBusy,
+    isResponseMode,
+    upload,
+    setComposerNote,
   })
-  useChatDropTarget(
-    isAuthenticated
-      ? { attach: attachDropped, refusal: dropRefusal ? t(`inputArea.${dropRefusal}`) : null }
-      : null
-  )
 
-  const handlePaste = useCallback(
-    (e: ClipboardEvent<HTMLTextAreaElement>) => {
-      const files = Array.from(e.clipboardData?.files ?? [])
-      if (files.length === 0) return
-      e.preventDefault()
-      void handleFilesSelected(files)
-    },
-    [handleFilesSelected]
-  )
-
-  const attachedFilesCount = sessionFiles.filter(
-    (f) =>
-      f.status === 'uploading' ||
-      f.status === 'ingesting' ||
-      f.status === 'success' ||
-      f.status === 'held' ||
-      f.status === 'stored'
-  ).length
-
-  let composerHint: ReactNode = null
-  if (canCollaborate && isViewerInSharedThread) {
-    composerHint = (
-      <p
-        data-testid="composer-viewer-hint"
-        className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs leading-relaxed"
-        role="note"
-      >
-        <Eye className="mt-0.5 size-3 shrink-0 opacity-70" aria-hidden="true" />
-        <span>{tCollab('thread.viewerNotice')}</span>
-      </p>
-    )
-  } else if (cannotChatInProject) {
-    composerHint = (
-      <p
-        data-testid="composer-project-chat-hint"
-        className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs leading-relaxed"
-        role="note"
-      >
-        <Eye className="mt-0.5 size-3 shrink-0 opacity-70" aria-hidden="true" />
-        <span>{tChat('composer.noProjectChatPermission')}</span>
-      </p>
-    )
-  } else if (canCollaborate && otherPersonsTurnName) {
-    composerHint = (
-      <p
-        data-testid="composer-busy-hint"
-        className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs leading-relaxed"
-        role="note"
-      >
-        <span>{tCollab('thread.composerBusy', { name: otherPersonsTurnName })}</span>
-      </p>
-    )
-  } else if (taggedHumans.length > 0 && !agentTagged) {
-    composerHint = (
-      <p
-        data-testid="composer-mention-hint"
-        className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs leading-relaxed"
-        role="note"
-      >
-        <AtSign className="mt-0.5 size-3 shrink-0 opacity-70" aria-hidden="true" />
-        <span>
-          {/* German inflects the verb, so joining names into the singular
-              string produced "Anna Berger, Tobias Kern WIRD gefragt" — wrong
-              grammar in the primary product language. This i18n layer has no
-              plural rules, hence two keys. */}
-          {taggedHumans.length === 1
-            ? tCollab('mentions.composerHint', { name: taggedHumans[0]!.display })
-            : tCollab('mentions.composerHintMany', {
-                names: taggedHumans.map((mention) => mention.display).join(', '),
-              })}
-        </span>
-      </p>
-    )
-  } else if (canCollaborate && threadAwaitsHuman && activeMentions.length === 0) {
-    composerHint = (
-      <p
-        data-testid="composer-agent-hint"
-        className="text-muted-foreground mt-2 flex items-start gap-1.5 text-xs leading-relaxed"
-        role="note"
-      >
-        <span>{tCollab('mentions.addressee.agentHint')}</span>
-      </p>
-    )
-  }
+  const composerHint = renderComposerHint({
+    canCollaborate,
+    isViewerInSharedThread,
+    cannotChatInProject,
+    otherPersonsTurnName,
+    taggedHumans,
+    agentTagged,
+    threadAwaitsHuman,
+    activeMentionCount: activeMentions.length,
+    tCollab,
+    tChat,
+  })
 
   return {
     canCollaborate,
@@ -957,9 +533,9 @@ export function useInputAreaController({
     setMentionAria,
     mentionPickerRef,
     composerRef,
+    ...subject,
     previewFile,
     setPreviewFile,
-    boundSessionUploadRef,
     manageFilesOpen,
     setManageFilesOpen,
     textareaRef,
@@ -980,7 +556,6 @@ export function useInputAreaController({
     pendingCount,
     heldForUpload,
     screeningHold,
-    handleSubjectResolved,
     isLoading,
     noteSendIntent,
     knowledgeLayerAvailable,
@@ -1021,11 +596,7 @@ export function useInputAreaController({
     handleSendControlClick,
     handleSendControlKeyDown,
     handleMentionSelect,
-    photos,
-    tCapture,
-    handleFilesSelected,
-    handlePaste,
-    attachedFilesCount,
+    ...attachments,
     composerHint,
   }
 }
