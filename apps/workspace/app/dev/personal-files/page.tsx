@@ -377,12 +377,15 @@ function MenuRow({ icon: Icon, children, picked = false }: { icon: typeof Upload
   )
 }
 
+const PROJECT_PICKS = ['Brandschutzkonzept_Index-D.pdf', 'Fluchtwegplan_EG-2OG.pdf', 'Grundriss_EG_Index-C.pdf', '024-03 ANS_S-Ansicht Süd-West.pdf']
+
 function FromChat(): JSX.Element {
+  const picked = new Set([0, 1])
   return (
     <>
-      <Rail own openChat={0} gear="none" />
+      <Rail own={false} openChat={1} gear="none" />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <ChatHeader title="Rampenneigung Tiefgarage" />
+        <ChatHeader title="Fluchtweglänge im Erdgeschoss" />
         <div className="mx-auto mt-4 flex w-full max-w-2xl flex-1 flex-col gap-4 px-8">
           <div className="bg-desk text-name self-end rounded-[16px] px-3 py-2">Prüf das bitte gegen meinen Leitfaden.</div>
           <div className="bg-sheet shadow-sm flex items-center gap-3 self-end rounded-[10px] px-3 py-2">
@@ -398,19 +401,25 @@ function FromChat(): JSX.Element {
           <div className="absolute bottom-full left-8 mb-2 flex items-end gap-2">
             <div className="bg-sheet shadow-md w-60 rounded-[16px] p-1.5">
               <MenuRow icon={Upload}>Vom Computer hochladen</MenuRow>
-              <MenuRow icon={FolderLock} picked>
-                Aus meiner Ablage
+              <MenuRow icon={FolderLock}>Aus meiner Ablage</MenuRow>
+              <MenuRow icon={Folder} picked>
+                Aus der Projektablage
               </MenuRow>
             </div>
-            <div className="bg-sheet shadow-md w-72 rounded-[16px] p-1.5">
-              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Meine Ablage</div>
-              {OWN_FILES.slice(0, 4).map((file, index) => (
-                <div key={file.id} className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5">
-                  <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">{file.filename}</span>
-                  {index === 0 && <Check className="size-4 shrink-0" aria-hidden />}
+            <div className="bg-sheet shadow-md w-80 rounded-[16px] p-1.5">
+              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Projektablage · {PROJECTS[0]!.short}</div>
+              {PROJECT_PICKS.map((name, index) => (
+                <div key={name} className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5">
+                  <span className={`flex size-4 shrink-0 items-center justify-center rounded-[4px] ${picked.has(index) ? 'bg-foreground text-background' : 'border-field-border border'}`}>
+                    {picked.has(index) && <Check className="size-3" aria-hidden />}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-normal">{name}</span>
                 </div>
               ))}
+              <div className="flex items-center justify-between gap-2 px-2.5 pb-1 pt-2">
+                <span className="text-muted-foreground text-meta">2 ausgewählt</span>
+                <span className="bg-primary text-primary-foreground inline-flex h-7 items-center rounded-control px-2.5 text-xs font-medium">Anhängen</span>
+              </div>
             </div>
           </div>
           <div className="bg-sheet border-field-border flex items-center gap-3 rounded-[10px] border p-3">
