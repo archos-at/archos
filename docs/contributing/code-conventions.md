@@ -33,8 +33,17 @@ on 2026-11-11 three doc blocks were squeezed to one line each to make room for
 a five-line fix: the ratchet was being satisfied by deleting explanation. It is
 a ratchet on code. A line of code with a trailing comment counts, as code.
 
-It is a ratchet. `ci/size_baseline.json` records every file and function that
-was over when the check arrived, at its size then:
+**TypeScript and JavaScript have no baseline: the limit is absolute**, specs
+and test helpers included. Wave B1 (2026-11) split every TS/JS file that was
+over, 166 of them, so `ci/size_baseline.json` holds none, and an entry for one
+fails the check. A spec of three thousand lines is split by feature like any
+other file: one `<subject>-<feature>.spec.ts` per group beside the subject,
+shared builders in `<subject>.fixtures.ts`, and `vi.mock` in every spec that
+needs it (vitest hoists it only within the spec file).
+
+**Python keeps a ratchet** while Wave B2 splits it. `ci/size_baseline.json`
+records every Python file and function that was over when the check arrived,
+at its size then:
 
 - A file or function **not in the baseline** may not pass the limit. Split it.
 - One **in the baseline** may not grow past its recorded count. Adding to a
@@ -47,21 +56,62 @@ was over when the check arrived, at its size then:
   good change.
 - A **move or rename** re-keys entries, so the baseline conflicts or reports
   the old path as gone and the new one as new. Regenerate it with
-  `--rebaseline` and check its diff shows only the move.
+  `--rebaseline`, which re-keys an entry to the moved file or function of the
+  same name and no larger size, and refuses to add, raise or hold a TS/JS entry.
+
+**Where the pieces go** matters as much as their size. A piece lands where the
+layout already puts its kind: in `ui/features/<feature>/`, a hook in `hooks/`,
+logic without React in `lib/`, a store slice in `stores/`; three or more pieces
+of one component in a folder named for it inside `components/`, with the
+original file kept as the entry point; in `bff/<domain>/`, flat modules named
+`<noun>-<job>.ts`; a dev page's data in `fixtures.ts` beside its `page.tsx`.
+Each module is named for its one job ([`naming.md`](naming.md)), never
+`helpers`, `utils2` or `part-2`, and the module seams hold
+([`module-seams.md`](module-seams.md)).
 
 Why these numbers: sixty lines is the function bar this file already sets
 below. Six hundred lines is about ten such functions, a module a reader can
-hold, and it puts the line where the tree already bends: 56 of the 977
-components in `features/` and `components/` are over it, 27 of them over a
-thousand, while the rest sit well under. TypeScript functions have no limit yet:
-measuring them needs the TypeScript parser, which lives in the UI's
-`node_modules` that the Repo checks job does not install.
+hold, and it puts the line where the tree already bends. TypeScript functions
+have no limit yet: measuring them needs the TypeScript parser, which lives in
+the UI's `node_modules` that the Repo checks job does not install.
 
 Not checked, because their length follows their input rather than a design
 choice: generated files (the card schemas' `src/shared/cards/generated.ts`,
-`*.generated.*`, `*.d.ts`), tests,
-specs, fixtures and test helpers, migrations, and copy (the i18n dictionaries,
-the site's `src/data/` and `src/i18n/`). The list is `EXCLUDED` in the script.
+`*.generated.*`, `*.d.ts`), fixtures, migrations, and copy (the i18n
+dictionaries, the site's `src/data/` and `src/i18n/`), and Python tests. The
+lists are `EXCLUDED` (Python) and `SCRIPT_EXCLUDED` (TS/JS) in the script.
+
+## Specs test behaviour
+
+A spec imports the code, calls it and asserts on what it returns, renders or
+sends. It never reads a source file as text to assert on what the code says:
+by 2026-11 about 220 specs opened `bff/x.ts` with `readFileSync` and checked
+that a string appeared in it, so they passed while the behaviour was broken
+and failed on a rename that changed nothing. Wave B1 rewrote them to test
+behaviour, or deleted the ones that only pinned wording.
+
+The one exception is a **structural guard across the tree**: an invariant that
+must hold for every file of a kind, including files nobody has written yet
+(every `app/api` route declares `authz`, every table runs `secure_table`, only
+`dispatch.ts` calls `runAsActingSession`). Such a guard parses the code and
+asserts on the syntax tree, never on text, comments or prose:
+
+- TypeScript: `@/test-utils/source-ast` (`parseSource`, `productionSources`,
+  `importsOf`, `callsTo`, `exportedNames`), the compiler API from
+  `typescript-api`; in `deploy/pulumi` and the site, `typescript` itself.
+- SQL migrations: `@/test-utils/sql-statements` (`readSql`, `createdTables`,
+  `functionCalls`), which skips comments, strings and dollar-quoted bodies.
+- A stylesheet: `postcss`.
+
+Every guard is listed in `ci/ast_guard_specs.txt`. The `spec-source-reads`
+hook (`scripts/check_spec_source_reads.py`, in `task lint:repo` and CI's
+**Repo checks** job) fails any other spec or test helper that reads files and
+names a source file (`.ts`, `.tsx`, `.js`, `.py`, `.css`, `.sql`, a
+`Dockerfile`, a `?raw` import), and a listed spec that imports no parser or no
+longer reads. Data is not source: a JSON contract, a PDF or IFC fixture, a
+stack's YAML, and a generated file a spec compares with its generator all pass.
+A spec that checks what a Python file says belongs on the Python side, or
+asserts against the shared contract in `contracts/`.
 
 ## Comments
 
