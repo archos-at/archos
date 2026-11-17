@@ -252,6 +252,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/analytics/usage-export-repository.integration.spec.ts \
     bff/feedback/repository.integration.spec.ts \
     bff/citations/repository.integration.spec.ts \
+    bff/org-instructions/repository.integration.spec.ts \
     bff/profiler/repository.integration.spec.ts \
     bff/projects/project-status.integration.spec.ts \
     bff/projects/project-record.integration.spec.ts \
