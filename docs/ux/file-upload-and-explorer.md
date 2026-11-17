@@ -946,7 +946,7 @@ the cost of getting there and of drawing it:
   the rename and confirm dialogs and the dropdown (opened by that same press),
   and the row stays live. The move targets are labelled and sorted once per
   tree in the workspace (`sortedFolderDestinations`), not once per row.
-- **Unchanged rows do not re-render.** Grid cells (`FileTile`), cards and list
+- **Unchanged rows do not re-render.** Grid cells (`FileTile` in `file-browser-tile.tsx`), cards and list
   rows (`FileListRowItem`) are memoised and handed stable callbacks; the
   type-ahead filter over the corpus runs on a deferred query, so the field
   answers every keystroke.
