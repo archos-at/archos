@@ -113,6 +113,15 @@ stack's YAML, and a generated file a spec compares with its generator all pass.
 A spec that checks what a Python file says belongs on the Python side, or
 asserts against the shared contract in `contracts/`.
 
+**A spec sets the environment through `vi.stubEnv`**, never by assigning to
+`process.env`: `vi.stubEnv(name, value)`, and `vi.stubEnv(name, undefined)` to
+unset. Under the `vmForks` pool every spec file of a worker shares one
+`process.env`, so a direct assignment leaked into whichever file ran next (the
+red `internal-auth.spec.ts` of #1763). The vitest setup calls
+`vi.unstubAllEnvs()` after each file. The `spec-env-writes` hook
+(`scripts/check_spec_env_writes.py`) fails a spec or test helper that assigns,
+deletes or `Object.assign`s `process.env`.
+
 ## Comments
 
 Write code that needs no comment. A comment goes stale without a diff, no check

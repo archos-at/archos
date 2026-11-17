@@ -211,6 +211,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: spec-env-writes
+        name: no spec writes process.env, which leaks into later spec files; vi.stubEnv does
+        entry: .venv/bin/python scripts/check_spec_env_writes.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: comments
         name: no source file gains a comment line past its baseline (three are free)
         # A comment goes stale, binds nothing, and gives an agent room to justify
