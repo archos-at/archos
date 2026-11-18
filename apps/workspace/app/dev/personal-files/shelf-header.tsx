@@ -65,10 +65,9 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: {
         <CheckSquare className="size-4" aria-hidden />
         Auswählen
       </span>
-      <span title="Papierkorb" className={`inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
-        <Trash2 className="size-4" aria-hidden />
-        Papierkorb
-        {!own && <span className="text-muted-foreground text-meta font-normal">2</span>}
+      <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
+        <Trash2 className="size-4" aria-label="Papierkorb" />
+        {!own && <span className="bg-foreground text-background text-meta absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-medium">2</span>}
       </span>
       <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
         <Upload className="size-4" aria-hidden />
@@ -119,8 +118,8 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: {
 }
 
 const DELETED = [
-  { name: 'Grundriss_EG_Index-A.pdf', where: 'Abgabepläne', who: 'Ihnen', when: 'vor 2 Tagen', left: 'noch 28 Tage' },
-  { name: 'Besprechungsnotiz_alt.pdf', where: 'sonstiges', who: 'Jakob Huber', when: 'vor 9 Tagen', left: 'noch 21 Tage' },
+  { name: 'Grundriss_EG_Index-A.pdf', where: 'Abgabepläne', who: 'Ihnen', when: 'vor 2 Tagen', left: 'noch 12 Tage' },
+  { name: 'Besprechungsnotiz_alt.pdf', where: 'sonstiges', who: 'Jakob Huber', when: 'vor 9 Tagen', left: 'noch 5 Tage' },
 ]
 
 export function TrashWindow(): JSX.Element {
@@ -130,7 +129,7 @@ export function TrashWindow(): JSX.Element {
         <header className="flex items-start justify-between gap-4 px-6 pb-3 pt-5">
           <div>
             <h2 className="text-page-title">Papierkorb</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Gelöschte Dateien der Projektablage. Nach 30 Tagen werden sie endgültig entfernt.</p>
+            <p className="text-muted-foreground mt-1 text-sm">Gelöschte Dateien der Projektablage. Nach 14 Tagen werden sie endgültig entfernt.</p>
           </div>
           <span className="text-muted-foreground text-name mt-1 font-medium">Schließen</span>
         </header>
