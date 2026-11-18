@@ -2130,7 +2130,14 @@ emitted somewhere it can read; see §10.
   own contexts (Qdrant runs as uid 1000 on a read-only root, `data/qdrant.ts`), which is why the namespace stays at `baseline` not `restricted`.
 - **NetworkPolicies** (`grid-oib:networkPolicies`, default **on**): a
   default-deny for ingress plus least-privilege allows — intra-namespace, the
-  edge (Envoy) to `frontend`/`seaweedfs`, and the CNPG operator to its pods.
+  edge (Envoy) to `frontend`/`seaweedfs`, and the CNPG operator to its pods:
+  `allow-cnpg-operator` selects pods carrying `cnpg.io/cluster` (instances and
+  a cluster's jobs), `allow-cnpg-operator-to-pooler` those carrying
+  `cnpg.io/poolerName` (the PgBouncers). Until 2026-11-18 it selected every pod
+  in the namespace, so `cnpg-system` could reach `code-runner`, `gotenberg` and
+  `clamav`; `src/app/code-runner.spec.ts` now evaluates every policy's selector
+  against the runner's labels and fails when any but `code-runner-agent-only`
+  admits ingress to it.
   Egress is deliberately open (the agent calls many external LLM/search APIs);
   tightening it is the one item that needs a live-cluster validation pass first.
   The exception is `gotenberg` (`gotenberg-frontend-only`): it parses untrusted

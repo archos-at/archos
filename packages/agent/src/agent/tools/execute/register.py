@@ -19,7 +19,8 @@ EXECUTE_DESCRIPTION = (
     "writes. Use it to make real files (Word, Excel, PowerPoint, PDF, charts) and to calculate exactly. Read "
     "the `office-files` skill first: it lists the libraries and how to write a file well. `code` is "
     "`export default async function (input) { … }`; its return value comes back as `value`. "
-    f"{DRAFT_ROOT} is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/. "
+    f"{DRAFT_ROOT} is /workspace/ inside the run; `documents` named here appear read-only under "
+    "/workspace/in/ (the report names each path). "
     f"Files written under /workspace/ are kept in {DRAFT_ROOT}. Errors come back on stderr: fix and run again, "
     "at most three times per file."
 )

@@ -32,6 +32,35 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 }
 
 const NETPOL = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
+
+type LabelSelector = k8s.types.input.meta.v1.LabelSelector;
+type Requirement = { key: string; operator: string; values?: string[] };
+
+function meets(requirement: Requirement, labels: Record<string, string>): boolean {
+  const has = requirement.key in labels;
+  const value = labels[requirement.key];
+  switch (requirement.operator) {
+    case "In":
+      return has && (requirement.values ?? []).includes(value);
+    case "NotIn":
+      return !has || !(requirement.values ?? []).includes(value);
+    case "Exists":
+      return has;
+    case "DoesNotExist":
+      return !has;
+    default:
+      throw new Error(`unknown selector operator ${requirement.operator}`);
+  }
+}
+
+function selects(selector: LabelSelector, labels: Record<string, string>): boolean {
+  const matchLabels = (selector.matchLabels ?? {}) as Record<string, string>;
+  const expressions = (selector.matchExpressions ?? []) as Requirement[];
+  return (
+    Object.entries(matchLabels).every(([key, value]) => labels[key] === value) &&
+    expressions.every((requirement) => meets(requirement, labels))
+  );
+}
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -175,6 +204,36 @@ describe("code-runner", () => {
 
     const intra = await resolve(find(NETPOL, "allow-same-namespace").inputs.spec);
     expect(intra.podSelector.matchExpressions[0].values).toContain("code-runner");
+  });
+
+  it("is selected for ingress by no policy but its own, so cnpg-system and the namespace never reach it", async () => {
+    const spec = await resolve(find(DEPLOYMENT, "code-runner").inputs.spec);
+    const labels: Record<string, string> = await resolve(spec.template.metadata.labels);
+    const policies = await Promise.all(
+      RESOURCES.filter((r) => r.type === NETPOL).map(async (r) => ({ name: r.name, spec: await resolve(r.inputs.spec) })),
+    );
+    const admitting = policies
+      .filter(({ spec: pol }) => (pol.policyTypes ?? ["Ingress"]).includes("Ingress") && (pol.ingress ?? []).length > 0)
+      .filter(({ spec: pol }) => selects(pol.podSelector, labels))
+      .map(({ name }) => name);
+
+    expect(labels["app.kubernetes.io/name"]).toBe("code-runner");
+    expect(admitting).toEqual(["code-runner-agent-only"]);
+  });
+
+  it("admits the CloudNativePG operator only to the pods CloudNativePG runs", async () => {
+    const cnpg = await resolve(find(NETPOL, "allow-cnpg-operator").inputs.spec);
+    const pooler = await resolve(find(NETPOL, "allow-cnpg-operator-to-pooler").inputs.spec);
+    const fromOperator = [{ from: [{ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": "cnpg-system" } } }] }];
+
+    expect(cnpg.ingress).toEqual(fromOperator);
+    expect(pooler.ingress).toEqual(fromOperator);
+    expect(selects(cnpg.podSelector, { "cnpg.io/cluster": "app-pg", "app.kubernetes.io/name": "postgres" })).toBe(true);
+    expect(selects(pooler.podSelector, { "cnpg.io/poolerName": "app-pg-pooler-rw" })).toBe(true);
+    for (const name of ["code-runner", "gotenberg", "clamav", "qdrant", "frontend"]) {
+      expect(selects(cnpg.podSelector, { "app.kubernetes.io/name": name })).toBe(false);
+      expect(selects(pooler.podSelector, { "app.kubernetes.io/name": name })).toBe(false);
+    }
   });
 
   it("scales between two and ten pods on CPU and memory", async () => {

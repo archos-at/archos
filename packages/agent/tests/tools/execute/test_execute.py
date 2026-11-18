@@ -131,13 +131,16 @@ class TestARun:
         assert item.value["encoding"] == "utf-8"
         assert item.value["content"] == "Raum;Fläche\nEG;32,4\n"
 
-    async def test_a_change_to_an_input_document_is_not_kept(self, store, monkeypatch) -> None:
+    async def test_a_file_written_under_the_input_directory_is_not_kept_and_the_report_says_so(
+        self, store, monkeypatch
+    ) -> None:
         _runner(monkeypatch, _ok({f"{run.INPUT_DIR}plan.pdf": b"%PDF-changed"}), [])
 
         answer = await run.execute(RUNNER, "export default () => 1")
 
         assert store.search(draft_namespace(CONVERSATION)) == []
         assert "files written: none" in answer
+        assert f"not kept: {run.INPUT_DIR}plan.pdf was dropped" in answer
 
     async def test_an_error_comes_back_for_the_model_to_fix(self, store, monkeypatch) -> None:
         failed = {**_ok({}), "status": "error", "stderr": "TypeError: docx.Tabel is not a constructor"}
@@ -199,6 +202,124 @@ async def test_a_named_document_reports_its_collection(store, monkeypatch) -> No
 
     assert reads == {"proj_abc_restricted"}
     assert [f["path"] for f in seen[0]["files"]] == [f"{run.INPUT_DIR}Raumbuch.pdf"]
+
+
+def _documents(monkeypatch: pytest.MonkeyPatch, named: dict[str, tuple[str, str, bytes]]) -> None:
+    from agent.tools.look.resolve import Resolved
+
+    async def resolve(name: str) -> Resolved:
+        collection, file_name, _ = named[name]
+        return Resolved(file_name=file_name, collection=collection)
+
+    by_key = {f"{collection}/{file_name}": data for collection, file_name, data in named.values()}
+    monkeypatch.setattr(run, "resolve_document", resolve)
+    monkeypatch.setattr(run, "_headers", lambda: {"x": "y"})
+    monkeypatch.setattr(run, "locate_stored_file", lambda collection, name, headers: ("bucket", f"{collection}/{name}"))
+    monkeypatch.setattr(run, "read_stored_file", lambda bucket, key, budget: by_key[key])
+
+
+class TestInputPaths:
+    async def test_two_documents_of_one_name_both_arrive_and_the_report_names_each_path(
+        self, store, monkeypatch
+    ) -> None:
+        _documents(
+            monkeypatch,
+            {
+                "a": ("proj_a", "Plan.pdf", b"%PDF-a"),
+                "b": ("proj_b", "Ordner/Plan.pdf", b"%PDF-b"),
+                "c": ("proj_c", "Plan.pdf", b"%PDF-c"),
+            },
+        )
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a", "b", "c"])
+
+        sent = {f["path"]: base64.b64decode(f["base64"]) for f in seen[0]["files"]}
+        assert sent == {
+            f"{run.INPUT_DIR}Plan.pdf": b"%PDF-a",
+            f"{run.INPUT_DIR}Plan (2).pdf": b"%PDF-b",
+            f"{run.INPUT_DIR}Plan (3).pdf": b"%PDF-c",
+        }
+        assert (
+            f"documents read: 'Plan.pdf' at {run.INPUT_DIR}Plan.pdf, 'Ordner/Plan.pdf' at {run.INPUT_DIR}Plan (2).pdf, "
+            f"'Plan.pdf' at {run.INPUT_DIR}Plan (3).pdf"
+        ) in answer
+
+    async def test_one_document_named_twice_is_sent_once(self, store, monkeypatch) -> None:
+        _documents(monkeypatch, {"a": ("proj_a", "Plan.pdf", b"%PDF-a"), "A": ("proj_a", "Plan.pdf", b"%PDF-a")})
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        await run.execute(RUNNER, "export default () => 1", documents=["a", "A"])
+
+        assert [f["path"] for f in seen[0]["files"]] == [f"{run.INPUT_DIR}Plan.pdf"]
+
+    async def test_a_dot_name_becomes_a_path_the_runner_accepts(self, store, monkeypatch) -> None:
+        _documents(monkeypatch, {"a": ("proj_a", "..", b"x"), "b": ("proj_a", "Ordner/.", b"y")})
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a", "b"])
+
+        paths = [f["path"] for f in seen[0]["files"]]
+        assert paths == [f"{run.INPUT_DIR}{run.UNNAMED_INPUT}", f"{run.INPUT_DIR}{run.UNNAMED_INPUT} (2)"]
+        assert f"'..' at {run.INPUT_DIR}{run.UNNAMED_INPUT}" in answer
+
+    async def test_an_input_does_not_overwrite_a_working_file_at_the_same_path(self, store, monkeypatch) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert (await backend.awrite(f"{DRAFT_ROOT}in/Plan.md", "# alt\n")).error is None
+        _documents(monkeypatch, {"a": ("proj_a", "Plan.md", b"# neu\n")})
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        await run.execute(RUNNER, "export default () => 1", documents=["a"])
+
+        sent = {f["path"]: base64.b64decode(f["base64"]) for f in seen[0]["files"]}
+        assert sent[f"{run.INPUT_DIR}Plan.md"] == b"# alt\n"
+        assert sent[f"{run.INPUT_DIR}Plan (2).md"] == b"# neu\n"
+
+    async def test_a_changed_input_is_dropped_and_the_report_says_so(self, store, monkeypatch) -> None:
+        _documents(monkeypatch, {"a": ("proj_a", "Plan.pdf", b"%PDF-a")})
+        _runner(monkeypatch, _ok({f"{run.INPUT_DIR}Plan.pdf": b"%PDF-changed"}), [])
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
+
+        assert store.search(draft_namespace(CONVERSATION)) == []
+        assert f"not kept: {run.INPUT_DIR}Plan.pdf was changed by the script; inputs are read-only" in answer
+
+    async def test_an_input_returned_unchanged_is_not_reported(self, store, monkeypatch) -> None:
+        _documents(monkeypatch, {"a": ("proj_a", "Plan.pdf", b"%PDF-a")})
+        _runner(monkeypatch, _ok({f"{run.INPUT_DIR}Plan.pdf": b"%PDF-a"}), [])
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
+
+        assert "not kept" not in answer
+
+
+@pytest.mark.parametrize(
+    ("file_name", "expected"),
+    [
+        ("Ordner/Plan.pdf", "Plan.pdf"),
+        ("Ordner\\Plan.pdf", "Plan.pdf"),
+        ("", run.UNNAMED_INPUT),
+        (".", run.UNNAMED_INPUT),
+        ("..", run.UNNAMED_INPUT),
+        ("a/", run.UNNAMED_INPUT),
+        ("  ", run.UNNAMED_INPUT),
+        ("Pl\x00an\n.pdf", "Plan.pdf"),
+        (".htaccess", ".htaccess"),
+    ],
+)
+def test_an_input_name_is_one_safe_segment(file_name: str, expected: str) -> None:
+    assert run.input_name(file_name) == expected
+
+
+def test_a_taken_path_gets_the_next_number_before_the_extension() -> None:
+    taken = {f"{run.INPUT_DIR}Plan.tar.gz", f"{run.INPUT_DIR}Plan.tar (2).gz", f"{run.INPUT_DIR}README"}
+    assert run.unique_input_path("Plan.tar.gz", taken) == f"{run.INPUT_DIR}Plan.tar (3).gz"
+    assert run.unique_input_path("README", taken) == f"{run.INPUT_DIR}README (2)"
+    assert run.unique_input_path(".env", {f"{run.INPUT_DIR}.env"}) == f"{run.INPUT_DIR}.env (2)"
 
 
 class TestTheTrace:
