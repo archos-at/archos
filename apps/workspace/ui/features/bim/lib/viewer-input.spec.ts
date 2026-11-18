@@ -41,7 +41,6 @@ interface KernelMesh {
   indices: Uint32Array | number[]
 }
 
-/** Run the real kernel and collect every mesh it streams. */
 async function triangulate(bytes: Uint8Array): Promise<KernelMesh[]> {
   const { GeometryProcessor } = await import('@ifc-lite/geometry')
   const processor = new GeometryProcessor()
@@ -60,8 +59,6 @@ describe('the viewport input', () => {
 
     expect(meshes.length).toBeGreaterThan(0)
     expect(triangles).toBeGreaterThan(0)
-    // Every mesh must carry real vertex data — an empty mesh renders as
-    // nothing, which is indistinguishable from a missing element.
     for (const mesh of meshes) {
       expect(mesh.positions.length).toBeGreaterThan(0)
       expect(mesh.indices.length % 3).toBe(0)
@@ -69,11 +66,6 @@ describe('the viewport input', () => {
   }, 30_000)
 
   it('gives every mesh an expressId the extracted model also knows', async () => {
-    // The viewport picks by expressId and highlights by GlobalId, and the map
-    // between them comes from the SERVER-side extraction of the same file. If
-    // the two disagree, clicking a wall selects nothing and a compliance deep
-    // link highlights an empty set — both of which look like a UI bug and are
-    // actually a data one.
     const bytes = read('sample-building-geometry.ifc')
     const [meshes, index] = await Promise.all([
       triangulate(bytes),
@@ -91,9 +83,6 @@ describe('the viewport input', () => {
   }, 30_000)
 
   it('extracts the same building the kernel draws', async () => {
-    // A file with representations exercises a different extraction path than
-    // the metadata-only fixture: the entity count includes hundreds of
-    // geometry entities that must NOT be counted as elements.
     const bytes = read('sample-building-geometry.ifc')
     const index = await extractIfcModel(
       bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
@@ -103,15 +92,10 @@ describe('the viewport input', () => {
     expect(index.storeys.map((storey) => storey.name)).toEqual(['Erdgeschoss', 'Obergeschoss'])
     expect(index.elements.some((element) => element.name === 'Eingangstuer')).toBe(true)
     expect(index.typeCounts.IfcWall).toBe(9)
-    // Cartesian points and profiles are geometry, not building elements.
     expect(index.elements.length).toBeLessThan(40)
   }, 30_000)
 
   it('confirms the metadata-only fixture has nothing to draw', async () => {
-    // Not a curiosity — this is the guard. `sample-building.ifc` is the right
-    // fixture for extraction and query tests and the WRONG one for anything
-    // about the viewport, and the only way to keep that straight is to state
-    // it in a test rather than in a comment nobody reads.
     expect(await triangulate(read('sample-building.ifc'))).toEqual([])
   }, 30_000)
 })

@@ -1,6 +1,6 @@
 # Rolling out agent-authored documents
 
-What a deployer has to do, in order, to ship the change that lets Piloti file a
+What a deployer has to do, in order, to ship the change that lets the agent file a
 report and a diagram into a project. Written after replaying the whole migration
 chain against a throwaway PostgreSQL 16.13, so the preconditions below are the
 ones the database actually enforced, not the ones the code implies.
@@ -62,7 +62,7 @@ What they create, and what each is for:
 |---|---|
 | `documents.authored_by` (`'user'` default), `authored_by_producer`, `authored_by_ref`, `authored_by_ref_kind` | who wrote the bytes, what produced them, which one, and what kind of identifier that is |
 | CHECK `documents_authorship_requires_provenance` | a non-`user` row must name **all three** — a machine-written file that cannot say what wrote it, or whose identifier nobody can resolve, is unauditable |
-| `documents_agent_authored_idx` (partial) | "everything Piloti wrote in this project" as a point query |
+| `documents_agent_authored_idx` (partial) | "everything the agent wrote in this project" as a point query |
 | `uniq_project_folders_parent_name` | the fixed `Berichte` folder is get-or-create; this is what makes the race correct |
 | `uniq_documents_authored_ref_producer_per_project` | idempotency as a **constraint**, not a lookup. `0065` drops `0064`'s narrower index, which could not represent a diagram's SVG + PDF pair; `0066` restates it under the renamed column |
 
@@ -101,7 +101,7 @@ Every deployment path now runs the reconcile for you. Check that it did:
 | Path | What runs it | Where to look |
 |---|---|---|
 | Kubernetes (Pulumi) | Job `grid-app-audit-schemas`, per deploy, when `requireAuth` is on. **The frontend does not wait for it**, so a rollout can serve filing requests for as long as the Job takes. | `kubectl get job grid-app-audit-schemas` — within 5 minutes of finishing, `ttlSecondsAfterFinished` reaps it |
-| Docker Compose | one-shot service `audit-schemas`; `frontend` waits on it, so a failure stops the stack instead of serving a Piloti that files nothing | the deploy log for that container |
+| Docker Compose | one-shot service `audit-schemas`; `frontend` waits on it, so a failure stops the stack instead of serving an agent that files nothing | the deploy log for that container |
 
 By hand, from `apps/workspace` — for a fresh environment, a key the deployment does
 not hold, or to check for drift without writing:
@@ -151,7 +151,7 @@ except org admins (who bypass per-project FGA by the named `org-admin-bypass`
 rule) — the report is still delivered, and the success banner says the filing
 failed. A **custom** project role provisioned before this change never gains the
 permission automatically; grant it there by hand, or leave it withheld, which is
-the supported way for a tenant to say "Piloti may answer here, not write".
+the supported way for a tenant to say "the agent may answer here, not write".
 
 Unlike §3 this one is visible: `provision:authz` reports it as drift, and CI runs
 the read-only check.
@@ -208,7 +208,7 @@ questions. Pick by who is pulling.
 
 | Who | Lever | What it does | What it costs |
 |---|---|---|---|
-| **A tenant** that wants Piloti to answer but not write | withhold `project:documents:generate` | Filing is refused for that role, on every producer, before a byte is rendered. Uploads, deletes and re-ingests are untouched. | Put the people on a **custom** project role that omits the permission. Do **not** edit the built-in `project-editor` / `project-admin` roles: they are in `lib/authz/catalog.ts`, and editing them in WorkOS makes `provision:authz --check` fail in CI. |
+| **A tenant** that wants the agent to answer but not write | withhold `project:documents:generate` | Filing is refused for that role, on every producer, before a byte is rendered. Uploads, deletes and re-ingests are untouched. | Put the people on a **custom** project role that omits the permission. Do **not** edit the built-in `project-editor` / `project-admin` roles: they are in `lib/authz/catalog.ts`, and editing them in WorkOS makes `provision:authz --check` fail in CI. |
 | **The operator** who has to stop filing everywhere, now | Switch the `agent-authored-documents` WorkOS flag off (per organization, or for all) | Filing is refused for every affected organization and every producer, at the one seam, before any permission is read. | A dashboard change and no deploy at all; it reaches a signed-in reader at their next sign-in, and the session-less filing paths within the 30 s flag cache. |
 
 Both refuse **before** anything is rendered, stored or charged, so neither leaves
@@ -230,7 +230,7 @@ Two things are stranded by that path, and both should be expected rather than
 discovered: with `uniq_project_folders_parent_name` still in place, the older
 `createProjectFolder` (which gains its `23505` catch only on this branch) answers
 a duplicate folder name with a 500; and already-filed documents lose their
-„Von Piloti erstellt" line, so they read as ordinary human uploads.
+„Von {productName} erstellt" line, so they read as ordinary human uploads.
 
 ## 5. After deploy — what to check
 
@@ -238,7 +238,7 @@ a duplicate folder name with a 500; and already-filed documents lose their
 |---|---|
 | File one report; confirm it appears under `Berichte` | the end-to-end path |
 | Confirm a `document.generated` audit event exists | §3's silent failure |
-| Confirm the report renders **grey / „Von Piloti erstellt"**, never green | provenance must not read as evidence |
+| Confirm the report renders **grey / „Von {productName} erstellt"**, never green | provenance must not read as evidence |
 | Confirm it is **Unvergeben** | nobody is responsible until somebody says so |
 | Ask a question the report would answer; confirm the answer does **not** cite it | the invariant the whole design is shaped around |
 | Move a test user to a project role without `project:documents:generate`; confirm they can still upload a file and that a run files nothing | the lever this feature was missing, exercised once rather than assumed |

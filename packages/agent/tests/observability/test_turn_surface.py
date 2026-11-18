@@ -1,5 +1,3 @@
-"""Where a question was asked, on its trace: ``turn_surface`` and the ``surface:review-canvas`` tag."""
-
 from __future__ import annotations
 
 import pytest

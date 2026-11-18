@@ -25,10 +25,8 @@ import { afterAll, expect } from 'vitest'
 const UI_ROOT = path.resolve(__dirname, '..', '..')
 const REPO_ROOT = path.resolve(UI_ROOT, '..', '..')
 
-/** The header line. One per spec; a spec without one runs on every selection. */
 export const DECLARATION = /^\s*\/\/\s*@disk-inputs:\s*(.+)$/m
 
-/** A spec that starts a process cannot declare: what the child reads, this never sees. */
 export const SPAWNS = /['"](?:node:)?child_process['"]/
 
 type State = { reads: Set<string>; installed: boolean }
@@ -41,11 +39,9 @@ function isFileUrl(target: unknown): target is { pathname: string } {
   return url.protocol === 'file:' && typeof url.pathname === 'string'
 }
 
-/** A read that counts as an input: inside the repository, outside installed packages and build output. */
 export function asInput(target: unknown): string | null {
   let file: string
   if (typeof target === 'string') file = target
-  // By shape, not `instanceof URL`: under a vm pool a spec's URL comes from another realm.
   else if (isFileUrl(target)) file = target.pathname
   else return null
   const absolute = path.resolve(file)
@@ -76,7 +72,6 @@ if (!state.installed) {
 }
 state.reads.clear()
 
-/** One path segment against one glob segment, where `*` is any run of characters. */
 function segmentMatches(glob: string, name: string): boolean {
   const parts = glob.split('*')
   if (parts.length === 1) return glob === name
@@ -92,14 +87,6 @@ function segmentMatches(glob: string, name: string): boolean {
   return true
 }
 
-/**
- * A glob as a test. Only `*` (inside one segment) and `**` (any number of
- * segments, dot-directories too) are wildcards: a declaration names real
- * paths, and Next's `(shell)` and `[...path]` directories are literal there,
- * which no glob library reads them as. `ci/pr_selection.py` matches the same
- * globs with `fnmatch`, whose `*` also crosses `/`: a little wider, so a
- * selection can run a spec this check would not require, never the reverse.
- */
 export function globMatcher(glob: string): (path: string) => boolean {
   const globs = glob.split('/')
   const match = (g: number, names: string[], n: number): boolean => {
@@ -113,7 +100,6 @@ export function globMatcher(glob: string): (path: string) => boolean {
   return (path) => match(0, path.split('/'), 0)
 }
 
-/** Every read the declaration does not cover. A directory read is covered by any glob inside it. */
 export function uncovered(reads: Iterable<string>, globs: string[]): string[] {
   const matchers = globs.map(globMatcher)
   const covers = (read: string) =>
@@ -127,7 +113,6 @@ if (spec) {
   const declared = DECLARATION.exec(source)?.[1]
   const own = asInput(spec)
   afterAll(() => {
-    // Its own source, its snapshots and this setup are the spec's anyway.
     const reads = [...state.reads].filter(
       (read) => read !== own && !read.startsWith('config/vitest/') && !/(^|\/)__snapshots__(\/|$)/.test(read),
     )

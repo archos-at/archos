@@ -31,7 +31,6 @@ interface Expected {
   quote: string
 }
 interface Case {
-  /** The pack holding the style record, from `apps/workspace`. */
   pack: string
   language: string
   lines: Record<string, Expected>
@@ -43,7 +42,6 @@ const { now, cases } = readJson<{ now: string; cases: Case[] }>(`${FIXTURE}/line
 const NOW = new Date(now)
 const citations = readJson<(Omit<CitationSource, 'timestamp'> & { id: string; number: number })[]>(`${FIXTURE}/citations.json`)
 
-/** The pack's citation style, parsed as a proposal of it is. */
 function stylesIn(pack: string): CitationStylePayload | undefined {
   const records = proposedRecordSchema.array().parse(readJson<{ records: unknown[] }>(pack).records)
   for (const record of records) {

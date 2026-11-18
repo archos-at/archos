@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * What creating a project for Piloti writes beside it: the profile facts the
+ * What creating a project for the agent writes beside it: the profile facts the
  * address decides, with the geocoder as evidence, and the intake row, in one
  * write.
  */
@@ -75,14 +75,12 @@ describe('intakeSeed', () => {
     expect(facts.federal_state?.evidence).toBeUndefined()
   })
 
-  // Defect 3 (design 2.2): `outside_austria` was written as country=at.
   it('never writes country=at for a project marked outside Austria', () => {
     const { facts } = intakeSeed({ federalState: 'outside_austria' }, NOW, 'u1')
     expect(facts.country).toBeUndefined()
     expect(facts.federal_state?.value).toBe('outside_austria')
   })
 
-  // Defect 3 (design 2.2): a typed address no register confirmed was stored as a confirmed fact.
   it('keeps a typed address as an unconfirmed assumption with the person as evidence, and derives nothing from it without a postal code', () => {
     const { facts, assumptions } = intakeSeed({ address: '  Am Bahnhof 4, Gänserndorf ' }, NOW, 'u1')
     expect(facts).toEqual({})
@@ -97,8 +95,6 @@ describe('intakeSeed', () => {
     expect(ProjectProfileSchema.parse({ assumptions })).toBeTruthy()
   })
 
-  // Review of #1545, fix 6: with address search off, an Austrian office's new
-  // project must not start without its Land. The PLZ suggests it; the person confirms.
   it('suggests the Bundesland from an Austrian postal code and place, as an unconfirmed derivation', () => {
     const { facts, assumptions } = intakeSeed({ address: 'Herrengasse 16, 8010 Graz' }, NOW, 'u1')
     expect(facts).toEqual({})

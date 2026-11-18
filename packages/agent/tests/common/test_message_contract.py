@@ -1,11 +1,3 @@
-"""Tests for the provider-portable chat-request contract.
-
-These cover the failure family behind issues #291-#294, #333, #335, #336 and
-#340: a request whose last message is an assistant turn, which OpenAI-compatible
-providers accept and Google rejects with
-``400 INVALID_ARGUMENT - Requests ending with a model turn are not supported``.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -29,7 +21,6 @@ class TestNormalizeChatRequest:
 
         assert not ends_on_model_turn(result)
         assert result[-1].content == CONTINUATION_TURN
-        # Context-preserving: the assistant answer is still there, untouched.
         assert result[:2] == messages
 
     def test_leaves_a_request_that_already_ends_on_a_user_turn_alone(self):
@@ -57,12 +48,6 @@ class TestNormalizeChatRequest:
         assert normalize_chat_request([]) == []
 
     def test_unanswered_tool_calls_are_left_to_fail_loudly(self):
-        """A graph bug must stay visible rather than be papered over.
-
-        A trailing assistant turn with pending ``tool_calls`` is malformed on
-        every provider, so normalizing it would hide a tool node that never ran
-        behind a silently degraded answer.
-        """
         messages = [
             HumanMessage(content="q"),
             AIMessage(content="", tool_calls=[{"name": "search", "args": {}, "id": "1"}]),
@@ -86,17 +71,8 @@ class TestEndsOnModelTurn:
 
 
 class TestContractEnforcementAtTheLLMChokepoint:
-    """The contract has to hold for every path a model can be called through.
-
-    Wrapping ``ainvoke`` would have been bypassed by the streaming and
-    structured-output paths — which is where the production failures actually
-    came from — so enforcement sits on the generate/stream hooks that all of
-    these converge on.
-    """
-
     @pytest.mark.asyncio
     async def test_unprotected_model_rejects_a_trailing_assistant_turn(self, strict_provider_llm):
-        """Guards the guard: without the contract this request really does fail."""
         llm = strict_provider_llm(with_contract=False)
 
         with pytest.raises(ProviderContractError, match="ending with a model turn"):
@@ -127,7 +103,6 @@ class TestContractEnforcementAtTheLLMChokepoint:
 
     @pytest.mark.asyncio
     async def test_bound_request_format_calls_are_protected(self, strict_provider_llm):
-        """The structured-output path (``llm.bind(response_format=...)``)."""
         llm = strict_provider_llm(["done"])
 
         bound = llm.bind(response_format={"type": "json_object"})
@@ -145,7 +120,6 @@ class TestContractEnforcementAtTheLLMChokepoint:
 
     @pytest.mark.asyncio
     async def test_per_request_model_copies_carry_the_contract(self, strict_provider_llm):
-        """``model_overrides`` serves per-org requests from ``model_copy`` instances."""
         llm = strict_provider_llm(["done"])
 
         copied = llm.model_copy()
@@ -160,19 +134,11 @@ class TestContractEnforcementAtTheLLMChokepoint:
         assert type(enforce_chat_request_contract(llm)) is before
 
     def test_enforcement_preserves_isinstance_checks(self, strict_provider_llm):
-        """``cards.generate`` branches on ``isinstance(llm, BaseChatModel)``."""
         from langchain_core.language_models import BaseChatModel
 
         assert isinstance(strict_provider_llm(), BaseChatModel)
 
     def test_enforcement_does_not_advertise_streaming_a_model_lacks(self):
-        """A non-streaming model must not start claiming it can stream.
-
-        LangChain decides streaming support by comparing ``_stream``/``_astream``
-        against ``BaseChatModel``'s, so defining them unconditionally on the
-        contract subclass would route non-streaming models into a
-        ``NotImplementedError``.
-        """
         from langchain_core.language_models import BaseChatModel
         from langchain_core.outputs import ChatGeneration
         from langchain_core.outputs import ChatResult

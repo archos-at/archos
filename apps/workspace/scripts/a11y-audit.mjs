@@ -159,7 +159,6 @@ async function auditRoute(browser, base, route, found) {
     let scheme = 'light'
     try {
       const response = await page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
-      // An error page has no title and no lang; reporting those would hide the real fault.
       if (!response?.ok()) throw new Error(`HTTP ${response?.status() ?? 'no response'}`)
       await page.waitForTimeout(2500)
       await page.evaluate(axeSource)
@@ -167,7 +166,6 @@ async function auditRoute(browser, base, route, found) {
         await page.emulateMedia({ colorScheme: scheme })
         await page.evaluate((dark) => {
           document.documentElement.classList.toggle('dark', dark)
-          // The dev overlay is not the product.
           document.querySelectorAll('nextjs-portal').forEach((node) => node.remove())
         }, scheme === 'dark')
         await page.waitForTimeout(400)
@@ -180,7 +178,6 @@ async function auditRoute(browser, base, route, found) {
     } catch (error) {
       found.set(`${route} ${scheme} ${viewport.name} load-failed`, { count: 1, sample: String(error.message).slice(0, 120), help: 'route did not render' })
     }
-    // A crashed browser has closed it already; the next route relaunches one.
     await context.close().catch(() => {})
   }
 }
@@ -226,7 +223,6 @@ try {
   server?.stop()
 }
 
-// The baseline is for the whole route set; a shard or a named subset checks its own part of it.
 const audited = new Set(routes)
 const inScope = (key) => audited.has(key.split(' ')[0])
 if (args.writeBaseline) {
@@ -237,11 +233,9 @@ if (args.writeBaseline) {
 }
 const known = new Set(existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : [])
 const fresh = [...found.keys()].filter((key) => !known.has(key))
-// An entry for a route that no longer exists is reported once, by the full run or the first shard.
 const reportsOrphans = !args.named.length && (!args.shard || args.shard.index === 1)
 const orphan = (key) => reportsOrphans && !discovered.includes(key.split(' ')[0])
 const gone = [...known].filter((key) => (inScope(key) && !found.has(key)) || orphan(key))
-// On GitHub Actions each difference is also an annotation, which the check-run API returns.
 const annotate = (message) => process.env.GITHUB_ACTIONS === 'true' && console.log(`::error title=a11y::${message.replace(/\n/g, '%0A')}`)
 for (const key of fresh) {
   const v = found.get(key)

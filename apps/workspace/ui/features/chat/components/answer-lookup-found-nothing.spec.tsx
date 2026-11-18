@@ -1,14 +1,3 @@
-/**
- * The note on an answer whose search found nothing (ADR-0125).
- *
- * `lookup_found_nothing` on the terminal frame → `lookupFoundNothing` on the
- * message → `AgentResponse`, which says, under the prose and outside the
- * details, that the answer rests on general knowledge. It used to be a canned
- * „nothing retrieved" message INSTEAD of the answer.
- *
- * Rendered for BOTH variants, because the prop is passed twice.
- */
-
 import { render, screen } from '@/test-utils'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { vi, describe, test, expect } from 'vitest'

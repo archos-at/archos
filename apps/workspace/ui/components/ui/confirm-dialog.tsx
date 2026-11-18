@@ -14,27 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-/**
- * Shared confirmation dialog. Every "are you sure?" — destructive or
- * consequential — routes through this so the confirm anatomy (tone icon, copy,
- * button order, pending handling, focus/Escape) is designed once and identical
- * everywhere, instead of being hand-rolled per feature (and drifting) or, worse,
- * falling back to the un-tokenized native `window.confirm`.
- *
- * For the higher-friction "type the name to confirm" case, use
- * `TypeToConfirmDialog` instead.
- *
- * @example
- * <ConfirmDialog
- *   open={open}
- *   onOpenChange={setOpen}
- *   title="Delete session?"
- *   description="This can't be undone."
- *   confirmLabel="Delete"
- *   cancelLabel="Cancel"
- *   onConfirm={() => deleteSession(id)}
- * />
- */
 export interface ConfirmDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,30 +21,12 @@ export interface ConfirmDialogProps {
   description?: ReactNode
   confirmLabel: string
   cancelLabel: string
-  /**
-   * Visual + semantic tone. `destructive` (default) = red alert icon +
-   * destructive button (irreversible loss); `warning` = gold alert icon +
-   * destructive button (consequential but recoverable); `default` = no icon +
-   * ink primary button (plain confirm).
-   */
   tone?: 'destructive' | 'warning' | 'default'
-  /** Override the header icon; pass `null` to force no icon. */
   icon?: LucideIcon | null
   onConfirm: () => void | Promise<void>
-  /**
-   * External in-flight flag. When provided it drives the disabled/pending state;
-   * when omitted, an internal pending state wraps an async `onConfirm`.
-   */
   pending?: boolean
-  /** Extra content between the description and the footer (e.g. a warning Alert). */
   children?: ReactNode
-  /** Optional test id forwarded to the confirm button. */
   confirmTestId?: string
-  /**
-   * Hold the confirm button disabled, e.g. until an "I understand" checkbox in
-   * `children` is ticked. For a confirmation that must be read, not clicked
-   * through; the name-typing variant is `TypeToConfirmDialog`.
-   */
   confirmDisabled?: boolean
 }
 
@@ -87,9 +48,6 @@ export const ConfirmDialog: FC<ConfirmDialogProps> = ({
   const [internalPending, setInternalPending] = useState(false)
   const pending = pendingProp ?? internalPending
 
-  // destructive tone uses the destructive (red) button; warning is consequential
-  // but recoverable so it keeps the destructive button with a gold header icon;
-  // default is a neutral ink confirm.
   const confirmVariant = tone === 'default' ? 'default' : 'destructive'
   const Icon = icon === null ? null : (icon ?? (tone === 'default' ? null : AlertTriangle))
 
@@ -100,22 +58,16 @@ export const ConfirmDialog: FC<ConfirmDialogProps> = ({
 
   const handleConfirm = async () => {
     if (pendingProp === undefined) {
-      // Manage our own pending state around an async confirm, then close on
-      // success. A throwing onConfirm keeps the dialog open so the error shows.
       try {
         setInternalPending(true)
         await onConfirm()
         onOpenChange(false)
       } catch {
         // A throwing `onConfirm` means the action did not land, so the dialog
-        // stays open and the caller's own error surface is what explains it.
-        // Caught here rather than left to propagate: the click handler calls
-        // this with `void`, so a rejection would be an unhandled one.
       } finally {
         setInternalPending(false)
       }
     } else {
-      // Caller owns pending + closing (e.g. closes after a mutation settles).
       await onConfirm()
     }
   }
@@ -126,9 +78,6 @@ export const ConfirmDialog: FC<ConfirmDialogProps> = ({
         <DialogHeader>
           <div className="flex items-start gap-3.5">
             {Icon && (
-              // The icon sits in the shared EmptyState `sm` tone disc (the
-              // Linear/Apple confirm pattern) so the dialog reads as a
-              // considered object, not a bare glyph + text.
               <EmptyStateDisc
                 icon={Icon}
                 tone={tone === 'warning' ? 'warning' : 'destructive'}

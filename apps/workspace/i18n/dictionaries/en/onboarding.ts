@@ -1,4 +1,3 @@
-/** onboarding namespace — the organization setup screen and the product tour. */
 export const onboarding = {
   validation: {
     nameRequired: 'Organization name is required.',

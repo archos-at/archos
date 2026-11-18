@@ -256,6 +256,10 @@
     "de": "Ein Dokument, das erneut eingelesen, archiviert oder ersetzt wird, während ein älterer Hintergrundschritt noch läuft, wird nicht mehr als fehlgeschlagen markiert."
   },
   {
+    "en": "A document the agent wrote and you published no longer drops out of search after the weekly cleanup. Until now it could only be found again once it was published anew.",
+    "de": "Ein vom Agenten erstelltes und von Ihnen veröffentlichtes Dokument verschwindet nach der wöchentlichen Bereinigung nicht mehr aus der Suche. Bislang lässt es sich erst wieder finden, wenn es erneut veröffentlicht wird."
+  },
+  {
     "en": "A document whose reading failed can be read again from its own card: \"Erneut lesen\" is in the ⋯ menu, beside rename and delete, wherever the failure is shown. Until now the card only said it had failed, and the one retry was two clicks inside a viewer you had no reason to open.",
     "de": "Ein Dokument, dessen Lesen fehlgeschlagen ist, lässt sich direkt auf seiner Karte erneut lesen: „Erneut lesen“ steht im ⋯-Menü neben Umbenennen und Löschen, überall dort, wo der Fehler angezeigt wird. Bisher meldete die Karte nur den Fehler, und der einzige Versuch führte über zwei Klicks in einer Ansicht, die Sie ohne Grund öffnen mussten."
   },
@@ -1218,6 +1222,10 @@
   {
     "en": "An archived document no longer turns up as a source in answers, whoever wrote it. The file and its versions stay where they were; archiving is not deleting.",
     "de": "Ein archiviertes Dokument taucht nicht mehr als Quelle in Antworten auf, gleich wer es verfasst hat. Die Datei und ihre Fassungen bleiben erhalten; Archivieren ist kein Löschen."
+  },
+  {
+    "en": "An assistant connected to your workspace now reads its guide, catalog and project overviews under new addresses that start with „workspace://“. The old addresses keep working until the end of 2026, so connected assistants have time to pick up the new ones on their own.",
+    "de": "Ein mit Ihrem Workspace verbundener Assistent ruft seine Anleitung, den Katalog und Projektübersichten jetzt unter neuen Adressen ab, die mit „workspace://“ beginnen. Die alten Adressen funktionieren bis Ende 2026 weiter, damit verbundene Assistenten Zeit haben, selbst auf die neuen umzusteigen."
   },
   {
     "en": "An assistant connected to your workspace that asks Piloti a question can now show that Piloti is still working on the answer, or come back for it later without waiting.",
@@ -5138,6 +5146,10 @@
   {
     "en": "When you connect Claude, Cursor or another agent to Piloti, it can now read a short guide to your workspace, a glossary of the office's terms and the list of what it may do. It also offers ready workflows (a project briefing, a building-law check, what is on your plate) and your office's own skills by name.",
     "de": "Wenn Sie Claude, Cursor oder einen anderen Agenten mit Piloti verbinden, kann dieser jetzt einen kurzen Leitfaden zu Ihrem Arbeitsbereich, ein Glossar der bürointernen Begriffe und eine Liste der erlaubten Aktionen lesen. Außerdem stellt er fertige Workflows (Projektbriefing, baurechtliche Prüfung, Ihre anstehenden Aufgaben) sowie die Skills Ihres Büros unter ihren jeweiligen Namen bereit."
+  },
+  {
+    "en": "When you connect your own AI assistant to the workspace, the setup steps now suggest the server name „workspace“. Assistants you have already connected keep the name you gave them and need no change.",
+    "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbinden, schlagen die Einrichtungsschritte jetzt den Servernamen „workspace“ vor. Bereits verbundene Assistenten behalten den von Ihnen vergebenen Namen und müssen nicht geändert werden."
   },
   {
     "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",

@@ -1,9 +1,3 @@
-"""The closed-project reading: what the documents state, bounded and checked in code.
-
-The model is the reader, so these tests pin the contract around it and never its wording:
-the schema it is held to, what it is shown, and which of its answers the code keeps.
-"""
-
 from __future__ import annotations
 
 import json
@@ -33,8 +27,6 @@ from agent.knowledge.schema import AvailableDocument
 
 
 class FakeLLM:
-    """Answers each call in turn: a reply dict or string, or an exception to raise. Records what it was asked."""
-
     def __init__(self, *replies: Any):
         self.replies = list(replies)
         self.bound: list[dict[str, Any]] = []
@@ -85,7 +77,6 @@ def _pages(*texts: str) -> list[tuple[str, str]]:
 
 
 def _fetch_from(files: dict[str, Any]):
-    """A ``fetch_pages`` over an in-memory collection; a file mapped to None is missing."""
 
     def fetch(collection: str, file_name: str):
         return files.get(file_name)
@@ -105,9 +96,6 @@ def _request(**overrides: Any) -> ProjectExperienceRequest:
         **overrides,
     }
     return ProjectExperienceRequest.model_validate(body)
-
-
-# --- choose_documents -----------------------------------------------------------------------
 
 
 def test_a_file_name_the_inventory_does_not_have_is_dropped():
@@ -152,8 +140,6 @@ def test_a_summary_is_cut_to_400_characters():
     assert "k" * 401 not in shown
     assert "ENDMARK" not in shown
 
-
-# --- extract_fingerprint --------------------------------------------------------------------
 
 FEDERAL_STATE_QUOTE = "Das Vorhaben liegt in Niederösterreich."
 
@@ -268,9 +254,6 @@ def test_the_fingerprint_call_demands_a_strict_schema_with_no_extra_keys():
     assert json_schema["schema"]["additionalProperties"] is False
 
 
-# --- draft_decisions ------------------------------------------------------------------------
-
-
 def _decision(content: str = "Brandsperre je Geschoß.", quote: str = "Brandsperre") -> dict[str, Any]:
     return {
         "kind": "decision",
@@ -332,9 +315,6 @@ def test_the_known_decisions_are_shown_as_already_known():
     assert "Brandsperre je Geschoß aus 1 mm Stahlblech" in llm.user_prompt()
 
 
-# --- the request and reply contracts --------------------------------------------------------
-
-
 def test_the_request_reads_the_contract_spelling():
     request = _request(knownFacts=["federal_state"], knownDecisions=["Brandsperre"])
 
@@ -357,16 +337,12 @@ def test_a_known_decision_longer_than_300_characters_is_refused():
     "model", [Evidence, FingerprintValue, DraftedDecision, ChosenFiles, FingerprintReply, DecisionReply]
 )
 def test_every_field_of_a_strict_reply_is_required(model):
-    """Strict structured output has no defaults: a field with one is refused by the provider's schema."""
     schema = model.model_json_schema()
     definitions = schema.get("$defs", {})
     for definition in [schema, *definitions.values()]:
         properties = definition.get("properties")
         if properties:
             assert set(definition.get("required", [])) == set(properties)
-
-
-# --- read_project_experience ----------------------------------------------------------------
 
 
 def test_a_closed_project_is_read_end_to_end_and_each_value_names_its_file():
@@ -485,7 +461,6 @@ def test_chosen_files_with_no_readable_text_are_no_documents():
 
 
 def test_a_store_that_cannot_be_read_is_extraction_failed_not_no_documents():
-    """``no_documents`` says the project has nothing to read; an outage says nothing about that."""
     llm = FakeLLM({"file_names": ["a.pdf"]})
 
     def down(collection, file_name):
@@ -572,7 +547,6 @@ def _read_one(text: str, quote: str):
 
 
 def test_a_quote_the_document_does_not_contain_is_no_evidence():
-    # The model's quote is the proof; one it made up proves nothing, however plausible.
     response = _read_one("Das Gebäude ist ein Wohnhaus in Holzbauweise.", "Gebäudeklasse 4")
     assert response.fingerprint == []
 
@@ -587,12 +561,7 @@ def test_a_quote_from_text_the_bound_cut_off_is_not_what_the_pens_read():
     assert response.fingerprint == []
 
 
-# --- only the files the BFF names --------------------------------------------------------------
-
-
 def test_a_file_the_request_does_not_name_is_never_offered_nor_read():
-    # The collection can still hold a document moved into a restricted folder, or one the upload
-    # screen holds: the BFF leaves it out of fileNames, and nothing of it may reach a pen.
     llm = FakeLLM(
         {"file_names": ["a.pdf", "Honorare.pdf"]},
         {"values": [{"key": "building_class", "value": "5", "evidence": [_ev("Honorare.pdf", "GK 5")]}]},

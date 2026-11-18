@@ -1,9 +1,3 @@
-/**
- * A scroller a keyboard can reach, but only when there is something to scroll.
- *
- * A mouse or a finger scrolls a wide table sideways without focus; a keyboard
- * cannot, so the columns past the edge were out of its reach.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 
@@ -51,7 +45,6 @@ describe('HorizontalScroll, with an edge cue', () => {
         <div />
       </HorizontalScroll>
     )
-    // At rest the strip is at its start: more lies to the right, nothing to the left.
     expect(container.querySelectorAll('svg.lucide-chevron-right')).toHaveLength(1)
     expect(container.querySelectorAll('svg.lucide-chevron-left')).toHaveLength(0)
   })
@@ -91,7 +84,6 @@ describe('HorizontalScroll, when its content is replaced', () => {
     )
     expect(screen.queryByRole('region')).toBeNull()
 
-    // The drawing lands in the skeleton's place and is wider than the column.
     rerender(
       <HorizontalScroll aria-label="Diagramm, seitlich scrollbar">
         <svg data-testid="drawing" />
@@ -99,8 +91,6 @@ describe('HorizontalScroll, when its content is replaced', () => {
     )
     layout(900, 300)
     const drawing = screen.getByTestId('drawing')
-    // Whatever is observed must still contain the new child, or no resize of
-    // it is ever reported.
     expect(
       observed.some(
         (target) =>

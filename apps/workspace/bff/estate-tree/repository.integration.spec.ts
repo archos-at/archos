@@ -83,7 +83,7 @@ describe.skipIf(!url)('the estate tree against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -118,7 +118,6 @@ describe.skipIf(!url)('the estate tree against Postgres', () => {
     await insertDocument('restricted', { filename: 'Gehaltsliste.pdf', folder: personal, collection: restrictedCollectionName(COLLECTION, personal) })
     await insertDocument('restrictedChild', { filename: 'Dienstvertrag.pdf', folder: folder['Personal/Verträge'], collection: restrictedCollectionName(COLLECTION, personal) })
     await insertDocument('binned', { filename: 'Alt.pdf', folder: binned })
-    // Binned after its document is filed: nothing may be filed into a deleted folder (migration 0111's trigger).
     await as(ORG, () =>
       db.execute(sql`UPDATE project_folders SET deleted_at = now(), deleted_by = ${USER}, bin_root_id = id WHERE id = ${binned}::uuid`),
     )
@@ -240,7 +239,6 @@ describe.skipIf(!url)('the estate tree against Postgres', () => {
     const foreign = { ...reach, organizationId: OTHER_ORG }
     expect((await as(OTHER_ORG, () => repo.listTreeFolders(foreign))).rows).toEqual([])
     expect(await allDocuments({ kind: 'reach', reach: foreign }, OTHER_ORG)).toEqual([])
-    // Asked in the other tenant for this one's rows: RLS answers nothing.
     expect(await allDocuments({ kind: 'reach', reach }, OTHER_ORG)).toEqual([])
     expect(await allDocuments({ kind: 'session', reach, conversationId: CHAT }, OTHER_ORG)).toEqual([])
   })

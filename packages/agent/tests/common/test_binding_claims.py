@@ -1,9 +1,3 @@
-"""Sentences that state law the turn's records do not carry (citations spec G27, dev answers of 2026-11-10).
-
-The rules read data: the works the turn holds, the gate, and the words in ``configs/norms/*/claim_terms.yml``.
-The data-driven cases use an invented work and its own words; the live cases run against the repository's.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -34,7 +28,6 @@ def _runs(*words: str) -> tuple[tuple[str, ...], ...]:
     return tuple(tokens(word) for word in words)
 
 
-#: An invented language's words, to show the rule reads them and holds none of its own.
 TERMS = ClaimTerms(
     binding=_runs("bindet", "in Geltung"),
     requirement=_runs("zwingend"),
@@ -53,9 +46,6 @@ KB = SourceEntry(citation_key="technische_regel_2.pdf, p.4", source_type="knowle
 
 def _claims(content: str, *, may_bind: bool, cited=((WEB, 1), (KB, 2)), terms: ClaimTerms = TERMS):
     return binding_claims(content, cited, may_bind=may_bind, works=[WORK], terms=terms)
-
-
-# -- only web sources ---------------------------------------------------------
 
 
 def test_a_sentence_that_names_a_held_work_from_a_web_page_alone_is_a_claim_under_any_gate():
@@ -85,9 +75,6 @@ def test_the_reference_list_is_not_read_as_sentences():
     assert _claims(content, may_bind=True) == []
 
 
-# -- a gate that may not bind -------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "sentence",
     [
@@ -111,12 +98,8 @@ def test_quoting_a_held_work_without_saying_it_binds_is_no_claim():
 
 
 def test_without_the_words_only_the_rules_that_need_none_run():
-    """No locale data for a language: the gate rule is silent, the web-only rule still names the held work."""
     assert _claims("Die Technische Regel 2 bindet hier [2].", may_bind=False, terms=ClaimTerms()) == []
     assert len(_claims("Nach Technische Regel 2 sind es 40 m [1].", may_bind=False, terms=ClaimTerms())) == 1
-
-
-# -- the words are data -------------------------------------------------------
 
 
 def _country_dir(tmp_path, terms_yaml: str):
@@ -147,8 +130,6 @@ def test_the_repository_s_words_load_for_german_and_english():
     assert ("ausgabe",) in terms.edition and ("nicht",) in terms.negation
 
 
-# -- the live cases (dev, 2026-11-10), against the repository's records -------
-
 LAW_MIRRORS = (
     SourceEntry(
         url="https://gesetzefinden.at/landesrecht/landesgesetze/wgarg-2008/para-50",
@@ -174,7 +155,6 @@ def _gate(state: str) -> None:
 
 
 def test_the_garage_law_answer_cited_from_two_mirrors_is_recorded_and_scored():
-    """„Was sagt § 50 Wiener Garagengesetz?" (dev, 20:10Z): cited [Web] gesetzefinden and jusline."""
     set_turn_knowledge_context(KnowledgeContext(gate="site_unknown", retrieval_countries=frozenset({"AT"})))
     content = (
         "§ 50 Wiener Garagengesetz 2008 legt den **Regelbedarf an Stellplätzen nach Nutzungsart** fest [1]. "
@@ -188,7 +168,6 @@ def test_the_garage_law_answer_cited_from_two_mirrors_is_recorded_and_scored():
     assert len(law_cited_from_web(content, cited)) >= 1
 
 
-#: The Wien answer of 2026-11-12 (conversation s_7bce72bc…, answer 558f2d73…): the records held the day.
 WIEN_DATE = (
     "In Wien gilt die **OIB-Richtlinie 4, Ausgabe Mai 2023, seit 23. Februar 2024**: Die WBTV 2023 trat am Tag "
     "nach ihrer Kundmachung in Kraft [2]; das Datum bestätigt die Kammer der Ziviltechniker:innen [3]."
@@ -208,7 +187,6 @@ OIB_RL_4 = HeldWork(
 
 
 def test_a_web_page_cited_beside_the_legal_database_for_a_held_work_s_binding_day_is_law_cited_from_web(monkeypatch):
-    """The page neither copies nor names the work; the sentence citing it does, and the records hold its day."""
     monkeypatch.setattr(web_sources, "held_works", lambda: (OIB_RL_4,))
     cited = [(RIS_PARAGRAPH, 2), (CHAMBER_NEWSLETTER, 3)]
     assert law_cited_from_web(WIEN_DATE, cited, works=[OIB_RL_4]) == ["OIB-Richtlinie 4"]
@@ -231,7 +209,6 @@ def test_a_written_date_does_not_end_its_sentence():
 
 
 def test_a_binding_edition_named_from_a_web_page_is_recorded():
-    """„Laut OIB gilt dort seit 16. Juli 2026 die Ausgabe 2025 [2]" (dev, 17:21Z), from a page of the publisher."""
     _gate("none")
     page = SourceEntry(
         url="https://www.oib.or.at/de/inkrafttreten-2015", title="Inkrafttreten", source_type="generic", tool_name="web"
@@ -241,7 +218,6 @@ def test_a_binding_edition_named_from_a_web_page_is_recorded():
 
 
 def test_a_requirement_stated_before_the_records_are_published_is_recorded():
-    """The fire-resistance answer of dev, 17:20Z, with coverage none."""
     _gate("none")
     assert [claim.reason for claim in turn_binding_claims(REQUIREMENT, [(GUIDELINE_PASSAGE, 1)])] == [
         "gate_may_not_bind"
@@ -295,7 +271,6 @@ def test_the_answer_s_scores_are_one_boolean_each_with_counts_and_no_prose(monke
 
 
 def test_the_three_scores_are_declared_as_the_agent_s_or_nothing_is_written():
-    """``emit_scores`` refuses a name ``SCORE_DEFINITIONS`` does not hold: an undeclared score is silence."""
     from agent.observability.langfuse_scores import SCORE_DEFINITIONS
 
     declared = {definition.name: definition for definition in SCORE_DEFINITIONS}

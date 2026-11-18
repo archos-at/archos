@@ -1,8 +1,3 @@
-/**
- * Who a forwarded mail originally came from, read from the forwarded text
- * the way German and English mail programs write it. Never for a reply.
- */
-
 import { describe, expect, it } from 'vitest'
 import { forwardedOrigin, parseAddressLine } from './forwarded'
 

@@ -1,55 +1,3 @@
-/**
- * Receiving one mail: the webhook the Cloudflare Email Worker posts each
- * message to (ADR-0138, `POST /api/internal/signed/inbound-mail`). It decides
- * the answer, streams the raw message to staging and queues the job that reads
- * it. It parses nothing, and it can file nothing: a mail is only ever HELD here
- * (`review-first.spec.ts` keeps every filing module out of its imports).
- *
- * ## The order of work (DECISION §6, Receive), and why it is this order
- *
- *  1. The RFC 9421 signature, by the route factory, before this runs: method,
- *     URL, body digest and length, and both envelope headers are bound to a
- *     key we hold, so nothing below acts on a header anyone could rewrite.
- *  2. The pause switch (`INBOUND_MAIL_PAUSED`): 503, the sender retries.
- *  3. The envelope headers, decoded (`decodeEnvelopeAddress`). A malformed
- *     escape is the Worker's bug, never the sender's: 400 without a verdict.
- *  4. The token, resolved under the platform bypass (ids only). Unknown: 404
- *     with the reject verdict, after a charge to a bucket of its own, so a
- *     guesser walking the token space never spends real mail's budget.
- *  5. The organization's scope, then its `inbound-mail` flag, read from WorkOS
- *     so that a failed lookup is a 503 (retry), never an "off" that bounces.
- *  6. The signed length against the largest message: 413 with the verdict.
- *  7. The rate limits (per signing key, organization, address) and the byte
- *     caps on what is staged (per address, per organization): 429, retried.
- *     All of it before a byte of the body is read.
- *  8. The `receiving` row, naming the bucket and the exact key first (ADR-0043).
- *  9. The body streamed to `raw.eml`, counted and hashed as it flows
- *     (`streamBodyTo`) and kept for the delivery key.
- * 10. The byte count must EQUAL the signed length and the bytes must hash to
- *     the signed digest: a short body is a 503 `body-truncated` (retried), a
- *     tampered one a 401 (`bad-digest`).
- * 11. The delivery key (`deliveryKey`: the authored headers, the DKIM
- *     signature values and the body, so a relay's prepended lines do not make
- *     a redelivery new, and a copy with a stripped or broken signature is not
- *     the signed one). A mail this address already holds answers 200 and its
- *     second copy is erased. An unreadable header block is never a duplicate.
- * 12. `received` and the receive job, in one transaction.
- * 13. 202.
- *
- * ## The answer is a contract (`contracts/inbound-mail-contract.json`)
- *
- * The Worker bounces a mail ONLY on a 4xx carrying `x-inbound-verdict: reject`:
- * an unknown or revoked address, an office with the feature off (the same
- * text, so a bounce teaches a guesser nothing), a message too large. Every
- * other answer makes it throw, and the sending server retries for days: a
- * pause, a store or database outage, a limit, a cut body, our own
- * misconfiguration. A closed project holds its mail (RT-X13).
- *
- * One PII-free log line per delivery (ids, sizes, the outcome code), and a
- * PostHog event for a refusal. Never a sender, a subject or an address: the
- * token in the recipient is a secret too.
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { ApiError, BadRequestError, PayloadTooLargeError, ServiceUnavailableError } from '@/lib/api/errors'
@@ -91,19 +39,12 @@ import {
 } from './repository'
 import { eraseStagedObjects, putRawMessage, stagingBucketFor } from './staging'
 
-/** Raw bytes staged per address at most (D18): a leaked address fills its own cap, never the office's. */
 export const INBOUND_MAIL_ADDRESS_STAGED_BYTES = 1024 * 1024 * 1024
 
-/** Raw bytes staged per organization at most (D18). */
 export const INBOUND_MAIL_ORGANIZATION_STAGED_BYTES = 5 * 1024 * 1024 * 1024
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/**
- * What one delivery came to. English codes for the log line and PostHog's
- * `inbound_mail_refused.reason`; the operator's alerts match on them
- * (`kubernetes.md` §3c).
- */
 export type DeliveryOutcomeCode =
   | 'accepted'
   | 'duplicate'
@@ -120,7 +61,6 @@ export type DeliveryOutcomeCode =
   | 'bad_digest'
   | 'unavailable'
 
-/** The outcomes that count as a refusal in PostHog (the sender's server bounced or will retry). */
 const REFUSALS: ReadonlySet<DeliveryOutcomeCode> = new Set([
   'unknown_address',
   'switched_off',
@@ -136,21 +76,13 @@ const REFUSALS: ReadonlySet<DeliveryOutcomeCode> = new Set([
   'unavailable',
 ])
 
-/**
- * A permanent refusal: the only error the answer marks with the reject
- * verdict, and the only one the Worker bounces. One text for every reason
- * ({@link rejectText}): an address switched off reads as unknown.
- */
 export class InboundMailRejectedError extends ApiError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'unknown_address' | 'switched_off' | 'too_large'>) {
     super(outcome === 'too_large' ? 413 : 404, outcome === 'too_large' ? 'PAYLOAD_TOO_LARGE' : 'NOT_FOUND', rejectText(configuredPublicSiteOrigin()))
-    // Spelled out: `ApiError` names itself by `new.target.name`, which the
-    // production bundle minifies (dev's first named refusal read `A`).
     this.name = 'InboundMailRejectedError'
   }
 }
 
-/** A refusal the sending server retries: no verdict, a code for the log. */
 class InboundMailRetryError extends ServiceUnavailableError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'paused' | 'misconfigured' | 'unavailable'>, message: string) {
     super(message, { reason: outcome })
@@ -158,7 +90,6 @@ class InboundMailRetryError extends ServiceUnavailableError {
   }
 }
 
-/** Over a byte cap: 429 without a verdict, so the mail waits at the sender until mail is filed or expires. */
 class StagedBytesCapError extends ApiError {
   readonly outcome = 'cap_reached' as const
   constructor() {
@@ -167,15 +98,12 @@ class StagedBytesCapError extends ApiError {
   }
 }
 
-/** Whether the deployment's pause switch is on (`INBOUND_MAIL_PAUSED`, Pulumi `inboundMailPaused`). */
 export function inboundMailPaused(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return (env.INBOUND_MAIL_PAUSED ?? '').trim().toLowerCase() === 'true'
 }
 
-/** What one delivery did, for its one log line: ids, sizes and codes, never a name or an address. */
 interface Trail {
   outcome: DeliveryOutcomeCode
-  /** The last step the delivery started; a refusal happened there. */
   stage: DeliveryStage
   organizationId: string | null
   addressId: string | null
@@ -184,12 +112,6 @@ interface Trail {
   error: string | null
 }
 
-/**
- * The steps of a delivery, in order, as `inbound_mail_refused.stage` and the
- * log line name them. With `error` (the class and code chain, never a message)
- * a refusal says where it failed and why without anyone reading a pod's log:
- * `unavailable` alone hid a refused storage bucket for two days in 2026-11.
- */
 export const DELIVERY_STAGES = [
   'envelope',
   'address',
@@ -207,10 +129,6 @@ export interface ReceiveContext {
   signature: VerifiedSignature
 }
 
-/**
- * Answer one delivery. Never throws: every outcome is a response, and every
- * response logs exactly one line.
- */
 export async function receiveInboundMail(context: ReceiveContext, now: () => Date = () => new Date()): Promise<Response> {
   const started = Date.now()
   const trail: Trail = {
@@ -232,11 +150,8 @@ export async function receiveInboundMail(context: ReceiveContext, now: () => Dat
   }
 }
 
-/** The response for a refusal, marked with the verdict only when it is one the Worker may bounce. */
 function refusalResponse(error: unknown, request: Request, trail: Trail): Response {
   trail.outcome = outcomeOf(error)
-  // Never hand an unknown error to the logger or the client: a database
-  // error's message carries the statement's parameters (the envelope sender).
   const known = error instanceof ApiError ? error : new InboundMailRetryError('unavailable', 'Try again later')
   if (!(error instanceof ApiError) || UNEXPLAINED.has(trail.outcome)) trail.error = describeError(error)
   const response = errorResponse(known, request)
@@ -264,13 +179,10 @@ function outcomeOf(error: unknown): DeliveryOutcomeCode {
   return 'unavailable'
 }
 
-/** The outcomes whose answer alone does not say what failed: their error is described even when it is an `ApiError`. */
 const UNEXPLAINED: ReadonlySet<DeliveryOutcomeCode> = new Set(['unavailable', 'misconfigured'])
 
-/** How many causes `describeError` follows. */
 const CAUSE_DEPTH = 4
 
-/** The class and code of an error, never its message. */
 function errorName(error: unknown): string {
   if (!(error instanceof Error)) return typeof error
   const fields = error as Error & { code?: unknown; Code?: unknown; $metadata?: { httpStatusCode?: unknown } }
@@ -279,11 +191,6 @@ function errorName(error: unknown): string {
   return `${error.name}${code ? `:${code}` : ''}${status ? `:http${status}` : ''}`
 }
 
-/**
- * The error and its causes, outermost first (`A < B < C`): classes, codes and
- * an object store's HTTP status, never a message, since a message can carry an
- * envelope address or an organization's name. Exported for its spec.
- */
 export function describeError(error: unknown): string {
   const names: string[] = []
   let current: unknown = error
@@ -306,17 +213,11 @@ function logDelivery(trail: Trail, ms: number): void {
   else console.warn(line)
 }
 
-// ---------------------------------------------------------------------------
-// Steps 2-13
-// ---------------------------------------------------------------------------
-
 interface Envelope {
   token: string
-  /** The SMTP MAIL FROM, decoded; `''` for the null reverse-path of a bounce. */
   from: string
 }
 
-/** Steps 2 and 3: the pause, then the envelope, decoded and parsed. */
 function readEnvelope(request: Request): Envelope {
   if (inboundMailPaused()) throw new InboundMailRetryError('paused', 'Receiving mail is paused')
   const toHeader = request.headers.get(ENVELOPE_TO_HEADER)
@@ -330,19 +231,16 @@ function readEnvelope(request: Request): Envelope {
     to = decodeEnvelopeAddress(toHeader)
     from = decodeEnvelopeAddress(fromHeader)
   } catch {
-    // A malformed %-escape: the Worker never writes one. No verdict, so the sender retries.
     throw new BadRequestError('An envelope header is not encoded as agreed', { reason: 'bad-envelope' })
   }
   const domain = inboundMailDomain()
   if (!domain) throw new InboundMailRetryError('misconfigured', 'This deployment receives no mail')
   const recipient = parseInboundAddress(to, domain)
-  // Cloudflare routes only our domain to the Worker: another one is our configuration, not the sender.
   if (recipient.kind === 'foreign') throw new InboundMailRetryError('misconfigured', 'The recipient is not in our domain')
   if (recipient.kind === 'malformed') throw new UnknownTokenError()
   return { token: recipient.token, from }
 }
 
-/** A recipient that names no project: charged to its own bucket, then rejected. */
 class UnknownTokenError extends Error {}
 
 async function acceptDelivery(
@@ -373,7 +271,6 @@ async function acceptDelivery(
   return withTenant({ organizationId: resolved.organizationId }, () => acceptForAddress(request, signature, resolved, sender, trail, now))
 }
 
-/** Steps 5-13, inside the organization's scope. */
 async function acceptForAddress(
   request: Request,
   signature: VerifiedSignature,
@@ -419,8 +316,6 @@ async function acceptForAddress(
     ? 'duplicate'
     : await completeReception({ mailId, ...owner, deliveryKey: delivery, rawSizeBytes: length })
   if (outcome === 'duplicate') {
-    // The mail is held already (a sender's retry after a lost answer, a replay):
-    // its second copy goes, and the row is swept as a reception that ended.
     await discardReception(bucket, key, mailId)
     trail.outcome = 'duplicate'
     return { outcome: 'duplicate' }
@@ -429,7 +324,6 @@ async function acceptForAddress(
   return { outcome: 'accepted' }
 }
 
-/** Step 5: the office's `inbound-mail` entitlement. A lookup that fails is a 503, never an "off" that bounces. */
 async function requireFeature(organizationId: string): Promise<void> {
   let featureFlags: string[]
   try {
@@ -442,13 +336,6 @@ async function requireFeature(organizationId: string): Promise<void> {
   if (!isFeatureEnabled({ featureFlags }, FEATURE_FLAGS.inboundMail)) throw new InboundMailRejectedError('switched_off')
 }
 
-/**
- * Step 7: the rate limits, then the byte caps, all before the body is read.
- * Narrowest first (address, organization, signing key): a bucket is spent even
- * when it refuses, so a refusal must never have charged a wider one. One
- * flooded address then spends 120 of its office's 600 and nothing more.
- * Exported for its spec.
- */
 export async function enforceInboundLimits(signature: VerifiedSignature, address: ResolvedInboundAddress, length: number): Promise<void> {
   await enforceLimit(INBOUND_MAIL_ADDRESS_LIMIT, `${address.organizationId}:${address.addressId}`)
   await enforceLimit(INBOUND_MAIL_ORGANIZATION_LIMIT, address.organizationId)
@@ -458,12 +345,6 @@ export async function enforceInboundLimits(signature: VerifiedSignature, address
   if (staged.organization + length > INBOUND_MAIL_ORGANIZATION_STAGED_BYTES) throw new StagedBytesCapError()
 }
 
-/**
- * Steps 9 and 10: the body to `raw.eml` as it streams, held to the signed
- * length and digest, and kept for the delivery key (at most 26 MiB, the
- * Worker's own buffer). A refusal or a store fault erases what was written and
- * leaves the row for the sweep.
- */
 async function stageRawMessage(
   request: Request,
   signature: VerifiedSignature,
@@ -488,7 +369,6 @@ async function stageRawMessage(
   }
 }
 
-/** The upload; a store fault is a 503 the sender retries. A body refusal is the stream's own error. */
 async function storeRaw(bucket: string, key: string, body: ReadableStream<Uint8Array>, length: number): Promise<void> {
   try {
     await putRawMessage(bucket, key, body, length)
@@ -500,7 +380,6 @@ async function storeRaw(bucket: string, key: string, body: ReadableStream<Uint8A
   }
 }
 
-/** Every byte of `body`, at most `length` of them (the meter refuses more before they arrive here). */
 async function collect(body: ReadableStream<Uint8Array>, length: number): Promise<Uint8Array> {
   const bytes = new Uint8Array(length)
   let offset = 0
@@ -513,7 +392,6 @@ async function collect(body: ReadableStream<Uint8Array>, length: number): Promis
   }
 }
 
-/** Erase a reception's object by its key and stop naming it. Best effort: sweep 1 finishes what this cannot. */
 async function discardReception(bucket: string, key: string, mailId: string): Promise<void> {
   try {
     const left = await eraseStagedObjects(bucket, [key])

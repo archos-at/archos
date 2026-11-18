@@ -1,9 +1,3 @@
-/**
- * What the site plan and the dimension diagram took over from two retired
- * cards: the Bebauungsgrad / GFZ readout (`density_check`) and the lift cabin
- * plan (`elevator_requirement`). The ratios are computed here from areas; the
- * model supplies areas and limits only.
- */
 import { describe, expect, it } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
@@ -61,7 +55,6 @@ describe('SetbackPlanCard readout', () => {
       />
     )
     expect(screen.getByText('Bebauungsgrad')).toBeInTheDocument()
-    // 12 × 30 on 20 × 50: 36 %.
     expect(screen.getByText(/36/)).toBeInTheDocument()
   })
 })

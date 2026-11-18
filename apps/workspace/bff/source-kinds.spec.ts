@@ -22,6 +22,7 @@ import {
   type Shelf,
   type SourceKind,
 } from './source-kinds'
+import { LEGACY_AGENT_AUTHORED_LANE, isAgentLane } from './legacy-lane-names'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 describe('asSourceKind', () => {
@@ -58,7 +59,7 @@ describe('the German spellings a stored lane still carries', () => {
 
   test('a lane reads as its English key, and still means the same kind and tag', () => {
     expect(modernizeLane('baurecht_oib_leitfaden')).toBe('building_law_oib_guide')
-    expect(modernizeLane('buero_piloti')).toBe('office_piloti')
+    expect(modernizeLane('buero_piloti')).toBe(LEGACY_AGENT_AUTHORED_LANE)
     expect(modernizeLane('norm_extern')).toBe('external_standard')
     expect(kindForLane('baurecht_land')).toBe('building_law')
     expect(kindForLane('behoerde')).toBe('building_law')
@@ -90,26 +91,27 @@ describe('authorityTag', () => {
   })
 
   test('an unclassified document does not claim to be an Austrian legal source', () => {
-    // `building_law_base` is the lane of the DEFAULT doc_class — nobody has
-    // classified this document yet. Inheriting the `building_law` prefix's RIS
-    // badge would let any upload wear the strongest provenance claim the UI
-    // can make.
     expect(authorityTag('building_law_base')).toBeNull()
   })
 })
 
 describe('the agent-authored lane', () => {
   test('is a sub-label inside the office kind, never a kind of its own', () => {
-    // A published Piloti document IS office knowledge — it paints in the office
-    // colour. What the lane adds is who wrote it.
-    expect(AGENT_AUTHORED_LANE).toBe('office_piloti')
+    expect(AGENT_AUTHORED_LANE).toBe('office_agent')
     expect(kindForLane(AGENT_AUTHORED_LANE)).toBe('office')
     expect(asSourceKind(AGENT_AUTHORED_LANE)).toBeUndefined()
   })
 
+  test('its old key still reads as the same lane, kind and tag', () => {
+    expect(isAgentLane(AGENT_AUTHORED_LANE)).toBe(true)
+    expect(isAgentLane(LEGACY_AGENT_AUTHORED_LANE)).toBe(true)
+    expect(isAgentLane('office')).toBe(false)
+    expect(kindForLane(LEGACY_AGENT_AUTHORED_LANE)).toBe('office')
+    expect(asSourceKind(LEGACY_AGENT_AUTHORED_LANE)).toBeUndefined()
+    expect(authorityTag(LEGACY_AGENT_AUTHORED_LANE)).toBeNull()
+  })
+
   test('its label names the document kind and no approver', () => {
-    // Who approved it, and when, arrive as data on the source payload and are
-    // appended by the renderer — the taxonomy is not a sentence with a hole.
     expect(AGENT_AUTHORED_LANE_LABEL).toBe(`${PRODUCT_NAME}-Dokument`)
     expect(AGENT_AUTHORED_LANE_LABEL).not.toContain('{')
   })
@@ -121,7 +123,6 @@ describe('the agent-authored lane', () => {
 
 describe('the mail lanes', () => {
   test("are sub-labels inside the shelf's kind, never a kind of their own", () => {
-    // A filed E-Mail-Verlauf is project (or office) knowledge; the lane says it is mail.
     expect(MAIL_LANE).toBe('project_mail')
     expect(OFFICE_MAIL_LANE).toBe('office_mail')
     expect(kindForLane(MAIL_LANE)).toBe('project')
@@ -131,7 +132,6 @@ describe('the mail lanes', () => {
   })
 
   test('carry no authority tag, whoever sent the mail', () => {
-    // A clerk's e-mail from a Behörde's domain is not a Bescheid: no `Behörde` badge, no law colour.
     expect(authorityTag(MAIL_LANE)).toBeNull()
     expect(authorityTag(OFFICE_MAIL_LANE)).toBeNull()
     expect(accentForLane(MAIL_LANE, 'project')).toBe('project')
@@ -149,13 +149,9 @@ describe('Shelf (ADR-0047)', () => {
   })
 
   test('an unknown or missing shelf is UNKNOWN — never a default', () => {
-    // The predecessor of this narrowing (`collectionScope`) failed OPEN and
-    // returned `building_law`, so an unrecognised collection claimed to be
-    // authoritative base law. Unknown must stay unknown.
     expect(asShelf('building_law')).toBeUndefined()
     expect(asShelf('projekt')).toBeUndefined()
     expect(asShelf('archiv_org1')).toBeUndefined()
-    // The office shelf's retired name: migration 0187 rewrote every stored one.
     expect(asShelf('archiv')).toBeUndefined()
     expect(asShelf('')).toBeUndefined()
     expect(asShelf(null)).toBeUndefined()
@@ -164,9 +160,6 @@ describe('Shelf (ADR-0047)', () => {
 })
 
 describe('the shelf labels in the dictionary', () => {
-  // The labels live in `chat.sourceTabs.shelves` (rendering only, ADR-0047 §5)
-  // and are resolved where the card renders; this pins the two invariants the
-  // old German table pinned.
   test('every shelf has a distinct label, in both languages', () => {
     for (const dictionary of [chatCopy.messages.de.sourceTabs.shelves, chatCopy.messages.en.sourceTabs.shelves]) {
       const labels = SHELVES.map((shelf: Shelf) => dictionary[shelf])
@@ -176,8 +169,6 @@ describe('the shelf labels in the dictionary', () => {
   })
 
   test('a private session attachment is NOT labelled as project knowledge', () => {
-    // The headline defect: a file the user attached to one chat was told to the
-    // user as a "Private Sitzung" and then cited as project knowledge.
     expect(chatCopy.messages.de.sourceTabs.shelves.session).toBe('Private Sitzung')
     expect(chatCopy.messages.de.sourceTabs.shelves.session).not.toBe(chatCopy.messages.de.sourceTabs.shelves.project)
   })
@@ -188,12 +179,6 @@ describe('scopeForQualifier (citation keys — the versioned fallback)', () => {
     for (const [qualifier, shelf] of CITATION_KEY_QUALIFIERS) {
       expect(scopeForQualifier(qualifier)).toBe(shelf)
     }
-    // The three legacy strings, which keys already persisted still carry, plus
-    // the one ADR-0047 added: the backend appends a qualifier to keep a key
-    // unique when two shelves hold the same filename, so a session hit writes
-    // `(Private Sitzung)`. A reader that knew only the legacy three would leave
-    // that qualifier in the filename and lose the citation entirely. The last
-    // row is the archiv shelf's retired name, read and never written.
     expect(CITATION_KEY_QUALIFIERS.map(([, shelf]) => shelf)).toEqual([
       'office_shelf',
       'project',
@@ -210,8 +195,6 @@ describe('scopeForQualifier (citation keys — the versioned fallback)', () => {
   })
 
   test('the shelf label the reader sees is the qualifier the backend writes', () => {
-    // `chat.sourceTabs.shelves` renders the shelf; the qualifier is pinned to
-    // the backend's `SHELF_QUALIFIERS`. One name for one shelf on both sides.
     expect(chatCopy.messages.de.sourceTabs.shelves.office_shelf).toBe(CITATION_KEY_QUALIFIERS[0][0])
     expect(chatCopy.messages.en.sourceTabs.shelves.office_shelf).toBe('Office filing')
   })
@@ -222,7 +205,6 @@ describe('scopeForQualifier (citation keys — the versioned fallback)', () => {
   })
 
   test('qualifiers are matched case-insensitively', () => {
-    // The qualifier survives a round trip through an LLM, which may recase it.
     expect(scopeForQualifier('projektwissen')).toBe('project')
     expect(scopeForQualifier('  BÜROARCHIV  ')).toBe('office_shelf')
     expect(scopeForQualifier('private sitzung')).toBe('session')

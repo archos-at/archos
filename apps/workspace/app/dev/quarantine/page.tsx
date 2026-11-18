@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organisation → Quarantäne (ADR-0086). Renders the REAL queue
- * from fixtures: a project file caught by a content term on two pages and by
- * another on more pages than the job lists (`pages_truncated`), an
- * Archiv file caught by an IBAN and a card number (masked, as the job stores
- * them), a chat attachment whose scan was only partly checked, a scan caught
- * in the vision model's transcript of its pages (`after_transcription`), and a
- * row whose verdict could not be read, and three order numbers misread as card
- * numbers, for the finding filter and multi-select. `?empty=1` shows the empty state instead.
- *
- * A module-scope fetch shim (browser + dev only) serves the queue and the
- * projects list and answers release, delete and a selection's decision with success, so a row can be
- * released or deleted and leaves the list. Not linked from anywhere and 404s
- * outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 
@@ -38,7 +22,6 @@ const ITEMS = [
     verdict: {
       reasons: [
         { kind: 'term', term: 'Honorarvereinbarung', count: 3, pages: [1, 4] },
-        // More pages than the job lists: the phrase ends in „…".
         {
           kind: 'term',
           term: 'Gehaltsabrechnung',
@@ -105,8 +88,6 @@ const ITEMS = [
   },
 ]
 
-// Three order numbers that read like card numbers: the case multi-select and
-// the finding filter are for (pick „Kartennummer", select all, allow).
 const CARD_ITEMS = ['Bestellung_4711.pdf', 'Lieferschein_Fenster.pdf', 'Angebot_Haustechnik.pdf'].map((name, index) => ({
   id: `doc-card-${index}`,
   filename: name,

@@ -1,15 +1,3 @@
-/**
- * The platform price list (ADR-0053, Platform → Overview → Pricing).
- *
- * Resolves the pricing every generation is priced with, validates and records
- * a new version, and exposes the boot floor a deployment runs on until a
- * platform owner has decided otherwise. The arithmetic itself is in
- * `./model.ts`; the table access in `./repository.ts`.
- *
- * Platform-only by design — no org layer. A tenant chooses models; the price
- * of a model is the platform's.
- */
-
 import 'server-only'
 import { getCached, invalidateCached } from '@/lib/cache'
 import { UnprocessableError } from '@/lib/api/errors'
@@ -20,36 +8,18 @@ import { findActivePricingVersion, insertPricingVersionSuperseding, listPricingH
 export { creditsToCostUsd, estimateCreditsPerRequest, priceUsage, REFERENCE_REQUEST } from './model'
 export type { PricedUsage, PricingRates } from './model'
 
-/**
- * Short TTL, write-invalidated: pricing is read on every ledger flush and every
- * WebSocket upgrade, and a save must reach the next generation, not the next
- * five minutes. The organization is deliberately absent from the key — this is
- * the one price list every tenant is priced with.
- */
 const PRICING_CACHE_TTL_MS = 60 * 1000
 const PRICING_CACHE_KEY = 'platformpricing:active'
 
-/**
- * The boot floor — what an empty `platform_pricing_versions` table means.
- *
- * Margin 1 and one credit = one US cent make credits read as cents of cost,
- * and the seeded allowance is $10 a day / $100 a month in that unit — the old
- * €10/€100 guardrail, give or take the rate nobody wants to maintain — so an
- * upgraded deployment behaves as it did until someone decides a price.
- */
 export const BOOT_FLOOR_MARGIN_MULTIPLIER = 1
 export const BOOT_FLOOR_USD_PER_CREDIT = 0.01
 export const BOOT_FLOOR_DAILY_CREDITS = 1_000
 export const BOOT_FLOOR_MONTHLY_CREDITS = 10_000
 
-/** The active price list as the arithmetic and the budget seed need it. */
 export interface EffectivePricing extends PricingRates {
-  /** NULL when running on the boot floor (nothing decided yet). */
   versionId: string | null
-  /** Seeded org allowance per window; null = unlimited by default. */
   defaultOrgDailyCredits: number | null
   defaultOrgMonthlyCredits: number | null
-  /** False on the boot floor. */
   explicit: boolean
 }
 
@@ -78,12 +48,6 @@ function toEffective(row: PlatformPricingVersion): EffectivePricing {
   }
 }
 
-/**
- * The pricing every generation is priced with right now. Cached; a save
- * invalidates. Throws on a database failure — callers on the answer path
- * decide whether to fail open (the ledger write does: a generation is recorded
- * at the boot floor rather than dropped).
- */
 export async function getEffectivePricing(): Promise<EffectivePricing> {
   return getCached(PRICING_CACHE_KEY, PRICING_CACHE_TTL_MS, async () => {
     const row = await findActivePricingVersion()
@@ -91,11 +55,6 @@ export async function getEffectivePricing(): Promise<EffectivePricing> {
   })
 }
 
-/**
- * Pricing for a write path that must never fail because of it: a broken
- * lookup prices at the boot floor and says so in the log, instead of losing
- * the generation from the ledger.
- */
 export async function getEffectivePricingOrBootFloor(): Promise<EffectivePricing> {
   try {
     return await getEffectivePricing()
@@ -105,12 +64,10 @@ export async function getEffectivePricingOrBootFloor(): Promise<EffectivePricing
   }
 }
 
-/** What the admin surface shows: the effective numbers plus who set them. */
 export interface PricingView extends EffectivePricing {
   note: string | null
   updatedByEmail: string | null
   updatedAt: string | null
-  /** The last few versions, newest first, for the change trail. */
   history: Array<{
     id: string
     marginMultiplier: number
@@ -156,12 +113,6 @@ export interface SavePricingInput {
   actorEmail: string | null
 }
 
-/**
- * Bounds a platform owner cannot type past. Wide — the database CHECKs already
- * refuse zero and negatives — but a margin of 100× or a credit worth $1,000 is
- * a slipped decimal, not a price list, and a slipped decimal on this row
- * reprices every tenant at once.
- */
 export const PRICING_BOUNDS = {
   marginMultiplier: { min: 0.1, max: 50 },
   usdPerCredit: { min: 0.0001, max: 100 },
@@ -186,11 +137,6 @@ function validate(input: SavePricingInput): string[] {
   return errors
 }
 
-/**
- * Record a new price list. Validates, supersedes the active version and
- * invalidates the cache; the audit event is the route's (it knows the platform
- * org and the request).
- */
 export async function savePricing(input: SavePricingInput): Promise<PlatformPricingVersion> {
   const errors = validate(input)
   if (errors.length > 0) {
@@ -210,7 +156,6 @@ export async function savePricing(input: SavePricingInput): Promise<PlatformPric
   return inserted
 }
 
-/** Drop the cached price list (after a write, or from tests). */
 export async function invalidatePricingCache(): Promise<void> {
   await invalidateCached(PRICING_CACHE_KEY)
 }

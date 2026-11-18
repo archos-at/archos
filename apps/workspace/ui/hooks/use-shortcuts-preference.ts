@@ -1,21 +1,9 @@
 'use client'
 
-/**
- * Per-user keyboard-shortcuts preference (the inner gate of the shortcuts
- * feature — the outer gate is the session having an organization).
- *
- * The app has no generic user-preferences backend surface for this, so the
- * choice lives in localStorage, default ON. SSR-safe: the server snapshot is
- * the default, and reads only touch `window` on the client. All hook
- * instances stay in sync via a custom event (same tab) and the `storage`
- * event (other tabs).
- */
-
 import { useCallback, useSyncExternalStore } from 'react'
 
 export const SHORTCUTS_PREFERENCE_KEY = 'keyboard-shortcuts.enabled'
 
-/** Same-tab change notification (the `storage` event only fires cross-tab). */
 const CHANGE_EVENT = 'keyboard-shortcuts-preference'
 
 function readEnabled(): boolean {
@@ -23,7 +11,6 @@ function readEnabled(): boolean {
   try {
     return window.localStorage.getItem(SHORTCUTS_PREFERENCE_KEY) !== 'false'
   } catch {
-    // Storage unavailable (privacy mode) — fall back to the default.
     return true
   }
 }
@@ -38,7 +25,6 @@ function subscribe(onChange: () => void): () => void {
 }
 
 export interface ShortcutsPreference {
-  /** Whether keyboard shortcuts are enabled for this user (default true). */
   enabled: boolean
   setEnabled: (enabled: boolean) => void
 }

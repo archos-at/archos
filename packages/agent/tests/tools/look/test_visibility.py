@@ -1,14 +1,3 @@
-"""Every look the reader can see (ADR-0128): a Herleitung step at once, a card item once the answer is final.
-
-``look`` runs for real against a one-page PDF (the fakes of ``test_register.py``);
-the step is read off the turn's stream, the card off the bound card registry.
-Which looks the answer keeps is the rule in ``tools/look/cards.py``: the cited
-looked-at documents only (a look the answer moved past, or cites nothing of, is a
-Herleitung step), of them the items that read something and the region crops
-(an overview only when it is all there is), and every box or pointer Piloti
-showed the room.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -33,13 +22,11 @@ from agent.tools.look.register import run_look
 
 OG = "22222222-0000-4000-8000-000000000002"
 
-#: Every look here renders a real one-page PDF the faked store hands back.
 pytestmark = pytest.mark.usefixtures("stored")
 
 
 @pytest.fixture
 def steps(monkeypatch) -> list[LookStep]:
-    """The look steps the turn emitted, in order."""
     seen: list[LookStep] = []
 
     def capture(body) -> None:
@@ -70,7 +57,6 @@ def _cited(*file_names: str) -> list:
 
 
 def _read(held: list[dict], text: str = "Gangbreite 1,10 m") -> list[dict]:
-    """The held looks as if the second reader had read ``text`` at each."""
     for entry in held:
         if entry["item"]["origin"] == "look":
             entry["item"]["reading"] = text
@@ -102,7 +88,6 @@ class TestALookIsSeen:
         }
         assert _looks(registry) == []  # the card waits for the answer
 
-        # The overview is dropped: the document has a region crop that reads.
         assert place_look_cards(_read(take_looks()), _cited("Grundriss_EG.pdf")) == 1
         [card] = _looks(registry)
         assert card["document"] == {"id": DOCUMENT, "name": "Grundriss_EG.pdf", "shelf": "stored"}
@@ -110,7 +95,6 @@ class TestALookIsSeen:
         assert card["items"][0]["where"] == "oben rechts"
 
     async def test_a_look_records_the_revision_it_read(self, registry, steps, monkeypatch) -> None:
-        """The card and the step name the version whose bytes were rendered, so a newer Fassung never redraws them."""
         import knowledge_layer.view_image as view
 
         async def locate(collection, file_name, organization_id=None, image_index=None):
@@ -197,7 +181,6 @@ class TestWhichLooksTheAnswerKeeps:
         assert [entry["document"]["name"] for entry in kept] == ["Grundriss_EG.pdf", "Grundriss_EG.pdf"]
 
     def test_no_card_when_the_answer_cites_none_of_the_documents_it_looked_at(self) -> None:
-        """The look stays a Herleitung step: an answer that does not cite the drawing does not rest on it."""
         held = [_crop("Grundriss_EG.pdf"), _crop("Schnitt A-A.pdf")]
 
         assert relied_on(held, {"oib-rl4.pdf"}) == []
@@ -246,7 +229,6 @@ class TestWhichLooksTheAnswerKeeps:
 
 
 async def test_a_reading_rides_on_the_card_item(monkeypatch):
-    """With a question, the reading the vision model gave is kept for the card, not only sent to the chat model."""
     from agent.tools.look import register as look_register
     from agent.tools.look.reading import Reading
     from agent.tools.look.reading import ReadingLine
@@ -276,7 +258,6 @@ async def test_a_reading_rides_on_the_card_item(monkeypatch):
 
 
 async def test_every_line_a_look_read_counts_for_the_provenance_not_only_the_cards_one(registry, monkeypatch):
-    """The card keeps the summary; a value on a later ``Gelesen:`` line must still be ``observed``."""
     from agent.tools.look.cards import relied_readings
     from agent.tools.look.reading import Reading
     from agent.tools.look.reading import ReadingLine
@@ -296,7 +277,6 @@ async def test_every_line_a_look_read_counts_for_the_provenance_not_only_the_car
     await run_look(page=1, region=[0.1, 0.1, 0.3, 0.2], question="Wie hoch ist der Raum?")
 
     held = take_looks()
-    # The line carrying the measured value comes before the one-sentence summary.
     assert held[0]["item"]["reading"] == "Raum 1.04; Raumhöhe 2,70 m"
     [read] = relied_readings(held)
     assert "Raumhöhe 2,70 m" in read

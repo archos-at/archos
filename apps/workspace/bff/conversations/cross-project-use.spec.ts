@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The record a cross-project lookup writes before it answers (ADR-0094), with
- * the store mocked: the audience the reach was computed for, compared under
- * the lock; the projects and restricted folders recorded in one transaction;
- * nothing recorded and a typed refusal once the audience changed. And the
- * memory writer's refusal for a conversation that drew on a running project. Against Postgres:
- * `cross-project-use.integration.spec.ts`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConversationAudienceRow } from './restricted-use-repository'
@@ -27,7 +19,6 @@ const state = vi.hoisted(() => ({
   audiences: [] as ConversationAudienceRow[],
   steps: [] as string[],
   recordedProjects: [] as string[],
-  /** The restricted folders of other projects that still restrict, each with its owner (null: none now). */
   foreignFolders: new Map<string, string | null>(),
   names: new Map<string, string>(),
   nameQueries: [] as string[][],
@@ -60,7 +51,6 @@ vi.mock('./restricted-use-repository', () => ({
   }),
 }))
 
-// Which recorded folders of other projects still restrict is restricted-use's judge; its SQL is the integration spec's.
 vi.mock('./restricted-use', () => ({
   recordedForeignRestrictedFolders: vi.fn(async () => new Map(state.foreignFolders)),
 }))
@@ -127,9 +117,6 @@ describe('recordCrossProjectHandOut', () => {
       audienceKey(solo)
     )
 
-    // In the transaction (`{ tx: true }`), after the folder: the database marks
-    // it only when the conversation now holds a restricted-use record, so open
-    // content of another project marks nothing (cross-project-use.integration.spec.ts).
     expect(state.steps).toEqual([
       'lock',
       'audience',
@@ -193,8 +180,6 @@ describe('requireMayRememberFrom', () => {
   })
 
   it('refuses one that drew on a restricted folder of another project, closed or not (ADR-0090)', async () => {
-    // The project is closed (not restricting), the folder of it still is: the
-    // agent's own restriction evidence only knows this project's folders.
     state.audiences = [{ ...solo, projectId: OWN }]
     state.foreignFolders = new Map([[FEES_ID, OTHER]])
 

@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The country as one outline (country-onboarding-ux.md, B): the country, its
- * regions, each region's acts, and a second branch with the works the acts
- * make binding, their editions and each edition's text. Each row says its
- * value once; what a row holds unfolds under it, with its yes or no
- * (`ConfirmBar`) where the request is open for review.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { bindingOn, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
 import { useTranslations } from '@/i18n'
@@ -33,7 +25,6 @@ function exceptionsText(map: LawMap, exceptions: readonly { topicWorkId?: string
   return exceptions.map((one) => `${designationOf(map, one.topic?.workId ?? one.topicWorkId ?? '')} ${one.edition.label}`).join(', ')
 }
 
-/** What the outline's parts share: the map, its review units, what is open, and the way to say yes or no. */
 interface Outline {
   map: LawMap
   units: ReadonlyMap<string, ReviewUnit>
@@ -41,11 +32,9 @@ interface Outline {
   open: string | null
   flip: (key: string) => void
   t: Translator
-  /** The map's day: what binds is read on it. */
   today: string
 }
 
-/** A unit's row marks: a dot while it waits for a verdict, a check once confirmed. */
 const marks = (unit: ReviewUnit | undefined) => ({ attention: unit?.review === 'open', confirmed: unit?.review === 'accepted' })
 
 function Decide({ o, unitKey, yes }: { o: Outline; unitKey: string; yes: string }): JSX.Element | null {
@@ -79,7 +68,6 @@ function StatementBody({ o, statement }: { o: Outline; statement: LawMapStatemen
   )
 }
 
-/** One edition of a batch, said once: its name, its text, where it binds on the map's day. */
 function EditionLine({ o, edition, name }: { o: Outline; edition: LawMapEdition; name: (id: string) => string }): JSX.Element {
   const { map, t, today } = o
   const date = useDate()
@@ -110,7 +98,6 @@ function EditionLine({ o, edition, name }: { o: Outline; edition: LawMapEdition;
   )
 }
 
-/** A series' editions of one year with their texts and works, confirmed in one. */
 function BatchRow({ o, unit, name }: { o: Outline; unit: ReviewUnit; name: (id: string) => string }): JSX.Element {
   const { map, t } = o
   const editions = unit.revisions.filter((revision) => revision.type === 'edition').flatMap((revision) => map.editions.get(revision.recordId) ?? [])
@@ -138,7 +125,6 @@ const hostOf = (url: string): string => {
   }
 }
 
-/** A row that opens its own unfold: the outline's one way to show what something holds. */
 function Openable({ o, id, row, children }: { o: Outline; id: string; row: (open: boolean, onClick: () => void) => ReactNode; children: ReactNode }): JSX.Element {
   const isOpen = o.open === id
   return (
@@ -149,7 +135,6 @@ function Openable({ o, id, row, children }: { o: Outline; id: string; row: (open
   )
 }
 
-/** A region's own law: its building acts, then the acts that make editions binding there, each unfolding in place. */
 function OwnLaw({ o, statutes, statements }: { o: Outline; statutes: LawMap['statutes']; statements: LawMapStatement[] }): JSX.Element {
   const { map, t } = o
   const date = useDate()
@@ -190,7 +175,6 @@ const byStart = (a: LawMapStatement, b: LawMapStatement): number => (a.validFrom
 const statutesOn = (map: LawMap, territoryId: string) => map.statutes.filter((statute) => statute.territoryId === territoryId)
 const statementsOn = (map: LawMap, territoryId: string) => map.statements.filter((statement) => statement.territoryId === territoryId).sort(byStart)
 
-/** The areas below a region that make law of their own, each with it: nothing under a region is left unreachable. */
 function BelowRegion({ o, territoryId }: { o: Outline; territoryId: string }): JSX.Element | null {
   const { map, t } = o
   const territory = map.territories.get(territoryId)
@@ -212,7 +196,6 @@ function BelowRegion({ o, territoryId }: { o: Outline; territoryId: string }): J
   )
 }
 
-/** Every territory id at and below one, in the tree the map holds. */
 function under(map: LawMap, id: string): Set<string> {
   const ids = new Set<string>()
   const walk = (one: string): void => {
@@ -223,10 +206,7 @@ function under(map: LawMap, id: string): Set<string> {
   return ids
 }
 
-/** The branches a unit sits in, so opening it from "next" also shows it. */
-/** The regions the outline lists: the root's children, or the topmost territories when the request holds no root. */
 export function regionsOf(map: LawMap): string[] {
-  // The country is the root when the request holds it; else every topmost region is a region of its own.
   const root = map.territories.get(map.countryId)
   return root ? root.children : map.rootIds
 }
@@ -244,14 +224,12 @@ export function branchesOf(map: LawMap, unit: ReviewUnit): string[] {
   return []
 }
 
-/** What "+ Add" needs: the country, its sources (a page on their hosts is fetched), and where to go once added. */
 export interface AddContext {
   countryId: string
   sources: readonly SourceStatusView[]
   onAdded: () => void
 }
 
-/** A quiet row that opens its form in place. */
 function AddRow({ o, id, label, children }: { o: Outline; id: string; label: string; children: (close: () => void) => ReactNode }): JSX.Element {
   return o.open === id ? <>{children(() => o.flip(id))}</> : <AddLine label={label} onClick={() => o.flip(id)} testId={id} />
 }
@@ -272,12 +250,10 @@ export function LawMapOutline({ map, units, confirm, add, today, rootName, expan
   const date = useDate()
   const o: Outline = { map, units, confirm, open, flip: (id) => setOpen(open === id ? null : id), t, today }
 
-  // The country is the root when the request holds it; else every topmost region is a region of its own.
   const rootId = map.countryId
   const root = map.territories.get(rootId)
   const regions = regionsOf(map)
   const placed = new Set([...(root ? [rootId] : []), ...regions.flatMap((id) => [...under(map, id)])])
-  // Law on no territory this request holds (its act is in another request): shown, never dropped.
   const unplaced = map.statements.filter((statement) => !placed.has(statement.territoryId)).sort(byStart)
   const unplacedStatutes = map.statutes.filter((statute) => !placed.has(statute.territoryId))
   const others = [...units.values()].filter((unit) => unit.kind === 'kind')

@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Organization storage: bytes stored against the quota that refuses uploads.
- *
- * One meter, because there is one question — how close am I to being cut off.
- * The track IS the quota, so "how full" is literal rather than a rescaled
- * proportion, and the fill carries STATE (within / at-or-over), never category:
- * the two scopes underneath are a text breakdown, not a stacked bar, because
- * "project vs Archiv" is not the decision anyone opens this page to make.
- *
- * Every number is also written out beside the meter. The fill colour is a
- * redundant cue and never the only carrier of state — same rule the spend card
- * follows, for the same accessibility reason.
- *
- * Read-only, for every role including org admin. The quota is set by the
- * platform operator (ADR-0042), so there is no editor here — showing one to an
- * org admin would imply a control they do not have. The READING is shown to
- * everyone: a member whose upload was just refused lands here to find out why.
- */
-
 import { useCallback, useEffect, useState, type FC, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { LoadError } from '@/components/ui/load-error'
@@ -27,7 +8,6 @@ import { formatBytes } from '@/lib/format'
 import { useLocale, useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 
-/** Wire shape of `GET /api/organization/storage`. */
 interface StorageScopeUsage {
   bytes: number
   documents: number
@@ -37,16 +17,13 @@ interface StorageResponse {
   usage: {
     project: StorageScopeUsage
     office_shelf?: StorageScopeUsage
-    /** The key before the rename; a server not yet rolled still sends it. Remove after one release. */
     archiv?: StorageScopeUsage
     total: StorageScopeUsage
   }
   quotaBytes: number | null
-  /** The per-file upload limit in force for the organization, in bytes. */
   effectiveMaxUploadFileBytes: number
 }
 
-/** Fraction of the quota at which "almost full" is worth saying out loud. */
 const NEAR_QUOTA_RATIO = 0.9
 
 const StorageMeter: FC<{ usedBytes: number; quotaBytes: number | null }> = ({
@@ -58,9 +35,6 @@ const StorageMeter: FC<{ usedBytes: number; quotaBytes: number | null }> = ({
 
   const over = quotaBytes !== null && usedBytes >= quotaBytes
   const near = !over && quotaBytes !== null && usedBytes >= quotaBytes * NEAR_QUOTA_RATIO
-  // Once usage passes the quota the track has to grow to hold it, and a tick
-  // marks where the quota sat. The tick only appears in the over state, where
-  // the sentence underneath explains it.
   const scale = quotaBytes !== null ? Math.max(quotaBytes, usedBytes) : usedBytes
   const fillPct = scale > 0 ? Math.min((usedBytes / scale) * 100, 100) : 0
   const quotaPct = over && quotaBytes !== null && scale > 0 ? (quotaBytes / scale) * 100 : null
@@ -112,7 +86,6 @@ const StorageMeter: FC<{ usedBytes: number; quotaBytes: number | null }> = ({
   )
 }
 
-/** One labelled figure under the meter: a scope's usage, or the upload limit. */
 const FactRow: FC<{ label: string; testId?: string; children: ReactNode }> = ({
   label,
   testId,
@@ -140,23 +113,9 @@ const ScopeRow: FC<{ label: string; usage: StorageScopeUsage }> = ({ label, usag
   )
 }
 
-/** The endpoint this panel reads. Overridable so a preview can name a fixture. */
 const STORAGE_ENDPOINT = '/api/organization/storage'
 
 interface StorageUsageCardProps {
-  /**
-   * Where to read usage from. Defaults to the real endpoint.
-   *
-   * Exists so the dev preview can render the within-quota and over-quota states
-   * side by side and have each card ask for a DISTINCT url. It previously varied
-   * the fixture by call ORDER through a `window` counter, which strict mode's
-   * double-invocation and any remount made non-deterministic — the screenshot
-   * captured whichever state the counter happened to reach, in the artifact whose
-   * only job is to show both.
-   *
-   * A defaulted endpoint is an ordinary component parameter, not a preview-only
-   * hatch: production passes nothing and behaves exactly as before.
-   */
   endpoint?: string
 }
 
@@ -174,7 +133,6 @@ export const StorageUsageCard: FC<StorageUsageCardProps> = ({
       if (!res.ok) throw new Error('load failed')
       setData((await res.json()) as StorageResponse)
     } catch {
-      // Said in the card, with a retry (below); a toast as well said it twice.
       setData(null)
     } finally {
       setLoading(false)
@@ -186,8 +144,6 @@ export const StorageUsageCard: FC<StorageUsageCardProps> = ({
   }, [load])
 
   if (loading) {
-    // Skeleton shimmer mirroring the loaded geometry (meter label + track,
-    // two scope rows, footer line) — never the flat `animate-pulse` slab.
     return (
       <div className="flex min-h-[11.5rem] flex-col gap-6" data-testid="storage-usage-loading">
         <div>

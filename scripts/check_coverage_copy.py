@@ -1,22 +1,4 @@
 #!/usr/bin/env python3
-"""The website's country claims come from coverage, and claim no more (design §1.3, ADR-0173).
-
-Coverage is a reviewed claim on a territory record (`coverageLevel`), proposed in
-the country packs under `configs/knowledge-packs/` and released through a change
-request. This script reads the level each pack states for its country, writes the
-building-law page's country lines from it (`--write`), and fails when:
-
-- the generated module (`apps/website/src/i18n/pages/coverage.generated.ts`)
-  is not what the packs give, or
-- the page's hand-written copy (`building-law.ts`) names a market country outside
-  the generated lines, where a claim about it could slip past this check.
-
-A country is "covered" at `open` or better; until a pack states one, its law is
-not claimed. Run from the repository root:
-
-    python3 scripts/check_coverage_copy.py           # check (pre-commit, CI)
-    python3 scripts/check_coverage_copy.py --write   # regenerate
-"""
 
 from __future__ import annotations
 
@@ -30,19 +12,16 @@ PACKS = ROOT / "configs" / "knowledge-packs"
 GENERATED = ROOT / "apps" / "website" / "src" / "i18n" / "pages" / "coverage.generated.ts"
 PAGE = ROOT / "apps" / "website" / "src" / "i18n" / "pages" / "building-law.ts"
 
-#: The markets the website speaks to, in the order its copy names them, with each locale's name.
 MARKETS: dict[str, dict[str, str]] = {
     "AT": {"de": "Österreich", "en": "Austria", "de_in": "Österreich", "en_in": "Austria"},
     "DE": {"de": "Deutschland", "en": "Germany", "de_in": "Deutschland", "en_in": "Germany"},
     "CH": {"de": "Schweiz", "en": "Switzerland", "de_in": "der Schweiz", "en_in": "Switzerland"},
 }
 
-#: Levels that let the website claim a country's law, weakest first.
 CLAIMING_LEVELS = ("open", "core", "full")
 
 
 def pack_coverage() -> dict[str, str]:
-    """The coverage level each pack states for its own country's territory record; none for a pack that states none."""
     levels: dict[str, str] = {}
     for path in sorted(PACKS.glob("*.json")):
         pack = json.loads(path.read_text(encoding="utf-8"))
@@ -62,7 +41,6 @@ def _quote(text: str) -> str:
 
 
 def render(levels: dict[str, str]) -> str:
-    """The generated module: the country lines of the building-law page in both locales."""
     covered = [code for code in MARKETS if levels.get(code) in CLAIMING_LEVELS]
     elsewhere = [code for code in MARKETS if code not in covered]
     de_covered = _join([MARKETS[c]["de"] for c in covered], "und") if covered else "noch kein Land"
@@ -114,7 +92,6 @@ def render(levels: dict[str, str]) -> str:
 
 
 def hand_written_claims(page: str) -> list[str]:
-    """Lines of the page's copy, outside its header comment, that name a market country the packs do not cover."""
     body = page.split("*/", 1)[1] if "*/" in page else page
     names = [name for code in MARKETS for name in (MARKETS[code]["de"], MARKETS[code]["en"]) if code != "AT"]
     pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b")

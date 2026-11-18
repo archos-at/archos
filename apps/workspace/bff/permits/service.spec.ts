@@ -14,7 +14,6 @@ vi.mock('./repository', () => ({
 }))
 vi.mock('@/lib/authz/folder-access', () => ({ sourceFoldersOfCollections: vi.fn() }))
 vi.mock('@/lib/knowledge/embeddings', () => ({ embedNotes: vi.fn() }))
-// The restriction rule is memory's own; its module pulls the database in.
 vi.mock('@/lib/projects/memory-service', () => ({
   canonicalRestriction: (ids: readonly string[]) => {
     const unique = [...new Set(ids.map((id) => id.trim().toLowerCase()).filter(Boolean))].sort()

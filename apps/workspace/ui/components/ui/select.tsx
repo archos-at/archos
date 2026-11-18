@@ -12,12 +12,6 @@ const Select = SelectPrimitive.Root
 
 const SelectGroup = SelectPrimitive.Group
 
-/**
- * The trigger's text. It carries `data-slot="select-value"` because the
- * trigger styles it through that slot (one line, ellipsis, an icon beside the
- * label): Radix's own Value renders a bare span, so those rules matched nothing
- * and a long value ran past the trigger's edge.
- */
 const SelectValue = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Value>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
@@ -37,10 +31,7 @@ const SelectTrigger = React.forwardRef<
     data-slot="select-trigger"
     data-size={size}
     className={cn(
-      // text-base below md keeps iOS Safari from zooming the page on focus.
-      // Both sizes clear 44px under a finger — see the Button size comment.
       "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground aria-invalid:ring-destructive/20 aria-invalid:border-destructive flex w-fit items-center justify-between gap-2 rounded-control border bg-input-background px-3.5 py-2 text-sm whitespace-nowrap transition-[color,opacity] duration-quick ease-out motion-reduce:transition-none outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-10 data-[size=sm]:h-8 pointer-coarse:data-[size=default]:h-11 pointer-coarse:data-[size=sm]:h-11 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 pointer-coarse:text-base",
-      // A trigger is a field, so it takes the field ring, not the control one.
       FIELD_FOCUS_RING,
       className
     )}

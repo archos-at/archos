@@ -1,12 +1,3 @@
-"""Unknown-document refusals name up to three verbatim guesses.
-
-``read_passage`` never fuzzy-matches — the match path stays exact — but a
-refusal that names nothing leaves the model retyping the same near-miss. The
-refusal therefore appends the closest legal inventory titles, ranked by
-similarity, restricted to this turn's readable scope, and labelled as guesses
-to pass back verbatim.
-"""
-
 import importlib
 from types import SimpleNamespace
 
@@ -28,10 +19,6 @@ class TestMatchPathUntouched:
         doc = _doc("oib-rl_2_ausgabe_mai_2023.pdf")
 
         assert not rp._matches(doc, "oib-rl_2.pdf".casefold())
-        # The title's HEAD is not a fragment: it is the document's name without
-        # its edition, one of the exact names `_document_names` lists (with the
-        # family-member spellings), so it opens the document — and still never
-        # its sibling, because "oib-richtlinie 2" is not "oib-richtlinie 2.3".
         assert rp._matches(doc, "oib-richtlinie 2".casefold())
         assert not rp._matches(_doc("oib-rl_2.3_ausgabe_mai_2023.pdf"), "oib-richtlinie 2".casefold())
 
@@ -59,9 +46,6 @@ class TestSuggestions:
             assert any(rp._matches(doc, folded) for doc in docs), f"{guess!r} resolves to nothing in scope"
 
     def test_scope_restricted(self):
-        """Candidates are this turn's readable inventory: ``_open`` passes the
-        scope listings, so a same-named file on an unreadable shelf is never
-        suggested — even when it is string-closest."""
         in_scope = [_doc("Fremder_Bericht.pdf")]
         out_of_scope = _doc("Fremder_Bericht Kopie.pdf")
 
@@ -75,8 +59,6 @@ class TestSuggestions:
         assert rp._suggestion_names("xyz-voellig-fremd-12345", docs) == []
 
     def test_cross_document_low_overlap_is_not_a_guess(self):
-        # "Plan.pdf" vs "Brandschutzkonzept.pdf" sits at 0.40: the old bar
-        # named it, the raised bar (0.6, the stdlib default) does not.
         docs = [_doc("Brandschutzkonzept.pdf")]
 
         assert rp._suggestion_names("Plan.pdf", docs) == []
@@ -114,8 +96,6 @@ class TestRefusalMessage:
 
 
 class TestCoercePage:
-    """#656: providers send '' for 'no page'; the int schema rejects it."""
-
     def test_empty_string_means_omitted(self):
         assert rp._coerce_page("") is None
         assert rp._coerce_page("   ") is None

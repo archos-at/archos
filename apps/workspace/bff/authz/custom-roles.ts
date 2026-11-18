@@ -1,21 +1,3 @@
-/**
- * An office's own roles, kept in WorkOS (ADR-0087).
- *
- * WorkOS has organization-scoped custom roles: roles that exist only inside one
- * organization, with a slug that starts `org-`, a name, and permissions from
- * the environment's set. They behave like the catalog's roles everywhere —
- * sessions, the membership API, the `UsersManagement` widget that assigns
- * roles — so an office that builds „Geschäftsführung" here assigns it on the
- * People tab like any other role. A folder's own access list names people, not
- * roles (ADR-0097), so no folder depends on a role.
- *
- * Who may: `org:members:manage` (the User Admin persona and Admin). And only
- * with permissions they hold themselves: a role is a bundle of permissions, so
- * letting a User Admin compose one with `org:models:manage` would let them
- * grant themselves what they were never given. The catalog's environment roles
- * are listed and never edited here; they are the platform's.
- */
-
 import 'server-only'
 import { ConflictError, ForbiddenError, NotFoundError, BadRequestError } from '@/lib/api/errors'
 import { recordAuditEvent } from '@/lib/audit/service'
@@ -25,30 +7,24 @@ import { getWorkOS } from '@/lib/workos/client'
 import { ORG_PERMISSION_SPECS } from './catalog'
 import { hasPermission, ORG_PERMISSIONS, type KnownPermission } from './permissions'
 
-/** One role as an office sees it. */
 export interface OrganizationRoleView {
   slug: string
   name: string
   description: string | null
-  /** True for a role this organization built; false for the platform's. */
   custom: boolean
-  /** Present only for a reader who may manage roles. */
   permissions?: string[]
 }
 
-/** The permissions a custom role may carry: the organization tier of the catalog. */
 export const ASSIGNABLE_ROLE_PERMISSIONS: readonly string[] = ORG_PERMISSION_SPECS.filter(
   (spec) => spec.tier === 'org'
 ).map((spec) => spec.slug)
 
-/** Organization permissions the catalog keeps only so existing grants work. */
 const DEPRECATED_ROLE_PERMISSIONS: ReadonlySet<string> = new Set(
   ORG_PERMISSION_SPECS.filter((spec) => spec.deprecated).map((spec) => spec.slug)
 )
 
 const ROLE_LIST_TTL_MS = 60_000
 const roleListKey = (organizationId: string): string => `authz:org-roles:${organizationId}`
-/** The key `org-role-permissions` caches each organization's role → permissions map under. */
 const permissionMapKey = (organizationId: string): string => `authz:org-role-permissions:${organizationId}`
 
 interface WorkOSRole {
@@ -72,12 +48,10 @@ async function listRolesFromWorkOS(organizationId: string): Promise<WorkOSRole[]
   })
 }
 
-/** Whether WorkOS reports the role as built inside the organization rather than environment-wide. */
 function isCustom(role: Pick<WorkOSRole, 'type'>): boolean {
   return role.type === 'OrganizationRole'
 }
 
-/** Every role in the organization, in WorkOS's priority order. Members see names; managers see permissions too. */
 export async function listOrganizationRoles(session: AuthorizedSession): Promise<OrganizationRoleView[]> {
   const manager = hasPermission(session, ORG_PERMISSIONS.membersManage)
   const roles = await listRolesFromWorkOS(session.organizationId)
@@ -90,26 +64,17 @@ export async function listOrganizationRoles(session: AuthorizedSession): Promise
   }))
 }
 
-/** The role slugs that exist in the organization: a new role may not take one of them. */
 export async function organizationRoleSlugs(organizationId: string): Promise<Set<string>> {
   return new Set((await listRolesFromWorkOS(organizationId)).map((role) => role.slug))
 }
 
-/** One permission a custom role may carry, and whether this editor may put it into one. */
 export interface AssignablePermissionView {
   slug: string
-  /** False for a permission the editor does not hold: composing a role is granting. */
   grantable: boolean
 }
 
-/**
- * What the role editor offers, for a reader who may manage roles; null for
- * anyone else. `grantable` is the same rule {@link assertGrantable} enforces, so
- * the editor disables exactly the boxes a save would refuse.
- */
 export function assignableRolePermissions(session: AuthorizedSession): AssignablePermissionView[] | null {
   if (!hasPermission(session, ORG_PERMISSIONS.membersManage)) return null
-  // A deprecated slug stays valid to SAVE (a role that still holds it keeps it) but is not offered anew.
   return ASSIGNABLE_ROLE_PERMISSIONS.filter((slug) => !DEPRECATED_ROLE_PERMISSIONS.has(slug)).map((slug) => ({
     slug,
     grantable: hasPermission(session, slug as KnownPermission),
@@ -120,11 +85,6 @@ function requireRoleManager(session: AuthorizedSession): void {
   if (!hasPermission(session, ORG_PERMISSIONS.membersManage)) throw new ForbiddenError()
 }
 
-/**
- * Refuse a permission the catalog does not offer to organizations, and one the
- * editor does not hold: composing a role is granting, and nobody grants what
- * they were not given.
- */
 function assertGrantable(session: AuthorizedSession, permissions: readonly string[]): void {
   const unknown = permissions.filter((permission) => !ASSIGNABLE_ROLE_PERMISSIONS.includes(permission))
   if (unknown.length > 0) throw new BadRequestError(`Not an organization permission: ${unknown.join(', ')}`)
@@ -141,11 +101,6 @@ const UMLAUTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/ß/g, 'ss'],
 ]
 
-/**
- * The slug a role's name becomes: `Geschäftsführung` → `org-geschaeftsfuehrung`.
- * WorkOS requires the `org-` prefix on an explicit slug and keeps slugs
- * immutable, so this is decided once, at creation, from the name.
- */
 export function customRoleSlug(name: string): string {
   let folded = name.normalize('NFKC').toLocaleLowerCase('de')
   for (const [pattern, replacement] of UMLAUTS) folded = folded.replace(pattern, replacement)
@@ -170,7 +125,6 @@ export interface CustomRoleInput {
   permissions: string[]
 }
 
-/** Create a custom role in WorkOS for the session's organization. */
 export async function createCustomRole(
   session: AuthorizedSession,
   input: CustomRoleInput,
@@ -196,7 +150,6 @@ export async function createCustomRole(
   return { slug, name: input.name.trim(), description: input.description, custom: true, permissions: input.permissions }
 }
 
-/** The custom role, or a 404 for a slug that is not this organization's own. */
 async function requireCustomRole(organizationId: string, slug: string): Promise<WorkOSRole> {
   const role = (await listRolesFromWorkOS(organizationId)).find((candidate) => candidate.slug === slug)
   if (!role) throw new NotFoundError('Role not found')
@@ -204,11 +157,6 @@ async function requireCustomRole(organizationId: string, slug: string): Promise<
   return role
 }
 
-/**
- * Rename a custom role or change its permissions. Removing a permission the
- * editor does not hold is allowed — that takes, it does not grant; adding one
- * is not.
- */
 export async function updateCustomRole(
   session: AuthorizedSession,
   slug: string,
@@ -242,14 +190,8 @@ export async function updateCustomRole(
   }
 }
 
-/** `details.reason` of the refusal to delete a role that somebody still holds. */
 export const ROLE_ASSIGNED_REASON = 'role-assigned'
 
-/**
- * Delete a custom role. WorkOS refuses while anybody holds it (or a directory
- * group maps to it), which is answered as 409 `role-assigned`: deleting a role
- * out from under people would silently change what they may do.
- */
 export async function deleteCustomRole(
   session: AuthorizedSession,
   slug: string,

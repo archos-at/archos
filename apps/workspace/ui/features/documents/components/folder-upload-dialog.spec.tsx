@@ -42,7 +42,6 @@ function doc(filename: string, overrides: Partial<FileItem> = {}): FileItem {
   }
 }
 
-/** One new file, one that already exists — the shape the question is about. */
 function mixedPlan(): FolderUploadPlan {
   return buildFolderUploadPlan({
     files: [pathed('W/New.pdf'), pathed('W/EG.pdf')],
@@ -68,8 +67,6 @@ function renderDialog(plan: FolderUploadPlan | null, onConfirm = vi.fn()) {
 describe('FolderUploadDialog', () => {
   it('says what it is doing while the plan is still being worked out', () => {
     renderDialog(null)
-    // On a 500-file drop this is seconds long. A bare spinner would leave the
-    // reader guessing whether anything is uploading yet.
     expect(screen.getByTestId('folder-upload-planning')).toBeInTheDocument()
     expect(screen.getByTestId('folder-upload-confirm')).toBeDisabled()
   })
@@ -78,10 +75,7 @@ describe('FolderUploadDialog', () => {
     const { onConfirm } = renderDialog(mixedPlan())
 
     const toggle = screen.getByTestId('folder-upload-include-updates')
-    // Default ON: the gesture is "bring this folder in", and defaulting to off
-    // would make the common case a silent no-op that looks like a success.
     expect(within(toggle).getByRole('checkbox')).toBeChecked()
-    // The same-name file is a new Fassung too, and the button says so.
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('Upload 2 files, 1 as a new revision')
 
     await userEvent.click(within(toggle).getByRole('checkbox'))
@@ -101,8 +95,6 @@ describe('FolderUploadDialog', () => {
       within(screen.getByTestId('folder-upload-include-updates')).getByRole('checkbox'),
     )
 
-    // A list still labelled „Neue Fassung" under an unticked box describes an
-    // upload that is not going to happen.
     expect(within(details).queryByText('New revision')).not.toBeInTheDocument()
     expect(within(details).getByText('Skipped')).toBeInTheDocument()
   })
@@ -116,25 +108,18 @@ describe('FolderUploadDialog', () => {
         currentFolderId: null,
       }),
     )
-    // Absent, not present-and-unticked: the difference between "nothing to
-    // decide" and "decided for you".
     expect(screen.queryByTestId('folder-upload-include-updates')).not.toBeInTheDocument()
     expect(screen.queryByTestId('folder-upload-revisions')).not.toBeInTheDocument()
-    // One file is one file: no „Datei(en)", no „Alle 1 Dateien".
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent(/^Upload 1 file$/)
     expect(screen.getByText('Show the file')).toBeInTheDocument()
   })
 
   it('gives the dialog the focus on open, not the first box', () => {
     renderDialog(mixedPlan())
-    // A box wearing the focus ring on open looks more decided than the rows beside it.
     expect(screen.getByTestId('folder-upload-dialog')).toHaveFocus()
   })
 
   it('still reports a drop that has nothing left to send', () => {
-    // Every file identical to what is filed, and filed where this drop would
-    // file it. The reader wants to read "already up to date"; what they must
-    // not get is a button that would do nothing.
     const file = pathed('W/EG.pdf')
     const digest = `sha256:${'a'.repeat(64)}`
     renderDialog(
@@ -151,11 +136,6 @@ describe('FolderUploadDialog', () => {
     expect(screen.getByTestId('folder-upload-confirm')).toBeDisabled()
   })
 
-  /*
-   * A rename here makes the plan and the corpus two different words for one
-   * row. A dialog that only ever says `EG.pdf` is asking a person to approve
-   * replacing a document they cannot find in their own file list.
-   */
   it('names the document a row will replace when the project calls it something else', () => {
     renderDialog(
       buildFolderUploadPlan({
@@ -182,8 +162,6 @@ describe('FolderUploadDialog', () => {
 
     const warning = screen.getByTestId('folder-upload-duplicates')
     expect(within(warning).getByText(/Deckblatt\.pdf/)).toBeInTheDocument()
-    // Neither an update nor a new document: uploading would add a second copy,
-    // so there is nothing to press.
     expect(screen.getByTestId('folder-upload-confirm')).toBeDisabled()
   })
 
@@ -201,8 +179,6 @@ describe('FolderUploadDialog', () => {
     )
 
     expect(screen.getByTestId('folder-upload-refiled')).toBeInTheDocument()
-    // Not one byte to send, and still work to do: a disabled button here would
-    // claim the tree is already reproduced.
     expect(screen.getByTestId('folder-upload-confirm')).toBeEnabled()
   })
 })
@@ -240,13 +216,9 @@ describe('FolderUploadDialog — loose files', () => {
       }),
     )
 
-    // A new Fassung, in the same words as a file under another name (ADR-0099); never „version".
     expect(screen.getByText('New revision of “EG.pdf”?')).toBeInTheDocument()
-    // Named as the corpus names it, so the reader can find what is replaced, and
-    // pointing at where the previous one stays: „Fassungen und Freigabe".
     expect(screen.getByText(/“Erdgeschoss” is already here under this name/)).toHaveTextContent('Revisions and approval')
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('File as a new revision')
-    // No batch furniture around one file.
     expect(screen.queryByTestId('folder-upload-include-updates')).not.toBeInTheDocument()
     expect(screen.queryByTestId('folder-upload-count-new')).not.toBeInTheDocument()
 
@@ -312,10 +284,6 @@ describe('FolderUploadDialog — loose files', () => {
   })
 })
 
-/**
- * ADR-0086: before anything is sent, the reader sees what the office's upload
- * screening holds back and why, and can release a single file.
- */
 describe('FolderUploadDialog — upload screening', () => {
   const screened = (released: File[] = []) => {
     const contract = pathed('Akt/Verträge/Architektenvertrag.pdf')
@@ -366,7 +334,6 @@ describe('FolderUploadDialog — upload screening', () => {
   })
 })
 
-/** What the Fassung probe answers for a dropped name (`name-probe-types.ts`). */
 function offered(name: string, ids: string[], overrides: { newer?: boolean; unambiguous?: boolean } = {}) {
   return {
     name,
@@ -376,7 +343,6 @@ function offered(name: string, ids: string[], overrides: { newer?: boolean; unam
   }
 }
 
-/** Forty publisher-export sheets that each continue one document, one that is unclear, one unchanged. */
 function exportPlan(count = 40): { plan: FolderUploadPlan; files: File[] } {
   const files = Array.from({ length: count }, (_, index) =>
     pathed(`Export/${index % 2 === 0 ? 'Grundrisse' : 'Schnitte'}/Blatt_${String(index).padStart(2, '0')}_Index_C.pdf`),
@@ -402,13 +368,11 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
     expect(rows).toHaveLength(40)
     expect(screen.getByTestId('folder-upload-revision-master')).toHaveAttribute('data-state', 'checked')
     expect(screen.getByTestId('folder-upload-revision-master-label')).toHaveTextContent('All 40 as new revisions')
-    // One run per folder, named once over its rows, instead of the folder prefix eating every row's width.
     const groups = within(section).getAllByRole('group')
     expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual(['Export/Grundrisse', 'Export/Schnitte'])
     expect(within(groups[0]).getAllByTestId('folder-upload-revision-row')).toHaveLength(20)
     expect(rows[0]).not.toHaveTextContent('Export/')
     expect(rows[0]).toHaveTextContent('Blatt_00_Index_C.pdf')
-    // Then where it goes, with the label of the document it continues.
     expect(rows[0]).toHaveTextContent('Revision of b0.pdf · Index B0')
     expect(screen.queryByTestId('folder-upload-revisions-unclear')).not.toBeInTheDocument()
   })
@@ -430,7 +394,6 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
 
     await userEvent.click(screen.getByTestId('folder-upload-revision-master'))
 
-    // All were ticked, so the click unticks all, as one change.
     expect(onRevisionChange).toHaveBeenCalledTimes(1)
     const change = onRevisionChange.mock.calls[0][0]
     expect(change.chosen).toBe(false)
@@ -457,7 +420,6 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
     const boxes = screen.getAllByTestId('folder-upload-revision-choice')
     expect(boxes.map((box) => box.getAttribute('data-state'))).toEqual(['checked', 'checked', 'unchecked'])
 
-    // Sorted by folder: the unticked one (in Schnitte) comes last. A tap on its name toggles it too.
     const rows = screen.getAllByTestId('folder-upload-revision-row')
     await userEvent.click(within(rows[2]).getByText(/Blatt_01/))
     expect(onRevisionChange).toHaveBeenCalledWith({ files: [files[1]], chosen: true })
@@ -492,7 +454,6 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
 
     const block = screen.getByTestId('folder-upload-revisions')
     expect(within(block).getByText('2 new revisions')).toBeInTheDocument()
-    // Each group says why Piloti thinks so.
     const sameName = within(block).getByTestId('folder-upload-include-updates')
     expect(sameName).toHaveTextContent('1 file of the same name as a new revision')
     expect(sameName).toHaveTextContent('Same name as a document here')
@@ -536,12 +497,10 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
     expect(within(screen.getByTestId('folder-upload-revisions-detected')).getAllByTestId('folder-upload-revision-row')).toHaveLength(1)
     const unclear = screen.getByTestId('folder-upload-revisions-unclear')
     expect(within(unclear).getByText('2 files need your choice')).toBeInTheDocument()
-    // The hint says what choosing does: it ticks.
     expect(unclear).toHaveTextContent('Choose a document or tick the file, and it is filed as a new revision.')
     const rows = within(unclear).getAllByTestId('folder-upload-revision-unclear-row')
     expect(rows).toHaveLength(2)
     expect(rows[0]).toHaveTextContent('Several documents could be meant')
-    // Unticked, so the field shows its placeholder rather than a document that looks chosen.
     const pick = within(rows[0]).getByTestId('folder-upload-revision-pick')
     expect(pick).toHaveAttribute('data-placeholder')
     expect(pick).toHaveTextContent('Choose the document…')
@@ -593,13 +552,7 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
   })
 })
 
-/**
- * One loose file that continues a document under another name: its own light
- * layout, like the same-name single file, and two named outcomes instead of a
- * master box over a list of one.
- */
 describe('FolderUploadDialog — one file that continues a document', () => {
-  /** The dialog with its answers re-planned, as `useUploadDecision` does, and what the confirm saw. */
   function Answering({
     file,
     offer,
@@ -671,7 +624,6 @@ describe('FolderUploadDialog — one file that continues a document', () => {
 
     await userEvent.click(screen.getByTestId('folder-upload-sole-separate'))
 
-    // Confirming in the same tick would have applied the plan with the box still ticked.
     expect(onConfirm).toHaveBeenCalledTimes(1)
     expect(onConfirm.mock.calls[0][0].files[0].revisionOf.chosen).toBe(false)
   })
@@ -684,7 +636,6 @@ describe('FolderUploadDialog — one file that continues a document', () => {
     expect(screen.getByText('Is “EG_Index_C.pdf” a new revision?')).toBeInTheDocument()
     expect(screen.getByTestId('folder-upload-revision-pick')).toHaveTextContent('Choose the document…')
     expect(screen.getByTestId('folder-upload-sole-revision')).toBeDisabled()
-    // A document of its own needs no choice.
     expect(screen.getByTestId('folder-upload-sole-separate')).toBeEnabled()
   })
 

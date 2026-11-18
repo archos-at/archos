@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The reference-project catalog the agent sees every turn
- * (docs/design/cross-project-escalation.md): only CLOSED projects (every office
- * member reads them, so the catalog is safe in any chat), never the current
- * one, the most alike first with what they share, bounded, and nothing when
- * the office has none.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
@@ -73,7 +66,6 @@ describe('renderReferenceBrief', () => {
     const lines = brief.split('\n')
     expect(lines).toHaveLength(2)
     expect(lines[0]).toBe(
-      // The intake's own labels, not its tokens: what the reader saw in the wizard.
       `- Projekt 4 (id ${project(4).id}): 2021, Niederösterreich, GK 4, Holzbau/Stahlbeton, Neubau · gemeinsam: Niederösterreich, GK 4 · Holzbau mit Sicherheitstreppenhaus.`
     )
     expect(lines[1]).toContain('Projekt 3')

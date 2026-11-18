@@ -1,19 +1,8 @@
-// Card payloads written before the English field names.
-//
-// A card lives in `messages.metadata` and in browser storage long after the
-// build that wrote it, so a stored card still says `aufstellflaeche`,
-// `context: 'balkon'` or `kind: 'fluchtniveau'`. The generated schema accepts
-// only the English names, and a card that fails it is a hole in the thread.
-// The migration rewrote the table once; this keeps the cards in flight (an older
-// pod, a tab's localStorage) readable. Read-only: nothing writes these.
-
 import { LEGACY_TASK_KINDS } from '@/lib/tasks/task-vocabulary'
 
-/** Where a draft lived before the working directory had an English root. */
 export const LEGACY_DRAFT_ROOT = '/entwuerfe/'
 export const DRAFT_ROOT = '/drafts/'
 
-/** `guardrail_check.context`. */
 export const LEGACY_GUARDRAIL_CONTEXT: Readonly<Record<string, string>> = {
   balkon: 'balcony',
   stiege: 'staircase',
@@ -21,18 +10,15 @@ export const LEGACY_GUARDRAIL_CONTEXT: Readonly<Record<string, string>> = {
   dachterrasse: 'roof_terrace',
 }
 
-/** `building_section.markers[].kind`. */
 export const LEGACY_SECTION_MARKER_KIND: Readonly<Record<string, string>> = {
   fluchtniveau: 'escape_level',
 }
 
-/** `fire_access_plan` field names. */
 export const LEGACY_FIRE_ACCESS_FIELDS: Readonly<Record<string, string>> = {
   aufstellflaeche: 'staging_area',
   gebaeudeklasse: 'building_class',
 }
 
-/** `document_grid.documents[].source` and `file_operation_proposal.operations[].source`. */
 export const LEGACY_DOCUMENT_SOURCE: Readonly<Record<string, string>> = {
   projekt: 'project',
   buero: 'office',
@@ -46,7 +32,6 @@ const modernizeSource = (item: unknown): unknown =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** A draft path with its root spelled the English way. */
 export const modernizeDraftPath = (path: string): string => {
   const trimmed = path.trimStart()
   if (trimmed.startsWith(LEGACY_DRAFT_ROOT)) return DRAFT_ROOT + trimmed.slice(LEGACY_DRAFT_ROOT.length)
@@ -56,7 +41,6 @@ export const modernizeDraftPath = (path: string): string => {
   return path
 }
 
-/** A card with the English field names and values, whichever spelling it came in. */
 export function modernizeAnswerCard(card: unknown): unknown {
   if (!isRecord(card)) return card
   switch (card.type) {

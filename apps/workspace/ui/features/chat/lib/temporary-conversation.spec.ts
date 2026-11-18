@@ -25,7 +25,6 @@ const conversation: Conversation = {
 }
 const stored = (): boolean | undefined => useChatStore.getState().conversations[0]?.temporary
 
-/** The create answered: the store's create path reports this, then marks the row. */
 function rowCreated(temporary: boolean): void {
   recordCreatedTemporary('c-1', temporary)
   markConversationOnServer('c-1')
@@ -60,9 +59,6 @@ describe('a switch before the row exists', () => {
 })
 
 describe('a switch while the create is in flight', () => {
-  // The race: switched after the create left without the flag, then sent at
-  // once. Before the machine the store said `true` here, the turn opened on
-  // the created row, and the PATCH came after.
   it('keeps the store at what the create carries and holds the turn until the PATCH is answered', async () => {
     let answer!: (response: Response) => void
     fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))

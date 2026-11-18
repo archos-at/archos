@@ -1,11 +1,3 @@
-"""Tests for the semantic document-search endpoint.
-
-``POST /v1/collections/{collection}/search`` runs deterministic vector search
-(no LLM) over one collection's embedded chunks via the cached retriever, then
-aggregates the per-chunk hits into a document-centric result: one hit per file
-(its max-score chunk), sorted by score descending, capped at ``top_k_files``.
-"""
-
 import base64
 import hashlib
 import hmac
@@ -36,7 +28,6 @@ def _chunk(
     page: int | None = 1,
     collection: str = "proj_a",
 ) -> Chunk:
-    """Build a minimal valid Chunk for a retrieval result."""
     return Chunk(
         chunk_id=f"{file_name}:{page}:{score}",
         content=content,
@@ -50,7 +41,6 @@ def _chunk(
 
 
 def _make_retriever(chunks: list[Chunk]) -> MagicMock:
-    """Retriever mock whose async retrieve() returns the given chunks."""
     retriever = MagicMock()
     retriever.backend_name = "test"
     retriever.retrieve = AsyncMock(return_value=RetrievalResult(chunks=chunks, query="q", backend="test", success=True))
@@ -61,7 +51,6 @@ def _make_retriever(chunks: list[Chunk]) -> MagicMock:
 def app():
     ingestor = MagicMock()
     ingestor.backend_name = "test"
-    # Collection exists by default; individual tests override for the 404 case.
     ingestor.get_collection.return_value = MagicMock()
     set_active_ingestor(ingestor)
 
@@ -80,12 +69,6 @@ def _client(app):
 
 
 def _scope_headers(scope: list[str], secret: str | None = None) -> dict[str, str]:
-    """Build the signed ``X-Grid-Request-Context`` envelope the BFF forwards.
-
-    Mirrors ``buildRequestContextWireHeaders({ collectionScope }, secret)`` on
-    the TS side: base64url(JSON) payload + hex HMAC-SHA256 signature over the raw
-    JSON. When ``secret`` is None the sig header is omitted (dev/anonymous).
-    """
     payload = json.dumps({"collectionScope": scope})
     header = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     headers = {"x-grid-request-context": header}
@@ -140,7 +123,6 @@ async def test_search_empty_query_422(app):
 
 @pytest.mark.asyncio
 async def test_search_keeps_max_score_per_file_and_sorts_desc(app):
-    # Same document appears in multiple chunks; a lower-scoring file ranks below.
     set_active_retriever(
         _make_retriever(
             [
@@ -156,10 +138,8 @@ async def test_search_keeps_max_score_per_file_and_sorts_desc(app):
 
     assert res.status_code == 200
     hits = res.json()["hits"]
-    # One hit per file, plan.pdf first (its max score 0.95 beats report's 0.6).
     assert [h["file_name"] for h in hits] == ["plan.pdf", "report.pdf"]
     assert hits[0]["score"] == 0.95
-    # The kept plan.pdf hit is its best chunk (page + snippet from the 0.95 one).
     assert hits[0]["page_number"] == 5
     assert hits[0]["snippet"] == "best chunk of plan"
 
@@ -174,13 +154,11 @@ async def test_search_snippet_truncated_to_300_chars(app):
 
     assert res.status_code == 200
     snippet = res.json()["hits"][0]["snippet"]
-    # 300 chars kept + a single ellipsis marker.
     assert snippet == "A" * 300 + "…"
 
 
 @pytest.mark.asyncio
 async def test_search_snippet_length_is_the_requests_within_bounds(app):
-    """The cross-project lookups ask for a longer passage; the bound still holds (ADR-0094)."""
     set_active_retriever(_make_retriever([_chunk("big.pdf", 0.8, "B" * 2000)]))
 
     async with _client(app) as client:
@@ -230,7 +208,6 @@ async def test_search_passes_top_k_to_retriever(app):
 
 @pytest.mark.asyncio
 async def test_search_503_when_no_ingestor(app):
-    # Simulate an unconfigured Knowledge API: no active ingestor.
     clear_active_ingestor()
     set_active_retriever(_make_retriever([]))
 
@@ -240,12 +217,8 @@ async def test_search_503_when_no_ingestor(app):
     assert res.status_code == 503
 
 
-# --- Collection-scope enforcement (PB-SYNTH-4, defense-in-depth) --------------
-
-
 @pytest.mark.asyncio
 async def test_search_in_scope_collection_allowed(app, monkeypatch):
-    """A signed scope that CONTAINS the target collection is searched normally."""
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "s3cr3t")
     set_active_retriever(_make_retriever([_chunk("plan.pdf", 0.9)]))
@@ -263,12 +236,6 @@ async def test_search_in_scope_collection_allowed(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_out_of_scope_collection_rejected_404(app, monkeypatch):
-    """A signed scope that does NOT contain the target collection → 404.
-
-    404 (not 403) so an out-of-scope / other-tenant collection is
-    indistinguishable from a genuinely missing one — no cross-tenant oracle. The
-    existence probe / retriever must never run.
-    """
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "s3cr3t")
     retriever = _make_retriever([_chunk("victim.pdf", 0.9)])
@@ -288,11 +255,6 @@ async def test_search_out_of_scope_collection_rejected_404(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_forged_raw_scope_header_not_honored(app, monkeypatch):
-    """An UNSIGNED raw X-Grid-Collection-Scope header cannot widen scope.
-
-    Under REQUIRE_AUTH the raw, forgeable header alone is not a valid signed
-    envelope, so it is ignored and the request is rejected 403.
-    """
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "s3cr3t")
     set_active_retriever(_make_retriever([_chunk("victim.pdf", 0.9)]))
@@ -310,7 +272,6 @@ async def test_search_forged_raw_scope_header_not_honored(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_wrong_signature_rejected(app, monkeypatch):
-    """An envelope signed with the WRONG secret is treated as absent → 403."""
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "s3cr3t")
     set_active_retriever(_make_retriever([_chunk("plan.pdf", 0.9)]))
@@ -327,7 +288,6 @@ async def test_search_wrong_signature_rejected(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_require_auth_without_envelope_rejected_403(app, monkeypatch):
-    """REQUIRE_AUTH=true + no signed scope at all → 403 (BFF always forwards one)."""
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "s3cr3t")
     set_active_retriever(_make_retriever([_chunk("plan.pdf", 0.9)]))
@@ -340,7 +300,6 @@ async def test_search_require_auth_without_envelope_rejected_403(app, monkeypatc
 
 @pytest.mark.asyncio
 async def test_search_anonymous_mode_no_scope_allowed(app, monkeypatch):
-    """Anonymous mode (REQUIRE_AUTH=false) enforces no tenant boundary."""
     monkeypatch.setenv("REQUIRE_AUTH", "false")
     set_active_retriever(_make_retriever([_chunk("plan.pdf", 0.9)]))
 
@@ -351,9 +310,6 @@ async def test_search_anonymous_mode_no_scope_allowed(app, monkeypatch):
     assert [h["file_name"] for h in res.json()["hits"]] == ["plan.pdf"]
 
 
-# --- One search across many collections (ADR-0094, ADR-0116) -----------------
-
-
 def _grouped_retriever(groups: list[tuple[str, list[Chunk]]]) -> MagicMock:
     retriever = MagicMock()
     retriever.backend_name = "test"
@@ -362,7 +318,6 @@ def _grouped_retriever(groups: list[tuple[str, list[Chunk]]]) -> MagicMock:
 
 
 def _ranked(file_name: str, cosine: float, fused: float, collection: str = "proj_a") -> Chunk:
-    """A chunk as ``search_grouped`` returns it: its own cosine, and its score in the one fused ranking."""
     chunk = _chunk(file_name, cosine, collection=collection)
     chunk.metadata[FUSED_SCORE_KEY] = fused
     return chunk
@@ -370,7 +325,6 @@ def _ranked(file_name: str, cosine: float, fused: float, collection: str = "proj
 
 @pytest.mark.asyncio
 async def test_grouped_search_orders_documents_by_the_fused_ranking_not_the_scores(app):
-    """Each document by its best fused chunk, whatever its cosine."""
     retriever = _grouped_retriever(
         [
             ("proj_b", [_ranked("b1.pdf", 0.40, 0.030, "proj_b"), _ranked("b1.pdf", 0.30, 0.020, "proj_b")]),
@@ -394,17 +348,11 @@ async def test_grouped_search_orders_documents_by_the_fused_ranking_not_the_scor
     args = retriever.search_grouped.await_args
     assert args.args[1] == ["proj_a", "proj_b"]  # de-duplicated, order kept
     assert args.kwargs["group_size"] == 2 * 3
-    # Only the superseded exclusion narrows a plain search (ADR-0099).
     assert args.kwargs["filters"] == {"superseded": {"$ne": True}} and args.kwargs["boost"] is None
 
 
 @pytest.mark.asyncio
 async def test_grouped_search_interleaves_documents_across_projects(app):
-    """The best project's weak documents do not fill the page ahead of another project's strong one.
-
-    The shape the real search produces: one project with one strong and many
-    weak documents, many projects with one fairly strong document each.
-    """
     best = [_ranked("strong.pdf", 0.95, 1 / 61, "proj_00")] + [
         _ranked(f"weak{n}.pdf", 0.60, 1 / (61 + 39 + n), "proj_00") for n in range(15)
     ]
@@ -426,7 +374,6 @@ async def test_grouped_search_interleaves_documents_across_projects(app):
     first_page = [(h["collection"], h["file_name"]) for h in hits[:10]]
     assert first_page[0] == ("proj_00", "strong.pdf")
     assert [collection for collection, _ in first_page[1:]] == [f"proj_{i:02d}" for i in range(1, 10)]
-    # proj_00 still keeps its documents, at most files_per_group, after the others.
     assert sum(1 for h in hits if h["collection"] == "proj_00") == 10
     assert hits[-1]["collection"] == "proj_00"
 
@@ -489,7 +436,6 @@ async def test_grouped_search_hands_filters_and_boost_to_the_retriever_as_its_gr
             {"superseded": {"$ne": True}},
         ]
     }
-    # The vector store holds the English names and tokens; points not yet rewritten are matched in the retriever.
     assert kwargs["boost"]["facts"]["building_class"] == [4] and kwargs["boost"]["facts"]["federal_state"] == "vienna"
     assert kwargs["boost"]["weights"]["federal_state"] == 4 and kwargs["boost"]["weights"]["use"] == 0
 
@@ -514,7 +460,6 @@ DOC_B = "7f3a9d10-aaaa-4bbb-8ccc-dddddddddddd"
 
 @pytest.mark.asyncio
 async def test_grouped_search_narrows_to_documents_reading_types_and_references_inside_the_query(app):
-    """ADR-0136 item 5: the BFF's candidates, the dossier's type and its references are pre-filters, any of each."""
     retriever = _grouped_retriever([])
     set_active_retriever(retriever)
 
@@ -558,7 +503,6 @@ async def test_grouped_search_narrows_to_documents_reading_types_and_references_
 
 
 def test_the_reading_filters_compile_in_the_one_scope_filter():
-    """Every field is one the scope filter accepts (indexed, keyword), so Qdrant applies it, not a post-filter."""
     from knowledge_layer.vector_store import scope_filter
 
     from agent_host.models.requests import GroupedSearchFilters
@@ -574,7 +518,6 @@ def test_the_reading_filters_compile_in_the_one_scope_filter():
 
 @pytest.mark.asyncio
 async def test_a_reference_nobody_can_read_matches_nothing_without_widening(app):
-    """``refers_to`` that names no reference is no condition to drop: the answer is empty, Qdrant is not asked."""
     retriever = _grouped_retriever([("proj_a", [_ranked("a.pdf", 0.9, 0.9)])])
     set_active_retriever(retriever)
 
@@ -642,7 +585,6 @@ async def test_grouped_search_needs_a_signed_scope_under_auth(app, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_failed_grouped_search_is_a_500_not_a_fallback_signal(app):
-    """Qdrant is the only store: no 409 tells the BFF to search collection by collection any more."""
     retriever = MagicMock()
     retriever.backend_name = "test"
     retriever.search_grouped = AsyncMock(side_effect=NotImplementedError("cannot rank across collections"))
@@ -653,7 +595,6 @@ async def test_a_failed_grouped_search_is_a_500_not_a_fallback_signal(app):
         capability = await client.get("/v1/collections/search/capability")
 
     assert res.status_code == 500
-    # The capability probe is gone; the path now names a collection called "search".
     assert capability.status_code in (404, 405)
 
 
@@ -666,7 +607,6 @@ async def test_single_collection_search_is_not_shadowed_by_the_grouped_route(app
 
 
 async def _traced_spans(app, body: dict) -> list:
-    """The spans one grouped search leaves, with tracing on."""
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
     from agent.observability import direct_trace
@@ -686,7 +626,6 @@ async def _traced_spans(app, body: dict) -> list:
 
 @pytest.mark.asyncio
 async def test_the_workspace_search_is_one_retriever_observation_carrying_counts_not_text(app):
-    """ADR-0089: the workspace search's content query is traced as `retrieve.workspace_search`, without its words."""
     set_active_retriever(
         _grouped_retriever(
             [
@@ -722,7 +661,6 @@ async def test_the_workspace_search_is_one_retriever_observation_carrying_counts
 
 @pytest.mark.asyncio
 async def test_a_grouped_search_without_a_purpose_is_not_traced_here(app):
-    """The cross-project lookup is traced by Piloti's `project_lookup`; a second trace would count it twice."""
     set_active_retriever(_grouped_retriever([("proj_a", [_ranked("a.pdf", 0.9, 0.03)])]))
     assert await _traced_spans(app, {"query": "q", "collections": ["proj_a"]}) == []
 
@@ -736,11 +674,6 @@ def _lexical(chunk: Chunk, holds_the_words: bool) -> Chunk:
 
 @pytest.mark.asyncio
 async def test_the_workspace_search_drops_meaning_only_documents_below_the_floor(app):
-    """„qwxzv“ returned sixteen documents: the dense channel fills the fusion whatever the words.
-
-    A document whose passage holds a query word stays at any cosine; one that
-    only means the same stays above the floor and says so (`lexical: false`).
-    """
     from agent_host.routes.document_search import MEANING_ONLY_MIN_COSINE
 
     groups = [
@@ -750,7 +683,6 @@ async def test_the_workspace_search_drops_meaning_only_documents_below_the_floor
                 _lexical(_ranked("rechnung.jpg", 0.20, 0.05), True),
                 _lexical(_ranked("reisekosten.xlsx", MEANING_ONLY_MIN_COSINE + 0.02, 0.04), False),
                 _lexical(_ranked("sample.pdf", 0.11, 0.03), False),
-                # A document is lexical when any of its ranked chunks is.
                 _lexical(_ranked("plan.pdf", 0.12, 0.02), False),
                 _lexical(_ranked("plan.pdf", 0.10, 0.01), True),
             ],
@@ -767,7 +699,6 @@ async def test_the_workspace_search_drops_meaning_only_documents_below_the_floor
         ("reisekosten.xlsx", False),
         ("plan.pdf", True),
     ]
-    # The cross-project lookup hands a ranked pool to a model: nothing is dropped there.
     assert [hit["file_name"] for hit in lookup["hits"]] == [
         "rechnung.jpg",
         "reisekosten.xlsx",
@@ -788,7 +719,6 @@ async def test_a_retriever_that_cannot_tell_the_words_drops_nothing(app):
 
 @pytest.mark.asyncio
 async def test_a_document_filter_names_the_files_whose_passages_carry_no_id(app):
-    """Points copied from Chroma carry no ``grid_document_id``: by id alone a currentOnly search lost them."""
     retriever = _grouped_retriever([])
     set_active_retriever(retriever)
 

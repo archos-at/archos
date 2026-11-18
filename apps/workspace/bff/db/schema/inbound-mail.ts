@@ -42,38 +42,19 @@ import type {
 import type { ThreadMatch } from '@/lib/mail-thread/mail-thread-vocabulary'
 import { projects } from './projects'
 
-/**
- * The E-Mail-Eingang (ADR-0137, migration 0196): a project's mail address, the
- * mail that reached it, its parts, and what a person decided about each part.
- * Nothing that arrives is a document; a part becomes one only when a person
- * files it, and the mail's text becomes a section of its E-Mail-Verlauf
- * (`./mail-thread.ts`).
- *
- * Storage only. The migration holds every rule, and says why each exists: a
- * part is filed only on a person's `file` decision about it, only when its scan
- * was clean; a decision is append-only and names a person; a settled mail keeps
- * no third party's data; every object key a row names is the row's own. Several
- * composite keys use a column-subset `ON DELETE SET NULL`, which drizzle cannot
- * express; they live in the migration alone (the `mail_threads` arrangement).
- */
-
-/** A project's mail address, and every address it had (rotation history). Only `token` resolves. */
 export const inboundMailAddresses = pgTable(
   'inbound_mail_addresses',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     organizationId: text('organization_id').notNull(),
     projectId: uuid('project_id').notNull(),
-    /** 12 characters of lowercase base32, unique across every organization, revoked rows included. */
     token: text('token').notNull(),
-    /** Frozen at mint time; `''` when the project name latinizes to nothing. */
     slug: text('slug').notNull().default(''),
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     revokedBy: text('revoked_by'),
     revokedReason: text('revoked_reason').$type<InboundMailAddressRevokedReason>(),
-    /** What the managers were last told about the staged-bytes caps; the sweep tells each rise once. */
     capNotice: text('cap_notice').$type<InboundMailCapNotice>(),
     capNoticedAt: timestamp('cap_noticed_at', { withTimezone: true }),
   },
@@ -96,7 +77,6 @@ export const inboundMailAddresses = pgTable(
   }),
 )
 
-/** One delivery to an address, held until a person files or dismisses its parts. */
 export const inboundMails = pgTable(
   'inbound_mails',
   {
@@ -105,16 +85,11 @@ export const inboundMails = pgTable(
     projectId: uuid('project_id').notNull(),
     addressId: uuid('address_id').notNull(),
     status: text('status').$type<InboundMailStatus>().notNull().default('receiving'),
-    /** sha256 hex of the raw message; NULL only while `receiving`. */
     deliveryKey: text('delivery_key'),
-    /** The SMTP MAIL FROM; `''` is a bounce's null sender. */
     envelopeFrom: text('envelope_from'),
     rawSizeBytes: bigint('raw_size_bytes', { mode: 'number' }),
-    /** ADR-0043: recorded before any object is written; the purger reads it. */
     stagingBucket: text('staging_bucket').notNull(),
-    /** Exactly `inboundMailStagingKey(…, 'raw.eml')` of this row, or NULL. */
     rawStorageKey: text('raw_storage_key'),
-    /** Exactly `inboundMailStagingKey(…, 'read.json')` of this row, or NULL. */
     readStorageKey: text('read_storage_key'),
     rawScanStatus: text('raw_scan_status').$type<MalwareScanStatus>().notNull().default('pending'),
     rawScanEngine: text('raw_scan_engine'),
@@ -126,7 +101,6 @@ export const inboundMails = pgTable(
     referenceIds: text('reference_ids').array().notNull().default(sql`'{}'::text[]`),
     threadIndexGuid: uuid('thread_index_guid'),
     baseSubject: text('base_subject'),
-    /** Ids and strengths only; candidates are computed for the viewer (D9). */
     threadMatch: jsonb('thread_match').$type<ThreadMatch[]>().notNull().default([]),
     senderAddress: text('sender_address'),
     senderName: text('sender_name'),
@@ -134,26 +108,16 @@ export const inboundMails = pgTable(
     participants: jsonb('participants').$type<MailParticipant[]>().notNull().default([]),
     participantDomains: text('participant_domains').array().notNull().default(sql`'{}'::text[]`),
     recipientCount: integer('recipient_count').notNull().default(0),
-    /** NULL until the receive job read the mail; never NULL once a person can see it. */
     senderTrust: text('sender_trust').$type<InboundSenderTrust>(),
-    /** The member the From address belongs to; read only under D9's notice rules. */
     senderUserId: text('sender_user_id'),
-    /**
-     * Who the sender is to the project (migration 0197): written by the hold with
-     * the trust, frozen after it. NULL exactly while `senderTrust` is.
-     */
     senderClass: text('sender_class').$type<InboundMailSenderClass>(),
-    /** Why the sender is or is not verified; `dkim_pass` exactly when the trust is verified. */
     senderReason: text('sender_reason').$type<SenderReason>(),
     signerDomain: text('signer_domain'),
-    /** Lower-case header names inside the aligned passing DKIM signature. */
     signedHeaders: text('signed_headers').array().notNull().default(sql`'{}'::text[]`),
     senderFlags: text('sender_flags').array().$type<SenderFlag[]>().notNull().default(sql`'{}'::text[]`),
-    /** Our own line from DKIM and DMARC only; the database refuses one carrying `spf=`. */
     authenticationResults: text('authentication_results'),
     automatic: boolean('automatic').notNull().default(false),
     droppedReason: text('dropped_reason').$type<DroppedReason>(),
-    /** The clamped Date (D11); `sentAtHeader` is the sender's claim. */
     sentAt: timestamp('sent_at', { withTimezone: true }),
     sentAtHeader: timestamp('sent_at_header', { withTimezone: true }),
     receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
@@ -165,32 +129,12 @@ export const inboundMails = pgTable(
     ignored: jsonb('ignored').$type<InboundMailIgnoredCounts>().notNull().default({}),
     erasureDeferredAt: timestamp('erasure_deferred_at', { withTimezone: true }),
     originalMovePendingAt: timestamp('original_move_pending_at', { withTimezone: true }),
-    /**
-     * The Python reader did not answer while the receive job held the mail
-     * (migration 0199): its text waits unreadable, and the sweep reads it
-     * again from this time on while the mail waits. Null once read.
-     */
     readerFaultAt: timestamp('reader_fault_at', { withTimezone: true }),
-    /**
-     * What a receive run learned that the next run of the same mail reuses: the
-     * sender's authentication and each attachment's scan (migration 0199,
-     * `lib/inbound-mail/receive-progress.ts`). Only a `received` mail carries it.
-     */
     receiveProgress: jsonb('receive_progress').$type<Record<string, unknown>>(),
-    /**
-     * The original message a forward carried (`lib/inbound-mail/original-message.ts`,
-     * migration 0198): who wrote it, when, about what. Attribution, never
-     * verified; the author and subject are cleared when the mail ends (trigger).
-     */
     originalAuthorAddress: text('original_author_address'),
     originalAuthorName: text('original_author_name'),
     originalSentAt: timestamp('original_sent_at', { withTimezone: true }),
     originalSubject: text('original_subject'),
-    /**
-     * An attached original's Message-ID, as the `.eml` said: the sender's word,
-     * never unique (any number of mails may claim one) and never a reason to
-     * drop a delivery. Filing reads it against the entries' `author_message_id`.
-     */
     originalMessageId: text('original_message_id'),
     originalSource: text('original_source').$type<OriginalMessageSource>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -202,7 +146,6 @@ export const inboundMails = pgTable(
       columns: [table.projectId, table.organizationId],
       foreignColumns: [projects.id, projects.organizationId],
     }).onDelete('cascade'),
-    /** NO ACTION: an address is revoked, never deleted, while a mail names it. */
     addressFk: foreignKey({
       name: 'inbound_mails_address_fkey',
       columns: [table.addressId, table.projectId, table.organizationId],
@@ -237,12 +180,6 @@ export const inboundMails = pgTable(
   }),
 )
 
-/**
- * The mail's own text, or one attachment, and where it stands. NOTE: the
- * composite keys to `documents`, `document_versions` and `mail_thread_entries`
- * set only their own column NULL, and the key to the part's decision is added
- * after both tables exist; all four live in migration 0196 alone.
- */
 export const inboundMailParts = pgTable(
   'inbound_mail_parts',
   {
@@ -252,12 +189,10 @@ export const inboundMailParts = pgTable(
     mailId: uuid('mail_id').notNull(),
     position: integer('position').notNull(),
     kind: text('kind').$type<InboundMailPartKind>().notNull(),
-    /** An attachment's name, only while its bytes are there (NULL for a nameless file); the text has none. */
     filename: text('filename'),
     contentType: text('content_type').notNull(),
     sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
     sha256: text('sha256').notNull(),
-    /** Exactly `inboundMailStagingKey(…, { position })` of this part, or NULL. */
     storageKey: text('storage_key'),
     state: text('state').$type<InboundMailPartState>().notNull().default('waiting'),
     scanStatus: text('scan_status').$type<InboundMailPartScanStatus>().notNull(),
@@ -274,7 +209,6 @@ export const inboundMailParts = pgTable(
       .default(sql`'{}'::text[]`),
     duplicateOfDocumentId: uuid('duplicate_of_document_id'),
     revisionCandidateDocumentId: uuid('revision_candidate_document_id'),
-    /** The person's `file` decision about THIS part; set exactly while `filing` or `filed`. */
     decisionId: uuid('decision_id'),
     claimExpiresAt: timestamp('claim_expires_at', { withTimezone: true }),
     lastFailure: text('last_failure').$type<InboundMailFilingFailure>(),
@@ -282,10 +216,8 @@ export const inboundMailParts = pgTable(
     documentVersionId: uuid('document_version_id'),
     mailThreadEntryId: uuid('mail_thread_entry_id'),
     filedAt: timestamp('filed_at', { withTimezone: true }),
-    /** When it was dismissed or expired: restorable for `INBOUND_MAIL_RESTORE_DAYS` from here. */
     endedAt: timestamp('ended_at', { withTimezone: true }),
     erasureDeferredAt: timestamp('erasure_deferred_at', { withTimezone: true }),
-    /** The agent's suggestion (D21), shaped by `lib/inbound-mail/suggest.ts`; gone with the bytes. */
     suggestion: jsonb('suggestion').$type<Record<string, unknown>>(),
     suggestionTraceId: text('suggestion_trace_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -317,14 +249,6 @@ export const inboundMailParts = pgTable(
   }),
 )
 
-/**
- * Append-only: every act of a person on a part. The filing job reads what to do
- * from here and nowhere else, and the audit trail is sent from here
- * (`auditedAt`). Only `auditedAt` ever changes, once. NOTE: the composite key
- * that makes a follow decision the follower's own references
- * `mail_thread_follows`, declared in `./mail-thread.ts`; it lives in migration
- * 0196 alone so this file does not import that one.
- */
 export const inboundMailDecisions = pgTable(
   'inbound_mail_decisions',
   {
@@ -334,17 +258,14 @@ export const inboundMailDecisions = pgTable(
     mailId: uuid('mail_id').notNull(),
     partId: uuid('part_id').notNull(),
     action: text('action').$type<InboundMailDecisionAction>().notNull(),
-    /** A person's WorkOS user id (`PERSON_USER_ID_PATTERN`); the database refuses any other. */
     decidedBy: text('decided_by').notNull(),
     via: text('via').$type<InboundMailDecisionVia>().notNull().default('app'),
     proposalId: uuid('proposal_id'),
     followId: uuid('follow_id'),
     decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
     folderId: uuid('folder_id'),
-    /** The destination as it was; `''` is the project root. */
     folderPath: text('folder_path'),
     fileName: text('file_name'),
-    /** `revisionOf`: file as the next Fassung of this document. */
     targetDocumentId: uuid('target_document_id'),
     documentType: text('document_type'),
     threadAction: text('thread_action').$type<InboundMailThreadAction>(),

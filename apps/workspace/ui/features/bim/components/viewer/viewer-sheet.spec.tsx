@@ -1,8 +1,3 @@
-/**
- * The phone sheet: two sizes, a handle that owns its gesture, and a body that
- * the browser keeps scrolling.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { SHEET_SWIPE_PX, ViewerSheet, sheetGesture, type ViewerSheetSnap } from './viewer-sheet'
@@ -38,10 +33,8 @@ describe('sheetGesture', () => {
     [0, 'peek', 'toggle'],
     [SHEET_SWIPE_PX - 1, 'full', 'toggle'],
     [-SHEET_SWIPE_PX, 'peek', 'expand'],
-    // Nowhere to go up to from full.
     [-120, 'full', 'none'],
     [SHEET_SWIPE_PX, 'full', 'collapse'],
-    // Swiping the smallest size down is the dismissal.
     [SHEET_SWIPE_PX, 'peek', 'dismiss'],
     [90, 'peek', 'dismiss'],
   ] as const)('travel %s from %s -> %s', (travel, snap, expected) => {
@@ -63,7 +56,6 @@ describe('ViewerSheet', () => {
       'peek'
     )
     expect(screen.getByRole('button', { name: 'Isolieren' })).toBeVisible()
-    // Mounted (scroll offset and open <details> survive), not visible.
     expect(screen.getByText('Qto_WallBaseQuantities')).not.toBeVisible()
     expect(screen.getByRole('button', { name: 'Details einblenden' })).toHaveAttribute(
       'aria-expanded',
@@ -119,7 +111,6 @@ describe('ViewerSheet', () => {
     const close = screen.getByRole('button', { name: 'Schließen' })
     fireEvent.click(close)
     expect(onClose).toHaveBeenCalledTimes(1)
-    // `Button size="icon"` carries the coarse floor; the sheet must not shrink it.
     expect(close.className).not.toMatch(/\bsize-7\b/)
   })
 

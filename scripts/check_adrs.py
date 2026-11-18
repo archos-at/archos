@@ -1,51 +1,5 @@
 #!/usr/bin/env python3
 
-"""Keep the ADR directory and its index telling the same story.
-
-Why this exists
----------------
-
-An audit of the 53 records here found four kinds of silent drift:
-
-* **Number collisions.** 0027, 0039, 0044 and 0047 were each used twice, every
-  time because two people took the next number from ``README.md`` on the same
-  day. The index lags the directory; the directory cannot. The four later
-  records were renumbered to 0056-0059 and this script now REFUSES any repeat;
-  it used to carry them as a recorded exemption, which is a checker agreeing
-  that a number may name two decisions.
-* **Index drift.** ADR-0021 and ADR-0045 read *Accepted* in the file and
-  *Proposed* in the index. The index is what people scan, so the wrong one won.
-* **An unindexed record.** ``0058-retrieval-correctness-and-the-measurement-gate``
-  existed on disk and appeared nowhere in the index.
-* **Four metadata formats.** ``- **Status:** x``, ``- **Status**: x``, a
-  ``## Status`` section, and a bare ``**Status:** x`` with no Deciders at all —
-  so nothing could read the directory programmatically. Since 2026-10 every
-  record carries its status in YAML frontmatter, and a status written any
-  other way is refused, so a fifth format cannot start.
-
-None of these have a symptom until somebody acts on a decision that was
-superseded a month ago.
-
-What it checks
---------------
-
-Numbers are unique — no exemptions — every ADR is indexed, the index status
-matches the file, every ADR states its status as frontmatter ``status:`` and
-nowhere else, statuses are a legend value exactly, new ADRs (0050 and up)
-carry the rest of the MADR frontmatter, and an index row that says a record is (partly)
-superseded by NNNN names a record that exists and that the superseded record
-itself cites as ADR-NNNN (a renumbering that moves one side and not the other
-leaves the index pointing at an unrelated decision). Records 0001-0049 predate the template and keep
-their pre-template body; only the status moved, because a status is metadata
-and the decision is not. The same holds for the four pre-template records
-renumbered into 0056-0059 (``RENUMBERED_LEGACY``).
-
-Usage:
-    python scripts/check_adrs.py            # validate; exit 1 on drift
-    python scripts/check_adrs.py --next     # print the next free number
-
-Exit code is 0 when the directory and the index agree, 1 otherwise.
-"""
 
 from __future__ import annotations
 
@@ -57,45 +11,27 @@ from pathlib import Path
 ADR_DIR = Path("docs/adr")
 TEMPLATE = "0000-template.md"
 
-# The first ADR expected to use the MADR template. Everything below it predates
-# the template; converting them would rewrite accepted decisions, which the
-# process here forbids.
 MADR_FROM = 50
 
-# Pre-template records that were RENUMBERED out of a collision (0027, 0039,
-# 0044 and 0047 were each used twice; the later record of each pair moved to
-# 0056-0059). Their NUMBER is now above MADR_FROM; their content is not, and a
-# renumbering must not rewrite an accepted decision, so they are read with the
-# legacy parser like every other record written before the template.
-#
-# This set is closed. It exists because four records moved once; it is not a
-# way to opt a NEW ADR out of the template.
 RENUMBERED_LEGACY = frozenset({56, 57, 58, 59})
 
-# The legend, exactly. Bare ``superseded`` is for a record whose replacement is
-# not written yet (0048); it becomes ``superseded by ADR-NNNN`` when it is.
 VALID_STATUS_RE = re.compile(r"^(?:proposed|rejected|accepted|deprecated|superseded(?: by ADR-\d{4})?)$")
 
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---", re.DOTALL)
-# The retired shapes, refused wherever they appear: optional bullet, colon
-# inside or outside the bold, or a ``## Status`` section.
 LEGACY_STATUS_RE = re.compile(r"^[-*]?\s*\*\*Status:?\*\*:?\s*(.+)$", re.MULTILINE)
 SECTION_STATUS_RE = re.compile(r"^##\s*Status\s*\n+(.+)$", re.MULTILINE)
 INDEX_ROW_RE = re.compile(r"^\|\s*\[(\d{4})\]\(([^)]+)\)\s*\|([^|]*)\|([^|]*)\|", re.MULTILINE)
 
 
 def adr_files() -> list[Path]:
-    """Every ADR on disk, excluding the template."""
     return sorted(p for p in ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md") if p.name != TEMPLATE)
 
 
 def number_of(path: Path) -> int:
-    """The NNNN prefix of an ADR filename."""
     return int(path.name[:4])
 
 
 def raw_status(path: Path) -> str | None:
-    """The frontmatter ``status:``, or None when the record has none."""
     fm = FRONTMATTER_RE.match(path.read_text(encoding="utf-8"))
     if not fm:
         return None
@@ -104,7 +40,6 @@ def raw_status(path: Path) -> str | None:
 
 
 def legacy_status(path: Path) -> str | None:
-    """A status written in one of the retired body formats, if the record has one."""
     text = path.read_text(encoding="utf-8")
     for pattern in (LEGACY_STATUS_RE, SECTION_STATUS_RE):
         m = pattern.search(text)
@@ -114,17 +49,11 @@ def legacy_status(path: Path) -> str | None:
 
 
 def normalise(status: str) -> str:
-    """Reduce a status to the legend word it starts with, for comparison."""
     first = re.split(r"[\s—(-]", status.strip().lower(), maxsplit=1)[0]
     return first.strip(":.*")
 
 
 def index_rows(readme: Path, errors: list[str]) -> dict[str, str]:
-    """Map each indexed ADR filename to the status its index row claims.
-
-    Two rows for one file would otherwise be invisible: the dict keeps the last
-    and the check passes while readers see contradictory statuses.
-    """
     rows: dict[str, str] = {}
     text = readme.read_text(encoding="utf-8")
     previous = 0
@@ -133,8 +62,6 @@ def index_rows(readme: Path, errors: list[str]) -> dict[str, str]:
         if name in rows:
             errors.append(f"docs/adr/README.md: {name} has more than one index row.")
         rows[name] = status
-        # A row is read wherever it stands, so one pasted above the intro or
-        # out of turn would pass while the rendered table never shows it there.
         line_before = text[: m.start()].rstrip("\n").rpartition("\n")[2]
         if not line_before.startswith("|"):
             errors.append(f"docs/adr/README.md: the row for {name} stands outside the index table.")
@@ -148,19 +75,10 @@ def index_rows(readme: Path, errors: list[str]) -> dict[str, str]:
 
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-# The heading plus everything up to the next heading, so an empty section
-# is caught: a Confirmation naming no gate is the thing this checks for.
 CONFIRMATION_RE = re.compile(r"^###\s+Confirmation\s*$\n((?:(?!^#{1,6}\s)[\s\S])*)", re.MULTILINE)
 
 
 def check_madr(path: Path, status: str, errors: list[str]) -> None:
-    """Validate what the template promises, for records numbered MADR_FROM and up.
-
-    The guides tell an author that ``task lint:repo`` checks the metadata. Until
-    this existed it checked only that frontmatter and a status line were present,
-    so an ADR missing its date, its deciders or its Confirmation section passed
-    the gate it was told to trust.
-    """
     text = path.read_text(encoding="utf-8")
     fm = FRONTMATTER_RE.match(text)
     if not fm:
@@ -191,13 +109,6 @@ SUPERSEDED_BY_RE = re.compile(r"superseded by (?:ADR-)?(\d{4})", re.IGNORECASE)
 
 
 def check_superseded_refs(readme: Path, errors: list[str]) -> None:
-    """A "superseded by NNNN" in an index row must match what both records say.
-
-    The reference may sit in the title cell ("… (partly superseded by 0088)")
-    or in the status cell ("Superseded by ADR-0088"); both are read. The
-    superseded record must cite ADR-NNNN, and the superseding record must cite
-    the one it supersedes.
-    """
     for m in INDEX_ROW_RE.finditer(readme.read_text(encoding="utf-8")):
         name, cells = m.group(2).strip(), m.group(3) + " " + m.group(4)
         path = ADR_DIR / name
@@ -220,7 +131,6 @@ def check_superseded_refs(readme: Path, errors: list[str]) -> None:
 
 
 def check(errors: list[str]) -> int:
-    """Run every check, appending to ``errors``. Returns the ADR count."""
     files = adr_files()
     readme = ADR_DIR / "README.md"
     indexed = index_rows(readme, errors)
@@ -229,9 +139,6 @@ def check(errors: list[str]) -> int:
     seen: dict[int, Path] = {}
     for path in files:
         num = number_of(path)
-        # No exemptions. The four historical collisions were renumbered to
-        # 0056-0059 rather than recorded, because a recorded collision is a
-        # number that names two decisions and a checker that says that is fine.
         if num in seen:
             errors.append(
                 f"{path.name}: number {num:04d} is already used by {seen[num].name}. Take the next one from `--next`."
@@ -277,8 +184,7 @@ def check(errors: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: validate the ADR directory, or print the next number."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Keep the ADR directory and its index telling the same story.")
     parser.add_argument("--next", action="store_true", help="Print the next free ADR number and exit.")
     args = parser.parse_args(argv)
 

@@ -1,22 +1,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * ADR-0087, ADR-0088 — a restricted folder's collection enters the signed scope
- * only for a session that may READ it (a read-only member as much as a writer),
- * only in an interactive chat turn, and only as far as everyone the
- * conversation is shared with may read it too.
- *
- * The folder-access decision runs for real over a mocked folder tree, so the
- * only thing that differs between the members below is the folder roles WorkOS
- * reports for their memberships (ADR-0097).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The office's corpus countries are read on every request (ADR-0175); this office is entitled to Austria.
 vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
-// The project's knowledge context reads Austria (ADR-0173): the base entry is signed with what it reads.
 vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: vi.fn(async () => ({ retrieval: { countries: ['AT'] } })) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({
@@ -35,7 +23,6 @@ vi.mock('@/lib/authz/folder-access-repository', () => ({
   projectHasCustomOrBinnedFolders: vi.fn(),
   listProjectFolderTree: vi.fn(),
 }))
-/** Verträge's list in WorkOS: the director writes, the accountant reads, nobody else holds a folder role. */
 vi.mock('@/lib/authz/folder-roles', () => ({
   heldFolderLevels: vi.fn(async (_org: string, membershipId: string) =>
     membershipId === 'om_director'
@@ -52,7 +39,6 @@ vi.mock('@/lib/authz/project-membership', () => ({
     roles: ['member'],
   })),
 }))
-// What WorkOS says the roles hold: Admin carries the org-wide project bypass.
 vi.mock('@/lib/authz/org-role-permissions', () => ({
   rolesHoldPermission: vi.fn(async (_org: string, roles: readonly string[]) => roles.includes('admin')),
 }))
@@ -105,7 +91,6 @@ function sessionWith(
 }
 
 const director = sessionWith('om_director')
-/** May only read „Verträge“ — and reads it in chat exactly as a writer does. */
 const accountant = sessionWith('om_accountant')
 const intern = sessionWith('om_intern')
 const orgAdmin = sessionWith('om_admin', ['admin'], ['org:projects:administer'], 'user_admin')
@@ -114,11 +99,10 @@ const chatTurn = { projectId: PROJECT_ID, conversationId: CONVERSATION_ID, inter
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.REQUIRE_AUTH = 'true'
-  process.env.BASE_COLLECTION_NAME = 'oib_knowledge'
+  vi.stubEnv('REQUIRE_AUTH', 'true')
+  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(findProjectCollectionName).mockResolvedValue(PROJECT_COLLECTION)
   vi.mocked(findUserPreferencesForSession).mockResolvedValue(null)
-  // A conversation that does not exist yet: the first message creates it private.
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(countGrantsForResource).mockResolvedValue(0)
   vi.mocked(projectHasCustomOrBinnedFolders).mockResolvedValue(true)
@@ -226,8 +210,6 @@ describe('interactive chat scope (ADR-0087)', () => {
 
 describe('every other scope carries no restricted collection, whoever asks (ADR-0087)', () => {
   it('deep research: the submit body cannot ask for an interactive scope', async () => {
-    // Exactly what `POST /api/jobs/async/submit` hands the builder. A smuggled
-    // flag is not one of the fields the body parser reads.
     const context = parseBodyContext({
       projectId: PROJECT_ID,
       conversationId: CONVERSATION_ID,
@@ -258,7 +240,7 @@ describe('every other scope carries no restricted collection, whoever asks (ADR-
   })
 
   it('an anonymous deployment: no session, no clearance', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
 
     const { scope } = await buildCollectionScopeFromRequest(null, chatTurn)
 

@@ -1,29 +1,13 @@
-/**
- * The search's one contract (ADR-0136, docs/design/document-search.md): what a
- * person, Piloti and an outside agent ask, and what comes back. The route
- * (`POST /api/search`), the agent operation `search` and the browser parse
- * against these schemas, so the three cannot ask different questions.
- *
- * Scope is the request's query (`scope`, `projectId`, `folderId`), as on the
- * documents API (ADR-0131 rules 4 and 5); absent is the whole office. The body
- * is the question.
- *
- * No `server-only` and no drizzle: the browser imports this.
- */
-
 import { z } from 'zod'
 import { ANNOTATION_KINDS, ANNOTATION_STATUSES } from '@/lib/annotations/types'
 import { DOSSIER_DOCUMENT_TYPES, DOSSIER_FACT_KEYS, DOSSIER_PARTY_ROLES } from '@/lib/documents/dossier'
 import { ALLOWED_TAGS } from '@/lib/documents/tag-vocabulary'
 
-/** What a search can find. The order is the order the sections are shown in. */
 export const SEARCH_KINDS = ['document', 'annotation', 'folder', 'project', 'conversation'] as const
 export type SearchKind = (typeof SEARCH_KINDS)[number]
 
-/** The read-state families of `documentReadFamily`, as a tuple the schema can name. */
 export const SEARCH_READ_STATES = ['readable', 'reading', 'failed', 'held', 'unindexed'] as const
 
-/** The orders a document result can be read in. `relevance` needs text. */
 export const SEARCH_SORTS = [
   'relevance',
   'name',
@@ -44,16 +28,10 @@ export type SearchSort = (typeof SEARCH_SORTS)[number]
 
 export const SEARCH_LIMIT_DEFAULT = 25
 export const SEARCH_LIMIT_MAX = 100
-/** Results of another kind shown beside the documents when several kinds are asked. */
 export const SEARCH_SECTION_PREVIEW = 5
-/** How deep a result can be paged: a search is for finding, the register for walking. */
 export const SEARCH_OFFSET_MAX = 5000
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
-/**
- * A fact key, checked against the vocabulary rather than spelled out as an enum: the fact filter's `key`
- * already lists the keys once in the tool schema, and a second copy cost every agent's tool list ~1 KB.
- */
 const FACT_KEYS: ReadonlySet<string> = new Set(DOSSIER_FACT_KEYS)
 const factKeyName = z
   .string()
@@ -62,7 +40,6 @@ const factKeyName = z
 
 const shortText = z.string().trim().min(1).max(120)
 
-/** A fact the document states: equal to a value, or within a numeric range. */
 export const factFilterSchema = z
   .object({
     key: z.enum(DOSSIER_FACT_KEYS),
@@ -75,7 +52,6 @@ export const factFilterSchema = z
   })
 export type FactFilter = z.infer<typeof factFilterSchema>
 
-/** A party the document names: by role, by name, or both. */
 export const partyFilterSchema = z
   .object({
     role: z.enum(DOSSIER_PARTY_ROLES).optional(),
@@ -88,7 +64,6 @@ const dateRange = z
   .describe('YYYY-MM-DD bounds, inclusive.')
   .refine((range) => range.from !== undefined || range.to !== undefined, { message: 'A date range needs from or to' })
 
-/** What narrows the documents. Within a list any of; across fields all of. */
 export const documentFiltersSchema = z.object({
   documentTypes: z.array(z.enum(DOSSIER_DOCUMENT_TYPES)).max(24).optional().describe('What the document is, as ingestion read it.'),
   tags: z
@@ -131,7 +106,6 @@ export const documentFiltersSchema = z.object({
 })
 export type DocumentFilters = z.infer<typeof documentFiltersSchema>
 
-/** What narrows the annotations. */
 export const annotationFiltersSchema = z.object({
   statuses: z.array(z.enum(ANNOTATION_STATUSES)).max(4).optional().describe('Default: open and proposed.'),
   kinds: z.array(z.enum(ANNOTATION_KINDS)).max(3).optional(),
@@ -140,7 +114,6 @@ export const annotationFiltersSchema = z.object({
 })
 export type AnnotationFilters = z.infer<typeof annotationFiltersSchema>
 
-/** The question: `POST /api/search` body. */
 export const searchBodySchema = z.object({
   text: z
     .string()
@@ -159,7 +132,6 @@ export const searchBodySchema = z.object({
 })
 export type SearchBody = z.infer<typeof searchBodySchema>
 
-/** `POST /api/search` query: where to look. */
 export const searchScopeQuerySchema = z.object({
   scope: z.enum(['office', 'project', 'office_shelf']).optional().describe('Default `office`: every shelf the person may read.'),
   projectId: z.guid().optional(),
@@ -167,13 +139,11 @@ export const searchScopeQuerySchema = z.object({
 })
 export type SearchScopeQuery = z.infer<typeof searchScopeQuerySchema>
 
-/** Where a search looks, resolved. */
 export type SearchScope =
   | { kind: 'office' }
   | { kind: 'project'; projectId: string; folderId?: string }
   | { kind: 'office_shelf'; folderId?: string }
 
-/** The passage a content match came from. */
 export interface SearchPassage {
   text: string
   page: number | null
@@ -189,12 +159,6 @@ export interface DocumentHit {
   projectName: string | null
   folderId: string | null
   folderName: string | null
-  /**
-   * The folder's path from the shelf root, its names joined by "/"
-   * ("03 Einreichung/Grundrisse"); '' at the shelf root. With `shelf` and
-   * `filename` it is where Piloti's filesystem reads the document
-   * (`packages/agent/src/agent/common/estate_paths.py`).
-   */
   folderPath: string
   status: string
   contentType: string | null
@@ -210,17 +174,9 @@ export interface DocumentHit {
   pageCount: number | null
   pagesNotRead: number | null
   superseded: boolean
-  /** What this Fassung states differently from the one it replaced; empty when nothing changed or nothing was compared. */
   changedFacts: Array<{ key: string; before: string | null; after: string | null; page: number | null }>
   municipality: string | null
-  /** The Verfasser the reading names (architect, else author), as the document writes it. */
   author: string | null
-  /**
-   * Why it matched the text: its name, what it is (the reading), its content
-   * holding the words (`content`) or its content meaning the same without
-   * them (`meaning`: the passage is near the words, an English question over a
-   * German document, a synonym). At most one of `content` and `meaning`.
-   */
   matchedOn: Array<'name' | 'reading' | 'content' | 'meaning'>
   passage: SearchPassage | null
 }
@@ -269,17 +225,13 @@ export interface ConversationHit {
 
 export type SearchHit = DocumentHit | AnnotationHit | FolderHit | ProjectHit | ConversationHit
 
-/** One kind's page of results. */
 export interface SearchSection<T extends SearchHit = SearchHit> {
   hits: T[]
-  /** How many there are, or a lower bound when `totalIsLowerBound` (the content search's candidate budget was reached). */
   total: number
   totalIsLowerBound: boolean
-  /** Ask again with this, and `kinds` set to this section's kind alone, for the next page. */
   nextCursor: string | null
 }
 
-/** One value of a filter, with how many of the matched documents hold it. */
 export interface FacetCount {
   value: string
   label: string | null
@@ -300,20 +252,8 @@ export const SEARCH_FACET_DIMENSIONS = [
 ] as const
 export type SearchFacetDimension = (typeof SEARCH_FACET_DIMENSIONS)[number]
 
-/**
- * Why a kind that was asked for was not searched: a filter was set that it
- * cannot honour, so its rows would claim a narrowing they do not have.
- * `document_filters`: a filter on what a document is (folders, projects and
- * conversations are no document; annotations narrow through theirs).
- * `annotation_filters`: a filter on annotations, which no other kind carries.
- */
 export type SetAsideReason = 'document_filters' | 'annotation_filters'
 
-/**
- * Whether the document filters narrow anything a folder, a project or a
- * conversation cannot carry. `projectIds` narrows every kind (it cuts the
- * reach) and `includeArchived` only widens, so neither counts. Pure.
- */
 export function narrowsDocuments(filters: DocumentFilters | undefined): boolean {
   if (!filters) return false
   return Object.entries(filters).some(([key, value]) => {
@@ -324,17 +264,11 @@ export function narrowsDocuments(filters: DocumentFilters | undefined): boolean 
   })
 }
 
-/** Whether the annotation filters narrow anything. Pure. */
 export function narrowsAnnotations(filters: AnnotationFilters | undefined): boolean {
   if (!filters) return false
   return Boolean(filters.statuses?.length || filters.kinds?.length || filters.assignedToMe || filters.createdByMe)
 }
 
-/**
- * The kinds a question asks for that its filters set aside, and why. A kind
- * the question would not have searched anyway (a folder without text) is not
- * named. Pure: the search and the surface read the same answer.
- */
 export function setAsideKinds(
   body: Pick<SearchBody, 'text' | 'kinds' | 'filters' | 'annotationFilters'>
 ): Partial<Record<SearchKind, SetAsideReason>> {
@@ -358,7 +292,6 @@ export function setAsideKinds(
 
 export interface SearchResponse {
   scope: SearchScope
-  /** Kinds asked for and not searched, because a filter is set that they cannot honour. */
   setAside: Partial<Record<SearchKind, SetAsideReason>>
   sections: {
     document?: SearchSection<DocumentHit>
@@ -367,32 +300,16 @@ export interface SearchResponse {
     project?: SearchSection<ProjectHit>
     conversation?: SearchSection<ConversationHit>
   }
-  /** Counts over the matched documents, per filter; absent when not asked. */
   facets: Partial<Record<SearchFacetDimension, FacetCount[]>> | null
-  /**
-   * Documents in scope Piloti has not read yet (no projection row), counted
-   * with the facets and absent from every count and reading filter; null when
-   * the facets were not asked.
-   */
   unread: number | null
-  /** Shelves whose documents are not yet filterable by what they are (the projection is being built). */
   building: string[]
-  /** The content search covered only part of the scope (more collections than one search names). */
   contentPartial: boolean
 }
 
-/** `POST /api/search/export` query: where to look, and the file. */
 export const searchExportQuerySchema = searchScopeQuerySchema.extend({
   format: z.enum(['csv', 'xlsx']).describe('csv for a spreadsheet in a German locale (semicolon), xlsx for Excel.'),
 })
 
-/**
- * The question on the wire of an operation that only passes it on (the export):
- * an object, checked against {@link searchBodySchema} in full by the route's
- * parse. Its JSON Schema is a bare object on purpose: `workspace-search`
- * already describes the body, and a second copy would cost every agent's tool
- * list several thousand characters (`mcp-server.spec.ts`).
- */
 export const searchBodyInputSchema = z
   .record(z.string(), z.unknown())
   .transform((value, ctx) => {
@@ -403,24 +320,11 @@ export const searchBodyInputSchema = z
   })
   .describe('The question: the body of workspace-search (text, kinds, filters, sort, dir); kinds and paging are ignored.')
 
-/**
- * What the search completes as a person types (`POST /api/search/suggest`):
- * the values the documents in reach hold for one free-text filter, with how
- * many documents hold each. `party` fills `parties[].name`, `place` `place`,
- * `cites` a `cites` entry (the value is the `kind:key` token), `scale`,
- * `planNumber` and `planIndex` their fields, `fact` a fact's `equals`.
- */
 export const SUGGEST_DIMENSIONS = ['party', 'place', 'cites', 'scale', 'planNumber', 'planIndex', 'fact'] as const
 export type SuggestDimension = (typeof SUGGEST_DIMENSIONS)[number]
 
-/** Values one completion answers: what a list under a field shows without scrolling. */
 export const SUGGEST_LIMIT = 10
 
-/**
- * The search's filters on the wire of the suggest operation: an object, checked
- * against {@link documentFiltersSchema} in full by the route's parse, and a bare
- * object in its JSON Schema for the reason {@link searchBodyInputSchema} gives.
- */
 export const documentFiltersInputSchema = z
   .record(z.string(), z.unknown())
   .transform((value, ctx) => {
@@ -431,7 +335,6 @@ export const documentFiltersInputSchema = z
   })
   .describe('workspace-search filters; the dimension’s own is ignored.')
 
-/** `POST /api/search/suggest` body. Where to look is the query, as for the search. */
 export const suggestBodySchema = z
   .object({
     dimension: z.enum(SUGGEST_DIMENSIONS),
@@ -448,7 +351,6 @@ export const suggestBodySchema = z
   .refine((body) => body.dimension !== 'fact' || body.factKey !== undefined, { message: 'dimension fact needs factKey', path: ['factKey'] })
 export type SuggestBody = z.infer<typeof suggestBodySchema>
 
-/** The values, most documents first, then by label. `value` is what the filter takes, `label` how the documents write it. */
 export interface SuggestResponse {
   dimension: SuggestDimension
   values: FacetCount[]

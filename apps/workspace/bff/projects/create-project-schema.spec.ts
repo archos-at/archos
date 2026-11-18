@@ -1,12 +1,13 @@
 /**
  * @vitest-environment node
  *
- * The body of `POST /api/projects`: Piloti sets a project up unless the person
+ * The body of `POST /api/projects`: the agent sets a project up unless the person
  * says otherwise, and every new field has its bound.
  */
 import { describe, expect, it } from 'vitest'
 import type { GeocodeResult } from '@/lib/geocoding/types'
-import { createProjectSchema } from './create-project-schema'
+import { createProjectSchema, isAgentSetup } from './create-project-schema'
+import { LEGACY_AGENT_SETUP } from './legacy-project-setup'
 
 const location: GeocodeResult = {
   label: 'Hauptstraße 12, 1010 Wien',
@@ -21,8 +22,16 @@ const location: GeocodeResult = {
 }
 
 describe('createProjectSchema', () => {
-  it('defaults the setup to piloti', () => {
+  it('defaults the setup to the agent', () => {
     expect(createProjectSchema.parse({ name: 'Haus' })).toEqual({ name: 'Haus', setup: 'piloti' })
+  })
+
+  it('accepts the agent setup under its new name, and both names mean the agent', () => {
+    expect(createProjectSchema.parse({ name: 'Haus', setup: 'agent' })).toEqual({ name: 'Haus', setup: 'agent' })
+    expect(isAgentSetup('agent')).toBe(true)
+    expect(isAgentSetup(LEGACY_AGENT_SETUP)).toBe(true)
+    expect(isAgentSetup('self')).toBe(false)
+    expect(isAgentSetup(undefined)).toBe(false)
   })
 
   it('accepts self, a description, a location and a Bundesland', () => {

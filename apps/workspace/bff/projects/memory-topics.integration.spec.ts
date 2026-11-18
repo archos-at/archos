@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The project shelf’s topics (ADR-0180, ADR-0087) against a REAL Postgres with the
- * full migration chain, as the restricted runtime role:
- *
- *   - a rename moves only the open notes and the restricted notes the reader is
- *     cleared for, and leaves a restricted note alone for anyone else;
- *   - the topic counts a reader sees are over the notes that reader may see, so a
- *     restricted topic never shows up in another reader’s list.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/projects/memory-topics.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs this file.
- */
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -47,7 +33,7 @@ describe.skipIf(!url)('project memory topics against live Postgres', () => {
   let folderId: string
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -80,7 +66,6 @@ describe.skipIf(!url)('project memory topics against live Postgres', () => {
       await db.execute(sql`
         insert into project_memory (scope, project_id, organization_id, kind, content, topic, restricted_folder_ids)
         values ('project', ${projectId}::uuid, ${ORG}, 'decision', 'Restricted: the fee agreement caps the scope.', 'Brandschutz', array[${folderId}::uuid])`)
-      // An office note the project's list shows too: its topic counts on the project shelf, and a rename of the project's topics leaves it alone.
       await db.execute(sql`
         insert into project_memory (scope, project_id, organization_id, kind, content, topic)
         values ('organization', null, ${ORG}, 'constraint', 'Office: the building code applies to every project.', 'Bauordnung')`)
@@ -120,7 +105,6 @@ describe.skipIf(!url)('project memory topics against live Postgres', () => {
 
   it('a reader cleared for the restricted folder sees and moves that note too', async () => {
     const counted = await inTenant(() => topics.projectTopicsOf(projectId, ORG, [folderId]))
-    // One note each: the order is by name in German.
     expect(counted).toEqual([
       { name: 'Bauordnung', count: 1 },
       { name: 'Brandschutz', count: 1 },

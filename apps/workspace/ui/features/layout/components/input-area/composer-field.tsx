@@ -15,65 +15,26 @@ export function ComposerField({ controller }: { controller: InputAreaController 
     <>
       <Textarea
         ref={controller.textareaRef}
-        // 16px on a coarse pointer keeps iOS Safari from zooming the page
-        // when the composer gains focus; a mouse gets the body ramp step. The
-        // pointer axis, not `md:` — see the note in `ui/input.tsx`.
-        // The composer CARD signals focus with its border turning ink
-        // (`FIELD_FOCUS_WITHIN_RING` in InputArea), so the textarea shows no ring/border/outline of
-        // its own. `outline-hidden!` beats the app's global :focus-visible
-        // outline (globals.css, unlayered) with an important utility — otherwise
-        // focus is drawn twice: a nested box inside the card's ring.
         className="max-h-52 min-h-10 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-[1.5] shadow-none outline-none! focus-visible:ring-0 pointer-coarse:min-h-11 pointer-coarse:text-base"
         value={controller.message}
         onChange={(e) => controller.handleValueChange(e.target.value, e.target.selectionStart)}
         onKeyDown={controller.handleKeyDown}
-        // Intent to send. In a shared thread this is what opens the agent socket
-        // (see the note next to `noteSendIntent` above); everywhere else the
-        // socket is already up and this is a no-op.
         onFocus={controller.noteSendIntent}
-        // The caret can move without the text changing (arrows, a click); the
-        // trigger has to follow it, or the picker outlives its own fragment.
         onKeyUp={(e) => controller.syncMentionQueryFromElement(e.currentTarget)}
         onClick={(e) => controller.syncMentionQueryFromElement(e.currentTarget)}
         onPaste={controller.handlePaste}
-        // Remembered for dictation, which reads it after the textarea has
-        // lost focus to the microphone button. Blur too, not only select:
-        // a caret set by script or assistive tech fires no select event,
-        // and pressing the microphone always blurs the field.
         onSelect={controller.rememberDictationCaret}
         onBlur={controller.rememberDictationCaret}
         placeholder={controller.getPlaceholder()}
-        // `draftLocked`, not `disabled`: during the reader's own turn the
-        // field stays live (and keeps its focus) so the follow-up can be
-        // written while the answer arrives; only the send waits.
         disabled={controller.draftLocked}
-        // While typing ahead the placeholder says why Enter waits, but only
-        // while the field is empty. A screen reader is told for as long as
-        // the turn runs.
         aria-describedby={controller.typingAhead ? controller.typeAheadHintId : undefined}
         rows={1}
-        // The action key on a phone keyboard, told what it actually does.
-        // `handleKeyDown` above sends on a plain Enter and only inserts a
-        // newline on Shift+Enter — but a `<textarea>` defaults its soft-key
-        // to the return glyph, so the most consequential key in the product
-        // was drawn as "start a new line" and wired to "send this to the
-        // agent". `enterKeyHint="send"` makes the label agree with the
-        // handler. It changes no behaviour on any device; it stops the
-        // phone from misdescribing the behaviour there already is.
-        //
-        // Deliberately NOT paired with autocorrect/autocapitalize off the
-        // way the search fields are: this field takes German prose, and
-        // there the phone's help is help.
         enterKeyHint="send"
         aria-label={
           controller.isResponseMode
             ? controller.t('inputArea.responseInput')
             : controller.t('inputArea.chatMessageInput')
         }
-        // Combobox semantics only while the picker is live: the listbox
-        // `aria-controls` points at exists only then, and a chat composer that
-        // announces itself as a combobox at all times is worse for a screen
-        // reader than one that announces the popup when it appears.
         role={
           controller.mentionPickerOpen || controller.slash.open || controller.reference.open
             ? 'combobox'

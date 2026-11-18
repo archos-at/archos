@@ -51,8 +51,6 @@ describe('requestSampler', () => {
   })
 
   it('lets a child follow its parent, whatever it carries', () => {
-    // Next's fetch and render spans carry no http.target; a dropped probe's
-    // children must stay dropped, a kept request's must stay kept.
     expect(decide(under(api.TraceFlags.SAMPLED), undefined)).toBe(sdk.SamplingDecision.RECORD_AND_SAMPLED)
     expect(decide(under(api.TraceFlags.NONE), '/api/projects')).toBe(sdk.SamplingDecision.NOT_RECORD)
   })
@@ -60,8 +58,6 @@ describe('requestSampler', () => {
 
 describe('buildTracerProvider', () => {
   it('exports a kept request with its children, and nothing of a dropped one', async () => {
-    // Through the real batch processor: a wrong constructor shape there drops
-    // every span silently, which no sampler test would notice.
     const exporter = new sdk.InMemorySpanExporter()
     const provider = buildTracerProvider(sdk, api, { exporter })
     const tracer = provider.getTracer('next.js')

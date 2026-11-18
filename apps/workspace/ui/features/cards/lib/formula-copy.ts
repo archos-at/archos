@@ -1,16 +1,3 @@
-/**
- * The dictionary keys of the formula card, by the union each one names.
- *
- * Typed maps rather than a `switch` per union: `satisfies Record<Union, …>`
- * makes a missing case a compile error, the way the switches did, in a sixth of
- * the lines. `i18n/key-coverage.spec.ts` reads only literal `t('…')` calls and
- * cannot see a key in a map, so `formula-copy.spec.ts` resolves every key here
- * against both dictionaries instead: a typo is a failing test, not a dot-path
- * on screen.
- *
- * Every key is in the `chat` namespace.
- */
-
 import type {
   CaveatKey,
   CheckId,
@@ -55,7 +42,6 @@ export const TERM_KEYS = {
   depthIncrement: 'cards.formula.term.depthIncrement',
 } as const satisfies Record<TermKey, string>
 
-/** The terms that name a count of started metres once it is known. */
 export const TERM_METRES_KEYS = {
   overhangIncrement: 'cards.formula.term.overhangIncrementMetres',
   depthIncrement: 'cards.formula.term.depthIncrementMetres',
@@ -114,7 +100,6 @@ export const STAIR_TYPE_KEYS = {
   secondary: 'cards.formula.stairType.secondary',
 } as const satisfies Record<StairType, string>
 
-/** Why a check is a hint and not a verdict: `{edition}` its values come from, `{binding}` the site's. */
 export const HOLD_KEYS = {
   siteUnknown: 'cards.formula.hold.siteUnknown',
   unsettled: 'cards.formula.hold.unsettled',
@@ -123,13 +108,11 @@ export const HOLD_KEYS = {
   otherEdition: 'cards.formula.hold.otherEdition',
 } as const satisfies Record<HoldReason, string>
 
-/** The symbol a „{quantity} = 0 ist nicht möglich." names, for the inputs that cannot be 0. */
 export const ZERO_QUANTITY_KEYS = {
   conductivity: 'cards.formula.zeroQuantity.conductivity',
   floorArea: 'cards.formula.zeroQuantity.floorArea',
 } as const satisfies Partial<Record<InputLabel, string>>
 
-/** Every map above, for the spec that resolves them. */
 export const FORMULA_KEY_MAPS = {
   INPUT_KEYS,
   TERM_KEYS,

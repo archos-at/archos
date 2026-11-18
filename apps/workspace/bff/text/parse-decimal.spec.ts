@@ -22,8 +22,6 @@ describe('parseDecimalInput', () => {
     expect(parseDecimalInput(raw, 'de')).toEqual({ status: 'valid', value })
   })
 
-  // Every one of these used to become a number (parseFloat) or `null` (=
-  // unlimited) somewhere on the platform surfaces.
   test.each([
     '2.5x',
     'ten',
@@ -42,10 +40,8 @@ describe('parseDecimalInput', () => {
   test('refuses a lone group separator before three digits as ambiguous, per locale', () => {
     expect(parseDecimalInput('100.000', 'de')).toEqual({ status: 'invalid', reason: 'ambiguous' })
     expect(parseDecimalInput('1,000', 'en')).toEqual({ status: 'invalid', reason: 'ambiguous' })
-    // The locale's own decimal mark is never ambiguous.
     expect(parseDecimalInput('1,125', 'de')).toEqual({ status: 'valid', value: 1.125 })
     expect(parseDecimalInput('1.125', 'en')).toEqual({ status: 'valid', value: 1.125 })
-    // A leading zero cannot be a thousands group.
     expect(parseDecimalInput('0.125', 'de')).toEqual({ status: 'valid', value: 0.125 })
   })
 

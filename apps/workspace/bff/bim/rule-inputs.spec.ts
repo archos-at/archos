@@ -2,20 +2,9 @@
 /**
  * @vitest-environment node
  */
-/**
- * The precomputed rule inputs.
- *
- * One property matters more than all the others: **the catalogue must produce
- * the same verdicts from the projection as from the full elements.** If it
- * does not, the fast path and the slow path answer differently for the same
- * building — the first reader of a model gets one Prüfbuch and the second gets
- * another, and nothing in the UI would show which. Everything else here is
- * detail.
- */
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { callsTo, lineOf, nodesOf, parseSource, ts } from '@/test-utils/source-ast'
 import {
   RULE_INPUT_FIELDS,
   RULE_INPUT_KEYS,
@@ -41,7 +30,7 @@ function element(overrides: Partial<BimElement> & Pick<BimElement, 'ifcType'>): 
     objectType: 'Basic Wall',
     tag: 'W-01',
     typeName: 'AW 38',
-    storeyGlobalId: '0GridGeoStEG000000001',
+    storeyGlobalId: '0TestGeoStEG000000001',
     storeyName: 'Erdgeschoss',
     containerGlobalId: null,
     containerKind: 'storey',
@@ -60,7 +49,6 @@ const STOREYS = [
   { name: 'Obergeschoss', elevation: 3 },
 ]
 
-/** A model exercising every rule, with the vendor noise a real export carries. */
 const MODEL: BimElement[] = [
   element({
     ifcType: 'IfcWall',
@@ -106,76 +94,85 @@ const MODEL: BimElement[] = [
 
 const FACTS = { buildingClass: 4 as const, mainUse: 'residential', storeys: STOREYS }
 
+const KEY_READERS = ['dimensionProperty', 'numericProperty', 'property', 'quantity']
+const CATALOGUE = 'bff/bim/rules.ts'
+const SOURCES = [parseSource('bff/bim/rule-values.ts'), parseSource(CATALOGUE)]
+
+interface KeyRead {
+  file: string
+  line: number
+  keys: string[] | null
+}
+
+function isElement(node: ts.Expression | undefined): boolean {
+  return node !== undefined && ts.isIdentifier(node) && node.text === 'element'
+}
+
+function literalKeys(call: ts.CallExpression): string[] | null {
+  const list = call.arguments[1]
+  if (!list || !ts.isArrayLiteralExpression(list)) return null
+  const strings = list.elements.filter(ts.isStringLiteral)
+  return strings.length === list.elements.length ? strings.map((key) => key.text) : null
+}
+
+const KEY_READS: KeyRead[] = SOURCES.flatMap((source) =>
+  KEY_READERS.flatMap((name) => callsTo(source, name))
+    .filter((call) => isElement(call.arguments[0]))
+    .map((call) => ({ file: source.fileName, line: lineOf(call), keys: literalKeys(call) }))
+)
+
 describe('projected rule inputs', () => {
   it('produces exactly the verdicts the full elements produce', () => {
-    // The whole justification for the fast path. Compared over the entire
-    // catalogue rather than one rule, because a key dropped from the
-    // projection would show up as a single rule quietly going undecidable.
     const stored = readStoredRuleInputs(buildStoredRuleInputs(MODEL, false))
 
     expect(runBimRules(stored!.elements, FACTS)).toEqual(runBimRules(MODEL, FACTS))
   })
 
-  it('covers every key the catalogue reads', () => {
-    // A rule that starts reading a key absent from the projection would see
-    // `undefined` on the fast path and the real value on the slow one — the
-    // same model answering two ways depending on which path served it. This
-    // fails the moment a new rule needs a new key.
-    const source = ['rule-values.ts', 'rules.ts']
-      .map((file) => readFileSync(join(process.cwd(), 'bff', 'bim', file), 'utf8'))
-      .join('\n')
-    const read = new Set(
-      // `dimensionProperty` is in the alternation too: it is the
-      // positive-only reader the dimensional rules use, and a key visible only
-      // through it would be invisible to this scan — which is exactly the
-      // blind spot the second floor below exists to catch.
-      [...source.matchAll(/(?:dimensionProperty|numericProperty|property|quantity)\(element, \[([^\]]*)\]/g)]
-        .flatMap((match) => [...match[1].matchAll(/'([A-Za-z]+)'/g)].map((k) => k[1]))
+  it('keeps every key a rule reads, and keeps no key no rule reads', () => {
+    const read = new Set(KEY_READS.flatMap((call) => call.keys ?? []))
+    const unkept = KEY_READS.flatMap((call) =>
+      (call.keys ?? [])
+        .filter((key) => !RULE_INPUT_KEYS.includes(key))
+        .map((key) => `${call.file}:${call.line} reads ${key}`)
     )
-    const missing = [...read].filter((key) => !RULE_INPUT_KEYS.includes(key))
+    const unread = RULE_INPUT_KEYS.filter((key) => !read.has(key))
 
-    expect(missing).toEqual([])
+    expect(
+      unkept,
+      'Add each key to RULE_INPUT_KEYS in bff/bim/rule-inputs.ts, or the projection drops it before the rule reads it.'
+    ).toEqual([])
+    expect(unread, 'Remove each key from RULE_INPUT_KEYS in bff/bim/rule-inputs.ts: no rule reads it.').toEqual([])
+  })
 
-    /*
-      And the scan has to have SEEN something.
-
-      The regex only matches an inline array literal. A rule written as
-      `quantity(element, DOOR_WIDTH_KEYS)` contributes nothing to `read`,
-      `missing` is `[]`, and the guard whose entire purpose is "this fails the
-      moment a new rule needs a new key" passes having checked nothing at all.
-
-      Two floors: the scan found at least as many keys as the projection
-      declares, and no catalogue read is written in a form the scan cannot
-      see. The second is the one that keeps the first honest.
-    */
-    expect(read.size).toBeGreaterThanOrEqual(RULE_INPUT_KEYS.length)
-    const catalogue = source.slice(source.indexOf('const BIM_RULES'))
-    // `[^[\s]` rather than a lookahead: `\s*(?!\[)` backtracks to zero width
-    // and then succeeds against the space itself, so it matched every call.
-    expect(catalogue).not.toMatch(
-      /(?:dimensionProperty|numericProperty|property|quantity)\(element,\s*[^[\s]/
+  it('passes every key list in rules.ts as a literal array, so the guard can read it', () => {
+    const computed = KEY_READS.filter((call) => call.file === CATALOGUE && call.keys === null).map(
+      (call) => `${call.file}:${call.line}`
     )
 
-    // And the fields read straight off the element, not through a Pset. This
-    // is the one that actually bit: the door rule reads
-    // `element.predefinedType`, which no property-key scan would ever see.
-    const fields = new Set(
-      [...source.matchAll(/element\.([a-zA-Z]+)/g)].map((match) => match[1])
-    )
-    const missingFields = [...fields].filter(
-      (field) => !RULE_INPUT_FIELDS.includes(field) && field !== 'ifcType'
+    expect(
+      computed,
+      "Write the keys inline as a literal array of strings, e.g. property(element, ['FireRating'])."
+    ).toEqual([])
+  })
+
+  it('reads from an element only the fields the projection carries', () => {
+    const fields = SOURCES.flatMap((source) =>
+      nodesOf(source, ts.isPropertyAccessExpression)
+        .filter((access) => isElement(access.expression) && !RULE_INPUT_FIELDS.includes(access.name.text))
+        .map((access) => `${source.fileName}:${lineOf(access)} reads element.${access.name.text}`)
     )
 
-    expect(missingFields).toEqual([])
+    expect(
+      fields,
+      'Add the field to RULE_INPUT_FIELDS in bff/bim/rule-inputs.ts and carry it through projectRuleInputs, or the rule reads undefined once the projection runs.'
+    ).toEqual([])
   })
 
   it('drops the payload the rules never read', () => {
     const [compact] = projectRuleInputs([MODEL[0]]) as unknown as Array<Record<string, unknown>>
     const properties = compact.p as Record<string, Record<string, unknown>>
 
-    // Vendor sets with no wanted key disappear entirely.
     expect(Object.keys(properties)).toEqual(['Pset_WallCommon'])
-    // And inside a kept set, only the wanted keys survive.
     expect(Object.keys(properties.Pset_WallCommon).sort()).toEqual([
       'AcousticRating',
       'FireRating',
@@ -197,8 +194,6 @@ describe('projected rule inputs', () => {
   })
 
   it('refuses a projection from an older schema', () => {
-    // Serving one written before a key was added would answer `undefined`
-    // where the model has a value.
     const stale = { ...buildStoredRuleInputs(MODEL, false), version: 0 }
 
     expect(readStoredRuleInputs(stale)).toBeNull()
@@ -211,24 +206,8 @@ describe('projected rule inputs', () => {
   })
 })
 
-/**
- * The GIN pre-filter's shadow of `properties` and `quantities`.
- *
- * A key this omits is a candidate the index cannot offer, which costs only
- * speed — the exact unnest still decides. A key it gets WRONG is worse than
- * useless: the pre-filter is AND-ed in, so a mis-cased or mis-prefixed key
- * makes matching elements vanish from the answer. Everything below is about
- * that direction.
- *
- * The other half of the contract — that this agrees with the SQL backfill in
- * `0038_bim_element_search_keys.sql` — is checked against a real Postgres in
- * `query.integration.spec.ts`, because only Postgres can say what its own
- * `#>> '{}'` renders.
- */
 describe('search keys', () => {
   it('emits the bare key and the set-qualified key, both lowercased', () => {
-    // The bare key answers `{name: 'FireRating'}`; the dotted one answers
-    // `{set: 'Pset_WallCommon', name: 'FireRating'}`. A filter may give either.
     const keys = buildSearchKeys(
       element({ ifcType: 'IfcWall', properties: { Pset_WallCommon: { FireRating: 'REI 90' } } })
     )
@@ -240,9 +219,6 @@ describe('search keys', () => {
   })
 
   it('separates quantities from properties', () => {
-    // `Width` is both a Pset property and a Qto quantity in real exports, and
-    // a filter names which one it means. Collapsing them would let a property
-    // filter be pre-filtered away by a quantity's presence, and vice versa.
     const keys = buildSearchKeys(
       element({
         ifcType: 'IfcDoor',
@@ -262,9 +238,6 @@ describe('search keys', () => {
   })
 
   it('collects every value a bare key takes across sets', () => {
-    // Two sets carrying the same property name is why the map holds arrays.
-    // Keeping only one would drop the other set's elements from an `eq`
-    // pre-filter that AND-s containment.
     const keys = buildSearchKeys(
       element({
         ifcType: 'IfcWall',
@@ -279,8 +252,6 @@ describe('search keys', () => {
   })
 
   it('renders booleans and numbers the way the SQL does', () => {
-    // `p.prop_value #>> '{}'` gives `true` and `0.21`, not `TRUE` or `.21`.
-    // The filter side lowercases the same way, so these have to match exactly.
     const keys = buildSearchKeys(
       element({
         ifcType: 'IfcWall',
@@ -293,11 +264,6 @@ describe('search keys', () => {
   })
 
   it('writes numbers in plain decimal, where `String()` would use an exponent', () => {
-    // Postgres renders jsonb numbers as `numeric`, which is plain decimal at
-    // every magnitude; `String()` flips to exponents at 1e21 and below 1e-6.
-    // The two writers of `search_keys` would then disagree on the same value,
-    // and the AND-ed pre-filter would drop whichever side's rows it did not
-    // write. Negatives and fractional mantissas go the same way.
     const keys = buildSearchKeys(
       element({
         ifcType: 'IfcWall',
@@ -319,9 +285,6 @@ describe('search keys', () => {
   })
 
   it('leaves values Postgres and `String()` already agree on untouched', () => {
-    // The expansion must be inert everywhere else — a stray trailing zero or a
-    // stringified boolean turning into something else is the same
-    // disappearing-row bug from the other direction.
     const keys = buildSearchKeys(
       element({
         ifcType: 'IfcWall',
@@ -345,12 +308,6 @@ describe('search keys', () => {
   })
 
   it('keeps the KEY of a null-valued property but not a value for it', () => {
-    // Both halves, and they pull opposite ways. `{operator: 'exists'}` checks
-    // only the property NAME, so a null-valued FireRating matches it — and a
-    // pre-filter that omitted the key would delete that element from an answer
-    // the exact predicate matched. But `#>> '{}'` over a jsonb null is SQL
-    // NULL, so no `eq` can match it either, and a literal `"null"` in the
-    // value list would let containment claim a match the predicate refuses.
     const keys = buildSearchKeys(
       element({ ifcType: 'IfcWall', properties: { Pset_WallCommon: { FireRating: null } } })
     )
@@ -374,8 +331,6 @@ describe('search keys', () => {
   })
 
   it('gives an element with no properties an empty map, not null', () => {
-    // `{}` means "indexed, carries nothing"; NULL means "not indexed yet" and
-    // switches the pre-filter off for that row. They must not be confused.
     expect(buildSearchKeys(element({ ifcType: 'IfcSite' }))).toEqual({})
   })
 })

@@ -1,14 +1,3 @@
-/**
- * The Laufblock — what each state says, shows and offers.
- *
- * Renders without an `I18nProvider`, so the dictionary falls back to `en` and
- * the words below are the English ones; the German is pinned by the dictionary
- * type, not by a second copy of these tests.
- *
- * Fixtures are built with the ledger's own fold helpers at fixed instants, so
- * a duration or a tally asserted here is a fact production would also render.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@/test-utils'
 import {
@@ -93,9 +82,6 @@ describe('RunBlock — the stand', () => {
     render(<RunBlock ledger={ledger} title={TITLE} />)
     const block = screen.getByTestId('run-block')
     expect(block).toHaveAttribute('data-status', status)
-    // The word is SPOKEN once and shown once — in the status line, which for a
-    // live run leads with the phase instead. A reader who cannot see the glyph
-    // would otherwise never hear „Running".
     expect(screen.getByTestId('run-status-word')).toHaveTextContent(word)
     expect(screen.getByTestId(`run-glyph-${status}`)).toBeInTheDocument()
     expect(screen.getByTestId('run-title')).toHaveTextContent(TITLE)
@@ -130,7 +116,6 @@ describe('RunBlock — the track', () => {
   it('fills the phases behind the run and marks the one it is in', () => {
     render(<RunBlock ledger={researching()} title={TITLE} />)
     const track = screen.getByTestId('run-track')
-    // Planen done, Recherchieren under way, three to go.
     expect(track).toHaveAttribute('data-reached', '1')
     expect(track).toHaveAttribute('data-active', 'true')
     expect(track).toHaveAttribute('data-tone', 'moving')
@@ -145,7 +130,6 @@ describe('RunBlock — the track', () => {
 
     rerender(<RunBlock ledger={failed()} title={TITLE} />)
     expect(screen.getByTestId('run-track')).toHaveAttribute('data-tone', 'stopped')
-    // The walk stopped short: the segment ahead is an outline, not a fill.
     expect(screen.getByTestId('run-track')).toHaveAttribute('data-halted', 'true')
 
     rerender(<RunBlock ledger={setRunStatus(researching(), 'cancelled', at(50))} title={TITLE} />)
@@ -183,15 +167,10 @@ describe('RunBlock — the body', () => {
   })
 
   it('never ellipsises where a document was read: the chip wraps, the loci stay whole', () => {
-    // Clipped to "OIB-Richtlinie 2, Ausgabe Mai 2023 · …" the page and section
-    // were exactly what the chip's tail dropped on a 393px phone. A reference
-    // that cannot be read in full is no reference.
     render(<RunBlock ledger={researching()} title={TITLE} />)
     const [first] = screen.getAllByTestId('run-step')
     const chip = within(first!).getByText(/Pkt\. 4\.2 · S\. 18/).closest('span[title]')
     expect(chip).not.toBeNull()
-    // The chip base is `truncate`; these win over it (important), on the pill and
-    // on its label span.
     expect(chip!.className).toContain('whitespace-normal!')
     expect(chip!.className).toContain('overflow-visible!')
     expect(chip!.className).toContain('h-auto')
@@ -201,15 +180,10 @@ describe('RunBlock — the body', () => {
   it('reports a finished phase as one act with its duration', () => {
     render(<RunBlock ledger={researching()} title={TITLE} />)
     const acts = screen.getByTestId('run-phase-acts')
-    // `dt` and `dd` are laid out with a gap, so the text runs together — the
-    // same shape the document history's acts have.
     expect(acts.querySelector('[data-phase="planning"]')).toHaveTextContent(
       /Planning\s*Research plan drawn up · 12 sec/
     )
-    // Recherchieren's account is the list of rounds above; repeating its tally
-    // here would be the same number twice on one screen.
     expect(acts.querySelector('[data-phase="researching"]')).toBeNull()
-    // Nothing is claimed about phases the run has not reached.
     expect(acts.querySelector('[data-phase="checking"]')).toBeNull()
     expect(acts.querySelector('[data-phase="filed"]')).toBeNull()
   })
@@ -243,11 +217,8 @@ describe('RunBlock — the fold', () => {
     expect(screen.getByTestId('run-body')).toBeInTheDocument()
   })
 
-  // A closing body stays mounted through its exit animation, so "folded" is
-  // read off the trigger's own state rather than off the body's absence.
   const trigger = (): HTMLElement => screen.getByRole('button', { name: new RegExp(TITLE) })
 
-  /** Past every queued move of a landing, with room to spare. */
   const LANDING_SETTLED_MS = 2000
 
   it('opens when the run starts waiting, even if the reader had folded it', () => {
@@ -256,8 +227,6 @@ describe('RunBlock — the fold', () => {
     fireEvent.click(trigger())
     expect(trigger()).toHaveAttribute('data-state', 'closed')
     rerender(<RunBlock ledger={setRunStatus(live, 'waiting', at(50))} title={TITLE} />)
-    // A question opens the block at once: there is nothing to watch finish,
-    // and the round that asked it is inside.
     expect(trigger()).toHaveAttribute('data-state', 'open')
   })
 
@@ -266,8 +235,6 @@ describe('RunBlock — the fold', () => {
     const { rerender } = render(<RunBlock ledger={live} title={TITLE} />)
     expect(trigger()).toHaveAttribute('data-state', 'open')
     rerender(<RunBlock ledger={finished('doc-1')} title={TITLE} />)
-    // The landing is queued: the track's last segment, the glyph and the line
-    // go first, and the body is still open while they do.
     expect(trigger()).toHaveAttribute('data-state', 'open')
     await waitFor(() => expect(trigger()).toHaveAttribute('data-state', 'closed'), {
       timeout: LANDING_SETTLED_MS,
@@ -302,9 +269,6 @@ describe('RunBlock — the line and the affordances', () => {
     expect(line).not.toHaveTextContent('project')
   })
 
-  // The regression the default `!!projectId` caused: an escalated chat
-  // question runs inside a project and files NOTHING, and was promised the
-  // project anyway — then contradicted by its own `done` line.
   it('promises no destination for a run in a project that never claimed to file', () => {
     render(<RunBlock ledger={emptyRunLedger('run-0', T0)} title={TITLE} projectId="p1" />)
     expect(screen.getByTestId('run-status-line')).not.toHaveTextContent('project')
@@ -343,7 +307,6 @@ describe('RunBlock — the line and the affordances', () => {
   })
 
   it('done with a file and nothing else to offer: the way to the report IS the action', () => {
-    // Never behind the chevron: the line has just said where the report is.
     render(<RunBlock ledger={finished('doc-9')} title={TITLE} projectId="p1" />)
     expect(screen.getByTestId('run-file-link')).toHaveAttribute(
       'href',
@@ -395,8 +358,6 @@ describe('RunBlock — the line and the affordances', () => {
     const { unmount } = render(
       <RunBlock ledger={failed()} title={TITLE} defaultOpen onRetry={onRetry} />
     )
-    // The reason never hides behind the chevron: a failure the reader has to go
-    // looking for is a failure nobody reads.
     expect(screen.getByTestId('run-status-line')).toHaveTextContent(
       'Failed: Das Budget war aufgebraucht.'
     )
@@ -412,9 +373,6 @@ describe('RunBlock — the line and the affordances', () => {
   })
 
   it('failed under zero data retention: the reason says what to do, and there is no Retry', () => {
-    // `ZDR_MODEL_REFUSED_MESSAGE` (packages/agent/src/agent/common/canned_replies.py), as
-    // deep-research jobs persist it: a retry fails identically until an admin
-    // chooses a ZDR model.
     const reason =
       'Diese Frage konnte nicht beantwortet werden, weil das eingestellte Modell keinen Anbieter ohne Datenspeicherung hat und Ihre Organisation Zero Data Retention verlangt.'
     let ledger = closePhase(researching(), 'researching', at(60))
@@ -446,8 +404,6 @@ describe('RunBlock — the line and the affordances', () => {
   })
 
   it('failed and folded: what was done by then stays under the stand', () => {
-    // The body folds once a run has landed; the closing rows used to fold with
-    // it, leaving the verdict without its reason.
     render(<RunBlock ledger={failed()} title={TITLE} />)
     expect(screen.queryByTestId('run-body')).not.toBeInTheDocument()
     expect(screen.getByTestId('run-completed-before')).toHaveTextContent('Done so far: Planning')
@@ -579,7 +535,6 @@ describe('RunBlock — when the live view loses its line', () => {
     expect(screen.queryByTestId('run-connection')).not.toBeInTheDocument()
     unmount()
 
-    // A finished run's dead stream is not news: there is nothing left to watch.
     render(<RunBlock ledger={finished('doc-9')} title={TITLE} connection="lost" />)
     expect(screen.queryByTestId('run-connection')).not.toBeInTheDocument()
   })

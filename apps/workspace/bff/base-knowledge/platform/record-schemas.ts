@@ -1,15 +1,3 @@
-/**
- * What `platform-knowledge-schema-get` answers: the JSON Schema of each record
- * type `records-propose` takes, a citation's, the batch size and the kit's
- * checks. The decision table (`decision_table.v1`, ADR-0166) is written once
- * under `$defs` and referenced wherever a record carries one (a ruleset's body,
- * an edition's `transition` and its scope, `appliesWhen`, ADR-0178), and a
- * record's citations reference the one citation schema the answer carries
- * beside the types (`#/citation`). Any other sub-schema the types repeat is
- * written once under `$defs` too (`shared_<n>`), so the whole set fits one tool
- * result on the door (`MAX_RESULT_CHARS`). Pure.
- */
-
 import { z } from 'zod'
 import { appliesWhenTableSchema } from '../wire/applies-when'
 import { decisionTableSchema } from '../wire/ruleset'
@@ -25,7 +13,6 @@ const OPTIONS = { io: 'input', unrepresentable: 'any' } as const
 
 type JsonSchema = Record<string, unknown>
 
-/** Whether `schema` is the decision table, or a refinement of it (an edition's `transition` and `appliesWhen`). */
 function isDecisionTable(schema: unknown): boolean {
   for (let node = schema as { _zod?: { parent?: unknown } } | undefined; node; node = node._zod?.parent as typeof node) {
     if (node === decisionTableSchema) return true
@@ -33,12 +20,9 @@ function isDecisionTable(schema: unknown): boolean {
   return false
 }
 
-/** A node that is a decision table becomes a reference to the one written under `$defs`. */
 function referenceTables(context: { zodSchema: unknown; jsonSchema: JsonSchema }): void {
-  // `format: date` says it; the route's zod schema still enforces the day, so zod's leap-year regex is ~250 characters of noise.
   if (context.jsonSchema.format === 'date') delete context.jsonSchema.pattern
   if (context.zodSchema === citationSchema) {
-    // Every record carries the same citation: written once, as the answer's `citation`.
     for (const key of Object.keys(context.jsonSchema)) delete context.jsonSchema[key]
     context.jsonSchema.$ref = CITATION_REF
     return
@@ -51,7 +35,6 @@ function referenceTables(context: { zodSchema: unknown; jsonSchema: JsonSchema }
   }
 }
 
-/** Every node under `root` that is no record type itself and holds no reference, by its JSON. */
 function nodeCounts(root: unknown, top = true, counts = new Map<string, number>()): Map<string, number> {
   if (Array.isArray(root)) for (const item of root) nodeCounts(item, false, counts)
   else if (root && typeof root === 'object') {
@@ -69,12 +52,6 @@ const replaced = (node: unknown, text: string, ref: string): unknown => {
   return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, replaced(value, text, ref)]))
 }
 
-/**
- * A sub-schema the record types repeat (a label, a territory id, an optional
- * date) written once under `$defs` as `shared_<n>`, most characters saved
- * first, while writing it once saves any: the set stays one tool result as
- * the types grow. Pure and deterministic.
- */
 function sharedDefinitions(recordTypes: Record<string, unknown>): { recordTypes: Record<string, unknown>; defs: Record<string, unknown> } {
   const defs: Record<string, unknown> = {}
   let types = recordTypes
@@ -88,7 +65,6 @@ function sharedDefinitions(recordTypes: Record<string, unknown>): { recordTypes:
   }
 }
 
-/** The schemas for `types`, the citation's, the decision table once if any of them carries one, the batch size and the checks. */
 export function recordSchemas(types: readonly ProposedRecordType[]) {
   const generated = Object.fromEntries(
     types.map((name) => {

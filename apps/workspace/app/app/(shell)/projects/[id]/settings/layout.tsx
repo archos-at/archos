@@ -6,23 +6,6 @@ import { ProjectSectionTabs } from '@/components/shell/project-section-frame'
 import { ProjectSettingsNav } from '@/features/projects/components/settings/project-settings-nav'
 import { visibleSettingsSections } from '@/features/projects/lib/settings-sections'
 
-/**
- * The project hub: a tab strip over whichever section is open, the Overview
- * dashboard first.
- *
- * This used to be a Settings page stacking the profile, the roster, uploads,
- * memory, the index and the danger zone, with a placeholder Insights card. It
- * is now a dashboard and one route per section
- * (`features/projects/lib/settings-sections.ts` argues the split). Tabs rather
- * than the organization tier's side rail, because the dashboard wants the
- * whole width for its bento.
- *
- * Not a gate beyond `project:view`, which the project layout already enforces:
- * General, Profile, Memory and Documents are readable by every member of the
- * project. The nav is handed only the sections this reader's permissions reach,
- * and each gated section's page checks again, so a typed URL 404s rather than
- * rendering a section whose API would refuse it.
- */
 export default async function ProjectSettingsLayout({
   children,
   params,
@@ -36,7 +19,6 @@ export default async function ProjectSettingsLayout({
     const access = await resolveProjectSettingsAccess(session, id)
 
     return (
-      // The section's content container, as Dateien and the section's header: one left edge for title and page.
       <div className="listing-container flex flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
         {/* In the section's header, under its title, where Dateien's places stand (`ProjectSectionTabs`). */}
         <ProjectSectionTabs>

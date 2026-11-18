@@ -1,10 +1,3 @@
-"""The visual eval's spec, rows and scorer: everything between a recorded turn and its report (ADR-0128).
-
-Offline: a live run needs a model key, a Qdrant and the seeded project. What is pinned here is what would
-make a live run measure the wrong thing: a gold box that is not where the ink is, a value in a row that
-the drawing does not hold, a look counted under one of its names and not another, an IoU computed wrongly.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -347,7 +340,6 @@ class TestTheReport:
         ]
 
     def test_the_totals_and_the_table(self, monkeypatch):
-        # The table's parity column is pinned to the before-V3 shape; the parity tests cover the after.
         monkeypatch.setattr(visual_eval, "parity_available", lambda: False)
         text = "\n".join(visual_eval.report_lines(self.runs(), {"look": "on"}))
         assert "looking: on" in text

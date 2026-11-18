@@ -1,10 +1,3 @@
-/**
- * INTERNAL service endpoint — the single write path into the
- * `agent_profiler_spans` ledger. The backend's agent profiler
- * (packages/agent/src/agent/common/profiler.py) POSTs one batch per flush, mirroring
- * `api/internal/usage/route.ts`; `app` stays single-writer.
- */
-
 import { z } from 'zod'
 import { SPAN_KINDS, SPAN_STATUSES } from '@/lib/db/schema/agent-profiler'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
@@ -37,10 +30,6 @@ export const POST = internalApiRoute(
   async ({ request }) => {
     const batch = await parseJsonBody(request, spanBatchSchema)
 
-    // `organization_id` is nullable on this table: a turn from a session with
-    // no organization produces a row that belongs to no tenant and cannot
-    // satisfy any tenant predicate. Such rows are written outside the boundary
-    // and stay visible only to the platform tier.
     const recorded = await withOptionalTenant(
       batch.organizationId,
       'profiler spans from a turn with no organization selected belong to no tenant',

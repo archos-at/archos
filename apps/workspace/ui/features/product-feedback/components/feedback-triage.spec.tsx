@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { PRODUCT_NAME } from '@/lib/brand'
 import type {
   ProductFeedbackListResponse,
   ProductFeedbackReportView,
@@ -29,8 +30,8 @@ function ticket(
   }
 }
 
-const ANNA = { type: 'user' as const, name: 'Anna Wallner', email: 'anna@piloti.test', isViewer: false }
-const ME = { type: 'user' as const, name: 'Matthias Bigl', email: 'me@piloti.test', isViewer: true }
+const ANNA = { type: 'user' as const, name: 'Anna Wallner', email: 'anna@example.test', isViewer: false }
+const ME = { type: 'user' as const, name: 'Matthias Bigl', email: 'me@example.test', isViewer: true }
 
 function counts(overrides: Partial<Record<SupportTicketStatus, number>> = {}) {
   return { new: 0, open: 0, pending: 0, on_hold: 0, resolved: 0, ...overrides }
@@ -157,9 +158,7 @@ describe('FeedbackTriage', () => {
       undefined
     client.list
       .mockResolvedValueOnce(list({ counts: counts({ new: 1, resolved: 1, on_hold: 1 }) }))
-      // "Resolved": slow, answers last.
       .mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)))
-      // "On hold": fast, answers first.
       .mockResolvedValueOnce(
         list({
           reports: [report({ id: 'r9', ticket: ticket('on_hold', 't9'), message: 'On hold one.' })],
@@ -217,7 +216,7 @@ describe('FeedbackTriage', () => {
   test('does not repeat the page subtitle as the card description', async () => {
     render(<FeedbackTriage canTriage client={client} />)
     await screen.findAllByTestId('feedback-report')
-    expect(screen.queryByText(/What members report from inside Piloti/)).not.toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(`What members report from inside ${PRODUCT_NAME}`))).not.toBeInTheDocument()
   })
 
   test('names the PostHog statuses and counts each from PostHog', async () => {
@@ -346,7 +345,7 @@ describe('FeedbackTriage → active support cases', () => {
     )
     render(<FeedbackTriage canTriage client={client} />)
 
-    expect(await screen.findByTestId('feedback-assignee')).toHaveTextContent('With anna@piloti.test')
+    expect(await screen.findByTestId('feedback-assignee')).toHaveTextContent('With anna@example.test')
   })
 
   test('narrows to the reader’s own tickets and to the unassigned ones', async () => {

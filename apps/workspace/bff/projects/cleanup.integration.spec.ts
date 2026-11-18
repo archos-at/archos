@@ -47,7 +47,6 @@ vi.mock('@/lib/authz/projects', async () => {
   }
 })
 vi.mock('@/lib/auth/membership-roles', () => ({ resolveMembershipRoles: vi.fn(async () => null) }))
-/** Each custom folder's list in WorkOS (ADR-0097): membership → level. */
 const lists = vi.hoisted(() => new Map<string, Record<string, 'read' | 'write'>>())
 vi.mock('@/lib/authz/folder-roles', () => ({
   heldFolderLevels: vi.fn(async (_org: string, membershipId: string) =>
@@ -60,7 +59,6 @@ const STAMP = Date.now()
 const ORG = `org_cleanup_${STAMP}`
 const USER = 'user_gf'
 const COLLECTION = `proj_cleanup_${STAMP}`
-/** The Geschäftsführung's membership. */
 const GF = 'om_gf'
 const PROJECT_WRITE = ['project:view', 'project:documents:write', 'project:edit']
 
@@ -90,7 +88,6 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
   const inOrg = <T>(run: () => PromiseLike<T>): Promise<T> => withTenant({ organizationId: ORG, userId: USER }, run) as Promise<T>
   const one = <T>(rows: Iterable<T>): T => Array.from(rows)[0] as T
 
-  /** A folder; with `list`, its own access list, whose people WorkOS holds (`lists`). */
   async function insertFolder(name: string, list: Array<[string, 'read' | 'write']> | null): Promise<string> {
     const rows = await inOrg(() =>
       db.execute<{ id: string }>(sql`
@@ -128,7 +125,7 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
     ).then(one)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })))
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
@@ -152,8 +149,6 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
 
   afterAll(async () => {
     vi.unstubAllGlobals()
-    // The restore below queues a `restore_folder_bin` job in this lane, and the
-    // job-queue suites claim across lanes: leave none of ours behind for them.
     await inOrg(() => db.execute(sql`DELETE FROM bff_job_queue WHERE lane = ${ORG}`))
     await inOrg(() => db.execute(sql`DELETE FROM deletion_queue WHERE organization_id = ${ORG}`))
     await inOrg(() => db.execute(sql`DELETE FROM documents WHERE organization_id = ${ORG}`))
@@ -182,15 +177,12 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
     expect(holder).toMatchObject({ parent_id: folder.contracts, access_mode: 'inherit' })
     expect(holder.name).toMatch(/^Ausgemistet /)
     expect(holder.deleted_at).not.toBeNull()
-    // Same readers, same collection: the restricted one of Verträge, never the open project collection.
     expect(contract.collection_name).toBe(restrictedCollectionName(COLLECTION, folder.contracts))
     expect((await folderRow((await documentRow(doc.planV1)).folder_id)).parent_id).toBe(folder.plans)
 
-    // In the bin, hidden from everyone, the closer included; the newest version stays.
     expect((await inOrg(() => access.getProjectFolderAccess(gf, projectId, COLLECTION))).isVisible(contract.folder_id)).toBe(false)
     expect((await documentRow(doc.planV2)).folder_id).toBe(folder.plans)
 
-    // A restore puts it back inside Verträge, where only Geschäftsführung reads it.
     await inOrg(() => bin.restoreFolderFromBin(gf, { projectId, folderId: contract.folder_id }))
     expect(await folderRow(contract.folder_id)).toMatchObject({ parent_id: folder.contracts, deleted_at: null })
     expect((await inOrg(() => access.getProjectFolderAccess(member, projectId, COLLECTION))).isVisible(contract.folder_id)).toBe(false)
@@ -206,14 +198,12 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
     const binCount = async () =>
       Number(one(await inOrg(() => db.execute<{ n: string }>(sql`SELECT count(*) AS n FROM deletion_queue WHERE organization_id = ${ORG} AND status = 'pending'`))).n)
     const [foldersBefore, binBefore] = [await folderCount(), await binCount()]
-    // Pläne's subfolder goes to the bin; Verträge's purge is not confirmed.
     vi.mocked(purgeIngestedChunks).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
 
     await expect(
       inOrg(() => cleanup.confirmCleanup(gf, projectId, { documentIds: [plan, contract], proposedIds: [], aiUsed: true }))
     ).rejects.toMatchObject({ status: 502 })
 
-    // Every document where it was, in the collection it was in; no subfolder, no bin entry left.
     expect(await documentRow(plan)).toMatchObject({ folder_id: folder.plans, collection_name: COLLECTION })
     expect(await documentRow(contract)).toMatchObject({
       folder_id: folder.contracts,

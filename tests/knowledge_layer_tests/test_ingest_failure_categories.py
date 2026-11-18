@@ -1,19 +1,10 @@
-"""A failed file says why on the job, and the job says which reader read it.
-
-The BFF decides whether reading a failed document again is worth anything from
-``FileProgress.failure_category`` / ``retryable`` and the job's
-``reader_version`` (``apps/workspace/bff/documents/retry-policy.ts``). These
-run real jobs through the adapter, with the embedder faked and a real Qdrant
-(the shared ``qdrant_store`` fixture), and read what the job reports: what the
-BFF's reconcile reads.
-"""
-
 import time
 
 import pytest
 from knowledge_layer.ingest import INGEST_READER_VERSION
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import vision_credentials
 
 from agent.common.credential_resolution import ResolvedCredential
 from agent.knowledge.ingest_status_store import interrupted
@@ -42,7 +33,7 @@ def ingestor(monkeypatch, summary_db, qdrant_store):
     ing._embed_model = FakeEmbedder()
     ing._initialized = True
     cred = ResolvedCredential(api_key="", base_url="https://vlm.test/v1", model="test-vlm", source="none")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
     return ing
 
 
@@ -75,7 +66,7 @@ def test_an_exception_of_the_moment_is_transient(tmp_path, ingestor, monkeypatch
     def times_out(_path):
         raise TimeoutError("read timed out")
 
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", times_out)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", times_out)
     pdf = tmp_path / "plan.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
@@ -90,7 +81,7 @@ def test_a_file_whose_bytes_cannot_be_read_is_deterministic(tmp_path, ingestor, 
     def refuses(_path):
         raise ValueError("Raw PDF/binary content detected; refusing to index")
 
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", refuses)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", refuses)
     pdf = tmp_path / "kaputt.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
@@ -100,8 +91,7 @@ def test_a_file_whose_bytes_cannot_be_read_is_deterministic(tmp_path, ingestor, 
 
 
 def test_an_empty_file_is_deterministic(tmp_path, ingestor, monkeypatch):
-    # Nothing on any page, and nothing to transcribe: the adapter's own "no content" verdict.
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda _path: [])
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda _path: [])
     pdf = tmp_path / "leer.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 

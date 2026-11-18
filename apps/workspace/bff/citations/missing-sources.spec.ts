@@ -91,8 +91,6 @@ describe('buildMissingSourceCandidates', () => {
   })
 
   it('does NOT ask for an upload of a document the corpus already holds', () => {
-    // The whole point of the cross-check: re-uploading a present document
-    // would be the wrong fix and would waste an operator's time.
     const [candidate] = buildMissingSourceCandidates([row({})], inventory(['oib-rl6-2023.PDF'], []))
     expect(candidate.present).toBe(true)
     expect(candidate.action).toBe('investigate_retrieval')
@@ -140,8 +138,6 @@ describe('buildMissingSourceCandidates', () => {
   })
 
   it('offers no upload when the corpus inventory could not be read', () => {
-    // Regression: an unreachable backend was passed as an EMPTY corpus, so a
-    // document the platform holds was offered for upload. Unknown is not empty.
     const [candidate] = buildMissingSourceCandidates([row({})], inventory(null, []))
     expect(candidate.present).toBeNull()
     expect(candidate.action).toBe('inventory_unknown')
@@ -172,10 +168,6 @@ describe('buildMissingSourceCandidates', () => {
 
 describe('buildMissingSourceCandidates — RIS without a document number', () => {
   it('offers no catalog add when the URL carries no document number', () => {
-    // A catalog entry is keyed by its document number; without one there is
-    // nothing to verify or store, so offering "add" would be a dead button —
-    // and would inflate the "only needs its rank confirmed" count in the
-    // sources_missing finding.
     const [candidate] = buildMissingSourceCandidates(
       [
         {

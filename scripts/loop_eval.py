@@ -1,52 +1,4 @@
 #!/usr/bin/env python3
-"""Loop eval: what the agentic-loop changes did to the SHAPE of a turn.
-
-WHY THIS EXISTS
----------------
-The second landing on `docs/roadmap/architect-workspace-voice-and-agentic-loop.md`
-makes three claims about behaviour: a conclusion that names a passage is OPENED
-rather than searched for again (`read_passage`), the Herleitung checkpoint is a
-slot the model fills rather than prose it usually skips, and the first round is
-capped at two searches so the budget survives to the round that knows what it is
-looking for. Each of those is measurable, and a claim about behaviour that nobody
-measured is a preference. This script measures them: it runs
-`tests/fixtures/derivation/loop_eval_questions.yaml` through a live backend,
-writes one CSV row per question, and `--compare before.csv after.csv` prints what
-moved.
-
-It is NOT a correctness benchmark. Whether the right passage came back is the
-retrieval golden set's question (`evals/oib-retrieval`,
-`task be:eval:retrieval`). This one asks how the turn went looking: how many
-rounds, whether the locator was used, whether the cited Punkt is the one the
-question is about, and whether the budget ran out before the answer.
-
-IT CANNOT RUN IN CI, AND THAT IS NOT AN OVERSIGHT
--------------------------------------------------
-It needs a reachable backend with the OIB corpus ingested and a model key behind
-it. The corpus is operator-provided and gitignored (`data/oib/README.md`), so no
-CI checkout holds the PDFs, and every run costs real model calls. Same shape as
-`task be:eval:retrieval`, for the same reason. Run it yourself on either side of
-a loop change and quote the delta in the PR.
-
-The only part of this file that IS under test is the CSV and the comparison
-(`tests/test_loop_eval.py`): the columns are the measurement, and a comparison
-that silently drops a question or reads a stale column would make the whole
-exercise decorative.
-
-USAGE
------
-`LOOP_EVAL_URL` is the backend's chat role (`PROCESS_ROLE=chat`, ADR-0082), the
-one that serves the chat socket. Each question is one turn on its own
-conversation over that socket (wire v2, ADR-0068), as the UI asks it: a turn has
-no other way in. The backend runs without its BFF, so `REQUIRE_AUTH=false`.
-
-    LOOP_EVAL_URL=http://localhost:8001 python scripts/loop_eval.py --out before.csv
-    # …change the loop, redeploy…
-    LOOP_EVAL_URL=http://localhost:8001 python scripts/loop_eval.py --out after.csv
-    python scripts/loop_eval.py --compare before.csv after.csv
-
-`task be:eval:loop` is the same thing with the paths defaulted.
-"""
 
 from __future__ import annotations
 
@@ -68,22 +20,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_QUESTIONS = REPO_ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 
-#: Environment variable naming the backend to measure. Deliberately its own name
-#: rather than reusing a deployment variable: pointing this at production by
-#: inheriting a URL from the environment is exactly the accident to avoid.
 BASE_URL_ENV = "LOOP_EVAL_URL"
 
-#: How long one question may take. A research turn with two rounds and a
-#: reranker is tens of seconds; the deep-research escalation path is minutes and
-#: is not what this set asks for.
 DEFAULT_TIMEOUT_SECONDS = 240.0
 
-#: A Punkt as it appears in an answer: "Pkt. 3.5.2", "Punkt 5.1", "Pkt 4".
 _CLAUSE_NUMBER_RE = re.compile(r"\b(?:Pkt\.?|Punkt)\s*(\d+(?:\.\d+)*)")
 
-#: Step names the loop's own telemetry uses. The eval reads the SAME events the
-#: product emits — inventing a second measurement channel is how a harness ends
-#: up measuring itself.
 _ROUND_STEP_RE = re.compile(r"^status:retrieval:(\d+)$")
 _CHECKPOINT_STEP_RE = re.compile(r"^status:checkpoint:(\d+)$")
 _COVERAGE_STEP_RE = re.compile(r"^status:coverage:(.+)$")
@@ -92,35 +34,16 @@ _BUDGET_STEP = "status:budget"
 
 @dataclass(frozen=True)
 class Question:
-    """One row of the question set."""
-
     id: str
     question: str
     family: str | None
     clause: str | None
     kind: str
-    #: The § a Bauordnung row's citation should name, or None. Optional, and
-    #: None everywhere today: nothing committed in this repo can verify a RIS
-    #: paragraph, so `paragraph_match` falls back to the §§ the turn itself
-    #: retrieved. See the question set's own header.
     paragraph: str | None = None
 
 
 @dataclass
 class Observation:
-    """What one turn did, as one CSV row.
-
-    Every field is a fact about the turn, never a judgement about the answer:
-    "the citation names Pkt. 5.1" is checkable, "the answer is right" is not,
-    and a harness that pretends otherwise measures its own opinion.
-
-    The six ``double-fetch`` flags turn the latency anecdote into countable
-    rates: each is ``"yes"``/``"no"`` (``""`` only when the turn errored
-    before any fetch), read off the turn's own steps — never off anybody's
-    words — so a before/after run shows whether a loop change removed work
-    or merely moved it.
-    """
-
     id: str = ""
     expected_family: str = ""
     expected_clause: str = ""
@@ -132,45 +55,21 @@ class Observation:
     clause_match: str = ""
     truncated: str = ""
     checkpoint_sources: str = ""
-    #: How much of each Richtlinien-Familie the turn read, as `<family> o/l`
-    #: ("2 3/4" — three of the four parts of OIB-RL 2). Empty when the turn
-    #: touched no family, which is the honest answer for a project question.
     family_coverage: str = ""
-    #: The same normalized query fetched twice in one turn.
     repeat_query: str = ""
-    #: A search named a document+Punkt/page the locator could have opened.
     locator_eligible: str = ""
-    #: A capped fetch (fanout/budget/diversity cap) followed by another fetch.
     cap_retry: str = ""
-    #: A fetch done for the post-answer repair pass.
     repair_fetch: str = ""
-    #: The same citation key fetched in two rounds (cross-round refetch, the
-    #: single-turn proxy for cross-turn double-fetch).
     cross_turn: str = ""
-    #: The turn read more than one family, or a family it was not asked for.
     family_overlap: str = ""
-    #: RIS tool calls in the turn. Before the consolidation the shape was 2-3
-    #: (catalog → search → fetch); after it, one law lookup answers. This is
-    #: the whole claim of that change, as one integer.
     ris_calls: str = ""
-    #: Did the answer cite a § the turn actually retrieved (or the § the row
-    #: expects, when it names one)? Same three-value shape as `clause_match`.
     paragraph_match: str = ""
-    #: Did a RIS citation key survive into the answer? The answer this harness
-    #: reads is the POST-verification one, so a key still in it is a key
-    #: `verify_citations` kept. Structurally near-zero before the
-    #: consolidation: `ris_fetch_document` emitted no Citation key at all.
     ris_citation_resolved: str = ""
     error: str = ""
 
 
-#: The CSV header, in order. Read by :func:`read_csv` as the contract: a file
-#: whose columns are not these is a file from another version of this script,
-#: and comparing across versions silently is how a delta comes out of nowhere.
 FIELDS: tuple[str, ...] = tuple(f.name for f in dataclass_fields(Observation))
 
-#: Columns added for double-fetch rates. Old CSVs (without them) still read:
-#: :func:`read_csv` fills them with ``""`` rather than refusing the file.
 _DOUBLE_FETCH_FIELDS: tuple[str, ...] = (
     "repeat_query",
     "locator_eligible",
@@ -180,12 +79,8 @@ _DOUBLE_FETCH_FIELDS: tuple[str, ...] = (
     "family_overlap",
 )
 
-#: Columns added for the RIS consolidation, read back the same way: a run
-#: written before they existed compares with these cells empty rather than
-#: being refused, which is the whole point of having a before.csv.
 _RIS_FIELDS: tuple[str, ...] = ("ris_calls", "paragraph_match", "ris_citation_resolved")
 
-#: Columns whose value is a yes/no, counted as a rate by :func:`summarise`.
 _BOOLEAN_FIELDS = ("verdict", "read_passage", "truncated", *_DOUBLE_FETCH_FIELDS, "ris_citation_resolved")
 
 
@@ -194,13 +89,11 @@ def _yes_no(value: bool) -> str:
 
 
 def _question_clause(row: dict) -> str | None:
-    """A question row's expected clause: ``clause``, or ``punkt`` in a question set written before the rename."""
     value = row.get("clause", row.get("punkt"))
     return None if value is None else str(value)
 
 
 def load_questions(path: Path) -> list[Question]:
-    """Read the question set. Fails loudly on a row missing a field."""
     import yaml
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -218,11 +111,7 @@ def load_questions(path: Path) -> list[Question]:
     ]
 
 
-# --- Reading one turn --------------------------------------------------------
-
-
 def _status_payloads(steps: Iterable[dict]) -> list[tuple[str, dict]]:
-    """`(step name, payload)` for every status step of a turn, in order."""
     out: list[tuple[str, dict]] = []
     for step in steps:
         name = str(step.get("name") or step.get("functionName") or "")
@@ -238,17 +127,10 @@ def _status_payloads(steps: Iterable[dict]) -> list[tuple[str, dict]]:
 
 
 def cited_clauses(answer: str) -> list[str]:
-    """Every Punkt number the answer names, in order of appearance."""
     return [match.group(1) for match in _CLAUSE_NUMBER_RE.finditer(answer or "")]
 
 
 def clause_matches(expected: str | None, cited: Sequence[str]) -> str:
-    """Did the answer cite the expected Punkt, or one of its children?
-
-    Empty when the question names no expected Punkt — an unmeasured cell, which
-    must not be counted as a miss. A child counts: the question decides the
-    requirement, the corpus decides how deeply it is numbered.
-    """
     if not expected:
         return ""
     for number in cited:
@@ -257,50 +139,26 @@ def clause_matches(expected: str | None, cited: Sequence[str]) -> str:
     return "no"
 
 
-# --- Double-fetch flags (per-fetch instrumentation consumers) ----------------
-#
-# Each flag is a pure function of the turn's own steps, so the rates are
-# countable offline and pin-able in tests. They read the SAME events the
-# product emits: ``status:retrieval:N`` live lines, ``retrieve.*`` spans
-# (extended with round/tool/normalized_query/citation_keys/requery and
-# cap/refusal flags), the ``status:budget*`` and ``status:width:N`` cap records
-# and ``status:repair``.
-# No usage/cost telemetry: queries, keys and counts only.
-
-
 def _normalise_query(text: object) -> str:
-    """Whitespace-folded, casefolded query for repeat detection."""
     try:
         return re.sub(r"\s+", " ", str(text or "")).strip().casefold()
     except Exception:
         return ""
 
 
-#: A search that names a document+Punkt/page the locator could have opened.
-#: Mirrors the requery gate's known-entity test (duplicated on purpose:
-#: this harness must keep working when the knowledge package is absent).
 _LOCATOR_ELIGIBLE_RE = re.compile(
     r"oib[-\s_]*rl|richtlinie\s*\d|\brl\s*\d|\bpkt\.?\b|\bpunkt\b|§|\bseite\b|\bpage\b|\btabelle\b|\.pdf\b|oib-rl_|oib-richtlinie_",
     re.IGNORECASE,
 )
 
-#: Step names that record the turn being CUT OFF: the round ceiling and the
-#: input-token bound. ``status:budget:fanout`` used to be here and names a slot
-#: nothing emits — the round-zero fan-out cap was removed — while
-#: ``status:budget:input`` was missing, so every token-bound stop read as no cap
-#: at all.
 _CAP_STEP_NAMES = frozenset({"status:budget", "status:budget:input"})
 
-#: The per-round WIDTH cap carries its round in the step name
-#: (``status:width:N``), like the retrieval line, so it is matched by prefix
-#: rather than by equality.
 _WIDTH_CAP_STEP_PREFIX = "status:width:"
 
 _REPAIR_STEP_NAME = "status:repair"
 
 
 def _retrieval_queries(payloads: Sequence[tuple[str, dict]]) -> list[str]:
-    """Normalized queries across live lines and retrieve spans, in order."""
     queries: list[str] = []
     for name, body in payloads:
         if _ROUND_STEP_RE.match(name):
@@ -327,7 +185,6 @@ def _retrieval_queries(payloads: Sequence[tuple[str, dict]]) -> list[str]:
 
 
 def flag_repeat_query(payloads: Sequence[tuple[str, dict]]) -> str:
-    """``"yes"`` when one normalized query was fetched twice in the turn."""
     seen: set[str] = set()
     for query in _retrieval_queries(payloads):
         if query in seen:
@@ -337,12 +194,6 @@ def flag_repeat_query(payloads: Sequence[tuple[str, dict]]) -> str:
 
 
 def flag_locator_eligible(question: Question, payloads: Sequence[tuple[str, dict]], tools: Sequence[str]) -> str:
-    """``"yes"`` when a search named a passage ``read_passage`` could open.
-
-    Eligible means the QUESTION or any fetched query names a family,
-    Fundstelle or file — and the turn searched anyway without locating.
-    A turn that located is never eligible: it already chose the cheap path.
-    """
     if "read_passage" in list(tools or []):
         return "no"
     candidates = [question.question, *(_retrieval_queries(payloads))]
@@ -352,7 +203,6 @@ def flag_locator_eligible(question: Question, payloads: Sequence[tuple[str, dict
 
 
 def _as_payload_dict(value: object) -> dict:
-    """One retrieve payload as a dict, parsing the JSON string form."""
     if isinstance(value, str):
         try:
             value = json.loads(value)
@@ -362,14 +212,6 @@ def _as_payload_dict(value: object) -> dict:
 
 
 def flag_cap_retry(payloads: Sequence[tuple[str, dict]]) -> str:
-    """``"yes"`` when a capped fetch was followed by another fetch.
-
-    The POSITION of the cap is the fact: a cap on the turn's last fetch is the
-    guard working as designed, not a retry. The old ``rounds > 1`` asked
-    whether the turn had several rounds, which is also true when the cap came
-    last — so a turn that stopped exactly where the guard stopped it read as
-    the redundant work this column exists to catch.
-    """
     capped_at: int | None = None
     for index, (name, body) in enumerate(payloads):
         capped = name in _CAP_STEP_NAMES or name.startswith(_WIDTH_CAP_STEP_PREFIX)
@@ -382,18 +224,15 @@ def flag_cap_retry(payloads: Sequence[tuple[str, dict]]) -> str:
 
 
 def _dropped_by_cap(body: dict) -> bool:
-    """Whether a retrieve span records the diversity cap dropping chunks."""
     raw = _as_payload_dict(body.get("input"))
     return bool(raw.get("dropped_by_cap") or 0)
 
 
 def flag_repair_fetch(payloads: Sequence[tuple[str, dict]]) -> str:
-    """``"yes"`` when the post-answer repair pass ran on this turn."""
     return "yes" if any(name == _REPAIR_STEP_NAME for name, _ in payloads) else "no"
 
 
 def _citation_keys_by_round(payloads: Sequence[tuple[str, dict]]) -> dict[int | None, set[str]]:
-    """Citation keys per round, from retrieve spans (preferred) or lanes."""
     by_round: dict[int | None, set[str]] = {}
     for name, body in payloads:
         if not name.startswith("retrieve."):
@@ -415,15 +254,8 @@ def _citation_keys_by_round(payloads: Sequence[tuple[str, dict]]) -> dict[int | 
 
 
 def flag_cross_turn(payloads: Sequence[tuple[str, dict]]) -> str:
-    """``"yes"`` when one citation key was fetched in two rounds.
-
-    Single-turn proxy for cross-turn double-fetch: the eval sees one turn at
-    a time, so history overlap is unmeasurable here — but a key paid for
-    twice across rounds is the same redundant work, and countable.
-    """
     by_round = _citation_keys_by_round(payloads)
     if len(by_round) < 2:
-        # Fall back to lane sources stamped per round (pre-span turns).
         return "no"
     seen: set[str] = set()
     for keys in by_round.values():
@@ -433,25 +265,8 @@ def flag_cross_turn(payloads: Sequence[tuple[str, dict]]) -> str:
     return "no"
 
 
-# --- RIS consolidation columns -----------------------------------------------
-#
-# Read off the SAME telemetry the product emits: the round announcements name
-# the tools a round called, and `retrieve.law_lookup` spans carry the citation
-# keys and § ids the call returned (`agent.knowledge.law_lookup.telemetry`). A
-# turn recorded before the rename says `ris_lookup` and `retrieve.ris_lookup`,
-# so both names count. No second measuring channel, and nothing read out of
-# anybody's prose.
-
-#: Tool basenames that read a legal database (and so their ``retrieve.<tool>`` spans). Prefixes, not a list of
-#: names, because `tool_calls._SEARCH_CORPORA` maps the same prefixes to the `ris` corpus and two lists drift.
 _RIS_TOOL_PREFIXES = ("ris", "law_lookup")
 
-#: A § as an answer writes it ("§ 63", "§ 63 Abs 1", "Art 5", "§ 63a") and as
-#: the span records it ("§63Abs1" — one token, because the ``Punkt:`` line is
-#: read as one). Both collapse to the same comparable key.
-#:
-#: The suffix letter is guarded by a lookahead: without it ``\d+[a-z]?`` eats
-#: the "A" of "§63Abs1" as a paragraph suffix and the Absatz is never seen.
 _PARAGRAPH_RE = re.compile(
     r"(§|Art(?:ikel)?\.?)\s*(\d+)([a-z](?![a-z]))?(?:\s*Abs\.?\s*(\d+[a-z]?))?",
     re.IGNORECASE,
@@ -459,12 +274,10 @@ _PARAGRAPH_RE = re.compile(
 
 
 def count_ris_calls(tools: Sequence[str]) -> int:
-    """How many RIS tool calls the turn made, over every announced round."""
     return sum(1 for tool in tools if str(tool).lower().startswith(_RIS_TOOL_PREFIXES))
 
 
 def _paragraph_keys(text: object) -> list[str]:
-    """Every § in a text, as comparable keys: ``§ 63 Abs 1`` → ``§63abs1``."""
     keys = []
     for match in _PARAGRAPH_RE.finditer(str(text or "")):
         kind = "art" if match.group(1).lower().startswith("art") else "§"
@@ -475,18 +288,10 @@ def _paragraph_keys(text: object) -> list[str]:
 
 
 def _same_paragraph(cited: str, expected: str) -> bool:
-    """Whether two § keys name the same provision.
-
-    Either may state an Absatz the other does not: an answer citing "§ 70 Abs 2"
-    satisfies an expectation of "§ 70", and an answer citing "§ 63" cites a §
-    the document contains even when the span recorded "§ 63 Abs 1". The § is
-    the unit; the Absatz is a refinement, the same way a Punkt's child counts.
-    """
     return cited.startswith(expected) or expected.startswith(cited)
 
 
 def _retrieved_paragraphs(payloads: Sequence[tuple[str, dict]]) -> set[str]:
-    """The § ids the turn's RIS spans say it returned."""
     found: set[str] = set()
     for name, body in payloads:
         if not name.startswith(tuple(f"retrieve.{p}" for p in _RIS_TOOL_PREFIXES)):
@@ -498,13 +303,6 @@ def _retrieved_paragraphs(payloads: Sequence[tuple[str, dict]]) -> set[str]:
 
 
 def paragraph_matches(question: Question, answer: str, payloads: Sequence[tuple[str, dict]]) -> str:
-    """Did the answer cite a § it is entitled to cite?
-
-    The expectation is the row's committed ``paragraph`` when it has one, and
-    otherwise the §§ the turn's own spans say it retrieved — "did the answer
-    cite a § the fetched document actually contains". Empty when there is
-    neither, which is an unmeasured cell and must not count as a miss.
-    """
     expected = set(_paragraph_keys(question.paragraph)) or _retrieved_paragraphs(payloads)
     if not expected:
         return ""
@@ -515,12 +313,6 @@ def paragraph_matches(question: Question, answer: str, payloads: Sequence[tuple[
 
 
 def flag_ris_citation_resolved(answer: str, payloads: Sequence[tuple[str, dict]]) -> str:
-    """Did a RIS citation key survive into the answer the reader gets?
-
-    The answer this harness reads is the one `verify_citations` already
-    pruned, so a key still present is a key that resolved. Empty when the turn
-    made no RIS call — an unmeasured cell, not a failure.
-    """
     keys = [
         str(key).strip()
         for name, body in payloads
@@ -535,7 +327,6 @@ def flag_ris_citation_resolved(answer: str, payloads: Sequence[tuple[str, dict]]
 
 
 def _expected_family_number(family: str | None) -> str | None:
-    """``"OIB-RL 2.1"`` → ``"2"``; ``"Bauordnung"``/None → None."""
     if not family:
         return None
     match = re.search(r"OIB-RL\s*(\d+)", str(family), re.IGNORECASE)
@@ -543,7 +334,6 @@ def _expected_family_number(family: str | None) -> str | None:
 
 
 def flag_family_overlap(expected_family: str | None, family_cell: str) -> str:
-    """``"yes"`` when the turn read across families or past the asked one."""
     touched = [family for family, _o, _l in family_coverage(family_cell)]
     if len(touched) > 1:
         return "yes"
@@ -554,11 +344,8 @@ def flag_family_overlap(expected_family: str | None, family_cell: str) -> str:
 
 
 def observe(question: Question, steps: Sequence[dict], answer: str, envelope: dict | None) -> Observation:
-    """One turn's row, from the events it emitted and the envelope it produced."""
     payloads = _status_payloads(steps)
     rounds = {int(m.group(1)) for name, _ in payloads if (m := _ROUND_STEP_RE.match(name))}
-    # Retrieve spans stamp their own round; a turn that only emitted spans
-    # (no live line, e.g. a locator-only round) still counts its rounds.
     for name, body in payloads:
         if name.startswith("retrieve."):
             raw = body.get("input") or {}
@@ -611,11 +398,7 @@ def observe(question: Question, steps: Sequence[dict], answer: str, envelope: di
     )
 
 
-# --- The CSV -----------------------------------------------------------------
-
-
 def write_csv(path: Path, rows: Sequence[Observation]) -> None:
-    """Write the run. One row per question, in the set's own order."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(FIELDS))
@@ -624,21 +407,10 @@ def write_csv(path: Path, rows: Sequence[Observation]) -> None:
             writer.writerow(asdict(row))
 
 
-#: Column names of a run written before the rename, as this script spells them now. Remove after one release.
 _LEGACY_COLUMNS = {"expected_punkt": "expected_clause", "punkt_match": "clause_match"}
 
 
 def read_csv(path: Path) -> list[Observation]:
-    """Read a run back, refusing a file this script did not write.
-
-    The header is the contract. A CSV from another version of this script has
-    different columns, and comparing the two without noticing produces a delta
-    that came from the schema rather than from the agent. The one exception is
-    the ADDED columns — the double-fetch six and the RIS three: runs written
-    before they existed read with those cells empty rather than refused, so an
-    old ``before.csv`` still compares. That exemption is what makes a
-    before/after run across a change to this script possible at all.
-    """
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         header = tuple(_LEGACY_COLUMNS.get(name, name) for name in reader.fieldnames or ())
@@ -658,13 +430,8 @@ def read_csv(path: Path) -> list[Observation]:
         return [Observation(**{name: str(row.get(name) or "") for name in FIELDS}) for row in reader]
 
 
-# --- Comparing two runs ------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Summary:
-    """The aggregate of one run. Counts and rates, never an average of a rate."""
-
     answered: int = 0
     rounds_total: int = 0
     kind_as_expected: int = 0
@@ -681,13 +448,6 @@ class Summary:
 
 
 def family_coverage(cell: str) -> list[tuple[str, int, int]]:
-    """`(family, opened, listed)` for each family a turn touched.
-
-    Parses the `family_coverage` cell, which is `"2 3/4 4 1/1"`. A cell that
-    cannot be read contributes nothing rather than a zero: an unparseable cell
-    is a harness fault, and scoring it as a complete miss would blame the agent
-    for it.
-    """
     out: list[tuple[str, int, int]] = []
     tokens = (cell or "").split()
     for family, ratio in zip(tokens[::2], tokens[1::2], strict=False):
@@ -698,7 +458,6 @@ def family_coverage(cell: str) -> list[tuple[str, int, int]]:
 
 
 def summarise(rows: Sequence[Observation]) -> Summary:
-    """Fold a run into the numbers a reader compares."""
     booleans = {name: sum(1 for row in rows if getattr(row, name) == "yes") for name in _BOOLEAN_FIELDS}
     sources: dict[str, int] = {}
     for row in rows:
@@ -722,8 +481,6 @@ def summarise(rows: Sequence[Observation]) -> Summary:
     )
 
 
-#: Columns a per-question diff reports. `question` and the expectations do not
-#: change between runs — only what the agent did does.
 _COMPARED_FIELDS = (
     "kind",
     "verdict",
@@ -739,12 +496,6 @@ _COMPARED_FIELDS = (
 
 
 def changed_rows(before: Sequence[Observation], after: Sequence[Observation]) -> list[tuple[str, str, str, str]]:
-    """`(id, column, before, after)` for every cell that moved.
-
-    Questions present in only one of the runs are reported too, as a move from
-    or to ``—``: a set that grew or shrank between runs is exactly the thing a
-    silent join would hide.
-    """
     left = {row.id: row for row in before}
     right = {row.id: row for row in after}
     out: list[tuple[str, str, str, str]] = []
@@ -763,7 +514,6 @@ def _delta(was: int, now: int) -> str:
 
 
 def format_comparison(before: Sequence[Observation], after: Sequence[Observation]) -> str:
-    """The report `--compare` prints: the aggregate, then what moved."""
     old, new = summarise(before), summarise(after)
     lines = [
         f"questions: {_delta(len(before), len(after))}",
@@ -793,50 +543,26 @@ def format_comparison(before: Sequence[Observation], after: Sequence[Observation
     return "\n".join(lines)
 
 
-# --- Running against a backend ----------------------------------------------
-#
-# A turn runs on the chat socket and nowhere else (ADR-0068): the wire v2
-# protocol of `docs/api/websocket-protocol.md`, read through the contract's own
-# models (`agent.common.wire_v2`) rather than a second description of it.
-
-#: The sources a turn may consult. A `user_message` names them, and one that
-#: names none consults none (`parse_data_sources`), so these are the three the
-#: config registers: every source, as a question asked with no selection got.
 DATA_SOURCES: tuple[str, ...] = ("knowledge_layer", "ris", "web_search")
 
-#: The answer the eval gives when a turn stops to ask its asker: the clarifier's
-#: own skip word, so the turn answers the question as the set states it.
 CLARIFICATION_ANSWER = "skip"
 
-#: How long the server gets to say `hello` after the upgrade. Its absence means
-#: the URL does not serve wire v2, which is worth saying rather than waiting out.
 HELLO_TIMEOUT_SECONDS = 10.0
 
 
 @dataclass
 class SocketTurn:
-    """What one turn sent back over the chat socket, folded the way a reader folds it."""
-
     message_id: str
-    #: The turn's steps by id, in the order each first arrived. The same id again
-    #: replaces the step, as it replaces the row a reader is shown.
     steps: dict = field(default_factory=dict)
-    #: ``RUN_FINISHED.result``: the terminal, authoritative over everything streamed.
     result: object = None
 
 
 def socket_url(base_url: str, conversation_id: str) -> str:
-    """The chat socket of the backend at ``base_url`` (``http://host:port``), for one conversation."""
     root = re.sub(r"^http", "ws", base_url.rstrip("/"))
     return f"{root}/websocket?v=2&conversationId={conversation_id}"
 
 
 def read_event(turn: SocketTurn, event: object) -> object | None:
-    """Fold one wire event into ``turn``; the client message it calls for, if any.
-
-    Raises on the two ends that are not an answer: a ``RUN_ERROR`` and a
-    ``rejected`` of this turn's question.
-    """
     from agent.common import wire_v2
 
     if getattr(event, "turn_id", None) != turn.message_id:
@@ -860,16 +586,6 @@ def read_event(turn: SocketTurn, event: object) -> object | None:
 
 
 def step_records(turn: SocketTurn) -> list[dict]:
-    """The turn's steps as the ``{"name", "payload"}`` records :func:`observe` reads.
-
-    A status step is its slot's detail (``round``, ``source``, ``truncated``,
-    ``family``…) plus its interpolation values; a retrieval step its round,
-    values and tools. Tool I/O never rides the wire, so the per-fetch ``retrieve.*``
-    spans the RIS columns read are telemetry only and those cells stay
-    unmeasured. What the spans' citation keys counted, which passages each round
-    reached, comes from the turn's own ledger (``result.retrieval_ledger``), placed
-    after the round's own step so a fetch still follows the cap that preceded it.
-    """
     from agent.common import wire_v2
 
     ledger = {
@@ -894,7 +610,6 @@ def step_records(turn: SocketTurn) -> list[dict]:
 
 
 def _ledger_record(round_index: int, entry: dict) -> dict:
-    """One round of the ledger as a fetch record: the passages it reached, as ``name#detail`` keys."""
     keys = [
         f"{doc.get('name')}#{doc.get('detail') or ''}"
         for doc in entry.get("docs") or []
@@ -904,7 +619,6 @@ def _ledger_record(round_index: int, entry: dict) -> dict:
 
 
 def _socket_turn(base_url: str, question: str, timeout: float) -> tuple[list[dict], str, dict | None]:
-    """One turn over the chat socket, as ``(steps, answer, envelope)``."""
     import uuid
 
     from websockets.sync.client import connect
@@ -937,12 +651,6 @@ def _socket_turn(base_url: str, question: str, timeout: float) -> tuple[list[dic
 
 
 def run(questions: Sequence[Question], base_url: str, timeout: float) -> list[Observation]:
-    """Run the whole set, one question at a time.
-
-    Sequential on purpose: the point is what ONE turn does with its budget, and
-    a backend answering four turns at once shares a reranker and a rate limit
-    with itself.
-    """
     rows: list[Observation] = []
     for index, question in enumerate(questions, 1):
         print(f"[{index}/{len(questions)}] {question.id}", file=sys.stderr, flush=True)
@@ -964,7 +672,7 @@ def run(questions: Sequence[Question], base_url: str, timeout: float) -> list[Ob
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="Loop eval: what the agentic-loop changes did to the SHAPE of a turn.")
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     parser.add_argument("--out", type=Path, help="Where to write this run's CSV.")
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("BEFORE", "AFTER"))

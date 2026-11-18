@@ -1,73 +1,36 @@
-/**
- * The office's conventions, counted from its own projects (ADR-0129): which
- * folders its projects keep, where each Dokumentart is usually filed, the shape
- * of its Plannummern, its Index style and how its file names write a date.
- *
- * Pure and deterministic: the same rows give the same conventions, and every
- * line is a count a person could redo. No model, no I/O; `./service` reads the
- * rows and decides which may count (screened documents, folders not under an
- * own access list). Everything handed in here counts.
- *
- * A convention is a pattern, not an instance: a line is kept only when at
- * least {@link MIN_PROJECTS} projects show it and they are at least
- * {@link MIN_SHARE} of the projects that could. That threshold is also the
- * privacy floor: a name or a shape only one project carries is never stated,
- * and a Plannummer is stated as a shape, never as an example.
- */
-
 import { folderMatchKey } from '@/lib/projects/folders'
 
-/** The shape of the stored JSON; bump when a field changes meaning, and the stored row is recomputed. */
 export const EXTRACTOR_VERSION = 3
 
-/** A convention needs at least this many projects behind it. */
 export const MIN_PROJECTS = 3
 
-/** ...and at least this share of the projects that could show it. */
 export const MIN_SHARE = 0.5
 
-/** Most folder-skeleton entries kept. */
 export const MAX_SKELETON_FOLDERS = 12
 
-/** Folder depth the skeleton is learned to (`Behörde/Gutachten` is depth 2). */
 export const MAX_SKELETON_DEPTH = 2
 
-/** One document as the extractor reads it. */
 export interface ConventionDocument {
   projectId: string
-  /** The folder path it is filed under, as the shelf shows it; `''` at the root. */
   folderPath: string
   filename: string
-  /** The Dokumentart (a controlled document-type tag), or null when none or `Sonstiges`. */
   docType: string | null
-  /** The title block's Plannummer, when one was read. */
   documentNumber: string | null
-  /** The title block's Index, when one was read. */
   revision: string | null
-  /** When it was uploaded; reads a six-digit date in its name (`260315` is 2026, not 2015). */
   uploadedAt?: Date | null
 }
 
-/**
- * A person's accepted move of a document into a folder (an applied
- * `file_operation` proposal), with the document's Dokumentart. It is a
- * deliberate choice, so within its project it outweighs where the documents of
- * that Dokumentart happen to sit.
- */
 export interface ConventionMove {
   projectId: string
   docType: string
-  /** The folder path the document was moved into. */
   folderPath: string
 }
 
-/** One living folder of a project, as the extractor reads it. */
 export interface ConventionFolder {
   projectId: string
   path: string
 }
 
-/** How many projects show a convention, of how many could. */
 export interface Support {
   projects: number
   of: number
@@ -77,23 +40,16 @@ export type RevisionStyle = 'letter' | 'number' | 'padded_number' | 'letter_numb
 
 export interface OfficeConventions {
   version: typeof EXTRACTOR_VERSION
-  /** Projects the counts were taken over. */
   projects: number
-  /** Folder paths most projects keep, most widely kept first. */
   folders: Array<{ path: string } & Support>
-  /** Per Dokumentart, the folder it is usually filed in. */
   filing: Array<{ docType: string; path: string } & Support>
-  /** The usual Plannummer shape (letters `A`, digits `0`, separators kept). */
   documentNumber: ({ shape: string } & Support) | null
   revisionStyle: ({ style: RevisionStyle } & Support) | null
-  /** The usual date format in file names, e.g. `YYYYMMDD`. */
   fileDate: ({ format: string } & Support) | null
 }
 
-/** A leading ordinal an office numbers its folders with: `03_`, `3 - `, `03.`. */
 const ORDINAL_PREFIX = /^\d{1,3}\s*[._-]?\s+|^\d{1,3}[._-]\s*/
 
-/** A folder path compared without case, Unicode form or leading ordinals, segment by segment. */
 export function conventionPathKey(path: string): string {
   return path
     .split('/')
@@ -102,7 +58,6 @@ export function conventionPathKey(path: string): string {
     .join('/')
 }
 
-/** The most frequent value of a list, ties broken by the value itself; null for an empty list. */
 function modal(values: readonly string[]): string | null {
   const counts = new Map<string, number>()
   for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
@@ -117,7 +72,6 @@ function modal(values: readonly string[]): string | null {
   return best
 }
 
-/** Group values per project. */
 function perProject<T>(items: readonly T[], projectOf: (item: T) => string, valueOf: (item: T) => string | null) {
   const grouped = new Map<string, string[]>()
   for (const item of items) {
@@ -130,16 +84,10 @@ function perProject<T>(items: readonly T[], projectOf: (item: T) => string, valu
   return grouped
 }
 
-/** Whether a count clears the pattern threshold. */
 export function isPattern(support: Support): boolean {
   return support.of > 0 && support.projects >= MIN_PROJECTS && support.projects / support.of >= MIN_SHARE
 }
 
-/**
- * The value most projects agree on, as each project's own modal value:
- * one project with many documents counts once, as it should for a habit of
- * the office. Null when no value clears {@link isPattern}.
- */
 function agreedAcrossProjects(grouped: ReadonlyMap<string, string[]>): ({ value: string } & Support) | null {
   const modes = [...grouped.values()].map(modal).filter((value): value is string => value !== null)
   const value = modal(modes)
@@ -148,14 +96,12 @@ function agreedAcrossProjects(grouped: ReadonlyMap<string, string[]>): ({ value:
   return isPattern(support) ? { value, ...support } : null
 }
 
-/** The most common spelling seen for each key. */
 function spellings(paths: Iterable<[key: string, spelling: string]>): Map<string, string> {
   const seen = new Map<string, string[]>()
   for (const [key, spelling] of paths) seen.set(key, [...(seen.get(key) ?? []), spelling])
   return new Map([...seen].map(([key, list]) => [key, modal(list) ?? key]))
 }
 
-/** A path cut to its first `depth` segments, with the cleaned spelling. */
 function prefixes(path: string): string[] {
   const segments = path.split('/').map((segment) => segment.trim()).filter(Boolean)
   return segments.slice(0, MAX_SKELETON_DEPTH).map((_, index) => segments.slice(0, index + 1).join('/'))
@@ -180,12 +126,6 @@ function learnSkeleton(folders: readonly ConventionFolder[], projectsWithFolders
     .slice(0, MAX_SKELETON_FOLDERS)
 }
 
-/**
- * The folder a document is filed in, cut to {@link MAX_SKELETON_DEPTH}: the
- * depth the skeleton shows the whole office. The conventions are the office's,
- * read by every member, including projects a member is not on (ADR-0129), so a
- * filing line names no folder deeper than the skeleton would.
- */
 const filedIn = (doc: ConventionDocument): string => prefixes(doc.folderPath).at(-1) ?? ''
 
 function learnFiling(documents: readonly ConventionDocument[], moves: readonly ConventionMove[]) {
@@ -201,7 +141,6 @@ function learnFiling(documents: readonly ConventionDocument[], moves: readonly C
     const ofType = filed.filter((doc) => doc.docType === docType)
     const votes = perProject(ofType, (doc) => doc.projectId, (doc) => conventionPathKey(filedIn(doc)))
     const chosen = moved.filter((move) => move.docType === docType)
-    // A project that accepted a move for this Dokumentart votes with its moves alone.
     for (const projectId of new Set(chosen.map((move) => move.projectId))) {
       votes.set(
         projectId,
@@ -214,14 +153,12 @@ function learnFiling(documents: readonly ConventionDocument[], moves: readonly C
   })
 }
 
-/** A Plannummer as a shape: a run of letters is `A`, each digit `0`, everything else kept. */
 export function documentNumberShape(value: string): string | null {
   const trimmed = value.trim().toUpperCase()
   if (trimmed.length < 3 || !/\d/.test(trimmed)) return null
   return trimmed.replace(/\p{L}+/gu, 'A').replace(/\d/g, '0').replace(/\s+/g, ' ')
 }
 
-/** The style of one Index value, or null when it is none of the four. */
 export function revisionStyleOf(value: string): RevisionStyle | null {
   const bare = value.trim().replace(/^(index|idx|rev(ision)?)\.?\s*[:-]?\s*/i, '')
   if (/^\p{L}$/u.test(bare)) return 'letter'
@@ -233,7 +170,6 @@ export function revisionStyleOf(value: string): RevisionStyle | null {
 
 const validDay = (month: number, day: number): boolean => month >= 1 && month <= 12 && day >= 1 && day <= 31
 
-/** How far before its upload a file name's date may lie, and how far after, to be read as one. */
 const DATE_BEFORE_UPLOAD_MS = 3 * 365 * 24 * 3600 * 1000
 const DATE_AFTER_UPLOAD_MS = 31 * 24 * 3600 * 1000
 
@@ -243,11 +179,6 @@ function nearUpload(year: number, month: number, day: number, uploadedAt: Date):
   return gap <= DATE_BEFORE_UPLOAD_MS && gap >= -DATE_AFTER_UPLOAD_MS
 }
 
-/**
- * Six digits are a date only when exactly one reading, `YYMMDD` or `DDMMYY`,
- * lands near the upload: most six-digit numbers are a drawing number, and
- * without an upload date the two readings cannot be told apart.
- */
 function sixDigitFormat(name: string, uploadedAt: Date | null | undefined): string | null {
   const six = /(?<!\d)(\d{2})(\d{2})(\d{2})(?!\d)/.exec(name)
   if (!six || !uploadedAt) return null
@@ -258,11 +189,6 @@ function sixDigitFormat(name: string, uploadedAt: Date | null | undefined): stri
   return asYymmdd ? 'YYMMDD' : 'DDMMYY'
 }
 
-/**
- * The date format of the first date a file name writes, or null. A two-digit
- * year counts only with dots (`15.03.26`): `01-02-03` is far more often part of
- * a Plannummer than a date.
- */
 export function fileDateFormatOf(filename: string, uploadedAt?: Date | null): string | null {
   const name = filename.replace(/\.[^.]+$/, '')
   const iso = /(?<!\d)(?:19|20)\d{2}([-_.])(\d{2})\1(\d{2})(?!\d)/.exec(name)
@@ -286,11 +212,9 @@ function learnPattern<T extends string>(
   return agreed as ({ value: T } & Support) | null
 }
 
-/** The office's conventions from its projects' open folders and screened documents. */
 export function extractOfficeConventions(input: {
   documents: readonly ConventionDocument[]
   folders: readonly ConventionFolder[]
-  /** Moves a person accepted; they teach the Dokumentart-to-folder lines. */
   moves?: readonly ConventionMove[]
 }): OfficeConventions {
   const { documents, folders, moves = [] } = input

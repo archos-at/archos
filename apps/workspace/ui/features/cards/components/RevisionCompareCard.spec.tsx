@@ -1,8 +1,3 @@
-/**
- * The revision compare card (ADR-0128, V10): the same page of two Fassungen side by
- * side, the changes boxed on each, the change sentences below; pressing a side opens
- * that Fassung at the page with every box on it. pdf.js is the shared fake.
- */
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -16,7 +11,6 @@ vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => fakePdfjsRuntime(state))
 
 const OLDER = '00000000-0000-4000-8000-0000000000d1'
 const NEWER = '00000000-0000-4000-8000-0000000000d2'
-/** The card as it arrives: parsed by the generated schema, defaults filled in. */
 const card = revisionCompareCardSchema.parse({
   older_id: OLDER,
   newer_id: NEWER,

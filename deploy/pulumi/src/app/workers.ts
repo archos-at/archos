@@ -17,49 +17,28 @@ import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, sref } from "./config";
 
 const FRONTEND_URL = `http://frontend:${PORT.frontend}`;
 
-/** A backend housekeeping route, on the api role, which registers them (ADR-0082 step B). */
 const housekeepingUrl = (route: string) => `${BACKEND_URL}/v1/maintenance/housekeeping/${route}`;
 
-/** The CronJob that drives the base-corpus sync, suspended while `chromaMigration` is on. */
 export const BASE_CORPUS_SYNC = "housekeeping-base-corpus";
 
-/** The weekly orphaned-vector sweep, suspended while `chromaMigration` is on. */
 export const VECTOR_RECONCILE = "vector-reconcile";
 
-/** One backend housekeeping route on a schedule (`installWorkers`). */
 type HousekeepingSweep = {
   name: string;
   schedule: string;
   route: string;
   timeoutMs: number;
-  suspend?: boolean;
 };
 
-/**
- * One POST to an internal sweep route, as a `node -e` program.
- *
- * Written out here rather than inline so the quoting stays readable and so the
- * two things that make it a real check — a non-2xx becoming a non-zero exit, and
- * a bounded timeout — are visible. Without the status check the Job would report
- * success for a 403 from a rotated token, and the sweep would be dead with a
- * green CronJob history above it.
- *
- * One factory for every sweep CronJob (storage alerts, vector reconcile) so the
- * two cannot drift on exactly those two properties.
- */
 function internalSweepScript(label: string, timeoutMs: number): string {
   return [
     "const url = process.env.SWEEP_URL;",
     "const token = process.env.INTERNAL_API_TOKEN;",
-    // A ceiling: anything near it is a fault, and hanging forever would block
-    // the next tick under concurrencyPolicy: Forbid.
     `const signal = AbortSignal.timeout(${timeoutMs});`,
     "fetch(url, { method: 'POST', headers: { 'x-internal-token': token }, signal })",
     "  .then(async (response) => {",
     "    const body = await response.text();",
     "    if (!response.ok) throw new Error(`sweep failed: ${response.status} ${body}`);",
-    // The counts land in the pod log, which is where an operator looks when
-    // asking whether the sweep ran at all.
     `    console.log(\`[${label}] \${body}\`);`,
     "  })",
     "  .catch((error) => {",
@@ -69,29 +48,6 @@ function internalSweepScript(label: string, timeoutMs: number): string {
   ].join("\n");
 }
 
-/**
- * A CronJob that POSTs to one internal route, the BFF's or the backend's, on a
- * schedule.
- *
- * A CronJob rather than a polling Deployment, which is the opposite choice
- * from the two workers below and deliberate. Those two hold a claim on rows
- * (`FOR UPDATE SKIP LOCKED`) and must be resident to keep polling; a sweep has
- * no state between ticks and nothing to claim, so a resident pod would spend
- * the whole period idle to do a few seconds of work.
- *
- * It calls an app route rather than doing the work itself because the sweep
- * needs the app's database context and clients — all of which already exist
- * behind the internal route. Re-implementing them in a worker image would be a
- * second copy of the rules to keep in step.
- *
- * `concurrencyPolicy: Forbid` because a tick that overruns its period must not
- * be joined by the next one. The endpoints are idempotent across SEQUENTIAL
- * runs, which is what makes at-least-once delivery safe — not concurrent ones.
- *
- * `node -e` with global fetch rather than a curl image: the frontend image is
- * already on every node and already Node, so this adds no pull and no second
- * base image to patch.
- */
 function internalSweepCronJob(
   w: AppWiring,
   cfg: DeployConfig,
@@ -109,9 +65,6 @@ function internalSweepCronJob(
       },
       spec: {
         schedule: sweep.schedule,
-        // Written when the caller decides it, false as well as true, so the
-        // deploy that sets it back to false resumes the clock.
-        ...(sweep.suspend === undefined ? {} : { suspend: sweep.suspend }),
         concurrencyPolicy: "Forbid",
         successfulJobsHistoryLimit: 3,
         failedJobsHistoryLimit: 3,
@@ -122,12 +75,8 @@ function internalSweepCronJob(
   );
 }
 
-type InternalSweep = { name: string; schedule: string; url: string; timeoutMs: number; suspend?: boolean };
+type InternalSweep = { name: string; schedule: string; url: string; timeoutMs: number };
 
-/**
- * The Job a sweep CronJob starts on each tick. Shared with the one-off run a
- * deploy starts (`syncBaseCorpusAfterRollout`), so the two cannot drift.
- */
 function internalSweepJobSpec(
   w: AppWiring,
   cfg: DeployConfig,
@@ -135,10 +84,6 @@ function internalSweepJobSpec(
   podAnnotations?: Record<string, pulumi.Input<string>>,
 ): k8s.types.input.batch.v1.JobSpec {
   return {
-    // Deliberately lower than JOB_DEFAULTS.backoffLimit: the bootstrap Jobs
-    // retry hard because they wait on services coming up, whereas a failed
-    // sweep is retried by the NEXT tick anyway. Hammering a broken BFF for ten
-    // attempts would just move the outage into the sweep's path.
     backoffLimit: 2,
     ttlSecondsAfterFinished: JOB_DEFAULTS.ttlSecondsAfterFinished,
     template: {
@@ -159,9 +104,6 @@ function internalSweepJobSpec(
             command: ["node", "-e", internalSweepScript(sweep.name, sweep.timeoutMs)],
             env: [
               { name: "SWEEP_URL", value: sweep.url },
-              // The token never reaches the command line — an `-H` argument
-              // would show up in `kubectl describe pod` and in every process
-              // listing in the container.
               sref("INTERNAL_API_TOKEN"),
             ],
           },
@@ -171,33 +113,18 @@ function internalSweepJobSpec(
   };
 }
 
-/** The base-corpus sync route the CronJob `BASE_CORPUS_SYNC` calls. */
 const BASE_CORPUS_SWEEP = {
   name: BASE_CORPUS_SYNC,
   url: housekeepingUrl("base-corpus"),
   timeoutMs: 600_000,
 } as const;
 
-/**
- * One base-corpus sync cycle right after the api tier rolled out, rather than
- * up to ten minutes later on the CronJob's tick. A deploy that changes what the
- * cycle does (base-corpus chunks from before the country field are read by
- * nobody until a cycle marks them) then takes effect with the rollout.
- *
- * The CronJob's own Job spec. Not awaited (`pulumi.com/skipAwait`): the deploy
- * does not wait for, or fail on, a sweep the CronJob repeats anyway. It runs
- * again on every deploy that moves an image: the images sit in the pod
- * template, which a Job cannot change, so a new tag replaces the Job (the
- * migration Job's mechanism, kubernetes.md §2b). None while `chromaMigration`
- * is on, for the reason the CronJob is suspended then.
- */
 export function syncBaseCorpusAfterRollout(
   w: AppWiring,
   cfg: DeployConfig,
   secrets: AppSecrets,
   dependsOn: pulumi.Resource[],
-): k8s.batch.v1.Job | undefined {
-  if (cfg.chromaMigration.enabled) return undefined;
+): k8s.batch.v1.Job {
   const name = `${BASE_CORPUS_SYNC}-deploy`;
   return new k8s.batch.v1.Job(
     name,
@@ -213,15 +140,6 @@ export function syncBaseCorpusAfterRollout(
   );
 }
 
-/**
- * The two background workers, both built off the frontend image with an
- * overridden command (same pattern as compose). Each is a single replica —
- * both are already multi-instance-safe via `FOR UPDATE SKIP LOCKED`, so one is
- * sufficient and avoids redundant polling.
- *
- * Plus two sweeps — storage alerts and the orphaned-vector reconcile — which
- * are CronJobs rather than workers; `internalSweepCronJob` says why.
- */
 export function installWorkers(
   w: AppWiring,
   cfg: DeployConfig,
@@ -232,7 +150,6 @@ export function installWorkers(
   storageAlerts?: k8s.batch.v1.CronJob;
   vectorReconcile?: k8s.batch.v1.CronJob;
   housekeeping: k8s.batch.v1.CronJob[];
-  /** One of `housekeeping`: what the Chroma migration Job waits on. */
   baseCorpusSync: k8s.batch.v1.CronJob;
 } {
   const workerResources = LIGHT_WORKER_RESOURCES;
@@ -244,9 +161,6 @@ export function installWorkers(
       metadata: { name: "purger", namespace: w.namespace, labels: commonLabels("purger") },
       spec: {
         replicas: 1,
-        // Only one purger; avoid two racing (safe, but wasteful). Recreate, but
-        // still gated by minReadySeconds + a progress deadline so a
-        // crash-looping replacement fails the deploy instead of passing it.
         ...recreateRollout(ROLLOUT.lightWorker),
         selector: { matchLabels: commonLabels("purger") },
         template: {
@@ -258,8 +172,6 @@ export function installWorkers(
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets: w.imagePullSecrets,
             securityContext: { runAsNonRoot: true, runAsUser: UID.frontend, runAsGroup: UID.frontend },
-            // Room to finish the purge tick in flight (S3 deletes + DB writes)
-            // rather than being SIGKILLed part-way through one.
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             ...onNodeGroup(cfg.nodeGroups.app),
             containers: [
@@ -280,14 +192,6 @@ export function installWorkers(
     { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
   );
 
-  /**
-   * Storage-quota alerting (ADR-0042). A 10-minute ceiling: the sweep is one
-   * grouped aggregate plus a little work per tenant over the threshold. The
-   * endpoint is idempotent across sequential runs (a live row suppresses
-   * re-emission); two concurrent sweeps could both pass the suppression probe
-   * for the same crossing before either has written its row, and emit the
-   * alert twice — which is what `Forbid` in the factory is for.
-   */
   const storageAlerts = cfg.storageAlerts.enabled
     ? internalSweepCronJob(w, cfg, secrets, dependsOn, {
         name: "storage-alerts",
@@ -297,56 +201,15 @@ export function installWorkers(
       })
     : undefined;
 
-  /**
-   * The orphaned-vector sweep. A cleanup that needs a platform owner to click
-   * is not a ratchet, and the orphans it recovers are invisible in the product
-   * — so this is the clock behind Platform → Vector maintenance. Weekly,
-   * off-peak by default (`vectorReconcileSchedule`). A 30-minute ceiling: the
-   * BFF lists and diffs every live collection, and the backend then walks the
-   * same collections' summaries, each with its own 15-second per-call timeout,
-   * so a deployment of a few hundred projects is minutes, not tens of them.
-   *
-   * Suspended while `chromaMigration` is on. Against a Qdrant the import has
-   * not filled yet, every collection still to come reads as "the store holds
-   * no chunk", and the reconcile forgets those documents' metadata rows
-   * (summaries, tags, Dokumentart, folders). The Platform → Vector maintenance
-   * button calls the same route by hand: the runbook says not to press it.
-   */
   const vectorReconcile = cfg.vectorReconcile.enabled
     ? internalSweepCronJob(w, cfg, secrets, dependsOn, {
         name: VECTOR_RECONCILE,
         schedule: cfg.vectorReconcile.schedule,
         url: `${FRONTEND_URL}/api/internal/maintenance/reconcile-vectors`,
         timeoutMs: 1_800_000,
-        suspend: cfg.chromaMigration.enabled,
       })
     : undefined;
 
-  /**
-   * The backend's housekeeping (ADR-0082 step A1). The backend runs none of it
-   * on its own: each route does one cycle when called, and these CronJobs are
-   * what calls them. Each cycle takes a Postgres advisory lock, so a tick that
-   * overlaps a slow previous one skips.
-   *
-   * The ghost reaper fails a job after 300 seconds without an event; every two
-   * minutes puts the worst case at 420 seconds. Two are hourly, on minutes apart
-   * from each other and from the hourly storage sweep. The base corpus is the
-   * fourth: one sync cycle records the ingest jobs that finished and queues a job
-   * on the ingest queue for every file that still has none (an upload whose job
-   * could not be queued, a chunking change), so a document never waits longer than
-   * ten minutes for its job, and a cycle that runs past its tick blocks the next
-   * (`Forbid`). The cycle ingests nothing: the ingest workers (or the claiming web
-   * pods) run the jobs.
-   *
-   * The base-corpus clock is suspended while `chromaMigration` is on. A cycle
-   * that finds the corpus collection empty while the table lists ingested
-   * files takes the store for reset and queues the whole corpus again
-   * (`oib_sync._forget_everything_if_the_index_was_reset`): every file embedded
-   * a second time, paid for, and new points the import's `--verify` counts as
-   * extra. The migration Job depends on this CronJob, so the suspension is in
-   * place before the export starts; the deploy that switches the flag off,
-   * after the operator has verified the import, resumes it.
-   */
   const housekeepingSweep = ({ route, ...sweep }: HousekeepingSweep) =>
     internalSweepCronJob(w, cfg, secrets, dependsOn, {
       ...sweep,
@@ -357,7 +220,6 @@ export function installWorkers(
     schedule: "*/10 * * * *",
     route: "base-corpus",
     timeoutMs: 600_000,
-    suspend: cfg.chromaMigration.enabled,
   });
   const housekeeping = [
     ...[

@@ -1,24 +1,3 @@
-"""The intake eval's fixture project, and the shared reading tools answering from it.
-
-The project is ``tests/fixtures/intake_eval/project.yaml``: documents as the
-reading tools return them, page by page. The Erfassungs-Agent reads it through
-the same four tools it binds in production:
-
-* ``read_document`` is the agent's own tool, run unchanged: only where its
-  pages come from is replaced (``reading.project_documents`` and
-  ``reading.fetch_document_pages``, the seams the agent's own suite fakes in
-  ``agent_testing.intake``).
-* ``list_files``, ``knowledge_search`` and ``read_passage`` are the shared agent-runtime
-  tools, which need a vector store and a database. They are rebuilt here with
-  the production descriptions (imported, so they cannot drift) and the
-  production renderers: ``list_files`` through the knowledge layer's own
-  ``select_files`` and ``render_listing``, the two passage tools through
-  ``render_grounding_block``, so the read log files their passages exactly as
-  it does on a live run. What differs is the ranking: a token ranking (BM25)
-  over the fixture's paragraphs stands in for the embedding search and the
-  reranker, and ``match="exact"`` is a folded substring match.
-"""
-
 from __future__ import annotations
 
 import difflib
@@ -35,10 +14,8 @@ from langchain_core.tools import StructuredTool
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "intake_eval"
 
-#: As the deployment's ``knowledge_search`` config: 16 passages, at most 5 from one document.
 TOP_K = 16
 MAX_PER_DOCUMENT = 5
-#: Passages one exact search returns (``browse.MAX_MATCH_PASSAGES``).
 MAX_EXACT_PASSAGES = 8
 
 _FOLD = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -90,9 +67,6 @@ def load_answer_key(path: Path = FIXTURE_DIR / "answer_key.yaml") -> dict[str, A
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-# ── read_document's seams ────────────────────────────────────────────────────
-
-
 def available_document(fixture: Fixture, file: FixtureFile) -> Any:
     from agent.knowledge.schema import AvailableDocument
 
@@ -107,7 +81,6 @@ def available_document(fixture: Fixture, file: FixtureFile) -> Any:
 
 
 def project_documents_for(fixture: Fixture):
-    """``reading.project_documents``, answered from the fixture."""
     from agent.agents.intake.reading import ProjectDocument
 
     async def project_documents() -> list[Any]:
@@ -117,7 +90,6 @@ def project_documents_for(fixture: Fixture):
 
 
 def page_fetcher_for(fixture: Fixture):
-    """``reading.fetch_document_pages``, answered from the fixture: one indexed chunk per page."""
 
     def fetch_document_pages(collection: str, file_name: str) -> list[tuple[Any, str]] | None:
         file = fixture.file(file_name)
@@ -126,9 +98,6 @@ def page_fetcher_for(fixture: Fixture):
         return [(str(number), text) for number, text in enumerate(file.pages, 1)]
 
     return fetch_document_pages
-
-
-# ── The passages, and a token ranking over them ──────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -143,7 +112,6 @@ def fold_words(text: str) -> list[str]:
 
 
 def passages_of(fixture: Fixture) -> list[Passage]:
-    """Each page's paragraphs, the size of passage a search returns."""
     found = []
     for file in fixture.files:
         for number, page in enumerate(file.pages, 1):
@@ -152,8 +120,6 @@ def passages_of(fixture: Fixture) -> list[Passage]:
 
 
 class PassageIndex:
-    """BM25 over the fixture's passages: the stand-in for the embedding search and its reranker."""
-
     def __init__(self, passages: list[Passage]) -> None:
         self.passages = passages
         self.words = [Counter(fold_words(p.text)) for p in passages]
@@ -201,11 +167,7 @@ class PassageIndex:
         return hits[:MAX_EXACT_PASSAGES]
 
 
-# ── Rendering, as the knowledge layer renders ────────────────────────────────
-
-
 def render_passages(fixture: Fixture, hits: list[tuple[Passage, float]], tool: str, trailer: str = "") -> str:
-    """Hits as ``knowledge_search`` renders them (``_format_results``), filed for the read log."""
     from agent.common.grounding_block import GroundingBlock
     from agent.common.grounding_block import GroundingHit
     from agent.common.grounding_block import render_grounding_block
@@ -252,9 +214,6 @@ def _allowed(fixture: Fixture, file_name: str | None, folder: str | None, title:
     return None if names == set(fixture.names) else names
 
 
-# ── The three shared tools ───────────────────────────────────────────────────
-
-
 def knowledge_search_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
     from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
@@ -281,7 +240,7 @@ def knowledge_search_tool(fixture: Fixture, index: PassageIndex) -> StructuredTo
 
 
 def read_passage_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
-    from knowledge_layer.read_passage.tool import _READ_PASSAGE_DESCRIPTION
+    from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
 
     async def read_passage(
         document: str, clause: str | int | None = None, page: int | str | None = None, conclusion: str = ""
@@ -308,8 +267,8 @@ def read_passage_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
 
 
 def list_files_tool(fixture: Fixture) -> StructuredTool:
+    from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
     from knowledge_layer.browse import file_rows
-    from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 
     rows = file_rows(available_document(fixture, f).model_dump() for f in fixture.files)
 
@@ -360,6 +319,5 @@ def list_files_tool(fixture: Fixture) -> StructuredTool:
 
 
 def shared_tools(fixture: Fixture) -> list[StructuredTool]:
-    """The tools ``configs/config_oib_openrouter.yml`` binds to the intake, answering from the fixture."""
     index = PassageIndex(passages_of(fixture))
     return [list_files_tool(fixture), knowledge_search_tool(fixture, index), read_passage_tool(fixture, index)]

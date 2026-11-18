@@ -26,8 +26,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
-// The one copy lives inside `apps/workspace`, because the frontend's
-// typecheck/test Docker context is scoped to it; the Python side reads it there.
 import fixture from '../../fixtures/job_fire_headers.json'
 
 import { submitJob, type JobSubmitPayload } from '@/lib/jobs/backend-client'
@@ -38,11 +36,6 @@ import {
 
 const INTERNAL_TOKEN = 'test-internal-token'
 
-/**
- * A fully-populated fire: every context lookup in `submitAgentRun` returned
- * something, so every optional header is present. The fixture's `sentByBff` is
- * the ceiling of what goes out, and this is the case that reaches it.
- */
 const CONTEXT_INPUT: RequestContextInput = {
   organizationId: 'org_123',
   userId: 'user_456',
@@ -61,9 +54,6 @@ const PAYLOAD: JobSubmitPayload = {
   skills: [],
   output: 'deep-research',
   data_sources: ['knowledge_layer'],
-  // `RequestContextInput.collectionScope` is a readonly union that also
-  // admits the ADR-0047 object shape; the submit payload takes bare names, the
-  // same narrowing `computeCollectionScope` produces for this path.
   collection_scope: ['oib_knowledge', 'proj_proj_789'],
   project_context: CONTEXT_INPUT.projectContext ?? null,
   project_memory: CONTEXT_INPUT.projectMemory ?? null,
@@ -74,7 +64,6 @@ const PAYLOAD: JobSubmitPayload = {
   owner_email: 'ziviltechniker@example.at',
   budget_header: null,
   model_overrides: CONTEXT_INPUT.modelOverrides ?? null,
-  // Every run carries its project's knowledge context (ADR-0175); here, none was readable.
   knowledge_context: {
     gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
     packs: [],
@@ -89,14 +78,11 @@ const PAYLOAD: JobSubmitPayload = {
 
 const lower = (names: string[]): string[] => names.map((name) => name.toLowerCase())
 
-/** Fire once through the real client and return the headers that went out. */
 async function capturedFireHeaders(
   input: RequestContextInput = CONTEXT_INPUT
 ): Promise<Record<string, string>> {
   let sent: Record<string, string> = {}
   const fetchSpy = vi.fn(async (_url: unknown, init: RequestInit) => {
-    // `submitJob` passes a plain object; normalise through Headers so the
-    // assertion is on the wire form, case-folded, exactly as the worker reads it.
     sent = Object.fromEntries(new Headers(init.headers as HeadersInit).entries())
     return new Response(JSON.stringify({ jobId: 'job_abc' }), { status: 200 })
   })
@@ -111,11 +97,11 @@ async function capturedFireHeaders(
 
 describe('the headers the BFF puts on a job fire', () => {
   beforeEach(() => {
-    process.env.INTERNAL_API_TOKEN = INTERNAL_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', INTERNAL_TOKEN)
   })
   afterEach(() => {
     vi.unstubAllGlobals()
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   })
 
   it('sends every header the shared fixture names', async () => {
@@ -130,18 +116,12 @@ describe('the headers the BFF puts on a job fire', () => {
     const accepted = lower(fixture.internalTokenAcceptedSpellings)
     const used = accepted.filter((name) => sent[name] === INTERNAL_TOKEN)
 
-    // This is the exact failure ADR-0046 records: a token sent under a name the
-    // guard does not read is a 403 on every unattended run, and it looks like
-    // nothing at all.
     expect(used.length, `no accepted internal-token header carried the token`).toBeGreaterThan(0)
   })
 
   it('sends the signed context envelope, exemption notwithstanding', async () => {
     const sent = await capturedFireHeaders()
 
-    // The envelope middleware exempts internal-token callers on this path, so
-    // nothing REFUSES a fire without it. That exemption is a bad thing to
-    // discover you were relying on, which is why the contract pins it here.
     for (const name of lower(fixture.contextEnvelope)) {
       expect(sent[name], `missing ${name}`).toBeTruthy()
     }
@@ -150,10 +130,6 @@ describe('the headers the BFF puts on a job fire', () => {
   it('spells the worker identity headers the way the worker synthesises them', async () => {
     const sent = await capturedFireHeaders()
 
-    // `jobs/runner.WORKER_IDENTITY_HEADERS`. A rename made on one side only is
-    // how `remember` answered "no project in scope" on every unattended run.
-    // The worker's names are the old `x-grid-*` ones its readers read; the BFF sends each as `x-*`,
-    // and the backend's legacy-header middleware copies it back until the contract step.
     const onTheWire = (name: string) => name.replace(/^x-grid-/, 'x-')
     expect(lower(fixture.workerIdentityHeaders).filter((name) => !(onTheWire(name) in sent))).toEqual([])
     expect(sent['x-organization-id']).toBe('org_123')
@@ -162,9 +138,6 @@ describe('the headers the BFF puts on a job fire', () => {
   })
 
   it('still carries the floor when every optional context lookup came back empty', async () => {
-    // A brand-new org: no model overrides, no budget snapshot, no profile, no
-    // memory. Those headers are legitimately absent — `requiredOnEveryFire` is
-    // what may never be.
     const sent = await capturedFireHeaders({
       organizationId: 'org_new',
       userId: 'user_new',
@@ -179,25 +152,16 @@ describe('the headers the BFF puts on a job fire', () => {
   })
 
   it('refuses to fire at all rather than sending an unauthenticated submit', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
 
-    // Without the token the request must not be made: an unauthenticated fire
-    // would 403 at the guard and be recorded as a backend failure, which points
-    // the next investigation at the backend rather than at the missing secret.
     await expect(submitJob(PAYLOAD, {})).rejects.toThrow(/INTERNAL_API_TOKEN/)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
 
 describe('the fire path in lib/jobs/background-run.ts', () => {
-  // `submitBackgroundRun` needs a database, WorkOS and the budget service to
-  // run, so what is pinned here is the WIRING: that it still builds the wire
-  // headers with the shared builder and hands them to `submitJob`, and that
-  // every background run (the chat's `submitAgentRun`, the intake) fires
-  // through it. A refactor that passes a hand-rolled object instead would keep
-  // every test above green while dropping the envelope from production.
   const read = (path: string) => readFileSync(new URL(`../../../bff/jobs/${path}`, import.meta.url), 'utf8')
   const fire = read('background-run.ts')
 

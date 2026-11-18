@@ -2,9 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ConnectionPresenceIndicator } from './connection-presence-indicator'
 
-// The component always mounts the presence hook (which schedules a health
-// ping). Stub fetch with a never-resolving promise so no async state update
-// races the assertions; the `presence` prop overrides the detected value.
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
@@ -25,12 +22,9 @@ describe('ConnectionPresenceIndicator', () => {
     expect(region).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByText('Connected')).toBeInTheDocument()
     expect(container.querySelector('.bg-success')).toBeTruthy()
-    // The resting state must not animate.
     expect(container.querySelector('.animate-ping')).toBeNull()
   })
 
-  // Colour never travels alone (design-language.md, Principles 2): a state
-  // that is not fine is a glyph in its colour beside its words.
   it('renders the reconnecting state as the ochre refresh glyph and its words, not a pulsing dot', () => {
     const { container } = render(<ConnectionPresenceIndicator presence="reconnecting" />)
 
@@ -55,8 +49,6 @@ describe('ConnectionPresenceIndicator', () => {
     expect(screen.queryByText('No connection')).toBeNull()
   })
 
-  // Alone in the icon rail a red dot was colour carrying the meaning by itself
-  // (design-language.md, Principles: colour never travels alone).
   it('in compact mode draws a glyph for a state that is not fine, not a bare dot', () => {
     const { container, rerender } = render(<ConnectionPresenceIndicator presence="offline" compact />)
     expect(container.querySelector('svg.lucide-wifi-off')).toBeTruthy()

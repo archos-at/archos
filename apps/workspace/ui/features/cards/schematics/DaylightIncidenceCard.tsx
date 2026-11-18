@@ -1,18 +1,3 @@
-/**
- * DaylightIncidenceCard — OIB 3 Belichtung: the 45° free-light line in section.
- *
- * Draws a window wall in section (sill/head to scale), the 45° free-light
- * incidence line rising from the window's LOWER edge, and — if present — the
- * obstruction at its real distance/height. The renderer does the trigonometry:
- * at distance d the 45° line sits d metres above the sill, so an obstruction
- * pierces the light cone exactly when height > distance. The pierce verdict
- * colours the line + obstruction (pass green / grazing amber / fail red).
- * Below the drawing a LimitBar reads the Lichteintrittsfläche against the
- * ≥10 %-of-floor-area rule (required derived from the floor area when the
- * model left it null). Unknown sill/head fall back to neutral geometry, their
- * labels read "fehlende Angabe" — never a fabricated number.
- */
-
 import { type FC } from 'react'
 import { Sun } from 'lucide-react'
 import {
@@ -45,7 +30,6 @@ interface DaylightIncidenceCardProps {
   note?: string | null
 }
 
-/** Neutral drawing geometry when a value is unknown (labels stay "missing"). */
 const FALLBACK_SILL_M = 1.0
 const FALLBACK_HEAD_M = 2.4
 
@@ -63,9 +47,6 @@ export const DaylightIncidenceCard: FC<DaylightIncidenceCardProps> = ({
   const sill = window_sill_height_m ?? FALLBACK_SILL_M
   const head = Math.max(window_head_height_m ?? FALLBACK_HEAD_M, sill + 0.4)
 
-  // 45° free-light geometry — renderer-computed, never model-supplied:
-  // at horizontal distance x the line is x metres above the sill, so an
-  // obstruction pierces the cone exactly when height_m > distance_m.
   const obsD = obstruction?.distance_m ?? null
   const obsH = obstruction?.height_m ?? null
   const lightStatus: DimStatus | null =
@@ -80,8 +61,6 @@ export const DaylightIncidenceCard: FC<DaylightIncidenceCardProps> = ({
     ? statusColor(lightStatus)
     : 'var(--text-color-feedback-info)'
 
-  // Horizontal extent (m): far enough to include the obstruction, else a
-  // neutral 4 m stretch of open sky.
   const extentM = obsD != null ? obsD + Math.max(1, obsD * 0.2) : 4
   const obsTopM = obsH != null ? sill + obsH : 0
   const totalHm = Math.max(head, obsTopM, sill + Math.min(extentM, 2.6)) + 0.7
@@ -97,15 +76,12 @@ export const DaylightIncidenceCard: FC<DaylightIncidenceCardProps> = ({
   const X = (m: number): number => faceX + m * k
   const Y = (m: number): number => baseY - m * k
 
-  // 45° line clipped at the drawing top / right edge, whichever comes first.
   const lightEndM = Math.min(extentM, totalHm - sill - 0.15)
 
   const glassCheck: DimensionCheckData = {
     ...glass_area,
     label: glass_area.label || t('cards.schematics.daylight.glassArea'),
     unit: glass_area.unit ?? 'm²',
-    // ≥10 % of the floor area is arithmetic on provided data, not a guess —
-    // derive the required area when the model left it null.
     required:
       glass_area.required ?? (floorArea != null ? Math.round(floorArea * 10) / 100 : null),
     comparator: glass_area.comparator ?? '>=',

@@ -1,20 +1,3 @@
-/**
- * Step 1 („Projekt") of the setup for the `/dev/project-setup` preview and its
- * specs: `?step=project&state=<name>`, one of {@link PROJECT_STEP_STATES}.
- *
- *   - `fresh`: created a moment ago; the creator is the only one on it, three
- *     colleagues could be added;
- *   - `team`: colleagues with roles and Funktionen, a Statikerin and the
- *     Bauherrschaft without an account, and a former member;
- *   - `viewer`: a reader who may neither edit the project nor manage its
- *     members: everything is shown, nothing offered;
- *   - `closing`: a past project being read for the office's reference.
- *
- * The step reads and writes through a {@link ParticipantsClient}; the one here
- * answers from memory and changes it, so adding, describing, giving a role or
- * removing someone in the preview shows its result, as on the real page.
- */
-
 import type { IntakeView } from '@/lib/project-intake/types'
 import type {
   ParticipantsClient,
@@ -36,7 +19,6 @@ export interface ProjectStepFixture {
   view: IntakeView
   project: ProjectBasics
   peopleRecord: ProjectRecordView
-  /** Null: the reader may not manage the project's members. */
   roster: ProjectRoster | null
 }
 
@@ -76,7 +58,6 @@ const external = (id: string, name: string, work: string, company: string | null
   endedOn: null,
 })
 
-/** The office: who could be on the project. */
 const OFFICE = [
   roster(ME, 'Mag. arch. Martina Kogler', 'm.kogler@buero-kogler.at', 'project-admin'),
   roster('user-ab', 'Andreas Berger', 'a.berger@buero-kogler.at', null),
@@ -140,11 +121,6 @@ export const PROJECT_STEP_FIXTURES: Record<ProjectStepState, ProjectStepFixture>
   },
 }
 
-/**
- * A client that answers from the fixture and keeps what the preview changes:
- * a role given puts the colleague on the Steckbrief, as the roster does on the
- * real page; taking it away keeps them as a former member.
- */
 export function createFixtureParticipantsClient(state: ProjectStepState): ParticipantsClient {
   const fixture = PROJECT_STEP_FIXTURES[state]
   let peopleRecord = structuredClone(fixture.peopleRecord)

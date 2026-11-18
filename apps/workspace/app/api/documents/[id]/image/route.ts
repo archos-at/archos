@@ -1,17 +1,3 @@
-/**
- * Document image bytes for a signed capability URL.
- *
- * This is the one document route that serves bytes without a session, and it is
- * `publicApiRoute` for an honest reason: the Next image optimizer fetches it
- * through an in-process MOCKED request carrying no headers and therefore no
- * session cookie, so a session gate here would return 401s to our own optimizer
- * instead of images. Authorization moves into the URL — see
- * `@/lib/images/signed-image-url` for what the signature binds and why its
- * expiry is bucketed.
- *
- * Thin handler; verification, tenancy and streaming live in the service.
- */
-
 import { publicApiRoute } from '@/lib/api/handler'
 import { streamDocumentImage } from '@/lib/documents/document-delivery'
 

@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A decision's line in the trail is owed (ADR-0137): sent under a fixed key at
- * the time it was decided, marked audited only when taken, and left for the
- * sweep when not. Its metadata is ids, codes and flags.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

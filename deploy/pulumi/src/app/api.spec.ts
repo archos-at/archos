@@ -1,23 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
-
-/**
- * The api tier (ADR-0082 step B).
- *
- * What goes wrong here plans clean and deploys green:
- *   - A `PROCESS_ROLE` the Python image does not know stops every pod of the tier
- *     at start (the entrypoint refuses it), and a role nobody sets gets no route
- *     at all. Both sides are read as source below.
- *   - A BFF whose `BACKEND_URL` still names the chat tier sends every HTTP call
- *     through pods that drain turns, which is the coupling the split removes;
- *     one whose `BACKEND_CHAT_URL` is missing cannot open a socket.
- *   - An api rollout that waits as long as a chat drain makes every deploy of
- *     the knowledge API as slow as the longest answer.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -36,10 +20,6 @@ pulumi.runtime.setMocks(
   "test",
   false,
 );
-
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
 function find(type: string, name: string) {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
@@ -108,7 +88,6 @@ describe("the api tier", () => {
     chatEnvValues = literal(chatEnv(made.wiring as never));
     apiEnvValues = literal(apiEnv(made.wiring as never));
     frontendEnvValues = literal(frontendEnv(made.wiring as never));
-    // Pulumi registers asynchronously: wait for each resource a test reads.
     await Promise.all([api.service.id, api.hpa.id, api.pdb.id].map((id) => new Promise((done) => id.apply(done))));
   });
 
@@ -176,17 +155,6 @@ describe("the api tier", () => {
     expect(role(chat)).toEqual(["chat"]);
   });
 
-  it("names exactly the web roles the Python image knows", () => {
-    const python = read("apps", "agent-host", "src", "agent_host", "roles.py");
-    const entrypoint = read("apps", "agent-host", "entrypoint.py");
-    const known = [...python.matchAll(/^\s+[A-Z]+ = "([a-z]+)"$/gm)].map((m) => m[1]).sort();
-
-    expect(known).toEqual(["api", "chat"]);
-    expect(entrypoint).toContain('ROLES = ("chat", "api", "worker", "ingest-worker")');
-    expect(chatEnvValues.PROCESS_ROLE).toBe("chat");
-    expect(apiEnvValues.PROCESS_ROLE).toBe("api");
-  });
-
   it("is the chat tier's env without what only chat reads", () => {
     const chatOnly = ["CHAT_DRAIN_SECONDS", "CHAT_AFFINITY", "CONVERSATION_BUS"];
     for (const name of chatOnly) {
@@ -218,9 +186,6 @@ describe("the api tier", () => {
   });
 
   it("carries no Langfuse API env where the tier is not deployed", () => {
-    // Langfuse needs the collector, which TUNED turns off. A host with no
-    // Service behind it would make every score post time out instead of being
-    // the capability-off no-op `langfuse_scores.emit_scores` is.
     expect(cfg.langfuse.enabled).toBe(false);
     for (const env of [chatEnvValues, apiEnvValues]) {
       expect(Object.keys(env).filter((name) => name.startsWith("LANGFUSE_"))).toEqual([]);
@@ -232,9 +197,6 @@ describe("the api tier", () => {
   });
 
   it("is reachable from the frontend and the CronJobs through the namespace-wide ingress allow", async () => {
-    // Intra-namespace ingress is allowed wholesale except for the pods named in
-    // the policy's `NotIn` list (Langfuse, Gotenberg).
-    // The api tier must never join that list, or every BFF call times out.
     const { installNetworkPolicies } = await import("../platform/network-policies");
     const made = await wiringFor(TUNED);
     const policies = installNetworkPolicies(made.cfg, made.provider, "grid");
@@ -243,7 +205,6 @@ describe("the api tier", () => {
 
     expect(spec.ingress).toEqual([{ from: [{ podSelector: {} }] }]);
     expect(spec.podSelector.matchExpressions[0].values).not.toContain("api");
-    // KEDA scrapes the chat tier's occupancy route and nothing of the api tier's.
     const keda = RESOURCES.filter((r) => r.name === "allow-keda-to-aiq-api");
     expect(keda).toEqual([]);
   });

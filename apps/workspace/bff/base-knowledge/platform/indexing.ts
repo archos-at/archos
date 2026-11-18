@@ -1,21 +1,3 @@
-/**
- * Indexing on publish (ADR-0165): each platform text a stable publish releases
- * is queued for the base corpus by its own BFF job (`platform_text_index`, a
- * Hatchet `bff-job`), and its run records what the corpus answered. Honest by
- * construction: a run is `queued` only when the corpus accepted the file, and
- * `failed` with the corpus's reason otherwise; `indexed` is read from the
- * corpus's own status, never assumed. The index status joins the two.
- *
- * The job indexes the bytes that were reviewed, or nothing: before it marks a
- * file with a country it compares the corpus's current sha256 with the one the
- * released revision keeps. Other bytes, or a revision that keeps no hash, fail
- * the run, and the file stays read by nobody.
- *
- * Re-ingest keeps the binding: the manifestation names its corpus file, so a
- * re-ingest of that file (the platform's knowledge page, `reingestKnowledgeBaseDocuments`)
- * rebuilds the chunks the published text is found by without a new revision.
- */
-
 import 'server-only'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -39,7 +21,6 @@ const REASON = 'platform base knowledge: indexing runs'
 
 const NOT_ENQUEUED = 'the indexing job was not enqueued'
 
-/** The most runs one status read returns. */
 const MAX_RUNS = 500
 
 export const platformTextIndexPayloadSchema = z.object({ runId: z.uuid() })
@@ -51,17 +32,12 @@ async function markRun(runId: string, state: 'queued' | 'failed', failure: strin
   )
 }
 
-/** An error's message and its cause's: a failed query wraps the database's reason, which the message alone hides. */
 function failureText(error: unknown): string {
   if (!(error instanceof Error)) return String(error)
   const cause = error.cause instanceof Error ? error.cause.message : error.cause ? String(error.cause) : null
   return cause ? `${error.message} (${cause})` : error.message
 }
 
-/**
- * Enqueue one job per run. A run whose job could not be enqueued is marked
- * failed with why, so the status never shows "requested" for work nobody will do.
- */
 export async function enqueueIndexRuns(
   platformOrganizationId: string | null,
   runIds: readonly string[],
@@ -69,10 +45,7 @@ export async function enqueueIndexRuns(
   let failed = 0
   for (const runId of runIds) {
     try {
-      // The job belongs to the platform organization, whichever office the operator browses; it runs as the system.
       if (!platformOrganizationId) throw new Error('the platform organization is not known')
-      // The queue stores a job in the active tenant's lane only (RLS check on `lane`), and the
-      // caller may have none (the carry Job) or another office's (an operator browsing one): state the platform's.
       await withTenant({ organizationId: platformOrganizationId }, () =>
         enqueueJob({
           kind: 'platform_text_index',
@@ -89,12 +62,6 @@ export async function enqueueIndexRuns(
   return { enqueued: runIds.length - failed, failed }
 }
 
-/**
- * Hand a request's runs on again where no job carries them: a run still `requested` (its job was never enqueued,
- * or is still waiting, which a second job cannot harm: `runPlatformTextIndex` acts on a `requested` run only), and
- * a run failed only because its job was not enqueued, set back to `requested` first. A run the corpus refused stays
- * failed. The carry calls it before it waits (ADR-0181), so a retried Job resumes where the publish left the runs.
- */
 export async function resumeIndexRuns(
   platformOrganizationId: string | null,
   changeRequestId: string,
@@ -117,14 +84,9 @@ export async function resumeIndexRuns(
 interface ReleasedText {
   mark: CorpusFileMark
   sha256: string | null
-  /** The name the records give the text: the work's designation (or its title) and the edition's label. */
   title: string | null
 }
 
-/**
- * What a run indexes: the country and edition of the copy (its revision's edition, its record's country), the bytes the
- * revision names, and the title its edition and work give it.
- */
 async function releasedTextOf(revisionId: string): Promise<ReleasedText | null> {
   const rows = await withPlatformAccess(REASON, () =>
     getDb().execute<{
@@ -157,7 +119,6 @@ const REATTACH = 'attach the text again in a new change request for this manifes
 
 type HeldFile = Awaited<ReturnType<typeof getKnowledgeBaseStatus>>['files'][number]
 
-/** The corpus's entry for the file and why it is not the one the released revision names (null when it is). Throws when the corpus does not answer. */
 async function heldBytes(corpusFile: string, reviewed: string | null | undefined): Promise<{ held: HeldFile | null; refusal: string | null }> {
   if (!reviewed) return { held: null, refusal: `the released revision keeps no hash of ${corpusFile}, so the reviewed bytes cannot be told from others; ${REATTACH}` }
   const held = (await getKnowledgeBaseStatus()).files.find((file) => file.fileName === corpusFile && file.state !== 'removed') ?? null
@@ -171,13 +132,6 @@ async function heldBytes(corpusFile: string, reviewed: string | null | undefined
   return { held, refusal: null }
 }
 
-/**
- * Give a released text the title its records name, unless it has one. A text's file is named
- * `<manifestationKey>-<12 hex>.pdf`, which no title guess reads, so without this every citation of it shows that
- * name. Answers false when the corpus has no row for the file yet (an ingest that never wrote one): the run is
- * retried, after the re-ingest it queues has written the row. Any other failure is logged and the run goes on: the
- * title is a label, the chunks are what answer.
- */
 async function stampTitle(held: HeldFile, title: string | null): Promise<boolean> {
   if (!title || held.displayTitle) return true
   try {
@@ -190,7 +144,16 @@ async function stampTitle(held: HeldFile, title: string | null): Promise<boolean
   }
 }
 
-/** The job's step: hand the file to the corpus and record what it answered. Throws to be retried. */
+async function recordHandOff(runId: string): Promise<void> {
+  await withPlatformAccess(REASON, () =>
+    getDb().update(knowledgeIndexRuns).set({ handedAt: new Date(), updatedAt: new Date() }).where(eq(knowledgeIndexRuns.id, runId)),
+  )
+}
+
+function indexedAfterTheHandOff(run: { handedAt: Date | null }, held: HeldFile, released: ReleasedText | null): boolean {
+  return run.handedAt !== null && released !== null && held.state === 'ingested' && held.countryId === released.mark.countryId
+}
+
 export async function runPlatformTextIndex(
   _organizationId: string,
   payload: PlatformTextIndexPayload,
@@ -201,23 +164,24 @@ export async function runPlatformTextIndex(
   )
   if (!run || run.state !== 'requested') return
   try {
-    // The country and edition the text belongs to ride on every chunk (ADR-0173): the turn's gate filters by them.
     const released = await releasedTextOf(run.revisionId)
-    // The reviewed bytes are the published bytes: other bytes are never marked with the country.
     const { held, refusal } = await heldBytes(run.corpusFile, released?.sha256)
     if (refusal || !held) {
       await markRun(run.id, 'failed', refusal ?? `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
     }
-    // Before the re-ingest: it keeps a stored title, so the chunks it writes carry this one.
     const titled = await stampTitle(held, released?.title ?? null)
+    if (titled && indexedAfterTheHandOff(run, held, released)) {
+      await markRun(run.id, 'queued', null)
+      return
+    }
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
       await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
     }
     if (!titled) {
-      // The re-ingest just queued writes the row; the retry stamps it. The last attempt indexes without a title.
+      await recordHandOff(run.id)
       if (!attempt.last) throw new Error(`the base corpus has no row for ${run.corpusFile} to title yet`)
       console.error('[base-knowledge] a released text was indexed without its title', { corpusFile: run.corpusFile })
     }
@@ -228,7 +192,6 @@ export async function runPlatformTextIndex(
   }
 }
 
-/** The runs of a request, each with the corpus's own word on whether its chunks exist. */
 export async function readIndexStatus(changeRequestId: string): Promise<IndexStatusView> {
   const runs = await withPlatformAccess(REASON, () =>
     getDb()
@@ -239,7 +202,6 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
       .limit(MAX_RUNS),
   )
   const queued = runs.some((run) => run.state === 'queued')
-  // Only a queued run can have become indexed; the corpus answers for it, or the run stays queued.
   const files = queued
     ? new Map((await getKnowledgeBaseStatus().catch(() => ({ files: [] }))).files.map((file) => [file.fileName, file.state]))
     : new Map<string, string>()
@@ -254,15 +216,9 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
   }
 }
 
-/**
- * A base-corpus file a rollback left unreleased (ADR-0173): its chunks and corpus row are marked
- * `released: false`, which every base-corpus read filters out (`vector_store.scope.corpus_country_condition`);
- * only a re-release, whose indexing job marks it released, reads it again.
- */
 export const platformTextDeindexPayloadSchema = z.object({ corpusFile: z.string().min(1).max(260) })
 export type PlatformTextDeindexPayload = z.infer<typeof platformTextDeindexPayloadSchema>
 
-/** Enqueue the de-index of each file a rollback left unreleased; a failure is logged, the rollback stands. */
 export async function enqueueDeindex(platformOrganizationId: string | null, corpusFiles: readonly string[]): Promise<number> {
   let failed = 0
   for (const corpusFile of corpusFiles) {
@@ -277,7 +233,6 @@ export async function enqueueDeindex(platformOrganizationId: string | null, corp
   return failed
 }
 
-/** The job's step: unless a release names the file again, withdraw it. Throws to be retried. */
 export async function runPlatformTextDeindex(_organizationId: string, payload: PlatformTextDeindexPayload): Promise<void> {
   const [still] = await withPlatformAccess(REASON, () =>
     getDb().execute<{ n: number }>(sql`

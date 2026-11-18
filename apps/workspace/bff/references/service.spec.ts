@@ -2,17 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The similar-projects page's service, with the access and the repositories
- * mocked: the page reads only the closed projects the reader may view, other
- * than the current one, most alike first and at most twelve; the access asked
- * is `project:view` on the current project before anything is listed; a project
- * whose read is refused is left out and no other; decisions are the project
- * memory's own read, active project-scope decisions and constraints only, at
- * most five; permit records come through the memory's clearance, bounded; and
- * the unconfirmed values are marked as such.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -25,12 +14,9 @@ const ORG = 'org_1'
 const session = { userId: 'user_me', organizationId: ORG, role: 'member', permissions: [] } as unknown as AuthorizedSession
 
 const state = vi.hoisted(() => ({
-  /** Every project of the organization: the ones the reader may not view are in here and nowhere the page can see. */
   inOrg: [] as Project[],
-  /** What `listProjects` answers: the projects this reader may view. */
   visible: [] as Project[],
   memory: new Map<string, unknown[]>(),
-  /** Projects whose memory read is refused between the listing and the read. */
   refused: new Set<string>(),
   failing: new Set<string>(),
   cleared: new Map<string, string[]>(),
@@ -56,7 +42,6 @@ vi.mock('@/lib/projects/service', () => ({
   }),
   memoryClearance: vi.fn(async (_session: unknown, projectId: string) => ({ cleared: state.cleared.get(projectId) ?? [] })),
 }))
-// Live folder judgement is live-access.spec's subject; here the cleared folders pass through as the visible ones.
 vi.mock('@/lib/permits/live-access', () => ({
   liveFolderAccess: vi.fn(async (_org: string, _projectId: string, readable: readonly string[]) => ({
     visibleFolderIds: [...readable],
@@ -90,7 +75,6 @@ const suggestion = (value: unknown) => ({
   updatedAt: '2026-01-01T00:00:00Z',
 })
 
-/** A profile from its confirmed facts and its suggested ones. */
 function profileOf(facts: Record<string, unknown> = {}, assumptions: Record<string, unknown> = {}) {
   return {
     facts: Object.fromEntries(Object.entries(facts).map(([key, value]) => [key, fact(value)])),
@@ -147,7 +131,6 @@ describe('getSimilarProjects: which projects', () => {
   })
 
   it('never lists a project the reader cannot view, and reads none of its memory', async () => {
-    // `hidden` is as alike as `nearby`, but it is not in what the reader may view.
     const result = (await getSimilarProjects(session, 'current')).projects
     expect(result.map((project) => project.id)).not.toContain('closed-hidden')
     expect(vi.mocked(getProjectMemory).mock.calls.map(([, id]) => id)).not.toContain('closed-hidden')
@@ -241,7 +224,6 @@ describe('getSimilarProjects: what each project shares and records', () => {
     const page = await getSimilarProjects(session, 'current')
     expect(page.more).toBe(3)
     expect(page.basis.facts.find((fact) => fact.key === 'construction_method')?.value).toBe('Holzbau')
-    // Only the kind of work is open and the briefing's to fill; HOLZBAU answers the rest.
     expect(page.basis.missing).toBe(1)
     expect(page.basis.editable).toBe(true)
   })
@@ -297,7 +279,7 @@ describe('getSimilarProjects: what each project shares and records', () => {
     expect(near.decisions.every((entry) => entry.kind === 'decision' || entry.kind === 'constraint')).toBe(true)
   })
 
-  it('gives each decision its origin: a person, the documents, or Piloti’s own note', async () => {
+  it('gives each decision its origin: a person, the documents, or the agent’s own note', async () => {
     state.memory.set('closed-near', [
       decision('person', { provenanceType: 'user', verification: 'user_confirmed' }),
       decision('documents', {

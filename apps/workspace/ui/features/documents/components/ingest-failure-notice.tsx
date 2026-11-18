@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * A document's ingest failure in the reader's language, with the stored text
- * behind a „Details" disclosure. The file card, preview pane, upload tray and
- * the chat's file chips all say it through this, so one failure reads the same
- * everywhere. The category comes from `lib/ingest-failure.ts`.
- */
-
 import { useState, type FC } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -15,10 +8,6 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
 import { classifyIngestFailure, ingestFailureSentence } from '../lib/ingest-failure'
 
-/**
- * The sentence for a stored ingest failure, plus the raw text when it says
- * something the sentence does not. `null` when there is no failure message.
- */
 export function useIngestFailureText(
   errorMessage: string | null | undefined
 ): { sentence: string; raw: string } | null {
@@ -30,7 +19,6 @@ export function useIngestFailureText(
 
 export interface IngestFailureNoticeProps {
   errorMessage: string | null | undefined
-  /** Classes for the sentence, so each surface keeps its own type ramp. */
   sentenceClassName?: string
   className?: string
   testId?: string

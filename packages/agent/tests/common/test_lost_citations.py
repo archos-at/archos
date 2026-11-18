@@ -1,16 +1,8 @@
-"""A merged duplicate is not a lost citation.
-
-September 2026 census: an answer listed "oib-rl_2 …, p.4" as [1] and [5] (two
-Punkte on one page). Verification merged [5] into [1] correctly, then counted
-the merge as a failure, which bought a 16-second repair rewrite and a
-"Belege entfernt" note for a citation the reader still had.
-"""
-
 from __future__ import annotations
 
-from agent.agents.piloti.ledger import citations_removed_summary
 from agent.citations.entries import DUPLICATE_REASON_PREFIX
 from agent.citations.entries import lost_citations
+from agent.core.ledger import citations_removed_summary
 
 MERGED = {"number": 5, "line": "- [5] a.pdf, p.4", "reason": f"{DUPLICATE_REASON_PREFIX}1"}
 LOST = {"number": 6, "line": "- [6] b.pdf, p.9", "reason": "citation_key_not_in_registry"}
@@ -27,14 +19,12 @@ def test_the_reader_is_not_told_a_merge_removed_anything():
 
 
 async def test_a_removed_citation_never_calls_the_repair():
-    # Merged or lost, a citation the snapshot already dropped is not repaired
-    # (ADR-0067): the one repair corrects a misremembered quote, nothing else.
     from unittest.mock import AsyncMock
     from unittest.mock import patch
 
-    from agent.agents.piloti import answer_pipeline
     from agent.citations.entries import CitationVerificationResult
     from agent.citations.registry import SourceRegistry
+    from agent.core import answer_pipeline
 
     removed = CitationVerificationResult(verified_report="x [1]", removed_citations=[MERGED, LOST], valid_citations=[])
     repair = AsyncMock()

@@ -1,13 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Agent Skills: die Skill-Bibliothek der Organisation, ihr Editor und der
- * „/“-Aufruf im Chat-Composer.
- *
- * Ein Skill weiß nichts über Zeit. Alles, was einen Prompt nach Zeitplan
- * ausführt — samt optional angehängtem Skill und der Ausgabe — steht im
- * Namensraum `jobs`.
- */
 export const skills: typeof en.skills = {
   title: 'Skills',
   subtitle:
@@ -37,18 +29,15 @@ export const skills: typeof en.skills = {
       enabledAria: 'Skill „{name}“ in dieser Organisation verwenden',
       openAria: 'Skill „{name}“ öffnen',
     },
-    /** Filtert die ganze Seite nach Name oder Beschreibung. */
     search: {
       label: 'Skills durchsuchen',
       placeholder: 'Skills durchsuchen…',
       noMatches: 'Kein Skill passt zu „{query}“.',
       showAll: 'Alles zeigen',
     },
-    /** Kategorie-Überschriften in beiden Hälften der Seite. */
     category: {
       unsortedHeading: 'Unsortiert',
     },
-    /** Die eigene Kategorie-Ordnung — anlegen, umbenennen, entfernen. */
     categories: {
       button: 'Kategorien',
       title: 'Kategorien ordnen',
@@ -75,7 +64,6 @@ export const skills: typeof en.skills = {
     },
   },
 
-  /** Die Skill-Schublade — dieselbe Karte, aufgeklappt. */
   drawer: {
     close: 'Details schließen',
     categoryLabel: 'Kategorie',
@@ -92,7 +80,6 @@ export const skills: typeof en.skills = {
     originClone: 'Geklont von „{name}“',
       goneTitle: 'Nicht gefunden',
       gone: 'Dieser Skill steht nicht auf dieser Seite. Der Link ist möglicherweise veraltet, oder der Skill wurde gelöscht.',
-      /** Die Überschrift, solange ein Deep Link noch geprüft wird — kein Befund. */
       loadingTitle: 'Wird geladen',
   },
 
@@ -111,7 +98,6 @@ export const skills: typeof en.skills = {
   },
 
   editor: {
-    /** Schließen mit ungespeicherten Eingaben: Escape, Tippen daneben, Abbrechen und das Kreuz fragen alle dasselbe. */
     discardTitle: 'Änderungen verwerfen?',
     discardBody: 'Ihre Eingaben zu diesem Skill gehen verloren.',
     discardConfirm: 'Verwerfen',
@@ -277,7 +263,6 @@ export const skills: typeof en.skills = {
     deleteConfirm: 'Skill löschen',
   },
 
-  // Die `/`-Aufrufoberfläche im Chat-Eingabefeld.
   composer: {
     picker: {
       resultsAria: 'Verfügbare Skills',

@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The one Dragonfly client factory, against real sockets, because a mock never
- * sees a connection that is not up yet (docs/contributing/gotchas.md):
- *
- * - an outage is one warn line, not one per reconnect attempt (a ninety-second
- *   restart was three thousand lines in PostHog on 2026-10-18);
- * - a cold client's first command waits for the connection instead of failing
- *   with "Stream isn't writeable", and a warm one fails fast once it is down.
- *
- * The second needs a server, so it runs only with `REALTIME_REDIS_URL`:
- *   redis-server --port 6390 --save '' &
- *   REALTIME_REDIS_URL=redis://127.0.0.1:6390 npx vitest run bff/redis/connect.spec.ts
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,7 +23,6 @@ describe('createRedisClient', () => {
   it('warns once for an outage however many reconnect attempts fail', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     let errors = 0
-    // Nothing listens on port 1: every attempt is refused.
     const client = createRedisClient('redis://127.0.0.1:1', 'test', { commandTimeout: 200 })
     clients.push(client)
     client.on('error', () => {
@@ -54,7 +40,6 @@ describe('createRedisClient', () => {
     const client = createRedisClient(URL!, 'test', { commandTimeout: 1000 })
     clients.push(client)
 
-    // Issued before the connection is up: the old `enableOfflineQueue: false` refused this.
     await expect(client.ping()).resolves.toBe('PONG')
     expect(client.options.enableOfflineQueue).toBe(false)
 

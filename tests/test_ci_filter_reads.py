@@ -1,10 +1,3 @@
-"""Every file a test reads as source is in the CI filter of the tier that runs the test.
-
-The check and its reasoning: scripts/check_ci_filter_reads.py. It runs in
-`be:test:harness`, which CI's Repo checks job runs on every pull request, so a
-pull request that only adds a read still meets it.
-"""
-
 from __future__ import annotations
 
 import importlib.util

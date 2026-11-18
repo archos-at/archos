@@ -1,52 +1,17 @@
 import { DeployConfig } from '../config'
 import { QDRANT } from "../constants";
 
-/**
- * Prometheus alerting rules for the Qdrant cluster (ADR-0115), rendered
- * against this stack's limits and shipped as the `qdrant-alert-rules`
- * ConfigMap (`qdrant.rules.yaml`).
- *
- * Nothing in the stack evaluates them yet: there is no Prometheus and no
- * metrics backend (`docs/deployment/kubernetes.md` §9). They are written in
- * the one rule format every candidate reads (Prometheus, Grafana Mimir and
- * Alloy, VictoriaMetrics' vmalert), against the series the collector
- * re-exposes on `otel-collector:8889/metrics` (`qdrantScrape` in
- * `platform/otel-collector.ts`). Those names are the collector's, not raw
- * Qdrant's: a counter gains `_total` on the way through (`cluster_commit` is
- * exported as `cluster_commit_total`), so a rule written from Qdrant's own
- * `/metrics` can name a series that never arrives. `qdrant-alerts.spec.ts`
- * holds every name used here to the collector's real export of Qdrant 1.19.2,
- * captured in the 2026-10-13 drill.
- *
- * Until something evaluates them, each rule's `check` annotation is the
- * by-hand command that answers the same question, and the runbook section
- * each points at is what to do about it.
- *
- * One rule needs a series this stack does not collect: disk use comes from
- * the kubelet (`kubelet_volume_stats_*`), which the collector does not scrape
- * (it holds no API token). Qdrant's own disk signal is the quota: at
- * `qdrantQuotaDiskPercent` writes stop and `quota_exceeded{resource="disk"}`
- * turns 1, which IS collected.
- */
-
 const RUNBOOK = "docs/deployment/qdrant-runbook.md";
 const PEERS = `job="qdrant"`;
 
-/** Warning thresholds, from `qdrant-retrieval-design.md` §9 "Operations". */
 export const QDRANT_ALERT_THRESHOLDS = {
-  /** Resident memory as a share of the container limit; the quota refuses writes at its own, higher, percentage. */
   memoryRatio: 0.8,
-  /** Data volume use; the disk quota refuses writes at its own, higher, percentage. */
   diskRatio: 0.7,
-  /** p99 of a search on one peer, in seconds. Gate G2 holds p95 to 230 ms per `knowledge_search`. */
   searchP99Seconds: 0.5,
-  /** Memory maps in use as a share of `vm.max_map_count`: past it, segment loads fail. */
   mmapRatio: 0.8,
-  /** Hours without a new snapshot on any peer: the daily CronJob plus two hours of slack. */
   snapshotStaleHours: 26,
 } as const;
 
-/** Bytes in a Kubernetes quantity (`16Gi`, `512Mi`, `8G`, `1e9`). Throws on anything else. */
 export function quantityBytes(quantity: string): number {
   const match = /^(\d+(?:\.\d+)?(?:e\d+)?)(Ki|Mi|Gi|Ti|K|M|G|T)?$/.exec(quantity.trim());
   if (!match) throw new Error(`not a byte quantity: "${quantity}"`);
@@ -71,9 +36,7 @@ interface Rule {
   for: string;
   severity: "critical" | "warning";
   summary: string;
-  /** A command that answers the same question by hand, while nothing evaluates the rule. */
   check: string;
-  /** Anchor in the runbook. */
   runbook: string;
 }
 
@@ -188,10 +151,6 @@ function rules(cfg: DeployConfig): Rule[] {
       runbook: "oom-crash-loop",
     },
     {
-      // A `for` of the whole window over a one-hour increase, not an increase
-      // over the window: the counter lives as long as the process, and a
-      // freshly started evaluator holding minutes of samples would otherwise
-      // read "no snapshot in 26 hours" at once (it did, in the drill).
       alert: "QdrantSnapshotsStale",
       expr: `sum(increase(snapshot_created_total{${PEERS}}[1h])) == 0`,
       for: `${t.snapshotStaleHours}h`,
@@ -215,10 +174,8 @@ function rules(cfg: DeployConfig): Rule[] {
   return list;
 }
 
-/** YAML-quote a string (JSON strings are valid YAML double-quoted scalars). */
 const q = (s: string): string => JSON.stringify(s);
 
-/** The rule file, in Prometheus' `groups:` format. Exported for the spec and the ConfigMap. */
 export function qdrantAlertRules(cfg: DeployConfig): string {
   const body = rules(cfg)
     .map(
@@ -241,7 +198,6 @@ ${body}
 `;
 }
 
-/** The alert names, for the spec and the docs. */
 export function qdrantAlertNames(cfg: DeployConfig): string[] {
   return rules(cfg).map((r) => r.alert);
 }

@@ -40,16 +40,12 @@ vi.mock('@/lib/knowledge/service', () => ({
 
 const url = process.env.TEST_DATABASE_URL
 const RUN = Date.now().toString(36)
-/** An office of the three countries: its own records, read as the office reads any record. */
 const ORG = `org_setup_${RUN}`
-/** An office with nothing published for it. */
 const EMPTY = `org_setup_${RUN}_empty`
-/** Home XA: entitled to the platform's synthetic country. */
 const XA_OFFICE = `org_setup_${RUN}_xa`
 const USER = 'user_setup'
 const ON = '2026-11-10'
 
-/** Austria's classification and Germany's, as the fixtures hold them, retargeted to the synthetic country. */
 function syntheticCountry(): RulesetValues[] {
   return GERMAN_RECORDS.map(({ values }) => {
     const territoryIds = ['XA']
@@ -68,7 +64,7 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -108,7 +104,6 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
     expect(read.map((record) => record.values.purpose).sort()).toEqual(
       [...AT_SETUP_RECORDS, ...GERMAN_RECORDS, ...SWISS_RECORDS].map((record) => record.values.purpose).sort()
     )
-    // Not the array the specs inject: a stored record has the database's id.
     expect(read.every((record) => !record.id.startsWith('test:') && !record.id.startsWith('ruleset:'))).toBe(true)
     expect(subdivisionTerritories(read, ON)).toMatchObject({ vienna: 'AT-9', bavaria: 'DE-BY', zurich: 'CH-ZH' })
   })
@@ -139,7 +134,6 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
     const profile = placedProfile({ country: 'at', federal_state: 'vienna', ...building })
     const fromDatabase = deriveAll(profile, projectIntakeDefinitionV1, { records })
     expect(fromDatabase[0]).toMatchObject({ citation: expect.stringMatching(/^OIB-Richtlinien/) })
-    // An office with nothing published reads the build's table, and derives the same class.
     const fromBuild = deriveAll(profile, projectIntakeDefinitionV1, { records: await readSetupRecords(EMPTY) })
     expect(fromBuild.map(({ value, citation }) => ({ value, citation }))).toEqual(fromDatabase.map(({ value, citation }) => ({ value, citation })))
   })
@@ -148,7 +142,6 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
     const records = await readSetupRecords(EMPTY)
     expect(records).toEqual(SHIPPED_SETUP_RECORDS)
     expect((await scopeOf({ country: 'at', federal_state: 'vienna' }, EMPTY)).chain).toEqual(['AT-9', 'AT'])
-    // Nothing of another country stands in: a German project finds no record.
     expect(hasSetupRecords(records, 'DE', ON)).toBe(false)
   })
 
@@ -160,12 +153,10 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
     const entitled = await readSetupRecords(XA_OFFICE)
     expect(hasSetupRecords(entitled, 'XA', ON)).toBe(true)
     expect(subdivisionTerritories(entitled, ON)).toMatchObject({ xanadu_north: 'XA-N' })
-    // Positive control above; another office (home AT) does not read XA's records.
     const other = await readSetupRecords(EMPTY)
     expect(hasSetupRecords(other, 'XA', ON)).toBe(false)
     const chain = (await scopeOf({ country: 'xa', federal_state: 'xanadu_north' }, XA_OFFICE)).chain
     expect(chain).toEqual(['XA-N', 'XA'])
-    // Its class comes from its released table alone: no code names XA.
     const building = { 'building_type@bldg1': 'building', 'storeys_above_ground@bldg1': 3 }
     const profile = placedProfile({ country: 'xa', federal_state: 'xanadu_north', ...building })
     expect(deriveAll(profile, projectIntakeDefinitionV1, { records: entitled })[0]).toMatchObject({ value: 3, missing: [] })

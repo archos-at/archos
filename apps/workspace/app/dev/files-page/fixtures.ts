@@ -1,14 +1,3 @@
-/**
- * `/dev/files-page?project=real`: a project shaped like the first real one the
- * Dateien rework met on dev (2026-11-10), which the `/dev/file-browser` fixture
- * did not resemble: five folders at the root and only two loose files, a
- * finding from the documents, and the levels a person walks into (a folder in
- * a folder in a folder with a long name, an empty folder, a folder holding only
- * folders, a folder of twenty-one files). The page drew those states wrong on
- * dev while every preview looked right, because no preview had them.
- * Development only.
- */
-
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
 import type { DocumentFindingsResponse } from '@/lib/documents/findings-wire'
 import { makeFile } from '../file-browser/fixtures'
@@ -30,17 +19,14 @@ export const REAL_FOLDERS: FolderItem[] = [
   { id: 'r-grund-gutachten', parentId: 'r-grund', name: 'Gutachten', path: '/Grundlagen/Gutachten' },
   { id: 'r-test', parentId: null, name: 'Test', path: '/Test' },
   { id: 'r-sonst', parentId: null, name: 'sonstiges', path: '/sonstiges' },
-  // Five levels deep, each name a German compound, to the folder `r-deep-5`.
   { id: 'r-deep-1', parentId: 'r-grund-gutachten', name: 'Brandschutzsachverständigengutachten', path: '/Grundlagen/Gutachten/…' },
   { id: 'r-deep-2', parentId: 'r-deep-1', name: 'Stellungnahmen Baubehörde', path: '/…' },
   { id: 'r-deep-3', parentId: 'r-deep-2', name: 'Nachreichungen 2026', path: '/…' },
   { id: 'r-deep-4', parentId: 'r-deep-3', name: 'Fluchtwegnachweise Tiefgarage', path: '/…' },
   { id: 'r-deep-5', parentId: 'r-deep-4', name: 'Rauchabschnittsbildung_Bauteil_C_Index-D', path: '/…' },
-  // A folder of the office's archive with counts in the hundreds.
   { id: 'r-archiv', parentId: null, name: 'Planarchiv 2019–2024 (Altbestand, nicht mehr gültig)', path: '/Planarchiv' },
 ]
 
-/** `?folders=many`: twenty-four folders at the root, as an office that files by trade and phase has them. */
 export const MANY_FOLDERS: FolderItem[] = [
   ...REAL_FOLDERS,
   ...[
@@ -58,7 +44,6 @@ const REPORTS = Array.from({ length: 21 }, (_, index) =>
 )
 
 export const REAL_FILES: FileItem[] = [
-  // The root's two loose files, as on dev: a screenshot and a drawing in its second Fassung.
   makeFile('r-l1', 'Bildschirmfoto 2026-11-03 um 12.39.37.png', '', {
     contentType: 'image/png',
     fileSize: 361_000,
@@ -88,7 +73,6 @@ export const REAL_FILES: FileItem[] = [
   ),
 ]
 
-/** The one finding dev showed: a drawing number the cadastral extract names that no document carries. */
 export const REAL_FINDINGS: DocumentFindingsResponse = {
   findings: [
     {

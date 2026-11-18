@@ -1,11 +1,3 @@
-"""Latency gates: skip the requery judge when the pool is already decisive.
-
-Covers the gate cases (strong scores, known-entity/family lookup,
-file-pinned precision lookup) and the hard cap of ONE requery firing per
-turn, plus the per-fetch span enrichment and the short-overview card
-suppression. Offline: no ChromaDB, no embeddings, no network.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +7,7 @@ from unittest.mock import MagicMock
 import knowledge_layer.search.requery as requery_mod
 import pytest
 from knowledge_layer import register as register_module
+from knowledge_layer.search import _has_narrow_anchor
 from knowledge_layer.search import claim_requery_slot
 from knowledge_layer.search import is_known_entity_lookup
 from knowledge_layer.search import requery_already_fired
@@ -23,7 +16,6 @@ from knowledge_layer.search import reset_requery_slot_for_turn
 from knowledge_layer.search import results as results_module
 from knowledge_layer.search import scores_decisively_strong
 from knowledge_layer.search import should_skip_judge
-from knowledge_layer.search.requery import _has_narrow_anchor
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -31,8 +23,6 @@ from agent.common.retrieval_settings import reset_retrieval_settings_cache
 @pytest.fixture(autouse=True)
 def _reset_slot():
     reset_requery_slot()
-    # The per-turn ledger is process-wide and keyed by turn id; a test that
-    # re-uses "turn-1" after another spent it must start from a clean ledger.
     requery_mod._REQUERY_SPENT_TURNS.clear()
     yield
     reset_requery_slot()
@@ -103,8 +93,6 @@ class TestShouldSkipJudge:
         ) == (True, "strong_scores")
 
     def test_strong_scores_do_not_skip_on_an_uncalibrated_embedder(self):
-        # The floors are a number on one model's cosine distribution; another
-        # model's 0.88 is not the same fact, so the judge stays in.
         chunks = [_scored(0.92), _scored(0.88), _scored(0.85)]
         assert should_skip_judge(
             "Wie lang darf der Fluchtweg sein?",
@@ -121,8 +109,6 @@ class TestShouldSkipJudge:
         assert should_skip_judge("OIB-RL 2 Pkt 5.1", chunks) == (True, "known_entity")
 
     def test_the_stem_oib_publishes_2_2_under_is_a_known_entity(self):
-        # OIB-RL 2.2 is the one part oib.or.at names ``oib-richtlinie_``, and a
-        # caller may name it without the extension.
         chunks = [_scored(0.5), _scored(0.4), _scored(0.3)]
         assert should_skip_judge("oib-richtlinie_2.2_ausgabe_mai_2023", chunks) == (True, "known_entity")
 
@@ -181,9 +167,6 @@ class TestRequeryCap:
 
 class TestSlotResetPerTurn:
     async def test_concurrent_rounds_of_one_turn_share_the_cap(self):
-        # Two retrieval rounds of ONE turn run as parallel tasks, each with a
-        # copy of the context: the ContextVar alone let both claim and both
-        # widen. The shared ledger is the budget that holds.
         reset_requery_slot_for_turn(turn_id="turn-parallel")
 
         async def _search():
@@ -209,7 +192,6 @@ class TestSlotResetPerTurn:
     def test_stamp_fallback_zero_opens_nonzero_keeps(self):
         reset_requery_slot_for_turn(turn_id="turn-1")
         assert claim_requery_slot() is True
-        # Stamp path without a turn id: 1 keeps the spent cap, 0 opens a new one.
         import knowledge_layer.search.requery as requery_mod
 
         original = requery_mod._current_turn_id
@@ -233,9 +215,6 @@ class TestSlotResetPerTurn:
             assert claim_requery_slot() is True
         finally:
             requery_mod._current_turn_id = original
-
-
-# --- The loop inside knowledge_search ---------------------------------------
 
 
 class _FakeLLM:
@@ -277,8 +256,6 @@ class _FakeResult:
 
 class _FakeRetriever:
     backend_name = "fake"
-    #: The score gate is only allowed on a calibrated embedder; the harness
-    #: simulates a deployment that runs the one the floors were calibrated on.
     embed_model_name = "multilingual-e5-small"
 
     def __init__(self, answers: dict[str, list]):
@@ -298,7 +275,6 @@ def loop_harness(monkeypatch):
         monkeypatch.setattr(
             results_module,
             "format_results",
-            # The real renderer carries every decoration inside its bytes; the fake does too.
             lambda merged, query, notice="", trailer="", preamble_note="", opened_files=frozenset(), **_: (
                 notice + preamble_note + ("|".join(c.chunk_id for c in merged.chunks) or "no results") + trailer
             ),
@@ -362,9 +338,6 @@ class TestGateSkipsTheJudge:
         assert "a" in out
 
     async def test_one_firing_per_turn_second_search_is_one_shot(self, loop_harness, monkeypatch):
-        # Two sequential searches in one turn (same turn id): the first fires,
-        # the second stays one-shot even though its judge would also have asked
-        # for more.
         import knowledge_layer.search.requery as requery_mod
 
         monkeypatch.setattr(requery_mod, "_current_turn_id", lambda: "turn-1")
@@ -387,13 +360,10 @@ class TestGateSkipsTheJudge:
         judge.reply = '{"sufficient": false, "queries": ["Fluchtweglänge"]}'
         await _search(_config(requery_llm="judge"), query="zweite Frage")
 
-        # The cap held: no second judge call, no second fan-out.
         assert len(judge.calls) == 1
         assert [call["query"] for call in retriever.retrieve_calls].count("Fluchtweglänge") == 0
 
     async def test_unstamped_searches_each_get_a_slot(self, loop_harness, monkeypatch):
-        # No turn id, no round stamp: each caller gets a slot rather than
-        # inheriting the previous search's spent cap.
         import knowledge_layer.search.requery as requery_mod
 
         monkeypatch.setattr(requery_mod, "_current_turn_id", lambda: None)
@@ -418,8 +388,6 @@ class TestGateSkipsTheJudge:
         assert [call["query"] for call in retriever.retrieve_calls].count("Fluchtweglänge") == 1
 
     async def test_empty_pool_widens_once_despite_lookup_shape(self, loop_harness, monkeypatch):
-        # Empty pool forces the judge even for a lookup-shaped query: the
-        # first pool is nothing, so the loop still tries one reformulation.
         import knowledge_layer.search.requery as requery_mod
 
         monkeypatch.setattr(requery_mod, "_current_turn_id", lambda: None)
@@ -490,33 +458,33 @@ class TestSpanEnrichment:
 
 class TestCardSuppression:
     def test_short_overview_without_verdict_is_suppressed(self):
-        from agent.agents.piloti.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.answer_pipeline import _should_suppress_meta_cards
 
         assert _should_suppress_meta_cards("Kurzer Überblick. " * 10, {"takeaways": [{"text": "x"}]}) is True
 
     def test_long_prose_keeps_its_cards(self):
-        from agent.agents.piloti.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.answer_pipeline import _should_suppress_meta_cards
 
         assert _should_suppress_meta_cards("x" * 2000, {"takeaways": [{"text": "x"}]}) is False
 
     def test_a_copyable_verdict_keeps_its_cards(self):
-        from agent.agents.piloti.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.answer_pipeline import _should_suppress_meta_cards
 
         meta = {"verdict": {"value": "40 m", "subject": "Fluchtweglänge"}}
         assert _should_suppress_meta_cards("kurz", meta) is False
         assert _should_suppress_meta_cards("kurz", {"kind": "ruling", "summary": "s"}) is False
 
     def test_nothing_to_drop_is_not_suppression(self):
-        from agent.agents.piloti.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.answer_pipeline import _should_suppress_meta_cards
 
         assert _should_suppress_meta_cards("kurz", None) is False
         assert _should_suppress_meta_cards("kurz", {}) is False
 
     def test_suppression_clears_the_registry_and_strips_markers(self):
-        from agent.agents.piloti.answer_pipeline import _suppress_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import get_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _suppress_cards
 
         registry = CardRegistry()
         registry.add({"type": "summary", "text": "x"})
@@ -537,23 +505,17 @@ class TestCardSuppression:
             reset_card_registry(token)
 
     def test_no_suppression_leaves_content_and_meta_untouched(self):
-        from agent.agents.piloti.answer_pipeline import _suppress_cards
+        from agent.core.answer_pipeline import _suppress_cards
 
         content, meta, suppressed = _suppress_cards("x" * 2000, {"takeaways": [{"text": "x"}]})
         assert (suppressed, meta) == (False, {"takeaways": [{"text": "x"}]})
         assert content == "x" * 2000
 
     def test_system_card_vetoes_suppression(self):
-        """A short drafting answer must keep its document_draft card.
-
-        Regression for TestTheThreeDraftingTurnShapes/commission: the floor
-        (short direct prose, no verdict) matches a drafting turn exactly, but
-        the draft card is the product announcement, not trailer decoration.
-        """
-        from agent.agents.piloti.answer_pipeline import _suppress_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import get_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _suppress_cards
 
         registry = CardRegistry()
         registry.add({"type": "document_draft", "title": "t", "path": "/drafts/x.md", "bytes": 3, "version": 1})

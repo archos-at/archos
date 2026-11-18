@@ -28,26 +28,17 @@ describe('AuthKit v4 proxy', () => {
           unauthenticatedPaths: [
             '/',
             '/api/healthz',
-            // The backend health proxy: the deploy's smoke check has no session.
             '/api/health',
             '/api/auth/callback',
             '/api/auth/signin',
             '/api/auth/websocket-scope',
             '/auth/error',
             '/api/internal/(.*)',
-            // The MCP server checks its own bearer token or envelope (ADR-0122);
-            // the OAuth protected-resource metadata is public by RFC 9728.
             '/api/mcp',
-            // The A2A server checks the same bearer token (ADR-0124).
             '/api/a2a',
-            // The platform door checks a bearer token for its own audience (ADR-0126).
             '/api/platform/mcp',
-            // PostHog's poke carries only a ticket id; the route re-reads the
-            // thread with its own key and rate-limits (ADR-0118, second amendment).
             '/api/webhooks/posthog-support',
             '/.well-known/(.*)',
-            // The image optimizer re-enters the router in-process, so
-            // middleware runs on this route with a cookie-less mocked request.
             '/api/documents/(.*)/image',
           ],
         }),
@@ -66,7 +57,6 @@ describe('AuthKit v4 proxy', () => {
       '/robots.txt',
       '/sw.js',
       '/icons/icon-192.png',
-      // by id, as the app reaches art: a literal /art/ path fails the riso check
       new URL(artImage('vignetten/bauplatz/empty').src, 'http://localhost').pathname,
     ]
 
@@ -74,8 +64,6 @@ describe('AuthKit v4 proxy', () => {
     expect(matcher.test('/app/projects')).toBe(true)
   })
 
-  // Unescaped and unanchored, `sw.js` let any path starting `sw`, one character,
-  // `js` past the session; the same held for every file name in the list.
   test('lets only the exact public file names past, not paths that start like them', async () => {
     const { config } = await import('./proxy')
     const matcher = new RegExp(`^${config.matcher[0]}$`)
@@ -84,8 +72,6 @@ describe('AuthKit v4 proxy', () => {
     }
   })
 
-  // The SDK posts from signed-out pages and mid-expiry; AuthKit would answer a
-  // beacon with a redirect to the WorkOS login page and lose the event.
   test('leaves the first-party PostHog relay outside the auth redirect', async () => {
     const { config } = await import('./proxy')
     const matcher = new RegExp(`^${config.matcher[0]}$`)
@@ -93,14 +79,10 @@ describe('AuthKit v4 proxy', () => {
     for (const path of ['/ingest/e/', '/ingest/s/', '/ingest/flags/', '/ingest/static/recorder.js', '/ingest/array/phc_x/config.js']) {
       expect(matcher.test(path), path).toBe(false)
     }
-    // Only the relay's prefix: a page that merely starts with the word is still guarded.
     expect(matcher.test('/ingestion')).toBe(true)
     expect(matcher.test('/app/ingest/x')).toBe(true)
   })
 
-  // A proxied body is buffered and, above `proxyClientMaxBodySize`, cut short
-  // without an error (docs/contributing/gotchas.md). Signed routes take a raw
-  // body from outside the cluster, so the proxy must never see them.
   test('leaves the signed internal routes outside the proxy, and only them', async () => {
     const { config } = await import('./proxy')
     const { SIGNED_INTERNAL_PREFIX } = await import('@/lib/api/handler')
@@ -109,8 +91,6 @@ describe('AuthKit v4 proxy', () => {
     for (const path of [`${SIGNED_INTERNAL_PREFIX}inbound-mail`, `${SIGNED_INTERNAL_PREFIX}any/nested/route`]) {
       expect(matcher.test(path), path).toBe(false)
     }
-    // The token-guarded internal routes keep the proxy, and so does a sibling
-    // that merely starts with the same word.
     for (const path of ['/api/internal/memory', '/api/internal/signedx/inbound-mail', '/api/internal/signed', '/app/api/internal/signed/x']) {
       expect(matcher.test(path), path).toBe(true)
     }
@@ -145,18 +125,10 @@ async function throughProxy(request: NextRequest, response: Response): Promise<P
   return proxy(request, {} as never)
 }
 
-/** The Location, resolved the way a browser reads a relative one. */
 function locationOf(response: ProxyResponse): URL {
   return new URL(response?.headers.get('location') ?? '', 'https://app.dev.piloti.at')
 }
 
-/**
- * AuthKit mints the PKCE verifier cookie only when the redirect answers an
- * initial document navigation (`isInitialDocumentRequest` in its `pkce.ts`). A
- * client-side navigation is redirected to WorkOS anyway, so its callback can
- * never match code to verifier and the browser bounces: the dev loop of Oct
- * 2026, 3–5 `user_signed_in` per WorkOS session.
- */
 describe('a redirect that cannot complete', () => {
   test('is replaced by our sign-in route when a client-side navigation asks for the page', async () => {
     const request = new NextRequest('https://app.dev.piloti.at/app/projects/abc/chat?_rsc=1x&tab=files', {
@@ -167,7 +139,6 @@ describe('a redirect that cannot complete', () => {
 
     expect(response?.status).toBe(307)
     expect(locationOf(response).pathname).toBe('/api/auth/signin')
-    // The RSC cache key is not part of the page; the tab is.
     expect(locationOf(response).searchParams.get('returnPathname')).toBe('/app/projects/abc/chat?tab=files')
   })
 
@@ -181,8 +152,6 @@ describe('a redirect that cannot complete', () => {
     expect(locationOf(response).pathname).toBe('/api/auth/signin')
   })
 
-  // Next's middleware adapter reads every Location with `new NextURL(location)`
-  // and no base: a relative one throws, and the request answered 500.
   test('names the sign-in route by an absolute URL on the public origin', async () => {
     vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.piloti.at/api/auth/callback')
     const request = new NextRequest('http://frontend:3000/app/projects', { headers: { accept: 'application/json' } })
@@ -263,13 +232,6 @@ describe('a redirect that can complete', () => {
   })
 })
 
-/**
- * The loop of Oct 2026 that rerouting does not explain: every callback
- * succeeded, the browser rendered nothing and started another flow. Nothing
- * said so, so the only trace was a burst of `user_signed_in` in PostHog. A
- * cookie that arrives and is still treated as anonymous now says so, and never
- * carries the sealed value.
- */
 describe('a request that carries a session and is still sent to sign in', () => {
   const SESSION = 'sealed-session-value'
   const withSession = () =>
@@ -330,26 +292,21 @@ describe('a request that carries a session and is still sent to sign in', () => 
   })
 })
 
-/**
- * The website's header says "Open app" while the browser has a session here.
- * It cannot read AuthKit's host-only, HttpOnly cookie, so the proxy keeps a
- * contentless `signed_in` cookie on the parent domain in step with the session.
- */
 describe('the signed_in cookie for the website', () => {
   const ENV_KEYS = ['REQUIRE_AUTH', 'WORKOS_REDIRECT_URI', 'LANDING_URL', 'WORKOS_COOKIE_MAX_AGE'] as const
   const saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]))
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
-    process.env.WORKOS_REDIRECT_URI = 'https://app.dev.piloti.at/api/auth/callback'
-    process.env.LANDING_URL = 'https://dev.piloti.at'
-    delete process.env.WORKOS_COOKIE_MAX_AGE
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.piloti.at/api/auth/callback')
+    vi.stubEnv('LANDING_URL', 'https://dev.piloti.at')
+    vi.stubEnv('WORKOS_COOKIE_MAX_AGE', undefined)
   })
 
   afterEach(() => {
     for (const key of ENV_KEYS) {
-      if (saved[key] === undefined) delete process.env[key]
-      else process.env[key] = saved[key]
+      if (saved[key] === undefined) vi.stubEnv(key, undefined)
+      else vi.stubEnv(key, saved[key])
     }
   })
 
@@ -385,7 +342,6 @@ describe('the signed_in cookie for the website', () => {
     expect(signedInCookie(response)).toBeNull()
   })
 
-  // Sign-out deletes the session and returns to the app's `/`: the first request without one.
   test('is cleared with its Domain and Path when a request arrives without a session', async () => {
     const response = await throughProxy(request('signed_in=1', '/'), passThrough())
 
@@ -410,7 +366,7 @@ describe('the signed_in cookie for the website', () => {
   })
 
   test('is never written when the website is not on the app’s parent domain', async () => {
-    process.env.LANDING_URL = 'https://elsewhere.example'
+    vi.stubEnv('LANDING_URL', 'https://elsewhere.example')
 
     const response = await throughProxy(request('wos-session=sealed'), passThrough())
 
@@ -418,7 +374,7 @@ describe('the signed_in cookie for the website', () => {
   })
 
   test('is never written with auth switched off', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
 
     const response = await throughProxy(request('wos-session=sealed'), passThrough())
 

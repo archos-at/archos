@@ -99,7 +99,6 @@ describe('one sweep failing', () => {
 
     expect(result.expired).toEqual({ checked: 0, errors: 1, failed: 1 })
     expect(Object.keys(result)).toEqual([...SWEEP_ORDER])
-    // The sweeps after it still ran.
     expect(repository.findKeptMails).toHaveBeenCalledTimes(1)
     expect(repository.findAddressCapStates).toHaveBeenCalledTimes(1)
     expect(result.keptMails).toEqual({ checked: 0, errors: 0, deleted: 0 })
@@ -177,7 +176,6 @@ describe('sweep 15: a lease, a small batch and a time budget (R3 of the second 2
   it('asks for five texts at most, leases each before it reads it, and gives each read only what is left', async () => {
     let clock = 0
     repository.findUnreadTexts.mockResolvedValueOnce(['m1', 'm2', 'm3', 'm4', 'm5'].map(unread) as never)
-    // A slow reader: each read takes 15 s of the budget.
     vi.mocked(rereadHeldText).mockImplementation(async () => {
       clock += 15_000
       return 'later'
@@ -188,7 +186,6 @@ describe('sweep 15: a lease, a small batch and a time budget (R3 of the second 2
     expect(repository.findUnreadTexts).toHaveBeenCalledWith(expect.any(Date), REREAD_BATCH)
     expect(REREAD_BATCH).toBeLessThanOrEqual(5)
     expect(REREAD_BUDGET_MS).toBeLessThanOrEqual(60_000)
-    // 45 s: reads at 0, 15 s; at 30 s only 15 s are left, under the 20 s a read may take.
     expect(vi.mocked(rereadHeldText).mock.calls.map(([mail, left]) => [mail.id, left])).toEqual([
       ['m1', REREAD_BUDGET_MS],
       ['m2', REREAD_BUDGET_MS - 15_000],
@@ -205,7 +202,6 @@ describe('sweep 15: a lease, a small batch and a time budget (R3 of the second 2
     const result = await sweepUnreadTexts(new Date())
 
     expect(vi.mocked(rereadHeldText).mock.calls.map(([mail]) => mail.id)).toEqual(['m2'])
-    // The read compares against the lease it took, not the fault the find saw.
     expect(vi.mocked(rereadHeldText).mock.calls[0][0].readerFaultAt.getTime()).toBeGreaterThan(unread('m2').readerFaultAt.getTime())
     expect(result).toMatchObject({ read: 1, gone: 1 })
   })

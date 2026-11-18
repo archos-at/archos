@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the two panes that sit beside the skill editor's form: the
- * REAL `SkillDocumentPreview` (the SKILL.md the form is writing, split at the
- * progressive-disclosure seam) and the REAL `SkillReviewPanel` beneath it.
- *
- * Why the fetch shim: the review panel is not a linter, it asks the backend
- * reviewer — `reviewSkill` POSTs to `/api/skills/review` — so without a shim a
- * backend-free capture could only ever show the "could not check" state, which
- * is the one state that says nothing about the surface being reviewed. The
- * fixture answers with findings covering all three severities and all three
- * fields, because severity is carried by icon and colour alone and a screenshot
- * with one severity in it proves nothing about the other two.
- *
- * Why the auto-click: findings do not exist until somebody presses "Skill
- * prüfen", and the harness cannot interact with the page. The driver presses the
- * panel's own button and stops as soon as the findings list is in the DOM, which
- * is also what the registry waits on — so the capture is deterministic rather
- * than a race with an effect.
- *
- * The fixture is a deliberately MEDIOCRE skill. A clean one would render an
- * empty results state and prove only that the request round-tripped; the panel
- * exists to show a first-time author what is wrong with a description that will
- * never be selected, so the draft here has exactly that problem.
- *
- * Pinned to German, like the other preview routes. No `notFound()` of its own —
- * the `/dev` layout is a Server Component and gates every preview route out of
- * production on a server boundary.
- */
-
 import type { JSX } from 'react'
 import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -81,9 +52,6 @@ const FINDINGS = {
   ],
 }
 
-// The reviewer lives on the server, so a backend-free route has to answer for
-// it — see the module note. Installed once per page load, in front of the real
-// fetch, which every other request still reaches.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __skillEditorShim?: boolean }
   if (!w.__skillEditorShim) {
@@ -104,8 +72,6 @@ export default function SkillEditorPreviewPage(): JSX.Element {
     <I18nProvider initialLocale="de" fixedLocale>
       <main
         data-testid="skill-editor-preview"
-        // The editor is a dialog whose panes share one narrow column, so the
-        // document and the findings are read at the width they ship at.
         className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6"
       >
         {/* The REAL builder, open. `?step=` walks it forward by pressing its
@@ -127,15 +93,6 @@ export default function SkillEditorPreviewPage(): JSX.Element {
   )
 }
 
-/**
- * The builder, walked to the requested step by pressing its own „Weiter".
- *
- * One press per frame, looking the button up each time: it only exists once the
- * step before it has rendered, so holding a node would press a button that has
- * been replaced. `document`, not a ref — the dialog renders in a PORTAL. On the
- * last step it presses „Skill prüfen" instead, because the findings, and the
- * save the check unlocks, are what that step is.
- */
 function BuilderAtStep(): JSX.Element {
   const target = Number(useSearchParams()?.get('step') ?? '1')
 
@@ -176,8 +133,6 @@ function BuilderAtStep(): JSX.Element {
         id: 'skill-preview',
         origin: 'org',
         enabled: true,
-        // Unsorted, which is what a skill written straight into the editor is
-        // until somebody files it.
         categoryId: null,
         clonedFrom: null,
         createdAt: null,

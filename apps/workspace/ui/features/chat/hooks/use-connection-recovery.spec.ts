@@ -1,20 +1,8 @@
-/**
- * Tests for useConnectionRecovery hook
- *
- * Covers:
- * 1. Dormant when no connection errors
- * 2. Exponential backoff polling on connection error
- * 3. Recovery detection and auto-dismiss
- * 4. Browser online/visibility event triggers
- * 5. Cleanup on unmount and error dismissal
- */
-
 import { renderHook, act } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { asStoreState, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { ChatStore } from '../types'
 
-// Mock the health check module
 vi.mock('@/shared/hooks/use-backend-health', () => ({
   checkBackendHealthCached: vi.fn(),
   invalidateHealthCache: vi.fn(),
@@ -28,7 +16,6 @@ import {
 const mockCheckHealth = checkBackendHealthCached as ReturnType<typeof vi.fn>
 const mockInvalidateCache = invalidateHealthCache as ReturnType<typeof vi.fn>
 
-// Mock the store
 vi.mock('../store', () => {
   const mockDismiss = vi.fn()
   let hasError = false
@@ -53,8 +40,6 @@ vi.mock('../store', () => {
         }),
       ),
     ),
-    // Mirrors the production selector (store.ts) so the hook under test sees
-    // the same predicate it will see at runtime.
     selectHasRecoverableConnectionError: (state: ChatStore): boolean =>
       state.currentConversation?.messages.some(
         (m) =>
@@ -69,10 +54,6 @@ vi.mock('../store', () => {
   }
 })
 
-/**
- * The mocked `../store` module: the real exports plus the two test hooks the
- * factory above adds for driving the error state.
- */
 type MockedStoreModule = typeof import('../store') & {
   __setHasError: (value: boolean) => void
   __getMockDismiss: () => ReturnType<typeof vi.fn>
@@ -90,9 +71,6 @@ describe('useConnectionRecovery', () => {
     vi.clearAllMocks()
     storeMock.__setHasError(false)
     mockCheckHealth.mockResolvedValue(false)
-    // The poll delay carries equal jitter (see `applyJitter`). Pin the random
-    // source to the top of the window so the backoff assertions below stay
-    // exact rather than merely "fired at or before N".
     vi.spyOn(Math, 'random').mockReturnValue(1)
   })
 
@@ -118,7 +96,6 @@ describe('useConnectionRecovery', () => {
 
     renderHook(() => useConnectionRecovery(onRecovered))
 
-    // Initial delay is 5s
     await act(async () => {
       vi.advanceTimersByTime(5_000)
     })
@@ -133,19 +110,16 @@ describe('useConnectionRecovery', () => {
 
     renderHook(() => useConnectionRecovery(onRecovered))
 
-    // 5s -> first check
     await act(async () => {
       vi.advanceTimersByTime(5_000)
     })
     expect(mockCheckHealth).toHaveBeenCalledTimes(1)
 
-    // 10s -> second check (backoff 5*2=10)
     await act(async () => {
       vi.advanceTimersByTime(10_000)
     })
     expect(mockCheckHealth).toHaveBeenCalledTimes(2)
 
-    // 20s -> third check (backoff 10*2=20)
     await act(async () => {
       vi.advanceTimersByTime(20_000)
     })
@@ -153,16 +127,12 @@ describe('useConnectionRecovery', () => {
   })
 
   it('jitters the poll so clients that failed together do not poll together', async () => {
-    // Regression: a rolling deploy puts every affected client into the error
-    // state at the same instant. Without jitter they all poll on an identical
-    // schedule, so the recovery traffic arrives as a spike.
     vi.spyOn(Math, 'random').mockReturnValue(0)
     storeMock.__setHasError(true)
     mockCheckHealth.mockResolvedValue(false)
 
     renderHook(() => useConnectionRecovery(onRecovered))
 
-    // Bottom of the window is half the nominal 5s delay.
     await act(async () => {
       vi.advanceTimersByTime(2_499)
     })
@@ -200,7 +170,6 @@ describe('useConnectionRecovery', () => {
     })
     expect(mockCheckHealth).toHaveBeenCalledTimes(1)
 
-    // No further polling
     await act(async () => {
       vi.advanceTimersByTime(60_000)
     })
@@ -245,7 +214,6 @@ describe('useConnectionRecovery', () => {
 
     unmount()
 
-    // Advance past where polling would trigger
     await act(async () => {
       vi.advanceTimersByTime(120_000)
     })
@@ -259,27 +227,22 @@ describe('useConnectionRecovery', () => {
 
     const { rerender } = renderHook(() => useConnectionRecovery(onRecovered))
 
-    // First poll at 5s
     await act(async () => {
       vi.advanceTimersByTime(5_000)
     })
     expect(mockCheckHealth).toHaveBeenCalledTimes(1)
 
-    // Second poll at 10s (backoff)
     await act(async () => {
       vi.advanceTimersByTime(10_000)
     })
     expect(mockCheckHealth).toHaveBeenCalledTimes(2)
 
-    // Clear errors
     storeMock.__setHasError(false)
     rerender()
 
-    // Re-introduce errors
     storeMock.__setHasError(true)
     rerender()
 
-    // Should poll again at 5s (reset backoff), not 20s
     await act(async () => {
       vi.advanceTimersByTime(5_000)
     })

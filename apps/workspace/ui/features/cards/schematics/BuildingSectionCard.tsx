@@ -1,15 +1,3 @@
-/**
- * BuildingSectionCard — a to-scale building cross-section for height /
- * Gebäudeklasse / Fluchtniveau questions.
- *
- * Storey bands stack to scale above (and hatched below) a strong ground line
- * with the classic hatch ticks; dashed horizontal marker lines cross the
- * section at each threshold height with right-side labels. Fluchtniveau reads
- * in info blue, GK/Hochhaus thresholds in warning amber, plain references in
- * muted grey. A neutral dimension arrow on the left totals the above-grade
- * height so the building can be read against the limits at a glance.
- */
-
 import { type FC, type ReactNode } from 'react'
 import { Building2 } from 'lucide-react'
 import {
@@ -54,8 +42,6 @@ export const BuildingSectionCard: FC<BuildingSectionCardProps> = ({
   const markerList = markers ?? []
   const maxMarkerH = markerList.reduce((max, m) => Math.max(max, m.height_m), 0)
 
-  // Vertical extent in metres: headroom above the taller of building/markers,
-  // a little soil below the deepest basement.
   const topM = Math.max(aboveH, maxMarkerH) + 0.9
   const totalM = topM + belowH + (belowH > 0 ? 0.5 : 0.3)
   const k = Math.min(26, 300 / totalM) // px per metre, capped for short buildings
@@ -68,7 +54,6 @@ export const BuildingSectionCard: FC<BuildingSectionCardProps> = ({
   const yAt = (heightM: number): number => groundY - heightM * k
   const viewH = padTop + totalM * k + 18
 
-  // Above-grade storey bands, bottom-to-top.
   const aboveBands: ReactNode[] = []
   let cursor = 0
   above.forEach((storey, i) => {
@@ -98,7 +83,6 @@ export const BuildingSectionCard: FC<BuildingSectionCardProps> = ({
     cursor += storey.height_m
   })
 
-  // Below-grade bands, hatched, deepest first in the input list.
   const belowBands: ReactNode[] = []
   let depth = belowH
   below.forEach((storey, i) => {
@@ -127,7 +111,6 @@ export const BuildingSectionCard: FC<BuildingSectionCardProps> = ({
     depth -= storey.height_m
   })
 
-  // Ground hatch ticks left and right of the building.
   const groundTicks: ReactNode[] = []
   for (let x = 46; x <= 312; x += 12) {
     if (x > bx - 8 && x < bx + bw + 8) continue
@@ -172,9 +155,6 @@ export const BuildingSectionCard: FC<BuildingSectionCardProps> = ({
 
         {/* marker lines: Fluchtniveau / GK thresholds / references */}
         {markerList.map((marker, i) => {
-          // Falls back for the same reason `STATUS_ICON` does: the card's
-          // nested fields are unvalidated, so an unknown `kind` would make
-          // `style.color` throw and blank the answer rather than the marker.
           const style = MARKER_STYLE[marker.kind ?? 'reference'] ?? MARKER_STYLE.reference
           const y = yAt(marker.height_m)
           return (

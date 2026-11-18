@@ -1,8 +1,3 @@
-"""Tests for auth utilities: token fetcher registry and user info extraction.
-
-Module under test: packages/agent/src/agent/auth/utils.py
-"""
-
 import base64
 import json
 
@@ -19,7 +14,6 @@ from agent.auth.request_identity import user_context
 
 
 def _make_jwt(payload: dict) -> str:
-    """Build a minimal unsigned JWT (header.payload.signature) for testing."""
     header = base64.urlsafe_b64encode(json.dumps({"alg": "none"}).encode()).rstrip(b"=").decode()
     body = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
     return f"{header}.{body}.sig"
@@ -27,39 +21,33 @@ def _make_jwt(payload: dict) -> str:
 
 @pytest.fixture(autouse=True)
 def _isolate_fetchers():
-    """Ensure each test starts and ends with a clean fetcher registry."""
     clear_token_fetchers()
     yield
     clear_token_fetchers()
 
 
 def test_get_auth_token_default_returns_none():
-    """With no fetchers registered and no Context, get_auth_token returns None."""
     assert get_auth_token() is None
 
 
 def test_register_token_fetcher_basic():
-    """A registered fetcher that returns a token is used by get_auth_token."""
     register_token_fetcher(lambda: "my-token")
     assert get_auth_token() == "my-token"
 
 
 def test_register_token_fetcher_priority():
-    """Higher-priority fetcher wins over lower-priority one."""
     register_token_fetcher(lambda: "low", priority=1)
     register_token_fetcher(lambda: "high", priority=10)
     assert get_auth_token() == "high"
 
 
 def test_register_token_fetcher_skips_none():
-    """A fetcher returning None is skipped; the next fetcher is tried."""
     register_token_fetcher(lambda: None, priority=10)
     register_token_fetcher(lambda: "fallback", priority=5)
     assert get_auth_token() == "fallback"
 
 
 def test_register_token_fetcher_skips_exceptions():
-    """A fetcher that raises is skipped; the next fetcher is tried."""
 
     def bad_fetcher():
         raise RuntimeError("boom")
@@ -70,7 +58,6 @@ def test_register_token_fetcher_skips_exceptions():
 
 
 def test_clear_token_fetchers():
-    """After clearing, no registered fetchers remain and default behavior is restored."""
     register_token_fetcher(lambda: "token")
     assert get_auth_token() == "token"
 
@@ -123,7 +110,6 @@ def test_get_current_user_info_ignores_registered_unverified_token_fetcher():
 
 
 def test_register_token_fetcher_deduplication():
-    """Registering the same fetcher twice is a no-op (identity check)."""
     call_count = 0
 
     def my_fetcher():

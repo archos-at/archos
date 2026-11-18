@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 import { projectSiteAddress } from './site-address'
 
-// The legacy fact key is stored data, not a name of ours (migration 0159).
 const LEGACY_ADDRESS_KEY = 'standort_adresse'
 
 const withFacts = (facts: Record<string, unknown>): Pick<Project, 'profile'> => ({

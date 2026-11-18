@@ -1,11 +1,3 @@
-/**
- * The message half of an inbox deep link.
- *
- * What these pin is the timing, because the timing is the whole reason the hook
- * exists: the hash is present before the thread is fetched, so a naive
- * "scroll on mount" resolves to nothing and the recipient is dropped at the
- * bottom of a thread with no idea which message concerns them.
- */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
@@ -15,7 +7,6 @@ const setHash = (hash: string) => {
   window.history.replaceState(null, '', `/app/projects/p1/chat?session=s1${hash}`)
 }
 
-/** jsdom has no layout, so scrollIntoView is absent on the prototype. */
 const scrollIntoView = vi.fn()
 
 beforeEach(() => {
@@ -49,7 +40,6 @@ describe('messageIdFromHash', () => {
     expect(messageIdFromHash('#report')).toBeNull()
     expect(messageIdFromHash('')).toBeNull()
     expect(messageIdFromHash(null)).toBeNull()
-    // A prefix with nothing after it is not a target.
     expect(messageIdFromHash('#message-')).toBeNull()
   })
 })
@@ -67,15 +57,12 @@ describe('useMessageAnchor', () => {
   test('waits for the message to arrive, then scrolls to it and marks it', () => {
     setHash('#message-msg_7')
 
-    // First render: the thread has not loaded. This is the case that was broken —
-    // a plain browser hash resolves to nothing here and is then gone.
     const { result, rerender } = renderHook(({ ids }) => useMessageAnchor(ids).highlightedId, {
       initialProps: { ids: [] as string[] },
     })
     expect(result.current).toBeNull()
     expect(scrollIntoView).not.toHaveBeenCalled()
 
-    // The thread lands.
     mountMessage('msg_7')
     rerender({ ids: ['msg_7'] })
 
@@ -90,7 +77,6 @@ describe('useMessageAnchor', () => {
       initialProps: { ids: ['msg_7'] },
     })
 
-    // Id present, node absent — must NOT consume the target.
     expect(result.current).toBeNull()
 
     mountMessage('msg_7')
@@ -106,7 +92,6 @@ describe('useMessageAnchor', () => {
     const { result } = renderHook(() => useMessageAnchor(['msg_7']).highlightedId)
     expect(result.current).toBe('msg_7')
 
-    // Counted from the frame the mark is painted, then its full time.
     act(() => {
       vi.advanceTimersByTime(16)
     })
@@ -128,7 +113,6 @@ describe('useMessageAnchor', () => {
     renderHook(() => useMessageAnchor(['msg_7']).highlightedId)
 
     expect(window.location.hash).toBe('')
-    // …and the session parameter survives: the hash is dropped, not the URL.
     expect(window.location.search).toBe('?session=s1')
   })
 
@@ -140,7 +124,6 @@ describe('useMessageAnchor', () => {
 
     expect(result.current).toBeNull()
     expect(scrollIntoView).not.toHaveBeenCalled()
-    // The hash is left alone — nothing was consumed, so nothing is rewritten.
     expect(window.location.hash).toBe('#message-msg_missing')
   })
 
@@ -154,8 +137,6 @@ describe('useMessageAnchor', () => {
   })
 
   test('tells the thread a target is pending, and when it landed', () => {
-    // The thread's bottom jump and follow ran after the landing and took the
-    // reader to the bottom after all: they ask first now.
     setHash('#message-msg_7')
     const onLand = vi.fn()
 
@@ -188,9 +169,6 @@ describe('useMessageAnchor', () => {
   })
 
   describe('a target that never resolves', () => {
-    // The link names a message the thread does not draw, one since deleted, or
-    // one in a thread that was refused. Pending for good, it held every later
-    // thread unplaced and unfollowed.
     type Props = { ids: string[]; conversationId: string | null; ready: boolean }
     const mount = (initialProps: Props) =>
       renderHook(
@@ -222,14 +200,11 @@ describe('useMessageAnchor', () => {
       setHash('#message-msg_gone')
       const { result, rerender } = mount({ ids: ['msg_7'], conversationId: 's1', ready: true })
 
-      // The next thread is still loading: before, the stale target held it.
       rerender({ ids: [], conversationId: 's2', ready: false })
       expect(result.current.isTargetPending()).toBe(false)
     })
 
     test('holds through the thread that was open when the link arrived, until its own thread opens', () => {
-      // The link's thread is selected a moment after mount; the thread open
-      // until then never had the message and must not cost the link its landing.
       setHash('#message-msg_9')
       const { result, rerender } = mount({ ids: ['msg_old'], conversationId: 'old', ready: true })
       rerender({ ids: [], conversationId: 's1', ready: false })

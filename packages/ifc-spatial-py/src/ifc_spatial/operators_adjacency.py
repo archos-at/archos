@@ -1,5 +1,3 @@
-"""Which spaces touch, open to, contain or border each other."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -26,13 +24,6 @@ from .model import SpatialModel
 
 
 def enclosed_by(model: SpatialModel, element_global_id: str) -> Answer[list[ElementRef]]:
-    """The spaces this element bounds — the inverse of :func:`bounds`.
-
-    Two results on a wall mean it separates those two rooms, which is the input
-    to every Trennwand question (sound insulation, fire compartmentation). One
-    result means the far side is outside the model or unbounded, which is not the
-    same as "outside the building" and must not be reported as such.
-    """
     method = f"enclosedBy({element_global_id})"
     subject = _require(model, element_global_id, method)
     if model.kind_of(subject) == "space":
@@ -66,21 +57,12 @@ def enclosed_by(model: SpatialModel, element_global_id: str) -> Answer[list[Elem
 
 
 def _spaces_touching(model: SpatialModel, subject: Any, method: str) -> Any:
-    """The spaces this element touches, read out of the model-wide contact map.
-
-    Asked from the SPACES' side rather than the element's: see
-    :meth:`SpatialModel.space_contacts` for the measurement that decided it
-    (2.9 s to offset one window against 0.55 s to offset one room).
-    """
     if not model.derivable_boundaries:
         return _too_big_to_derive(model, method, subject.GlobalId)
     if model.geometry(subject.GlobalId) is None:
         return _no_geometry(model, subject, method)
     contacts = model.space_contacts(CONTACT)
     if not model.contacts_complete:
-        # The map is a SUBSET. Reporting the rooms found so far would be a short
-        # list wearing the shape of a complete one, which is the failure this
-        # library exists to prevent — so it refuses, and says how far it got.
         total = len(model.file.by_type("IfcSpace"))
         return undecidable(
             from_=[subject.GlobalId],
@@ -103,20 +85,6 @@ def _spaces_touching(model: SpatialModel, subject: Any, method: str) -> Any:
 
 
 def opens_to(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
-    """The spaces a window or door opens into.
-
-    Declared route: the ``IfcRelSpaceBoundary`` entries that name this element.
-
-    BESSER: when the export writes none, ``geom.tree.select(window, extend=0.05)``
-    filtered to ``IfcSpace`` answers it directly, because the window's solid
-    genuinely touches the room's solid. The TS package reaches the same answer
-    through `hostedIn` + a derived boundary at a 30 cm contact test; this is one
-    exact query at 5 cm and does not depend on the wall's boundaries existing.
-
-    Two results on a door is the answer to "which rooms does this door connect";
-    one result is a door to the outside, or a door whose far room the export did
-    not model as a space.
-    """
     method = f"opensTo({global_id})"
     subject = _require(model, global_id, method)
     if model.kind_of(subject) not in ("element", "opening"):
@@ -160,14 +128,6 @@ def opens_to(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
 
 
 def contains(model: SpatialModel, container_global_id: str) -> Answer[list[ElementRef]]:
-    """The elements this container holds directly.
-
-    ``IfcRelContainedInSpatialStructure``. Whenever the export assigns elements
-    to spaces rather than only to storeys, this is the answer to "welche Bauteile
-    sind in Raum X". Many exports assign everything to the storey instead, in
-    which case a space returns an empty list — honest either way, and calling it
-    on the storey shows which convention this file follows.
-    """
     method = f"contains({container_global_id})"
     subject = _require(model, container_global_id, method)
     if model.kind_of(subject) not in ("project", "site", "building", "storey", "space"):
@@ -201,14 +161,6 @@ def contains(model: SpatialModel, container_global_id: str) -> Answer[list[Eleme
 
 
 def container_of(model: SpatialModel, global_id: str) -> Answer[ElementRef | None]:
-    """The immediate spatial container of this element — the storey, or the space
-    when the export assigns elements that finely.
-
-    ``None`` is a decidable answer: a storey's parent building travels on
-    aggregation, not on containment, and an element the exporter left unassigned
-    really has no container. Both are worth reporting; neither is a missing
-    relation.
-    """
     method = f"containerOf({global_id})"
     subject = _require(model, global_id, method)
     if not _has(model, "IfcRelContainedInSpatialStructure"):
@@ -220,9 +172,6 @@ def container_of(model: SpatialModel, global_id: str) -> Answer[ElementRef | Non
 
     caveat = None
     if len(containers) > 1:
-        # IFC allows an element to be contained in exactly one spatial structure.
-        # More than one is an export defect, and reporting the first silently
-        # would hide it behind an answer that looks ordinary.
         caveat = (
             f"Dieses Bauteil ist {len(containers)} räumlichen Containern zugeordnet, IFC erlaubt genau einen. "
             "Gemeldet ist der erste — ein Befund über den Export."
@@ -236,11 +185,6 @@ def container_of(model: SpatialModel, global_id: str) -> Answer[ElementRef | Non
 
 
 def _separates_horizontally_only(model: SpatialModel, global_id: str) -> bool:
-    """Whether this bounding element can only be a floor or ceiling between rooms.
-
-    ``False`` means it can separate them side by side — a wall, a curtain wall,
-    a virtual boundary — and therefore counts for adjacency.
-    """
     try:
         element = model.file.by_guid(global_id)
     except RuntimeError, KeyError:
@@ -249,19 +193,6 @@ def _separates_horizontally_only(model: SpatialModel, global_id: str) -> bool:
 
 
 def adjacent_spaces(model: SpatialModel, space_global_id: str) -> Answer[list[ElementRef]]:
-    """The rooms next door — spaces sharing a bounding element with this one.
-
-    Purely topological over :func:`bounds`: two spaces bounded by the same wall
-    are neighbours. What it does NOT say is whether they are connected — a shared
-    wall with no door in it still makes neighbours. Use :func:`opens_to` on the
-    doors for connectivity.
-
-    §7 of the design doc maps this onto ``geom.tree.clash_collision_many``. That
-    call returns an empty tuple for every input on the shipped 0.8.5 wheel (see
-    the module docstring), so it is deliberately not used: an adjacency operator
-    that reports "keine Nachbarn" because a primitive failed silently is worse
-    than one that does not exist.
-    """
     method = f"adjacentSpaces({space_global_id})"
     subject = _require(model, space_global_id, method)
     if model.kind_of(subject) != "space":
@@ -289,24 +220,11 @@ def adjacent_spaces(model: SpatialModel, space_global_id: str) -> Answer[list[El
         shared = own_ids & {ref.global_id for ref in other_bounds.value}
         if not shared:
             continue
-        # A shared FLOOR is not adjacency. Two rooms stacked on either side of
-        # the same slab share a bounding element and are not neighbours in any
-        # sense a person means — `floor-slab-and-window.ifc` exists to pin
-        # exactly this, and its header records a real export where one slab
-        # produced 4 278 false pairs. Being above or below something is a
-        # different question, and `above`/`below` answer it.
         if not any(_separates_horizontally_only(model, gid) is False for gid in shared):
             stacked.append(other)
             continue
         neighbours.append(other)
 
-    # NEVER `declared`, whatever the boundaries were. Even where both spaces
-    # publish IfcRelSpaceBoundary, the file states which elements bound each
-    # room — it nowhere states that the two rooms are neighbours. That
-    # conclusion is our set-intersection over two declared lists, and stamping
-    # it „so steht es in der Datei" hands the reader our inference as the
-    # architect's own statement. It also dropped the caveat that adjacency is
-    # not a walkable connection, because only the computed branch carried it.
     declared_inputs = own.provenance == "declared"
     refs = model.refs(neighbours, via="shared separating element")
     caveat = (

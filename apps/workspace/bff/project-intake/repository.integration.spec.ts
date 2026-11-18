@@ -72,7 +72,7 @@ describe.skipIf(!url)('project intakes against live Postgres', () => {
     repo.claimIntakeReading(ORG, projectId, { jobId, requestedBy: USER, forgetRead: false, now: new Date() })
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -146,7 +146,6 @@ describe.skipIf(!url)('project intakes against live Postgres', () => {
       forgetRead: true,
       now,
     })
-    // A new reading starts with nothing opened: the last one's files are not its own.
     expect(forgetting).toMatchObject({ status: 'reading', documentsRead: [], readingFiles: [], rerunRequested: false })
     await repo.endIntakeReading(ORG, ids.project, `job-c-${STAMP}`, { status: 'failed', now })
   })
@@ -177,7 +176,6 @@ describe.skipIf(!url)('project intakes against live Postgres', () => {
     expect(await repo.listOpenIntakeProjectIds(ORG, [ids.project, ids.second])).toEqual([ids.project])
   })
 
-  /** What Postgres said: drizzle wraps the driver's error, whose message names the constraint. */
   async function refusal(run: () => Promise<unknown>): Promise<string> {
     try {
       await run()

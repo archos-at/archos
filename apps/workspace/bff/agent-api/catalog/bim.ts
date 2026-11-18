@@ -1,5 +1,3 @@
-/** The bim operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
-
 import { z } from 'zod'
 import { bimQuerySchema } from '@/lib/bim/query'
 import { confirmCheckSchema, withdrawCheckSchema } from '@/lib/bim/checks-wire'
@@ -53,7 +51,6 @@ export const bimOperations = [
     method: 'POST',
     path: '/api/bim/models/[modelId]/query',
     params: modelParams,
-    // The route's own `bimQuerySchema`, imported; it is the gate.
     body: bimQuerySchema,
     readOnly: true,
     load: () => import('@/app/api/bim/models/[modelId]/query/route'),
@@ -140,7 +137,6 @@ export const bimOperations = [
     method: 'GET',
     path: '/api/projects/[id]/bim/checks/export',
     params: projectParams,
-    // The route's schema is a preprocess + refine (legacy names, a lenient `.catch`), which a query object cannot be; the route is the gate.
     query: z.object({
       modelId: z.guid().optional().describe('The model (revision) id, from bim-model-list. Give this or `model`.'),
       model: z.string().max(255).optional().describe('The model’s file name. Give this or `modelId`.'),

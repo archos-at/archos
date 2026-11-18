@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The zero-data-retention toggle, down to the service it calls: the gate is
- * this route (the generic settings save refuses the key), so the permission,
- * the feature flag, the audit with before/after values and BOTH cache deletes
- * have to hold here. Only storage, the caches and the audit sink are stubbed;
- * `setOrgZdrOnly` runs for real.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {
@@ -115,7 +108,6 @@ describe('PUT /api/organization/model-config/zdr', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ zdrOnly: false, zdrApplicable: true, zdrCoverage: null })
     expect(stored.settings.zdrOnly).toBe(false)
-    // The org had never chosen, so it WAS on: absent means ZDR.
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'model_config.zdr.updated',
@@ -169,7 +161,6 @@ describe('PUT /api/organization/model-config/zdr', () => {
   it('stores the choice but computes no coverage when ZDR cannot apply (BYOK on another provider)', async () => {
     isZdrApplicableForOrg.mockResolvedValue(false)
     const res = await put({ enabled: true })
-    // Coverage may be computed alongside, but is not reported for traffic Piloti cannot pin.
     expect(await res.json()).toEqual({ zdrOnly: true, zdrApplicable: false, zdrCoverage: null })
     expect(stored.settings.zdrOnly).toBe(true)
   })

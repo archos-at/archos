@@ -64,10 +64,6 @@ describe('streamReleasedKnowledgeBaseDocument', () => {
   })
 
   it('streams the PDF inline and lets the same-origin viewer frame it', async () => {
-    // The global next.config rule stamps X-Frame-Options: DENY on every route,
-    // which would make the browser refuse to render the same-origin preview
-    // iframe. The streamed Response overrides that (defense in depth alongside
-    // the route-scoped next.config override).
     const res = await streamReleasedKnowledgeBaseDocument('a.pdf', ['QA'])
 
     expect(res.headers.get('Content-Type')).toBe('application/pdf')

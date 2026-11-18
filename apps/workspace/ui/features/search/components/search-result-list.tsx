@@ -45,36 +45,19 @@ import {
 export interface SearchResultListProps {
   sections: Partial<Record<SearchKind, SectionView>>
   onLoadMore: (kind: SearchKind) => void
-  /** The words searched for, set apart in the passages. */
   text: string
-  /** The hit the arrow keys are on (`kind:id`). */
   activeKey: string | null
-  /** Each kind's listbox id and each hit's option id, which the search field's combobox names. */
   listId?: (kind: SearchKind) => string
   optionId?: (hit: SearchHit) => string
-  /** The scope searched in, so a row leaves out the shelf it already says. */
   scope?: SearchScopeQuery
 }
 
-/**
- * The scope the hits on screen were searched in. A row leaves out the shelf
- * mark the scope already says: inside one project every hit is that
- * project's, and „Kaiserstraße 43“ on every row is noise, not provenance.
- */
 const HitScopeContext = createContext<SearchScopeQuery>({})
 
 export function HitScopeProvider({ scope, children }: { scope: SearchScopeQuery; children: ReactNode }): JSX.Element {
   return <HitScopeContext.Provider value={scope}>{children}</HitScopeContext.Provider>
 }
 
-/**
- * The result as a list: one section per kind in the contract's order, each
- * hit in at most three lines. The name first, with the searched words set
- * apart; then one muted line of where it lives (the shelf as its provenance
- * mark when the scope does not say it, then the folder) and what it is; then,
- * for a document found by what it says, the passage with its page. Only a
- * document whose row shows nothing that matched says what it was found in.
- */
 export function SearchResultList({ sections, onLoadMore, text, activeKey, listId, optionId, scope = {} }: SearchResultListProps): JSX.Element {
   return (
     <HitScopeProvider scope={scope}>
@@ -98,10 +81,6 @@ export function SearchResultList({ sections, onLoadMore, text, activeKey, listId
   )
 }
 
-/**
- * One hit, drawn as its kind draws it. The list renders it as a link; the ⌘K
- * palette renders the same row inside its own option (`ResultRowFrameProvider`).
- */
 export function HitRow({ hit, text, active = false, id }: { hit: SearchHit; text: string; active?: boolean; id?: string }): JSX.Element {
   switch (hit.kind) {
     case 'document':
@@ -163,12 +142,6 @@ function KindSection({
   )
 }
 
-/**
- * Where a hit lives: the shelf as the provenance mark (the project, or the
- * Büroablage) unless the scope already names it, then its folder. On the page
- * the names wrap rather than cut, so a long project name is read whole; the
- * palette's one line truncates the mark and keeps its full name in the title.
- */
 function useWhere(): (shelf: 'project' | 'office_shelf', projectId: string | null, projectName: string | null, folderName?: string | null) => JSX.Element[] {
   const tWhere = useTranslations(searchCopy, 'where')
   const scope = useContext(HitScopeContext)
@@ -198,13 +171,8 @@ function DocumentRow({ hit, text, active, id }: { hit: DocumentHit; text: string
   const day = labels.day(hit.planDate ?? hit.documentDate)
   const from = useSearchReturn()
   const title = termSegments(hit.title ?? hit.name, text)
-  // The row says what it was found in only when it shows nothing that
-  // matched: a passage shows the content, a set-apart word in the name shows
-  // the name. What is left is a match on what Piloti read about the document.
   const shown = hit.passage !== null || title.some((segment) => segment.match)
   const matchedOn = text.trim() && !shown ? hit.matchedOn : []
-  // What a Fassung changed is the page's detail: in the palette a fourth line
-  // on one row broke the rhythm every other row keeps.
   const compact = useCompactRow()
   return (
     <ResultRow
@@ -224,8 +192,6 @@ function DocumentRow({ hit, text, active, id }: { hit: DocumentHit; text: string
         <MetaLine
           lead={where(hit.shelf, hit.projectId, hit.projectName, hit.folderName)}
           parts={[
-            // The palette's one line keeps where, which plan and when; what
-            // kind of document and its scale are the page's columns.
             type && !compact ? <MetaPart key="type">{type}</MetaPart> : null,
             hit.planNumber ? <MetaPart key="number" code>{hit.planNumber}</MetaPart> : null,
             hit.planIndex && !compact ? <MetaPart key="index">{t('document.index', { index: hit.planIndex })}</MetaPart> : null,
@@ -269,15 +235,11 @@ function AnnotationRow({ hit, active, id }: { hit: AnnotationHit; active: boolea
   const from = useSearchReturn()
   const status = (ANNOTATION_STATUSES as readonly string[]).includes(hit.status) ? t(`annotation.statuses.${hit.status}`) : hit.status
   const on = t('annotation.on', { document: hit.documentName })
-  // In the palette the finding is the name, and the document it is on goes to
-  // the meta line: one line of what was said reads as the hit, „zu EP-03…“
-  // over grey body text read as the row being about the plan.
   const compact = useCompactRow()
   return (
     <ResultRow
       href={annotationHitHref(hit, from)}
       icon={MessageSquareWarning}
-      // The finding at the reading weight: a whole sentence at the names' weight outshouted the documents around it.
       title={compact && hit.excerpt ? <span className="font-normal text-foreground/85">{hit.excerpt}</span> : on}
       active={active}
       id={id}

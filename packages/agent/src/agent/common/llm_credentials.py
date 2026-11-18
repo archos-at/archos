@@ -1,24 +1,3 @@
-"""Per-organization BYOK LLM credentials (ADR-0022).
-
-Enterprise organizations can bring their own LLM provider key. The key lives
-in WorkOS Vault (or the local encrypted store) behind the BFF; this module
-pulls it **just in time** from the internal endpoint::
-
-    GET {FRONTEND_INTERNAL_URL}/api/internal/llm-credential?organizationId=…
-    x-grid-internal-token: {INTERNAL_API_TOKEN}
-
-Design constraints (why pull, not push): the plaintext key must never ride
-WebSocket-upgrade headers, the research job payload (persisted in the job store), or
-any shared cache. The org id — which already flows on every request
-(``x-grid-organization-id``) and inside worker ``usage_context`` — is all the
-backend needs.
-
-Resolution is cached in-process (60 s positive / 30 s negative) and fails
-OPEN to the workflow-YAML platform credential: a BYOK hiccup must never take
-chat down. Key material is never logged; log lines carry only the
-fingerprint the BFF computed.
-"""
-
 import logging
 import os
 import threading
@@ -32,20 +11,14 @@ POSITIVE_TTL_SECONDS = 60.0
 NEGATIVE_TTL_SECONDS = 30.0
 _REQUEST_TIMEOUT_SECONDS = 3.0
 
-# Pydantic field names langchain chat models use for the credential pair.
-# Checked in order; the first present on the model wins.
 _API_KEY_FIELDS = ("openai_api_key", "api_key")
 _BASE_URL_FIELDS = ("openai_api_base", "base_url")
 
-# Client objects are rebuilt by the constructor's validators — carrying them
-# into the new instance would keep traffic on the OLD credential.
 _CLIENT_FIELDS = {"client", "root_client", "async_client", "root_async_client", "http_client", "http_async_client"}
 
 
 @dataclass(frozen=True)
 class OrgLLMCredential:
-    """A resolved tenant credential. ``api_key`` must never be logged."""
-
     credential_id: str
     provider: str
     base_url: str
@@ -66,7 +39,6 @@ _cache_lock = threading.Lock()
 
 
 def reset_credential_cache() -> None:
-    """Test hook: clear the in-process resolution cache."""
     with _cache_lock:
         _cache.clear()
 
@@ -76,10 +48,8 @@ def _internal_base_url() -> str:
 
 
 def _fetch_credential(organization_id: str) -> OrgLLMCredential | None:
-    """One HTTP round-trip to the BFF's internal resolution endpoint."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
-        # No internal-token trust channel — BYOK cannot be resolved securely.
         return None
 
     import httpx
@@ -104,8 +74,6 @@ def _fetch_credential(organization_id: str) -> OrgLLMCredential | None:
     return OrgLLMCredential(
         credential_id=str(data.get("id") or ""),
         provider=str(data.get("provider") or "custom"),
-        # An office's own OpenRouter key is held to its cell's zone like the platform's (ADR-0167); an endpoint
-        # the zone cannot rewrite or place is refused at the seam.
         base_url=residency.routed_url(base_url, residency.active_cell()),
         api_key=api_key,
         key_fingerprint=str(data.get("keyFingerprint") or ""),
@@ -113,12 +81,6 @@ def _fetch_credential(organization_id: str) -> OrgLLMCredential | None:
 
 
 def resolve_org_llm_credential(organization_id: str | None) -> OrgLLMCredential | None:
-    """The org's active BYOK credential, or None for the platform default.
-
-    In-process TTL cache keeps the hot path free of network calls; errors are
-    negative-cached and fail OPEN (platform credential) with a warning that
-    carries no key material.
-    """
     if not organization_id:
         return None
 
@@ -138,7 +100,6 @@ def resolve_org_llm_credential(organization_id: str | None) -> OrgLLMCredential 
 
     with _cache_lock:
         _cache[organization_id] = _CacheEntry(credential, ttl)
-        # Bounded: one entry per org this process has served recently.
         if len(_cache) > 512:
             expired = [key for key, value in _cache.items() if value.expires_at <= now]
             for key in expired:
@@ -155,22 +116,12 @@ def resolve_org_llm_credential(organization_id: str | None) -> OrgLLMCredential 
 
 
 def get_org_llm_credential_from_context() -> OrgLLMCredential | None:
-    """Resolve the BYOK credential for the current request's organization."""
     from agent.project_context import get_organization_id_from_context
 
     return resolve_org_llm_credential(get_organization_id_from_context())
 
 
 def apply_org_credential(llm: object, credential: OrgLLMCredential | None = None) -> object:
-    """Return ``llm`` re-pointed at the tenant's provider + key.
-
-    Unlike the model-id override (``override_model``), a credential swap
-    cannot use ``model_copy``: langchain chat models bind their HTTP clients
-    at construction, so a copied model would silently keep calling with the
-    OLD key. The model is therefore reconstructed through its constructor
-    (client fields dropped, credential fields replaced), which re-runs the
-    validators that build the clients. Fails open to the original ``llm``.
-    """
     if credential is None:
         credential = get_org_llm_credential_from_context()
     if credential is None:

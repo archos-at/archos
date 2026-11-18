@@ -1,9 +1,3 @@
-/**
- * Release a quarantined document for indexing (ADR-0086). Re-dispatches it with
- * screening skipped for exactly the bytes the reviewer saw, and audits who did.
- * Deleting instead is the shelf's ordinary delete.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { releaseQuarantinedDocument } from '@/lib/upload-screening/review'
 

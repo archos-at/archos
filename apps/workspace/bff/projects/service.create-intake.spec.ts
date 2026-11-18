@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Creating a project that Piloti sets up (ADR-0111): the intake row and the
+ * Creating a project that the agent sets up (ADR-0111): the intake row and the
  * address facts are written after the FGA grant and inside the compensating
  * delete, and a closing given with it is kept as an intent, not carried out.
  */
@@ -79,7 +79,7 @@ const location: GeocodeResult = {
   kind: 'address',
 }
 
-describe('createProject, set up by Piloti', () => {
+describe('createProject, set up by the agent', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('crypto', { randomUUID: () => '00000000-0000-4000-8000-000000000001' })
@@ -130,7 +130,6 @@ describe('createProject, set up by Piloti', () => {
     )
     expect(setProjectStatusInOrg).not.toHaveBeenCalled()
     expect(insertProject).toHaveBeenCalledWith(expect.objectContaining({ startedOn: '2019-03-01' }))
-    // Not closed yet, so nothing says it was.
     expect(recordAuditEvent.mock.calls.map(([event]) => (event as { action: string }).action)).toEqual(['project.created'])
   })
 

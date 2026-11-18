@@ -1,13 +1,3 @@
-/**
- * The throttle is the feature.
- *
- * Without it this is a network request per keystroke — comfortably the chattiest
- * thing in the product, on the path a user touches most. The other two cases here
- * are the ones that leave a colleague permanently "about to answer": a claim not
- * withdrawn when the draft is abandoned, and a claim left standing on a thread the
- * user has navigated away from.
- */
-
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TYPING_REFRESH_MS } from '@/lib/conversations/presence-contract'
@@ -15,7 +5,6 @@ import { useTypingBroadcast } from './use-typing-broadcast'
 
 const fetchMock = vi.fn()
 
-/** The `{ typing }` bodies posted so far, in order, with their conversation ids. */
 function posts(): Array<{ conversationId: string; typing: boolean }> {
   return fetchMock.mock.calls.map(([url, init]) => ({
     conversationId: String(url).split('/')[3],
@@ -32,8 +21,6 @@ describe('useTypingBroadcast', () => {
   })
 
   afterEach(() => {
-    // Unmount BEFORE the fetch stub goes away: the hook withdraws its claim on
-    // teardown, and a real `fetch` at that moment would try to reach a server.
     cleanup()
     vi.useRealTimers()
     vi.unstubAllGlobals()
@@ -86,8 +73,6 @@ describe('useTypingBroadcast', () => {
     const { result } = renderHook(() =>
       useTypingBroadcast({ conversationId: 'conv_1', enabled: true })
     )
-    // Clearing an already-empty composer fires this on every render pass; turning
-    // that into a request would undo the throttle from the other side.
     act(() => result.current.onStoppedTyping())
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -117,8 +102,6 @@ describe('useTypingBroadcast', () => {
     const { result } = renderHook(() =>
       useTypingBroadcast({ conversationId: 'conv_1', enabled: true })
     )
-    // Presence that did not arrive costs a colleague two seconds of warning; it
-    // must not become an error the person typing has to deal with.
     expect(() => act(() => result.current.onTyping())).not.toThrow()
   })
 })
@@ -138,10 +121,6 @@ describe('a pause is not a stop', () => {
   })
 
   it('keeps the claim alive while the composer sits idle mid-sentence', () => {
-    // The claim was refreshed only by a keystroke and expires after 6s, so a
-    // colleague pausing to think dropped off the reader's screen and popped back
-    // on the next keypress. A flickering indicator reads as somebody who keeps
-    // changing their mind about answering.
     const { result } = renderHook(() =>
       useTypingBroadcast({ conversationId: 'c-1', enabled: true })
     )

@@ -1,20 +1,7 @@
-/**
- * The inbox's loading shapes, without a hook in them so a route's `loading.tsx`
- * (a server file) can draw them too.
- *
- * One shape from the click to the rows: the sheet's skeleton holds
- * `InboxSheetSkeleton`, the list that replaces it starts on „Für mich“ with
- * `InboxQueueSkeleton` at the same place, and the queue settles there. The
- * sheet used to show three blocks, the list a second skeleton of another shape
- * under a toolbar that had just appeared, and then the rows: three pictures of
- * one wait.
- */
-
 import type { JSX } from 'react'
 
 import { Skeleton } from '@/components/ui/skeleton'
 
-/** The queue while it reads: a heading, then entries of a title and its line. */
 export function InboxQueueSkeleton(): JSX.Element {
   return (
     <div className="space-y-4 px-2" aria-busy="true" data-testid="inbox-queue-skeleton">
@@ -29,11 +16,6 @@ export function InboxQueueSkeleton(): JSX.Element {
   )
 }
 
-/**
- * The inbox sheet's body while its route resolves: the sheet's own padding
- * (`inbox-sheet.tsx`), the list's reading measure and toolbar line
- * (`InboxList`), and the queue's skeleton under it.
- */
 export function InboxSheetSkeleton(): JSX.Element {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto" aria-hidden>

@@ -4592,13 +4592,13 @@
  },
  "appTools": {
   "proposal-card-apply": {
-   "view": "ui://piloti/proposal-card",
+   "view": "ui://workspace/proposal-card",
    "operation": "proposal-apply",
    "app": true,
    "reason": "pressed by the person on the agent’s card inside their own assistant (an MCP App); listed with `visibility: [\"app\"]`, so the host keeps it from the model, and it runs the catalog operation it names through that operation’s route"
   },
   "proposal-card-dismiss": {
-   "view": "ui://piloti/proposal-card",
+   "view": "ui://workspace/proposal-card",
    "operation": "proposal-dismiss",
    "app": true,
    "reason": "pressed by the person on the agent’s card inside their own assistant (an MCP App); listed with `visibility: [\"app\"]`, so the host keeps it from the model, and it runs the catalog operation it names through that operation’s route"

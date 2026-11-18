@@ -1,15 +1,9 @@
 /**
  * @vitest-environment node
  */
-/**
- * The definitions service (migration 0086): CRUD over `task_definitions`, the
- * trigger-dependent permission gate, and the single fire path whose skipped /
- * errored attempts are visible `task_runs` rows.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// A run carries its project's law (ADR-0175); its reads are `background-run.spec.ts`'s.
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => undefined) }))
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn().mockResolvedValue({ role: 'project-admin' }),
@@ -24,9 +18,6 @@ vi.mock('@/lib/conversations/repository', () => ({
   insertConversation: vi.fn(),
 }))
 
-// The run's message. Its deterministic id is `lib/runs/service.spec.ts`'s
-// subject; what this spec cares about is that one is minted in the right thread,
-// for the run being recorded, and only once the backend has taken the work.
 vi.mock('@/lib/runs/service', () => ({
   createRunMessage: vi.fn(async (_conversationId: string, runId: string) => ({ id: `msg-${runId}` })),
 }))
@@ -78,7 +69,6 @@ vi.mock('@/lib/skills/service', () => ({
 vi.mock('@/lib/tasks/service', () => ({
   previousDecisionsBlock: vi.fn(async () => ''),
   decodeCursorParam: vi.fn(() => null),
-  // The projection itself is `list-projection.spec.ts`'s; here only that a fire answers it.
   toTaskRunViews: vi.fn(async (_organizationId: string, runs: readonly TaskRun[]) =>
     runs.map((run) => ({ id: run.id, status: run.status, trigger: run.trigger })),
   ),
@@ -237,10 +227,6 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 })
 
-// ---------------------------------------------------------------------------
-// CRUD + the trigger-dependent gate
-// ---------------------------------------------------------------------------
-
 describe('createJob', () => {
   it('needs only project:edit to create a manual definition', async () => {
     await createJob(session, PROJECT, { name: 'Wochencheck', prompt: 'Prüf das' })
@@ -265,7 +251,6 @@ describe('createJob', () => {
     const insert = vi.mocked(repository.insertDefinition).mock.calls[0][0]
     expect(insert.trigger).toBe('schedule')
     expect(insert.scheduleCron).toBe('0 8 * * 1')
-    // The next fire is computed at save time, in the definition's timezone.
     expect(insert.nextRunAt).toBeInstanceOf(Date)
   })
 
@@ -278,9 +263,6 @@ describe('createJob', () => {
       dueAt,
     })
 
-    // A one-shot spends once, exactly as pressing "Run now" would, so it is
-    // NOT gated like a recurring trigger. Scheduling the safer thing must not
-    // be the option that needs more rights.
     expect(requireProjectAccess).toHaveBeenCalledTimes(1)
     expect(requireProjectAccess).toHaveBeenCalledWith(session, PROJECT, 'project:edit')
 
@@ -288,8 +270,6 @@ describe('createJob', () => {
     expect(insert.trigger).toBe('once')
     expect(insert.scheduleCron).toBeNull()
     expect(insert.dueAt).toEqual(dueAt)
-    // `next_run_at` IS the due date: one column, one index, one claim query for
-    // both shapes (migration 0090).
     expect(insert.nextRunAt).toEqual(dueAt)
   })
 
@@ -315,8 +295,6 @@ describe('createJob', () => {
     })
 
     const insert = vi.mocked(repository.insertDefinition).mock.calls[0][0]
-    // The due date is kept — it is what the person chose — but nothing scans a
-    // NULL next_run_at, so pausing needs no second mechanism.
     expect(insert.dueAt).toEqual(dueAt)
     expect(insert.nextRunAt).toBeNull()
   })
@@ -334,10 +312,6 @@ describe('createJob', () => {
     const insert = vi.mocked(repository.insertDefinition).mock.calls[0][0]
     expect(resolveSkillSnapshot).toHaveBeenCalledWith('submission-check', 'org_1')
     expect(insert.plan.skill).toEqual(skillSnapshot)
-    // The always-on sources are always included; the stored list is
-    // "additional". RIS joined the knowledge layer there: the law a project's
-    // documents are judged against is not a preference, and a run with it off
-    // answers a different question in the same words.
     expect(insert.plan.dataSources).toEqual(['knowledge_layer', 'ris', 'web'])
   })
 })
@@ -372,7 +346,6 @@ describe('updateJob', () => {
 
     await updateJob(session, PROJECT, DEFINITION, { prompt: 'Prüf das nochmal' })
 
-    // Editing the prompt must not quietly demote the task to a manual one.
     expect(vi.mocked(repository.updateDefinition).mock.calls[0][2]).toMatchObject({
       trigger: 'once',
       dueAt,
@@ -386,8 +359,6 @@ describe('updateJob', () => {
 
     await updateJob(session, PROJECT, DEFINITION, { scheduleCron: '0 8 * * 1' })
 
-    // Leaving both set would hit `task_definitions_due_only_when_once` as a 500
-    // from the database rather than resolving here.
     const patch = vi.mocked(repository.updateDefinition).mock.calls[0][2]
     expect(patch.trigger).toBe('schedule')
     expect(patch.dueAt).toBeNull()
@@ -476,10 +447,6 @@ describe('getJob', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Fire path
-// ---------------------------------------------------------------------------
-
 describe('runJobNow', () => {
   it('refuses a disabled definition with a 409', async () => {
     vi.mocked(repository.findDefinition).mockResolvedValue(definitionRow({ enabled: false }))
@@ -492,7 +459,6 @@ describe('runJobNow', () => {
 
     const { run } = await runJobNow(session, PROJECT, DEFINITION)
 
-    // The run's view, never the row: no composed prompt, no backend id.
     expect(run).toEqual({ id: expect.any(String), status: expect.any(String), trigger: 'manual' })
     expect(vi.mocked(repository.insertRun).mock.calls.at(-1)?.[0]).toMatchObject({ triggeredBy: 'user_1' })
   })
@@ -509,8 +475,6 @@ describe('fireJob', () => {
     expect(submitted.input).toContain('PREVIOUS_DECISIONS v1')
 
     const inserted = vi.mocked(repository.insertRun).mock.calls[0][0]
-    // The run's own id travels with the submission: without it the worker
-    // folds no ledger and the block in the thread never moves (ADR-0062).
     expect(submitted.run_id).toBe(inserted.id)
     expect(inserted).toMatchObject({
       definitionId: DEFINITION,
@@ -522,16 +486,10 @@ describe('fireJob', () => {
       requesterUserId: 'user_1',
       title: 'Wochencheck',
     })
-    // The run freezes the FIRED prompt — decisions included — not the raw plan.
     expect(inserted.plan?.prompt).toContain('PREVIOUS_DECISIONS v1')
     expect(repository.touchDefinitionLastRun).toHaveBeenCalledWith(DEFINITION, run.createdAt)
   })
 
-  /**
-   * The run's place in the thread (ADR-0062). The message is minted for the id
-   * the row is about to be written with, which is what makes the run's ledger
-   * and its report find the same message later.
-   */
   it('gives the run a message in the definition thread and stores its id on the row', async () => {
     await fireJob(definitionRow(), 'schedule', 'scheduler')
 
@@ -546,17 +504,10 @@ describe('fireJob', () => {
       })
     )
     const inserted = vi.mocked(repository.insertRun).mock.calls[0][0]
-    // The definition's title heads the block in the thread, so a reader of the
-    // task thread sees WHICH standing task this run is before it has said anything.
     expect(createRunMessage).toHaveBeenCalledWith(thread, inserted.id, { title: 'Wochencheck' })
     expect(inserted.runMessageId).toBe(`msg-${inserted.id}`)
   })
 
-  /**
-   * One definition, one thread. The id is derived from the definition's, so the
-   * second fire re-attempts the SAME row and `ON CONFLICT DO NOTHING` makes that
-   * a no-op — no lookup, no unique index, and two concurrent fires converge.
-   */
   it('fires twice into one thread, with a message per fire', async () => {
     const definition = definitionRow({ trigger: 'schedule', scheduleCron: '0 8 * * 1' })
     await fireJob(definition, 'schedule', 'scheduler')
@@ -566,16 +517,9 @@ describe('fireJob', () => {
     expect(vi.mocked(insertConversation).mock.calls.map((call) => call[0].id)).toEqual([thread, thread])
     const messageCalls = vi.mocked(createRunMessage).mock.calls
     expect(messageCalls.map((call) => call[0])).toEqual([thread, thread])
-    // Two runs, two messages: the thread accumulates, it does not overwrite.
     expect(new Set(messageCalls.map((call) => call[1])).size).toBe(2)
   })
 
-  /**
-   * A retried submit is a no-op rather than a second half-written run: the
-   * message id is derived from the run id, so the same run always lands on the
-   * same row (`createRunMessage`, `lib/runs/service.ts`). The fire path's part of
-   * that bargain is that the id it derives from is the id it records.
-   */
   it('derives the message from the id the run row is written with', async () => {
     await fireJob(definitionRow(), 'manual', 'user_1')
 
@@ -583,11 +527,6 @@ describe('fireJob', () => {
     expect(vi.mocked(createRunMessage).mock.calls[0][1]).toBe(inserted.id)
   })
 
-  /**
-   * A fire the agent refused leaves nothing in the thread. The old shape created
-   * a whole conversation before submitting, so an org that hit its cap collected
-   * empty threads; this one mints the message only once the work is accepted.
-   */
   it('writes no message into the thread when the submission is refused', async () => {
     vi.mocked(submitJob).mockRejectedValue(new JobSubmitSkippedError('org job cap reached', 60))
 
@@ -597,12 +536,6 @@ describe('fireJob', () => {
     expect(vi.mocked(repository.insertRun).mock.calls[0][0].runMessageId).toBeNull()
   })
 
-  /**
-   * ADR-0079: capacity makes a job wait in the research queue, it never refuses
-   * it. A fire the backend queued is a QUEUED run (not skipped, not running),
-   * and a scheduled fire goes in as bulk so it waits behind the office's own
-   * questions.
-   */
   it('records a fire the backend queued as a queued run, not a skipped one', async () => {
     vi.mocked(submitJob).mockResolvedValue({ jobId: 'backend-1', queued: true })
 
@@ -678,7 +611,6 @@ describe('fireScheduledJob', () => {
     const result = await fireScheduledJob(definitionRow())
 
     expect(result).toEqual({ fired: false, reason: 'feature-disabled' })
-    // Flag and org in this order: the `slug` is the flag, the id the tenant.
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('skills', 'org_1')
     expect(vi.mocked(repository.insertRun).mock.calls[0][0]).toMatchObject({ status: 'skipped' })
   })
@@ -740,13 +672,6 @@ describe('fireScheduledJob', () => {
   })
 })
 
-/**
- * The one submission delegated and commissioned work share. What is pinned:
- * the settled plan and the named Unterlagen ride the payload under the worker's
- * own keys, and a run that settled nothing sends neither key at all — the
- * backend's schema treats an absent key and a null the same, but a spec that
- * asserted `null` would let a `'null'` string through.
- */
 describe('submitAgentRun', () => {
   const spec = {
     organizationId: 'org_1',
@@ -806,8 +731,6 @@ describe('submitAgentRun', () => {
       projectId: 'proj_1',
       conversationId: 's_conv',
     })
-    // Without `issuedAt` the BFF refuses the envelope as an acting identity
-    // (`verifyRequestContextEnvelope`), and every person-acting tool with it.
     expect(input.issuedAt).toBeGreaterThanOrEqual(before)
     expect(input.issuedAt).toBeLessThanOrEqual(Date.now())
   })
@@ -823,7 +746,6 @@ describe('submitAgentRun', () => {
     } as Awaited<ReturnType<typeof getBudgetStatus>>)
     await submitAgentRun(spec)
 
-    // The agent reads a signed envelope's budget wholesale; without these the run has no token limit.
     const input = vi.mocked(buildRequestContextWireHeaders).mock.calls[0][0]
     expect(input.budget).toMatchObject({
       remainingOrgTokens: 900_000,
@@ -833,7 +755,6 @@ describe('submitAgentRun', () => {
   })
 
   it('never searches a restricted folder: its report is filed for the whole project (ADR-0087)', async () => {
-    // The real scope assembly, so the names on the wire are the ones checked.
     const actual = await vi.importActual<typeof import('@/lib/retrieval-scope/collection-scope')>('@/lib/retrieval-scope/collection-scope')
     vi.mocked(computeCollectionScope).mockImplementation(actual.computeCollectionScope)
 
@@ -846,8 +767,6 @@ describe('submitAgentRun', () => {
   })
 
   it('searches the base corpus for a project whatever its site: the run knowledge context picks the countries (ADR-0173)', async () => {
-    // Dev QC 2026-11-12: an unplaced project's run and chat left the base corpus out, and the answer said a
-    // released OIB text "could not be read". The profile here places the project nowhere.
     const actual = await vi.importActual<typeof import('@/lib/retrieval-scope/collection-scope')>('@/lib/retrieval-scope/collection-scope')
     vi.mocked(computeCollectionScope).mockImplementation(actual.computeCollectionScope)
 
@@ -856,10 +775,6 @@ describe('submitAgentRun', () => {
     expect(vi.mocked(submitJob).mock.calls[0][0].collection_scope).toContain(actual.resolveBaseCollectionName())
   })
 })
-
-// ---------------------------------------------------------------------------
-// Unused-import guards (the surface this spec deliberately does not exercise)
-// ---------------------------------------------------------------------------
 
 describe('surfaces intentionally left to their own specs', () => {
   it('keeps the feature gate and API errors wired', () => {

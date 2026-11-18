@@ -1,5 +1,3 @@
-"""Authenticated context transport: echo credentials, bound prompts, fail closed."""
-
 from __future__ import annotations
 
 import base64
@@ -269,7 +267,6 @@ def test_server_timing_is_recorded_as_phase_facts(request_context, opener):
         "bff_cross_project_ms": 2.0,
         "bff_total_ms": 830.1,
     }
-    # The blocks themselves are what they were: timing is beside them, never in them.
     assert replace(blocks, timing={}) == ContextBlocks("PROFILE", "MEMORY", "POLICY")
 
 
@@ -324,8 +321,6 @@ def test_base_knowledge_labels_are_read_as_records_and_bounded(request_context, 
 
 
 def test_the_chain_and_the_roles_are_read_from_the_knowledge_context_alone(request_context, opener):
-    """ADR-0168, ADR-0175: the chain text and each edition's role come from ``knowledgeContext``; a
-    ``buildingLaw`` beside it is no second answer and is not read."""
     knowledge_context = {
         "gate": {"state": "core", "reason": None, "leaves": [{"country": "AT", "coverage": "core"}]},
         "retrieval": {"countries": ["AT"]},
@@ -367,7 +362,6 @@ def test_the_chain_and_the_roles_are_read_from_the_knowledge_context_alone(reque
     ],
 )
 def test_the_project_models_are_read_and_anything_else_is_unknown(request_context, opener, sent, read):
-    """Unknown (an older BFF, no project) keeps the measuring tools bound as before (``turn_tools``)."""
     body = {"projectContext": None, "projectMemory": None, "orgInstructions": None, "projectModels": sent}
     opener.open.return_value.read.return_value = json.dumps({"data": body}).encode("utf-8")
     assert client.fetch_turn_context(request_context).project_models == read
@@ -382,7 +376,6 @@ def _answer(opener, **fields):
 
 
 def test_the_personal_memory_block_is_read_whole_at_the_bffs_bound(request_context, opener):
-    """ADR-0180: at most 1,500 characters on the wire; a block of exactly that length loses no line."""
     lines = [PERSONAL_HEADER, '- [pinned | profile] "Leitet die Einreichplanung."']
     lines.append("- [preference] " + "x" * (1500 - len("\n".join(lines)) - 1 - len("- [preference] ")))
     block = "\n".join(lines)
@@ -396,7 +389,6 @@ def test_the_personal_memory_block_is_read_whole_at_the_bffs_bound(request_conte
 
 
 def test_a_personal_block_grouped_by_topic_counts_only_its_notes(request_context, opener):
-    """The topic index and the topic headings are not notes: only the ``- `` lines count."""
     block = "\n".join(
         [
             PERSONAL_HEADER,
@@ -438,7 +430,6 @@ def test_anything_that_is_not_the_personal_block_reads_as_none(request_context, 
 
 @pytest.mark.parametrize(("sent", "read"), [(True, True), (False, False), ("true", False), (1, False), (None, False)])
 def test_temporary_is_true_only_when_the_bff_says_so(request_context, opener, sent, read):
-    """An older BFF sends no flag: not temporary, and the BFF's own refusal is the gate."""
     _answer(opener, **({} if sent is None else {"temporary": sent}))
 
     assert client.fetch_turn_context(request_context).temporary is read

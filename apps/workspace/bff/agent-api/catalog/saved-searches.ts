@@ -1,12 +1,3 @@
-/**
- * Saved searches (ADR-0136 slice 5): a person keeps a search question and may
- * share it with the office. See `projects.ts` for the shape and
- * `docs/architecture/agent-surface.md` for the rules.
- *
- * Kept apart from the `workspace-search` operation itself so the two grow without
- * touching each other; both are in the `documents` domain.
- */
-
 import {
   createSavedSearchSchema,
   listSavedSearchesQuerySchema,
@@ -15,7 +6,6 @@ import {
 } from '@/lib/search/saved-search-wire'
 import type { AgentOperation } from '../operation'
 
-/** Outside the entries: a body key `name` inside one would read as the next entry to the catalog's source checks. */
 const CREATE_EXAMPLE = {
   body: {
     name: 'Current fire safety concepts',

@@ -20,11 +20,6 @@ const UI = process.cwd()
 const SCRIPT = join(UI, '..', '..', 'scripts', 'rls-test-db.sh')
 const TASKFILES = join(UI, '..', '..', 'taskfiles')
 
-/**
- * The specs a task runs on the same cluster with `rls-test-db.sh --only <spec>`:
- * a measurement such as the search latency, which is no gate and seeds too much
- * for every run. Read from the taskfiles, so a spec counts only while a task names it.
- */
 function specsRunByATask(): string[] {
   const named = readdirSync(TASKFILES)
     .filter((name) => name.endsWith('.yml'))
@@ -32,7 +27,6 @@ function specsRunByATask(): string[] {
   return named.flatMap((match) => match[1].split(/\s+/).filter((part) => part.endsWith('.integration.spec.ts')))
 }
 
-/** Specs that predate this check and are not in the run. Remove a line when its spec joins the script. */
 const NOT_YET_RUN = new Set([
   'bff/model-config/bootstrap-defaults.integration.spec.ts',
   'bff/model-config/platform-defaults.integration.spec.ts',

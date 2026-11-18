@@ -1,10 +1,3 @@
-/**
- * „Mein Gedächtnis“: the notes the agent keeps about the signed-in person
- * (ADR-0180), outside any project. The notes are read in the browser through
- * the person's own session (`/api/user/memory`), where row-level security on
- * the person holds them; the server renders the frame only.
- */
-
 import type { JSX } from 'react'
 import { BackLink, ShellContent } from '@/components/shell'
 import { PageHeader } from '@/components/ui/page-header'
@@ -17,7 +10,6 @@ export default async function PersonalMemoryPage(): Promise<JSX.Element> {
   return withPageSession(async () => {
     const t = await getTranslations(personalMemoryCopy)
     return (
-      // Room under the last control: on a phone „Alle Notizen entfernen“ stood flush on the tab bar.
       <ShellContent className="pb-16 md:pb-10">
         <BackLink className="touch-target mb-6" fallbackHref="/app/projects" fallbackLabel={t('backToApp')} />
         <PageHeader className="mb-8" title={t('title')} subtitle={t('subtitle')} subtitleOnPhone />

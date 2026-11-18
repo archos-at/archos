@@ -1,20 +1,5 @@
-/**
- * The browser's half of Web Push (ADR-0112): what this browser can do, and the
- * few calls that turn notifications on and off for it.
- *
- * No `'server-only'`; every function that touches `window`, `navigator` or
- * `Notification` takes them as a parameter or guards for their absence, so the
- * server render and the specs can use the pure parts.
- *
- * ## Why a state, not a boolean
- *
- * "Can I turn notifications on?" has five answers a person needs to hear
- * differently: this browser cannot at all; this is an iPhone where it only works
- * once Piloti is on the Home Screen; the person said no and only their browser
- * settings can change that; they have not been asked yet; they said yes.
- */
-
 import type { PushClient } from './client'
+import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 import type { PushDeviceView } from './types'
 
 export type PushSupport = 'unsupported' | 'needs-install' | 'denied' | 'default' | 'granted'
@@ -34,12 +19,10 @@ interface CapabilityEnvironment {
   notification?: typeof Notification
 }
 
-/** Read what this browser offers. Safe on the server: everything is absent. */
 export function readCapabilities(env: CapabilityEnvironment = browserEnvironment()): PushCapabilities {
   const nav = env.navigator
   const win = env.window
   const ua = nav?.userAgent ?? ''
-  // iPadOS 13+ says it is a Mac; a touch screen on a "Mac" is an iPad.
   const isIos = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (nav?.maxTouchPoints ?? 0) > 1)
   const isStandalone =
     nav?.standalone === true || (win?.matchMedia?.('(display-mode: standalone)').matches ?? false)
@@ -62,11 +45,6 @@ function browserEnvironment(): CapabilityEnvironment {
   }
 }
 
-/**
- * Where this browser stands. An iPhone or iPad outside the Home Screen app is
- * `needs-install` whatever else it reports: Safari there has no push at all,
- * and the fix is the install, not a newer browser.
- */
 export function classifyPushSupport(caps: PushCapabilities): PushSupport {
   if (caps.isIos && !caps.isStandalone) return 'needs-install'
   if (!caps.hasServiceWorker || !caps.hasPushManager || !caps.hasNotification) return 'unsupported'
@@ -74,7 +52,6 @@ export function classifyPushSupport(caps: PushCapabilities): PushSupport {
   return caps.permission === 'granted' ? 'granted' : 'default'
 }
 
-/** A URL-safe base64 key as the bytes `pushManager.subscribe` takes. */
 export function urlBase64ToBytes(value: string): Uint8Array<ArrayBuffer> {
   const padded = (value + '='.repeat((4 - (value.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(padded)
@@ -90,7 +67,6 @@ function sameKey(subscription: PushSubscription, key: Uint8Array): boolean {
   return bytes.length === key.length && bytes.every((value, index) => value === key[index])
 }
 
-/** Register the worker. Idempotent; null when this browser has none or refuses. */
 export async function registerWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null
   try {
@@ -105,7 +81,6 @@ function workerRegistration(): Promise<ServiceWorkerRegistration | undefined> {
   return navigator.serviceWorker.getRegistration('/').catch(() => undefined)
 }
 
-/** This browser's subscription, if it has one. Never prompts. */
 export async function currentSubscription(): Promise<PushSubscription | null> {
   try {
     const registration = await workerRegistration()
@@ -115,14 +90,6 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
   }
 }
 
-/**
- * Ask for permission and subscribe this browser.
- *
- * The permission prompt is the first thing awaited, so it runs inside the
- * click's user gesture: Safari refuses it otherwise. A subscription made for a
- * different key (the operator rotated theirs) is replaced, because subscribing
- * over it throws.
- */
 export async function subscribeThisDevice(publicKey: string): Promise<PushSubscription> {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') throw new PushPermissionError(permission)
@@ -142,7 +109,6 @@ export class PushPermissionError extends Error {
   }
 }
 
-/** The body the register route takes, from a browser subscription. */
 export function registrationBody(subscription: PushSubscription): {
   endpoint: string
   keys: { p256dh: string; auth: string }
@@ -154,7 +120,6 @@ export function registrationBody(subscription: PushSubscription): {
   }
 }
 
-/** Which of the person's devices this browser is: the one with its endpoint. */
 export function deviceOfSubscription(
   devices: readonly PushDeviceView[],
   subscription: PushSubscription | null
@@ -162,19 +127,6 @@ export function deviceOfSubscription(
   return subscription ? (devices.find((device) => device.endpoint === subscription.endpoint) ?? null) : null
 }
 
-/**
- * Stop notifying this browser. Used on sign-out, where a shared computer must
- * not keep showing the previous person's inbox, and in the settings when a
- * person turns it off.
- *
- * The browser's own steps come first and are awaited: close what is on screen,
- * clear the icon's count, and unsubscribe, after which the push service refuses
- * the endpoint whatever the server still holds. Only then the server's row is
- * removed, best effort and quiet; `serverWithinMs` bounds that wait for a
- * caller (sign-out) that must not hang on the network. Done the other way
- * round, a slow list request outlasted sign-out's budget and the browser stayed
- * subscribed for the person who had just left.
- */
 export async function forgetThisDevice(
   client: Pick<PushClient, 'listDevices' | 'removeDevice'>,
   options: { serverWithinMs?: number } = {}
@@ -208,21 +160,20 @@ async function removeServerDevice(
     const device = (await client.listDevices()).find((entry) => entry.endpoint === endpoint)
     if (device) await client.removeDevice(device.id)
   } catch {
-    // The server could not be reached; the browser is already unsubscribed, so
     // the next send to the endpoint answers 410 and the row goes then.
   }
 }
 
-/** Ask the worker to close notifications: those of these inbox items, or all of them. */
 export type CloseNotificationsRequest = { itemIds: string[] } | { all: true }
 
 export async function closeNotifications(request: CloseNotificationsRequest): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
   const registration = await navigator.serviceWorker.getRegistration('/')
-  registration?.active?.postMessage({ type: 'piloti:close-notifications', ...request })
+  const worker = registration?.active
+  worker?.postMessage({ type: 'close-notifications', ...request })
+  worker?.postMessage({ type: LEGACY_WORKER_MESSAGES.closeNotifications, ...request })
 }
 
-/** The unread count on the app icon, where the platform has one. */
 export function setAppBadge(count: number): void {
   if (typeof navigator === 'undefined') return
   const badging = navigator as Navigator & {

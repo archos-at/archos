@@ -105,7 +105,7 @@ repos:
         entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_vocabularies.py'
         language: system
         pass_filenames: false
-        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/public-sources/src/(access|engines)/[^/]+\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
+        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/public-sources/src/public_sources/(access|engines)/[^/]+\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
 
       - id: data-flow-register
         name: every outbound flow has a row in the data-flow register, and the pages generated from it are current
@@ -152,15 +152,17 @@ repos:
         types: [text]
 
       - id: doc-paths
-        name: the concept index points at files that exist
-        # docs/architecture/where-is-what.md is only worth reading while its
-        # paths resolve, and they sit in code spans, so markdown-link-check
-        # never looks at them. A rename turns a row into the grep the index
-        # exists to remove, with nothing local objecting.
+        name: paths in the concept index, the AGENTS.md guides and the docs exist
+        # Paths in code spans are invisible to markdown-link-check, so a rename
+        # leaves a guide pointing at nothing. The concept index and every
+        # AGENTS.md are held to zero dead paths; docs/architecture and
+        # docs/contributing to ci/doc_paths_baseline.json, which only shrinks.
+        # Always run: a rename in code is what kills a doc path, so the commit
+        # that renames is the one to fail. It reads `git ls-files`, under a second.
         entry: python3 scripts/check_doc_paths.py
         language: system
         pass_filenames: false
-        files: ^docs/architecture/where-is-what\.md$|^scripts/check_doc_paths\.py$
+        always_run: true
 
       - id: english-names
         name: no Python file gains a German identifier
@@ -197,6 +199,34 @@ repos:
         # file passes no filename, and its stale entry would fail the next
         # person's commit instead. The check takes about three seconds.
         always_run: true
+
+      - id: spec-source-reads
+        name: no spec reads source text, outside the AST guards in ci/ast_guard_specs.txt
+        # About 220 specs read source files and asserted on their wording, so
+        # they passed on broken behaviour and failed on harmless renames.
+        # Always, for the reason file-size gives: an allowlisted guard that
+        # stops reading must leave the list. About seven seconds.
+        entry: .venv/bin/python scripts/check_spec_source_reads.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: spec-env-writes
+        name: no spec writes process.env, which leaks into later spec files; vi.stubEnv does
+        entry: .venv/bin/python scripts/check_spec_env_writes.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: comments
+        name: no source file gains a comment line past its baseline (three are free)
+        # A comment goes stale, binds nothing, and gives an agent room to justify
+        # a workaround the next agent copies: code-conventions.md#comments.
+        # The staged files only, so a commit pays milliseconds, not the 25 s a
+        # full scan takes; CI's --all-files run passes every file.
+        entry: .venv/bin/python scripts/check_comments.py
+        language: system
+        types_or: [python, ts, tsx, javascript, jsx]
 
       - id: nesting
         name: no Python source function gains a third level of nesting
@@ -263,13 +293,15 @@ repos:
 
       - id: package-surfaces
         name: code outside a package imports its surface, not its submodules
-        # Laying knowledge_layer out by job rewrote nearly a thousand imports and
-        # dotted patch strings, most of them in tests, because they named the
-        # submodule rather than the package. A ratchet on
-        # ci/package_surface_baseline.json: what still names a submodule from
-        # outside may only shrink. Always, for the reason file-size gives. The
-        # venv python, for the reason file-size gives. About two seconds.
+        # Outside code imports a package's surface, never its submodules.
         entry: .venv/bin/python scripts/check_package_surfaces.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: legacy-expiry
+        name: a legacy name past its release is deleted
+        entry: .venv/bin/python scripts/check_legacy_expiry.py
         language: system
         pass_filenames: false
         always_run: true

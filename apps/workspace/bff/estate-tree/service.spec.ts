@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which shelf and which reach the estate tree reads under. The SQL is
- * `repository.integration.spec.ts`'s; here the repository is a double, so what
- * is held is the decision: the shelf must be the turn's and in its signed scope,
- * the reach is the audience's listing reach (`reachForAudience` with `listing`,
- * which hides restricted folders even in a solo chat: `lib/search/reach.spec.ts`),
- * and every refusal is one 404.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -113,7 +105,6 @@ describe('readEstateTree: the project shelf', () => {
   })
 
   it('lists the conversation’s own project in a shared private chat, pruned for that audience', async () => {
-    // `includeOwnProject` keeps the own project that `audienceReach` (the reach for OTHER projects) leaves out.
     vi.mocked(reachForAudience).mockImplementation(async (_session, _conversation, _scope, options) =>
       options?.includeOwnProject ? reach({ screenedOnly: true }) : Promise.reject(new NotFoundError('Project not found')),
     )
@@ -131,7 +122,6 @@ describe('readEstateTree: a folder', () => {
   })
 
   it('answers a restricted folder exactly as a missing one, in a solo chat too', async () => {
-    // The listing reach leaves a restricted folder out of `folderIds` (reach.spec.ts); the path still resolves to it.
     vi.mocked(findFolderIdByPath).mockResolvedValue('f-restricted')
     vi.mocked(reachForAudience).mockResolvedValue(reach({ folderIds: [] }))
     const restricted = await readEstateTree(context(), session, { shelf: 'project', folder_path: 'Personal' }).catch((e: Error) => e.message)

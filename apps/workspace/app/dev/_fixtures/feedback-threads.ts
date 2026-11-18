@@ -1,11 +1,3 @@
-/**
- * A fake „Mein Feedback" backend for the dev previews: one member's cases
- * (active and done), their office's, a conversation with the team, and the
- * degraded states. `/dev/feedback-threads`, `/dev/feedback` and `/dev/phone-more`
- * share it, so the modal looks the same from every door. A report sent from its
- * form joins the fake list, so the hand-off to the new thread can be reviewed.
- */
-
 import type { FeedbackThreadsApi } from '@/features/product-feedback/components'
 import type {
   OwnProductFeedbackListResponse,
@@ -18,7 +10,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString()
 
-/** Which state the fake answers in. */
 export type FeedbackPreviewView =
   | 'list'
   | 'thread'
@@ -145,7 +136,6 @@ const CONVERSATION: OwnProductFeedbackMessage[] = [
   },
 ]
 
-/** A long back-and-forth, for the scroll and the newest-in-view checks. */
 const LONG: OwnProductFeedbackMessage[] = [
   ...CONVERSATION,
   ...Array.from({ length: 6 }, (_, index): OwnProductFeedbackMessage => ({
@@ -194,7 +184,6 @@ function threadFor(id: string, view: FeedbackPreviewView, extra: OwnProductFeedb
   if (view === 'readonly') {
     return { report: { ...report, canReply: false, hasUpdate: false }, messages: CONVERSATION, live: true }
   }
-  // Once the reporter has answered, the ticket is the team's move again.
   const status = extra.length > 0 ? 'open' : report.status
   const messages = view === 'long' ? LONG : CONVERSATION
   return { report: { ...report, status, hasUpdate: false }, messages: [...messages, ...extra], live: true }
@@ -202,7 +191,6 @@ function threadFor(id: string, view: FeedbackPreviewView, extra: OwnProductFeedb
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** A report the preview's form filed: a fresh case nobody has answered. */
 function filed(request: SubmitProductFeedbackRequest, index: number): OwnProductFeedbackSummary {
   const now = new Date().toISOString()
   return mine({
@@ -218,12 +206,6 @@ function filed(request: SubmitProductFeedbackRequest, index: number): OwnProduct
   })
 }
 
-/**
- * The fake API for one view. Sending a reply appends it to the fake thread;
- * sending the form files a new case at the top of the list (or fails, with
- * `failSubmit`). Build it once per view (`useMemo`): the provider re-reads its
- * count whenever the `list` function changes.
- */
 export function feedbackPreviewApi(
   view: FeedbackPreviewView,
   { failSubmit = false }: { failSubmit?: boolean } = {},
@@ -267,7 +249,6 @@ export function feedbackPreviewApi(
   }
 }
 
-/** The thread a view opens on, or `null` for the list. */
 export function feedbackPreviewStart(view: FeedbackPreviewView): string | null {
   if (view === 'thread' || view === 'readonly' || view === 'offline' || view === 'long') return FEEDBACK_PREVIEW_REPORTS[0]!.id
   if (view === 'waiting') return FEEDBACK_PREVIEW_REPORTS[1]!.id

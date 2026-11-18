@@ -44,7 +44,6 @@ const roles = vi.hoisted(() => ({ due: vi.fn(async (): Promise<{ role: string; s
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
 vi.mock('./store', () => ({
   platformTransaction: async <T,>(fn: (tx: unknown) => Promise<T>) => fn({}),
-  // After an override approval the row carries the trigger's marks (migration 0214), as the database's would.
   lockChangeRequest: async (_tx: unknown, id: string) => {
     const alone = writes.approval.mock.calls.some(([, input]) => (input as { overrideReason?: string }).overrideReason)
     return { id, status: 'submitted', countryId: 'AT', approval: alone ? 'single' : 'four_eyes', secondReview: alone ? 'due' : null }
@@ -71,7 +70,6 @@ vi.mock('./entitlements', () => ({
 const { enqueueDeindex } = vi.hoisted(() => ({ enqueueDeindex: vi.fn(async () => 0) }))
 vi.mock('./indexing', () => ({ enqueueIndexRuns: async () => ({ enqueued: 0, failed: 0 }), enqueueDeindex, readIndexStatus: vi.fn() }))
 vi.mock('./overview', () => ({ readOverview: vi.fn() }))
-// KC-1 on the request's texts, which an approval runs (ADR-0165): the corpus is the api tier's, so it stands in.
 const texts = vi.hoisted(() => ({ problems: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []) }))
 vi.mock('./onboarding', async (importOriginal) => ({ ...(await importOriginal<typeof import('./onboarding')>()), requestTextProblems: texts.problems }))
 
@@ -83,11 +81,9 @@ import * as service from './service'
 
 const EXPERT = { userId: 'user_expert', email: 'expert@example.com', organizationId: 'org_platform' } as unknown as UserSession
 const REQUEST = 'c0000000-0000-4000-8000-000000000001'
-/** The author of the mocked request, approving it alone. */
 const OWNER = { userId: 'user_author', email: 'owner@example.com', organizationId: 'org_platform' } as unknown as UserSession
 const ALONE = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: 'Nobody else on the platform team this week.' } }
 
-/** Every decision that runs only on the person's yes, as the route calls it. */
 const DECISIONS: [string, () => Promise<unknown>][] = [
   ['approve', () => service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })],
   ['reject', () => service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'reject', role: 'domain_expert' })],

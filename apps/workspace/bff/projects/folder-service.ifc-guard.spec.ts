@@ -12,7 +12,6 @@ vi.mock('./ifc-folder-guard', () => ({ assertFolderMoveKeepsIfcOpen: vi.fn(async
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('@/lib/authz/folder-access-repository', () => ({
   listProjectDocumentCollections: vi.fn(async () => []),
-  // No folder has its own access list: the move changes nobody's access.
   listProjectFolderTree: vi.fn(async () => []),
 }))
 vi.mock('./collection-placement', () => ({
@@ -28,7 +27,6 @@ const FOLDER = { id: 'modelle', projectId: 'proj-1', parentId: null, name: 'Mode
 const DESTINATION = { id: 'verwaltung', projectId: 'proj-1', parentId: null, name: 'Verwaltung', path: 'Verwaltung' }
 
 const db = vi.hoisted(() => ({
-  /** Rows the next `select(...).limit()` resolves to, in call order. */
   selects: [] as Array<Array<Record<string, unknown>>>,
   transactions: 0,
 }))
@@ -68,7 +66,6 @@ import { updateProjectFolder } from './folder-service'
 const SESSION = { organizationId: 'org-1', userId: 'user-1' } as never
 
 beforeEach(() => {
-  // The folder twice (the access check, then the shelf core that writes), then the new parent.
   db.selects = [[FOLDER], [FOLDER], [DESTINATION]]
   db.transactions = 0
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))

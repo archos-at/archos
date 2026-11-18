@@ -1,17 +1,17 @@
 /**
  * @vitest-environment node
  */
-/**
- * One MCP tool call is one Langfuse trace (ADR-0089, ADR-0122). The mapping is
- * pure and checked field by field; the posting is checked at the network, the
- * way the agent door really sends it: through `recordOperationCalled`, the one
- * place every tool call is recorded.
- */
 import { webcrypto } from 'node:crypto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordOperationCalled } from '@/lib/agent-api/telemetry'
 import type { AgentPrincipal } from '@/lib/agent-api/principal'
-import { TOOL_CALL_TRACE_NAME, type ToolCallRecord, recordToolCallTrace, toolCallBatch } from './tool-call-trace'
+import {
+  TOOL_CALL_TRACE_NAME,
+  type ToolCallRecord,
+  deploymentTags,
+  recordToolCallTrace,
+  toolCallBatch,
+} from './tool-call-trace'
 
 const ids = { traceId: 'a'.repeat(32), observationId: 'obs-1', eventIds: ['ev-1', 'ev-2'] as [string, string] }
 
@@ -31,7 +31,6 @@ const call: ToolCallRecord = {
 }
 
 beforeAll(() => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID.
   vi.stubGlobal('crypto', webcrypto)
 })
 
@@ -81,6 +80,24 @@ describe('toolCallBatch', () => {
     vi.stubEnv('APP_ENV', 'Staging EU')
     vi.stubEnv('GIT_SHA', 'abc123')
     expect(toolCallBatch(call, ids).batch[0]).toMatchObject({ body: { environment: 'staging-eu', release: 'abc123' } })
+  })
+
+  it('tags the trace with the deployment’s host, since staging and production share APP_ENV=production', () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.example.test/api/auth/callback')
+    expect(toolCallBatch(call, ids).batch[0]?.body).toMatchObject({
+      tags: expect.arrayContaining(['feature:agent-mcp', 'app_host:app.dev.example.test']),
+    })
+  })
+
+  it('tags the trace with the deployment’s stack beside its host, and with neither when both are unset', () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
+    vi.stubEnv('POSTHOG_DEPLOYMENT', ' prod ')
+    expect(deploymentTags()).toEqual(['app_host:app.example.test', 'deployment:prod'])
+    expect(toolCallBatch(call, ids).batch[0]?.body).toMatchObject({ tags: expect.arrayContaining(['deployment:prod']) })
+
+    vi.stubEnv('POSTHOG_DEPLOYMENT', '  ')
+    expect(deploymentTags()).toEqual(['app_host:app.example.test'])
+    expect(deploymentTags(null, null)).toEqual([])
   })
 })
 

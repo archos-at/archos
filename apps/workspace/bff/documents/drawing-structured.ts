@@ -1,22 +1,3 @@
-/**
- * The structured visual analysis, normalized for display.
- *
- * The backend stores the whole analysis on each visual chunk and hands it back
- * on `/visual-details` as `structured`. It is produced by a vision model
- * against a versioned, domain-neutral schema
- * (`packages/knowledge-layer/src/ingest/visual_analysis.py`) whose
- * vocabulary comes from pluggable domains (`.../visual_domains.py`). This
- * module is the boundary that turns it into something the UI can render
- * WITHOUT knowing any domain: unknown keys are dropped, every field is
- * defaulted, and nothing here throws on a malformed payload.
- *
- * The extensibility rule this file has to honour: adding a domain on the
- * backend must not require a change here. So entities are grouped by whatever
- * category key they carry, and a category this build has never heard of is
- * rendered from its key rather than dropped — a new domain degrades to a
- * readable label instead of disappearing.
- */
-
 export interface StructuredEntity {
   name: string
   category: string
@@ -55,7 +36,6 @@ export interface StructuredRelation {
   object: string
 }
 
-/** Entities of one category, ready to render as a single labelled line. */
 export interface StructuredEntityGroup {
   category: string
   entities: StructuredEntity[]
@@ -91,7 +71,6 @@ export interface StructuredDocument {
 
 export interface DrawingStructured {
   schemaVersion: number
-  /** Vocabulary that produced this, as `domains@contentHash`. */
   registry: string
   segment: StructuredSegment
   document: StructuredDocument
@@ -111,12 +90,6 @@ const asText = (value: unknown): string | null => {
   return null
 }
 
-/**
- * A string-only read, for the fields that are vocabulary terms rather than
- * values. `asText` coerces a number because a model legitimately answers
- * `"value": 71` — but a numeric `category` is not a category, and coercing it
- * would put "42" where a term belongs.
- */
 const asTerm = (value: unknown): string | null => (typeof value === 'string' ? asText(value) : null)
 
 const asTextList = (value: unknown): string[] =>
@@ -127,11 +100,6 @@ const asRecordList = (value: unknown): Raw[] =>
     ? value.filter((entry): entry is Raw => typeof entry === 'object' && entry !== null)
     : []
 
-/**
- * `building_physics` → `Building physics`. The readable fallback for a
- * category this build has no label for, which is exactly what a domain added
- * on the backend after this build shipped will produce.
- */
 export function humanizeTerm(key: string): string {
   const spaced = key.replace(/_/g, ' ').trim()
   return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key
@@ -167,8 +135,6 @@ function normalizeSegment(raw: Raw): StructuredSegment {
     compositions: asRecordList(raw.compositions)
       .map((composition) => ({
         component: asText(composition.component) ?? '',
-        // `function` is a reserved word in enough contexts to be worth
-        // renaming once, here, rather than at every use site.
         layers: asRecordList(composition.layers)
           .map((layer) => ({
             material: asText(layer.material) ?? '',
@@ -193,7 +159,6 @@ function normalizeSegment(raw: Raw): StructuredSegment {
         source: asTerm(quantity.source),
         confidence: asTerm(quantity.confidence),
       }))
-      // A number with no object is the "71 %" the schema exists to prevent.
       .filter((quantity) => quantity.object !== '' && quantity.value !== ''),
     relations: asRecordList(raw.relations)
       .map((relation) => ({
@@ -222,12 +187,6 @@ function normalizeDocument(raw: Raw): StructuredDocument {
   }
 }
 
-/**
- * Normalize one chunk's `structured` payload, or `null` when there is nothing
- * worth showing. Chunks written before the structured schema carry no payload
- * at all, so `null` is the ordinary case for an older corpus — the caller
- * shows the free-text description alone.
- */
 export function normalizeDrawingStructured(value: unknown): DrawingStructured | null {
   if (typeof value !== 'object' || value === null) return null
   const raw = value as Raw
@@ -242,12 +201,6 @@ export function normalizeDrawingStructured(value: unknown): DrawingStructured | 
   }
 }
 
-/**
- * Whether a normalized payload carries anything BEYOND what the free-text
- * description already says. The description is rendered from the same fields,
- * so a segment with only a summary would make the advanced section an empty
- * disclosure inviting a pointless click.
- */
 export function hasStructuredDetail(structured: DrawingStructured | null): boolean {
   if (!structured) return false
   const { segment, document } = structured

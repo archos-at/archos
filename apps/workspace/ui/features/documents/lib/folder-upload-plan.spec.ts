@@ -10,7 +10,6 @@ import {
 import type { FileItem, FolderItem } from '../components/project-file-workspace'
 import { SUGGESTED_SCREENING_POLICY } from '@/lib/upload-screening/policy'
 
-/** A `File` carrying the path a folder input would have given it. */
 function pathed(relativePath: string, size = 100): File {
   const name = relativePath.split('/').pop()!
   const file = new File(['x'.repeat(size)], name, { type: 'application/pdf' })
@@ -74,14 +73,11 @@ describe('buildFolderUploadPlan — the folders', () => {
       'Wohnbau/03_Einreichung',
       'Wohnbau/03_Einreichung/Plaene',
     ])
-    // Nothing exists yet, so all three are creations.
     expect(result.counts.foldersCreated).toBe(3)
     expect(result.counts.foldersMatched).toBe(0)
   })
 
   it('matches an existing folder despite case and macOS Unicode form', () => {
-    // What a Mac hands over: a decomposed umlaut. It renders identically to the
-    // folder that is already here and is a different string.
     const decomposed = 'Pläne'
     const result = plan({
       files: [pathed(`Wohnbau/${decomposed}/EG.pdf`)],
@@ -109,8 +105,6 @@ describe('buildFolderUploadPlan — the folders', () => {
       folders: [folder('f1', 'Wohnbau'), folder('f2', 'Wohnbau/Plaene', 'f1')],
       currentFolderId: 'f1',
     })
-    // Without the fold this would be `Wohnbau/Wohnbau/Plaene`, and the next
-    // sync would make a third level.
     expect(result.mergedIntoCurrentFolder).toBe(true)
     expect(result.folders).toEqual([{ path: 'Plaene', existingId: 'f2' }])
     expect(result.files[0].targetPath).toBe('Plaene')
@@ -143,9 +137,6 @@ describe('buildFolderUploadPlan — what happens to each file', () => {
   })
 
   it('matches by filename across the WHOLE project, because the server does', () => {
-    // The document sits in a different folder from the one the tree puts it in.
-    // Matching per folder would promise a second `EG.pdf`, and the unique index
-    // on (organization, collection, filename) would refuse to give one.
     const result = plan({
       files: [pathed('Wohnbau/Plaene/EG.pdf')],
       documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: 'elsewhere' })],
@@ -159,7 +150,7 @@ describe('buildFolderUploadPlan — what happens to each file', () => {
     expect(result.counts.refiled).toBe(1)
   })
 
-  it('leaves a machine-authored row alone — a person is not correcting Piloti', () => {
+  it('leaves a machine-authored row alone — a person is not correcting the agent', () => {
     const result = plan({
       files: [pathed('Wohnbau/Bericht.pdf')],
       documents: [doc({ id: 'd1', filename: 'Bericht.pdf', authoredBy: 'agent' })],
@@ -171,23 +162,12 @@ describe('buildFolderUploadPlan — what happens to each file', () => {
     const result = plan({
       files: [pathed('Wohnbau/A/Deckblatt.pdf'), pathed('Wohnbau/B/Deckblatt.pdf')],
     })
-    // A project holds one document per filename. Uploading both means one
-    // overwriting the other, silently — which is the loss this reports instead.
     expect(result.files.map((f) => f.action)).toEqual(['collision', 'collision'])
     expect(result.counts.uploading).toBe(0)
   })
 })
 
 describe('buildFolderUploadPlan — the names a document answers to', () => {
-  /*
-   * THE DEFECT THIS SUITE EXISTS FOR.
-   *
-   * macOS stores filenames decomposed. A folder matched (that comparison was
-   * already normalized) and then every file inside it came back `new`, so the
-   * one gesture this feature exists to serve — a büro re-syncing an Einreichung
-   * off the office Mac — re-uploaded the entire corpus and, because the server
-   * compared raw too, put a second copy of every document beside the first.
-   */
   it('matches a decomposed name against the composed one already stored', () => {
     const composed = 'Pr\u00fcfbericht.pdf'
     const decomposed = 'Pru\u0308fbericht.pdf'
@@ -227,12 +207,6 @@ describe('buildFolderUploadPlan — the names a document answers to', () => {
     expect(result.files[0].existingName).toBeUndefined()
   })
 
-  /*
-   * A match the SERVER would not make. Uploading it adds a second copy rather
-   * than replacing anything, so calling it an update would be a promise the
-   * upload cannot keep — and calling it new is how a project ends up holding
-   * one document twice.
-   */
   it('reports a file that differs only in case as already here, and does not send it', () => {
     const result = plan({
       files: [pathed('Statik/DECKBLATT.pdf')],
@@ -253,12 +227,6 @@ describe('buildFolderUploadPlan — the names a document answers to', () => {
     expect(result.files[0].existingId).toBe('d1')
   })
 
-  /*
-   * `origin_path` is not an alias. Its last segment is the filename the row
-   * already carries, so it can only match what the identity key matched first
-   * — and a looser key that adds nothing can still hold back a file somebody
-   * meant to upload.
-   */
   it('does not hold back a file that merely shares a name with somebody\'s origin path', () => {
     const result = plan({
       files: [pathed('Statik/EG.pdf')],
@@ -281,12 +249,6 @@ describe('buildFolderUploadPlan — the names a document answers to', () => {
 })
 
 describe('buildFolderUploadPlan — the documents that only have to move', () => {
-  /*
-   * An unchanged document sends no bytes, so nothing about the upload puts it
-   * where the tree says it belongs. Without a move of its own, "the folder
-   * structure is recreated" is false for exactly the files a re-sync is mostly
-   * made of.
-   */
   it('moves an unchanged document that is filed somewhere else', () => {
     const files = [pathed('Statik/EG.pdf')]
     const result = plan({
@@ -303,13 +265,6 @@ describe('buildFolderUploadPlan — the documents that only have to move', () =>
     expect(result.counts.uploading).toBe(0)
   })
 
-  /*
-   * Re-uploading a file whose reading failed, or that was never read, is how a
-   * person retries it, and the server accepts it (`placeUpload`). A plan that
-   * called those bytes "unchanged" made the retry impossible from the upload
-   * dialog. A copy being read or held stays "unchanged": sending it again would
-   * read it twice, or be refused as the replacement of a held file.
-   */
   it.each([
     ['failed', 'update'],
     ['error', 'update'],
@@ -341,12 +296,6 @@ describe('buildFolderUploadPlan — the documents that only have to move', () =>
     expect(result.counts.moving).toBe(0)
   })
 
-  /*
-   * The folder the document is moving INTO may not exist yet, and a folder that
-   * has still to be created cannot already hold it. Reading the unresolved id
-   * as "the project root" is how a re-file into a new folder went uncounted —
-   * and would have sent the document to the root instead of into the folder.
-   */
   it('moves an unchanged document into a folder the tree has still to create', () => {
     const files = [pathed('Neu/EG.pdf')]
     const result = plan({
@@ -389,8 +338,6 @@ describe('buildFolderUploadPlan — the delta', () => {
       ],
     })
 
-    // A different size is already an answer; a row with no digest predates the
-    // column and cannot say. Neither is worth reading a file into memory for.
     expect(result.hashCandidates).toEqual([sameNameSameSize])
   })
 
@@ -424,9 +371,6 @@ describe('buildFolderUploadPlan — the delta', () => {
       documents: [doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA })],
       folders: [],
       currentFolderId: null,
-      // Hashing ran and this file is absent from the answers — `crypto.subtle`
-      // refused it, or it moved since it was picked. "I do not know" must read
-      // as changed: the other way silently drops a corrected plan.
       digests: new Map(),
     })
     expect(result.files[0].action).toBe('update')
@@ -446,11 +390,6 @@ describe('countPlan / filesToUpload', () => {
   })
 })
 
-/**
- * LOOSE FILES take the same plan (U1): a picked or dropped file whose name the
- * shelf already holds is a new version of that document, and whether anybody
- * is asked must not depend on what one browser remembers.
- */
 describe('a loose file against the listing', () => {
   function loose(name: string, size = 100): File {
     const file = new File(['x'.repeat(size)], name, { type: 'application/pdf' })
@@ -512,11 +451,6 @@ describe('a loose file against the listing', () => {
   })
 })
 
-/**
- * The server versions a same-name document whatever its lifecycle, so the
- * name probe returns archived matches too — and the plan has to say which
- * they are, because the new version stays out of the listing with them.
- */
 describe('buildFolderUploadPlan — an archived match', () => {
   it('marks an update of an archived document', () => {
     const result = plan({
@@ -563,11 +497,6 @@ describe('buildFolderUploadPlan — an archived match', () => {
   })
 })
 
-/**
- * ADR-0086: what the office's upload screening names is shown in the plan and
- * never sent — not the file, and not the folder it would have created — unless
- * the reader releases that one file.
- */
 describe('buildFolderUploadPlan — upload screening', () => {
   const screening = { policy: SUGGESTED_SCREENING_POLICY, basePath: null }
 
@@ -585,7 +514,6 @@ describe('buildFolderUploadPlan — upload screening', () => {
   })
 
   it('screens what a ZIP holds by its path inside the archive, as a dropped folder (#850)', async () => {
-    // The archive is unpacked in the browser; nothing of it leaves before the plan.
     const { zipSync, strToU8 } = await import('fflate')
     const bytes = zipSync({
       'Büro/Pläne/EG.pdf': strToU8('plan'),
@@ -644,7 +572,6 @@ describe('buildFolderUploadPlan — upload screening', () => {
   })
 })
 
-/** An answer of the Fassung probe (`name-probe-types.ts`) for one dropped name. */
 function offer(
   name: string,
   candidates: Array<{ id: string; filename: string; label?: string; displayName?: string | null }>,

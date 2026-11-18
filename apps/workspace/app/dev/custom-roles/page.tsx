@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organisation → Personen & Zugriff → Eigene Rollen (ADR-0087).
- * Renders the REAL section with fixtures and no backend.
- *
- * The editor is a User Admin: they may manage roles and hold the Archiv and
- * People permissions, but not AI models or budgets, so the role editor shows
- * those boxes disabled with the reason. „Geschäftsführung" already carries
- * „KI-Modelle verwalten", which stays changeable (taking away grants nothing).
- *
- * A module-scope fetch shim (browser + dev only) serves the roles listing and
- * applies create, edit and delete to an in-memory list, so the round trip can
- * be tried. Deleting „Projektleitung" answers 409 (still assigned).
- *
- * `?dialog=create` and `?dialog=edit` open the editor on load, for captures;
- * `?dialog=delete` opens the deletion confirmation of „Geschäftsführung".
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -129,8 +111,6 @@ export default function CustomRolesDevPage(): JSX.Element {
 function CustomRolesPreview(): JSX.Element {
   const dialog = useSearchParams()?.get('dialog')
 
-  // The editor is internal state of the section, so a capture opens it the
-  // way a person would: by pressing the control, once the list has loaded.
   useEffect(() => {
     if (!dialog) return
     const testId =

@@ -9,7 +9,6 @@ vi.mock('sonner', () => ({ toast: toastMock }))
 
 vi.mock('../hooks/use-inbox', () => ({ useInboxList: vi.fn(), useInboxBadge: vi.fn() }))
 
-/** The address the queue is read at: the Postfach, or the page beside the dock. */
 const page = vi.hoisted(() => ({ pathname: '/app/inbox', search: '' }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -87,7 +86,6 @@ const news = row('news', { type: 'conversation.activity', resourceType: 'convers
 let waiting: UseInboxListResult
 let unread: UseInboxListResult
 
-/** The two reads the queue asks for: `requests` and `unread`. */
 function serve(waitingRows: InboxItemView[], unreadRows: InboxItemView[]): void {
   waiting = hook(waitingRows)
   unread = hook(unreadRows)
@@ -115,16 +113,13 @@ describe('InboxQueue — what waits on the reader, and the news', () => {
     const groups = screen.getAllByTestId('inbox-queue-group')
     expect(groups[0]).toHaveTextContent('Schnitt A-A')
     expect(within(groups[0]).getByTestId('inbox-queue-due')).toHaveTextContent('Overdue')
-    // An unread request is waiting, not news.
     expect(within(screen.getByTestId('inbox-queue-news')).getAllByTestId('inbox-queue-entry')).toHaveLength(1)
-    // What the section holds is said once, in its heading.
     expect(screen.getByTestId('inbox-queue-summary')).toHaveTextContent('Waiting on you21 overdue')
   })
 
   test('says how many wait once: in the heading, not again in a line under it', () => {
     render(<InboxQueue />)
     const section = screen.getByTestId('inbox-queue-waiting')
-    // The heading „Waiting on you“ with its count, and no sentence repeating either.
     expect(within(section).getAllByText(/waiting on you/i)).toHaveLength(1)
     expect(within(section).getAllByText('2')).toHaveLength(1)
   })
@@ -136,7 +131,6 @@ describe('InboxQueue — what waits on the reader, and the news', () => {
     expect(within(section).getAllByText(/waiting on you/i)).toHaveLength(1)
     expect(within(section).getByTestId('inbox-queue-nothing-waiting')).toHaveTextContent('No open requests.')
     expect(screen.getByTestId('inbox-queue-summary')).toHaveTextContent(/^Waiting on you$/)
-    // Not „All caught up“: the news is still unread.
     expect(screen.queryByText('All caught up')).not.toBeInTheDocument()
   })
 
@@ -199,7 +193,6 @@ describe('InboxQueue — every entry is a link to its real place', () => {
     render(<InboxQueue />)
     fireEvent.click(screen.getAllByTestId('inbox-queue-archive')[0])
     expect(toastMock).toHaveBeenCalledWith('Archived', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
-    // Held for the undo window: gone from the list (once it has folded away), the server not told yet.
     await waitFor(() => expect(entries().map((entry) => entry.getAttribute('data-item-id'))).not.toContain('late'))
     expect(waiting.archive).not.toHaveBeenCalled()
   })
@@ -209,12 +202,10 @@ describe('InboxQueue — every entry is a link to its real place', () => {
     const { rerender } = render(<InboxQueue />)
     fireEvent.click(entries()[0])
     expect(unread.markRead).toHaveBeenCalledWith(['news'])
-    // The read lands: the server's unread slice no longer holds it.
     serve([], [])
     rerender(<InboxQueue />)
     expect(entries().map((entry) => entry.getAttribute('data-item-id'))).toEqual(['news'])
     expect(screen.queryByTestId('inbox-queue-done')).not.toBeInTheDocument()
-    // Nothing unread is left to mark.
     expect(screen.queryByTestId('inbox-queue-news-read')).not.toBeInTheDocument()
   })
 
@@ -223,13 +214,11 @@ describe('InboxQueue — every entry is a link to its real place', () => {
     const control = screen.getAllByTestId('inbox-queue-archive')[0]
     control.focus()
     fireEvent.click(control)
-    // The control leaves with its entry; docked, the list's keys follow the focus.
     expect(document.activeElement).toHaveAttribute('data-item-id', 'fresh')
   })
 
   test('every entry keeps room at its end for the archive control, which a finger always sees', () => {
     render(<InboxQueue />)
-    // An entry's own `px-*` once merged the room away and put the text under the button.
     for (const entry of entries()) expect(entry.className.split(' ')).toContain('pr-9')
   })
 })
@@ -252,7 +241,6 @@ describe('InboxQueue — keys', () => {
     expect(waiting.markRead).toHaveBeenCalledWith(['late'])
     fireEvent.keyDown(window, { key: 'e' })
     expect(toastMock).toHaveBeenCalled()
-    // The keyboard stays in the list while the archived row folds away.
     expect(document.activeElement).toHaveAttribute('data-item-id', 'fresh')
   })
 
@@ -271,7 +259,6 @@ describe('InboxQueue — keys', () => {
         <InboxQueue keyScope="self" />
       </aside>,
     )
-    // The dock takes the focus when the reader opens it, or when they click its background.
     screen.getByTestId('dock').focus()
     fireEvent.keyDown(screen.getByTestId('dock'), { key: 'j' })
     expect(entries()[0]).toHaveFocus()

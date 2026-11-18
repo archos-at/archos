@@ -1,10 +1,3 @@
-"""The PostHog destinations under `deploy/posthog/` speak German to the team in
-Slack, but their code is English like the rest of the repo: every word a person
-reads comes from the destination's `copy` input, whose values live in
-`copy.de.json` beside the code. These checks keep German out of the `.hog`
-source and every key the code reads present in the dictionary.
-"""
-
 import json
 import re
 from pathlib import Path

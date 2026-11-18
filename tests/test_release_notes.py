@@ -1,16 +1,3 @@
-"""Tests for the release-note pipeline (`scripts/release_notes.py` and its `release_notes_*` modules).
-
-The pipeline publishes text straight to a public marketing page, so the parts
-worth pinning are the ones whose failure a reviewer cannot see in a diff: the
-lint that decides what may be published, the grouping that decides where a note
-appears, the translation cache that decides what a German reader gets, and the
-drift between reno's section list and the German titles for it.
-
-The git-scanning half (`load_notes_from_reno`) is deliberately not exercised
-here: it is reno's, it needs a repository with history, and everything after it
-works on the plain structures these tests build directly.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -29,7 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load(name: str, relative: str):
-    """Import a top-level script by path."""
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     spec = importlib.util.spec_from_file_location(name, REPO_ROOT / relative)
@@ -40,7 +26,6 @@ def _load(name: str, relative: str):
 
 
 rn = _load("scripts.release_notes", "scripts/release_notes.py")
-# Loading the command line put scripts/ on sys.path; its parts are modules of their own.
 import release_notes_areas as areas  # noqa: E402
 import release_notes_build as build  # noqa: E402
 import release_notes_rules as rules  # noqa: E402
@@ -59,9 +44,6 @@ def lint_entry(text: str) -> list[str]:
     return rules.lint_note("note.yaml", yaml.safe_dump({"features": [text]}), SECTION_KEYS)
 
 
-# ── the published-prose rules ───────────────────────────────────────────────
-
-
 def test_a_plain_sentence_passes():
     assert lint_entry(GOOD) == []
 
@@ -75,7 +57,7 @@ def test_a_plain_sentence_passes():
         ("Re-indexing works again after the fix in ingest_oib.py landed here.", "file name"),
         ("Re-indexing works again after the change to packages/agent/src/agent landed here.", "repository path"),
         ("Re-indexing works again as of commit 4f2a91c in the ingest path.", "commit sha"),
-        ("Re-indexing is fixed, details at https://github.com/GRID-check/grid-oib-agent.", "link"),
+        ("Re-indexing is fixed, details at https://github.com/example-org/example-agent.", "link"),
     ],
 )
 def test_internal_and_markup_references_are_rejected(text, expected):
@@ -107,12 +89,8 @@ def test_untouched_template_text_is_rejected():
 
 
 def test_the_shipped_template_fails_its_own_lint():
-    """`reno new` output is a stub, and a stub must never reach the website."""
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     assert rules.lint_note("new.yaml", config["template"], SECTION_KEYS)
-
-
-# ── the structural rules ────────────────────────────────────────────────────
 
 
 def test_an_unknown_section_is_rejected():
@@ -139,12 +117,12 @@ def test_an_empty_file_is_rejected():
 
 
 def test_german_prose_is_rejected():
-    problems = lint_entry("Piloti zeigt jetzt die Fundstelle mit dem Punkt der Richtlinie an.")
+    problems = lint_entry("Der Agent zeigt jetzt die Fundstelle mit dem Punkt der Richtlinie an.")
     assert any("reads as German" in problem for problem in problems)
 
 
 def test_english_that_quotes_a_german_label_passes():
-    assert lint_entry("The filter „Von Piloti erstellt“ now also finds diagrams in the project.") == []
+    assert lint_entry("The filter „Vom Agenten erstellt“ now also finds diagrams in the project.") == []
 
 
 def test_more_than_two_sentences_are_rejected():
@@ -204,9 +182,6 @@ def test_every_lint_message_names_the_fix():
     assert problems and all("Fix:" in problem for problem in problems)
 
 
-# ── public jargon ───────────────────────────────────────────────────────────
-
-
 @pytest.mark.parametrize(
     ("text", "word"),
     [
@@ -216,7 +191,7 @@ def test_every_lint_message_names_the_fix():
         ("Tokens used by a conversation are now shown beside its title.", "Tokens"),
         ("A feature flag now decides who sees the new export dialog.", "feature flag"),
         ("Answers are cached for a day, so a repeated question returns at once.", "cached"),
-        ("Buckets on S3 can now be connected to Piloti as a source.", "S3"),
+        ("Buckets on S3 can now be connected to the agent as a source.", "S3"),
         ("Die neue Warteschlange verarbeitet Dokumente schneller.", "Warteschlange"),
         ("Der Index wird jetzt bei jeder Änderung aktualisiert.", "Index"),
         ("Das Feature-Flag steuert den neuen Export für jedes Büro.", "Feature-Flag"),
@@ -239,7 +214,7 @@ def test_the_jargon_message_names_the_word_and_gives_the_fix():
     "text",
     [
         "Deleted folders stay in the Papierkorb for thirty days before they are removed.",
-        "Files Piloti cannot read end up in the Quarantäne, where an admin can review them.",
+        "Files the agent cannot read end up in the Quarantäne, where an admin can review them.",
         "The Steckbrief of every project now lists its address and its phase.",
     ],
 )
@@ -291,7 +266,7 @@ def test_the_ui_product_terms_are_not_on_the_list():
         ("Civil works are listed under their own heading.", []),
         ("The S3-Bucket is connected.", ["S3"]),
         ("Each api call is logged.", ["api"]),
-        ("Piloti runs its CI/CD checks on every change.", ["CI"]),
+        ("The agent runs its CI/CD checks on every change.", ["CI"]),
         ("A feature-flag and a flag.", ["feature-flag", "flag"]),
         ("Tokens, tokens and Tokenizer.", ["Tokens"]),
     ],
@@ -317,14 +292,10 @@ def test_a_summary_cannot_be_written_for_a_week_that_has_not_started():
 
 
 def test_the_repos_own_notes_pass():
-    """The notes actually committed here are publishable, not just lintable in theory."""
     problems: list[str] = []
     for path in sorted((REPO_ROOT / "releasenotes" / "notes").glob("*.yaml")):
         problems.extend(rules.lint_note(path.name, path.read_text(encoding="utf-8"), SECTION_KEYS))
     assert not problems, f"{len(problems)} problem(s) in the committed notes:\n" + "\n".join(problems)
-
-
-# ── grouping ────────────────────────────────────────────────────────────────
 
 
 def note(version: str, date: str | None, area: str = "documents", **sections) -> object:
@@ -346,7 +317,6 @@ def test_untagged_notes_group_by_the_week_they_shipped():
     assert [g["id"] for g in groups] == ["2026-W39", "2026-W34"]
     assert groups[0]["kind"] == "week"
     assert (groups[0]["date"], groups[0]["dateEnd"]) == ("2026-09-21", "2026-09-27")
-    # Within a week, the configured section order wins over the note order; each note keeps its area.
     assert groups[0]["notes"] == [
         {"section": "features", "area": "search", "text": "C."},
         {"section": "fixes", "area": "documents", "text": "B."},
@@ -360,7 +330,6 @@ def test_a_week_spanning_two_months_is_one_group():
 
 @pytest.mark.parametrize("section", ["operators", "security", "incident"])
 def test_internal_notes_reach_neither_artifact(section):
-    """Product news, not a bug register: these are kept in the repository and shown to nobody."""
     assert section in SECTION_KEYS
     assert section not in CUSTOMER
     groups = build.group_notes(
@@ -384,7 +353,6 @@ def test_ordinary_fixes_reach_customers():
 
 
 def test_an_edited_note_keeps_the_day_it_first_shipped():
-    """reno dates a note by its latest revision; an edit must not move it to this week."""
     log = "\n".join(
         [
             "@2026-08-19T10:00:00+00:00",
@@ -438,9 +406,6 @@ def test_a_finished_week_without_a_summary_is_reported_due():
     assert build.summaries_due(groups, date(2026, 10, 5)) == ["2026-W40"]
 
 
-# ── product areas ───────────────────────────────────────────────────────────
-
-
 def test_a_notes_own_area_line_wins_over_the_guess():
     raw = "---\n# area: bim\nfeatures:\n  - >\n    Uploads of whole folders now keep their structure.\n"
     assert areas.note_area("folder-upload-1234567890abcdef.yaml", raw, "Uploads of whole folders.") == "bim"
@@ -477,9 +442,6 @@ def test_the_template_offers_every_area():
     assert areas.TEMPLATE_AREA in (areas.area_line(template) or "")
     offered = template.split("# Keep the line above")[0]
     assert all(re.search(rf"\b{re.escape(area)}\b", offered) for area in areas.AREAS)
-
-
-# ── translation ─────────────────────────────────────────────────────────────
 
 
 def test_a_cached_translation_is_reused_without_calling_the_api(monkeypatch):
@@ -521,8 +483,6 @@ def test_require_translations_fails_rather_than_shipping_english(monkeypatch):
 
 
 class FakeResponse:
-    """Stands in for the object urlopen returns."""
-
     def __init__(self, content=" Deutscher Satz. "):
         self.content = content
 
@@ -582,13 +542,6 @@ def test_the_translation_file_round_trips(tmp_path):
 
 
 def test_the_translation_file_stores_no_digests(tmp_path):
-    """A 16-hex-character key in a JSON file reads as a credential to every scanner.
-
-    detect-secrets failed CI on exactly that (Hex High Entropy String) when the
-    cache keyed its entries by digest, and JSON cannot carry the inline
-    `pragma: allowlist secret` that would answer it. The key is derived on load
-    instead, so there is nothing to allowlist.
-    """
     path = tmp_path / "de.json"
     tr.save_translations(path, {tr.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}})
     assert not re.search(r"\b[0-9a-f]{12,}\b", path.read_text(encoding="utf-8"))
@@ -604,9 +557,6 @@ def test_the_committed_translation_file_has_the_same_shape():
 def test_pruning_drops_translations_no_note_uses_any_more():
     cache = {tr.text_key(GOOD): {"en": GOOD, "de": "x"}, "deadbeef": {"en": "gone", "de": "weg"}}
     assert tr.prune_translations(cache, [GOOD]) == {tr.text_key(GOOD): {"en": GOOD, "de": "x"}}
-
-
-# ── the two artifacts ───────────────────────────────────────────────────────
 
 
 def week_groups():
@@ -645,7 +595,6 @@ def test_the_artifacts_are_serialised_deterministically():
 
 
 def test_the_committed_public_artifact_is_summaries_only():
-    """The file the website imports: a summary per listed week, in both languages, and nothing else."""
     data = json.loads(rn.CHANGELOG_FILE.read_text("utf-8"))
     assert data["releases"], "the public changelog lists no week"
     for release in data["releases"]:
@@ -654,7 +603,6 @@ def test_the_committed_public_artifact_is_summaries_only():
 
 
 def test_the_committed_customer_artifact_is_well_formed():
-    """The file the app imports: every note bilingual, in a customer section and a known area."""
     data = json.loads(rn.CUSTOMER_FILE.read_text("utf-8"))
     assert data["sections"] == CUSTOMER
     assert data["areas"] == list(areas.AREAS)
@@ -670,7 +618,6 @@ TRANSLATIONS_JSON = REPO_ROOT / "releasenotes" / "translations" / "de.json"
 
 
 def public_changelog_strings() -> list[str]:
-    """Every English string the public page shows: the summaries."""
     data = json.loads(rn.CHANGELOG_FILE.read_text(encoding="utf-8"))
     return list(dict.fromkeys(release["summary"]["en"] for release in data["releases"]))
 
@@ -690,9 +637,6 @@ def test_the_german_of_a_public_changelog_string_is_not_its_english():
 def test_no_public_changelog_string_reads_as_german():
     german = [text for text in public_changelog_strings() if rules.looks_german(text)]
     assert not german, f"{len(german)} public English string(s) read as German, e.g. {german[:3]}"
-
-
-# ── the PR gate ─────────────────────────────────────────────────────────────
 
 
 def test_a_product_change_needs_a_note():
@@ -725,7 +669,6 @@ def _git(repo: Path, *args: str) -> str:
         "GIT_AUTHOR_EMAIL": "t@t",
         "GIT_COMMITTER_NAME": "t",
         "GIT_COMMITTER_EMAIL": "t@t",
-        # A developer's signing setup must not reach these throwaway commits.
         "GIT_CONFIG_COUNT": "1",
         "GIT_CONFIG_KEY_0": "commit.gpgsign",
         "GIT_CONFIG_VALUE_0": "false",
@@ -736,7 +679,6 @@ def _git(repo: Path, *args: str) -> str:
 
 @pytest.fixture
 def pr_repo(tmp_path, monkeypatch):
-    """A repository with one product file and one old note, on its base commit."""
     _git(tmp_path, "init", "-q", "-b", "develop")
     (tmp_path / "packages/agent/src/agent").mkdir(parents=True)
     (tmp_path / "packages/agent/src/agent/tool.py").write_text("X = 1\n")
@@ -758,7 +700,6 @@ def _pr(repo: Path, files: dict[str, str]) -> int:
 
 
 def test_a_comment_only_edit_to_a_product_file_still_needs_a_note(pr_repo):
-    # The check goes by file; a change nobody can notice takes the label instead.
     assert _pr(pr_repo, {"packages/agent/src/agent/tool.py": "# why X is one\nX = 1\n"}) == 1
 
 
@@ -772,7 +713,6 @@ def test_a_note_the_pr_adds_satisfies_the_gate(pr_repo):
 
 
 def test_a_note_in_an_internal_section_satisfies_the_gate(pr_repo):
-    """The failure message promises it: a security fix needs a note, not a public one."""
     files = {
         "packages/agent/src/agent/tool.py": "X = 2\n",
         "releasenotes/notes/hole-2222.yaml": "security:\n  - Closed.\n",

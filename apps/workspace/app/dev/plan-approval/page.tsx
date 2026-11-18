@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the research-plan decision bubble — the REAL `AgentPrompt`
- * in the states that carry the three-way contract:
- *
- *   1. the live decision: the localized plan scaffolding and the three
- *      actions — Abbrechen, Kurz beantworten, Recherche starten,
- *   2. answered with „Kurz beantworten" — the echo says what the click meant,
- *      never the wire keyword (`shallow`),
- *   3. answered with „Abbrechen" — the cancellation receipt state.
- *
- * Fetch-free: the content strings are byte-for-byte what the clarification
- * step's `format_plan_for_user` writes (`researcher/clarify.py`), and
- * the respond callback resolves locally so
- * the first block is clickable in dev. Not linked from anywhere; 404s outside
- * development.
- *
- * Pinned to German — the product's primary language — so the evidence carries
- * the copy that ships, whatever locale cookie the capture runs with.
- */
-
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 
@@ -40,7 +20,6 @@ const PLAN_BODY =
   '  6. Zusammenfassung\n\n' +
   '---\n'
 
-/** The current backend envelope, byte-stable (`_format_plan_for_user`). */
 const THREE_WAY_CONTENT =
   PLAN_BODY +
   'Reply **approve** to proceed, **shallow** for a quick answer instead, ' +
@@ -62,9 +41,6 @@ export default function PlanApprovalPreviewPage() {
     notFound()
   }
 
-  // The buttons render only while a responder is registered — exactly the
-  // condition the live chat creates. Clicking one settles the first block into
-  // its answered state, so the preview behaves like the real thing.
   const [liveResponse, setLiveResponse] = useState<string | null>(null)
   useEffect(() => {
     useChatStore.setState({ respondToInteractionFn: setLiveResponse })

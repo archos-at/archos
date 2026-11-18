@@ -14,20 +14,16 @@ export interface ProjectOverviewData {
   id: string
   name: string
   collectionName: string
-  /** `active`, `paused` or `closed` (ADR-0098). */
   status: ProjectStatus
-  /** Where it stands in its lifecycle, for the status card and the close dialog. */
   lifecycle: ProjectLifecycleView
   createdAt: string
   profileDisplay: {
     title?: string
     summary?: string
-    /** UI locale the stored `summary` was generated in (drives stale-language regen). */
     summaryLocale?: string
     keyFacts?: Array<{ label: string; value: string }>
     missingInfo?: string[]
   } | null
-  /** Raw structured profile — the brief fact sheet is derived from this at render time. */
   profile: ProjectProfile | null
   documentCount: number
   totalFileSize: number

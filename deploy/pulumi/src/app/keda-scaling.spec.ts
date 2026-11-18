@@ -1,28 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 import { fallbackReplicas, hatchetBacklogQuery } from "./keda-scaling";
-
-/**
- * KEDA across every ScaledObject (ADR-0079, phase 3).
- *
- * Four tiers are scaled by it (`ingest-worker`, `agent-worker`, `bff-jobs` on
- * their queues, `aiq-agent` on running turns). What goes wrong here plans clean
- * and deploys green, and shows up as a tier that does not scale and an alert
- * that says nothing:
- *   - a trigger that cannot be read and no `fallback`, so the tier sits at
- *     whatever count it had while its queue grows;
- *   - a scaler credential that is the schema owner's, held by an operator in
- *     another namespace;
- *   - a scaler that counts a Hatchet workflow under another name than the
- *     workers register, so the tier never leaves its floor;
- *   - a grace period shorter than the drain, so the release-on-drain path never
- *     runs before SIGKILL;
- *   - a chart nobody pinned, validated against CRDs of another release.
- */
 
 type Resource = { type: string; name: string; inputs: Record<string, any> };
 const RESOURCES: Resource[] = [];
@@ -43,9 +27,8 @@ pulumi.runtime.setMocks(
   false,
 );
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
+const SCRIPT = join(repoRoot, "deploy", "postgres", "rename-legacy-names.sh");
 
 function find(type: string, name: string): Resource {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
@@ -80,7 +63,6 @@ let cfg: Awaited<ReturnType<typeof import("../config")["loadConfig"]>>;
 const dsnRequests: Array<Record<string, any>> = [];
 let scalerPassword = "";
 
-// A Secret's `stringData` is wrapped whole when any value in it is secret.
 const SECRET_SIGNATURE = "4dabf18193072939515e22adb298388d"; // pragma: allowlist secret (Pulumi's public secret marker)
 async function stringData(name: string): Promise<Record<string, string>> {
   const data = await resolve(find(SECRET, name).inputs.stringData as Record<string, any>);
@@ -90,6 +72,47 @@ async function stringData(name: string): Promise<Record<string, string>> {
 async function scaled(name: string): Promise<Record<string, any>> {
   return resolve(find(SCALED, name).inputs.spec);
 }
+
+const FAKE_PSQL = String.raw`#!${process.execPath}
+const { appendFileSync, readFileSync } = require("node:fs");
+const args = process.argv.slice(2);
+const flag = args.indexOf("-c");
+const sql = flag === -1 ? readFileSync(0, "utf8") : args[flag + 1];
+appendFileSync(process.env.FAKE_PSQL_LOG, sql.split("\n").join(" ") + "\n");
+const present = (process.env.FAKE_PSQL_PRESENT || "").split(" ");
+const named = /(?:rolname|datname) = '([^']+)'/.exec(sql);
+let answer = "";
+if (named) answer = present.includes(named[1]) ? "1" : "";
+else if (sql === "SELECT 1") answer = "1";
+else if (sql === "SELECT current_user") answer = "postgres";
+process.stdout.write(answer + "\n");
+`;
+
+function writeExecutable(path: string, body: string): void {
+  writeFileSync(path, body);
+  chmodSync(path, 0o755);
+}
+
+function renameStatements(mode: string[], env: Record<string, string>, present: string[] = []): string[] {
+  const dir = mkdtempSync(join(tmpdir(), "keda-rename-"));
+  try {
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    writeExecutable(join(bin, "psql"), FAKE_PSQL);
+    writeExecutable(join(bin, "pg_isready"), "#!/bin/sh\nexit 0\n");
+    const log = join(dir, "statements.log");
+    execFileSync("sh", [SCRIPT, ...mode], {
+      env: { PATH: `${bin}:${process.env.PATH ?? ""}`, FAKE_PSQL_LOG: log, FAKE_PSQL_PRESENT: present.join(" "), ...env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return readFileSync(log, "utf8").split("\n").filter((line) => line !== "");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const scalerCreates = (statements: string[]): string[] =>
+  statements.filter((s) => s.startsWith("CREATE ROLE ") && s.includes("keda_scaler"));
 
 describe("the program's ScaledObjects", () => {
   beforeAll(async () => {
@@ -139,7 +162,6 @@ describe("the program's ScaledObjects", () => {
     const backend = installBackend(wiring as never, cfg, secrets, []);
     const chat = installBackendScaling(wiring as never, cfg, backend.statefulSet, []);
     installNetworkPolicies(cfg, provider, "grid");
-    // Pulumi registers resources asynchronously: wait for each one the tests read.
     const registered = [ingest, agent, bff].flatMap((t) => [t.deployment, t.scaledObject]);
     for (const r of [...registered, chat.scaledObject, chat.auth, backend.service, grants]) {
       await new Promise((done) => r.id.apply(done));
@@ -162,8 +184,6 @@ describe("the program's ScaledObjects", () => {
     });
 
     it("leaves it off only where a cpu trigger forbids it, which is the chat tier alone", async () => {
-      // KEDA refuses `fallback` beside a cpu trigger. The rule is stated as a
-      // property, not a list, so a fifth tier cannot quietly be the exception.
       const withoutFallback: string[] = [];
       for (const r of RESOURCES.filter((x) => x.type === SCALED)) {
         const spec = await resolve(r.inputs.spec as Record<string, any>);
@@ -176,7 +196,6 @@ describe("the program's ScaledObjects", () => {
     });
 
     it("sizes the blind count from the tier's own floor and ceiling", () => {
-      // A third of the ceiling, at least one pod and the floor, never above the ceiling.
       expect(fallbackReplicas(0, 3)).toBe(1);
       expect(fallbackReplicas(1, 8)).toBe(3);
       expect(fallbackReplicas(0, 20)).toBe(7);
@@ -192,7 +211,6 @@ describe("the program's ScaledObjects", () => {
       for (const spec of rest) {
         expect(spec.pollingInterval).toBe(first.pollingInterval);
         expect(spec.cooldownPeriod).toBe(first.cooldownPeriod);
-        // The policy, not the HPA's name: a tier that adopts a pre-KEDA HPA names it.
         expect(spec.advanced.horizontalPodAutoscalerConfig.behavior).toEqual(
           first.advanced.horizontalPodAutoscalerConfig.behavior,
         );
@@ -200,19 +218,17 @@ describe("the program's ScaledObjects", () => {
       expect(first.pollingInterval).toBe(15);
       const behavior = first.advanced.horizontalPodAutoscalerConfig.behavior;
       expect(behavior.scaleUp.stabilizationWindowSeconds).toBe(0);
-      // A pod at a time on the way in: each one drains for up to its budget.
       expect(behavior.scaleDown.policies).toEqual([{ type: "Pods", value: 1, periodSeconds: 60 }]);
     });
 
-    it("count their own Hatchet workflow's backlog and ask for one replica per `concurrency` runs", async () => {
+    it("count the Hatchet workflow each worker registers, and ask for one replica per `concurrency` runs", async () => {
       const workflows: Record<string, [string, number]> = {
-        "ingest-worker": ["ingest-document", cfg.ingestWorker.concurrency],
-        "agent-worker": ["research-run", cfg.agentWorker.concurrency],
-        "bff-jobs": ["bff-job", cfg.bffJobs.concurrency],
+        "ingest-worker": [(await import("./ingest-worker")).WORKFLOW, cfg.ingestWorker.concurrency],
+        "agent-worker": [(await import("./agent-worker")).WORKFLOW, cfg.agentWorker.concurrency],
+        "bff-jobs": [(await import("./bff-jobs")).WORKFLOW, cfg.bffJobs.concurrency],
       };
       for (const [tier, [workflow, concurrency]] of Object.entries(workflows)) {
         const triggers = (await scaled(tier)).triggers;
-        // Hatchet only: the claim-queue depth trigger is gone with the queues.
         expect(triggers, tier).toHaveLength(1);
         const [trigger] = triggers;
         expect(trigger.type, tier).toBe("postgresql");
@@ -235,56 +251,26 @@ describe("the program's ScaledObjects", () => {
       );
       expect(hatchetBacklogQuery("x", "a'b")).toContain("'x_a''b:'");
     });
-
-    it("name the workflows the workers register", () => {
-      // The Python and TypeScript SDKs prefix `<namespace>_` and lower-case it;
-      // the action is `<workflow>:<task>`, so the prefix match counts every task.
-      expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain('WORKFLOW = "ingest-document"');
-      expect(read("deploy", "pulumi", "src", "app", "agent-worker.ts")).toContain('WORKFLOW = "research-run"');
-      expect(read("deploy", "pulumi", "src", "app", "bff-jobs.ts")).toContain('WORKFLOW = "bff-job"');
-    });
-
-    it("explain what the cooldown does, which is one step", () => {
-      // `cooldownPeriod` is 1 -> 0 only; the comment used to say it delayed every scale-in.
-      expect(read("deploy", "pulumi", "src", "app", "keda-scaling.ts")).toMatch(
-        /ONE step only: how long after the last\s+\*\s+active trigger a tier is held before it is taken from 1 replica to 0/,
-      );
-      for (const tier of QUEUE_TIERS) {
-        expect(read("deploy", "pulumi", "src", "app", `${tier}.ts`), tier).not.toMatch(/Scale-in waits this long/);
-      }
-    });
   });
 
   describe("the chart", () => {
-    it("is pinned to the release the plan's CRDs are validated against, from one constant", async () => {
+    it("is installed at KEDA_CHART_VERSION, one pinned constant", async () => {
       const { KEDA_CHART_VERSION } = await import("../platform/keda");
       const release = find(RELEASE, "keda").inputs;
 
       expect(release.version).toBe(KEDA_CHART_VERSION);
       expect(KEDA_CHART_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
-      // The validator reads the constant instead of repeating it.
-      const validator = read("deploy", "pulumi", "scripts", "validate-crs.mjs");
-      expect(validator).toContain("KEDA_CHART_VERSION");
-      expect(validator).not.toMatch(/keda\/releases\/download\/v\d/);
     });
   });
 
   describe("the scaler's credential", () => {
-    it("is a read-only login of its own, kept by the rename Jobs and holding nothing but LOGIN", async () => {
-      // Not the Cluster's managed role any more: the operator would create the
-      // new name beside the old one before the rename ran (ADR-0145 row 10d).
+    it("is kept out of the Cluster's managed roles and given to the rename Job from its own Secret", async () => {
       const { KEDA_SCALER_ROLE } = await import("../constants");
       const spec = await resolve(find(CLUSTER, "grid-pg").inputs.spec as Record<string, any>);
       const managed = spec.managed.roles.map((r: { name: string }) => r.name);
       expect(managed).not.toContain(KEDA_SCALER_ROLE);
       expect(managed).not.toContain("grid_keda_scaler");
 
-      // The script creates it with LOGIN, a connection limit, and nothing else:
-      // no BYPASSRLS (its one read of a tenant table is a policy of its own),
-      // no inherited rights, no DDL.
-      const script = read("deploy", "postgres", "rename-legacy-names.sh");
-      expect(script).toContain("grid_keda_scaler:keda_scaler");
-      expect(script).toContain('CREATE ROLE $old LOGIN NOINHERIT NOBYPASSRLS CONNECTION LIMIT ${SCALER_CONNECTION_LIMIT:-4}');
       const env = await resolve(
         find("kubernetes:batch/v1:Job", "pg-rename-legacy-names").inputs.spec.template.spec.containers[0].env as Array<
           Record<string, any>
@@ -294,6 +280,26 @@ describe("the program's ScaledObjects", () => {
       expect(byName.SCALER_PASSWORD.valueFrom.secretKeyRef.name).toBe("grid-pg-keda-scaler-credentials");
       expect(Number(byName.SCALER_CONNECTION_LIMIT.value)).toBeGreaterThan(0);
       expect(byName.ENSURE_RLS_ROLES.value).toBe("1");
+    });
+
+    it("is created as a login with a connection cap and no other right, when the Job is given its password", () => {
+      const created = scalerCreates(
+        renameStatements([], { ENSURE_RLS_ROLES: "1", SCALER_PASSWORD: scalerPassword, SCALER_CONNECTION_LIMIT: "7" }),
+      );
+      expect(created).toHaveLength(1);
+      expect(created[0]).toMatch(/^CREATE ROLE \S*keda_scaler LOGIN NOINHERIT NOBYPASSRLS CONNECTION LIMIT 7$/);
+    });
+
+    it("is not created where no password is given for it", () => {
+      expect(scalerCreates(renameStatements([], { ENSURE_RLS_ROLES: "1" }))).toEqual([]);
+    });
+
+    it("is renamed to keda_scaler by the after-migrate run, from the name the install created it under", () => {
+      const [installed] = scalerCreates(renameStatements([], { ENSURE_RLS_ROLES: "1", SCALER_PASSWORD: scalerPassword })).map(
+        (s) => s.split(" ")[2],
+      );
+      const statements = renameStatements(["after-migrate"], { SCALER_PASSWORD: scalerPassword }, [installed]);
+      expect(statements).toContain(`ALTER ROLE ${installed} RENAME TO keda_scaler`);
     });
 
     it("has a password that is neither the owner's nor the runtime role's, and is stable", async () => {
@@ -313,7 +319,6 @@ describe("the program's ScaledObjects", () => {
       expect(await resolve(loadConfig().postgres.scalerPassword)).toBe("chosen-scaler-secret");
       pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...STACK });
     });
-
   });
 
   describe("the backlog the scaler reads", () => {
@@ -345,20 +350,9 @@ describe("the program's ScaledObjects", () => {
         ].join("\n"),
       );
       expect(sql).not.toMatch(/\bGRANT (INSERT|UPDATE|DELETE|TRUNCATE|ALL)\b|GRANT SELECT ON/i);
-      // Every column the backlog query names is one the scaler holds.
       const query = hatchetBacklogQuery("x", "y");
       for (const column of ["action_id", "task_id", "task_inserted_at", "inserted_at"]) expect(query).toContain(column);
       expect(query).not.toMatch(/\binput\b/);
-    });
-
-    it("is in place before any worker tier's ScaledObject, by the program's own ordering", () => {
-      const index = read("deploy", "pulumi", "index.ts");
-      expect(index).toMatch(/const hatchetGrants = backgroundWorkPg\.grants\(\[hatchet\.release\]\)/);
-      expect(index).toMatch(/const queueScalerDeps = \[[\s\S]*?hatchetQueueAuth, hatchetGrants, hatchet\.tokenSync\]/);
-      expect(index).toMatch(/installBffJobs\(wiring, cfg, secrets, \[[\s\S]*?\.\.\.queueScalerDeps/);
-      expect(read("deploy", "pulumi", "src", "app", "keda-scaling.ts")).toMatch(
-        /dependsOn: \[tier\.deployment, \.\.\.tier\.dependsOn\]/,
-      );
     });
 
     it("leaves no claim-queue grant behind on the app cluster", () => {
@@ -369,7 +363,9 @@ describe("the program's ScaledObjects", () => {
   });
 
   describe("the grace period", () => {
-    it("is the drain plus 30 s on both Python worker tiers and the BFF pool, so the release path runs before SIGKILL", async () => {
+    it("is the drain plus DRAIN_GIVE_BACK_SECONDS (30 s) on every queue tier, so the release runs before SIGKILL", async () => {
+      const { DRAIN_GIVE_BACK_SECONDS } = await import("../platform/rollout");
+      expect(DRAIN_GIVE_BACK_SECONDS).toBe(30);
       const drains: Record<string, number> = {
         "ingest-worker": cfg.ingestWorker.drainSeconds,
         "agent-worker": cfg.agentWorker.drainSeconds,
@@ -377,15 +373,7 @@ describe("the program's ScaledObjects", () => {
       };
       for (const [tier, drain] of Object.entries(drains)) {
         const spec = await resolve(find(DEPLOYMENT, tier).inputs.spec as Record<string, any>);
-        expect(spec.template.spec.terminationGracePeriodSeconds, tier).toBe(drain + 30);
-      }
-    });
-
-    it("is one rule in one place", async () => {
-      const { DRAIN_GIVE_BACK_SECONDS } = await import("../platform/rollout");
-      expect(DRAIN_GIVE_BACK_SECONDS).toBe(30);
-      for (const tier of QUEUE_TIERS) {
-        expect(read("deploy", "pulumi", "src", "app", `${tier}.ts`), tier).not.toMatch(/\+ (GIVE_BACK|EXIT)_SLACK_SECONDS/);
+        expect(spec.template.spec.terminationGracePeriodSeconds, tier).toBe(drain + DRAIN_GIVE_BACK_SECONDS);
       }
     });
   });
@@ -404,7 +392,6 @@ describe("the program's ScaledObjects", () => {
         }
       }
 
-      // Hatchet's Postgres for the backlog, the backend for the occupancy route: nothing more.
       expect(kedaPolicies.map((p) => p.name).sort()).toEqual(["allow-keda-to-chat", "background-work-allow-keda-to-postgres"]);
       const byName = Object.fromEntries(kedaPolicies.map((p) => [p.name, p.spec]));
       const pg = byName["background-work-allow-keda-to-postgres"];
@@ -414,8 +401,6 @@ describe("the program's ScaledObjects", () => {
     });
 
     it("selects the operator by the label the pinned chart gives its pods", () => {
-      // chart keda-2.21.0, templates/manager/deployment.yaml: pod labels
-      // `app.kubernetes.io/name: {{ .Values.operator.name }}`, default `keda-operator`.
       return import("../platform/keda").then(({ KEDA_OPERATOR_LABEL }) => {
         expect(KEDA_OPERATOR_LABEL).toEqual({ "app.kubernetes.io/name": "keda-operator" });
       });

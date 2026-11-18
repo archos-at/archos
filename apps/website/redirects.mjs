@@ -29,7 +29,6 @@
 const FIRMS = { de: '/ki-fuer-architekturbueros/', en: '/en/ai-for-architecture-firms/' }
 const BUILDING_LAW = { de: '/baurecht/', en: '/en/building-law/' }
 const HOME = { de: '/', en: '/en/' }
-// The changelog: product data rendered by src/views/ChangelogView.astro.
 const CHANGELOG = { de: '/changelog/', en: '/en/changelog/' }
 /** Fate: nothing relevant here any more. */
 const GONE = 'gone'
@@ -41,7 +40,6 @@ const GONE = 'gone'
 const PAGES = [
   { de: '/neu', en: '/en/whats-new', to: CHANGELOG },
   { de: '/warum-piloti', en: '/en/why-piloti', to: FIRMS },
-  // A value calculator built on assumed, unmeasured numbers (Belegpflicht): no successor.
   { de: '/rechenweg', en: '/en/calculation', to: GONE },
   { de: '/llms-full.txt', en: null, to: { de: '/llms.txt', en: '/llms.txt' } },
 ]
@@ -55,7 +53,6 @@ const SECTIONS = [
     de: 'vergleich',
     en: 'comparisons',
     hub: FIRMS,
-    // Comparisons named other products; the brand names none (P3). The distinction lives on the firms page.
     slugs: {
       chatgpt: FIRMS,
       'microsoft-copilot': FIRMS,
@@ -82,7 +79,6 @@ const SECTIONS = [
       waermeschutz: BUILDING_LAW,
       barrierefreiheit: BUILDING_LAW,
       aufenthaltsraum: BUILDING_LAW,
-      // Project knowledge has no page of its own yet (wave 2); home carries "Das Wissen Ihres Büros".
       'pruefbericht-aktenvermerk': HOME,
       bueroarchiv: HOME,
     },
@@ -94,7 +90,6 @@ const SECTIONS = [
     slugs: {
       architekturbueros: FIRMS,
       'ziviltechniker-ingenieurbueros': FIRMS,
-      // Not an audience of the product (Markenbasis antonym: no platform for the whole construction trade).
       'baumeister-bautraeger': GONE,
     },
   },
@@ -102,7 +97,6 @@ const SECTIONS = [
     de: 'baurecht',
     en: 'building-law',
     hub: null,
-    // One page per Austrian state went stale with every edition; the building law page states the scope.
     slugs: Object.fromEntries(
       ['wien', 'niederoesterreich', 'oberoesterreich', 'steiermark', 'kaernten', 'salzburg', 'tirol', 'vorarlberg', 'burgenland'].map(
         (slug) => [slug, BUILDING_LAW],
@@ -210,7 +204,6 @@ function aliasRows() {
       rows.set(`/de${path}`, to)
     }
   }
-  // Served pages under their old aliases: the page itself, one hop.
   const served = [
     ['/de', '/'],
     ['/de/impressum', '/impressum/'],
@@ -234,7 +227,6 @@ export const PENDING_TARGETS = new Set()
 
 /** Astro's `redirects`: every 301 row, plus the login pages. Status 301 (Astro's default is 308). */
 export const redirects = {
-  // The old login pages forward to AuthKit's sign-in, which lists the enabled methods itself.
   '/login': { status: 301, destination: '/sign-in' },
   '/en/login': { status: 301, destination: '/sign-in' },
   ...Object.fromEntries(

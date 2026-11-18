@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * How long the download log keeps its entries, in the organization settings
- * (ADR-0088). Whole days from 30 to 365: 365 is the default and the ceiling, so
- * an organization can only shorten it. The server holds the same bounds; this
- * form only spares a round trip for a number it would refuse.
- */
-
 import { type FC, useState } from 'react'
 import { toast } from 'sonner'
 

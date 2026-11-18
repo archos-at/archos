@@ -1,10 +1,3 @@
-"""The range-reading file libpff opens a staged archive through.
-
-The object store is an ``httpx.MockTransport`` serving ranges of an in-memory
-blob, so these pin what is requested (aligned blocks, once each while cached)
-and what a read returns across block boundaries.
-"""
-
 from __future__ import annotations
 
 import io

@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The door's resources and prompts through the real SDK, for an outside agent
- * and for Piloti's own client.
- */
 import { webcrypto } from 'node:crypto'
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -19,7 +15,7 @@ import { CATALOG_URI, DOOR_PROMPTS, GLOSSARY_URI, GUIDE_URI, PROJECT_URI_TEMPLAT
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -29,7 +25,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const inProduct: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 
 beforeAll(() => {
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
@@ -38,7 +34,7 @@ beforeAll(() => {
 async function rpc(principal: AgentPrincipal, method: string, params: Record<string, unknown> = {}) {
   const handler = createMcpHandler(() => buildMcpServer(principal, 'search'), { responseMode: 'json' })
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -108,10 +104,10 @@ describe('the door docs', () => {
   })
 })
 
-describe('Piloti’s own client', () => {
+describe('the in-product agent’s own client', () => {
   it('gets neither resources nor prompts: it reads neither, and the guide names its native tools', async () => {
-    expect((await rpc(piloti, 'resources/list')).error).toBeDefined()
-    expect((await rpc(piloti, 'prompts/list')).error).toBeDefined()
+    expect((await rpc(inProduct, 'resources/list')).error).toBeDefined()
+    expect((await rpc(inProduct, 'prompts/list')).error).toBeDefined()
   })
 })
 
@@ -159,8 +155,8 @@ describe('completions and the project resource, through the real SDK', () => {
     const templates = (await rpc(outside, 'resources/templates/list')).result?.resourceTemplates as { uriTemplate: string }[]
     expect(templates.map((t) => t.uriTemplate)).toContain(PROJECT_URI_TEMPLATE)
     const listed = (await rpc(outside, 'resources/list')).result?.resources as { uri: string; name: string }[]
-    expect(listed).toContainEqual(expect.objectContaining({ uri: 'piloti://project/p-1', name: 'Haus Josef' }))
-    const { result } = await rpc(outside, 'resources/read', { uri: 'piloti://project/p-1' })
+    expect(listed).toContainEqual(expect.objectContaining({ uri: 'workspace://project/p-1', name: 'Haus Josef' }))
+    const { result } = await rpc(outside, 'resources/read', { uri: 'workspace://project/p-1' })
     expect(JSON.parse((result?.contents as { text: string }[])[0].text)).toEqual({ project: { id: 'p-1' }, counts: { documents: 1 } })
     expect(read).toHaveBeenCalledWith(expect.anything(), 'project-overview-get', { params: { id: 'p-1' } })
     read.mockRestore()

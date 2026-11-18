@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the project's mail address (ADR-0137): the settings card
- * (`InboundMailAddressCard`, Settings › Dokumente) and the dialog the upload
- * menu's „Per E-Mail senden …“ opens (`InboundMailAddressDialog`, with
- * `&dialog=1`), over the fixture address client:
- *
- * `?variant=manager|member|off|off-member|unavailable|long-address|loading|error|refusals|own-dkim-missing`
- *
- * The manager's buttons work against the fixture (replace, switch off,
- * create). `&locale=en`, `&chrome=0` as on `/dev/inbound-mail`. Not linked
- * from anywhere; the `/dev` layout 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { use, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'

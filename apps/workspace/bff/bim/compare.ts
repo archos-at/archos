@@ -1,39 +1,9 @@
-/**
- * Revision comparison — what changed between two versions of the same building.
- *
- * ## Why this exists, and why only a model can do it
- *
- * An architect's real question at every submission is not "what is in the
- * model" but "what changed since the version the authority already has". Two
- * PDFs cannot answer it: a plan set redrawn from a changed model looks
- * different everywhere and identical where it matters. Two IFC files can,
- * because IFC gives every element a **GlobalId** that survives export — the
- * same wall in v1 and v3 carries the same id, so "added / removed / changed" is
- * a set operation rather than a visual diff.
- *
- * That makes this the one thing in the product that is strictly impossible on
- * documents, and the reason the extractor treats GlobalId as the element's
- * identity everywhere rather than as one attribute among many.
- *
- * ## What counts as a change
- *
- * Only facts an answer could be built on: which storey an element sits in, what
- * it is called, what type it is, and the property and quantity VALUES.
- * Express ids are excluded deliberately — they are re-assigned on every export,
- * so comparing them would report every element in the building as changed.
- *
- * Pure: a function of two element lists.
- */
-
 import type { BimElement } from './types'
 
-/** One field that differs between the two revisions of one element. */
 export interface BimFieldChange {
-  /** `storey`, `name`, `Pset_WallCommon.FireRating`, `Qto_….NetSideArea`. */
   field: string
   before: string | number | boolean | null
   after: string | number | boolean | null
-  /** Signed difference, for numeric fields only. */
   delta: number | null
 }
 
@@ -56,28 +26,12 @@ export interface BimComparison {
   added: BimElementRef[]
   removed: BimElementRef[]
   changed: BimChangedElement[]
-  /** Elements present in both revisions with no compared field different. */
   unchangedCount: number
-  /**
-   * How many elements each bucket actually holds, before the row cap.
-   *
-   * The lists are capped at {@link MAX_COMPARISON_ROWS} so a revision that
-   * rebuilt the whole model does not ship 40 000 rows to a drawer. The COUNTS
-   * are not capped, and must not be read off the lists: a revision that added
-   * three thousand elements rendered "Neu 500", which is not a number that
-   * exists anywhere in either file.
-   */
   counts: { added: number; removed: number; changed: number }
   totals: { base: number; revision: number }
-  /**
-   * Set when either side was capped: the comparison then covers the elements
-   * that were indexed, and a missing element may be a cap rather than a
-   * deletion. Nothing downstream may present a truncated diff as complete.
-   */
   truncated: boolean
 }
 
-/** How many elements each bucket reports before it stops listing them. */
 export const MAX_COMPARISON_ROWS = 500
 
 function ref(element: BimElement): BimElementRef {
@@ -89,7 +43,6 @@ function ref(element: BimElement): BimElementRef {
   }
 }
 
-/** Flatten property + quantity sets into one comparable `set.name` map. */
 function flatten(element: BimElement): Map<string, string | number | boolean | null> {
   const flat = new Map<string, string | number | boolean | null>()
   for (const [setName, properties] of Object.entries(element.properties)) {
@@ -106,12 +59,9 @@ function numericDelta(
   after: string | number | boolean | null
 ): number | null {
   if (typeof before !== 'number' || typeof after !== 'number') return null
-  // Rounded like every other measure in this subsystem, so a float artefact
-  // does not render as a change of 0.0000000001.
   return Math.round((after - before) * 10_000) / 10_000
 }
 
-/** Identity fields worth reporting, in the order a reader scans them. */
 const IDENTITY_FIELDS: Array<{ field: string; read: (element: BimElement) => string | null }> = [
   { field: 'ifcType', read: (element) => element.ifcType },
   { field: 'name', read: (element) => element.name },
@@ -132,9 +82,6 @@ function diffElement(before: BimElement, after: BimElement): BimFieldChange[] {
 
   const beforeFlat = flatten(before)
   const afterFlat = flatten(after)
-  // Union of both key sets: a property that DISAPPEARED between revisions is as
-  // much a change as one whose value moved, and reporting only the survivors
-  // would hide a wall that lost its fire rating.
   const keys = new Set([...beforeFlat.keys(), ...afterFlat.keys()])
   for (const key of [...keys].sort()) {
     const from = beforeFlat.has(key) ? (beforeFlat.get(key) ?? null) : null
@@ -146,13 +93,6 @@ function diffElement(before: BimElement, after: BimElement): BimFieldChange[] {
   return changes
 }
 
-/**
- * Compare two revisions of a model, matched by IFC GlobalId.
- *
- * `base` is the older revision and `revision` the newer one, so "added" means
- * present in the newer file. Getting that order wrong inverts every finding, so
- * callers name the arguments rather than positioning them by convention.
- */
 export function compareModels(input: {
   base: readonly BimElement[]
   revision: readonly BimElement[]
@@ -193,8 +133,6 @@ export function compareModels(input: {
     counts: { added: added.length, removed: removed.length, changed: changed.length },
     added: added.sort(byType).slice(0, MAX_COMPARISON_ROWS),
     removed: removed.sort(byType).slice(0, MAX_COMPARISON_ROWS),
-    // Most-changed first: an element with six differing properties is the one
-    // worth reading about, and a list sorted by name buries it.
     changed: changed
       .sort((a, b) => b.changes.length - a.changes.length)
       .slice(0, MAX_COMPARISON_ROWS),
@@ -204,17 +142,8 @@ export function compareModels(input: {
   }
 }
 
-/** One-line German summary the agent can quote without recomputing anything. */
 export function renderComparison(comparison: BimComparison): string {
-  // The COUNTS, never the list lengths. The lists are capped at
-  // `MAX_COMPARISON_ROWS`, so quoting `added.length` had the agent answering
-  // "500 neu" for any revision that added more than that — a number from the
-  // row cap, presented as a fact about the building.
   const { counts, unchangedCount } = comparison
-  // The truncation note is appended to EVERY outcome, including "no
-  // differences". A clean comparison over a partially indexed model is the most
-  // dangerous sentence this function can produce — it reads as "nothing
-  // changed" when it means "nothing changed in the part we looked at".
   const truncated = comparison.truncated
     ? ' Achtung: mindestens ein Stand ist gekürzt indiziert, der Vergleich kann unvollständig sein.'
     : ''

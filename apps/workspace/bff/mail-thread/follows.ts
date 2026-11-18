@@ -1,34 +1,4 @@
 import 'server-only'
-/**
- * „Verlauf folgen“: a person's standing decision about one E-Mail-Verlauf
- * (ADR-0137, DECISION D31). While it runs, a later reply's TEXT is appended to
- * the thread as that person, by the follow job and only when every one of
- * D31's nine conditions holds (`lib/inbound-mail/follow-job.ts`); attachments
- * always wait for a person. This module is the decision itself:
- *
- * - **Following** (`mail-thread-follow`) is the person's own act, so the
- *   operation is `control`-sensitive: The agent never sees it, an outside agent
- *   only under the office's opt-in and the step-up scope. Who may: whoever may
- *   file mail into the project (the `inbound-mail` entitlement,
- *   `project:documents:write`, an open project) and read and write the thread
- *   document's folder, the rights an append is filed with. Calling it again
- *   renews the running follow; a follow runs at most 180 days from its start
- *   (the migration's window), after which the person follows again.
- * - **Ending** (`mail-thread-unfollow`) is the follower's, or anyone's who
- *   manages the project (`project:manage`, an org admin through the usual
- *   bypass). It is possible in a closed project and needs only `project:view`:
- *   a person who lost the right to file can still stop a standing decision of
- *   theirs. Ending what is not running changes nothing.
- * - **The system ends a follow** when the follow job finds the follower's
- *   access gone or the thread's document gone ({@link endFollowBySystem}).
- *   Expiry is sweep 12's; an address change and a detach end the follows they
- *   affect in their own transactions; closing the project ends every follow
- *   on it ({@link endFollowsOnProjectClose}).
- *
- * Every start, renewal and end is a line in the audit trail
- * (`mail_thread.follow_started`, `mail_thread.follow_ended`) and a PostHog
- * `mail_thread_followed` event with ids and codes only.
- */
 
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { captureServer } from '@/lib/analytics/posthog-server'
@@ -59,7 +29,6 @@ import { findWritableThread } from './write-repository'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** A follow as the routes answer it. */
 export function followView(follow: MailThreadFollowRow): MailThreadFollowView {
   return {
     id: follow.id,
@@ -73,10 +42,6 @@ export function followView(follow: MailThreadFollowRow): MailThreadFollowView {
 
 const notFound = () => new NotFoundError('Mail thread not found')
 
-/**
- * Follow the thread, or renew the follow the caller runs on it, for `days`
- * (default 60). See the module header for who may.
- */
 export async function followMailThread(
   session: AuthorizedSession,
   projectId: string,
@@ -88,7 +53,6 @@ export async function followMailThread(
   if (!(await findVisibleThread(projectId, threadId, hidden))) throw notFound()
   const thread = await findWritableThread(projectId, threadId, memberReader(session.userId))
   if (!thread) throw notFound()
-  // The rights every append is filed with: write in an open project, and in the document's folder.
   await requireFolderWrite(session, projectId, [thread.document.folderId])
 
   const days = body.days ?? MAIL_THREAD_FOLLOW_DEFAULT_DAYS
@@ -101,7 +65,6 @@ export async function followMailThread(
   return { follow: followView(follow), renewed }
 }
 
-/** The running follow renewed, or a new one: a follow that ran out but was not swept yet is ended first. */
 async function startOrRenew(
   session: AuthorizedSession,
   projectId: string,
@@ -109,13 +72,11 @@ async function startOrRenew(
   until: Date,
   now: Date,
 ): Promise<{ follow: MailThreadFollowRow; renewed: boolean }> {
-  // Twice at most: a follow another request started between the read and the insert is renewed.
   for (let attempt = 0; attempt < 2; attempt++) {
     const running = await findRunningFollow(threadId, session.userId)
     if (running && new Date(running.expiresAt).getTime() > now.getTime()) {
       const follow = await renewFollow(running.id, until, now)
       if (!follow) continue
-      // Renewed: a renewal asked for on day 55 is answered (sweep 12 asks again before the new end).
       await settleFollowExpiring(session.organizationId, [follow.id])
       return { follow, renewed: true }
     }
@@ -133,10 +94,6 @@ async function startOrRenew(
   throw new Error(`could not start or renew the follow of mail thread ${threadId}`)
 }
 
-/**
- * End the caller's follow of the thread, or, for `project:manage`, someone
- * else's (`userId`). See the module header for who may.
- */
 export async function unfollowMailThread(
   session: AuthorizedSession,
   projectId: string,
@@ -153,8 +110,6 @@ export async function unfollowMailThread(
 
   const running = await findRunningFollow(threadId, followerId)
   if (!running || running.projectId !== projectId) {
-    // Nothing to end. Answered only for a thread the caller may read, so the
-    // answer tells nobody that a thread they may not see exists.
     if (!(await findVisibleThread(projectId, threadId, await getHiddenFolderIds(session, projectId)))) throw notFound()
     return { endedFollowId: null }
   }
@@ -169,12 +124,6 @@ export async function unfollowMailThread(
   return { endedFollowId: ended.id }
 }
 
-/**
- * End a follow because the system noticed (the follow job: the follower's
- * access or the thread's document is gone; a renewal: it ran out; sweep 12:
- * it ran out, its document is gone, or its project was closed and the close
- * did not end it). Whether this call ended it.
- */
 export async function endFollowBySystem(
   follow: Pick<MailThreadFollowRow, 'id'>,
   reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed'>,
@@ -188,23 +137,10 @@ export async function endFollowBySystem(
   return true
 }
 
-/**
- * Closing a project ends every running follow on it (`project_closed`, the
- * coordinator's decision of 2026-10-27): a follow is a standing decision to
- * file replies, and it ends with the work. Mail that still arrives waits in
- * the closed project for a person, as it always did (D10); only the standing
- * decision goes. Ended as the person who closed it, each with its audit line,
- * its PostHog end and its renewal request settled. Reopening the project
- * starts no follow again: following is the follower's own act.
- *
- * Called after the close committed; the caller treats a failure as a log
- * line, and sweep 12 ends what this missed (`findEndingFollows`).
- */
 export async function endFollowsOnProjectClose(session: AuthorizedSession, projectId: string, at: Date = new Date()): Promise<number> {
   const ended = await endProjectFollows(getDb(), projectId, { endedBy: session.userId, reason: 'project_closed' }, at)
   if (ended.length === 0) return 0
   auditFollowsEnded(session.organizationId, projectId, session.userId, ended, 'project_closed')
-  // One end per follow, as every other end is counted.
   ended.forEach(() =>
     captureServer({
       event: 'mail_thread_followed',
@@ -258,7 +194,6 @@ function recordFollowEnded(
   })
   captureServer({
     event: 'mail_thread_followed',
-    // A system end is personless: nobody acted.
     distinctId: follow.endedBy,
     organizationId,
     properties: { action: 'end', reason },

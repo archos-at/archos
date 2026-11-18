@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * RevisionCompareCard — two Fassungen of a document side by side, the changes
- * boxed on each (ADR-0128, slice V10).
- *
- * System-emitted when Piloti compared two Fassungen through the workspace door
- * (`agent/tools/workspace/cards.py`, from the result of
- * `document-revision-compare`). The card is an ADDRESS: the two documents' ids,
- * the page, the boxes. Each side is the whole page drawn from that document's
- * own routes (`PageRegionThumbnail`), so only a reader who may open both sees
- * the pages. The boxes were found on the newer page and are drawn at the same
- * place on the older one: the compare view reads a pair the same way. Pressing a
- * side opens that Fassung at the page with every box on it.
- */
-
 import type { FC } from 'react'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -32,33 +18,24 @@ type RevisionCompareData = Extract<AnswerCard, { type: 'revision_compare' }>
 interface RevisionCompareCardProps {
   olderId: RevisionCompareData['older_id']
   newerId: RevisionCompareData['newer_id']
-  /** The Fassungen's file names, when the comparison named them; a side without one is labelled by its role. */
   olderName?: RevisionCompareData['older_name']
   newerName?: RevisionCompareData['newer_name']
   page: RevisionCompareData['page']
   changes: RevisionCompareData['changes']
   summary: RevisionCompareData['summary']
-  /** For a dev preview: draw the thumbnails at once, not when on screen. */
   eager?: boolean
 }
 
-/** The tallest a page is drawn, in CSS pixels: two pages in a card stay thumbnails. */
 const THUMBNAIL_MAX_HEIGHT = 260
 
-/**
- * The compare view's mark gold (`MARK_INK`), so a change reads the same on the
- * card as in the compare view. Piloti's paper ink vanished on a black stair core.
- */
 const MARK_COLOR = rgbCss(MARK_INK)
 
-/** The boxes as the viewer's regions: `[x, y, w, h]` to `[x0, y0, x1, y1]`. */
 export const changeRegions = (changes: RevisionCompareData['changes']): PageRegion[] =>
   (changes ?? []).flatMap(({ region }) => {
     const [x, y, w, h] = region
     return [{ box: [x, y, Math.min(1, x + w), Math.min(1, y + h)] as PageRegion['box'] }]
   })
 
-/** One Fassung's page as a place; `name` is the file name when the comparison carried it, else the side's own word. */
 export const sidePlace = (id: string, name: string, page: number): PagePlace => ({
   document: { id, name, shelf: 'stored' },
   page,

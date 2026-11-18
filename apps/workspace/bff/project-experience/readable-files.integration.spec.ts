@@ -62,7 +62,6 @@ describe.skipIf(!url)('the files the closing extraction may read, against live P
   let keys = 0
   const storageKey = () => `k/${STAMP}/${(keys += 1)}`
 
-  /** An upload the ingest read to the end and the screen let through. */
   async function document(
     organizationId: string,
     owner: string,
@@ -89,10 +88,8 @@ describe.skipIf(!url)('the files the closing extraction may read, against live P
     )
   }
 
-  /** A folder with its own access list (one role, not every member): it restricts reading. */
   async function restrictedFolder(name: string): Promise<string> {
     return idOf(
-      // Its own list; who is on it is WorkOS's (ADR-0097).
       await inserted(sql`
         insert into project_folders (organization_id, project_id, name, path, access_mode, access_changed_by, access_changed_at)
         values (${ORG}, ${projectId}::uuid, ${name}, ${name}, 'custom', ${USER}, now())
@@ -107,7 +104,7 @@ describe.skipIf(!url)('the files the closing extraction may read, against live P
     inOrg(organizationId, () => readable.extractableFileNames(organizationId, owner, collection))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -118,16 +115,13 @@ describe.skipIf(!url)('the files the closing extraction may read, against live P
 
     await document(ORG, projectId, 'Baubeschreibung.pdf')
     await fileTo(await document(ORG, projectId, 'Bescheid.pdf'), await folder(`Behoerde_${STAMP}`))
-    // Moved into a folder with its own list; placement has not re-pointed its collection yet.
     await fileTo(await document(ORG, projectId, 'Honorare.pdf'), await restrictedFolder(`Vertraulich_${STAMP}`))
-    // Held by the upload screen, and one still being read, whose verdict is to come.
     await document(ORG, projectId, 'Gesperrt.pdf', { status: 'quarantined', outcome: 'quarantined' })
     await document(ORG, projectId, 'Ungeprueft.pdf', { status: 'processing', outcome: null })
     await change(sql`update documents set lifecycle = 'archived' where id = ${await document(ORG, projectId, 'Archiviert.pdf')}::uuid`)
     const bin = await folder(`Papierkorb_${STAMP}`)
     await fileTo(await document(ORG, projectId, 'Weggeworfen.pdf'), bin)
     await change(sql`update project_folders set deleted_at = now(), bin_root_id = id where id = ${bin}::uuid`)
-    // A restricted folder's own collection, and another organization's document of the same collection name.
     await document(ORG, projectId, 'Eigene_Sammlung.pdf', { collection: `${collection}_r0123456789ab` })
     await document(OTHER_ORG, foreignProjectId, 'Fremd.pdf')
   })

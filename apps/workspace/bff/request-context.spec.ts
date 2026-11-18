@@ -5,6 +5,7 @@
 import fixtureData from '../tests/fixtures/request_context.json'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { callsTo, parseSourceText, ts } from '@/test-utils/source-ast'
 import { buildRequestContextEnvelopeHeaders as commonJsEnvelopeHeaders, turnContextHeaders } from './turns/turn-headers.js'
 
 import {
@@ -24,14 +25,6 @@ import {
   type RequestContextInput,
 } from './request-context'
 
-/**
- * Cross-language contract fixture (backlog T3-9): the canonical wire values
- * this builder must produce. Lives at `apps/workspace/tests/fixtures/`, inside
- * the frontend's typecheck/test Docker build context
- * (`apps/workspace/Dockerfile.typecheck`). The Python side
- * (`packages/agent/tests/test_project_context.py`) parses the same file in the
- * opposite direction.
- */
 interface RequestContextFixtureCase {
   name: string
   comment?: string
@@ -54,9 +47,6 @@ interface RequestContextFixture {
   envelopeCases: RequestContextEnvelopeFixtureCase[]
 }
 
-// Import the fixture directly (vite/resolveJsonModule) rather than reading it
-// via fileURLToPath(import.meta.url) — under vitest that URL is not always a
-// file: scheme, which crashed this whole suite at import time.
 const fixture: RequestContextFixture = fixtureData as RequestContextFixture
 
 describe('buildRequestContextHeaders — cross-language contract fixture', () => {
@@ -120,20 +110,6 @@ describe('buildRequestContextHeaders — omission rules', () => {
   })
 })
 
-/**
- * `X-Org-Instructions` — the organization's standing instruction block.
- *
- * What replaced forcing a skill onto a turn. The composer no longer sends a
- * `skills` array and the platform no longer has a `standard` delivery tier; a
- * standing preference is a property of the ORGANIZATION, so it rides the
- * context headers with the rest of them, encoded exactly as
- * `X-Project-Context` is.
- *
- * Three things are asserted, and each answers a question the backend has to be
- * able to answer from the wire alone: is it there, is it absent when there is
- * nothing to say, and does an over-length block reach the wire (it must not,
- * and the wire is not where that is decided).
- */
 describe('X-Org-Instructions', () => {
   const BLOCK = 'Zuerst das Ergebnis, dann die Begründung.\nWien annehmen, wenn nichts genannt ist.'
 
@@ -141,8 +117,6 @@ describe('X-Org-Instructions', () => {
     const headers = buildRequestContextHeaders({ orgInstructions: BLOCK })
     const encoded = headers[REQUEST_CONTEXT_HEADER_NAMES.ORG_INSTRUCTIONS]
     expect(encoded).toBe(encodeTextHeader(BLOCK))
-    // Node rejects `\n` in a header value (ERR_INVALID_CHAR) and the throw
-    // would kill the WS upgrade, not drop a field.
     expect(encoded).not.toContain('\n')
     expect(Buffer.from(encoded, 'base64url').toString('utf8')).toBe(BLOCK)
   })
@@ -154,9 +128,6 @@ describe('X-Org-Instructions', () => {
   })
 
   it('is OMITTED when the organization has written none — absent, never empty', () => {
-    // "No header" is the one signal that says "this organization has nothing
-    // standing". An empty-string header would read as an instruction that says
-    // nothing, which is a different thing to render into a prompt.
     for (const input of [{}, { orgInstructions: null }, { orgInstructions: '' }]) {
       const headers = buildRequestContextHeaders(input)
       expect(headers[REQUEST_CONTEXT_HEADER_NAMES.ORG_INSTRUCTIONS]).toBeUndefined()
@@ -165,10 +136,6 @@ describe('X-Org-Instructions', () => {
   })
 
   it('does NOT cap the text here — the cap is enforced where the block is written', () => {
-    // 1500 characters, in the write boundary, the SQL CHECK and the backend.
-    // Re-capping on the wire would give the bound a fourth definition, and a
-    // bound with four definitions is a bound that can disagree with itself —
-    // silently, by truncating an instruction mid-sentence on the way out.
     const tooLong = 'a'.repeat(2000)
     const encoded = buildRequestContextHeaders({ orgInstructions: tooLong })[
       REQUEST_CONTEXT_HEADER_NAMES.ORG_INSTRUCTIONS
@@ -177,9 +144,6 @@ describe('X-Org-Instructions', () => {
   })
 
   it('rides the signed envelope too, LAST in key order so older payloads stay byte-identical', () => {
-    // Every field added since `memoryReflectionEnabled` is appended last for
-    // this reason: the fixture's precomputed header/signature values keep
-    // exact-matching on both sides of the language boundary.
     const payload = buildRequestContextEnvelopePayload({
       organizationId: 'org_1',
       issuedAt: 1,
@@ -331,10 +295,6 @@ describe('buildRequestContextWireHeaders', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Verifying an envelope (ADR-0054)
-// ---------------------------------------------------------------------------
-
 describe('verifyRequestContextEnvelope', () => {
   const SECRET = 'verify-spec-secret' // pragma: allowlist secret
   const NOW = 1789430400000
@@ -398,7 +358,6 @@ describe('verifyRequestContextEnvelope', () => {
 
   it('refuses a replay once the window has passed, in both directions', () => {
     const { header, signature } = valid()
-    // `issuedAt` is INSIDE the signed bytes, so a caller cannot refresh it.
     expect(
       verifyRequestContextEnvelope(header, signature, SECRET, NOW + REQUEST_CONTEXT_MAX_AGE_MS + 1),
     ).toBeNull()
@@ -415,9 +374,6 @@ describe('verifyRequestContextEnvelope', () => {
   })
 
   it('refuses an envelope with no issuedAt — fail-closed, unlike the Python reader', () => {
-    // The Python side has accepted envelopes without one since before the field
-    // existed and would break every in-flight turn if it stopped. A BFF WRITE
-    // route has no such history and no reason to allow an unbounded replay.
     const { header, signature } = mint({ organizationId: 'org_1', userId: 'user_1' })
     expect(verifyRequestContextEnvelope(header, signature, SECRET, NOW)).toBeNull()
   })
@@ -439,88 +395,110 @@ describe('verifyRequestContextEnvelope', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// The producer this repo cannot type-check: server.js (ADR-0054)
-// ---------------------------------------------------------------------------
+const decodeEnvelope = (headers: Record<string, string>): Record<string, unknown> =>
+  JSON.parse(Buffer.from(headers['x-request-context'], 'base64url').toString('utf8'))
 
-/**
- * `server.js` is plain CommonJS and duplicates `buildRequestContextEnvelopePayload`
- * with a pinning comment, because it cannot import this module. The fixture pins
- * the two builders' OUTPUT; nothing pinned their SOURCE, and the file's own
- * comment says so ("it cannot catch drift in this file's source automatically
- * since server.js has no test harness in this repo").
- *
- * That gap stopped being theoretical when the envelope became a credential: the
- * WS upgrade is the only producer a chat turn has, so a field it forgets is a
- * field the agent's document route never sees — and the failure is a refusal
- * with no diagnostic on the other side of a language boundary.
- *
- * So this reads the file. It compares the FIELD NAMES and their ORDER, which is
- * what the signature depends on (the payload is signed as `JSON.stringify`d
- * bytes, so key order is part of the contract). It deliberately does not try to
- * evaluate the duplicated function: what drifts is the list, not the arithmetic.
- */
-describe('server.js mints the same envelope payload this module does', () => {
-  // The builder server.js uses lives in `turns/turn-headers.js` (CommonJS, so
-  // server.js can require it and the wake job can import it).
-  const source = readFileSync(new URL('./turns/turn-headers.js', import.meta.url), 'utf8')
-  const server = readFileSync(new URL('../server.js', import.meta.url), 'utf8')
-
-  /** The `payload.<field>` assignments of the duplicated builder, in file order. */
-  const serverFields = (): string[] => {
-    const start = source.indexOf('function buildRequestContextEnvelopeHeaders(input, secret)')
-    expect(start, 'turn-headers.js no longer has the duplicated builder this spec pins').toBeGreaterThan(-1)
-    const body = source.slice(start, source.indexOf('const json = JSON.stringify(payload)', start))
-    return [...body.matchAll(/payload\.([A-Za-z]+)\s*=/g)].map((match) => match[1])
+function dottedName(node: ts.Node | undefined): string | undefined {
+  if (!node) return undefined
+  if (ts.isIdentifier(node)) return node.text
+  if (ts.isPropertyAccessExpression(node)) {
+    const owner = dottedName(node.expression)
+    return owner === undefined ? undefined : `${owner}.${node.name.text}`
   }
+  return undefined
+}
 
-  /** Every field this module's builder can emit, in the order it emits them. */
-  const canonicalFields = (): string[] =>
-    Object.keys(
-      buildRequestContextEnvelopePayload({
-        organizationId: 'org_1',
-        userId: 'user_1',
-        projectId: 'proj_1',
-        collectionScope: ['oib_knowledge'],
-        projectContext: 'context',
-        projectMemory: 'memory',
-        modelOverrides: { shallow_research: 'm' },
-        budget: { remainingOrgUsd: 1, remainingUserUsd: 1, remainingProjectUsd: 1 },
-        disabledSources: ['web_search'],
-        memoryReflectionEnabled: true,
-        federalState: 'vienna',
-        conversationId: 's_conv_1',
-        issuedAt: 1789430400000,
-        orgInstructions: 'Zuerst das Ergebnis.',
-      }),
-    )
+function propertyNames(node: ts.Node | undefined): string[] {
+  if (!node || !ts.isObjectLiteralExpression(node)) return []
+  return node.properties.flatMap((property) => (property.name && ts.isIdentifier(property.name) ? [property.name.text] : []))
+}
 
-  it('carries every field, in the same key order — the signature is over the bytes', () => {
-    expect(serverFields()).toEqual([...canonicalFields(), 'contextTransport', 'requester'])
+describe('turn-headers.js mints the envelope the gateway sends', () => {
+  const NOW = 1789430400000
+  const SECRET = 'turn-headers-spec-secret' // pragma: allowlist secret
+
+  it('mints the canonical bytes for every field, in the canonical key order', () => {
+    const input: RequestContextInput = {
+      organizationId: 'org_1',
+      userId: 'user_1',
+      projectId: 'proj_1',
+      collectionScope: ['oib_knowledge'],
+      projectContext: 'context',
+      projectMemory: 'memory',
+      modelOverrides: { shallow_research: 'm' },
+      budget: { remainingOrgUsd: 1, remainingUserUsd: 1, remainingProjectUsd: 1 },
+      disabledSources: ['web_search'],
+      memoryReflectionEnabled: true,
+      federalState: 'vienna',
+      conversationId: 's_conv_1',
+      issuedAt: NOW,
+      orgInstructions: 'Zuerst das Ergebnis.',
+    }
+    const canonical = buildRequestContextEnvelope(input, SECRET)
+    const minted = commonJsEnvelopeHeaders(input, SECRET)
+    expect(minted).toEqual({
+      'x-request-context': canonical.header,
+      'x-request-context-sig': canonical.signature,
+    })
+    expect(Object.keys(decodeEnvelope(minted))).toEqual([
+      'organizationId',
+      'userId',
+      'projectId',
+      'collectionScope',
+      'projectContext',
+      'projectMemory',
+      'modelOverrides',
+      'budget',
+      'disabledSources',
+      'memoryReflectionEnabled',
+      'federalState',
+      'conversationId',
+      'issuedAt',
+      'orgInstructions',
+    ])
   })
 
-  it('signs the conversation and the mint time, which is what makes it a credential', () => {
-    // Named on their own so the failure says WHICH property was lost: without
-    // `conversationId` the document route cannot tell which chat asked, and
-    // without `issuedAt` `verifyRequestContextEnvelope` refuses every
-    // envelope the WS upgrade mints.
-    expect(serverFields()).toContain('conversationId')
-    expect(serverFields()).toContain('issuedAt')
+  it('mints the bff transport without the prompt blocks, and names the requester last', () => {
+    const input: RequestContextInput = {
+      organizationId: 'org_1',
+      userId: 'user_1',
+      projectContext: 'context',
+      projectMemory: 'memory',
+      orgInstructions: 'Zuerst das Ergebnis.',
+      conversationId: 's_conv_1',
+      issuedAt: NOW,
+      contextTransport: 'bff',
+      requester: { name: 'Ada Lovelace', email: null, organizationName: 'Büro Nord' },
+    }
+    const canonical = buildRequestContextEnvelope(input, SECRET)
+    const minted = commonJsEnvelopeHeaders(input, SECRET)
+    expect(minted).toEqual({
+      'x-request-context': canonical.header,
+      'x-request-context-sig': canonical.signature,
+    })
+    const payload = decodeEnvelope(minted)
+    expect(Object.keys(payload)).toEqual(['organizationId', 'userId', 'conversationId', 'issuedAt', 'contextTransport', 'requester'])
+    expect(payload.requester).toEqual({ name: 'Ada Lovelace', email: null, organizationName: 'Büro Nord' })
   })
 
-  it('passes the conversation the scope route authorized, never the raw query param', () => {
-    // `conversationId` reaches the envelope from `result.data`, which is
-    // `/api/auth/websocket-scope`'s own render after `authorizeConversationScope`.
-    // Signing `parsedUrl.query.conversationId` instead would put a caller-chosen
-    // value inside a signature a write route trusts.
-    expect(server).toContain('turnContextHeaders(result.data, {')
-    expect(source).toContain('conversationId: data.conversationId')
+  it('writes the conversation the BFF authorized into the envelope, with the bff transport', () => {
     const headers = turnContextHeaders(
       { header: 'scope', organizationId: 'org_1', userId: 'user_1', conversationId: 's_conv_1' },
-      { issuedAt: 1789430400000, secret: 'fixture-secret' },
+      { issuedAt: NOW, secret: SECRET },
     )
-    const payload = JSON.parse(Buffer.from(headers['x-request-context'], 'base64url').toString('utf8'))
-    expect(payload).toMatchObject({ conversationId: 's_conv_1', issuedAt: 1789430400000, contextTransport: 'bff' })
+    expect(decodeEnvelope(headers)).toMatchObject({ conversationId: 's_conv_1', issuedAt: NOW, contextTransport: 'bff' })
+  })
+
+  it('signs the conversation and the mint time, so a signature from another conversation or mint does not verify', () => {
+    const mint = (conversationId: string, issuedAt: number) =>
+      turnContextHeaders({ header: 'scope', organizationId: 'org_1', userId: 'user_1', conversationId }, { issuedAt, secret: SECRET })
+    const headers = mint('s_conv_1', NOW)
+    expect(
+      verifyRequestContextEnvelope(headers['x-request-context'], headers['x-request-context-sig'], SECRET, NOW),
+    ).toMatchObject({ conversationId: 's_conv_1', issuedAt: NOW })
+    for (const other of [mint('s_conv_2', NOW), mint('s_conv_1', NOW + 1)]) {
+      expect(verifyRequestContextEnvelope(headers['x-request-context'], other['x-request-context-sig'], SECRET, NOW)).toBeNull()
+    }
   })
 
   it('matches the signed bytes for compact capsules and every legacy fixture', () => {
@@ -555,5 +533,14 @@ describe('server.js mints the same envelope payload this module does', () => {
       expect(wire).not.toHaveProperty(name)
     }
     expect(Buffer.byteLength(canonical.header)).toBeLessThan(1000)
+  })
+})
+
+describe('server.js hands the gateway the scope route data', () => {
+  it('calls turnContextHeaders once, with the scope route result and the mint time, never a query parameter', () => {
+    const server = parseSourceText(readFileSync(new URL('../server.js', import.meta.url), 'utf8'), 'server.js')
+    const calls = callsTo(server, 'turnContextHeaders')
+    expect(calls.map((call) => dottedName(call.arguments[0]))).toEqual(['result.data'])
+    expect(calls.map((call) => propertyNames(call.arguments[1]))).toEqual([['issuedAt', 'secret']])
   })
 })

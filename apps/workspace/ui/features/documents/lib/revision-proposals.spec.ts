@@ -4,7 +4,6 @@ import type { RevisionTarget, PlannedFile } from './folder-upload-plan'
 
 const target = (id: string): RevisionTarget => ({ id, filename: `${id}.pdf`, name: `${id}.pdf`, label: '' })
 
-/** A planned file in `targetPath`, with a proposal, or without one when `proposal` is null. */
 function planned(
   name: string,
   targetPath: string,
@@ -96,7 +95,6 @@ describe('groupRevisionProposals', () => {
       planned('a.pdf', '', { unambiguous: true, chosen: true }),
       planned('b.pdf', '', { unambiguous: true, chosen: false }),
       planned('c.pdf', '', { unambiguous: true, chosen: true }),
-      // A ticked unclear file is not under the master box.
       planned('d.pdf', '', { unambiguous: false, chosen: true }),
     ]
 
@@ -139,7 +137,6 @@ describe('countNewRevisions', () => {
     ]
 
     expect(countNewRevisions(files, true)).toBe(2)
-    // Unticked updates are skipped, so they come in as nothing at all.
     expect(countNewRevisions(files, false)).toBe(1)
   })
 })

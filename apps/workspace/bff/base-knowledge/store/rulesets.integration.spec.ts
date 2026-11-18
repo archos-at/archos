@@ -31,7 +31,6 @@ const OTHER_ORG = `${ORG}_other`
 const E32_ORG = `${ORG}_e32`
 const CONTEXT = { createdBy: 'user_rs', provenance: { proposedBy: 'person' as const } }
 
-/** Synthetic: the Bezirksamt of a synthetic Berlin city district (design E32). */
 const BERLIN: RulesetValuesInput = {
   purpose: 'competence',
   territoryIds: ['DE-BE'],
@@ -70,7 +69,6 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
       territoryIds: ['DE-BE', 'DE'],
     })
 
-  /** A raw body row for `recordId`'s first revision: to prove what the SQL refuses on its own. */
   async function rawBody(organizationId: string, columns: string) {
     const recordId = `ruleset_${randomUUID()}`
     const revisionId = randomUUID()
@@ -92,7 +90,6 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     )
   }
 
-  /** The constraint a refused statement names: drizzle wraps the driver's error as `cause`. */
   const refusedBy = (write: Promise<unknown>) =>
     write.then(
       () => null,
@@ -101,7 +98,7 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -129,7 +126,6 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
   })
 
   it('decides E32 from the stored ruleset: Berlin-Mitte gives Bezirksamt Mitte', async () => {
-    // Its own office: no other test's Berlin ruleset can make this one ambiguous.
     await store.insertOfficeRuleset(E32_ORG, BERLIN, { ...CONTEXT, inForce: true })
     const read = await competence(E32_ORG)
     expect(read).toMatchObject({ unreadable: [], truncated: false })
@@ -145,8 +141,6 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
   })
 
   it('an office reads a platform ruleset once it is released and the office is entitled, never before', async () => {
-    // Since 0205 (ADR-0165) a platform row exists only in a change request, its head moves
-    // only with a stable release, and an office reads it only for a country it is entitled to.
     const recordId = `ruleset_${randomUUID()}`
     const revisionId = randomUUID()
     const requestId = randomUUID()
@@ -172,14 +166,12 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec platform release', () =>
       db.transaction(async (tx) => {
-        // Through the lifecycle the status trigger holds (migration 0218), never straight to approved.
         await approveSeededRequest(tx, requestId, [revisionId], 'reviewer')
         await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)
         await tx.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`)
       })
     )
-    // Released, but the office is not entitled to Germany: still nothing.
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec entitlement', () =>
       db.execute(sql`INSERT INTO organization_countries (organization_id, country_id, entitled_by, decision_source) VALUES (${ORG}, 'DE', 'platform', 'app')`)
@@ -264,7 +256,6 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
         )
       )
     ).toBe('knowledge_ruleset_revisions_table_purpose')
-    // Positive control: a well-formed deferral is accepted.
     await expect(
       rawBody(ORG, `purpose, inherits|'reference_date', 'parent'`)
     ).resolves.toBeUndefined()
@@ -290,7 +281,6 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect(await refusedBy(rawBody(ORG, `purpose, payload_schema, payload|'fact_sources', 'fact_sources.v2', '{}'::jsonb`))).toBe(
       'knowledge_ruleset_revisions_schema_known'
     )
-    // Positive control: each schema under its own purpose.
     await expect(rawBody(ORG, `purpose, payload_schema, payload|'fact_definitions', 'fact_definitions.v1', '{}'::jsonb`)).resolves.toBeUndefined()
   })
 

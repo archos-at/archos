@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the Aufträge drawer, which is now the run block and the two
- * doors out of it.
- *
- * What the shot is evidence of is the DECISION: clicking a row in Aufträge
- * opens the account of the work rather than a second description of the row.
- * The drawer used to restate the card it was opened from — kind chip, status
- * chip, the goal, the review reason, the error — which made the bigger surface
- * say less about the run than the row that opened it. Now the body IS
- * `RunBlock`, off the run's own ledger, opened rather than folded, with the
- * result, the way into the thread and „als stehende Aufgabe speichern"
- * beneath it.
- *
- * Two variants, because the drawer is an overlay and only one can be on screen:
- *
- *   - default — a finished research run that filed a report. The block is the
- *     subject; judge whether it sits in a sheet as well as it sits in a thread,
- *     and whether two outline buttons under one primary read as a ladder rather
- *     than as three equal choices.
- *   - `?state=legacy` — a run from before run messages existed. It has no
- *     ledger, so the drawer falls back to exactly the paragraphs it always
- *     showed. Judge that this reads as „this is all there is" and not as a
- *     surface that failed to load.
- *
- * The run read is shimmed: `GET /api/projects/p1/runs/task-1` answers with the
- * `/dev/run-block` fixture, so both previews render the same ledger the block's
- * own preview does. Pinned to German. 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
@@ -81,7 +52,6 @@ const BASE: TaskRunView = {
   runSummary: { status: 'done', rounds: 3, docs: 9 },
 }
 
-/** The same task as it arrived before run messages existed: no run to read. */
 const LEGACY: TaskRunView = {
   ...BASE,
   runMessageId: null,

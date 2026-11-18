@@ -1,39 +1,5 @@
 'use client'
 
-/**
- * The `/` picker — the panel that opens above the composer when a message
- * starts with a slash.
- *
- * Deliberately the same component shape, keyboard contract and visual language
- * as `MentionPicker`: the composer owns the popover and stays focused, this
- * renders the panel, and `↑ ↓ ↵ ⇥ esc` are forwarded in through
- * `SlashCommandPickerHandle`. Two composer affordances that behaved differently
- * would be two things to learn for one idea ("type a character, pick from a
- * list"), so the differences are only the ones that carry meaning.
- *
- * ## What a row shows, and why exactly that
- *
- * Each row is a skill's `name` and its `description` — which is precisely the
- * progressive-disclosure level-1 metadata the agent itself is given at the start
- * of every turn, and nothing more. The instructions (level 2) are not fetched
- * here and are not shown here; they enter the conversation only when the agent
- * reads the skill's `SKILL.md` during the turn. Keeping the menu and the agent's catalogue
- * literally the same text is the point: a description that does not say WHEN the
- * skill applies is equally useless to the person scanning this list and to the
- * model deciding whether to load it, so the menu is honest feedback on how well
- * a skill was written.
- *
- * ## What a row does NOT show
- *
- * There is no per-row icon and no origin badge. Every skill would carry the
- * same glyph, so it distinguished nothing and only pushed the two things that
- * DO distinguish rows — the name and the description — into a narrower column.
- * Provenance (built-in vs. authored here) is a fact about managing a skill, not
- * about invoking one; it belongs in the toolbox, where it is actionable, and
- * carrying it here cost a badge on the line a reader scans first. What is left
- * is the token to type and the sentence that says when to type it.
- */
-
 import type { JSX } from 'react'
 import {
   forwardRef,
@@ -61,29 +27,23 @@ import { skillsCopy } from '@/i18n/namespaces/skills'
 import { cn } from '@/lib/utils'
 import { filterSlashCommands } from '../lib/slash-command'
 
-/** One invocable skill — level-1 metadata only (see the module note). */
 export interface SlashCommandSkill {
   name: string
   description: string
   origin: 'org' | 'platform-clone' | 'platform'
 }
 
-/** What the composer needs to drive the picker from the textarea. */
 export interface SlashCommandPickerHandle {
-  /** Move the selection by `delta`, wrapping around at both ends. */
   move: (delta: number) => void
-  /** Insert the selected skill. False when there is nothing to insert. */
   selectActive: () => boolean
 }
 
-/** The ids the composer's textarea points at while the picker is open. */
 export interface SlashCommandPickerAria {
   listboxId: string | null
   activeOptionId: string | null
 }
 
 export interface SlashCommandPickerProps {
-  /** The fragment after `/`; drives filtering and the no-results copy. */
   query: string
   skills: readonly SlashCommandSkill[]
   loading?: boolean
@@ -94,21 +54,9 @@ export interface SlashCommandPickerProps {
 
 const optionValue = (skill: SlashCommandSkill): string => `skill:${skill.name}`
 
-/**
- * The option's DOM id, which the textarea's `aria-activedescendant` points at.
- * Ours rather than cmdk's, for the reason given in `MentionPicker`.
- */
 export const slashOptionDomId = (skill: SlashCommandSkill): string =>
   `slash-option-${skill.name.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
 
-/**
- * The matched fragment, emphasised inside the name. Weight, not colour — the
- * row is already tinted when selected.
- *
- * No diacritic folding here (unlike the mention picker, which searches human
- * names): a skill name is `a-z0-9-` by specification, so there is nothing to
- * fold and an offset in the lowercased string maps back one-to-one.
- */
 function HighlightedName({ name, query }: { name: string; query: string }): JSX.Element {
   const needle = query.trim().toLowerCase()
   const at = needle ? name.toLowerCase().indexOf(needle) : -1
@@ -137,8 +85,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
     const [activeIndex, setActiveIndex] = useState(0)
     const rootRef = useRef<HTMLDivElement>(null)
 
-    // Reset to the top when the result SET changes, never merely on re-render —
-    // the latter would fight the user's arrow keys.
     const visibleKey = visible.map((skill) => skill.name).join('|')
     useEffect(() => {
       setActiveIndex(0)
@@ -165,8 +111,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
       [active, onSelect, visible.length],
     )
 
-    // Hover moves the selection, so mouse and keyboard never disagree about
-    // which row `↵` would insert.
     const handleValueChange = useCallback(
       (value: string) => {
         const index = visible.findIndex((skill) => optionValue(skill) === value)
@@ -175,11 +119,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
       [visible],
     )
 
-    // Keep the highlighted row on screen: the panel is bounded and the list
-    // scrolls, so arrowing past the last visible row must bring it into view or
-    // `↵` inserts something the user cannot see. `nearest` leaves an
-    // already-visible row exactly where it is; layout effect so the scroll lands
-    // in the same frame as the highlight.
     useLayoutEffect(() => {
       if (!active) return
       rootRef.current
@@ -237,10 +176,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
         ref={rootRef}
         data-testid="slash-command-picker"
         className={cn(
-          // 360px, not the mention picker's 320: these rows are taller (a name
-        // line plus two description lines), and at 320 the fourth row was cut
-        // through the middle of its own sentence. The fade softened it but the
-        // slice still read as a rendering fault rather than as "scroll for more".
         'bg-popover text-popover-foreground flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl shadow-lg',
           'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
@@ -259,8 +194,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
             className="scroll-fade-bottom max-h-none min-h-0 flex-1 p-1.5"
           >
             {loading ? (
-              // Skeletons shaped like the real rows, never a spinner: the panel
-              // keeps its height and does not jump when the list arrives.
               <div className="flex flex-col gap-1" aria-busy="true">
                 <span className="sr-only">{t('composer.picker.loading')}</span>
                 {[0, 1, 2].map((row) => (
@@ -296,8 +229,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
 
         {/* Outside the scroll region, so the hint stays put while the list moves. */}
         <div
-          // Arrow keys, Return and Escape do not exist on a phone: the row is
-          // permanent noise there, so it is a fine-pointer hint only.
           className="flex shrink-0 items-center gap-2 border-t bg-muted px-3 py-2 pointer-coarse:hidden"
           aria-label={t('composer.picker.keyboardHint')}
         >

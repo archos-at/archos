@@ -23,10 +23,6 @@ const url = process.env.TEST_DATABASE_URL
 const ORG = `org_listpage_${Date.now()}`
 const USER = 'user_listpage'
 
-/**
- * Timestamps with two exact ties and three rows inside ONE millisecond: a
- * cursor truncated to milliseconds would re-serve or drop some of them.
- */
 const CREATED_AT = [
   '2026-03-01 10:00:00.000900+00',
   '2026-03-01 10:00:00.000500+00',
@@ -63,7 +59,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
     }
   }
 
-  /** The order the listing promises, as Postgres itself computes it. */
   async function expectedIds(scope: 'project' | 'office_shelf'): Promise<string[]> {
     const rows = await inTenant(async () =>
       Array.from(
@@ -77,7 +72,7 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     db = (await import('@/lib/db')).getDb()
@@ -139,11 +134,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
     expect(page.nextCursor).toBeNull()
   })
 
-  /**
-   * The rescan job's walk over the failed set: oldest first, a keyset instead
-   * of an exclusion list, so rows that STAY failed cannot starve the rows behind
-   * them and the job's whole position is one cursor it keeps in its payload.
-   */
   it('walks the failed documents once each, oldest first, ignoring the ones that were read', async () => {
     const statuses = ['failed', 'failed', 'uploaded', 'failed', 'completed', 'failed', 'failed']
     await inTenant(async () => {
@@ -187,9 +177,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
     expect(rows.map((row) => row.filename)).toEqual([oldest])
   })
 
-  // The upload planner's probe answers with the rows the upload would version:
-  // archived ones too, a name in the other Unicode form, a rename or a case
-  // variant as recognition — and never a machine-authored namesake.
   it('probes names the way the upload matches them', async () => {
     const decomposed = 'Übersicht.pdf'.normalize('NFD')
     await inTenant(async () => {
@@ -203,8 +190,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
         VALUES
           (${ORG}, ${USER}, ${decomposed}, 'k/nfd', 'coll_listpage', 'completed', 'project', ${projectId}::uuid)
       `)
-      // A machine-authored namesake: it coexists with the person's file and
-      // must never be offered to the planner as the document to replace.
       await db.execute(sql`
         INSERT INTO documents
           (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
@@ -231,15 +216,8 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
     expect(byName['plan-0.pdf'].authoredBy).toBe('user')
   })
 
-  /**
-   * A folder LEVEL, page by page (ADR-0102). Each order is walked two rows a
-   * page and compared with the order Postgres itself computes for the same
-   * expression: every row of the level exactly once, none from another level,
-   * and a held row only for the readers the hold lets see it.
-   */
   describe('a folder level', () => {
     let folderId: string
-    /** Names that tie once case-folded, a rename, sizes that tie and one unknown, timestamps that tie. */
     const LEVEL_ROWS: Array<{ name: string; display: string | null; size: number | null; at: string; status: string }> = [
       { name: 'b.pdf', display: null, size: 300, at: '2026-04-01 10:00:00.000500+00', status: 'completed' },
       { name: 'A.pdf', display: null, size: 300, at: '2026-04-01 10:00:00.000500+00', status: 'completed' },
@@ -274,7 +252,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
                ${row.status}, 'project', ${projectId}::uuid, ${folderId}::uuid, ${row.at}::timestamptz)
           `)
         }
-        // Archived: it has left the working set, so no level shows it.
         await db.execute(sql`
           INSERT INTO documents
             (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, folder_id,
@@ -343,8 +320,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
       const uploader = await walk({ folderId, sort: 'name', dir: 'asc' }, memberReader(USER))
       const colleague = await walk({ folderId, sort: 'name', dir: 'asc' }, memberReader('user_listpage_other'))
       expect(uploader).toEqual(everyone)
-      // Only a settled read passes the hold without a verdict (ADR-0086): the
-      // quarantined, the pending and the failed upload are the uploader's alone.
       expect(colleague).toHaveLength(3)
       expect(everyone.filter((id) => colleague.includes(id))).toEqual(colleague)
     })
@@ -358,7 +333,6 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
 
     it('narrows to read-state families', async () => {
       expect(await walk({ folderId, sort: 'added', dir: 'desc', states: ['failed'] })).toHaveLength(1)
-      // `pending` is being read; nothing else in the level is.
       expect(await walk({ folderId, sort: 'added', dir: 'desc', states: ['reading'] })).toHaveLength(1)
     })
 

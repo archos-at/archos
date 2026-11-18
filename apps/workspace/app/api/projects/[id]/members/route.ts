@@ -1,8 +1,3 @@
-/**
- * Project members API — list the roster and assign project-level roles.
- * Thin handlers; the WorkOS FGA logic lives in `@/lib/projects/members-service`.
- */
-
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf } from '@/lib/api/offset-page'
 import { addMemberSchema, listMembersQuerySchema } from '@/lib/projects/project-members-wire'
@@ -20,8 +15,6 @@ export const GET = apiRoute<Params>(
     return {
       members,
       nextCursor,
-      // Which row is the reader's own, so a client can keep them from changing
-      // their own access by accident (the setup's Beteiligte, ticket 26).
       viewerUserId: session.userId,
     }
   },

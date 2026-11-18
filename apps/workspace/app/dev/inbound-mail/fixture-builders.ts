@@ -1,5 +1,3 @@
-/** The builders every E-Mail-Eingang fixture is made with (`./fixtures.ts`), and the attachments the variants share. */
-
 import type {
   InboundMailPartView,
   InboundMailSummaryView,
@@ -15,7 +13,6 @@ import { daysAhead, fixtureId, minutesAgo, PROJECT_ID } from './fixture-base'
 
 let sequence = 0
 
-/** A confirmed outsider: the sender of every fixture mail that names none. */
 const DEFAULT_SENDER: NonNullable<InboundMailView['sender']> = {
   name: 'DI Petra Weber',
   address: 'p.weber@statik-weber.at',
@@ -26,9 +23,6 @@ const DEFAULT_SENDER: NonNullable<InboundMailView['sender']> = {
   flags: [],
 }
 
-// ------------------------------------------------------------ builders
-
-/** A confirmed outsider in an open project: what a part's default is judged against until `mail()` judges it against its own sender. */
 const PART_DEFAULT_CONTEXT = { projectClosed: false, rawScan: 'clean', sender: { trust: 'external_verified', reason: 'dkim_pass', flags: [] } } as const
 
 export function part(overrides: Partial<InboundMailPartView> & { name?: string } = {}): InboundMailPartView {
@@ -80,27 +74,15 @@ export function thread(overrides: Partial<InboundMailThreadCandidateView> = {}):
   }
 }
 
-/** The member every fixture mail from the office's own domain is from, and the reader of every preview unless it says otherwise. */
 const MEMBER_ID = 'user_01JMIRIAMHUBER00000000000'
 const COLLEAGUE_ID = 'user_01JPETRAHUBER000000000000'
 
-/** Who reads a fixture mail and what the hold asked about its sender: what the server's rule judges the class from. */
 export interface FixtureReading {
-  /** `sender`: the member the From names reads it (the default); `colleague`: another writer does. */
   viewer?: 'sender' | 'colleague'
-  /** The From's member may write in the project (default true). */
   writes?: boolean
-  /** Direct filing was on when it was held (default true). */
   directFiling?: boolean
 }
 
-/**
- * The class, wait reason and release of a fixture mail, judged by the
- * server's own rule (`lib/inbound-mail/sender-class.ts`) from its sender's
- * verdict, exactly as the receive job and `mail-views.ts` judge a held mail.
- * A preview never states them by hand: the one that did showed a member's own
- * Bcc copy as „Der Absender darf … nicht ablegen“.
- */
 function judged(
   sender: InboundMailView['sender'],
   automatic: boolean,
@@ -207,9 +189,6 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
   }
 }
 
-// ------------------------------------------------------------ attachments
-
-/** A suggestion in the shape the suggest job stores (`lib/inbound-mail/suggest.ts`). */
 export const suggestion = (
   folderPath: string,
   documentType: DocumentTypeTag | null,

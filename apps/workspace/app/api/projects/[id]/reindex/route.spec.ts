@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Project re-index route.
- *
- * The route is a thin adapter: it names the project from the path, and answers
- * 202 with the job the service queued. What is worth pinning is that it asks
- * for nothing else and that "accepted" is what it says: the walk runs later,
- * on a `bff-jobs` pod, and the response must not read as a finished one.
- */
 
 import { describe, expect, test, vi, beforeEach } from 'vitest'
 

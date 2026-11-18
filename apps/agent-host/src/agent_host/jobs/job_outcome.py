@@ -1,18 +1,3 @@
-"""The persist and finish phases of a research job, and its failure path.
-
-``persist`` turns the agent's raw result into the job's output: the post-report
-passes (cards, anatomy, follow-ups, memory reflection), the cards re-emitted
-with the report, and the marks the run left on its answer. ``finish`` writes the
-terminal SUCCESS and only then the thread turn and the notification.
-``finish_failed`` is the same for a run that raised.
-
-EVERY PUBLISH IS GATED ON OWNING THE VERDICT. Terminal statuses are sticky: a
-job the reaper or the cancel route already finalized (FAILURE, INTERRUPTED) is
-never flipped back. A run that does not own the
-verdict writes no thread turn, no notice and no notification: thread, Report
-and status would otherwise tell three different stories about one run.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -61,27 +46,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class JobOutcome:
-    """What a finished run produced, read once and handed to every surface that shows it."""
-
     report: str
     cards: list[Any] | None
     transparency: dict[str, Any]
-    # The answer's structured provenance: the job output feeds the live Report
-    # panel, the thread turn the thread on reload, and both get this one list.
     sources: list[dict[str, Any]] | None
     skills_activated: list[str] | None
     output: Any
 
 
 def reflection_enabled(request: JobRequest) -> bool:
-    """Whether the run reflects on its report: the organization's flag, and never for a temporary conversation.
-
-    A temporary conversation keeps nothing (ADR-0180 rule 2). The BFF says so at
-    submit (``usage_context["temporary_conversation"]``), so the skip costs no
-    model call and is named in the log; the trace says it on the workflow span
-    (``agent_job_setup.trace_metadata``). A conversation switched to temporary
-    after the submit is not known here: the BFF's memory routes refuse its writes.
-    """
     if not request.memory_reflection_enabled:
         return False
     if is_temporary_conversation(request.usage_context):
@@ -101,15 +74,7 @@ async def persist(
     builder: Any,
     config: Any,
 ) -> JobOutcome:
-    """The post-report passes, the cards and the answer's marks, folded into the job output.
-
-    Everything here is bookkeeping ABOUT a finished answer: each step is
-    best-effort and none of them can fail the job.
-    """
     report = extract_result(result)
-    # Grid cards, anatomy and follow-ups run together, then the memory reflection,
-    # which the chat path skips for deep jobs because the report exists only now.
-    # An agent that declares ``produces_report = False`` gets none of them.
     cards_result, anatomy, follow_ups = await _run_report_passes(
         produces_report=_produces_report(agent_cls),
         llm=models.llm,
@@ -118,7 +83,6 @@ async def persist(
         organization_id=request.organization_id,
         builder=builder,
         job_id=request.job_id,
-        # A scheduled job's submitter (the BFF) knows the flag, not the config's LLM ref.
         reflection_llm_ref=request.memory_reflection_llm or _workflow_reflection_llm_ref(config),
         reflection_enabled=reflection_enabled(request),
         usage_context=request.usage_context,
@@ -136,7 +100,6 @@ async def persist(
     transparency = _transparency(scope, request, result, anatomy, follow_ups, cards_failed=cards_result.failed)
     if getattr(models.fn_config, "type", None) == "deep_research_agent":
         emit_phase_event(scope.event_store, PHASE_DONE)
-    # Flush buffered events before the status changes.
     if hasattr(scope.event_store, "flush"):
         scope.event_store.flush()
     sources = extract_verified_sources(result)
@@ -153,11 +116,6 @@ async def persist(
 def _transparency(
     scope: JobScope, request: JobRequest, result: Any, anatomy: Any, follow_ups: Any, *, cards_failed: bool
 ) -> dict[str, Any]:
-    """The marks the run left on its own answer (cut off, degraded, citations stripped), and its anatomy.
-
-    Read once, one step before the job is finalized, so the persisted output and
-    the live ``job.degraded`` event come from the same read. Never raises.
-    """
     transparency: dict[str, Any] = {}
     try:
         transparency = extract_answer_transparency(result)
@@ -167,17 +125,11 @@ def _transparency(
             transparency["findings"] = anatomy.findings
         if follow_ups:
             transparency["stages"] = {"followUps": follow_ups}
-        # Post-hoc card generation is the runner's own step, so its failure is
-        # recorded here: the report is whole, the proposals derived from it are not.
         if cards_failed:
             mark_degraded(transparency, DEGRADED_CARDS_GENERATION_FAILED)
         if scope.event_store is not None and (
             transparency.get("research_truncated") or transparency.get("degraded_reasons")
         ):
-            # Its own event, NOT a status change: the run succeeded with a marked
-            # answer, and a live listener would otherwise learn it only by
-            # re-reading the finished job. Stable tokens only; the reader's caveat
-            # rides the report's own banner.
             data = {key: transparency[key] for key in _DEGRADED_EVENT_FIELDS if key in transparency}
             scope.event_store.store({"type": JOB_DEGRADED_EVENT_TYPE, "data": data})
     except Exception:
@@ -186,7 +138,6 @@ def _transparency(
 
 
 async def finish(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> None:
-    """Write SUCCESS unless the verdict is not this run's; then the thread turn and the notification."""
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
     finalized = await _update_status_if_not_terminal(
@@ -216,11 +167,6 @@ async def finish(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> N
 
 
 async def _write_thread_turn(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> None:
-    """Put the run INTO the conversation it was given when it fired, so somebody can open it and keep typing.
-
-    Best-effort by contract: the report is already stored on the job, and a
-    conversation write must never unmake a good run.
-    """
     landed_in = await write_job_turn(
         conversation_id=request.parent_conversation_id,
         job_id=request.job_id,
@@ -230,25 +176,15 @@ async def _write_thread_turn(scope: JobScope, request: JobRequest, outcome: JobO
         cards=outcome.cards,
         skills_activated=outcome.skills_activated,
         sources=outcome.sources,
-        # The same marks the job output got: the thread reads only this row, so
-        # a salvaged run would otherwise reopen tomorrow as a clean answer.
         transparency=outcome.transparency,
         expect_run=request.expect_run,
-        # The trace this run is in: the BFF scores votes on the report there.
         trace_id=current_trace_id_hex(),
     )
-    # The message the report was written into, for the run's ledger. No file id
-    # yet: this tier does not file the report.
     if scope.ledger is not None:
         scope.ledger.note_result(report_message_id=landed_in or None)
 
 
 async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) -> None:
-    """Record a run that raised: FAILURE unless the verdict is not this run's, the notice, the error event.
-
-    The full exception is logged here; only the sanitized message is persisted
-    and streamed.
-    """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
     logger.exception("Job %s failed: %s", request.job_id, type(exc).__name__)
@@ -259,8 +195,6 @@ async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) ->
             scope.job_store, request.job_id, JobStatus.FAILURE, error=safe_error
         )
     verdict = JobStatus.FAILURE.value
-    # The conversation was created when the job fired; left alone, a failed run
-    # leaves an empty thread that reads as a broken product.
     if await _should_write_notice(
         job_store=scope.job_store, job_id=request.job_id, verdict=verdict, finalized=finalized
     ):
@@ -271,8 +205,6 @@ async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) ->
             notice=FAILURE_NOTICE,
             expect_run=request.expect_run,
         )
-    # A standing FAILURE (the reaper's) is reported by the reaper too; a repeat
-    # here is harmless.
     if await _should_notify_outcome(
         job_store=scope.job_store, job_id=request.job_id, verdict=verdict, finalized=finalized
     ):

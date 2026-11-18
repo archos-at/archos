@@ -15,11 +15,9 @@ import {
 } from "./collector-config";
 
 const COMPONENT = "otel-agent";
-/** The kubelet's authenticated API, on every node. */
 const KUBELET_PORT = 10250;
-/** How often each node's kubelet is read and each annotated pod scraped. */
 const SCRAPE_INTERVAL = "30s";
-const GATEWAY_EXPORTER = "otlp_http/gateway";
+export const GATEWAY_EXPORTER = "otlp_http/gateway";
 const KUBELET_RECEIVER = "kubelet_stats";
 
 export interface OtelAgent {
@@ -27,26 +25,6 @@ export interface OtelAgent {
   configMap: k8s.core.v1.ConfigMap;
 }
 
-/**
- * One collector per node: what that node and its pods are doing.
- *
- * - **kubelet_stats**: CPU, memory, network and filesystem of the node, of every
- *   pod and container on it, and of their volumes, read from the node's own
- *   kubelet.
- * - **prometheus/pods**: every pod on the node annotated
- *   `prometheus.io/scrape: "true"` (`scrape.ts`), at its `prometheus.io/port`
- *   and `prometheus.io/path`, labelled with its namespace, pod and container.
- *
- * Per node because both readings are per node: each agent reads one kubelet
- * and scrapes only the pods scheduled beside it, so every pod is scraped
- * exactly once however many nodes the cluster grows to, and no single pod
- * holds the whole cluster's scrape. The agents hold no credential for any
- * backend: they send OTLP to the gateway (`otel-collector.ts`), which stamps
- * the stack and exports to PostHog. This is the topology the OpenTelemetry
- * Helm charts call agent and gateway.
- *
- * Deployed only with PostHog metrics on: it exists to feed them.
- */
 export function installOtelAgent(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -71,12 +49,10 @@ export function installOtelAgent(
       metadata: { name: COMPONENT, namespace, labels },
       spec: {
         selector: { matchLabels: labels },
-        // One node's readings pause while its agent rolls; never all of them.
         updateStrategy: { type: "RollingUpdate", rollingUpdate: { maxUnavailable: 1 } },
         template: {
           metadata: {
             labels,
-            // The collector reads its file once, at start (see otel-collector.ts).
             annotations: secretChecksumAnnotations(secretChecksum({ "collector.yaml": config })),
           },
           spec: {
@@ -84,11 +60,7 @@ export function installOtelAgent(
             serviceAccountName: identity.serviceAccount.metadata.name,
             automountServiceAccountToken: true,
             securityContext: { runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001 },
-            // Time to flush the batch in hand to the gateway on SIGTERM.
             terminationGracePeriodSeconds: gracefulShutdown(ROLLOUT.observability).terminationGracePeriodSeconds,
-            // Every node, whatever group it is in or how it is tainted: a node
-            // without an agent is a node whose readings are missing, and
-            // nothing reports a gap. No `onNodeGroup`, on purpose.
             tolerations: [{ operator: "Exists" }],
             containers: [
               {
@@ -98,7 +70,6 @@ export function installOtelAgent(
                 args: ["--config=/etc/otelcol/collector.yaml"],
                 ports: [{ containerPort: HEALTH_PORT, name: "health" }],
                 env: [
-                  // Which kubelet to read, and which pods are this node's.
                   { name: "K8S_NODE_NAME", valueFrom: { fieldRef: { fieldPath: "spec.nodeName" } } },
                   { name: "K8S_NODE_IP", valueFrom: { fieldRef: { fieldPath: "status.hostIP" } } },
                 ],
@@ -121,23 +92,15 @@ export function installOtelAgent(
         },
       },
     },
-    { provider, dependsOn: [...dependsOn, configMap, identity.binding] },
+    { provider, dependsOn: [...dependsOn, configMap, ...identity.bindings] },
   );
 
   return { daemonSet, configMap };
 }
 
-/**
- * The node's kubelet, by its host IP. `insecure_skip_verify` because a
- * kubelet's serving certificate is self-signed on most distributions and names
- * no IP; the request still carries the service account's token, which the
- * kubelet authorises against `nodes/stats`. The OpenTelemetry chart's
- * `kubeletMetrics` preset makes the same call for the same reason.
- */
 export function nodeStats(): CollectorFragment {
   return {
     receivers: {
-      // `kubelet_stats`, not the `kubeletstats` alias upstream deprecated.
       [KUBELET_RECEIVER]: {
         auth_type: "serviceAccount",
         endpoint: `https://\${env:K8S_NODE_IP}:${KUBELET_PORT}`,
@@ -150,10 +113,6 @@ export function nodeStats(): CollectorFragment {
   };
 }
 
-/**
- * Every annotated pod on this node, at the one container port its annotation
- * names, labelled by Prometheus's own `kubernetes-pods` convention.
- */
 export function annotatedPods(): CollectorFragment {
   const meta = (annotation: string) =>
     `__meta_kubernetes_pod_annotation_${annotation.replace(/[^a-zA-Z0-9]/g, "_")}`;
@@ -171,13 +130,7 @@ export function annotatedPods(): CollectorFragment {
               ],
               relabel_configs: [
                 { source_labels: [meta(SCRAPE_ANNOTATION.scrape)], action: "keep", regex: "true" },
-                // A pod not yet running has no address to scrape.
                 { source_labels: ["__meta_kubernetes_pod_phase"], action: "keep", regex: "Running" },
-                // Discovery yields one target per declared container port and
-                // one per port-less container, init containers included. Keep
-                // only the port the annotation names, or a pod with several
-                // ports (every Postgres instance) is scraped once per port.
-                // That port must be declared, which index-scrape-targets.spec.ts holds.
                 {
                   source_labels: ["__meta_kubernetes_pod_container_port_number"],
                   action: "keepequal",
@@ -192,8 +145,6 @@ export function annotatedPods(): CollectorFragment {
                 { source_labels: ["__meta_kubernetes_namespace"], target_label: "k8s_namespace_name" },
                 { source_labels: ["__meta_kubernetes_pod_name"], target_label: "k8s_pod_name" },
                 { source_labels: ["__meta_kubernetes_pod_container_name"], target_label: "k8s_container_name" },
-                // The job is the workload's name, so a series says which
-                // service it came from without a lookup.
                 {
                   source_labels: ["__meta_kubernetes_pod_label_app_kubernetes_io_name"],
                   regex: "(.+)",
@@ -209,14 +160,12 @@ export function annotatedPods(): CollectorFragment {
   };
 }
 
-/** OTLP to the gateway in the same namespace; it alone holds PostHog's token. */
-export function toGateway(): CollectorFragment {
+export function toGateway(host = "otel-collector", port = OTLP_HTTP_PORT): CollectorFragment {
   return {
     exporters: {
       [GATEWAY_EXPORTER]: {
-        endpoint: `http://otel-collector:${OTLP_HTTP_PORT}`,
+        endpoint: `http://${host}:${port}`,
         compression: "gzip",
-        // A gateway mid-roll must not become dropped node readings, within a bound.
         ...boundedDelivery(500),
       },
     },

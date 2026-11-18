@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The state of the office standards place: which folder, which filter and
- * search, the page of entries the server answered for them, and the folders.
- * The server narrows and orders (`GET /api/base-knowledge` with `folderId`,
- * `attention`, `kind`, `q`), so hundreds of entries stay one short request per
- * page; the browser keeps only what is on screen. Only the newest answer is
- * applied, so a slow page cannot overwrite a later filter.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   listBaseKnowledge,
@@ -40,7 +31,6 @@ export interface BaseKnowledgeState {
   failed: boolean
   loadingMore: boolean
   loadMore: () => void
-  /** Load the list and the folders again, keeping what is on screen until they arrive. */
   reload: () => Promise<void>
 }
 
@@ -77,7 +67,6 @@ export function useBaseKnowledge(initial: Partial<BaseKnowledgeFilters> = {}): B
       setFailed(false)
     } catch {
       if (mine !== sequence.current) return
-      // The list on screen answered other filters: show the failure and its retry, never the old entries as the new answer.
       setList(null)
       setFailed(true)
     }

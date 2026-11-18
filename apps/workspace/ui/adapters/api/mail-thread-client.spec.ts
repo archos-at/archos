@@ -1,8 +1,3 @@
-/**
- * The thread's browser door: each call reaches its route with its method and
- * body, and a refusal arrives with the server's code and details.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api-error'
 import { detachMailThreadEntry, followMailThread, mailThreadEntryOriginalUrl, unfollowMailThread } from './mail-thread-client'

@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * The line under an inbox row's title: where (the project, the chat), then
- * what stands (by when, what is left to check, answered, gone). Facts as
- * words with an icon, coloured only where they are late or near: pills in
- * four tints on every row were the loudest thing on the page and said the
- * least.
- *
- * One line at any width, where only the project's name gives way. On a phone
- * the moment heads it, because there the title needs the width the moment
- * takes at the title line's end.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { Fragment } from 'react'
 import { CheckCircle2, Clock, EyeOff } from 'lucide-react'
@@ -26,12 +14,9 @@ import type { InboxDue } from '../lib/inbox-due'
 
 export interface InboxItemCaptionProps {
   item: InboxItemView
-  /** The chat it happened in, where nothing else on the row names it. */
   place: string | null
-  /** What a new Fassung leaves to check, where its sentence gave way to the quote. */
   openMarks: number
   due: InboxDue | null
-  /** A request that has been answered. */
   answered: boolean
 }
 
@@ -85,7 +70,6 @@ export function InboxItemCaption({ item, place, openMarks, due, answered }: Inbo
           ),
         }]
       : []),
-    // The one place a redacted row says so; the body already says it in a sentence.
     ...(inert
       ? [{
           key: 'inert',
@@ -99,7 +83,6 @@ export function InboxItemCaption({ item, place, openMarks, due, answered }: Inbo
       : []),
   ]
 
-  // Nothing to place the row: the line holds the phone's moment alone.
   if (parts.length === 1) return <p className="mt-0.5 text-xs text-muted-foreground sm:hidden">{parts[0].node}</p>
 
   return (

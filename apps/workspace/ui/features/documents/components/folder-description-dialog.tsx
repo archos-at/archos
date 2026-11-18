@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * What belongs in a folder (migration 0145): the dialog a person writes it in,
- * and the line that shows it at the top of the folder.
- *
- * The description is the folder's, read by everyone who opens it and by Piloti
- * when it suggests where an upload belongs. Writing it is a write on the folder
- * (the server checks again); a reader who may only read sees the line and no
- * way to change it, and an undescribed folder shows them nothing.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { Pencil } from 'lucide-react'
@@ -31,7 +21,6 @@ import type { FolderItem } from '../file-types'
 export interface FolderDescriptionDialogProps {
   folder: FolderItem | null
   onOpenChange: (open: boolean) => void
-  /** Save it (`null` clears it); whether it was saved. */
   onSave: (folderId: string, description: string | null) => Promise<boolean>
 }
 
@@ -103,11 +92,6 @@ export function FolderDescriptionDialog({ folder, onOpenChange, onSave }: Folder
   )
 }
 
-/**
- * The folder's description, at the top of the folder: the text, and for a
- * writer the way to change it. A writer on an undescribed folder gets the
- * invitation to describe it; a reader on one gets nothing.
- */
 export function FolderDescriptionLine({
   folder,
   canEdit,

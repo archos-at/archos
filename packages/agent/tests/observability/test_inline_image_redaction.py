@@ -1,5 +1,3 @@
-"""No image bytes in a trace: the helper, the span processor, and where it sits in the pipeline."""
-
 from __future__ import annotations
 
 import json
@@ -12,7 +10,6 @@ DATA_URL = f"data:image/jpeg;base64,{PIXELS}"
 
 
 def _view_image_result() -> list[dict]:
-    """What ``view_image`` hands the chat model: a text block and an image block."""
     return [
         {"type": "text", "text": "Region of page 3"},
         {"type": "image_url", "image_url": {"url": DATA_URL}},
@@ -105,8 +102,6 @@ class TestPipelineWiring:
 
 
 class TestWhatThePatternMustAlsoCover:
-    """The carriers a first pattern missed (review of d902392a0): each must leave no pixel behind."""
-
     def test_a_payload_wrapped_into_lines(self):
         wrapped = "data:image/png;base64," + "\n".join(["QUJD" * 19] * 5)
         escaped = json.dumps(wrapped)  # the line breaks as `\n` inside a JSON string

@@ -1,9 +1,3 @@
-/**
- * The name probe (`@/lib/documents/name-probe-types`): which of these file
- * names one shelf already holds (`projectId`, or `scope: office_shelf`), asked
- * of the database the upload will ask. Thin handler.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { probeProjectDocumentNames } from '@/lib/documents/document-listing'
 import { nameProbeRequestSchema, type NameProbeResponse } from '@/lib/documents/name-probe-types'

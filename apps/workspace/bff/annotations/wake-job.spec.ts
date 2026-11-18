@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The `piloti_wake` job (ADR-0106): it asks everything again as the person
- * whose act woke Piloti, then opens the chat socket as them and sends one
- * `user_message`. Pinned here: the message the contract names
- * (`docs/api/websocket-protocol.md`, „A turn an event woke"), the signed
- * envelope with the person's thread inside it, the headless header, a busy
- * thread waiting without spending an attempt, `duplicate_turn` as done, and
- * every way a wake ends without a turn recorded on its row.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -59,6 +50,7 @@ import { findDocumentAnnotation, type AnnotationRecord } from './repository'
 import { MAX_WAKE_WAITS, runAgentWake, waitAfter, WAKE_REQUIRES } from './wake-job'
 import { countWakes, findWake, handBackDelegation, settleWake } from './wake-repository'
 import { delegationEventId, documentThreadConversationId, wakeTurnId } from './wake-ids'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'wake-secret'
 const DOC_ID = '11111111-1111-4111-8111-111111111111'
@@ -80,14 +72,13 @@ const PAYLOAD: AgentWakePayload = {
 const SESSION: AuthorizedSession = {
   userId: 'user_anna',
   email: 'anna@example.at',
-  // The pinned session knows the person by name (`resolvePerson`).
   name: 'Anna Berger',
   accessToken: '',
   organizationId: 'org_1',
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-wakes'],
+  featureFlags: ['agent-thread-replies'],
 }
 
 const DOC = { id: DOC_ID, scope: 'project', projectId: 'proj_1', filename: 'grundriss.pdf', displayName: 'Grundriss EG' } as Partial<Document> as Document
@@ -160,7 +151,6 @@ describe('a wake that runs', () => {
       message_id: WAKE_ID,
       text: 'Stimmt die Breite?',
       author_name: 'Anna Berger',
-      // The stored filename retrieval matches, not the display name a rename changed.
       focus_file_name: 'grundriss.pdf',
       focus_shelf: 'project',
       focus_document_id: DOC_ID,
@@ -178,9 +168,8 @@ describe('a wake that runs', () => {
 
     const { headers } = sentRequest()
     expect(headers['x-chat-mode']).toBe('headless')
-    expect(headers['x-aiq-mode']).toBe('headless')
+    expect(headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     expect(headers['x-user-id']).toBe('user_anna')
-    // No browser cookie and no bearer: the backend reads an internal caller and trusts the envelope.
     expect(headers).not.toHaveProperty('authorization')
     const envelope = verifyRequestContextEnvelope(
       headers['x-request-context'],
@@ -188,7 +177,6 @@ describe('a wake that runs', () => {
       SECRET
     )
     expect(envelope).toMatchObject({ organizationId: 'org_1', userId: 'user_anna', projectId: 'proj_1', conversationId: THREAD })
-    // The turn's context is resolved for the person's pinned session and THAT thread.
     expect(resolveTurnContext).toHaveBeenCalledWith(SESSION, { projectId: 'proj_1', conversationId: THREAD })
   })
 
@@ -272,7 +260,7 @@ describe('what the socket answers', () => {
     await expect(runAgentWake('org_1', PAYLOAD, NOT_LAST)).resolves.toMatchObject({ done: true })
     expect(settleWake).toHaveBeenCalledWith('org_1', WAKE_ID, { status: 'refused', reason: 'Budget erschöpft.' })
     expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'piloti.wake.ended', metadata: expect.objectContaining({ outcome: 'refused' }) })
+      expect.objectContaining({ action: 'agent.wake.ended', metadata: expect.objectContaining({ outcome: 'refused' }) })
     )
   })
 
@@ -313,7 +301,7 @@ describe('asked again when the job runs', () => {
     expect(runHeadlessTurn).not.toHaveBeenCalled()
     expect(vi.mocked(settleWake).mock.calls.map((call) => call[2])).toEqual([
       { status: 'suppressed', reason: 'the person is no longer a member' },
-      { status: 'suppressed', reason: 'piloti-wakes is off for the organization' },
+      { status: 'suppressed', reason: 'agent-thread-replies is off for the organization' },
     ])
   })
 
@@ -348,18 +336,17 @@ describe('asked again when the job runs', () => {
 })
 
 describe('the audit trail of a wake that started', () => {
-  const started = () => vi.mocked(recordAuditEvent).mock.calls.filter(([input]) => input.action === 'piloti.wake.started')
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
+  const started = () => vi.mocked(recordAuditEvent).mock.calls.filter(([input]) => input.action === 'agent.wake.started')
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records the start once, as the person whose act woke Piloti, on the mark, its document, project and thread', async () => {
+  it('records the start once, as the person whose act woke the agent, on the mark, its document, project and thread', async () => {
     await runAgentWake('org_1', { ...PAYLOAD, waits: 2 }, NOT_LAST)
 
     expect(recordAuditEvent).toHaveBeenCalledTimes(1)
     expect(started()[0][0]).toEqual({
-      action: 'piloti.wake.started',
+      action: 'agent.wake.started',
       organizationId: 'org_1',
       actor: { userId: 'user_anna', email: 'anna@example.at' },
       targetType: 'document_annotation',
@@ -403,7 +390,7 @@ describe('a wake that ends without an answer', () => {
   const DELEGATED_AT = new Date('2026-10-13T09:59:00Z')
   const DELEGATION = { ...PAYLOAD, trigger: 'assigned' as const, eventId: delegationEventId(MARK_ID, DELEGATED_AT) }
 
-  it('tells the person who woke Piloti why, with the mark it was about', async () => {
+  it('tells the person who woke the agent why, with the mark it was about', async () => {
     vi.mocked(resolveTurnContext).mockRejectedValue(new TurnBudgetExhaustedError('user'))
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)
@@ -434,7 +421,7 @@ describe('a wake that ends without an answer', () => {
     expect(onWakeEnded).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'failed', reason: expect.any(String) }))
   })
 
-  it('hands a delegated mark back, so it stops reading „Piloti arbeitet daran“', async () => {
+  it('hands a delegated mark back, so it stops reading as the agent’s work', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...MARK, delegatedBy: 'user_anna', delegatedAt: DELEGATED_AT })
     vi.mocked(resolveTurnContext).mockRejectedValue(new TurnBudgetExhaustedError('user'))
 
@@ -481,14 +468,14 @@ describe('the audit trail of a wake the job ended', () => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records a refusal once as piloti.wake.ended, like a turn’s end, with the class of its reason', async () => {
+  it('records a refusal once as agent.wake.ended, like a turn’s end, with the class of its reason', async () => {
     vi.mocked(resolveTurnContext).mockRejectedValue(new TurnBudgetExhaustedError('user'))
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.wake.ended',
+        action: 'agent.wake.ended',
         organizationId: 'org_1',
         actor: { userId: 'user_anna', email: 'anna@example.at' },
         targetType: 'document_annotation',
@@ -522,7 +509,7 @@ describe('the audit trail of a wake the job ended', () => {
     await runAgentWake('org_1', { ...PAYLOAD, waits }, NOT_LAST)
 
     expect(audited()).toHaveLength(1)
-    expect(audited()[0]).toMatchObject({ action: 'piloti.wake.ended', metadata: { outcome: recorded, reasonKind } })
+    expect(audited()[0]).toMatchObject({ action: 'agent.wake.ended', metadata: { outcome: recorded, reasonKind } })
   })
 
   it('says the delegation went back with it, and not when the hand-back failed', async () => {
@@ -549,12 +536,12 @@ describe('the audit trail of a wake the job ended', () => {
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
-  it('keeps piloti.wake.suppressed for a wake held before Piloti was asked', async () => {
+  it('keeps agent.wake.suppressed for a wake held before the agent was asked', async () => {
     vi.mocked(getAccessibleDocument).mockRejectedValue(new ForbiddenError())
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)
 
-    expect(audited().map((input) => input.action)).toEqual(['piloti.wake.suppressed'])
+    expect(audited().map((input) => input.action)).toEqual(['agent.wake.suppressed'])
     expect(audited()[0].metadata).toMatchObject({ status: 'suppressed', stage: 'claim' })
   })
 

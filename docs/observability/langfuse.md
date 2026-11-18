@@ -1,6 +1,6 @@
 # The Langfuse contract
 
-**Langfuse is Piloti's observability platform** ([ADR-0089](../adr/0089-langfuse-is-the-observability-platform-and-everything-is-observable.md)).
+**Langfuse is the app's observability platform** ([ADR-0089](../adr/0089-langfuse-is-the-observability-platform-and-everything-is-observable.md)).
 Everything the product does with a model, every agent step and every quality
 check lands there, and we improve the product from what it shows. This page is
 the contract: what every trace carries, which scores exist, what Langfuse
@@ -18,8 +18,9 @@ the Fachbereich): [`analyst-guide.md`](analyst-guide.md).
 | Field in Langfuse | Where it comes from | Values |
 |---|---|---|
 | Trace name | `trace_context.trace_name_for_root` (agent runs), `observed_generation` (auxiliary calls) | `chat-turn`, `research-job`, `conversation-title`, `project-summary`, `consistency-check`, `skill-review`, `lesson-distill`, `feedback-digest`, `cleanup-proposal`, `change-summary`, `revision-visual-compare` (two page images in one vision call, input shown without the pixels; metadata `page`, `prompt_version` and `purpose`, `person` from the compare view or `notice` when the agent compared a new Fassung on its own, ADR-0130), `look-reading` (the second reader of `look` with a `question`: the office's ingest vision model on the same crop, input shown without the pixels, metadata `prompt_version` and `region`; an ERROR generation when the model could not be reached, and the tool still answers), `filing-fit` (where an upload batch belongs, or a root sort's chunk with `purpose: sort`; metadata `batch_id`, `project_id`, `shelf`, `basis`, and the counts; a decision on the proposal it made is a `piloti-decision` score on its trace, through `proposed_changes.origin_trace_id`. With `basis: mail` it places a held mail's attachments, and its text when the mail matched no E-Mail-Verlauf, from names, the masked subject and the sender's domain only (ADR-0137): metadata `surface: inbound_mail`, `text_placed`, `sender_class`, and the mail's id as `batch_id`; a person's decision on each suggested part is a `piloti-decision` with subject `inbound_mail_suggestion`, through `inbound_mail_parts.suggestion_trace_id`. A `verified_writer`'s suggestion is filed by its sender's own filing without a click (ADR-0137's amendment), so no decision score follows it: read the acceptance rate on the other classes), `mail-thread-match` (a person's decision on the E-Mail-Verlauf a held mail matched: no generation, the trace exists to carry the score of the same name, ids derived from the mail's text part; metadata `mail_id`, `project_id`, `part_id`, `strength`, `preselected`, `candidates`, `chosen_rank`, `sender_trust`, `via`), `folder-proposals.map` and `folder-proposals.reduce` (a root sort's new folders: the groups of one chunk, then the merge across them), `folder-card` (one folder's written card in the ingest worker, ADR-0127: the summary model, metadata `collection`, `depth`, `prompt_version`, `documents`, `subfolders`, `mode` (`incremental`: the old card and the diff alone; `full`: the whole folder) and the diff sizes `diff_added`, `diff_removed`, `diff_changed`; a card that only lost documents is pruned without a call and has no generation), `similar-passages` (a retriever, not a generation: `observed_retrieval`), `agent-tool-call` (one MCP tool call on the agent door, or one A2A method, `lib/langfuse/tool-call-trace.ts`: one `TOOL` observation `mcp.<operation>` or `a2a.<operation>`; metadata and tags below), `source-monitor` (one run of the public-source monitor, `lib/langfuse/source-monitor-trace.ts`, ADR-0174: no generation, no page; metadata `checked`, `changed`, `failed`, `opened`, `duration_ms`, tag `feature:source-monitor`, and a `freshness-lag-days` score per watched source) |
-| Environment | `APP_ENV`, coerced to Langfuse's alphabet | `production`, … |
+| Environment | `APP_ENV`, coerced to Langfuse's alphabet | `production`, … Staging runs `APP_ENV=production` too, so the environment never names the deployment: the tag below does |
 | Release | `GIT_SHA`, the image's commit | the commit hash |
+| Deployment tags | `trace_context.deployment_tags` from `POSTHOG_DEPLOYMENT` (the Pulumi stack) and `POSTHOG_APP_HOST` (the app domain), which Pulumi sets on the Python tiers only where the PostHog switch is on, on every span: the agent runtime's (`TraceContextProcessor`), and every span `direct_trace`'s provider starts (`ProcessContextSpanProcessor`), Hatchet's step runs included. The BFF's traces (`agent-tool-call`, `source-monitor`, `mail-thread-match`) take them from `deploymentTags` in `bff/langfuse/tool-call-trace.ts`: its own `POSTHOG_DEPLOYMENT` and the redirect URI's host | `deployment:prod`, `deployment:dev`, and beside it `app_host:app.archos.tech`, `app_host:app.dev.archos.tech`; each absent when its value is unknown. `app_host:` from the deploy after 2026-11-17, `deployment:` from the deploy that adds it |
 | Session | the conversation id (the runtime sets `session.id`) | one session per chat |
 | User | the verified WorkOS subject, only with `TRACE_IDENTITY_ATTRIBUTES=true` | WorkOS user id |
 | Observation type | `nat.span.kind` mapped by `trace_context.observation_type` | `agent` (the turn), `generation` (a model call), `tool`, `retriever` (`retrieve.*`), `chain`, `embedding`, `guardrail`, `evaluator` |
@@ -59,8 +60,8 @@ Trace metadata on the root:
 | `lessons_arm`, `lesson_ids` | the platform-lessons experiment (`turn/context.py`): `treated`, `holdout` or `off`, and the comma-joined ids of the lessons in the digest the turn carried (none on a holdout turn). The holdout is a breakdown on these, not a join to the vote table. Always recorded: neither names a person |
 | `ifc_op`, `ifc_outcome`, `ifc_model`, … | what a building-model tool did (`tools/bim/trace.py`) |
 | `answer_precedent_sources`, `answer_precedent_projects` | cited sources from another project (ADR-0094), and from how many projects: the office's experience reaching the answer |
-| `reference_projects_offered`, `precedent_p`, `reference_prefetch` | the turn's start: how many reference projects the catalog listed, the decision's p(precedent), and whether round 0 searched them on its own (`agents/piloti/register.py`) |
-| `skills_offered`, `skills_pinned` | the turn's skills (ADR-0135): how many the catalog listed, and the one the turn-start decision pinned in full, if any (`agents/piloti/register.py`). `skills_activated` above is what reached the model: a `read_file` of a `SKILL.md`, or a pinned body the envelope named |
+| `reference_projects_offered`, `precedent_p`, `reference_prefetch` | the turn's start: how many reference projects the catalog listed, the decision's p(precedent), and whether round 0 searched them on its own (`core/register.py`) |
+| `skills_offered`, `skills_pinned` | the turn's skills (ADR-0135): how many the catalog listed, and the one the turn-start decision pinned in full, if any (`core/register.py`). `skills_activated` above is what reached the model: a `read_file` of a `SKILL.md`, or a pinned body the envelope named |
 | `reference_fit_scored`, `reference_fit_top`, `reference_fit_fitting` | the reference fit (ADR-0064 use 10): how many catalog lines it scored, the best p(fits), how many moved ahead |
 | `building_law_uses` | how many editions the turn's knowledge context gave a role (ADR-0168, ADR-0175), on every turn; the site's chain is `jurisdiction_chains` below. `0` when the gate carries no uses |
 | `law_sources` / `law_sources_dropped` | the released source records a law lookup may read this turn, as `key@revision`, and the keys of those the BFF could not carry (a configuration over 64,000 characters, or past eight); a lookup in a country whose source was dropped says so. Empty when the turn reads no country's law |
@@ -145,7 +146,7 @@ refusal is `{"refused": <code>}`: `no_envelope`, `unresolved_document`,
 `assignee_unclear`, `unreachable`, `invalid_arguments`, or `restricted` (a write everyone who opens
 the document would see, refused because the conversation drew on a restricted
 folder or another project: `tools/canvas/policy.py`). The harness's one call,
-taking Piloti's cursor off a document when the turn ends, is a `canvas.leave`
+taking the agent's cursor off a document when the turn ends, is a `canvas.leave`
 step.
 
 Each steering note the turn reads (`common/steering.py`) is a `turn.steer`
@@ -165,7 +166,7 @@ the profiler's span names, so a phase is called the same in both places):
 `setup.subject_document` and `setup.shown_restricted_notes`, then
 `setup.answer_streaming`, `admission.wait` and `setup.checkpoint_digest`
 before the LangGraph run; inside it `history.trim` in the graph's first node,
-and in Piloti's own function `setup.skills`, `setup.file_tools` and
+and in the agent's own function `setup.skills`, `setup.file_tools` and
 `setup.llm_provider` beside `decide.turn`. Input is a few counts, output
 `outcome` (`ok`, `error`, `cancelled`), `ms` and counts; never turn content.
 `setup.project_context` is one call to the BFF's turn-context route, so its
@@ -181,7 +182,7 @@ these rows: `docs/audit/turn-latency-measured-2026-09.md` §3.6.
 ### A tool call on the agent door
 
 Each MCP tool call at `/api/mcp` (ADR-0122), from an external agent or from
-Piloti's own `workspace__*` tools, is a root trace `agent-tool-call` holding one
+the agent's own `workspace__*` tools, is a root trace `agent-tool-call` holding one
 `TOOL` observation named `mcp.<operation>` (`search-operations`, `call-operation`
 is recorded under the operation it ran, `unknown` for a name no operation has:
 that is the agent's own text). Each A2A method at `/api/a2a` (ADR-0124) is one
@@ -192,11 +193,11 @@ waits are not. A tool call on the platform door at `/api/platform/mcp`
 Metadata on all: `operation`, `domain`, `door`
 (`mcp`, `piloti`, `a2a` or `platform`), `mode` (`search` or `tools`; null on the A2A door), `decision` (`run`, `propose`,
 `refused`, `confirm` when an outside agent's destructive call was put to the person in their own chat, `declined` when they did not
-confirm it, `person_required` when it was not run because it needs the person's yes and the client cannot ask for it), `decision_source` (`elicitation`, only on the round that runs a call the person confirmed; `app`, a press on Piloti's card inside the person's own assistant, an MCP App's app-only tool, from a client that declared MCP Apps; `app-unverified`, the same tool from a 2025-era client that declared nothing, ADR-0142), `status` (the route's HTTP status), `duration_ms`, `client_id`.
+confirm it, `person_required` when it was not run because it needs the person's yes and the client cannot ask for it), `decision_source` (`elicitation`, only on the round that runs a call the person confirmed; `app`, a press on the agent's card inside the person's own assistant, an MCP App's app-only tool, from a client that declared MCP Apps; `app-unverified`, the same tool from a 2025-era client that declared nothing, ADR-0142), `status` (the route's HTTP status), `duration_ms`, `client_id`.
 Level `WARNING` for a 4xx, `ERROR` for a 5xx. Tags: `feature:agent-mcp`,
 `door:<door>`, `decision:<decision>`, `error:<status>` on a refusal, and
 `org:<id>` with identity attributes on. The session is the conversation when
-Piloti made the call, so the call sits beside the turn that asked for it; the
+The agent made the call, so the call sits beside the turn that asked for it; the
 user only with `TRACE_IDENTITY_ATTRIBUTES=true`. Never the input or the
 answer. Posted best-effort through the ingestion API, never awaited by the call
 (`lib/langfuse/tool-call-trace.ts`, from `lib/agent-api/telemetry.ts`). No score.
@@ -273,7 +274,7 @@ of it than the cap.
 
 ## Scores
 
-Every score Piloti, a reviewer or a judge writes is declared once in
+Every score the agent, a reviewer or a judge writes is declared once in
 `agent.observability.langfuse_scores.SCORE_DEFINITIONS`. A test fails when
 a name is written but not declared, or declared but not listed here.
 
@@ -283,9 +284,9 @@ a name is written but not declared, or declared but not listed here.
 | `user-feedback-reason` | categorical | BFF, on a down-vote | `inaccurate`, `wrong_source`, `too_slow`, `other` |
 | `piloti-decision` | categorical | BFF, on a person's decision | `accepted`, `dismissed`, `undone`: what a person did with a proposal, a proposed mark or an applied change the agent made in this turn, or with a value a reading of the project's documents suggested (ADR-0111). One score per decision, on the trace of the producing turn (for an intake suggestion, the reading's `research-job` trace; for a held mail's suggestion, its `filing-fit` generation); metadata `subject` (`proposal`, `annotation`, `change`, `intake_suggestion`, `inbound_mail_suggestion`) and `subject_id`. An `inbound_mail_suggestion` (one part of a held mail, ADR-0137) is `accepted` when the part was filed in the suggested folder as the suggested Dokumentart, `dismissed` otherwise, with metadata `folder` (`same`, `other`, `not_filed`) and `type` (`same`, `other`, `none`) naming the half that was not followed. The acceptance rate of the agent's work |
 | `mail-thread-match` | categorical | BFF, when a held mail's text is decided (ADR-0137) | `followed` (appended to the strongest E-Mail-Verlauf the mail matched, or by a follow, metadata `via: follow`), `other_thread` (appended to another one), `new_thread` (a new Verlauf although one matched). One per decided text that had a match, on its own `mail-thread-match` trace (matching is a rule, not a model call); metadata `strength`, `preselected`, `chosen_rank`, `sender_trust`, `via`. By strength and trust, the precision of thread matching and of its pre-selection |
-| `diagram-filed` | categorical | BFF, when a drawing is filed into a project (ADR-0141) | `as_drawn` (the drawing Piloti made, kept as it was) or `edited` (reworked in the sketch editor first). On the trace of the turn that drew it, through the `answerId` the filing sends; no answer id or no trace on it, no score. Metadata `document_id`, the filed SVG, which is also the score id, so filing the same drawing again upserts. The share `edited` is how often Piloti's drawing was a starting point rather than the result |
-| `revision-notice` | numeric ≥ 0 | BFF, when a notice of a new Fassung ends (ADR-0130) | How many marks Piloti proposed on its own after comparing a new Fassung with the one it replaces; 0 is „compared, nothing visible". On the trace of the first page's `revision-visual-compare` generation (metadata `purpose: notice`), so no score without a traced call; metadata `notice_id`, `pages_compared`, `pages_changed`. Each mark it proposed is recorded against the notice's thread message, so a person's decision on it is a `piloti-decision` on the same trace: the share accepted is the precision of noticing |
-| `document-check` | numeric ≥ 0 | BFF, when a check of a new document ends (ADR-0130) | How many marks Piloti proposed on its own after checking a new document against the project's other documents; 0 is „checked, everything agrees“. On the trace of the headless turn that ran the check (`turn_trigger: new_document`, the check's id as `trigger_event_id`), so no score without a trace; metadata `check_id`. Each mark is a `agent_changes` row on the turn's answer, so a person's decision on it is a `piloti-decision` on the same trace: the share accepted is the precision of the check |
+| `diagram-filed` | categorical | BFF, when a drawing is filed into a project (ADR-0141) | `as_drawn` (the drawing the agent made, kept as it was) or `edited` (reworked in the sketch editor first). On the trace of the turn that drew it, through the `answerId` the filing sends; no answer id or no trace on it, no score. Metadata `document_id`, the filed SVG, which is also the score id, so filing the same drawing again upserts. The share `edited` is how often the agent's drawing was a starting point rather than the result |
+| `revision-notice` | numeric ≥ 0 | BFF, when a notice of a new Fassung ends (ADR-0130) | How many marks the agent proposed on its own after comparing a new Fassung with the one it replaces; 0 is „compared, nothing visible". On the trace of the first page's `revision-visual-compare` generation (metadata `purpose: notice`), so no score without a traced call; metadata `notice_id`, `pages_compared`, `pages_changed`. Each mark it proposed is recorded against the notice's thread message, so a person's decision on it is a `piloti-decision` on the same trace: the share accepted is the precision of noticing |
+| `document-check` | numeric ≥ 0 | BFF, when a check of a new document ends (ADR-0130) | How many marks the agent proposed on its own after checking a new document against the project's other documents; 0 is „checked, everything agrees“. On the trace of the headless turn that ran the check (`turn_trigger: new_document`, the check's id as `trigger_event_id`), so no score without a trace; metadata `check_id`. Each mark is a `agent_changes` row on the turn's answer, so a person's decision on it is a `piloti-decision` on the same trace: the share accepted is the precision of the check |
 | `base-knowledge-overdue` | numeric ≥ 0 | Agent, when the turn context is loaded with the office's base knowledge (ADR-0163, flag `office-standards`) | How many of the office's confirmed standards, commentaries and directives the turn carried were overdue for a check: 365 days, 180 for a directive, or a last check that found a newer edition, a withdrawal or no answer. 0 is a measurement; not written when the turn carried no base knowledge. With trace metadata `base_knowledge_entries` it is the share of stale copies an answer could rest on; whether the answer said so is S2's `stale_disclosed` |
 | `processing-location-compliant` | boolean, one per distinct endpoint (item `subprocessor:location`) | The model seam (`common/residency.record_route`), on every model call that has a trace: chat, embeddings, vision, reranking, decisions, summaries, judges and the distiller (ADR-0167) | True when the data-flow register places the endpoint inside the deployment's residency zone (`RESIDENCY_CELL`), or anywhere known when no cell is set; false for an unplaced host or one outside the zone. With a cell set a false call was refused before it left. Every generation also carries observation metadata `processing_location`, `subprocessor` and `processing_location_compliant`, and a chat-turn trace carries `cell`, `purpose_ok` and `processing_policy_version` |
 | `advice-policy-held` | boolean, per judged turn | The LLM judge `advice-policy-held`, under its own rule `advice-policy-judges`, only on an answered chat turn tagged `advice_policy:carried` whose trace metadata lists the hedge codes (`hedges`, `topic:mode`) its prompt carried (ADR-0174) | True when the answer kept every hedge the question touches; false when it decided a hedged topic or answered a declined one. Nothing tags a turn yet: the turn context that puts a site's advice policy into the prompt sets the tag and the metadata |
@@ -321,8 +322,8 @@ a name is written but not declared, or declared but not listed here.
 | `confidence-open-points` | numeric | agent | written with `confidence-judged-level`: how many open points the answer check read in the answer itself, its prose or its confidence reason (something it states is open, unchecked or unresolved and its main point depends on). Above zero caps the surfaced level at medium (`confidence-capped` `open_point`); the comment names them in the answer's words |
 | `confidence-judge-unavailable` | boolean | agent | on a turn whose answer was to be graded: true when the check could not run (no model, a timeout, an error, an unreadable reply) and the turn surfaced no level |
 | `confidence-judge-unavailable-reason` | categorical | agent | written with `confidence-judge-unavailable` true: why the check gave no level (`claim_judge.Unavailable`). `no_judge` (no model resolved), `timeout` (past `JUDGE_TIMEOUT_S`), `error` (the call raised; the comment names the exception class), `unparseable` (the reply is no check; the comment says `truncated at the output budget` when `finish_reason` was `length` or the output tokens reached `MAX_OUTPUT_TOKENS`), `no_reply` (an empty reply). With `response_format` the OpenAI SDK parses the reply itself and raises `LengthFinishReasonError` on `finish_reason` `length` instead of returning the cut text; the check maps that exception to `unparseable` with `truncated` (`claim_judge._failure`). Its sibling `ContentFilterFinishReasonError` (the provider's content filter stopped the reply) lands in `error`, with that class name in the comment. The exception's own message (a provider's `402 Payment Required`, a 429) goes to the agent's log only, never into a score or metadata. The comment and the score's metadata carry `elapsed_ms`, `evidence_chars` and `answer_chars`, so a timeout rate can be read against prompt size |
-| `look-count` | numeric | agent, at the terminal | looks Piloti made in the turn (ADR-0128), whether or not the answer relies on them; written on every answered chat turn, zero included |
-| `looked-before-measurement` | boolean | agent, at the terminal | on a turn whose answer states a value read off a drawing (a value sentence that cites a place a look read, or a drawing region, or repeats a reading): true when Piloti made a region look (not only an overview) at that drawing before it answered. No score on a turn that states no such value |
+| `look-count` | numeric | agent, at the terminal | looks the agent made in the turn (ADR-0128), whether or not the answer relies on them; written on every answered chat turn, zero included |
+| `looked-before-measurement` | boolean | agent, at the terminal | on a turn whose answer states a value read off a drawing (a value sentence that cites a place a look read, or a drawing region, or repeats a reading): true when the agent made a region look (not only an overview) at that drawing before it answered. No score on a turn that states no such value |
 | `citations-dropped-labelled` | numeric | agent | citations the answer wrote that did not resolve (no source, or a § / Punkt the cited passage does not hold), removed from the text since ADR-0125's amendment of 2026-11-10 (the name predates it) |
 | `law-cited-from-web` | boolean | agent, at the terminal | on every answered chat turn: true when the answer cites a web page that is a copy of a work the records hold (a host a source record lists under `copy_hosts`) or that only names one (its designation in the page's title or address), or a web page that a sentence of the answer cites while that sentence names a held work (the records hold that law, its binding and the day it binds from, so a page cited beside them is still the web cited for law: dev, 2026-11-12), instead of the legal database or the knowledge base (`common/binding_claims.law_cited_from_web`); the comment counts the works. Target: false |
 | `binding-claim-without-records` | boolean | agent, at the terminal | on every answered chat turn: true when a sentence states law the turn's records do not carry (`common/binding_claims.py`): it cites only web sources and names law (`web_only`), or the gate may not bind and it says a text binds or is required (`gate_may_not_bind`, the words from `configs/norms/*/claim_terms.yml`); the comment counts the sentences per rule, never their text. The turn's confidence is then capped with `law_unsettled`. Chat only: deep research does not run the check yet |
@@ -384,7 +385,7 @@ reported as drift for a person to resolve.
 ## PostHog export
 
 Traces, generations and scores reach PostHog **only** through Langfuse's own
-PostHog integration. Grid sends no `$ai_*` event and no LLM trace or score
+PostHog integration. The app sends no `$ai_*` event and no LLM trace or score
 to PostHog itself; everything else (product analytics, errors, replay, surveys)
 goes to PostHog directly, and this export is what joins the two. The upstream
 page is [langfuse.com/integrations/analytics/posthog](https://langfuse.com/integrations/analytics/posthog).
@@ -408,6 +409,37 @@ expected (`feedback-score.ts`), so those words land in PostHog as
 retention and erasure workers (ADR-0044) do not reach PostHog: an erased
 person's events there are removed in PostHog (delete the person with their
 events).
+
+### Which deployment
+
+Staging and production export to one PostHog project and both file their
+traces under `langfuse_environment = 'production'`, so the environment
+cannot split them. `langfuse_tags` can: the export copies the trace's tag
+list, as a JSON string, onto every observation and score of the trace, and
+every trace carries `deployment:<stack>` ([above](#what-every-trace-carries)).
+Production is
+
+```sql
+has(JSONExtract(coalesce(properties.langfuse_tags, '[]'), 'Array(String)'), 'deployment:prod')
+```
+
+and staging the same with `deployment:dev`. The stack name does not move when
+a domain does. Observations from before the deploy that adds it carry only
+`app_host:<host>` (`app_host:app.archos.tech` for production, from the deploy
+after 2026-11-17), which every trace still carries; observations older than
+that carry no deployment and cannot be split. A score filters the same way: on 2026-11-17, 1014 of 1015
+exported scores carried their trace's tags, and observations carried tags set
+only on the trace (`outcome:answered`).
+What carries no tag: the MCP gateway's spans (`initialize`, `tools/list`, the
+Langfuse and CMS tool calls), which agentgateway writes itself and which
+land in `default`.
+
+The environment stays `APP_ENV`. Nothing in the repository filters on it (the
+judge rules filter on trace name and tags, the golden dataset has no
+environment, `task langfuse:provision` declares none), but each stack's own
+Langfuse has only ever seen `production`, so its saved views and score
+history would split at a rename, and `APP_ENV` itself gates the internal-token
+checks and cannot change.
 
 Facts to plan around: **nothing is backfilled** (the sync is watermark-based,
 and starts when the integration is saved); there is **no filter** by observation
@@ -448,7 +480,7 @@ never reads a trace's body, so this is the whole cost.
 ### Identity and the replay link
 
 * `user_id` becomes the event's distinct id, so it must be the WorkOS user id
-  PostHog identifies the browser with. That is Langfuse's user, which Grid sets
+  PostHog identifies the browser with. That is Langfuse's user, which the app sets
   only with `TRACE_IDENTITY_ATTRIBUTES=true`; without it every event is
   `langfuse_unknown_user` and joins to no person.
 * `trace.metadata.$posthog_session_id` becomes `$session_id`. Each chat turn
@@ -511,7 +543,7 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 
 | Concern | Module |
 |---|---|
-| Environment, release, types, trace names | `packages/agent/src/agent/observability/trace_context.py` |
+| Environment, release, deployment tag, types, trace names | `packages/agent/src/agent/observability/trace_context.py` |
 | The processors on the runtime's exporter | `packages/agent/src/agent/observability/langfuse_trace_attributes.py`, installed in `otel_header_redaction_exporter.py` |
 | A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_socket.py` `_drive` |
 | Runtime scores | `packages/agent/src/agent/observability/langfuse_scores.py` |
@@ -519,7 +551,7 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 | Hatchet's spans (trigger, step run) | `packages/agent/src/agent/observability/orchestrator_tracing.py` |
 | Langfuse configuration as code | `packages/agent/src/agent/observability/langfuse_catalog.py`, `scripts/langfuse_provision.py` |
 | Votes, reasons, review queue | `apps/workspace/bff/langfuse/feedback-score.ts` |
-| Decisions on Piloti's proposals, marks and changes | `apps/workspace/bff/langfuse/decision-score.ts` |
+| Decisions on the agent's proposals, marks and changes | `apps/workspace/bff/langfuse/decision-score.ts` |
 | Tool calls on the agent door (MCP) | `apps/workspace/bff/langfuse/tool-call-trace.ts`, called from `lib/agent-api/telemetry.ts` |
 | PostHog session link | `record_posthog_session` in `langfuse_trace_attributes.py`, bound in `agent_host/chat_socket.py` `_drive`; the browser side is `getPosthogSessionId` in `apps/workspace/bff/analytics/posthog.ts` |
 | Retention and erasure | `apps/workspace/workers/langfuse-traces.js` ([`deletion-pipeline.md`](../architecture/deletion-pipeline.md)) |

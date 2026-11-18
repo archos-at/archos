@@ -39,7 +39,7 @@ describe.skipIf(!url)('asks against Postgres', () => {
     withTenant({ organizationId, userId: null }, run)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -150,13 +150,11 @@ describe.skipIf(!url)('asks against Postgres', () => {
     expect(ids).not.toContain(ended.id)
     expect(open.find((ask) => ask.id === theirs.id)?.organizationId).toBe(OTHER_ORG)
     expect(await withPlatformAccess('ask expiry spec', () => repo.findAsksOpenBefore(new Date(0), 1_000))).toEqual([])
-    // The page is bounded whatever the caller asks for.
     expect(await withPlatformAccess('ask expiry spec', () => repo.findAsksOpenBefore(later, 1))).toHaveLength(1)
     expect((await withPlatformAccess('ask expiry spec', () => repo.findAsksOpenBefore(later, 0))).length).toBeLessThanOrEqual(1)
     expect(
       (await withPlatformAccess('ask expiry spec', () => repo.findAsksOpenBefore(later, Number.POSITIVE_INFINITY))).length,
     ).toBeLessThanOrEqual(repo.MAX_OPEN_ASKS_PAGE)
-    // A tenant scope sees its own asks only: the sweep is a platform read, or it reads one office.
     const scoped = (await as(ORG, () => repo.findAsksOpenBefore(later, 1_000))).map((ask) => ask.organizationId)
     expect(new Set(scoped)).toEqual(new Set([ORG]))
   })

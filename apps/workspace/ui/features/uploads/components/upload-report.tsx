@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The Eingangsbericht under an `upload.completed` inbox row: what the upload
- * brought the project, in three short lines, and „Zu den Befunden“ when it
- * brought any (`../lib/upload-report-copy`). Keyed on the data the row
- * carries (`item.uploadReport`), never on the row's type.
- *
- * The link sits above the row's stretched link (`relative z-10`), as the
- * row's other actions do.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { FileSearch } from 'lucide-react'

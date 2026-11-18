@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Piloti's writes through the MCP surface are proposals (ADR-0122): proposing
- * files a row and applies nothing; accepting runs the operation through
- * `callOperation` as the ACCEPTING person; a read-only or vanished operation is
- * never run; dismissing runs nothing. A turn in no project files on the
- * organization (0176), read through its conversation and decided by anyone who
- * reads it; the same call repeated while the first is open files nothing. The
- * service is the real one, over an in-memory repository; `callOperation` and
- * the catalog are the seams.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
@@ -34,7 +24,6 @@ vi.mock('@/lib/langfuse/decision-score', () => ({
   recordDecisionScore: vi.fn(async () => undefined),
 }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
-// The other kinds' services are not reached by an operation proposal.
 vi.mock('@/lib/proposals/executors', () => ({
   applyFileOperations: vi.fn(),
   operationLabel: vi.fn(),
@@ -68,15 +57,12 @@ vi.mock('@/lib/proposals/repository', () => ({
   listShelfProposals: vi.fn(),
 }))
 
-// Where a target lives is SQL; the real-path proof is `operation-proposals.integration.spec.ts`.
 vi.mock('./operation-targets-repository', () => ({
   findTargetPlace: vi.fn(async () => ({ projectId: '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f', conversationId: null })),
   findProjectName: vi.fn(async () => 'Neubau Musterstraße'),
 }))
 vi.mock('@/lib/authz/folder-access', () => ({ isFolderVisibleTo: vi.fn(async () => true) }))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
-// Whose reach a shared conversation's proposal must stay in: SQL and WorkOS, proven in
-// operation-proposals.integration.spec.ts; here only that its refusal files nothing.
 vi.mock('./conversation-audience', () => ({ proposalReachRefusal: vi.fn(async () => null) }))
 
 const dispatch = vi.hoisted(() => ({ callOperation: vi.fn() }))
@@ -122,7 +108,6 @@ const CATALOG = [FOLDER_RENAME, FOLDER_LIST, SEARCH_POST, ORG_MEMORY_CREATE]
 let catalog = CATALOG
 vi.mock('./exposure.config', async (importOriginal) => {
   const real = await importOriginal<typeof import('./exposure.config')>()
-  // The fakes are kinds of operation; organization-memory-create keeps its real entry (Piloti does it natively).
   const offered = { external: true, agent: true }
   return { ...real, EXPOSURE: { ...real.EXPOSURE, 'folder-rename': offered, 'folder-list': offered, 'folder-search': offered } }
 })
@@ -257,7 +242,7 @@ const propose = (op = FOLDER_RENAME) =>
   })
 
 describe('proposeOperation', () => {
-  it('files an operation proposal in the turn, as Piloti for the asker, and runs nothing', async () => {
+  it('files an operation proposal in the turn, as the in-product agent for the asker, and runs nothing', async () => {
     const { proposalId, summary } = await propose()
 
     expect(summary).toBe(`Rename a folder (name: Pläne, id: ${PROJECT}, folderId: f_1)`)
@@ -308,7 +293,6 @@ describe('proposeOperation', () => {
       summary: first.summary,
     })
 
-    // Another input is another proposal; so is the same call in another conversation.
     await proposeOperation({
       principal: { session: ASKER, conversationId: 'conv_1', projectId: PROJECT },
       op: FOLDER_RENAME,
@@ -443,7 +427,7 @@ describe('an organization-scoped operation proposal (a turn in no project)', () 
 
     expect((await getProposal(ASKER, proposalId)).canDecide).toBe(true)
     await expect(getProposal(ACCEPTER, proposalId)).rejects.toBeInstanceOf(NotFoundError)
-    await expect(applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))).rejects.toBeInstanceOf(
+    await expect(applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))).rejects.toBeInstanceOf(
       NotFoundError
     )
   })
@@ -452,7 +436,7 @@ describe('an organization-scoped operation proposal (a turn in no project)', () 
     const { proposalId, summary } = await proposeInOrganization()
     vi.mocked(requireProjectAccess).mockRejectedValue(new ForbiddenError('no project right'))
 
-    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))
+    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))
 
     expect(dispatch.callOperation).toHaveBeenCalledTimes(1)
     expect(dispatch.callOperation.mock.calls[0][2]).toBe(ACCEPTER)
@@ -467,7 +451,7 @@ describe('an organization-scoped operation proposal (a turn in no project)', () 
       body: { error: 'Only admins may write the office memory', code: 'FORBIDDEN' },
     })
 
-    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))
+    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))
 
     expect(view.status).toBe('failed')
     expect(view.results).toMatchObject([{ ok: false, reason: 'Only admins may write the office memory' }])
@@ -504,7 +488,7 @@ describe('applying an operation proposal', () => {
   it('runs the operation as the ACCEPTING person and records the result', async () => {
     const { proposalId, summary } = await propose()
 
-    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))
+    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))
 
     expect(dispatch.callOperation).toHaveBeenCalledTimes(1)
     const [op, input, session] = dispatch.callOperation.mock.calls[0]
@@ -529,7 +513,7 @@ describe('applying an operation proposal', () => {
       body: { error: 'You may not rename this folder', code: 'FORBIDDEN' },
     })
 
-    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))
+    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))
 
     expect(view.status).toBe('failed')
     expect(view.results).toMatchObject([{ ok: false, reason: 'You may not rename this folder' }])
@@ -537,7 +521,6 @@ describe('applying an operation proposal', () => {
 
   it('refuses an operation that has left the catalog or turned read-only since it was proposed', async () => {
     const { proposalId } = await propose()
-    // Another input: the same call twice would be one proposal.
     const second = await proposeOperation({
       principal: { session: ASKER, conversationId: 'conv_1', projectId: PROJECT },
       op: FOLDER_RENAME,
@@ -545,12 +528,12 @@ describe('applying an operation proposal', () => {
     })
     catalog = [{ ...FOLDER_RENAME, method: 'GET' }]
 
-    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))
+    const view = await applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))
     expect(view.status).toBe('failed')
     expect(view.results?.[0]?.reason).toMatch(/only reads/)
 
     catalog = []
-    const gone = await applyProposal(ACCEPTER, second.proposalId, new Request('https://grid.test'))
+    const gone = await applyProposal(ACCEPTER, second.proposalId, new Request('https://example.test'))
     expect(gone.results?.[0]?.reason).toMatch(/no longer exists/)
     expect(dispatch.callOperation).not.toHaveBeenCalled()
   })
@@ -563,7 +546,7 @@ describe('applying an operation proposal', () => {
       input: { ...INPUT, body: { name: 'Pläne 2' } },
     })
     catalog = [{ ...FOLDER_RENAME, sensitivity: 'control' }]
-    const sensitive = await applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))
+    const sensitive = await applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))
     expect(sensitive.status).toBe('failed')
     expect(sensitive.results?.[0]?.reason).toContain(`not one ${PRODUCT_NAME} may propose`)
 
@@ -572,7 +555,7 @@ describe('applying an operation proposal', () => {
     const before = entries['folder-rename']
     entries['folder-rename'] = { external: false, agent: false, platform: true }
     try {
-      const hidden = await applyProposal(ACCEPTER, second.proposalId, new Request('https://grid.test'))
+      const hidden = await applyProposal(ACCEPTER, second.proposalId, new Request('https://example.test'))
       expect(hidden.status).toBe('failed')
       expect(hidden.results?.[0]?.reason).toBe('The operation folder-rename no longer exists')
     } finally {
@@ -584,7 +567,7 @@ describe('applying an operation proposal', () => {
   it('leaves the proposal open for a decider who cannot see the project', async () => {
     const { proposalId } = await propose()
     vi.mocked(requireProjectAccess).mockRejectedValue(new ForbiddenError('no'))
-    await expect(applyProposal(ACCEPTER, proposalId, new Request('https://grid.test'))).rejects.toBeInstanceOf(
+    await expect(applyProposal(ACCEPTER, proposalId, new Request('https://example.test'))).rejects.toBeInstanceOf(
       ForbiddenError
     )
     expect(dispatch.callOperation).not.toHaveBeenCalled()

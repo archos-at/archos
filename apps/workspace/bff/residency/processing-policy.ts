@@ -1,15 +1,3 @@
-/**
- * An organization's processing policy, as the agent tier reads it (ADR-0167).
- *
- * Its cell (`organizations.residency_cell`) and the purposes its data may be
- * processed for (`organization_processing_policies`, migration 0203). Reported
- * to the Python backend on `/api/internal/model-overrides` beside the ZDR bit,
- * where `agent.common.residency.parse_policy` reads it: the backend refuses an
- * organization placed in another cell and tags each chat trace with
- * `purpose_ok`, which the Langfuse judges require. No row reads as the
- * defaults; a policy the backend cannot read allows `service` alone.
- */
-
 import 'server-only'
 import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -25,7 +13,6 @@ export const PURPOSES = [
 ] as const
 export type Purpose = (typeof PURPOSES)[number]
 
-/** What an organization without a row allows. `product_improvement` is opt-in. */
 export const DEFAULT_PURPOSES: readonly Purpose[] = [
   'service',
   'quality_evaluation',
@@ -42,7 +29,6 @@ function isPurpose(value: string): value is Purpose {
   return (PURPOSES as readonly string[]).includes(value)
 }
 
-/** The organization's policy; two primary-key reads in its tenant context. */
 export async function getProcessingPolicy(organizationId: string): Promise<ProcessingPolicyWire> {
   const db = getDb()
   const [placement, policy] = await withTenant({ organizationId }, () =>

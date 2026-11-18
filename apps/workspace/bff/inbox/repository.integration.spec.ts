@@ -33,11 +33,10 @@ describe.skipIf(!url)('inbox paging against Postgres', () => {
 
   const asMe = <T>(run: () => Promise<T>): Promise<T> => withTenant({ organizationId: ORG, userId: ME }, run)
 
-  /** Microsecond offsets from one base moment: ties, a shared millisecond, and plain steps. */
   const OFFSETS = [0, 0, 0, 1, 2, 999, 1000, 1000, 1500, 2000, 3001, 3001, 5000, 9000, 9001, 12000, 12000, 20000]
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -99,7 +98,7 @@ describe.skipIf(!url)('a deleted reply’s rows against Postgres', () => {
   const asMe = <T>(run: () => Promise<T>): Promise<T> => withTenant({ organizationId: REPLY_ORG, userId: ME }, run)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -146,12 +145,6 @@ describe.skipIf(!url)('a deleted reply’s rows against Postgres', () => {
   })
 })
 
-/**
- * Taking one occurrence back out of a row, and rewording a quote, in place:
- * what a deleted reply, a reworded reply and a deleted mark do to the rows that
- * counted them (`lib/annotations/attention.ts`). Nothing resurfaces: neither
- * `updated_at` nor `read_at` moves.
- */
 describe.skipIf(!url)('retracting and rewording rows in place against Postgres', () => {
   const ANCHOR = '00000000-0000-4000-8000-0000000000bb'
   const OTHER = '00000000-0000-4000-8000-0000000000cc'
@@ -164,7 +157,6 @@ describe.skipIf(!url)('retracting and rewording rows in place against Postgres',
 
   const asMe = <T>(run: () => Promise<T>): Promise<T> => withTenant({ organizationId: RETRACT_ORG, userId: ME }, run)
 
-  /** One row of mine: its group key's tail, type, count, whether it was read, and payload. */
   const insert = (tail: string, type: string, count: number, read: boolean, payload: Record<string, unknown>, anchor = ANCHOR) =>
     db.execute(sql`
       insert into inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id,
@@ -183,7 +175,7 @@ describe.skipIf(!url)('retracting and rewording rows in place against Postgres',
     ).then((result) => Array.from(result))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -290,12 +282,6 @@ describe.skipIf(!url)('retracting and rewording rows in place against Postgres',
   })
 })
 
-/**
- * The review's dots (`listUnreadAnchors`) are the rows opening a mark reads
- * (`markAnchorItemsRead`): the recipient's own, informational, unread news
- * anchored on a mark of THIS document, less what they archived or what was
- * redacted. Read, the dot is gone.
- */
 describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
   const ORG_ANCHORS = `org_inbox_anchors_${Date.now()}`
   let repo: typeof import('./repository')
@@ -305,7 +291,7 @@ describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
   const asMe = <T>(run: () => Promise<T>): Promise<T> => withTenant({ organizationId: ORG_ANCHORS, userId: ME }, run)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -320,7 +306,6 @@ describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
       groupKey?: string
     }> = [
       { recipient: ME, resource: 'doc-1', anchor: 'mark-news', actionable: false, extra: '' },
-      // Two rows on one mark are one dot.
       { recipient: ME, resource: 'doc-1', anchor: 'mark-news', actionable: false, extra: '' },
       { recipient: ME, resource: 'doc-1', anchor: 'mark-read', actionable: false, extra: 'read' },
       { recipient: ME, resource: 'doc-1', anchor: 'mark-request', actionable: true, extra: '' },
@@ -329,7 +314,6 @@ describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
       { recipient: ME, resource: 'doc-1', anchor: null, actionable: false, extra: '' },
       { recipient: ME, resource: 'doc-2', anchor: 'mark-elsewhere', actionable: false, extra: '' },
       { recipient: 'user_someone_else', resource: 'doc-1', anchor: 'mark-theirs', actionable: false, extra: '' },
-      // „Anna hat 15 Anmerkungen gesetzt“: anchored on the newest mark only for its link, folded on the document.
       {
         recipient: ME,
         resource: 'doc-1',
@@ -362,7 +346,6 @@ describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
     const unread = () =>
       asMe(() => repo.listUnreadAnchors(ORG_ANCHORS, ME, 'document', 'doc-1', repo.EVERY_INBOX_TYPE))
     expect(await unread()).toEqual(['mark-news'])
-    // A reader who may not see the type sees no dot for it.
     expect(await asMe(() => repo.listUnreadAnchors(ORG_ANCHORS, ME, 'document', 'doc-1', []))).toEqual([])
 
     expect(await asMe(() => repo.markAnchorItemsRead(ORG_ANCHORS, ME, 'document', 'doc-1', 'mark-news', repo.EVERY_INBOX_TYPE))).toBe(2)
@@ -373,16 +356,13 @@ describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
     expect(await asMe(() => repo.listUnreadAnchors(ORG_ANCHORS, ME, 'document', 'doc-1', repo.EVERY_INBOX_TYPE))).not.toContain(
       'mark-newest'
     )
-    // Opening the newest mark is not reading the document's new marks.
     expect(
       await asMe(() => repo.markAnchorItemsRead(ORG_ANCHORS, ME, 'document', 'doc-1', 'mark-newest', repo.EVERY_INBOX_TYPE))
     ).toBe(0)
     const set = { groupAnchor: 'set:', types: repo.EVERY_INBOX_TYPE }
-    // A reader who may not see the type reads nothing.
     expect(
       await asMe(() => repo.markResourceItemsRead(ORG_ANCHORS, ME, 'document', 'doc-1', { ...set, types: [] }))
     ).toBe(0)
-    // Opening the review reads it, and only it: the request and the other rows stay as they were.
     expect(await asMe(() => repo.markResourceItemsRead(ORG_ANCHORS, ME, 'document', 'doc-1', set))).toBe(1)
     expect(await asMe(() => repo.markResourceItemsRead(ORG_ANCHORS, ME, 'document', 'doc-1', set))).toBe(0)
   })

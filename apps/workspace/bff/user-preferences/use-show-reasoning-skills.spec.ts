@@ -40,7 +40,6 @@ describe('readShowReasoningSkills', () => {
   it('reads a stored boolean, and ignores a non-boolean rather than throwing', () => {
     expect(readShowReasoningSkills({ showReasoningSkills: true })).toBe(true)
     expect(readShowReasoningSkills({ showReasoningSkills: false })).toBe(false)
-    // A corrupt / hand-edited value reads as the default, never a crash.
     expect(readShowReasoningSkills({ showReasoningSkills: 'yes' as unknown as boolean })).toBe(false)
   })
 })

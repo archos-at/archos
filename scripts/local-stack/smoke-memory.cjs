@@ -1,12 +1,3 @@
-// The local stack's browser check (`local-stack.sh smoke`): anna opens
-// /app/memory, adds a note and sees it after a reload; bert, in the same office,
-// opens the same page and has no notes. Proves a session, the BFF, row-level
-// security and the database end to end.
-//
-// Playwright: PLAYWRIGHT_MODULE, else `playwright` from NODE_PATH (a cloud
-// session has it under /opt/node-tools), else the UI's `playwright-core`.
-// Chromium: AGENT_BROWSER_EXECUTABLE_PATH when set (a cloud session's
-// /opt/pw-browsers/chromium), else Playwright's own.
 'use strict'
 
 const path = require('node:path')
@@ -41,7 +32,6 @@ async function openAs(browser, who) {
   ])
   const page = await context.newPage()
   page.on('pageerror', (error) => console.log(`[${who}] page error: ${String(error).slice(0, 200)}`))
-  // The page keeps reconnecting to /api/stream, so `networkidle` never comes: wait for the DOM, then the control.
   await page.goto(`${base}/app/memory`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
   return { context, page }
 }

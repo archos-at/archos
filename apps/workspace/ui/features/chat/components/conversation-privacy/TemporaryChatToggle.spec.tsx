@@ -1,9 +1,3 @@
-/**
- * The temporary switch in the composer (ADR-0180 rule 2). A new chat keeps the
- * choice until its row is created and sends it with the create; a stored chat
- * is switched with one PATCH and shows the server's answer; only the owner
- * gets the control.
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { act, render, screen, waitFor } from '@/test-utils'
@@ -152,7 +146,6 @@ describe('TemporaryChatToggle', () => {
       expect(word).toHaveTextContent('Temporary')
       expect(word.className).not.toMatch(/sr-only|hidden/)
       expect(screen.getByTestId('temporary-chat-glyph')).toHaveClass('max-sm:hidden')
-      // The name a screen reader hears is the action, not the bare word.
       expect(toggle()).toHaveAccessibleName(pressed ? 'Turn off temporary chat' : 'Turn on temporary chat')
     }
   })

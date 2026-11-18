@@ -24,15 +24,12 @@ import { PROJECT_PERMISSION_SPECS } from '@/lib/authz/catalog'
 
 vi.mock('server-only', () => ({}))
 
-/** Organization roles per user, as WorkOS would report them. */
 const ROLES: Record<string, string[]> = {
   user_member: ['member'],
   user_outsider: ['member'],
   user_plain: ['member'],
 }
-/** Who holds an FGA grant on the project. */
 const PROJECT_MEMBERS = new Set(['om_member'])
-/** Who holds folder-editor on Verträge (its id once made): the member, and the outsider too. */
 const FOLDER_EDITORS = new Set(['om_member', 'om_outsider'])
 const contracts = { id: '' }
 
@@ -49,14 +46,12 @@ vi.mock('@/lib/authz/project-membership', () => ({
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     authorization: {
-      // A project member holds every project permission; anyone else none.
       listEffectivePermissionsByExternalId: vi.fn(async ({ organizationMembershipId }: { organizationMembershipId: string }) => ({
         autoPagination: async () =>
           PROJECT_MEMBERS.has(organizationMembershipId)
             ? PROJECT_PERMISSION_SPECS.map(({ slug }) => ({ slug }))
             : [],
       })),
-      // `heldFolderLevels`, for real: folder-editor gives folder:read and folder:write.
       listResourcesForMembership: vi.fn(async ({ organizationMembershipId }: { organizationMembershipId: string }) => ({
         autoPagination: async () =>
           FOLDER_EDITORS.has(organizationMembershipId) && contracts.id
@@ -98,7 +93,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     featureFlags: null,
   })
 
-  /** A folder; with `list`, its own access list (who is on it is WorkOS's). */
   async function insertFolder(name: string, list: { everyoneReads: boolean } | null) {
     const rows = await inTenant(() =>
       db.execute<{ id: string }>(sql`
@@ -120,7 +114,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
       `)
     )
 
-  /** The file names a session's own folder access lets it list, through the real listing SQL. */
   async function listedFor(who: 'member' | 'outsider' | 'plain'): Promise<string[]> {
     const folderAccess = await access.getProjectFolderAccess(session(who), projectId, COLLECTION)
     const page = await documentsRepo.listProjectDocumentPage(projectId, ORG, {
@@ -131,8 +124,8 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
-    process.env.AUTHZ_CACHE_TTL_MS = '0'
+    vi.stubEnv('APP_DATABASE_URL', url)
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     access = await import('@/lib/authz/folder-access')
@@ -148,9 +141,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
         `)
       )
     )
-    //   Verträge/   member, outsider: folder-editor   (restricted, its own collection)
-    //   Pläne/      everyone reads
-    //   Verwaltung/ inherits
     folder.contracts = await insertFolder('Verträge', { everyoneReads: false })
     contracts.id = folder.contracts
     folder.plans = await insertFolder('Pläne', { everyoneReads: true })
@@ -161,7 +151,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     await insertDocument('Werkvertrag.pdf', folder.contracts, access.restrictedCollectionName(COLLECTION, folder.contracts))
   })
 
-  /** Back to active from wherever a test left it. */
   const reset = () =>
     inTenant(() =>
       db.execute(sql`
@@ -172,7 +161,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
   const reopen = () => repo.setProjectStatusInOrg(projectId, ORG, 'closed', { status: 'active' })
 
   beforeEach(async () => {
-    // Every test starts from an active project.
     await reset()
   })
 
@@ -199,7 +187,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     expect(await close()).toBeNull()
 
     const reopened = await reopen()
-    // How it ended stays, as the next close's suggestion; nothing reads it while it runs.
     expect(reopened).toMatchObject({ status: 'active', closedAt: null, closedBy: null, closedOutcome: 'completed' })
     expect(await reopen()).toBeNull()
   })
@@ -208,7 +195,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     const paused = await repo.setProjectStatusInOrg(projectId, ORG, 'active', { status: 'paused', at: new Date() })
     expect(paused).toMatchObject({ status: 'paused' })
     expect(paused?.pausedAt).toBeInstanceOf(Date)
-    // Writable, and still the members' alone.
     const parked = await insertFolder('Pausiert', null)
     await inTenant(() => db.execute(sql`DELETE FROM project_folders WHERE id = ${parked}::uuid`))
     await expect(authz.requireProjectAccess(session('outsider'), projectId, 'project:view')).rejects.toMatchObject({ status: 404 })
@@ -225,7 +211,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     const { emptySkillSnapshot } = await import('@/lib/jobs/types')
     const { SCHEDULE_SKIPPED_BECAUSE } = await import('./project-status')
     const plan = { prompt: 'Prüf das', skill: emptySkillSnapshot(), dataSources: ['knowledge_layer'] }
-    // As the scheduler leaves a one-shot it claimed: due date kept, next_run_at nulled.
     const oneShot = (title: string) =>
       inTenant(() =>
         tasks.insertDefinition({
@@ -331,9 +316,7 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     expect(before.member).toEqual(['Einreichplan.pdf', 'Lageplan.pdf', 'Protokoll.pdf', 'Werkvertrag.pdf'])
 
     await close()
-    // The member keeps exactly what their folder role gave them.
     expect(await listedFor('member')).toEqual(before.member)
-    // The outsider holds folder-editor on Verträge in WorkOS, and still does not see it.
     expect(await listedFor('outsider')).toEqual(['Einreichplan.pdf', 'Lageplan.pdf', 'Protokoll.pdf'])
     expect(await listedFor('plain')).toEqual(['Einreichplan.pdf', 'Lageplan.pdf', 'Protokoll.pdf'])
     const outsider = await access.getProjectFolderAccess(session('outsider'), projectId, COLLECTION)
@@ -348,7 +331,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
 
   it('refuses an insert into a closed project (SQLSTATE GPC01), and still lets an update through', async () => {
     await close()
-    /** The SQLSTATE of a failed query: drizzle wraps the driver's error as `cause`. */
     const sqlstate = (error: unknown): unknown => {
       for (let current: unknown = error; current; current = (current as { cause?: unknown }).cause) {
         const code = (current as { code?: unknown }).code
@@ -371,7 +353,6 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
         `)
       )
     )
-    // Ingestion finishing for a file uploaded before the close is an update.
     await inTenant(() => db.execute(sql`UPDATE documents SET status = 'completed' WHERE project_id = ${projectId}::uuid`))
 
     await reopen()

@@ -1,20 +1,4 @@
 #!/usr/bin/env node
-// The `workspace` stack file, derived from the legacy one (ADR-0147).
-//
-//   node scripts/workspace-stack-file.mjs <legacy Pulumi.<stack>.yaml> <out>
-//   node scripts/workspace-stack-file.mjs --secure-keys <legacy Pulumi.<stack>.yaml>
-//
-// Four changes and nothing else, so the new stack plans with exactly the
-// configuration the running one has:
-//   - every `grid-oib:<key>` becomes `workspace:<key>`;
-//   - every `secure:` value is dropped: it is ciphertext under the legacy
-//     stack's key and opens nowhere else. esc-workspace-env.sh carries those
-//     values into the ESC environment instead;
-//   - the ESC import `grid-oib/<env>` becomes `workspace/<env>`;
-//   - the keys in OVERRIDES take the workspace's own value. Both stack files
-//     pin `namespace: grid`, and a copy of that would plan the new stack
-//     straight into the old namespace.
-// Comments are not carried over: the generated file is read by Pulumi only.
 import { readFileSync, writeFileSync } from "node:fs";
 import { dump, load } from "js-yaml";
 

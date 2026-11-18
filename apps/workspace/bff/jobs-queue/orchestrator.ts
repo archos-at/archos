@@ -1,24 +1,3 @@
-/**
- * The thin layer between the BFF's jobs and the Hatchet SDK (ADR-0150): the only
- * module under `jobs-queue/` that imports `@hatchet-dev/typescript-sdk`, and the
- * owner of the process's one SDK client ({@link hatchetClient}), which
- * `bff/scheduling/` uses too.
- *
- * It declares the `bff-job` task from `./task.ts`'s spec, triggers it
- * for an enqueue (`./enqueue.ts`), and starts the worker and the dispatch sweep
- * in the `bff-jobs` pod (`./slice-entry.ts`), which hands it what a run does
- * (`./task-run.ts`): the enqueue side, which every service imports, then
- * never imports the handlers, which import those services. The handlers never see the SDK;
- * the task throws our own errors, and this file says what Hatchet makes of them:
- * {@link PermanentJobError} is the SDK's `NonRetryableError`, {@link RetryLaterError}
- * its `RetryAfterError` (engine v0.111.0 or later; an older one retries at once).
- *
- * The connection is the SDK's own configuration from its standard environment
- * (`HATCHET_CLIENT_TOKEN`, `HATCHET_CLIENT_HOST_PORT`,
- * `HATCHET_CLIENT_TLS_STRATEGY`, `HATCHET_CLIENT_NAMESPACE`); nothing here
- * reads or re-implements it.
- */
-
 import 'server-only'
 import {
   ConcurrencyLimitStrategy,
@@ -45,23 +24,18 @@ import {
 
 export type RunOptions = { priority: Priority; additionalMetadata: Record<string, string> }
 
-/** What this module asks of a task declaration (the SDK's `TaskWorkflowDeclaration`). */
 export interface BffJobDeclaration {
   runNoWait(input: BffJobTaskInput, options: RunOptions): Promise<unknown>
   schedule(enqueueAt: Date, input: BffJobTaskInput, options: RunOptions): Promise<unknown>
 }
 
-/** The run's context, as much of the SDK's `Context` as the task reads. */
 export interface BffJobContext {
   taskRunExternalId(): string
-  /** Which attempt of the run this is: the SDK's `action.retryCount`, 0 for the first. */
   retryCount(): number
-  /** Aborted by the SDK when the engine cancels the attempt (its execution timeout, a cancel) or the worker stops. */
   readonly abortController: AbortController
   readonly worker: { id(): string | undefined }
 }
 
-/** What this module passes to `hatchet.task(...)`. */
 export interface BffJobTaskOptions {
   name: string
   retries: number
@@ -72,7 +46,6 @@ export interface BffJobTaskOptions {
   fn: (input: BffJobTaskInput, ctx: BffJobContext) => Promise<BffJobTaskOutput>
 }
 
-/** What a run does and what the sweep does (`./task-run.ts`), handed in by the pod that works. */
 export interface BffJobWork {
   run(input: BffJobTaskInput, context: BffJobRunContext, runs: BffJobRuns): Promise<BffJobTaskOutput>
   sweep(runs: BffJobRuns): Promise<{ dispatched: number; failed: number; purged: number }>
@@ -83,19 +56,15 @@ export interface BffJobWorker {
   stop(): Promise<void>
 }
 
-/** The slice of the SDK client this module uses; specs hand in a fake here, and only here. */
 export interface HatchetLike<D extends BffJobDeclaration = BffJobDeclaration> {
   task(options: BffJobTaskOptions): D
-  /** `workflows`: `bff-job`, then whatever else the pod runs (`bff/scheduling/tasks.ts`). */
   worker(name: string, options: { slots: number; handleKill: false; workflows: Array<D | WorkerWorkflow> }): Promise<BffJobWorker>
 }
 
-/** A declaration the worker also registers, as the SDK's `worker()` takes it. */
 export type WorkerWorkflow = NonNullable<CreateWorkerOpts['workflows']>[number]
 
 let sdk: HatchetClient | null = null
 
-/** The process's one Hatchet client, from the SDK's standard environment. */
 export function hatchetClient(): HatchetClient {
   sdk ??= HatchetClient.init()
   return sdk
@@ -111,7 +80,6 @@ function sdkClient(): HatchetLike<TaskWorkflowDeclaration<BffJobTaskInput, BffJo
 
 const SDK_PRIORITY: Record<1 | 3, Priority> = { 1: Priority.LOW, 3: Priority.HIGH }
 
-/** Start a run, now or at `notBefore`; a run that already holds this job's key is the run asked for. */
 function runsOf(declaration: BffJobDeclaration, now: () => number): BffJobRuns {
   return {
     async trigger(input, { notBefore }) {
@@ -130,13 +98,6 @@ function runsOf(declaration: BffJobDeclaration, now: () => number): BffJobRuns {
   }
 }
 
-/**
- * What Hatchet is told about a failed run. Never the error's own message or
- * stack: those can carry a file name or a URL, and Hatchet keeps what it is
- * told (ADR-0150: ids and ciphertext only). Our errors already carry only
- * `failureText`; anything else is logged here, on the pod, and replaced by
- * its class.
- */
 export function toHatchetError(error: unknown): Error {
   if (error instanceof PermanentJobError) return new NonRetryableError(error.message)
   if (error instanceof RetryLaterError) {
@@ -146,7 +107,6 @@ export function toHatchetError(error: unknown): Error {
   return new Error(failureText('run-failed', error))
 }
 
-/** The task's options from its spec, with the SDK's errors around the run. */
 export function bffJobTaskOptions(spec: BffJobTaskSpec, runs: () => BffJobRuns, work: () => BffJobWork): BffJobTaskOptions {
   return {
     name: spec.name,
@@ -184,15 +144,12 @@ interface BffJobTask {
 
 let current: BffJobTask | null = null
 let fake: HatchetLike | null = null
-/** Set by {@link startBffJobWorker}: only a process that works runs the task. */
 let installed: BffJobWork | null = null
 
-/** The process's `bff-job` task, declared once on a client built from the SDK's environment. */
 function bffJobTask(): BffJobTask {
   if (current) return current
   const spec = bffJobTaskSpec()
   const client = fake ?? sdkClient()
-  // A run triggers its next slice through the declaration it is a run of.
   const late: { runs?: BffJobRuns } = {}
   const declaration = client.task(
     bffJobTaskOptions(
@@ -212,28 +169,18 @@ function bffJobTask(): BffJobTask {
   return current
 }
 
-/** Replace (or drop) the SDK client. Specs fake Hatchet here, at one place. */
 export function useHatchetForTests(client: HatchetLike | null): void {
   fake = client
   current = null
   installed = null
 }
 
-/** Start a `bff-job` run for an enqueue and return; nothing waits for it. */
 export function triggerBffJob(input: BffJobTaskInput, options: { notBefore?: Date } = {}): Promise<void> {
   return bffJobTask().runs.trigger(input, options)
 }
 
-/** How often each `bff-jobs` replica dispatches the rows no run is coming for. */
 const SWEEP_EVERY_MS = 60_000
 
-/**
- * Register `bff-job` (and `alsoRuns`, the scheduling tasks) on a worker, start
- * it, and start the dispatch sweep.
- * `done` settles when the worker stops, or rejects when it could not run;
- * `stop` is the pod's drain. `handleKill: false`: the pod's own SIGTERM handler
- * orders the shutdown (`workers/jobs/index.js`), not the SDK.
- */
 export async function startBffJobWorker(
   name: string,
   work: BffJobWork,

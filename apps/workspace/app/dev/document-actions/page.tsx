@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the file operations — the decisions a document's overflow
- * menu leads to, and the trigger they hang off.
- *
- * The fixture document is mid-read, so the menu also carries the stop the
- * server offers while a read has not finished; open the trigger to see it.
- *
- * Both dialogs are controlled, so they render open with fixture state and
- * nothing to click: `?variant=rename` (the default) shows the rename form on a
- * document that has ALREADY been renamed, so the recovery affordance is in
- * frame; `?variant=delete` shows the shared destructive confirm that replaced
- * the old inline red block in the preview's metadata rail.
- *
- * `?variant=move` opens the folder submenu instead: the destinations a document
- * can be re-filed into, each named by its whole path, with a check on the one it
- * is in now. `?variant=moved` goes one step further and PICKS one, printing what
- * came back: jsdom never delivers a synthetic click to a submenu item, so this
- * fixture is the only place the selection itself can be seen working.
- *
- * `?variant=drawing` is a DXF Katasterauszug with its menu open: beside the
- * original's Download it offers „Als PDF herunterladen“, the to-scale PDF the
- * backend draws from it (ADR-0152). The same entry appears on office files.
- *
- * Behind both, the resting state of the trigger in a header row like the file
- * preview's — the control has to read as an ordinary, ignorable part of the
- * chrome until it is wanted.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
@@ -44,12 +14,9 @@ const DOCUMENT = {
   filename: 'Brandschutzkonzept_Wohnbau-Nord_GK4.pdf',
   displayName: 'Brandschutzkonzept Wohnbau Nord.pdf',
   folderId: 'f-brand',
-  // Mid-read, so the menu offers the stop beside the other operations: the
-  // entry is offered only while a read has not finished (`cancelOffer`).
   status: 'processing',
 }
 
-/** A DXF, stored as `application/dxf` whatever the browser said (`storedContentType`). */
 const DRAWING = {
   id: 'dev-doc-2',
   filename: 'Katasterauszug_KG16117_Gst123-4.dxf',
@@ -59,7 +26,6 @@ const DRAWING = {
   status: 'indexed',
 }
 
-/** A nested tree, so the submenu has a path to render and not just a name. */
 const FOLDERS = [
   { id: 'f-brand', name: 'Brandschutz', parentId: null },
   { id: 'f-flucht', name: 'Fluchtwege', parentId: 'f-brand' },
@@ -83,14 +49,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-/**
- * Drive the menu open, and optionally pick a destination.
- *
- * Keyboard, not `.click()`: the trigger opens on pointerdown, which a synthetic
- * click never produces, and Enter on a submenu trigger both opens it and lands
- * focus on its first item. Guarded by a ref because `reactStrictMode` runs an
- * effect twice and Enter TOGGLES.
- */
 function useOpenMoveMenu(pick: boolean, enabled = true): void {
   const driven = useRef(false)
   useEffect(() => {
@@ -108,7 +66,6 @@ function useOpenMoveMenu(pick: boolean, enabled = true): void {
       press(sub)
       if (!pick) return
       window.requestAnimationFrame(() => {
-        // On a phone „Verschieben" is a sheet, not a submenu: pick from its list.
         const sheetRow = document.querySelector<HTMLElement>('[data-testid="folder-picker-f-statik"]')
         if (sheetRow) {
           sheetRow.click()
@@ -119,15 +76,12 @@ function useOpenMoveMenu(pick: boolean, enabled = true): void {
         )
         const structuralFolder = items.find((item) => item.textContent?.trim() === 'Statik')
         structuralFolder?.focus()
-        // A real pointer click: this is the path a user takes, and the one
-        // jsdom cannot reproduce for a submenu item.
         structuralFolder?.click()
       })
     })
   }, [pick, enabled])
 }
 
-/** Open the menu and leave it open: the drawing variant's whole point is what it lists. */
 function useOpenMenu(enabled: boolean): void {
   const driven = useRef(false)
   useEffect(() => {
@@ -139,7 +93,6 @@ function useOpenMenu(enabled: boolean): void {
   }, [enabled])
 }
 
-/** The preview pane's header row, close enough to show the trigger in context. */
 function HeaderRow({
   onMoved,
   drawing = false,
@@ -197,8 +150,6 @@ function DocumentActionsPreview(): JSX.Element {
       />
 
       {moved && (
-        // The proof, in text: the selection reached `onMoved` with the folder
-        // it was given. Without this the shot only shows a menu being open.
         <p className="mx-auto mt-4 text-sm text-muted-foreground" data-testid="document-moved-result">
           onMoved: {moved}
         </p>
@@ -232,7 +183,6 @@ export default function DocumentActionsDevPage(): JSX.Element {
     notFound()
   }
 
-  // `useSearchParams` needs a Suspense boundary in the app router.
   return (
     <Suspense fallback={<div />}>
       <DocumentActionsPreview />

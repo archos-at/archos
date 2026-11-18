@@ -29,9 +29,7 @@ vi.mock('@/lib/tasks/repository', () => ({ listRunsInProject: vi.fn(async () => 
 vi.mock('@/lib/proposals/repository', () => ({ listConversationProposals: vi.fn(async () => []) }))
 vi.mock('@/lib/cross-project/reference-brief', () => ({ loadReferenceBrief: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/office/service', () => ({ baseKnowledgeForTurn: vi.fn(async () => null) }))
-// The organization's `office-standards` entitlement, read without a session; reset to off before each test.
 vi.mock('@/lib/base-knowledge/office/access', () => ({ officeStandardsEnabled: vi.fn(async () => false) }))
-// Every turn carries a context (ADR-0175); one that could not be read is `knowledge_unavailable`.
 const { UNAVAILABLE } = vi.hoisted(() => ({
   UNAVAILABLE: {
     gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
@@ -104,7 +102,7 @@ function call(body: unknown = {}, headers: Record<string, string> = signedHeader
 
 beforeEach(() => {
   vi.resetAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(SESSION)
   vi.mocked(withTenant).mockImplementation(async (_scope, run) => run())
   vi.mocked(withPlatformAccess).mockImplementation(async (_reason, run) => run())
@@ -179,7 +177,6 @@ describe('POST /api/internal/turn-context', () => {
     const { data } = await (await call()).json()
     expect(data.knowledgeContext).toEqual(UNAVAILABLE)
     expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_1', 'proj_1', expect.any(Function), 's_text-conversation')
-    // The schema itself refuses a turn context without one: the agent never sees "no context".
     const { knowledgeContext: _dropped, ...without } = data
     expect(turnContextResponseSchema.safeParse(without).success).toBe(false)
   })
@@ -230,7 +227,6 @@ describe('POST /api/internal/turn-context', () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValueOnce('PERSONAL_MEMORY v1\n- [preference] "Answers in short paragraphs."')
     const { data } = await (await call()).json()
     expect(data.personalMemory).toBe('PERSONAL_MEMORY v1\n- [preference] "Answers in short paragraphs."')
-    // The owner is the verified envelope's person, inside that person's tenant scope.
     expect(buildPersonalMemoryDigest).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_1' })
     expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_1' }, expect.any(Function))
 
@@ -250,7 +246,6 @@ describe('POST /api/internal/turn-context', () => {
 
     expect(data.personalMemory).toBeNull()
     expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
-    // The same audience read words the WORKSPACE block: one read, two uses.
     expect(data.workspace).toContain('shared (others read it')
     expect(readConversationAudience).toHaveBeenCalledTimes(1)
   })
@@ -296,7 +291,6 @@ describe('POST /api/internal/turn-context', () => {
 
     expect(data.temporary).toBe(true)
     expect(isTemporaryConversation).toHaveBeenCalledWith('s_text-conversation', 'org_1')
-    // Only writing is off: what is already known still reaches the turn.
     expect(data.projectMemory).toContain('Digest')
     expect(data.personalMemory).toContain('Leads the fire-safety reviews.')
     expect(buildProjectMemoryDigest).toHaveBeenCalled()
@@ -365,7 +359,7 @@ describe('POST /api/internal/turn-context', () => {
   })
 
   it('fails closed without a configured token', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await call()).status).toBe(503)
     expect(loadProjectPromptView).not.toHaveBeenCalled()
   })

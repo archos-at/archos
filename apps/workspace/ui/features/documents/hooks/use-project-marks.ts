@@ -10,38 +10,16 @@ import {
   type ProjectMarkView,
 } from '@/lib/annotations/project-types'
 
-/** Where the list stands: its first page, and the page after it. */
 export interface ProjectMarksState {
   marks: ProjectMarkView[]
-  /** The first page of these filters: being read, read, or failed. */
   load: 'loading' | 'ready' | 'error'
-  /** Whether a further page exists, and how reading it goes. */
   hasMore: boolean
   more: 'idle' | 'loading' | 'error'
-  /**
-   * Whether what these filters select quotes a document not every member may
-   * open (the first page's `restricted`); null until the first page is read.
-   */
   restricted: boolean | null
-  /** Read the first page again, after a failure. */
   retry: () => void
   loadMore: () => void
 }
 
-/**
- * A project's Offene Punkte under the filters on screen, a page at a time,
- * through the typed client. A change of filters reads the first page again and
- * drops an answer to the filters before it, so a slow read never paints over a
- * newer one. `initial` is the first page the server read for `initial.filters`;
- * it is painted at once.
- *
- * The list is read again, quietly (what is shown stays until the answer
- * replaces it), whenever the page comes back: on mount, because Back from a
- * review restores the page with the server's first page as it was when the
- * reader left, before they closed the marks they went to; and when the tab
- * returns to view. That read covers as many marks as are shown, so a reader
- * who loaded more pages keeps them (up to the most one page holds).
- */
 export function useProjectMarks(
   projectId: string,
   filters: ProjectMarksFilters,
@@ -55,17 +33,13 @@ export function useProjectMarks(
   const [restricted, setRestricted] = useState<boolean | null>(seeded?.restricted ?? null)
   const [more, setMore] = useState<ProjectMarksState['more']>('idle')
   const [attempt, setAttempt] = useState(0)
-  /** The latest read; the answer to any earlier one is dropped. */
   const latest = useRef(0)
-  /** The mount's read is quiet when the server's page is already painted. */
   const quietFirst = useRef(seeded !== null)
-  /** How many marks are shown and whether they stand, for a quiet read to cover them. */
   const shown = useRef({ count: marks.length, ready: load === 'ready' })
   useEffect(() => {
     shown.current = { count: marks.length, ready: load === 'ready' }
   }, [marks.length, load])
 
-  /** Read the first page; `quiet` keeps what is shown until the answer replaces it, and a failure keeps it too. */
   const readFirst = useCallback(
     (quiet: boolean) => {
       const read = ++latest.current
@@ -91,7 +65,6 @@ export function useProjectMarks(
     [projectId, key]
   )
 
-  /** The filters and attempt last read, so a repeat of the same read (a remount, Strict Mode) stays quiet. */
   const lastRead = useRef<string | null>(null)
   useEffect(() => {
     const id = `${key}\n${attempt}`
@@ -100,7 +73,6 @@ export function useProjectMarks(
     readFirst(quiet)
   }, [readFirst, key, attempt])
 
-  // The tab comes back into view: what was decided meanwhile, here or elsewhere, is read.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && shown.current.ready) readFirst(true)

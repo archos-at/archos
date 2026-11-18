@@ -65,10 +65,6 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
     )
   }
 
-  /**
-   * One ready file, the uploader's quarantined one, somebody else's quarantined
-   * one, and somebody else's still being screened.
-   */
   async function seed(shelf: 'project' | 'office_shelf' | 'session'): Promise<void> {
     await insert(shelf, `${shelf}-ready.pdf`, OTHER_UPLOADER, 'completed')
     await insert(shelf, `${shelf}-own.pdf`, UPLOADER, 'quarantined')
@@ -79,7 +75,7 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
   const names = (rows: ReadonlyArray<{ filename: string }>): string[] => rows.map((row) => row.filename).sort()
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     db = (await import('@/lib/db')).getDb()
@@ -106,8 +102,6 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
     await seed('project')
     await seed('office_shelf')
     await seed('session')
-    // A model for each project file: an IFC is extracted before its digest is
-    // screened, so a quarantined one has a `ready` model too.
     await inTenant(() =>
       db.execute(sql`
         INSERT INTO bim_models (organization_id, project_id, document_id, status)
@@ -240,7 +234,6 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
       storageKey: 'k/project/project-ready.pdf',
       versionId: String(published?.id),
     })
-    // A document with no version row is still found; it names no Fassung.
     await expect(
       repo.findStorageKeyByCollectionAndFilename(`archiv_${ORG}`, 'office_shelf-ready.pdf', ORG)
     ).resolves.toMatchObject({ versionId: null })
@@ -269,8 +262,6 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
         WHERE organization_id = ${ORG} AND scope = 'office_shelf'
       `)
     )
-    // A project admin who does not curate the Büroablage: every project model,
-    // and of the Büroablage's only what is not held back.
     const forProjectAdmin = await bim.listBimModels(ORG, {
       projectId,
       includeOfficeShelf: true,
@@ -283,7 +274,6 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
       'project-pending.pdf',
       'project-ready.pdf',
     ])
-    // A curator who is a plain member of the project: the reverse.
     const forCurator = await bim.listBimModels(ORG, {
       projectId,
       includeOfficeShelf: true,

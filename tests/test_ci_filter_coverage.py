@@ -1,19 +1,3 @@
-"""Every tracked path belongs to a CI tier, or is listed here as deliberately in none.
-
-`.github/filters.yml` decides which jobs a change runs (dorny/paths-filter), and
-a job that is skipped counts as passed. So a path no filter names is a path
-whose change merges with its tests unrun, and nothing says so: moving
-`apps/foo/` to `apps/bar/` without moving its filter line drops its CI
-silently. This test makes that move fail instead.
-
-Semantics are dorny/paths-filter's: picomatch 2 with `{dot: true}`, the default
-`some` quantifier, paths relative to the repository root. Python matches with
-wcmatch (`GLOBSTAR | DOTGLOB`), which agrees with picomatch on the grammar this
-file pins (`test_patterns_stay_in_the_grammar_both_matchers_share`); where node
-and a picomatch 2 are installed, `test_wcmatch_agrees_with_picomatch` checks
-every pattern against every path with picomatch itself.
-"""
-
 from __future__ import annotations
 
 import json
@@ -31,22 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 FILTERS = ROOT / ".github" / "filters.yml"
 FLAGS = glob.GLOBSTAR | glob.DOTGLOB
 
-#: The families that decide whether a test tier runs. `sast` is left out: it
-#: decides whether Semgrep has code to scan, and its `apps/**` would hide a
-#: UI directory that lost its `workspace:` line.
 TEST_TIERS = ("backend", "workspace", "site", "cms", "infra", "packages", "migrations")
 
-#: Paths that belong to no tier on purpose, each with why no tier needs them.
-#: A file a tier's tests read is named in that tier even when a pattern here
-#: also matches it (`ci/german_stems.json`, `docs/deployment/qdrant-runbook.md`):
-#: this list answers "may a change here run nothing?", and for those it may not.
-#: The Repo checks job runs on every pull request, unfiltered: pre-commit over
-#: all files, `task agents:audit`, `task be:lint`, `task be:test:harness`, the
-#: release-note checks and gitleaks. A path that only those read is covered.
 UNFILTERED = {
-    # Prose. Repo checks lints it (markdown links, doc paths, ADR index, agent
-    # docs) and `be:test:harness` runs the product-framing test over the
-    # first-impression docs among it.
     "docs/**": "documentation",
     "*.md": "root documentation (README, AGENTS, VISION, CONTEXT, CONTRIBUTING, CLAUDE)",
     "NOTICE": "licence notice",
@@ -56,7 +27,6 @@ UNFILTERED = {
     "apm.yml": "agent-skill manifest, audited by `task agents:audit`",
     "apm.lock.yaml": "agent-skill lockfile, audited by `task agents:audit`",
     "releasenotes/**": "Repo checks lints and requires the notes on every pull request",
-    # The CI machinery itself. Its tests are `be:test:harness`, in Repo checks.
     "ci/**": "CI scripts, tested by `be:test:harness`; data a tier reads is in that tier",
     ".github/workflows/*.yml": "workflows other than ci.yml, tested by `be:test:harness`",
     ".github/filters.yml": "this file's subject; tested here, in `be:test:harness`",
@@ -66,7 +36,6 @@ UNFILTERED = {
     ".semgrepignore": "Semgrep, run by its own job on the `sast` filter",
     ".trivyignore.yaml": "Trivy, run by its own job on the image plan",
     ".dockerignore": "an image input; ci/image_inputs.py hashes what each image copies",
-    # Repository settings no test reads.
     ".github/CODEOWNERS": "review routing",
     ".github/*.md": "community and PR templates",
     ".github/ISSUE_TEMPLATE/**": "issue forms",
@@ -94,12 +63,6 @@ def _tracked() -> list[str]:
 
 
 def _matcher(patterns: list[str] | str) -> Callable[[str], bool]:
-    """`glob.globmatch` for many paths: the patterns are translated once, not once per path.
-
-    Against every tracked path a `globmatch` call per pair is most of this
-    file's time: 9.1s for 255 patterns on 9,683 paths, 0.7s compiled
-    (2026-11-10), with the same answer on every pair.
-    """
     include, exclude = glob.translate(patterns, flags=FLAGS)
     assert not exclude, f"an exclusion pattern is outside the shared grammar: {patterns}"
     compiled = [re.compile(expression) for expression in include]
@@ -141,10 +104,6 @@ def test_every_unfiltered_entry_still_matches_something():
     assert stale == [], f"UNFILTERED entries that match no tracked path; delete them: {stale}"
 
 
-#: One path segment: literal characters and `*`. A segment may instead be `**`
-#: whole. No braces, extglobs, character classes or negation: on that grammar
-#: wcmatch and picomatch read a pattern the same way. Checked per segment, so
-#: the expression has no nested repetition to backtrack through.
 SHARED_SEGMENT = re.compile(r"[A-Za-z0-9_.*-]+")
 
 
@@ -164,11 +123,6 @@ def test_patterns_stay_in_the_grammar_both_matchers_share():
 
 
 def _picomatch2() -> Path | None:
-    """A picomatch 2.x some app installed, at the top of its node_modules or one dependency down.
-
-    Two fixed depths, not `node_modules/**`: walking every package of every app
-    for it took 13 seconds (2026-11-10), longer than the comparison itself.
-    """
     for depth in ("picomatch", "*/node_modules/picomatch", "@*/*/node_modules/picomatch"):
         for candidate in sorted(ROOT.glob(f"apps/*/node_modules/{depth}/package.json")):
             if json.loads(candidate.read_text(encoding="utf-8")).get("version", "").startswith("2."):
@@ -177,7 +131,6 @@ def _picomatch2() -> Path | None:
 
 
 def test_wcmatch_agrees_with_picomatch():
-    """The oracle: picomatch 2, as dorny/paths-filter calls it, on every pattern and path."""
     picomatch = _picomatch2()
     if shutil.which("node") is None or picomatch is None:
         pytest.skip("needs node and a picomatch 2.x under apps/*/node_modules (task setup)")

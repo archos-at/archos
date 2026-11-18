@@ -1,16 +1,9 @@
-"""The room lexicon: which German room names mean which use, and how sure each match is."""
-
 from __future__ import annotations
 
 from ifc_spatial.briefing_constants import _FREIBEREICH
 from ifc_spatial.briefing_records import LexiconEntry
 
-#: The room-name lexicon, in normalised form (no umlauts, lower case).
-#:
-#: Ordering is irrelevant — matching ranks by term length, not by position —
-#: which means an entry can be added without reasoning about what it shadows.
 LEXICON: tuple[LexiconEntry, ...] = (
-    # Aufenthaltsräume: rooms for more than transient occupancy.
     LexiconEntry("wohnzimmer", "habitable_room"),
     LexiconEntry("wohnraum", "habitable_room"),
     LexiconEntry("wohnkueche", "habitable_room"),
@@ -57,7 +50,6 @@ LEXICON: tuple[LexiconEntry, ...] = (
     LexiconEntry("ordination", "habitable_room"),
     LexiconEntry("verkaufsraum", "habitable_room"),
     LexiconEntry("bibliothek", "habitable_room"),
-    # Nebenräume: served rooms, not meant for lasting occupancy.
     LexiconEntry("badezimmer", "ancillary_room"),
     LexiconEntry("baderaum", "ancillary_room"),
     LexiconEntry("bad", "ancillary_room"),
@@ -106,15 +98,10 @@ LEXICON: tuple[LexiconEntry, ...] = (
     LexiconEntry("dachboden", "ancillary_room"),
     LexiconEntry("aufzugsschacht", "ancillary_room"),
     LexiconEntry("schacht", "ancillary_room", weak=True),
-    # Freibereiche are neither: they cannot be Aufenthaltsräume, and calling
-    # them Nebenräume is a stretch. They are placed here rather than left
-    # unmatched so that a terrace never lands in the habitable-room proposal,
-    # and the `note` carries the qualification into the reasons.
     LexiconEntry("balkon", "ancillary_room", note=_FREIBEREICH),
     LexiconEntry("terrasse", "ancillary_room", note=_FREIBEREICH),
     LexiconEntry("loggia", "ancillary_room", note=_FREIBEREICH),
     LexiconEntry("dachterrasse", "ancillary_room", note=_FREIBEREICH),
-    # Erschließung: circulation.
     LexiconEntry("flur", "circulation"),
     LexiconEntry("gang", "circulation"),
     LexiconEntry("diele", "circulation"),
@@ -140,16 +127,6 @@ LEXICON: tuple[LexiconEntry, ...] = (
     LexiconEntry("fluchtweg", "circulation"),
     LexiconEntry("schleuse", "circulation"),
     LexiconEntry("podest", "circulation"),
-    # ── English, because the export language is not the building's country ───
-    #
-    # The file this library was first measured against is an Austrian sample
-    # house exported from Revit with its rooms named "Living room", "Bedroom",
-    # "Entrance hall" — and a German-only lexicon classified none of the four.
-    # That failure is the common case, not the exotic one: the authoring tool's
-    # UI language decides these strings, and an office running an English Revit
-    # produces English room names for a building in Vienna. A lexicon that only
-    # reads German silently reports "0 Aufenthaltsräume" about a house full of
-    # them, which is worse than saying nothing.
     LexiconEntry("living room", "habitable_room"),
     LexiconEntry("livingroom", "habitable_room"),
     LexiconEntry("sitting room", "habitable_room"),

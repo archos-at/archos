@@ -1,23 +1,3 @@
-"""The workspace client and the BFF's MCP server, tested against each other (ADR-0122).
-
-Each side was tested alone: ``test_workspace_client.py`` against a fake socket,
-``api/mcp/route.spec.ts`` against hand-built requests. Nothing proved the request
-this client really builds is one the real route answers, or that the answer is one
-this client really parses. Two committed fixtures close that, the pattern of
-``request_context.json``:
-
-* ``apps/workspace/tests/fixtures/workspace_mcp_requests.json`` is written HERE from
-  the real request builder (only the socket is replaced). The BFF spec
-  ``workspace-contract.spec.ts`` replays it against the real route handler.
-* ``apps/workspace/tests/fixtures/workspace_mcp_responses.json`` is written by that
-  spec from what the route really answered. The second half of this file feeds
-  each body back through the real ``call_tool``.
-
-``UPDATE_FIXTURES=1`` rewrites the requests fixture (the flag the TS fixtures use);
-otherwise a stale one fails. Secrets are placeholders: the signing key and the
-envelope are the spec's, not the fixture's.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -42,18 +22,13 @@ RESPONSES_PATH = FIXTURES / "workspace_mcp_responses.json"
 TOKEN_PLACEHOLDER = "<INTERNAL_API_TOKEN>"  # noqa: S105  # pragma: allowlist secret
 SIGNATURE_PLACEHOLDER = "<ENVELOPE_SIGNATURE>"
 
-#: The payload the spec signs (with a fresh ``issuedAt``). ``issuedAt`` is 0 here: the
-#: BFF refuses an envelope older than six hours, so the spec sets the real time.
 ENVELOPE_PAYLOAD = {"organizationId": "org_1", "userId": "user_1", "conversationId": "conv_1", "issuedAt": 0}
 ENVELOPE_HEADER = (
     base64.urlsafe_b64encode(json.dumps(ENVELOPE_PAYLOAD, separators=(",", ":")).encode()).decode().rstrip("=")
 )
 
-#: The answer a turn names (``turn_answer_message_id``), a uuid the BFF marks when the conversation drew on a
-#: restricted folder (ADR-0093). Fixed here so the fixture is stable.
 ANSWER_MESSAGE_ID = "6f1c2b8e-3d4a-5b6c-8d7e-9f0a1b2c3d4e"
 
-#: One real call per tool the agent exposes (``register.SERVER_TOOLS``), a write and a read of ``call-operation``.
 CASES: list[tuple[str, str, dict[str, Any]]] = [
     ("search", "search-operations", {"query": "project", "limit": 10}),
     ("describe", "describe-operation", {"name": "project-member-add"}),
@@ -75,8 +50,6 @@ class _Captured(Exception):
 
 
 class _Opener:
-    """Stands in for the socket only: records the request ``call_tool`` built, answers with ``reply``."""
-
     def __init__(self, reply: Any = None) -> None:
         self.request: Any = None
         self.reply = reply
@@ -122,6 +95,11 @@ def _redacted(headers: dict[str, str]) -> dict[str, str]:
     return dict(sorted(out.items()))
 
 
+def _path_and_query(url: str) -> str:
+    parts = urlparse(url)
+    return f"{parts.path}?{parts.query}" if parts.query else parts.path
+
+
 def _built_requests(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     built = []
     for case, tool, arguments in CASES:
@@ -133,7 +111,7 @@ def _built_requests(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             {
                 "name": case,
                 "method": request.get_method(),
-                "path": urlparse(request.full_url).path,
+                "path": _path_and_query(request.full_url),
                 "headers": _redacted(dict(request.header_items())),
                 "body": json.loads(request.data.decode("utf-8")),
             }
@@ -175,9 +153,6 @@ def test_every_server_tool_the_agent_names_is_in_the_fixture() -> None:
     assert covered == set(SERVER_TOOLS.values())
 
 
-# --- the other direction: what the real route answered, through the real parser ----------------------------------
-
-#: What the model must be able to read from each answer the route really gave.
 EXPECTED_TEXT = {
     "search": ["project-list", "project-member-add"],
     "describe": ["project-member-add", "inputSchema"],
@@ -218,7 +193,6 @@ def test_client_reads_what_the_route_answers(case: str, monkeypatch: pytest.Monk
 
 
 def test_a_proposed_write_carries_the_shape_the_card_is_made_from(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``structuredContent`` ``{decision, proposalId, summary, operation}`` is what ``cards.proposal_from`` reads."""
     entry = _responses()["responses"]["call_write"]
     monkeypatch.setattr(bff_http, "_opener", _Opener(_reply_for(entry)))
     tool, arguments = next((t, a) for n, t, a in CASES if n == "call_write")
@@ -231,7 +205,6 @@ def test_a_proposed_write_carries_the_shape_the_card_is_made_from(monkeypatch: p
         "summary": "Add user_2 to proj_1 as viewer",
         "operation": "project-member-add",
     }
-    # The text is all the model reads: short, and it says nothing was done.
     assert result.text == "Proposed — the person decides. Nothing was changed."
 
 
@@ -265,7 +238,6 @@ def test_a_tool_level_error_comes_back_as_text(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_a_read_refused_in_a_shared_conversation_reaches_the_model_as_the_servers_sentence(monkeypatch) -> None:
-    """A read a shared conversation refuses (ADR-0094) reaches the model as the server's sentence, an error."""
     entry = _responses()["responses"]["refused_shared_conversation"]
     assert entry["status"] == 200
     monkeypatch.setattr(bff_http, "_opener", _Opener(_reply_for(entry)))

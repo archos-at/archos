@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The internal route the platform MCP gateway asks (ADR-0154, amendment of
- * 2026-11-05): its own secret, the roles from the gateway, 2xx only to admit.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -21,8 +17,8 @@ const call = (handler: typeof POST, headers: Record<string, string>, url = URL_W
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.PLATFORM_MCP_ADMISSION_TOKEN = SECRET
-  process.env.INTERNAL_API_TOKEN = 'the-shared-service-token' // pragma: allowlist secret
+  vi.stubEnv('PLATFORM_MCP_ADMISSION_TOKEN', SECRET)
+  vi.stubEnv('INTERNAL_API_TOKEN', 'the-shared-service-token') // pragma: allowlist secret
   vi.mocked(platformGatewayAdmission).mockResolvedValue({ admitted: true, userId: 'user_ops' })
 })
 
@@ -42,7 +38,7 @@ describe('platform-mcp-admission', () => {
   })
 
   it('is shut, 503, while the secret is not configured', async () => {
-    delete process.env.PLATFORM_MCP_ADMISSION_TOKEN
+    vi.stubEnv('PLATFORM_MCP_ADMISSION_TOKEN', undefined)
     expect((await call(POST, { 'x-internal-token': SECRET })).status).toBe(503)
   })
 

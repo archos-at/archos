@@ -1,9 +1,3 @@
-/**
- * Agent profiler service (ADR-0017): business logic over the profiler
- * repository. Caller authorization (requirePlatformPermission) happens in the
- * routes — this module is data-only, mirrors `lib/budgets/service.ts`.
- */
-
 import 'server-only'
 import type { AgentProfilerSpan, NewAgentProfilerSpan, SpanKind, SpanStatus } from '@/lib/db/schema/agent-profiler'
 import { getOrganizationDisplayNames } from '@/lib/organizations/display-names'
@@ -17,35 +11,20 @@ export async function recordProfilerSpans(spans: NewAgentProfilerSpan[]): Promis
 export interface ProfiledConversationSummary {
   conversationId: string
   organizationId: string | null
-  /** Display name for `organizationId`; null when unknown or unresolvable. */
   organizationName: string | null
   title: string | null
-  /** The conversation drew on a folder with restricted access (ADR-0093). */
   titleWithheld: boolean
-  /** Turns in the scope's range, not in the conversation's whole life. */
   turnCount: number
-  /** Summed turn time in the scope's range. */
   totalDurationMs: number
-  /** The newest turn in the scope's range. */
   lastActiveAt: string
 }
 
 export interface ProfiledConversationList {
   conversations: ProfiledConversationSummary[]
   capped: boolean
-  /**
-   * Only when a conversation was asked about: its row within the scope, or
-   * null when it has no turn in the scope. Independent of the search and of
-   * the list's cap, so a client can deselect exactly what fell out of scope.
-   */
   selected?: ProfiledConversationSummary | null
 }
 
-/**
- * The conversation directory in one Answer-quality scope: conversations with a
- * turn in the date range, in the named organizations and projects when any
- * are named, narrowed by `query` within that.
- */
 export async function listProfiledConversations(
   scope: QualityScope,
   options: { query?: string; conversationId?: string } = {}
@@ -101,7 +80,6 @@ export interface ProfiledTurn {
   durationMs: number
   status: SpanStatus
   spanCount: number
-  /** Never null: a turn whose root span was lost gets a synthetic one. */
   root: SpanNode
 }
 
@@ -125,22 +103,11 @@ const byStart = (
   b: { startedAt: string; spanId: string }
 ): number => a.startedAt.localeCompare(b.startedAt) || a.spanId.localeCompare(b.spanId)
 
-/**
- * The turn's root: the earliest `turn`-kind span without a parent, else the
- * earliest parentless span. Deterministic, because a turn CAN carry several
- * parentless spans (a retried flush, a second entry point), and "the last one
- * in the loop wins" made the tree depend on row order.
- */
 function pickRoot(candidates: SpanNode[]): SpanNode | null {
   const sorted = [...candidates].sort(byStart)
   return sorted.find((node) => node.kind === 'turn') ?? sorted[0] ?? null
 }
 
-/**
- * A stand-in root for a turn whose root span never reached the ledger (a
- * dropped flush batch). Spans the whole turn, so the turn still has a duration
- * and a tree; `metadata.synthetic` marks it as not a recorded span.
- */
 function syntheticRoot(turnId: string, nodes: SpanNode[]): SpanNode {
   const startedAt = nodes.map((node) => node.startedAt).sort()[0]
   const endedAt = nodes
@@ -161,11 +128,6 @@ function syntheticRoot(turnId: string, nodes: SpanNode[]): SpanNode {
   }
 }
 
-/**
- * True when following `spanId`'s parents leads back to it. A cycle would make
- * the tree infinite (and the JSON response unserializable), so its spans are
- * treated as parentless instead.
- */
 function inCycle(spanId: string, parentOf: Map<string, string | null>): boolean {
   let current = parentOf.get(spanId) ?? null
   for (let steps = 0; current !== null && steps <= parentOf.size; steps += 1) {
@@ -175,12 +137,6 @@ function inCycle(spanId: string, parentOf: Map<string, string | null>): boolean 
   return false
 }
 
-/**
- * One turn's tree, keyed by `parentSpanId`. Every span lands in it: a span
- * whose parent is missing from the ledger (a dropped flush batch, the same
- * best-effort tolerance as the cost ledger), and every parentless span other
- * than the root, hang off the root rather than vanishing.
- */
 function buildTurn(turnId: string, turnSpans: AgentProfilerSpan[]): ProfiledTurn {
   const nodes = new Map(turnSpans.map((span) => [span.spanId, toNode(span)]))
   const parentOf = new Map(turnSpans.map((span) => [span.spanId, span.parentSpanId]))
@@ -210,7 +166,6 @@ function buildTurn(turnId: string, turnSpans: AgentProfilerSpan[]): ProfiledTurn
   }
 }
 
-/** Group a conversation's flat span list into one tree per turn, oldest turn first. */
 function buildTurns(spans: AgentProfilerSpan[]): ProfiledTurn[] {
   const byTurn = new Map<string, AgentProfilerSpan[]>()
   for (const span of spans) {
@@ -225,11 +180,8 @@ function buildTurns(spans: AgentProfilerSpan[]): ProfiledTurn[] {
 
 export interface ConversationTimeline {
   conversationId: string
-  /** The newest turns, oldest first (at most `TIMELINE_TURN_CAP`). */
   turns: ProfiledTurn[]
-  /** Distinct turns the conversation has in the ledger, loaded or not. */
   totalTurns: number
-  /** True when older turns, or spans past the span ceiling, were left out. */
   capped: boolean
 }
 

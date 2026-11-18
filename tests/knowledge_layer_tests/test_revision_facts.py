@@ -1,15 +1,3 @@
-"""The title block (Plankopf) read during ingestion: index and date from the sheet, not from the name.
-
-feld72 asked for exactly this („Index und Datum aus dem Plankopf auslesen"). The drawing analysis
-carries ``document.title_block`` in the SAME vision call as everything else; the first drawing page
-with a title block gives the document its ``revision_facts``; the store keeps them in an optional
-column; the collection listing, ``list_files`` and the Fassung judge read them.
-
-Covered here: the reply parsing (with and without a title block, through a fake client), the
-chunk round trip and the page rule, the store round trip and its migration, the Fassung suggestion
-decided by the number, and the ``list_files`` row and marks.
-"""
-
 from __future__ import annotations
 
 import json
@@ -24,8 +12,8 @@ from knowledge_layer.browse import file_row
 from knowledge_layer.browse import file_rows
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import revisions
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
 
@@ -48,7 +36,6 @@ FULL_BLOCK = {
 
 
 def _reply(title_block=None, *, document=None):
-    """A model reply: one floor plan, and the document facts with the given title block (or none at all)."""
     body = {
         "segments": [{"domain": "architecture", "segment_type": "floor_plan", "title": "EG", "summary": "Grundriss."}],
         "document": {"title": "Wohnbau Nord", "summary": "Ein Plan.", **(document or {})},
@@ -56,11 +43,6 @@ def _reply(title_block=None, *, document=None):
     if title_block is not None:
         body["document"]["title_block"] = title_block
     return json.dumps(body)
-
-
-# ---------------------------------------------------------------------------
-# The vision call: one schema, one prompt, one response
-# ---------------------------------------------------------------------------
 
 
 class TestTheSchemaAndPrompt:
@@ -128,7 +110,6 @@ class TestParsingTheReply:
         assert "page" not in parsed
 
     def test_an_old_reply_without_the_key_still_parses(self, registry):
-        # A weaker model, or a cached v4 reading: the document object just has no title_block.
         analysis = va.parse_visual_analysis(_reply(document={"summary": "x"}), registry)
         assert analysis["segments"] and analysis["document"]["title_block"] is None
 
@@ -176,11 +157,10 @@ class TestThroughTheVisionCall:
 
         completions = _FakeCompletions(_reply(FULL_BLOCK))
         with patch.object(openai, "OpenAI", _fake_openai(completions)):
-            content_type, _, fields = adapter.analyze_visual(b"title-block-page", vlm_api_key="k")
+            content_type, _, fields = vision_reads.analyze_visual(b"title-block-page", vlm_api_key="k")
 
         assert content_type == "drawing"
         assert fields["analysis"]["document"]["title_block"] == FULL_BLOCK
-        # The cost note: the facts ride the call that was made anyway.
         assert len(completions.calls) == 1
         prompt = completions.calls[0]["messages"][0]["content"][0]["text"]
         assert "document_number" in prompt
@@ -190,15 +170,10 @@ class TestThroughTheVisionCall:
 
         completions = _FakeCompletions(_reply())
         with patch.object(openai, "OpenAI", _fake_openai(completions)):
-            _, _, fields = adapter.analyze_visual(b"detail-page", vlm_api_key="k")
+            _, _, fields = vision_reads.analyze_visual(b"detail-page", vlm_api_key="k")
 
         assert fields["analysis"]["document"]["title_block"] is None
         assert len(completions.calls) == 1
-
-
-# ---------------------------------------------------------------------------
-# From pages to the document's facts: the first page with a title block wins
-# ---------------------------------------------------------------------------
 
 
 def _chunk(page: int, title_block, registry):
@@ -244,11 +219,6 @@ class TestTheDocumentsFacts:
         assert revisions.revision_facts_from_documents([text_chunk, broken, no_page]) is None
         assert revisions.revision_facts_from_documents([_chunk(1, None, registry)]) is None
         assert revisions.revision_facts_from_documents([]) is None
-
-
-# ---------------------------------------------------------------------------
-# Storage: an optional column, migrated like the others
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -375,11 +345,6 @@ class TestStorage:
                 DocumentMetadataStore.dispose_engine(url)
 
 
-# ---------------------------------------------------------------------------
-# Fassung detection: the same number is the same document
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def job_store(monkeypatch):
     from agent.knowledge import ingest_status_store
@@ -424,7 +389,6 @@ class TestSuggestionByNumber:
         assert (suggestion["of"], suggestion["basis"]) == ("Zeichnung 7.pdf", "title_block")
         assert suggestion["dismissed"] is False and "Index C statt B" in suggestion["reason"]
         assert stored == [("coll", "Entwurf neu.pdf", suggestion)]
-        # Decided by the sheets: no model call, no cost.
         llm.invoke.assert_not_called()
 
     def test_the_index_on_the_sheet_beats_the_index_in_the_name(self, job_store, stored):
@@ -506,11 +470,6 @@ class TestSuggestionByNumber:
             "neu.pdf", [_row("alt.pdf", {"document_number": "A-101"})], held=set()
         )
         assert candidate.revision_facts == {"document_number": "A-101"}
-
-
-# ---------------------------------------------------------------------------
-# What the agent reads: list_files
-# ---------------------------------------------------------------------------
 
 
 def _doc(name, facts=None, **kwargs):
@@ -621,10 +580,6 @@ class TestListFiles:
         assert "Fassungen (Plankopf)" not in text
 
 
-# ---------------------------------------------------------------------------
-# Wired into the ingest: the facts are stored beside the summary and decide the suggestion
-# ---------------------------------------------------------------------------
-
 from knowledge_layer_testing.revision_ingestion import _documents  # noqa: E402
 from knowledge_layer_testing.revision_ingestion import _ingest  # noqa: E402
 from knowledge_layer_testing.revision_ingestion import live_ingestor  # noqa: E402, F401
@@ -634,7 +589,6 @@ from knowledge_layer_testing.revision_ingestion import stores  # noqa: E402, F40
 
 @pytest.fixture
 def ingest(request, tmp_path):
-    """``ingest(collection, name)`` over a real SQLite store and Qdrant collection; ``.model`` is the summary model."""
     request.getfixturevalue("stores")
     ingestor = request.getfixturevalue("live_ingestor")
     summary_model = request.getfixturevalue("model")

@@ -34,8 +34,6 @@ import type { UserSession } from '@/lib/auth/types'
 import { approvedRequest, publishedRequest } from '../platform/testing/lifecycle'
 
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_golden_${Date.now().toString(36)}` }))
-/** The asks the stand-in answer path holds, by ask id. */
-/** The ask door's switch for the platform organization, which a run needs. */
 const askSwitch = vi.hoisted(() => ({ on: true }))
 const asks = vi.hoisted(() => ({ byId: new Map<string, Record<string, unknown>>(), refuse: null as string | null }))
 
@@ -123,7 +121,7 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     run = await import('./run')
@@ -161,7 +159,6 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     expect(started.releaseSeq).toEqual(expect.any(Number))
     const [stair, klass] = [STAIR, CLASS].map((key) => started.cases.find((entry) => entry.key === key)!)
 
-    // The conversation a case was asked in carries its site and facts; no other conversation does, and no other organization's.
     const conversationOf = (askId: string) => String((asks.byId.get(askId) as { conversationId: string }).conversationId)
     const golden = await turn.goldenTurnFor(fixed.platformOrg, conversationOf(stair.askId!))
     expect(golden?.projectContext).toBe('Stated facts of the building in question (no project is open):\nfiled_on=2023-06-01\nbuilding_type=residential\nstoreys_above_ground=4')
@@ -169,7 +166,6 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     expect(await turn.goldenTurnFor(fixed.platformOrg, 's_another_conversation')).toBeNull()
     expect(await turn.goldenTurnFor('org_an_office', conversationOf(stair.askId!))).toBeNull()
 
-    // Still running: a step settles nothing and asks nothing twice.
     expect((await run.advanceGoldenRun(operator, started.runId, 0)).summary).toMatchObject({ asked: 2, settled: 0 })
 
     answer(stair.askId!, 'At most 40 m (Fire Code, clause 5.1).', { level: 'high', reason: 'The clause was read.' })
@@ -191,7 +187,6 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     expect(settled(CLASS).result?.costUsd).toBeNull()
     expect(settled(CLASS).result?.checks.filter((check) => !check.passed).map((check) => `${check.kind}:${check.id}`)).toEqual(['citation:Fire Code', 'must_not:confident-with-gap'])
 
-    // Read by anyone on the platform; stepped only by the person who started it; a settled run stays as it is.
     expect((await run.getGoldenRun(viewer, started.runId)).summary.passed).toBe(1)
     await expect(run.advanceGoldenRun(expert, started.runId, 0)).rejects.toMatchObject({ status: 403 })
     expect((await run.advanceGoldenRun(operator, started.runId, 0)).summary).toEqual(done.summary)
@@ -216,7 +211,6 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     const id = await approvedRequest({ title: `More golden cases ${RUN}`, countryId: COUNTRY, records: [goldenCase(DRAFTED, 'Is a lift required?')] }, actors)
     await expect(run.startGoldenRun(operator, { countryId: COUNTRY, changeRequestId: id })).rejects.toMatchObject({ status: 409, details: { reason: 'golden-run-not-in-preview' } })
     await expect(run.startGoldenRun(operator, { countryId: 'XH', changeRequestId: id })).rejects.toMatchObject({ status: 409 })
-    // Approved and unreleased: the released set does not hold it.
     expect((await run.startGoldenRun(operator, { countryId: COUNTRY })).cases.map((entry) => entry.key).sort()).toEqual([CLASS, STAIR].sort())
 
     await release.publishChangeRequest(id, 'preview', { by: expert.userId, decisionSource: 'app' })
@@ -248,7 +242,6 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     const direct = sql`SELECT count(*) AS n FROM knowledge_revisions rev WHERE rev.record_id LIKE 'golden_case:%'`
     const platformRecords = await context.withPlatformAccess('golden spec', () => count(records))
     expect(platformRecords, 'the cases exist').toBeGreaterThan(0)
-    // The office is entitled: it reads the country's other platform records, and no golden case of them.
     for (const query of [records, revisions, direct]) {
       expect(await context.withTenant({ organizationId: office }, () => count(query))).toBe(0)
     }

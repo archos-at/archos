@@ -59,42 +59,17 @@ export interface SidebarUser {
 export interface SidebarUserMenuProps {
   user?: SidebarUser
   authRequired: boolean
-  /** Dropdown side — 'top' for the sidebar footer (default), 'bottom' for a topbar. */
   menuSide?: 'top' | 'bottom' | 'right'
-  /** Dropdown alignment — defaults to 'start'. */
   menuAlign?: 'start' | 'end'
-  /** Gap between the trigger and the menu, px. */
   menuSideOffset?: number
-  /** The menu takes the trigger's width (the rail's person row), so it stays inside the band. */
   menuMatchTrigger?: boolean
-  /** Hide the name label next to the avatar (compact avatar-only trigger). */
   compact?: boolean
-  /** Show the org-management entry (org admins only). */
   canManageOrganization?: boolean
-  /**
-   * Show the organization entry to any org member. The org page serves
-   * capability subsets and a member self-usage view, so it is discoverable
-   * beyond full admins (UX-16). Falls back to {@link canManageOrganization}
-   * for callers that predate this flag.
-   */
   canViewOrganization?: boolean
-  /** Show the platform dashboard entry (platform owner only, ADR-0016). */
   canManagePlatform?: boolean
-  /** The organizations to offer a switch to (`switchableOrganizations`); empty for someone in one. */
   organizations?: readonly SwitchableOrganization[]
-  /**
-   * Tailwind size class for the trigger avatar. Defaults to the sidebar
-   * footer's 30px; the org top bar passes a 36px avatar to match the dummy.
-   */
   avatarSizeClass?: string
-  /**
-   * The organization the reader is acting in, shown in the menu's header under
-   * their name and address. Everything this product does is scoped to one
-   * organization; in the rail its name also heads the organisation's doorways.
-   * Omitted when unresolvable, so a label lookup can never blank the header.
-   */
   organizationName?: string | null
-  /** Marks the trigger as a product-tour stop (`data-tour`). */
   tourAnchor?: string
 }
 
@@ -135,8 +110,6 @@ export function SidebarUserMenu({
   const tFeedback = useTranslations(feedbackCopy)
 
   const displayName = user?.name || user?.email || t('userMenu.defaultUser')
-  // Two-letter monogram from the first two words (e.g. "Anna Kaufmann" → "AK"),
-  // falling back to a single initial for one-word names / email addresses.
   const initial =
     String(displayName)
       .trim()
@@ -151,22 +124,12 @@ export function SidebarUserMenu({
       <DropdownMenuTrigger
         className={cn(
           'group/user flex items-center text-left text-sm',
-          // The pointer's fill and the open state are one step down the
-          // ladder from the plane the row lies on: the desk on paper (the org
-          // header), the picked grey on the rail's desk.
           'transition-[color,background-color,transform] duration-quick ease-out hover:bg-desk in-data-[sidebar=sidebar]:hover:bg-selected',
           'data-[state=open]:bg-desk in-data-[sidebar=sidebar]:data-[state=open]:bg-selected',
           'active:scale-[0.98] motion-reduce:transition-none',
-          // Compact is an avatar alone, 30-32px. Under a finger the trigger
-          // grows to 44px around the disc rather than lending it a catchment:
-          // in the org header the search button stands right beside it.
-          // Expanded, the disc centres on the section icons' axis (x=32 in the
-          // rail), where the icon rail centres it too, so it does not move when
-          // the rail folds.
           compact
             ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
             : // The 24px disc at 20–44 (the project mark's edge) and a 7px gap
-              // put the name on the section labels' 51px edge.
               'w-full gap-[7px] rounded-control py-1.5 pl-2 pr-3',
         )}
         aria-label={
@@ -177,7 +140,7 @@ export function SidebarUserMenu({
         data-tour={tourAnchor}
       >
         <span className="relative flex shrink-0">
-          {/* A reply from the Piloti team waits under „Mein Feedback": the
+          {/* A reply from the team that builds the agent waits under „Mein Feedback": the
               count is on that row, one level down, and without a mark here
               nobody opens the menu to find it. */}
           <AttentionDot show={feedbackUpdatedCount > 0} className="absolute -top-0.5 -right-0.5 z-10" />
@@ -250,6 +213,7 @@ export function SidebarUserMenu({
           </DropdownMenuItem>
         )}
         {organizations.length > 1 && <OrganizationSwitcherMenu organizations={organizations} />}
+        {/* The platform entry is shown only to the platform owner. */}
         {canManagePlatform && (
           <DropdownMenuItem asChild className="gap-2">
             <Link href="/app/platform">
@@ -312,8 +276,8 @@ export function SidebarUserMenu({
             {t('userMenu.whatsNew')}
           </Link>
         </DropdownMenuItem>
-        {/* The one door to the people who build Piloti, next to the tour
-            because both are "help with Piloti itself": „Mein Feedback" holds
+        {/* The one door to the people who build the agent, next to the tour
+            because both are "help with the agent itself": „Mein Feedback" holds
             the replies and „Neues Feedback" alike. The pill says how many
             threads have news since the member last looked. */}
         {feedbackAvailable && (

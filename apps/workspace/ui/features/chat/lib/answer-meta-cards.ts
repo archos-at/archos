@@ -1,17 +1,3 @@
-/**
- * The answer's structured anatomy, expressed in the card SHAPE vocabulary.
- *
- * `answerMeta` is not cards — it is native answer fields the frontend renders
- * FLAT, as answer typography (the verdict as the answer's masthead, the
- * callout as an anchored aside, the takeaways as the closing block — see
- * `components/AnswerAnatomy.tsx`). But the SHAPES for a verdict, a callout
- * and a takeaway block already exist, charter-reviewed, in the cards
- * types, and two prop contracts for one thing is the drift this repo keeps
- * hunting down. So the anatomy is mapped onto the retired card shapes here —
- * purely as render props, never entering the `cards` array, the card-marker
- * numbering, the export walker, or persistence.
- */
-
 import type {
   AnswerCalloutKind,
   AnswerMeta,
@@ -20,12 +6,6 @@ import type {
 } from '@/lib/conversations/message-answer-meta'
 import type { NormReferenceData } from '@/shared/cards/schemas'
 
-/**
- * The anatomy's own shapes. They were the `verdict_header`, `callout` and
- * `key_takeaways` card shapes until those types left the card union (answers
- * are Markdown; the anatomy stays an envelope field). The names and fields are
- * kept, so the flat renderers read them unchanged.
- */
 export interface AnatomyVerdict {
   type: 'verdict_header'
   verdict: string
@@ -49,46 +29,26 @@ export interface AnatomyTakeaways {
   items: AnswerMetaTakeaway[]
 }
 
-/** The report of an operations turn (`kind: work`, ADR-0123), drawn after the prose. */
 export interface AnatomyWork extends AnswerMetaWork {
   type: 'work_report'
 }
 
-/** One after-prose anatomy block. */
 export type AnatomyShape = AnatomyCallout | AnatomyTakeaways | AnatomyWork
 
 export interface AnswerAnatomy {
-  /** The masthead's standfirst — the whole answer in 1–2 sentences. */
   summary?: string
-  /**
-   * The masthead's title when no verdict was earned — a plain string, never a
-   * card shape: unlike the verdict it has no reference, no confidence, nothing
-   * a cross-card rule could coordinate over.
-   */
   topic?: string
-  /** The masthead's situating line under the title — plain, like the topic. */
   context?: string
-  /** Rendered ABOVE the prose — the masthead's earned value. */
   verdict?: AnatomyVerdict
-  /** The one aside — spliced at its `[[callout]]` marker, else into `below`. */
   callout?: AnatomyCallout
-  /** The closing block, always after the prose. */
   takeaways?: AnatomyTakeaways
-  /** A work turn's report: done, proposed, blocked, next. First after the prose. */
   work?: AnatomyWork
-  /**
-   * The fixed after-prose order: the callout (when the prose did not claim it
-   * with a marker), then the takeaways. Callers that placed the callout
-   * inline render `below` without it.
-   */
   below: AnatomyShape[]
 }
 
-/** Map a sanitized `answerMeta` onto the card shapes, or null when absent. */
 export function answerMetaToAnatomy(meta: AnswerMeta | undefined): AnswerAnatomy | null {
   if (!meta) return null
 
-  // The generated card shapes spell absence as `null`, so the mapping does too.
   const verdict: AnatomyVerdict | undefined = meta.verdict
     ? {
         type: 'verdict_header',
@@ -135,31 +95,12 @@ export function answerMetaToAnatomy(meta: AnswerMeta | undefined): AnswerAnatomy
   if (!summary && !topic && !context && !verdict && !callout && !takeaways && !work) return null
 
   const below: AnatomyShape[] = []
-  // The report is what a work turn is FOR, so it closes the prose before any aside.
   if (work) below.push(work)
   if (callout) below.push(callout)
   if (takeaways) below.push(takeaways)
   return { summary, topic, context, verdict, callout, takeaways, work, below }
 }
 
-/**
- * Whether the masthead's summary merely restates how the body opens.
- *
- * The envelope's `summary` is the whole answer in 1–2 sentences, and the body
- * it headlines is asked to lead with the ruling or the number — so the two
- * routinely open with the same sentence, and the masthead then states twice
- * what the lede already states once. The mapping above is pure (it never sees
- * the body), so the gate lives in `AgentResponse`, which holds both: it hides
- * the summary when this returns true.
- *
- * Comparison is normalized, not literal: surrounding whitespace is collapsed,
- * trailing citation markers (`[1]`, `[2][3]` — the shape the backend is told
- * to write) are stripped from both sides, and case is folded. The body side
- * is the body's first unit only — up to the first blank line, then up to the
- * first sentence terminator within it — because the summary restating the
- * opening is the duplication; a summary that matches a sentence three
- * paragraphs down is a different statement about the answer.
- */
 export function summaryDuplicatesBody(
   summary: string | undefined | null,
   body: string | undefined | null
@@ -180,7 +121,6 @@ function normalizeForComparison(value: string): string {
 
 function firstBodySentence(body: string): string {
   const paragraph = body.trimStart().split(/\n\s*\n/)[0] ?? ''
-  // No `s` flag: the tsconfig target predates dotAll, so `[\s\S]` stands in.
   const match = paragraph.match(/^[\s\S]*?[.!?\u2026](?:\s*\[\d+\])*(?=\s|$)/)
   return (match ? match[0] : paragraph).trim()
 }

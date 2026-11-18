@@ -1,14 +1,8 @@
-/**
- * System notifications for the inbox (Web Push, ADR-0112): the settings
- * section, the prompt in the inbox, and the one line a notification carries
- * when the person asked for no preview.
- */
 export const notifications = {
   title: 'Notifications',
   description:
     '{productName} tells you on this device as soon as something lands in your inbox, even when {productName} is not open.',
   push: {
-    /** A notification with the lock-screen preview off: no name, no subject. */
     genericTitle: 'New message in {productName}',
   },
   device: {
@@ -77,10 +71,8 @@ export const notifications = {
     body: '{productName} tells you on this device when someone needs you.',
     turnOn: 'Turn on',
     dismiss: 'Not now',
-    /** The browser said no: one line to the page that says how to change it (the profile). */
     blocked: 'Notifications are blocked – here is how to turn them on',
   },
-  /** The same offer, once, as a toast the first time something waits on the person. */
   offer: {
     mentioned: '{actor} mentioned you. Do you want to be notified on this device?',
     actor: '{actor} needs you in {productName}. Do you want to be notified on this device?',

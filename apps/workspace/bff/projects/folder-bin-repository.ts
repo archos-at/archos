@@ -1,18 +1,3 @@
-/**
- * The SQL behind the Papierkorb (migration 0115): moving a folder's subtree to
- * the bin and back, its listing, the purge marker, and the search for what
- * was derived from a folder. Its queue row is `folder-bin-queue.ts`.
- *
- * Repository rules: organization in every WHERE (or a project already proven
- * to be the organization's), lists bounded or paged to the end. A function
- * that runs inside a caller's transaction takes its executor.
- *
- * Project folders only. `project_folders` also holds the Archiv's folders
- * (migration 0102), which have no Papierkorb: every read here names a project,
- * and a folder is found only on the project shelf (`scope = 'project'`), so an
- * Archiv folder id is simply not found.
- */
-
 import 'server-only'
 import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -28,11 +13,6 @@ import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibili
 
 export * from './folder-bin-queue'
 
-/**
- * The ids of the documents filed in any of `folderIds`, inside the caller's
- * transaction. Bounded by the caller: it asks only about a subtree whose
- * documents it is about to bin anyway.
- */
 export async function listDocumentIdsInFolders(tx: DbExecutor, projectId: string, folderIds: readonly string[]): Promise<string[]> {
   if (folderIds.length === 0) return []
   const rows = await tx
@@ -42,17 +22,10 @@ export async function listDocumentIdsInFolders(tx: DbExecutor, projectId: string
   return rows.map((row) => row.id)
 }
 
-/**
- * Take the project's bin lock until the transaction ends. Inserts and moves of
- * documents and folders into a folder of the project take it SHARED in their
- * trigger (`refuse_write_into_deleted_folder`), so once this returns no
- * write into the subtree is in flight, and none starts before the commit.
- */
 export async function takeBinLock(tx: DbExecutor, projectId: string): Promise<void> {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(folder_bin_lock_key(${projectId}::uuid))`)
 }
 
-/** A PROJECT folder row in any state, with what the bin reads of it. */
 export type BinFolderRow = Pick<
   typeof projectFolders.$inferSelect,
   'id' | 'parentId' | 'name' | 'path' | 'accessMode' | 'deletedAt' | 'deletedBy' | 'binRootId' | 'purgedAt'
@@ -60,7 +33,6 @@ export type BinFolderRow = Pick<
 
 type StoredBinFolderRow = Omit<BinFolderRow, 'projectId'> & { projectId: string | null }
 
-/** A row read on the project shelf, as a project folder; null for one with no project (never, by the CHECK). */
 function asProjectFolder(row: StoredBinFolderRow | undefined): BinFolderRow | null {
   if (!row || row.projectId === null) return null
   return { ...row, projectId: row.projectId }
@@ -79,7 +51,6 @@ const binFolderColumns = {
   purgedAt: projectFolders.purgedAt,
 }
 
-/** One folder of an organization's project, living or deleted; null when it is not there. */
 export async function findFolderInOrg(
   executor: DbExecutor,
   organizationId: string,
@@ -103,7 +74,6 @@ export async function findFolderInOrg(
   return asProjectFolder(row)
 }
 
-/** One folder of the organization by id alone, its project proven the organization's by the join. */
 export async function findFolderByIdInOrg(
   executor: DbExecutor,
   organizationId: string,
@@ -125,11 +95,6 @@ export async function findFolderByIdInOrg(
   return asProjectFolder(row)
 }
 
-/**
- * Every folder of a bin entry, purged ones included: what a retry of a
- * purged folder still reaches. A tombstone older than 0114 has no entry and is
- * its own.
- */
 export async function listEntryFolderIds(executor: DbExecutor, root: BinFolderRow): Promise<string[]> {
   if (root.binRootId !== root.id) return [root.id]
   const rows = await executor
@@ -140,7 +105,6 @@ export async function listEntryFolderIds(executor: DbExecutor, root: BinFolderRo
   return rows.map((row) => row.id)
 }
 
-/** A living folder and every living folder below it, by id. */
 export async function listLivingSubtree(executor: DbExecutor, projectId: string, rootId: string): Promise<string[]> {
   const rows = executeRows<{ id: string }>(
     await executor.execute(sql`
@@ -157,7 +121,6 @@ export async function listLivingSubtree(executor: DbExecutor, projectId: string,
   return rows.map((row) => String(row.id))
 }
 
-/** Put these folders in the bin, as one entry named by `rootId`. */
 export async function markFoldersBinned(
   tx: DbExecutor,
   projectId: string,
@@ -175,7 +138,6 @@ export async function markFoldersBinned(
     )
 }
 
-/** Take the folders of one bin entry out of the bin, by id; the caller holds the bin lock. */
 export async function unbinFolders(tx: DbExecutor, projectId: string, rootId: string, at: Date): Promise<string[]> {
   const rows = await tx
     .update(projectFolders)
@@ -185,19 +147,6 @@ export async function unbinFolders(tx: DbExecutor, projectId: string, rootId: st
   return rows.map((row) => row.id)
 }
 
-/**
- * Mark the documents of restored folders `processing`, owned by the restore's
- * job: in the transaction that takes them out of the bin, so a restore never
- * leaves a document that reads indexed while its chunks are gone (they were
- * purged when the folder went to the bin). The job re-ingests them; a row it
- * never reaches is one the stuck-processing sweep finds, because its job is
- * gone or dead.
- *
- * Not every row: a quarantined file waits on a reviewer and was never
- * indexed, an upload still writing its bytes finishes on its own, and a
- * machine's document with no published version owns no chunks to restore.
- * The previous ingest's job id goes; the restore's goes in its place.
- */
 export async function markDocumentsRestoring(
   tx: DbExecutor,
   organizationId: string,
@@ -228,11 +177,6 @@ export async function markDocumentsRestoring(
   return rows.length
 }
 
-/**
- * One page of the documents a restore job still owns, by id after `afterId`:
- * `processing` and stamped with the job's id, in a folder that is not (again)
- * in the bin. A row the job has dispatched has moved on and drops out.
- */
 export async function listRestoringDocumentPage(
   organizationId: string,
   projectId: string,
@@ -261,7 +205,6 @@ export async function listRestoringDocumentPage(
   ).then((rows) => rows.map((row) => row.document))
 }
 
-/** Re-home a restored folder (its parent gone, or its path stale) and rewrite every path below it. */
 export async function rehomeFolder(
   tx: DbExecutor,
   projectId: string,
@@ -284,7 +227,6 @@ export async function rehomeFolder(
   `)
 }
 
-/** Mark every folder of a bin entry purged: from now on permanent tombstones. The last step of a purge. */
 export async function markFoldersPurged(
   executor: DbExecutor,
   projectId: string,
@@ -299,14 +241,8 @@ export async function markFoldersPurged(
   return rows.length
 }
 
-/** Documents of one page, by id. */
 const DOCUMENT_PAGE = 500
 
-/**
- * Every document filed in these folders, read in pages by id to the end: the
- * bin's chunk purge, a restore's re-ingest and the purge itself must each see
- * all of them.
- */
 export async function listDocumentsInFolders(
   organizationId: string,
   projectId: string,
@@ -322,7 +258,6 @@ export async function listDocumentsInFolders(
   }
 }
 
-/** One page of the documents filed in these folders, by id after `afterId`: what a sliced job reads. */
 export async function listDocumentPageInFolders(
   organizationId: string,
   projectId: string,
@@ -349,7 +284,6 @@ export async function listDocumentPageInFolders(
   )
 }
 
-/** Point a document at the collection a restore puts it in. */
 export async function setDocumentCollection(organizationId: string, documentId: string, collectionName: string): Promise<void> {
   const db = getDb()
   await withTenant({ organizationId }, () =>
@@ -360,7 +294,6 @@ export async function setDocumentCollection(organizationId: string, documentId: 
   )
 }
 
-/** One entry of a project's Papierkorb, as the listing reads it. */
 export interface BinEntryRow {
   folderId: string
   name: string
@@ -371,19 +304,14 @@ export interface BinEntryRow {
   status: string
   documents: number
   folders: number
-  /** The document of a single-document entry, when this reader may see it. */
   document: { id: string; name: string } | null
 }
 
-/** The statuses of a row still in work, as a SQL list: constants of the declaration, never input. */
 const LIVE_STATUS_LIST = `(${DELETION_LIFECYCLE.liveStates.map((status) => `'${status}'`).join(', ')})`
 
-/** The `to_char` pattern of {@link BinEntryCursor.deletedAt}. */
 const BIN_CURSOR_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.US'
 
-/** Where a bin page starts: the last entry of the page before, in `deleted_at DESC, id DESC` order. */
 export interface BinEntryCursor {
-  /** `YYYY-MM-DDTHH:MM:SS.ffffff`, UTC, as `to_char` wrote it. */
   deletedAt: string
   folderId: string
 }
@@ -393,13 +321,6 @@ export interface BinEntryPage {
   nextCursor: BinEntryCursor | null
 }
 
-/**
- * One page of the project's bin entries, newest first: each deleted folder's
- * root, with what it holds as the reader may count it. A held file of somebody
- * else is not in the number (ADR-0086): a count that moves when a colleague's
- * upload lands in a binned folder says it is there. An entry made for one
- * document names it, through the same visibility.
- */
 export async function listBinEntries(
   organizationId: string,
   projectId: string,
@@ -465,7 +386,6 @@ export async function listBinEntries(
   }
 }
 
-/** A living folder of the project, for a restore that keeps its parent. */
 export async function findLivingFolder(tx: DbExecutor, projectId: string, folderId: string): Promise<BinFolderRow | null> {
   const [row] = await tx
     .select(binFolderColumns)

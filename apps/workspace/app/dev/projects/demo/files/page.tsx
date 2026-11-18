@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the WHOLE Dateien screen as a phone shows it: the shell's
- * phone header and tab bar (stand-ins, same heights), the real
- * `ProjectSectionFrame` (title, description, controls), the real
- * `ProjectFileWorkspace` (breadcrumb row, brief disclosure, cards, floating
- * Hochladen) over fixtures.
- *
- * The path ends in `/files` on purpose: the frame reads its section from the
- * fourth path segment. States by query string: `?unread=1` leaves one document
- * unread (the brief disclosure then has something to say).
- * Nothing leaves the browser; 404s outside development.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import { notFound } from 'next/navigation'
@@ -55,12 +42,6 @@ const FILES: DocumentWireRow[] = [
   }),
 ]
 
-/**
- * Answers the demo project's document requests from the fixtures, for as long
- * as the preview is mounted. A layout effect runs before the workspace's own
- * effects fetch, and its cleanup puts the real `fetch` back, so leaving the
- * preview without a reload leaves nothing patched.
- */
 function useFixtureFetch(): void {
   React.useLayoutEffect(() => {
     const real = window.fetch

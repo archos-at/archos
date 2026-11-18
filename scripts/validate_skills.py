@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
 
-"""Validate AI-Q repo-local agent skill bundles.
-
-Checks every skill directory under one or more roots (default ``skills``)
-for a well-formed ``SKILL.md`` and bundle layout. Runs fully offline with no
-network access so it is safe in pre-commit and CI.
-
-Usage:
-    python scripts/validate_skills.py [ROOT ...]
-
-Exit code is 0 when every skill is valid, 1 otherwise.
-"""
 
 from __future__ import annotations
 
@@ -23,18 +12,12 @@ from pathlib import Path
 
 import yaml
 
-# Skill name contract: lowercase and hyphen-separated, with no product prefix.
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
-# Names that predate the contract and are allowed to keep their existing form.
 GRANDFATHERED_NAMES: set[str] = set()
 
-# Anthropic Agent Skills cap the matching ``description`` at 1024 characters.
 MAX_DESCRIPTION_CHARS = 1024
 
-# Only relative links pointing into these in-bundle subdirectories are checked
-# for on-disk existence. Anchors, external URLs, and links into the wider repo
-# are intentionally left to markdown-link-check.
 BUNDLE_DIRS = ("references", "scripts", "templates", "assets")
 
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", re.DOTALL)
@@ -45,8 +28,6 @@ DEFAULT_ROOTS = ("skills",)
 
 @dataclass
 class Report:
-    """Accumulates per-skill validation errors."""
-
     errors: list[str] = field(default_factory=list)
     skills_checked: int = 0
 
@@ -55,7 +36,6 @@ class Report:
 
 
 def _parse_frontmatter(text: str) -> dict | None:
-    """Return the parsed YAML frontmatter mapping, or None if absent/invalid."""
     match = FRONTMATTER_RE.match(text)
     if not match:
         return None
@@ -67,10 +47,8 @@ def _parse_frontmatter(text: str) -> dict | None:
 
 
 def _check_bundle_links(skill_md: Path, text: str, dir_name: str, report: Report) -> None:
-    """Verify relative links into references/scripts/templates/assets resolve."""
     for target in MD_LINK_RE.findall(text):
         target = target.strip()
-        # Skip external schemes and pure anchors.
         if target.startswith(("http://", "https://", "mailto:", "#")) or "://" in target:
             continue
         path_part = target.split("#", 1)[0]
@@ -88,7 +66,6 @@ def _check_bundle_links(skill_md: Path, text: str, dir_name: str, report: Report
 
 
 def validate_skill(skill_dir: Path, report: Report) -> None:
-    """Validate a single skill directory in place, recording any failures."""
     dir_name = skill_dir.name
     report.skills_checked += 1
 
@@ -127,12 +104,10 @@ def validate_skill(skill_dir: Path, report: Report) -> None:
 
 
 def iter_skill_dirs(root: Path) -> list[Path]:
-    """Return sorted skill directories (symlinks followed) directly under root."""
     return sorted(p for p in root.iterdir() if p.is_dir())
 
 
 def validate_roots(roots: list[Path]) -> Report:
-    """Validate every skill under each root and return the combined report."""
     report = Report()
     for root in roots:
         if not root.is_dir():
@@ -144,8 +119,7 @@ def validate_roots(roots: list[Path]) -> Report:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: parse root arguments, run validation, and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Validate repo-local agent skill bundles.")
     parser.add_argument(
         "roots",
         nargs="*",

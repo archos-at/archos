@@ -1,17 +1,3 @@
-"""Questions over a DXF site, each answered with how it was obtained (ADR-0153).
-
-The operations ``dxf_measure`` offers. Every number is computed from the drawing,
-never read from a register, and its line says so; in the Grundsteuerkataster
-the boundary itself is graphic (BEV spec v2.6, p. 12), so a figure there carries
-that caveat. A question the file cannot answer (no unit, no parcels, no
-buildings, an unknown parcel) comes back undecidable with what is missing and
-what to do about it, never as a guess.
-
-Answers are English lines for the model, with the domain's own words
-(Grundsteuerkataster, KG) as data. Pure: no I/O, so the tests drive it with a
-built site.
-"""
-
 from __future__ import annotations
 
 from collections import Counter
@@ -28,14 +14,11 @@ from .site import Site
 
 OPERATIONS = ("overview", "parcels", "parcel", "setbacks", "buildable", "distance", "texts", "layers")
 
-#: Shared edges shorter than this are a corner, not a boundary between two parcels (metres).
 _EDGE_M = 0.5
 
 
 @dataclass
 class SiteAnswer:
-    """The lines the model reads, and whether the file could answer at all."""
-
     lines: list[str] = field(default_factory=list)
     decidable: bool = True
 
@@ -56,7 +39,6 @@ def _m2(value: float) -> str:
 
 
 def accuracy_note(site: Site, parcels: list[Parcel] | None = None) -> str:
-    """How far a figure from this drawing can be trusted, said once per answer."""
     if not site.is_cadastre:
         return "Computed from the drawing as drawn; accurate to the drawing, not to the site."
     graphic = any(not parcel.boundary_cadastre for parcel in (parcels if parcels is not None else site.parcels))
@@ -129,7 +111,6 @@ _UNIT_NAMES = {
 
 
 def _unit_text(metres_per_unit: float | None) -> str:
-    """The drawing's unit as a reader names it; every one with a factor to metres can be measured."""
     if metres_per_unit is None:
         return "unit not stated: nothing can be measured in metres"
     name = next((name for factor, name in _UNIT_NAMES.items() if abs(factor - metres_per_unit) < 1e-9), None)
@@ -137,7 +118,6 @@ def _unit_text(metres_per_unit: float | None) -> str:
 
 
 def overview(site: Site) -> SiteAnswer:
-    """What the drawing is, what it holds, and what it can answer."""
     source = site.source
     msp = source.doc.modelspace()
     answer = SiteAnswer()
@@ -174,7 +154,6 @@ def overview(site: Site) -> SiteAnswer:
 
 
 def parcels(site: Site, numbers: list[str] | None = None, limit: int = 50) -> SiteAnswer:
-    """The parcels as rows, all or the ones named."""
     refusal = _needs_parcels(site)
     if refusal:
         return refusal
@@ -205,10 +184,8 @@ def _parcel_row(site: Site, parcel: Parcel) -> str:
 
 
 def shared_edges(site: Site, parcel: Parcel) -> list[tuple[str, BaseGeometry]]:
-    """Each neighbour and the boundary it shares with this parcel; ``""`` for the part with no neighbour in the file."""
     own = parcel.polygon.boundary
     edges: list[tuple[str, BaseGeometry]] = []
-    # By geometry, not by name alone: a neighbour's number may also name a parcel in another KG.
     for other in (other for other in site.parcels if other.number in parcel.neighbours and other is not parcel):
         if other.polygon is None:
             continue
@@ -222,7 +199,6 @@ def shared_edges(site: Site, parcel: Parcel) -> list[tuple[str, BaseGeometry]]:
 
 
 def parcel(site: Site, name: str) -> SiteAnswer:
-    """One parcel: size, shape, boundary by neighbour, what stands on it."""
     found = _parcel_or_refusal(site, name)
     if isinstance(found, SiteAnswer):
         return found
@@ -254,7 +230,6 @@ def parcel(site: Site, name: str) -> SiteAnswer:
 
 
 def setbacks(site: Site, name: str) -> SiteAnswer:
-    """For each building on the parcel, its shortest distance to each part of the parcel's boundary."""
     found = _parcel_or_refusal(site, name)
     if isinstance(found, SiteAnswer):
         return found
@@ -276,7 +251,6 @@ def setbacks(site: Site, name: str) -> SiteAnswer:
 
 
 def _rectangle(polygon: Polygon) -> tuple[float, float]:
-    """The sides of the smallest rotated rectangle around a shape, longer first."""
     box = polygon.minimum_rotated_rectangle
     xs, ys = box.exterior.coords.xy
     sides = [((xs[i + 1] - xs[i]) ** 2 + (ys[i + 1] - ys[i]) ** 2) ** 0.5 for i in range(2)]
@@ -284,7 +258,6 @@ def _rectangle(polygon: Polygon) -> tuple[float, float]:
 
 
 def _fraction(limit: float | None) -> float | None:
-    """A limit given as 0.4 or as 40 (percent) as a fraction."""
     if limit is None:
         return None
     return limit / 100 if limit > 1 else limit
@@ -298,7 +271,6 @@ def buildable(
     coverage_limit: float | None = None,
     density_limit: float | None = None,
 ) -> SiteAnswer:
-    """What remains of the parcel after the setbacks the caller gives, and what the limits allow."""
     found = _parcel_or_refusal(site, name)
     if isinstance(found, SiteAnswer):
         return found
@@ -331,7 +303,6 @@ def buildable(
 
 
 def _remaining_line(remaining: BaseGeometry, polygon: BaseGeometry) -> str:
-    """What remains inside the setbacks, said so it is not read as a building that fits."""
     if remaining.is_empty:
         return "Nothing remains inside these setbacks."
     pieces = list(getattr(remaining, "geoms", [remaining]))
@@ -346,11 +317,8 @@ def _remaining_line(remaining: BaseGeometry, polygon: BaseGeometry) -> str:
 
 
 def _inset(site: Site, parcel: Parcel, default_m: float, by_neighbour: dict[str, float]) -> BaseGeometry:
-    """The parcel minus a band along each boundary part, as wide as that part's setback (in drawing units)."""
     keyed = {site.label(found): value for name, value in by_neighbour.items() if (found := site.parcel(name))}
     unit = site.metres_per_unit or 1.0
-    # Round ends, not flat: the band is every point closer to that boundary part than its setback,
-    # which at a re-entrant corner is a quarter circle a flat band leaves out (buildable too large).
     bands = [
         edge.buffer(keyed.get(neighbour, default_m) / unit)
         for neighbour, edge in shared_edges(site, parcel)
@@ -360,7 +328,6 @@ def _inset(site: Site, parcel: Parcel, default_m: float, by_neighbour: dict[str,
 
 
 def distance(site: Site, first: str, second: str) -> SiteAnswer:
-    """The shortest distance between two parcels or buildings („123/4“, „building 2“)."""
     refusal = _needs_metres(site)
     if refusal:
         return refusal

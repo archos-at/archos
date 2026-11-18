@@ -55,7 +55,6 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
   let providers: typeof import('./providers')
   let reach: SearchReach
   const ids = { project: '', outside: '', hidden: '', restricted: '' }
-  /** The documents' question with no filter: the reach alone. */
   const ALL_DOCUMENTS = { filters: {}, citedBy: null, citing: null }
 
   const session = {
@@ -187,7 +186,7 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
   const titles = (hits: ReadonlyArray<{ title: string }>) => hits.map((hit) => hit.title).sort()
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -207,7 +206,6 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
     await folder(ids.outside, 'Verträge fremd')
 
     const shown = await documentIn(ids.project, 'EG.pdf')
-    // EG.pdf was read as a submission drawing EP-05; the other documents have no reading.
     const { toSearchFacets } = await import('./facets')
     const { upsertSearchFacets } = await import('./facets-repository')
     const reading = toSearchFacets(
@@ -344,7 +342,6 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
         { filters: { documentTypes: ['submission_drawing'], planNumber: 'ep 0' }, citedBy: null, citing: null },
         page
       )
-      // EG.pdf is the submission drawing EP-05; the reader's own held upload has no reading.
       expect(onDrawings.hits.map((hit) => hit.excerpt).sort()).toEqual(['Der Fluchtweg ist betroffen', 'Fluchtweg zu schmal'])
       expect(onDrawings.total).toBe(2)
       const onConcepts = await providers.searchAnnotations(

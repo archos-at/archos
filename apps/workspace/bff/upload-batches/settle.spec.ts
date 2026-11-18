@@ -10,7 +10,6 @@ vi.mock('./repository', () => ({
 vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn().mockResolvedValue(1) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({ findDocumentInOrg: vi.fn() }))
-// What it announces is `revision-notify.spec.ts`'s; here, settling hands over the documents that came to rest.
 vi.mock('@/lib/documents/revision-notify', () => ({ announceSettledVersions: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn() }))
 vi.mock('@/lib/authz/project-membership', () => ({ PERMISSION_CHECKS_AT_ONCE: 8,
@@ -19,13 +18,10 @@ vi.mock('@/lib/authz/project-membership', () => ({ PERMISSION_CHECKS_AT_ONCE: 8,
 }))
 vi.mock('@/lib/authz/org-role-permissions', () => ({ rolesHoldPermission: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ isFolderVisibleToMember: vi.fn().mockResolvedValue(true) }))
-// The event itself is `quarantine-audit.spec.ts`'s subject; here, settling hands it over.
 vi.mock('@/lib/upload-screening/quarantine-audit', () => ({
   auditOwedQuarantines: vi.fn().mockResolvedValue(undefined),
 }))
-// What the report says is `upload-report.spec.ts`'s; here, settling puts it on the row or goes on without it.
 vi.mock('./upload-report-service', () => ({ uploadReportFor: vi.fn().mockResolvedValue(null) }))
-// Which projects get a reading is `project-intake/trigger.spec.ts`'s; here, settling hands the batches over.
 vi.mock('@/lib/project-intake/trigger', () => ({ queueIntakeReadsAfterUpload: vi.fn().mockResolvedValue([]) }))
 
 import { auditOwedQuarantines } from '@/lib/upload-screening/quarantine-audit'
@@ -139,8 +135,6 @@ describe('settleUploadBatches', () => {
     expect(emitInboxItems).not.toHaveBeenCalled()
   })
 
-  // A completed batch is never settled again, so an uploader not told when it
-  // completed would never be: the completion is undone for the sweep to redo.
   it('reopens what it completed when the uploader cannot be told, and says so', async () => {
     vi.mocked(completeSettledBatches).mockResolvedValue([batch(), batch({ id: 'batch-2' })])
     vi.mocked(emitInboxItems).mockRejectedValueOnce(new Error('inbox upsert refused'))
@@ -179,8 +173,6 @@ describe('settleUploadBatches — a batch opened quiet (migration 0195)', () => 
     expect(vi.mocked(emitInboxItems).mock.calls[0][0].map((item) => item.resourceId)).toEqual(['batch-loud'])
   })
 
-  // Each trigger reads its own switch (`project-intake/trigger.spec.ts`,
-  // `filing/trigger.spec.ts`), so a quiet completion still hands the batch over.
   it('still hands a batch without its completion to the intake trigger', async () => {
     const completed = [batch({ announcesCompletion: false, startsIntake: true })]
     vi.mocked(completeSettledBatches).mockResolvedValue(completed)
@@ -265,8 +257,6 @@ describe('onDocumentsSettled', () => {
       resourceId: 'org-1',
       groupKey: 'document.quarantined:organization:org-1',
     })
-    // The row names the file and the kind of reason, never the value found. Only
-    // this file's reviewers get it, so it names nothing they could not open.
     expect(emitted[0]?.payload).toEqual({ subject: 'Lohnzettel_März.pdf', variant: 'iban' })
     expect(JSON.stringify(emitted)).not.toContain('3201')
   })
@@ -288,7 +278,6 @@ describe('onDocumentsSettled', () => {
     }))
     vi.mocked(rolesHoldPermission).mockResolvedValue(false)
     vi.mocked(userHoldsProjectPermission).mockResolvedValue(true)
-    // Only gf holds a folder role on Honorare (ADR-0097): asked per person, by their membership as it is now.
     vi.mocked(isFolderVisibleToMember).mockImplementation(async (_o, _p, _f, userId) => userId === 'gf')
 
     await onDocumentsSettled('org-1', [{ id: 'doc-q', status: 'quarantined' }])

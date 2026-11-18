@@ -31,6 +31,5 @@ export function isGone(url) {
 export function goneStatus(req, res) {
   if (!isGone(req.url)) return
   const writeHead = res.writeHead.bind(res)
-  // writeHead is overloaded; every overload takes the status first.
   res.writeHead = (status, ...rest) => writeHead(status === 404 ? 410 : status, ...rest)
 }

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * „Verlauf folgen“, conditions 1–6 of DECISION D31. One mail meets every
- * condition; each case breaks exactly one, and the mail must then wait with
- * exactly that reason. Conditions 7–9 need the database and are the follow
- * job's (`follow.integration.spec.ts`).
- */
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -36,7 +30,6 @@ const follow: FollowRow = {
   endedAt: null,
 }
 
-/** A reply that meets all six conditions. */
 function mail(overrides: Partial<FollowCandidateMail> = {}): FollowCandidateMail {
   return {
     receivedAt: new Date(NOW.getTime() - 60_000),

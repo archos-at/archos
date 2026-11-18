@@ -7,16 +7,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 import { LEGACY_PROJECT } from "../names";
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
-
-/**
- * The promotion's carry of reviewed knowledge releases (ADR-0181). It crosses
- * three boundaries the plan cannot see into: the bundle the image builds
- * (`dist-jobs/knowledge-carry.mjs`), the directory the image copies, and the
- * one switch (`KNOWLEDGE_SINGLE_OPERATOR`) that must be this pod's alone.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -78,11 +70,10 @@ describe("the knowledge carry Job", () => {
 
   it("is not awaited by the deploy, and runs the bundled carry from the frontend image", async () => {
     const metadata = await resolve(job.inputs.metadata);
-    expect(metadata.annotations).toMatchObject({ "pulumi.com/skipAwait": "true" });
+    expect(metadata.annotations).toMatchObject({ "pulumi.com/skipAwait": "true", "pulumi.com/deletionPropagationPolicy": "background" });
     const pod = (await resolve(job.inputs.spec)).template.spec;
     expect(pod.containers[0].command).toEqual(["node", "dist-jobs/knowledge-carry.mjs"]);
     expect(pod.containers[0].image).toMatch(/-frontend:sha-a{40}$/);
-    // The entry the image bundles, and the directory it copies.
     expect(read("apps", "workspace", "scripts", "build-jobs-bundle.ts")).toContain("scripts/knowledge-carry.ts");
     expect(read("apps", "workspace", "deploy", "Dockerfile")).toMatch(/COPY .*\/app\/config\/knowledge-releases \.\/config\/knowledge-releases/);
     expect(existsSync(join(repoRoot, "apps", "workspace", "config", "knowledge-releases", "manifest.json"))).toBe(true);
@@ -93,7 +84,6 @@ describe("the knowledge carry Job", () => {
     expect(env.filter((e) => e.name === "KNOWLEDGE_SINGLE_OPERATOR")).toEqual([{ name: "KNOWLEDGE_SINGLE_OPERATOR", value: "true" }]);
     expect(env.find((e) => e.name === "KNOWLEDGE_CARRY_DEPLOYMENT")?.value).toBe("prod");
     expect(env.find((e) => e.name === "KNOWLEDGE_CARRY_PROMOTION")?.value).toBe(`image sha-${"a".repeat(40)}`);
-    // The BFF's own environment comes with it: the database and the backend it calls.
     expect(env.map((e) => e.name)).toEqual(expect.arrayContaining(["BACKEND_URL"]));
   });
 });

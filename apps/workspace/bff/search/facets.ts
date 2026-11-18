@@ -1,42 +1,24 @@
-/**
- * A document's reading as its search row (`document_search_facets`, ADR-0136).
- * Pure: the projector and the specs call it with what the listing parsed.
- *
- * The tokens are the Qdrant payload's own (`knowledge_layer/vector_store/payload.py`,
- * `reference_value` and `fact_value`), so a filter means the same thing on the
- * structured path and on the content search's pre-filter: a reference is
- * `kind:key` in lower case, a fact is `key=value` with the value folded (case,
- * spaces, decimal comma, a Gebäudeklasse written „GK 4“ or „IV“ as its number).
- * The payload's fact token also carries the unit; ours does not, because a
- * filter asks for a value, and the unit stays on the fact for display.
- */
-
 import { createHash } from 'node:crypto'
 import type { NewDocumentSearchFacetsRow, SearchFacetChange, SearchFacetFact, SearchFacetParty } from '@/lib/db/schema/document-search'
 import type { DocumentMetadata } from '@/lib/documents/reconcile-status'
 import { squashDrawingNumber } from '@/lib/documents/findings'
 
-/** What the projector knows of one document besides its reading. */
 export interface FacetSubject {
   documentId: string
   organizationId: string
-  /** A newer Fassung replaces it (the listing's `superseded_by`). */
   superseded: boolean
 }
 
-/** The longest `search_text`, as the migration's CHECK bounds it. */
 export const SEARCH_TEXT_MAX = 20_000
 
 const ROMAN: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5' }
 
 const collapse = (value: string): string => value.normalize('NFC').split(/\s+/).filter(Boolean).join(' ')
 
-/** One reference as the payload's `references` holds it: `norm:önorm b 1600`, `plan:ep-05`. */
 export function referenceToken(kind: string, key: string): string {
   return `${kind}:${key}`.normalize('NFC').toLowerCase()
 }
 
-/** A fact's value folded as the payload's `fact_value` folds it, without the unit. */
 export function foldFactValue(key: string, value: string): string {
   let text = collapse(value).toLowerCase().replace(/,/g, '.')
   if (key === 'building_class') {
@@ -47,12 +29,10 @@ export function foldFactValue(key: string, value: string): string {
   return text
 }
 
-/** `key=value`, the token a fact filter matches. */
 export function factToken(key: string, value: string): string {
   return `${key}=${foldFactValue(key, value)}`
 }
 
-/** The number a fact states, for a range: its folded value when it starts with one. */
 export function factNumber(key: string, value: string): number | null {
   const match = /^-?\d+(\.\d+)?/.exec(foldFactValue(key, value))
   if (!match) return null
@@ -60,7 +40,6 @@ export function factNumber(key: string, value: string): number | null {
   return Number.isFinite(number) ? number : null
 }
 
-/** The document's own date: the dossier's issue or plan date, else the Plankopf's. */
 function documentDateOf(metadata: DocumentMetadata): string | null {
   const dates = metadata.dossier?.dates ?? []
   return (
@@ -71,20 +50,13 @@ function documentDateOf(metadata: DocumentMetadata): string | null {
   )
 }
 
-/** A capture time a timestamp column takes, or null for one the camera wrote unreadably. */
 function capturedAtOf(raw: string | undefined): Date | null {
   if (!raw) return null
-  // EXIF writes `2026:09:14 10:31:00`; the backend may already send ISO.
   const iso = raw.replace(/^(\d{4}):(\d{2}):(\d{2})[ T]/, '$1-$2-$3T')
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-/**
- * Whether the listing said anything about this document's reading. A listing
- * read while the agent's metadata store failed answers 200 with none of it, and
- * must not blank a row (ADR-0136, the projector fails closed).
- */
 export function hasReading(metadata: DocumentMetadata | null | undefined): metadata is DocumentMetadata {
   if (!metadata) return false
   return Boolean(
@@ -97,7 +69,6 @@ export function hasReading(metadata: DocumentMetadata | null | undefined): metad
   )
 }
 
-/** The text the full-text vector is built from: what the document says it is, not its file name. */
 function searchTextOf(row: Omit<NewDocumentSearchFacetsRow, 'searchText' | 'fingerprint'>, revisionTitle: string | undefined): string {
   const parts = [
     row.title,
@@ -116,16 +87,11 @@ function searchTextOf(row: Omit<NewDocumentSearchFacetsRow, 'searchText' | 'fing
   )
 }
 
-/** The hash of what a row says, so an unchanged row is not rewritten. */
 function fingerprintOf(row: Omit<NewDocumentSearchFacetsRow, 'fingerprint'>): string {
   const { syncedAt: _synced, ...said } = row
   return createHash('sha256').update(JSON.stringify(said)).digest('hex').slice(0, 32)
 }
 
-/**
- * The search row of one document, or `null` when the listing said nothing of
- * its reading (the caller then leaves any stored row as it is).
- */
 export function toSearchFacets(
   subject: FacetSubject,
   metadata: DocumentMetadata | null | undefined

@@ -6,15 +6,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-/**
- * `server.js` runs from the production image, where `src/` holds only the files
- * `deploy/Dockerfile` copies in by path. A relative `require` the Dockerfile
- * does not copy is a MODULE_NOT_FOUND crash loop before the gateway listens,
- * and nothing local sees it: `next dev` and vitest both run from the checkout.
- * `next-config-runtime-copies.spec.ts` guards `next.config.ts` the same way;
- * `server.js` had no such guard until its fourth required module.
- */
-
 const UI_ROOT = path.resolve(__dirname, '../..')
 
 function relativeRequiresOf(source: string): string[] {
@@ -34,12 +25,10 @@ describe('server.js runtime image copies', () => {
     expect(requires.length).toBeGreaterThan(0)
   })
 
-  /** Every destination a `COPY` line writes, relative to the image's working directory. */
   const copied = [...dockerfile.matchAll(/^COPY .* \.\/(\S+)$/gm)].map((match) => match[1].replace(/\/$/, ''))
 
   it.each(requires)('copies %s into the production image', (file) => {
     expect(existsSync(path.join(UI_ROOT, file)), `server.js requires ${file}, which does not exist`).toBe(true)
-    // The file itself, or a directory above it (`observability/` is copied whole).
     const covered = copied.some((dest) => file === dest || file.startsWith(`${dest}/`))
     expect(covered, `deploy/Dockerfile must COPY ${file}: server.js requires it`).toBe(true)
   })

@@ -30,7 +30,7 @@ ws://<host>/websocket?v=2&projectId=<uuid>&conversationId=<session_id>
 
 - **Browser:** same origin; `server.js` proxies to the agent tier.
 - **`v=2` is required.** The server closes any other version with **`4426`**
-  (`CLOSE_CLIENT_OUTDATED`); the client turns that into "Piloti was updated,
+  (`CLOSE_CLIENT_OUTDATED`); the client turns that into "{productName} was updated,
   reload". An older bundle gets its ordinary connection-failed banner: nothing
   is said to it in its own dialect.
 - **The server speaks first: `hello`.** Once the version and the caller have
@@ -438,7 +438,7 @@ Absence of every field is the unscoped project turn: the signed header stands
 as-is.
 
 `focus_file_name` is not only a retrieval hint. It is lifted onto
-`ConversationState` and rendered into the answering prompt (`piloti.j2`),
+`ConversationState` and rendered into the answering prompt (`system.j2`),
 because a turn that says "fass zusammen" carries its subject in the composer bar
 and nowhere in its text: with retrieval scoped correctly but the model told
 nothing, the answer was "which document do you mean?" over an open PDF. The
@@ -465,8 +465,8 @@ version nobody has published there are no chunks to prefer.
 
 Only a published version reaches the retrieval index (ADR-0054), so a draft has
 no chunks, the focus filter matches nothing, and it falls open to the whole
-corpus (`packages/knowledge-layer/src/register.py`) — the reader asks about the
-Befund Piloti filed a minute ago and gets an answer sourced from everything
+corpus (`packages/knowledge-layer/src/knowledge_layer/register.py`) — the reader asks about the
+Befund the agent filed a minute ago and gets an answer sourced from everything
 except that Befund. Told which version the subject is, the backend reads that
 version's own bytes through
 `GET /api/internal/document-versions/[versionId]/content` and writes them into
@@ -532,9 +532,9 @@ clock, and ends visibly:
 
 | The server… | The client | The reader sees |
 |---|---|---|
-| opens and says nothing for 5 s (`HELLO_TIMEOUT_MS`), or opens with anything but a v2 `hello` | drops the socket and tries again on the ladder; when it is spent the status is `incompatible` | `connection.server_incompatible` („Piloti ist gerade nicht erreichbar"), not "check your network". The health poll does not clear it, since an old agent is healthy; the next question tries a new socket, and its hello clears it |
-| sends, after the hello, a frame this bundle cannot parse | closes the socket: `outdated`, as for `4426` | „Piloti wurde aktualisiert", reload. A turn whose next `seq` cannot be read could never fold its terminal. Additive drift is not this: an unknown key in a server-to-client frame is stripped, and a v2 turn event of an unknown `type`, step `kind` or `CUSTOM` name is folded as a no-op that keeps `seq` continuous (`parseWireEvent`, [chat-wire-v2 §a Compatibility](../design/chat-wire-v2.md#compatibility-additive-changes-are-safe)). A renamed, retyped or newly required field still lands here |
-| does not answer a `user_message` within 15 s (`ACK_TIMEOUT_MS`): no `RUN_STARTED`, no `rejected`, no frame of the turn | reopens the socket, which sends the question again; a second miss ends the turn | an `agent.no_response` warning card („Keine Rückmeldung": Piloti did not react to the question, nor to a second try) with „Erneut versuchen", after the server was asked once for a finished answer; the Herleitung goes from live to „Fehlgeschlagen" |
+| opens and says nothing for 5 s (`HELLO_TIMEOUT_MS`), or opens with anything but a v2 `hello` | drops the socket and tries again on the ladder; when it is spent the status is `incompatible` | `connection.server_incompatible` („{productName} ist gerade nicht erreichbar"), not "check your network". The health poll does not clear it, since an old agent is healthy; the next question tries a new socket, and its hello clears it |
+| sends, after the hello, a frame this bundle cannot parse | closes the socket: `outdated`, as for `4426` | „{productName} wurde aktualisiert", reload. A turn whose next `seq` cannot be read could never fold its terminal. Additive drift is not this: an unknown key in a server-to-client frame is stripped, and a v2 turn event of an unknown `type`, step `kind` or `CUSTOM` name is folded as a no-op that keeps `seq` continuous (`parseWireEvent`, [chat-wire-v2 §a Compatibility](../design/chat-wire-v2.md#compatibility-additive-changes-are-safe)). A renamed, retyped or newly required field still lands here |
+| does not answer a `user_message` within 15 s (`ACK_TIMEOUT_MS`): no `RUN_STARTED`, no `rejected`, no frame of the turn | reopens the socket, which sends the question again; a second miss ends the turn | an `agent.no_response` warning card („Keine Rückmeldung": the agent did not react to the question, nor to a second try) with „Erneut versuchen", after the server was asked once for a finished answer; the Herleitung goes from live to „Fehlgeschlagen" |
 | lets a running turn go silent for three beats | drops and reopens the socket, re-attaching the turn; a second silent socket in a row with nothing of the turn folded ends it | the answer, if the server finished it; otherwise `agent.response_interrupted` |
 | refuses an `attach` or a `cancel_turn` as `invalid_message` or `conversation_mismatch` | treats it as `turn_not_found`: nothing is following the turn any more | as for `turn_not_found` |
 | answers a `cancel_turn` with `turn_not_found` because the answer finished before the Stop reached it | stores the answer as it stood at the press and asks the BFF to cut the server's whole row to it (`keepStoppedAnswer`, or `stoppedLate` when the terminal crossed the Stop; `POST …/messages/{id}/stopped`, [`design/chat-wire-v2.md`](../design/chat-wire-v2.md) §c) | the answer they stopped on, after a reload too |
@@ -587,7 +587,7 @@ the run's message (`metadata.run_ledger`, read back sanitised by the message
 mapper); if that ledger is not terminal it reads
 `GET /api/projects/[id]/runs/[runId]?include=stream` for `backendJobId`, opens the stream
 through the same-origin proxy (`/api/jobs/async/job/[jobId]/stream`, the SSE
-client in `apps/workspace/ui/adapters/api/deep-research-client.ts`) with **no**
+client in `apps/workspace/ui/adapters/api/deep-research-stream.ts`) with **no**
 `last_event_id`, so the replay runs from the first flush and the newest snapshot
 lands last, and wires only `onLedger`. Every snapshot goes through
 `sanitizeRunLedger` and **replaces** what is held, unless its `updatedAt` is older
@@ -610,7 +610,7 @@ what it did before the canvas could ask.
 | `focus_region` | `{page, x, y, w, h, annotation_id?}` | A box a person drew on a page of the document the question is about. `page` counts from 1; `x`, `y`, `w`, `h` are shares of the page **as shown** (its rotation applied), origin top left, the frame an Anmerkung's region uses: `0 ≤ x, y ≤ 1`, `0 < w, h ≤ 1`, `x + w ≤ 1` and `y + h ≤ 1` (a rounding slack of 1e-6 is allowed; the JSON Schema cannot state the sums, so the server's model does and refuses the message). `annotation_id` names the Anmerkung the box is the region of, when the question was asked in its thread. |
 | `reply_in_thread` | `boolean` | The question was asked in the thread of `focus_region.annotation_id`. Without an `annotation_id` it means nothing. |
 
-What the turn does with them (`turn/payload.py`, `agents/piloti/prompt.py`):
+What the turn does with them (`turn/payload.py`, `core/prompt.py`):
 the system prompt gains a „Fokusbereich“ section naming the document, page and
 box in words, and telling the model to look at exactly that crop
 (`look` with `region=[x, y, w, h]`) before it answers. With
@@ -624,12 +624,12 @@ no document. Both fields are on the turn's trace as `turn_surface`
 
 Because `accepts` is itself withheld while `WIRE_V2_ADDITIVE_FIELDS` is
 off, a page sends neither field with that flag off. It is on by default; `off`
-is the rollback, and with it off a canvas question reaches Piloti without its
+is the rollback, and with it off a canvas question reaches the agent without its
 box and no reply lands in its thread.
 
 ### Steering a running turn (`steer`)
 
-What a person types while Piloti works on their own question goes into that
+What a person types while the agent works on their own question goes into that
 turn, not into a new one (`common/steering.py`, the steering research of
 2026-10-13):
 
@@ -655,14 +655,14 @@ turn, not into a new one (`common/steering.py`, the steering research of
   or was refused) is asked as the next question by the asker's client once the
   terminal has arrived, unless the asker stopped the turn.
 - **Where it is typed.** The chat composer, while the asker's own turn runs
-  and the hello offers `steer`: the placeholder says „Piloti lenken …“, a small
+  and the hello offers `steer`: the placeholder says „{productName} lenken …“, a small
   „lenkt“ chip sits by the field, and Enter sends the note. The review
-  canvas: the working card takes a note, and a box drawn while Piloti works is
+  canvas: the working card takes a note, and a box drawn while the agent works is
   sent as the note's `focus_region`.
 
 Like every optional entry, `steer` is in `accepts` only while
 `WIRE_V2_ADDITIVE_FIELDS` is on, its default; with it set off, the composer keeps its
-type-ahead behaviour and the canvas says Piloti is busy.
+type-ahead behaviour and the canvas says the agent is busy.
 
 ### A turn an event woke (`trigger` / `if_idle`)
 
@@ -686,6 +686,10 @@ a server whose hello lists it (`user_message.trigger`, `user_message.if_idle`).
   then marked `headless` (and `skip_clarifier`), so the clarifier and its plan
   approval are skipped and `ask_user` refuses without prompting; the model asks
   in the thread instead of waiting thirty minutes on a socket nobody reads.
+  An ask through an agent door (`agent_consult`) also sends `x-turn-door`
+  (`mcp`, `a2a`) and `x-turn-session-source` (`mcp`, `script`), the door its
+  turn's `answer_finished` is filed under. The backend reads them only on a
+  headless socket, and `server.js` strips both from a browser's upgrade.
 - **Before sending,** read the hello: `accepts` must hold
   `user_message.trigger` and `user_message.if_idle`. A server without them
   (or `WIRE_V2_ADDITIVE_FIELDS` set off) would supersede a typed turn; do not

@@ -11,11 +11,6 @@ import {
   tagLabel,
 } from './tag-vocabulary'
 
-/**
- * A stored tag is what the vocabulary lists; what a person reads is its label.
- * The token `correspondence` (the Dokumentart of an E-Mail-Verlauf) is the
- * first tag stored in English, so it is the one read through i18n.
- */
 describe('tag vocabulary', () => {
   it('lists correspondence as a document type, so it validates, filters and types a document', () => {
     expect(DOCUMENT_TYPE_TAGS).toContain('correspondence')
@@ -48,7 +43,6 @@ describe('tag vocabulary', () => {
   })
 
   it('reads a tag still stored in German as itself in German and as its translation in English', () => {
-    // „What this is about: Grundriss“ in an English workspace (review of 2026-11-10, finding 21).
     const german = createTranslator(de, 'files')
     const english = createTranslator(en, 'files')
     for (const tag of ALLOWED_TAGS) {

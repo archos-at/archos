@@ -1,18 +1,3 @@
-/**
- * The conversations operations (ADR-0122): threads with Piloti and colleagues,
- * the messages in them, answer feedback, citations and similar passages.
- * See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for
- * the rules.
- *
- * Sending a question to Piloti is not here: a turn runs over the chat
- * WebSocket, not a route. `conversation-message-add` stores a message in the
- * thread (and notifies the people it mentions) without opening a turn.
- *
- * Left uncatalogued on purpose (browser plumbing): `GET /live` (a server-sent
- * event stream), `GET /frames` (the socket-resume peek), `POST /stopped` (cuts
- * an answer to what the Stop button showed); `GET /export` is a binary download.
- */
-
 import { z } from 'zod'
 import { formatCitationsSchema } from '@/lib/citations/citation-wire'
 import {
@@ -136,7 +121,6 @@ export const conversationsOperations = [
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
     query: listMessagesQuerySchema,
-    // An assistant's messages are a model's text; a person's are not.
     generatedContent: generatedRows('messages', (message) => message.role === 'assistant'),
     load: () => import('@/app/api/conversations/[id]/messages/route'),
   },

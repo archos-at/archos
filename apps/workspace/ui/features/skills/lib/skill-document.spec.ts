@@ -41,11 +41,9 @@ describe('renderSkillDocument', () => {
       body: '',
       metadata: { flag: 'false', count: '12', word: 'chat', empty: '' },
     })
-    // `false` and `12` would come back as a boolean and a number.
     expect(frontmatter).toContain('flag: "false"')
     expect(frontmatter).toContain('count: "12"')
     expect(frontmatter).toContain('empty: ""')
-    // …but an ordinary word stays bare, so the document reads as hand-written.
     expect(frontmatter).toContain('word: chat')
   })
 
@@ -67,7 +65,6 @@ describe('renderSkillDocument', () => {
     const { frontmatter } = renderSkillDocumentParts({ name: 'x', description, body: '' })
 
     expect(frontmatter).toContain('description: >-')
-    // Every wrapped line is indented under the key, and no word was lost.
     const folded = frontmatter.split('description: >-\n')[1].split('\n---')[0]
     expect(folded.split('\n').every((line) => line.startsWith('  '))).toBe(true)
     expect(folded.replace(/\s+/g, ' ').trim()).toBe(description)
@@ -79,10 +76,8 @@ describe('renderSkillDocument', () => {
       description: 'd',
       body: '  # Title\n\ninstructions  ',
     })
-    // Level 1: always in context.
     expect(frontmatter.startsWith('---')).toBe(true)
     expect(frontmatter.endsWith('---')).toBe(true)
-    // Level 2: loaded only on activation, trimmed of authoring whitespace.
     expect(body).toBe('# Title\n\ninstructions')
   })
 
@@ -111,8 +106,6 @@ describe('parseSkillDocument', () => {
   }
 
   it('round-trips everything the renderer emits', () => {
-    // The pair is only useful if it is a pair: whatever the form renders, the
-    // advanced section must be able to read back into the same fields.
     const input = {
       name: 'oib-brandschutz',
       description:
@@ -143,11 +136,8 @@ describe('parseSkillDocument', () => {
       ].join('\n'),
     )
     expect(value.name).toBe('oib-check')
-    // A folded scalar is ONE string, not the lines it was wrapped onto.
     expect(value.description).toBe('Checks the thing. Use when somebody asks about the thing.')
     expect(value.metadata).toEqual({ 'grid-execution': 'deep-research' })
-    // The `---` search stops at the first closing fence, so a body that talks
-    // about frontmatter is body, not frontmatter.
     expect(value.body).toContain('name: not-frontmatter')
   })
 

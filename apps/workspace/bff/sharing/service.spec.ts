@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Sharing invariants (ADR-0032, spec SH-2, SH-5, SH-11, SH-14).
- *
- * Three rules are worth a regression test each, because each one is a way the
- * feature could quietly become wrong rather than loudly broken:
- *   - a resource can be left with no owner (SH-11);
- *   - a grant can become a back door into a project (SH-5);
- *   - the audit trail can fill with saves that changed nothing (SH-14).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,9 +29,6 @@ vi.mock('@/lib/conversations/repository', () => ({
   listConversationIdsForProject: vi.fn(),
 }))
 
-// The per-person rule itself is `restricted-use.spec.ts` and, against Postgres,
-// `restricted-use.integration.spec.ts`. Here: that every widening asks it, with
-// the right widening, before any write or rate-limit spend, and writes through it.
 const widenings = vi.hoisted(() => ({ executor: { tx: true } }))
 vi.mock('@/lib/conversations/restricted-use', () => ({
   assertMayWidenConversation: vi.fn(),
@@ -132,7 +120,6 @@ const session = {
   permissions: [],
 } as unknown as AuthorizedSession
 
-/** The caller's own access, as `./access` would have resolved it. */
 function stubCallerAccess(role: ResourceRole, visibility: ResourceVisibility = 'private'): void {
   vi.mocked(requireResourceAccess).mockResolvedValue({
     role,
@@ -144,11 +131,6 @@ function stubCallerAccess(role: ResourceRole, visibility: ResourceVisibility = '
   })
 }
 
-/**
- * A project admin who reads the resource through project visibility and does
- * not own it: what `./access` answers the takeover's own check with. Once, so
- * the roster read that follows sees the owner the takeover made them.
- */
 function stubTakeoverAccess(): void {
   vi.mocked(requireResourceAccess).mockResolvedValueOnce({
     role: 'collaborator',
@@ -160,11 +142,6 @@ function stubTakeoverAccess(): void {
   })
 }
 
-/**
- * The creator is an immovable owner, so the last-owner invariant can only be
- * violated by demoting or removing the creator's OWN owner grant — which is why
- * these tests point `createdBy` at the target rather than at a bystander.
- */
 function stubConversation(createdBy: string, visibility: ResourceVisibility = 'private'): void {
   vi.mocked(findConversationTenancy).mockResolvedValue({
     organizationId: 'org_1',
@@ -226,7 +203,6 @@ describe('the last-owner invariant (spec SH-11)', () => {
       expect((error as ConflictError).details).toEqual({ reason: 'last-owner' })
     })
 
-    // The guard runs BEFORE the write, so a refused demotion changes nothing.
     expect(upsertGrant).not.toHaveBeenCalled()
   })
 
@@ -279,18 +255,12 @@ describe('the container precondition (spec SH-5)', () => {
       projectId: 'proj_1',
     })
 
-    // Sharing is never a back door: no grant, and nothing in the audit trail
-    // implying one was made.
     expect(upsertGrant).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
   })
 
   it('still demands ORGANIZATION membership when there is no container to gate on', async () => {
-    // A legacy conversation with no `project_id` used to return early here, so
-    // nothing checked the subject at all: a grant could be written for a user in
-    // another tenant, and `publishToUsers` would then write to that foreign
-    // user's channel.
     vi.mocked(findConversationTenancy).mockResolvedValue({
       organizationId: 'org_1',
       projectId: null,
@@ -310,8 +280,6 @@ describe('the container precondition (spec SH-5)', () => {
       reason: 'organization-membership-required',
     })
     expect(isUserInOrganization).toHaveBeenCalledWith(session, 'user_of_another_tenant')
-    // No grant row, no audit entry, and nothing published to a channel that is
-    // not ours to write to.
     expect(upsertGrant).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
@@ -335,14 +303,10 @@ describe('the container precondition (spec SH-5)', () => {
       expect.objectContaining({ subjectUserId: 'user_member' }),
       widenings.executor,
     )
-    // No project, so no project question is asked.
     expect(canUserAccessProject).not.toHaveBeenCalled()
   })
 
   it('refuses a role change for someone who holds no grant — it is not a second grant path', async () => {
-    // `upsertGrant` is create-or-update, so a `role_changed` call naming an
-    // arbitrary user id would otherwise write a brand-new grant while skipping
-    // the container check, the roster cap and the rate limit above.
     stubConversation('user_creator')
     stubGrants([{ subjectUserId: 'user_owner', role: 'owner' }])
 
@@ -398,8 +362,6 @@ describe('setResourceVisibility (spec SH-2, SH-14)', () => {
   })
 
   it('rejects a visibility the resource type does not permit', async () => {
-    // Organization-wide chats are withheld until the org policy control exists
-    // (spec SH-15); the registry says so, and the API must enforce it.
     await expect(
       setResourceVisibility(session, 'conversation', 'conv_1', 'organization'),
     ).rejects.toBeInstanceOf(BadRequestError)
@@ -456,11 +418,8 @@ describe('a document cannot be made private (nothing would enforce it)', () => {
 
 describe('escalateToOwner (spec SH-10)', () => {
   beforeEach(() => {
-    // A project admin who can read the thread through its project visibility
-    // and does not own it — the only caller allowed through here.
     stubTakeoverAccess()
     stubConversation('user_creator')
-    // The roster as it reads once the admin's own owner grant has landed.
     stubGrants([{ subjectUserId: 'user_me', role: 'owner' }])
   })
 
@@ -471,9 +430,6 @@ describe('escalateToOwner (spec SH-10)', () => {
       expect.objectContaining({ subjectUserId: 'user_me', role: 'owner' }),
       widenings.executor,
     )
-    // Every other mutation here publishes and this one did not, so the creator's
-    // open share dialog kept rendering a roster the escalating admin was absent
-    // from until a focus event or the minute-long disconnected poll came round.
     expect(publishToUsers).toHaveBeenCalledWith(['user_creator', 'user_me'], {
       kind: 'resource.access.changed',
       resourceType: 'conversation',
@@ -483,9 +439,6 @@ describe('escalateToOwner (spec SH-10)', () => {
   })
 
   it('survives a participant lookup that throws — the escalation is already committed', async () => {
-    // The grant and its audit record are durable before the fan-out's two reads
-    // even start. Letting one of them throw answered 500 for an escalation that
-    // had in fact succeeded, so the admin retried an act already in the log.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.mocked(findConversationTenancy).mockRejectedValueOnce(new Error('roster read unavailable'))
 
@@ -502,8 +455,6 @@ describe('escalateToOwner (spec SH-10)', () => {
   })
 
   it('asks for read access itself, and writes nothing for a caller who has none', async () => {
-    // ADR-0032 decision 5, amended 2026-11-11: a project admin with no role on a
-    // private chat is answered 404 by `requireResourceAccess`, before any write.
     vi.mocked(requireResourceAccess).mockReset()
     vi.mocked(requireResourceAccess).mockRejectedValue(new NotFoundError())
 
@@ -682,7 +633,6 @@ describe('the roster says who can no longer read what the chat drew on (ADR-0088
       user_ina: true,
       user_bob: false,
     })
-    // One question for the whole roster, asked of the caller's own clearance too.
     expect(peopleWhoMayRead).toHaveBeenCalledTimes(1)
     expect(peopleWhoMayRead).toHaveBeenCalledWith('org_1', 'conv_1', ['user_owner', 'user_ina', 'user_bob'], undefined, expect.anything())
   })

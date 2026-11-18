@@ -1,23 +1,3 @@
-/**
- * Imports the website's MDX posts (apps/website/src/content/blog) into the CMS,
- * keyed by slug, through Payload's Local API, and is safe to run again: a post
- * whose content already matches is left alone, one that differs is updated, one
- * the CMS lacks is created. Both languages of a post land in one document.
- *
- *   bun run import:blog                 # dry run: what would be created, updated, skipped
- *   bun run import:blog apply           # write it
- *
- * Words, not flags: `payload run` passes a script its positional arguments only.
- *
- * Needs `DATABASE_URL` and `PAYLOAD_SECRET` of the CMS to write to (locally,
- * `task cms:import`). A post edited in the CMS since the import wrote it (its
- * content no longer matches `importHash`) is skipped and reported, unless
- * `overwrite`: after the cutover the CMS is the source, and a re-run must not
- * undo an editor's work. `content <dir>` reads another copy of the posts.
- *
- * The import runs as the system (no user): it publishes what the files say is
- * published, and asks for no LinkedIn drafts of old news.
- */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from '@payload-config';
@@ -41,7 +21,6 @@ function parseArgs(argv: string[]) {
   return args;
 }
 
-/** The CMS post that holds any of the record's slugs, newest draft included; two different posts is a conflict. */
 async function findPost(payload: Payload, record: Record_) {
   const ids = new Set<number>();
   for (const [locale, fields] of Object.entries(record.locales) as [Locale, { slug: string }][]) {
@@ -65,7 +44,6 @@ async function plan(payload: Payload, record: Record_, overwrite: boolean): Prom
   return { action: 'update', id: current.id };
 }
 
-/** Writes a record: the shared fields with the first language, then each further language. */
 async function write(payload: Payload, record: Record_, id?: number) {
   const draft = record.status === 'draft';
   const context = { skipSocialDrafts: true };
@@ -98,7 +76,6 @@ async function main() {
   console.log(args.apply ? `Applied: ${summary}.` : `Dry run: ${summary}. Run again with "apply" to write.`);
 }
 
-// Top-level await: `payload run` ends the process once this module has evaluated.
 try {
   await main();
 } catch (error) {

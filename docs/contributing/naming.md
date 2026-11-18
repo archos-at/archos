@@ -76,7 +76,7 @@ Decided in [ADR-0149](../adr/0149-the-product-name-is-copy-and-identifiers-carry
   notes, ADRs).
 - **Two ratchets hold it**, both in `task lint:repo` and CI's **Repo checks**
   job. Each records every file's hits when it arrived; a file may not gain one,
-  a cleanup fails the check until `--update` lowers the entry, and a move
+  a cleanup passes and `task baselines:tighten` lowers the entry, and a move
   re-keys entries with `--rebaseline`, whose diff must show only the move.
   - Identifiers: `scripts/check_brand_names.py` against
     `ci/brand_names_baseline.json`. A directory is its own key, so a new file in
@@ -223,7 +223,7 @@ brand-word renames are in ADR-0149's map, not here.
 
 | Term today | Where | Proposed name | Priority |
 |---|---|---|---|
-| "agent door" in tool descriptions | `catalog/platform.ts:806`, `catalog/documents.ts:26` (`SIZE_NOTE`) | "the MCP server", or drop the phrase | High |
+| "agent door" in tool descriptions | `catalog/platform-base-corpus.ts`, `catalog/documents.ts:26` (`SIZE_NOTE`) | "the MCP server", or drop the phrase | High |
 | canvas tools `marks`, `mark` | `packages/agent/src/agent/tools/canvas/register.py` | `annotations`, `annotation` | High |
 | `document-bin` operation, `/dev/bin` | `catalog/documents.ts:98` | `document-trash`, `/dev/trash`, old name aliased one release | High |
 | `## Trace-Lanes` heading in tool results | the grounding block (`common/grounding_block.py`), parsed in `deep_researcher/custom_middleware.py` | `## Collections searched` | High |

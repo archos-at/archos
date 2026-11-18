@@ -12,7 +12,7 @@
 # limitations under the License.
 
 # =============================================================================
-# AIQ Blueprint UI - Production Dockerfile
+# Workspace UI - Production Dockerfile
 # =============================================================================
 #
 # Multi-stage build for the Next.js frontend application.
@@ -252,7 +252,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/bff/audit/schemas*.mjs ./bff/audi
 COPY --from=builder --chown=nextjs:nodejs /app/bff/images/avatar-hosts.ts ./bff/images/avatar-hosts.ts
 COPY --from=builder --chown=nextjs:nodejs /app/bff/images/optimizable.ts ./bff/images/optimizable.ts
 # The renamed API paths' redirects (`redirects()`); import-free like the two above.
-COPY --from=builder --chown=nextjs:nodejs /app/bff/api/legacy-routes.ts ./bff/api/legacy-routes.ts
 # The request-body ceiling, which becomes `proxyClientMaxBodySize` and the
 # server-action body limit. It has to clear the largest file any route admits —
 # an `.ifc` at BIM_MAX_IFC_BYTES, not the 100 MB document limit — or a model is

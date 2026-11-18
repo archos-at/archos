@@ -1,5 +1,3 @@
-"""What a cited source is (``SourceEntry``) and what a verification run reports (``CitationVerificationResult``)."""
-
 from __future__ import annotations
 
 import logging
@@ -19,136 +17,45 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SourceEntry:
-    """A single source captured from a tool call result."""
-
     url: str | None = None
     title: str | None = None
     citation_key: str | None = None
     source_type: str = ""
     tool_name: str = ""
-    # Retrieval collection the hit came from (oib_knowledge, s_*, proj_*, archiv_* or office_shelf_*),
-    # parsed from the knowledge-layer tool output's `Collection:` field. None for
-    # URL/web sources and for output produced before the field was threaded.
     collection: str | None = None
-    # The SHELF the hit came from (`office_shelf`/`project`/`session`/`base`), stated
-    # by the knowledge layer's ``Shelf:`` field (ADR-0047). None when the
-    # producer did not state one — unknown, and never re-derived from the
-    # collection id here.
     shelf: str | None = None
-    # Explicit per-document classification ("Dokumentart" / doc_class), parsed
-    # from the knowledge-layer tool output's `Dokumentart:` field. When present
-    # it is the FIRST-priority signal for lane/kind placement, overriding the
-    # filename/collection heuristics. None for sources without an explicit class.
     doc_class: str | None = None
-    # WHO WROTE THE DOCUMENT this passage came from — ``"agent"`` for a
-    # published Piloti document, None for everything a human wrote. Parsed from
-    # the knowledge-layer tool output's ``Herkunft:`` line
-    # (``common/provenance.py``). It is its own axis, never a doc_class and
-    # never a shelf: it decides the lane before either of those is consulted,
-    # and it is what ``answer_envelope._gate_verdict`` reads to refuse a
-    # normative verdict resting on an office document Piloti wrote itself.
     authored_by: str | None = None
-    # The FORMAT of the document the passage came from, when it states one:
-    # ``"mail"`` for a filed E-Mail-Verlauf (``source_kinds.MAIL_SOURCE_FORMAT``),
-    # whose sections are messages. Parsed from the ``Format:`` line. It places
-    # the passage in the mail lane of its shelf (``norm_registry.lane_for_hit``),
-    # so a clerk's e-mail is cited as an e-mail and never as building law.
     source_format: str | None = None
-    # Retrieved passage body for knowledge-layer hits (the chunk content the KB
-    # tool returned, truncated at 1500 chars per chunk). Used by
-    # ``verify_quoted_spans`` to check that a QUOTED sentence in the answer
-    # actually appears (fuzzily) in the evidence, catching the DeepSeek "cites a
-    # real section but fabricates the quote" bug. When several chunks dedup onto
-    # the same (filename, page) key their bodies are joined (see ``add``). None
-    # for URL/web sources and for output produced before this field was threaded.
     chunk_text: str | None = None
-    # The Punkt this passage belongs to ("3.5.2"), as the chunker established
-    # it and the knowledge layer's ``Punkt:`` line states it. This is the
-    # citation form Austrian building law uses; None for page-fallback chunks
-    # and every document without a numbered outline. When several chunks
-    # dedup onto one page entry the first stated Punkt survives (see ``add``).
     clause: str | None = None
-    # The retrieval score the knowledge layer printed for this passage, a true
-    # cosine similarity. Carried so a reader can ask not only WHERE a passage
-    # is but how nearly it matched; the best score of a page's chunks survives
-    # dedup. None for URL/web sources.
     score: float | None = None
-    # WHERE ON THE PAGE the passage sits, as boxes the viewer draws (issue #433).
-    # Stated by the producer for a passage read off a picture of the page (a
-    # plan's Grundriss, a photo), never for running text, which the viewer
-    # locates by matching ``chunk_text`` instead. Several chunks of one page
-    # merge their boxes on dedup, so a page cited for two depictions marks both.
     regions: list[SourceRegion] = field(default_factory=list)
-    # Last page of a passage that runs over a page break (``GroundingHit.page_end``); None when it
-    # ends on its citation key's page. The key itself keeps the start page: it is the identity.
     page_end: int | None = None
-    # WHAT A ``look`` READ at this place (its ``Gelesen:`` lines), when a look
-    # registered it (ADR-0125, amendment of 2026-10-22). A perception of a
-    # drawing, not a retrieved passage: it is never ``chunk_text``, so no quote
-    # is checked against it and it grounds no claim about the law. An entry with
-    # a ``read`` and no ``chunk_text`` is a PLACE; ``regions`` non-empty says the
-    # look was a region crop and not an overview.
     read: str | None = None
-    # The OTHER project a cross-project lookup found this passage in (ADR-0094),
-    # as the knowledge layer's ``Projekt:`` line states it. None for every
-    # source of the turn's own scope. The chip names it, and the preview opens
-    # the document in that project rather than in the chat's own.
     project_id: str | None = None
     project_name: str | None = None
     project_status: str | None = None
-    # The Bundesland line of that project's hit, as the producer states it
-    # (``SourceProject.federal_state_note``): the label, plus the warning when the
-    # project is in another Land than the chat's. Carried to the precedent
-    # chip's meta line; None when the producer stated none.
     project_federal_state_note: str | None = None
-    # THE KNOWLEDGE RECORD this text was read as, as its producer states it (``GroundingHit.work_id`` /
-    # ``edition_id``): what the citation's role, route and edition are resolved by (``citations/roles.py``).
-    # None for everything no record holds: an office or project document, the web.
     work_id: str | None = None
     edition_id: str | None = None
-    # WHERE A PERSON OPENS THE SOURCE in public, as its producer states it (``GroundingHit.public_url``): the
-    # address of the text at the source it was read from. It is NOT ``url``: ``url`` is a registry identity
-    # (one entry per URL, and what a source line may link), and a passage cited by its key has none. A
-    # display field: it dedups nothing, resolves nothing and decides no role. None for a corpus passage,
-    # whose edition's records name the address instead.
     public_url: str | None = None
-    # The day this turn read the source (ISO, UTC), for a source read live over the network: what "abgerufen
-    # am" must say, however much later the citation is copied. Stamped once, when the registry first takes
-    # the entry (``SourceRegistry.add``); a corpus passage has none.
     retrieved_at: str | None = None
-    # Which Fassung the text read is, as its producer states it (``GroundingHit.revision``): the index and
-    # the day an office or project document's own name carries, or the day a consolidated law is in force
-    # from as its source states it. None when nothing states one; never the day it was fetched.
     revision_index: str | None = None
     revision_date: str | None = None
 
 
 @dataclass
 class CitationVerificationResult:
-    """Result of running verify_citations()."""
-
     verified_report: str
     removed_citations: list[dict] = field(default_factory=list)
     valid_citations: list[dict] = field(default_factory=list)
 
 
-#: The reason a duplicate source line is dropped under. Its inline ``[N]`` is
-#: REWRITTEN to the line it duplicates, so the prose still cites the source:
-#: nothing the answer claimed was lost, which makes it a merge, not a defect.
 DUPLICATE_REASON_PREFIX = "duplicate_of_citation_"
 
 
 def lost_citations(removed_citations: Sequence[dict]) -> list[dict]:
-    """The removals that cost the answer a citation: every one except a merged duplicate.
-
-    Two Punkte read from one page are one registry entry, so an answer that
-    lists "file.pdf, p.4" twice gets the second merged into the first. Counted
-    as a failure, that merge bought a full repair rewrite (16 s, measured in
-    the September 2026 census) and a "Belege entfernt" note for a citation the
-    reader still has. Telemetry keeps the full list; the reader's note reads
-    this one (``ledger.citations_removed_summary`` on chat, ``finalize`` in
-    deep research).
-    """
     return [
         entry
         for entry in removed_citations
@@ -157,13 +64,6 @@ def lost_citations(removed_citations: Sequence[dict]) -> list[dict]:
 
 
 def merged_citations(removed_citations: Sequence[dict]) -> dict[int, int]:
-    """Each merged duplicate's number and the number it was rewritten to, before renumbering.
-
-    The removals :func:`lost_citations` leaves out: ``verify_citations``
-    rewrote the prose's ``[N]`` of each to the line it duplicates. Anything
-    else that carries the answer's numbers (a surface's ``Text``) takes the
-    same rewrite before sanitize's renumbering, or loses the citation.
-    """
     merged: dict[int, int] = {}
     for entry in removed_citations:
         reason = str(entry.get("reason") or "") if isinstance(entry, dict) else ""
@@ -174,8 +74,6 @@ def merged_citations(removed_citations: Sequence[dict]) -> dict[int, int]:
 
 
 class EmptySourceRegistryError(Exception):
-    """Raised when no sources were captured during research."""
-
     def __init__(
         self,
         agent_type: str = "research",
@@ -206,56 +104,34 @@ _TRACKING_PARAMS = frozenset(
 
 
 def normalize_url(url: str) -> str:
-    """Normalize a URL for comparison.
-
-    Lowercases scheme/host, strips trailing slash, removes fragments
-    and common tracking parameters.
-    """
     url = unescape(url).strip()
     parsed = urlparse(url)
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
     path = unquote(parsed.path).rstrip("/") or "/"
-    # Remove tracking params
     qs = parse_qs(parsed.query, keep_blank_values=True)
     filtered_qs = {k: v for k, v in qs.items() if k.lower() not in _TRACKING_PARAMS}
     query_str = "&".join(f"{k}={v[0]}" for k, v in sorted(filtered_qs.items()) if v)
     return urlunparse((scheme, netloc, path, "", query_str, ""))
 
 
-#: The labels the verifier wrote into an answer's prose before ADR-0125's amendment of 2026-11-10: after
-#: a quoted span no passage held, and where a citation did not resolve. Nothing writes them any more (no
-#: verification marker reaches an answer); they stay named because stored answers carry them and the
-#: BFF translates them for an agent reading one (``bff/agent-asks/answer-text.ts``).
-#: ``test_no_verification_marker_reaches_the_answer`` (the answer-check pipeline's tests) holds that no
-#: answer gains one.
 UNVERIFIED_QUOTE_MARKER = "[nicht wörtlich in der Quelle belegt]"
 DROPPED_CITATION_MARKER = "[Beleg nicht verifiziert]"
 
 
-#: Why a cited occurrence lost its number although its source line resolved.
 LOCUS_MISMATCH_REASON = "locus_not_in_source"
 
 
-#: Why a cited number had nothing to resolve against at all.
 NO_SOURCE_REASON = "no_source_retrieved"
 
 
-#: The tool whose result registers PLACES, not passages (``tools/look``).
 LOOK_TOOL = "look"
 
 
 def is_look_tool(tool_name: str) -> bool:
-    """Whether ``tool_name`` is ``look`` (bare, or as a member of a function group)."""
     name = (tool_name or "").lower()
     return name == LOOK_TOOL or name.endswith(f"__{LOOK_TOOL}")
 
 
 def is_look_place(entry: SourceEntry) -> bool:
-    """Whether the entry is a place a look read and no retrieved passage.
-
-    Such a source is evidence of what Piloti read off a drawing. It is never
-    ``citation_grounded`` and never grounds a claim about the law (ADR-0125,
-    amendment of 2026-10-22).
-    """
     return bool(entry.read) and not entry.chunk_text

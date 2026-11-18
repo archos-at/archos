@@ -1,40 +1,10 @@
-/**
- * Skill category repository — the only module that queries `skill_categories`
- * (ADR-0017).
- *
- * ONE table, two owners: a NULL `organization_id` is a platform category, a set
- * one that org's own. Reads therefore always span both (platform categories
- * first), while writes are scoped by who is asking — an org path that touches
- * a platform row, or vice versa, is a 404 at the service, never a row here.
- *
- * Repository rules: drizzle only; no HTTP, no auth, no WorkOS. Every query
- * that serves tenant data takes `organizationId` and scopes the WHERE clause
- * with it — tenancy is enforced in SQL. List queries are always bounded.
- */
-
 import 'server-only'
 import { and, asc, eq, isNull, or } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { skillCategories, type NewSkillCategoryRow, type SkillCategoryRow } from '@/lib/db/schema/skill-categories'
 
-/** Hard cap for a category list — platform categories plus one org's own. */
 export const CATEGORIES_LIST_LIMIT = 100
 
-/**
- * Every category an organization sees: the platform's, then its own.
- *
- * Ordered the way the toolbox reads them — platform categories first, then by
- * sort order, ties by name. Bounded, like every list — but bounded PER HALF,
- * which is the whole reason this is two reads and not one.
- *
- * One query with a shared LIMIT and `NULLS FIRST` starves the tenant: once
- * platform curation reaches the cap, an organization's own categories fall off
- * the end of the only read the toolbox and the picker use. Its skills would
- * render as "unsorted" against categories that exist, and `createSkillCategory`
- * would refuse every new one — a tenant locked out of its own shelves by how
- * busy the platform's curation happens to be. Each half gets its own headroom
- * instead, so neither can crowd the other out.
- */
 export async function listCategoriesForOrg(
   organizationId: string,
   limit = CATEGORIES_LIST_LIMIT,
@@ -46,7 +16,6 @@ export async function listCategoriesForOrg(
   return [...platform, ...own]
 }
 
-/** One organization's own categories, bounded on their own. */
 export async function listOrgCategories(
   organizationId: string,
   limit = CATEGORIES_LIST_LIMIT,
@@ -60,7 +29,6 @@ export async function listOrgCategories(
     .limit(limit)
 }
 
-/** The platform's categories only — the curation surface. */
 export async function listPlatformSkillCategories(
   limit = CATEGORIES_LIST_LIMIT,
 ): Promise<SkillCategoryRow[]> {
@@ -73,11 +41,6 @@ export async function listPlatformSkillCategories(
     .limit(limit)
 }
 
-/**
- * Load a category an organization may stand a skill on: its own, or a platform
- * one. Anything else is null — the service reads that as "no such category"
- * without learning which half missed.
- */
 export async function findCategoryInScope(
   categoryId: string,
   organizationId: string,
@@ -96,7 +59,6 @@ export async function findCategoryInScope(
   return row ?? null
 }
 
-/** Load a platform category by id — the platform write path's ownership check. */
 export async function findPlatformSkillCategory(categoryId: string): Promise<SkillCategoryRow | null> {
   const db = getDb()
   const [row] = await db
@@ -107,7 +69,6 @@ export async function findPlatformSkillCategory(categoryId: string): Promise<Ski
   return row ?? null
 }
 
-/** An org's own category by name — the conflict check before create/rename. */
 export async function findOrgCategoryByName(
   name: string,
   organizationId: string,
@@ -123,7 +84,6 @@ export async function findOrgCategoryByName(
   return row ?? null
 }
 
-/** A platform category by name — the platform conflict check. */
 export async function findPlatformSkillCategoryByName(name: string): Promise<SkillCategoryRow | null> {
   const db = getDb()
   const [row] = await db
@@ -134,7 +94,6 @@ export async function findPlatformSkillCategoryByName(name: string): Promise<Ski
   return row ?? null
 }
 
-/** An org's OWN category by id — update/delete must never touch a platform row. */
 export async function findOrgCategory(
   categoryId: string,
   organizationId: string,
@@ -159,7 +118,6 @@ export async function insertCategory(values: NewSkillCategoryRow): Promise<Skill
   return row
 }
 
-/** The columns a curator may change on a category. */
 export type CategoryUpdate = Partial<
   Pick<SkillCategoryRow, 'name' | 'description' | 'sortOrder' | 'updatedAt'>
 >
@@ -177,11 +135,6 @@ export async function updateCategory(
   return row ?? null
 }
 
-/**
- * Remove a category. Skills standing on it are NOT removed — both skill tables
- * reference it ON DELETE SET NULL, so they fall back to unsorted, which is
- * exactly what "remove the category, keep the books" means.
- */
 export async function deleteCategory(categoryId: string): Promise<boolean> {
   const db = getDb()
   const deleted = await db
@@ -191,7 +144,6 @@ export async function deleteCategory(categoryId: string): Promise<boolean> {
   return deleted.length > 0
 }
 
-/** Org categories must carry their org — the one thing the type cannot say. */
 export function orgCategoryValues(
   organizationId: string,
   values: Omit<NewSkillCategoryRow, 'organizationId'>,

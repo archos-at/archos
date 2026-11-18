@@ -1,5 +1,5 @@
 #!/bin/bash
-# Common development commands for AI-Q blueprint
+# Common development commands
 set -euo pipefail
 COMMAND=${1:-help}
 

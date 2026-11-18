@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A memory item leaves the server without its embedding. The vector is ~6 KB
- * per item: one project's list was 3.5 MB over MCP, and a write echoed it back.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeMemoryItem } from '@/test-utils/db-fixtures'
 

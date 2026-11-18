@@ -35,7 +35,6 @@ describe('stripJsonNullBytes', () => {
   })
 
   it('strips lone surrogates but keeps valid pairs', () => {
-    // Built from char codes: a lone half has no literal worth writing.
     const loneHigh = String.fromCharCode(0xd800)
     const loneLow = String.fromCharCode(0xdc00)
     const pair = String.fromCharCode(0xd83c, 0xdfa1)

@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * Dev preview: Piloti files the uploads into described folders, and proposes
- * it rather than doing it (`docs/ux/file-upload-and-explorer.md`, „Folders
- * that say what they hold, and Piloti's filing suggestion").
- *
- *   1. A mixed grid: cards with a filing chip in the footer beside cards
- *      without one, all one height, under the filing bar (one target folder
- *      collects two files).
- *   2. A chip's popover open, for a folder that exists: the move as a before
- *      and an after, the reason, „Alle 2 verschieben", the other file lit.
- *   3. The same for a folder the move creates: „neu", „Anlegen und verschieben".
- *   4. A bar line under the pointer, and the cards it would move outlined.
- *   5. A reader who may not decide: the path and the reason, no buttons.
- *   6. The list view: the chip right after the name, rows of one height.
- *   7. The upload tray: the bar for its batch, the chip on its rows.
- *   8. A folder's description at the top of the folder, in its three states,
- *      and the dialog it is written in.
- *
- * Nothing leaves the browser: the faked proposals API (`_fixtures`) answers
- * `/api/proposals/{id}` and its apply and dismiss, so the buttons can be
- * pressed. Not linked from anywhere; the `/dev` layout 404s it outside
- * development.
- */
-
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react'
 import { FileListView } from '@/features/documents/components/file-list-view'
 import { FileCard } from '@/features/documents/components/file-card'
@@ -39,6 +15,7 @@ import type { ListedProposal, ProposedChangeView } from '@/lib/proposals/types'
 import { useFakeProposalClient } from '../_fixtures/fake-proposals'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
 type FileProposal = Extract<ProposedChangeView, { kind: 'file_operation' }>
 
@@ -48,7 +25,7 @@ const proposal = (id: string, patch: Partial<FileProposal>): FileProposal => ({
   id,
   projectId: 'p1',
   status: 'proposed',
-  proposedByKind: 'piloti',
+  proposedByKind: LEGACY_AGENT_KIND,
   onBehalfOf: 'user_me',
   onBehalfOfName: 'Mia Huber',
   originConversationId: null,
@@ -112,19 +89,16 @@ const LISTED: ListedProposal[] = [
   { proposal: CORRESPONDENCE, documents: [{ id: 'doc-brief', name: 'Schreiben_Fristerstreckung.pdf' }] },
 ]
 
-/** The same suggestions, held under ids of their own, for a reader the server says may not decide. */
 const READ_ONLY: ListedProposal[] = LISTED.map((entry, index) => ({
   ...entry,
   proposal: { ...entry.proposal, id: `00000000-0000-4000-8000-0000000000e${index}`, canDecide: false },
 }))
 
-/** Every proposal the faked API answers; a stable array, as `useFakeProposalClient` asks. */
 const ANSWERED = [...LISTED, ...READ_ONLY]
 
 const SHELF = { byDocument: suggestionsByDocument(LISTED), byFolder: suggestionsByFolder(LISTED) }
 const SHELF_READ_ONLY = { byDocument: suggestionsByDocument(READ_ONLY), byFolder: suggestionsByFolder(READ_ONLY) }
 
-/** Where each document is now: the decision and the statement in an inbox folder, the rest at the top level. */
 const LOCATION: Record<string, string> = { 'doc-bescheid': 'Eingang', 'doc-stellungnahme': 'Eingang' }
 const folderPathOf = (documentId: string): string => LOCATION[documentId] ?? ''
 
@@ -194,7 +168,6 @@ function Stage({ title, note, children }: { title: string; note: string; childre
   )
 }
 
-/** One state of a component, named, so a row of look-alikes reads as the states they are. */
 function State({ label, children }: { label: string; children: ReactNode }): JSX.Element {
   return (
     <div className="space-y-1.5 p-4">
@@ -204,14 +177,12 @@ function State({ label, children }: { label: string; children: ReactNode }): JSX
   )
 }
 
-/** A shelf's suggestions around a stage, as the Files workspace provides them. */
 function Shelf({
   readOnly = false,
   open = null,
   children,
 }: {
   readOnly?: boolean
-  /** The document whose chip's popover is open on arrival. */
   open?: string | null
   children: ReactNode
 }): JSX.Element {
@@ -231,7 +202,6 @@ function Shelf({
 
 const card = (file: FileItem) => <FileCard key={file.id} file={file} isSelected={false} onSelect={noop} locale="de" />
 
-/** The first line of the bar under the pointer, as if hovered: what the reader sees while deciding there. */
 function HoveredFirstLine({ children }: { children: ReactNode }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {

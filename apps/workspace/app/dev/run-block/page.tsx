@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the Laufblock, in every state a run is shown in.
- *
- * The block is the ONE element a run is, in the thread that commissioned it,
- * and the seven states are the same block with a different track and a
- * different line. What the shot is for: whether the stand reads like the
- * document panel's (title, elapsed, track, one muted line); whether the track
- * says where the run is without being read; whether the rounds read as an
- * analyst's work rather than as a log; whether a failed run states its reason
- * in the line itself rather than behind the chevron; and whether the collapsed
- * block is small enough to sit above the report it produced.
- *
- * `?variant=transition` captures the handover alone: the person's message,
- * the task-created card that acknowledges it, and the block in `created`
- * directly beneath — the three things a reader sees in the first seconds after
- * „@Piloti prüf das gegen OIB 2".
- *
- * Pure: the block renders from a ledger and holds no subscription; nothing
- * here fetches. Pinned to German (`fixedLocale`) because the copy under review
- * is the German copy. 404s outside development (the `/dev` layout).
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -56,7 +34,6 @@ function Panel({ title, note, children }: { title: string; note: string; childre
   )
 }
 
-/** The handover as the thread shows it: message, acknowledgement, block. */
 function Transition() {
   return (
     <div className="flex w-[680px] max-w-full flex-col gap-4" data-testid="run-block-transition">
@@ -77,16 +54,8 @@ function Transition() {
   )
 }
 
-/** How long each frame of the scripted run holds before the next one lands. */
 const FRAME_MS = 1400
 
-/**
- * The run as it actually happens: a ledger walked frame by frame on a timer,
- * so the choreography can be WATCHED. Every frame comes from the same fold
- * helpers the product uses, so nothing here is a shape a real run could not
- * produce. The frame index is on the wrapper, which is how the screenshot
- * harness holds the sequence still at a known moment.
- */
 function Motion(): JSX.Element {
   const frames = useMemo(() => runSequence('run-motion', new Date(Date.now() - 190 * 1000)), [])
   const [frame, setFrame] = useState(0)
@@ -133,8 +102,6 @@ function Motion(): JSX.Element {
 export default function RunBlockPreview(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') notFound()
 
-  // Read after mount, not during render: the harness's query string is not
-  // available to the server pass, and reading it there mismatches hydration.
   const [variant, setVariant] = useState<string | null>(null)
   useEffect(() => {
     setVariant(new URLSearchParams(window.location.search).get('variant'))

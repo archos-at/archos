@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Produkt-Feedback: das Formular in der App und Plattform → Feedback. */
 export const feedback: typeof en.feedback = {
   open: 'Feedback senden',
   openHint: 'Fehler melden oder Idee teilen',
@@ -53,7 +52,6 @@ export const feedback: typeof en.feedback = {
       placeholder: 'Was möchten Sie wissen?',
     },
   },
-  /** Die Ticketstatus von PostHog Support, Schlüssel unverändert. */
   statuses: {
     new: 'Neu',
     open: 'Offen',
@@ -61,7 +59,6 @@ export const feedback: typeof en.feedback = {
     on_hold: 'Pausiert',
     resolved: 'Erledigt',
   },
-  /** Die eigenen Meldungen: was gesendet wurde und was das Team geantwortet hat. */
   threads: {
     open: 'Mein Feedback',
     title: 'Mein Feedback',
@@ -96,9 +93,7 @@ export const feedback: typeof en.feedback = {
     replySend: 'Senden',
     replyError: 'Ihre Antwort konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
     replyRateLimited: 'Sie haben in der letzten Stunde schon viele Antworten gesendet. Bitte versuchen Sie es später erneut.',
-    /** Der Punkt auf dem Avatar und auf „Mehr“, für Screenreader. */
     newsDot: 'Neue Antworten auf Ihr Feedback',
-    /** Umschalter über der Liste, nur für Büro-Admins. */
     scopeLabel: 'Ansicht',
     scope: {
       mine: 'Meine',
@@ -111,29 +106,23 @@ export const feedback: typeof en.feedback = {
       description: 'Sobald jemand aus Ihrem Büro Feedback sendet, steht es hier.',
     },
     officeLoadError: 'Das Feedback Ihres Büros konnte nicht geladen werden.',
-    /** Die zwei Gruppen der Liste: offene Fälle zuerst. */
     groups: {
       active: 'Aktiv',
       done: 'Erledigt',
     },
-    /** Die Nummer, unter der das Team den Fall führt. */
     ticketNumber: 'Nr. {number}',
-    /** Vor einer relativen Zeit: „Aktualisiert vor 3 Stunden“. */
     updated: 'Aktualisiert',
     unknownReporter: 'Unbekannt',
     readOnly: 'Nur {name} kann auf diese Meldung antworten.',
     readOnlyUnnamed: 'Nur die Person, die gemeldet hat, kann hier antworten.',
-    /** Der Stand eines Falls, in einfachen Worten, aus Sicht der Person, die gemeldet hat. */
     statuses: {
       new: 'Eingegangen',
       open: 'In Bearbeitung',
       pending: 'Wartet auf Sie',
       on_hold: 'Pausiert',
       resolved: 'Erledigt',
-      /** Ohne lesbares Ticket: gesendet, aber kein Stand bekannt. */
       unknown: 'Gesendet',
     },
-    /** Derselbe Stand in der Büroansicht, wo „Sie“ die falsche Person wäre. */
     officeStatuses: {
       pending: 'Wartet auf Rückmeldung',
     },

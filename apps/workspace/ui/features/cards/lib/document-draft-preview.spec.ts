@@ -1,12 +1,3 @@
-/**
- * The browser client for the conversation draft-preview API.
- *
- * One base path, spelled once: the unfiled card reads its CONTENT through the
- * BFF (`GET /api/conversations/[id]/draft?path=…`). A wrong URL here is a
- * preview that 404s every draft, so the encoding (an id with a space, a path
- * with slashes) and the refusal mapping are pinned, not described.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import {
   DocumentDraftPreviewError,
@@ -36,8 +27,6 @@ describe('fetchConversationDraft', () => {
 
     expect(draft).toEqual(DRAFT)
     const [url, init] = run.mock.calls[0]
-    // Both segments encoded: a conversation id is a client-generated string and
-    // the path carries slashes that must not become route segments.
     expect(url).toBe('/api/conversations/s_conv%201/draft?path=%2Fentwuerfe%2Fa%20b.md')
     expect(init).toMatchObject({ method: 'GET' })
   })

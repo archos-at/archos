@@ -1,28 +1,3 @@
-"""Tests for the ingestion-pipeline hardening changes.
-
-Covers the defects found in the 2026-07 pipeline review (vision + speed):
-
-- ``processing.vlm_cache_key`` / ``_cached_vlm_call`` — the VLM model is part
-  of the cache identity (a model switch never serves stale captions, and two
-  orgs on different ``ingest_vlm`` overrides never share output).
-- ``processing.is_failed_caption`` + ``enrich_vlm_batch`` — failure placeholder
-  captions AND raising VLM calls are skipped, never indexed as real chunks.
-- ``processing.render_visual_pages_no_vlm(page_texts=...)`` — the caller-supplied
-  watermark-stripped text drives the heuristic (both directions).
-- ``adapter._extract_images_from_pdf`` — identical embedded rasters are deduped
-  to a single indexed chunk.
-- ``adapter._vlm_chat_create`` — one truncation retry at double tokens, partial
-  content returned (not raised) when still truncated.
-- ``adapter._build_image_caption_document`` — routes through the content-hash
-  cache and fails the file (None) on a failure placeholder caption.
-- VLM ``OpenAI`` client construction — explicit timeout + bounded retries on
-  both call sites (a hung provider must not park an ingest worker ~20 min).
-- ``adapter.LlamaIndexIngestor._ensure_initialized`` — embed_batch_size is
-  wired (llama-index default of 10 serializes embedding round-trips).
-- ``factory.reconcile_collection_summaries(file_names=...)`` — the scoped mode
-  skips the full-collection ``list_files`` metadata scan per job.
-"""
-
 import logging
 import sys
 import tempfile
@@ -32,13 +7,13 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
+from knowledge_layer.ingest import pdf_rasters
 from knowledge_layer.ingest import processing
+from knowledge_layer.ingest import vision_calls
+from knowledge_layer.ingest import vision_reads
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
-
-# =============================================================================
-# is_failed_caption / vlm_cache_key
-# =============================================================================
 
 
 class TestIsFailedCaption:
@@ -90,7 +65,6 @@ class TestVlmCacheKey:
 class TestCachedVlmCall:
     @pytest.fixture
     def cache_store(self, monkeypatch):
-        """Deterministic dict-backed cache instead of the shared backend."""
         store: dict[str, object] = {}
         monkeypatch.setattr(processing, "get_json", store.get)
         monkeypatch.setattr(processing, "set_json", lambda key, value, ttl: store.__setitem__(key, value))
@@ -130,12 +104,6 @@ class TestCachedVlmCall:
         ],
     )
     def test_failure_placeholder_is_never_cached(self, cache_store, failed_result):
-        """A transient provider failure must not be cached for the TTL.
-
-        Both failure paths treat the file as retryable via re-ingest, which only
-        holds if the placeholder was not stored — otherwise the retry replays
-        the failure from cache without ever reaching the VLM again.
-        """
         calls = []
 
         def live():
@@ -162,23 +130,16 @@ class TestCachedVlmCall:
         assert list(cache_store) == [processing.vlm_cache_key(b"img", "image:charts=False", "m")]
 
 
-# =============================================================================
-# enrich_vlm_batch — failures are skipped, never indexed
-# =============================================================================
-
-
 class TestEnrichVlmBatchSkipsFailures:
     @pytest.fixture(autouse=True)
     def fresh_cache(self, monkeypatch):
-        """Every test starts with an empty cache so prior suites can't leak hits."""
         monkeypatch.setattr(processing, "get_json", lambda key: None)
         monkeypatch.setattr(processing, "set_json", lambda key, value, ttl: None)
-        # The second pass waits before it asks again; not in a test.
         monkeypatch.setattr(processing, "VLM_SECOND_PASS_DELAY_SECONDS", 0)
 
     def test_an_item_that_fails_once_is_read_in_the_second_pass(self, monkeypatch):
         replies = iter([("image", "[Image - analysis failed]"), ("image", "Ein Lageplan im Maßstab 1:500.")])
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: next(replies))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: next(replies))
 
         image_results, _ = processing.enrich_vlm_batch([self._image_record()], [], "m", "https://vlm.test/v1", "key")
 
@@ -191,7 +152,7 @@ class TestEnrichVlmBatchSkipsFailures:
             asked.append(image_bytes)
             return ("image", "[Image - analysis failed]") if image_bytes == b"bad" else ("image", "Ein Foto.")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", reply)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", reply)
         good = {**self._image_record(), "image_bytes": b"good"}
         bad = {**self._image_record(), "image_bytes": b"bad", "image_index": 1}
 
@@ -204,7 +165,7 @@ class TestEnrichVlmBatchSkipsFailures:
         monkeypatch.setattr(processing, "VLM_SECOND_PASS_DELAY_SECONDS", -1)
         calls: list[int] = []
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: calls.append(1) or ("image", "[Image - analysis failed]"),
         )
@@ -223,7 +184,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_failure_placeholder_caption_is_skipped(self, monkeypatch):
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: ("image", "[Image - analysis failed]"),
         )
@@ -239,7 +200,7 @@ class TestEnrichVlmBatchSkipsFailures:
         def explode(*a, **k):
             raise RuntimeError("provider 500")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", explode)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", explode)
 
         image_results, _ = processing.enrich_vlm_batch([self._image_record()], [], "m", "u", "key")
 
@@ -247,7 +208,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_drawing_failure_placeholder_is_skipped(self, monkeypatch):
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: ("[Drawing - analysis failed: timeout]", {}),
         )
@@ -262,7 +223,7 @@ class TestEnrichVlmBatchSkipsFailures:
                 return ("image", "A detailed floor plan.")
             return ("image", "[Image - analysis failed]")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", fake_analyze)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", fake_analyze)
 
         records = [
             {"image_bytes": b"good", "page_number": 1, "image_index": 0},
@@ -278,7 +239,7 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_drawing_success_is_enriched_in_place(self, monkeypatch):
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: ("ZEICHNUNGSTYP: grundriss", {"zeichnungstyp": "grundriss"}),
         )
@@ -292,11 +253,6 @@ class TestEnrichVlmBatchSkipsFailures:
 
     def test_no_vlm_key_returns_empty(self):
         assert processing.enrich_vlm_batch([self._image_record()], [], "m", "u", None) == ([], [])
-
-
-# =============================================================================
-# render_visual_pages_no_vlm(page_texts=...) — watermark-stripped heuristic
-# =============================================================================
 
 
 class _FakePathObj:
@@ -370,8 +326,6 @@ def _install_fake_render_pdf(monkeypatch, pages):
 
 class TestRenderVisualPagesPageTexts:
     def test_page_texts_override_marks_watermark_page_visual(self, monkeypatch):
-        """The pdfium text layer still holds the watermark (looks textful), but
-        the caller's watermark-stripped text is empty → the page IS rendered."""
         page = _FakeRenderPage("VECTORWORKS EDUCATIONAL VERSION " * 20, n_paths=1000)
         _install_fake_render_pdf(monkeypatch, [page])
 
@@ -379,12 +333,9 @@ class TestRenderVisualPagesPageTexts:
 
         assert len(out) == 1
         assert out[0]["page_number"] == 1
-        # The pdfium textpage is never consulted when page_texts is supplied.
         assert page.textpage_reads == 0
 
     def test_page_texts_override_skips_textful_page(self, monkeypatch):
-        """Inverse: pdfium sees almost no text (would look visual), but the
-        caller's stripped text is long → the page is NOT rendered."""
         page = _FakeRenderPage("", n_paths=0)
         _install_fake_render_pdf(monkeypatch, [page])
 
@@ -393,8 +344,6 @@ class TestRenderVisualPagesPageTexts:
         assert out == []
 
     def test_missing_page_in_page_texts_counts_as_empty(self, monkeypatch):
-        """A page absent from the extracted-text map (extraction failed for it)
-        is treated as text-empty and, being path-heavy, rendered."""
         _install_fake_render_pdf(monkeypatch, [_FakeRenderPage("Some text", n_paths=1000)])
 
         out = processing.render_visual_pages_no_vlm("ignored.pdf", page_texts={})
@@ -402,14 +351,11 @@ class TestRenderVisualPagesPageTexts:
         assert len(out) == 1
 
     def test_a_text_low_page_without_paths_is_not_a_drawing(self, monkeypatch):
-        """The rule was text-low OR path-heavy, so every near-empty page — and
-        every scan — went through the drawing schema. A drawing needs both."""
         _install_fake_render_pdf(monkeypatch, [_FakeRenderPage("", n_paths=0)])
 
         assert processing.render_visual_pages_no_vlm("ignored.pdf", page_texts={1: ""}) == []
 
     def test_only_pages_replaces_the_check(self, monkeypatch):
-        """The ingestion path hands in its own triage; the PDF is judged once."""
         pages = [_FakeRenderPage("", n_paths=1000), _FakeRenderPage("", n_paths=0)]
         _install_fake_render_pdf(monkeypatch, pages)
 
@@ -417,11 +363,6 @@ class TestRenderVisualPagesPageTexts:
 
         assert [record["page_number"] for record in out] == [2]
         assert pages[0].textpage_reads == 0
-
-
-# =============================================================================
-# _extract_images_from_pdf — identical rasters deduped
-# =============================================================================
 
 
 class _FakeImageBitmap:
@@ -484,7 +425,7 @@ class TestExtractImagesDedupe:
         ]
         _install_fake_image_pdf(monkeypatch, pages)
 
-        images = adapter._extract_images_from_pdf("ignored.pdf")
+        images = pdf_rasters._extract_images_from_pdf("ignored.pdf")
 
         assert len(images) == 2
         assert [img["page_number"] for img in images] == [1, 3]
@@ -493,12 +434,7 @@ class TestExtractImagesDedupe:
         pages = [_FakeImagePage([_FakeImageObj("white", size=(50, 50))])]
         _install_fake_image_pdf(monkeypatch, pages)
 
-        assert adapter._extract_images_from_pdf("ignored.pdf") == []
-
-
-# =============================================================================
-# _vlm_chat_create — truncation retry
-# =============================================================================
+        assert pdf_rasters._extract_images_from_pdf("ignored.pdf") == []
 
 
 class _FakeChoice:
@@ -528,7 +464,7 @@ class TestVlmChatCreate:
         )
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=1100)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=1100)
 
         assert result == "full caption"
         assert len(completions.calls) == 2
@@ -544,7 +480,7 @@ class TestVlmChatCreate:
         )
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "part2"
         assert len(completions.calls) == 2  # exactly one retry, no loop
@@ -555,7 +491,7 @@ class TestVlmChatCreate:
             base_url="https://openrouter.ai/api/v1/", chat=types.SimpleNamespace(completions=completions)
         )
 
-        adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert completions.calls[0]["extra_body"] == {"reasoning": {"effort": "low"}}
 
@@ -565,7 +501,7 @@ class TestVlmChatCreate:
             base_url="https://integrate.api.nvidia.com/v1", chat=types.SimpleNamespace(completions=completions)
         )
 
-        adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert "extra_body" not in completions.calls[0]
 
@@ -573,17 +509,12 @@ class TestVlmChatCreate:
         completions = _FakeCompletions([("done", "stop")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "done"
         assert len(completions.calls) == 1
 
     def test_failed_truncation_retry_keeps_the_truncated_caption(self):
-        """A retry failure must not discard content we already have.
-
-        Failure placeholders are no longer indexed, so raising here would turn a
-        partial success into a dropped chunk instead of a slightly short one.
-        """
 
         class _RaisingCompletions(_FakeCompletions):
             def create(self, **kwargs):
@@ -595,7 +526,7 @@ class TestVlmChatCreate:
         completions = _RaisingCompletions([("partial caption", "length")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "partial caption"
         assert len(completions.calls) == 2
@@ -604,13 +535,11 @@ class TestVlmChatCreate:
         completions = _FakeCompletions([("partial caption", "length"), (None, "stop")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
 
-        result = adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
 
         assert result == "partial caption"
 
     def test_truncation_retry_disables_sdk_retries(self):
-        """The first call already spent the client's retry budget; spending it
-        again on the retry would double the worst-case latency of one caption."""
         completions = _FakeCompletions([("partial...", "length"), ("full caption", "stop")])
         overrides: list[dict] = []
 
@@ -622,15 +551,10 @@ class TestVlmChatCreate:
                 overrides.append(kwargs)
                 return self
 
-        result = adapter._vlm_chat_create(_FakeClient(), model="m", messages=[], max_tokens=512)
+        result = vision_calls._vlm_chat_create(_FakeClient(), model="m", messages=[], max_tokens=512)
 
         assert result == "full caption"
         assert overrides == [{"max_retries": 0}]
-
-
-# =============================================================================
-# VLM OpenAI client construction — timeout + bounded retries on both call sites
-# =============================================================================
 
 
 class TestVlmClientConstruction:
@@ -648,31 +572,26 @@ class TestVlmClientConstruction:
         return captured
 
     def test_image_call_sets_timeout_and_retries(self, captured_openai):
-        adapter._analyze_image_with_vlm(
+        vision_reads._analyze_image_with_vlm(
             b"img",
             vlm_model="m",
             vlm_base_url="https://vlm.test/v1",
             vlm_api_key="key",  # pragma: allowlist secret
         )
 
-        assert captured_openai["timeout"] == adapter.VLM_REQUEST_TIMEOUT_SECONDS
+        assert captured_openai["timeout"] == vision_calls.VLM_REQUEST_TIMEOUT_SECONDS
         assert captured_openai["max_retries"] == 1
 
     def test_drawing_call_sets_timeout_and_retries(self, captured_openai):
-        adapter._analyze_drawing_page_with_vlm(
+        vision_reads._analyze_drawing_page_with_vlm(
             b"img",
             vlm_model="m",
             vlm_base_url="https://vlm.test/v1",
             vlm_api_key="key",  # pragma: allowlist secret
         )
 
-        assert captured_openai["timeout"] == adapter.VLM_REQUEST_TIMEOUT_SECONDS
+        assert captured_openai["timeout"] == vision_calls.VLM_REQUEST_TIMEOUT_SECONDS
         assert captured_openai["max_retries"] == 1
-
-
-# =============================================================================
-# _build_image_caption_document — cached, fails on placeholder caption
-# =============================================================================
 
 
 class TestBuildImageCaptionDocument:
@@ -688,12 +607,12 @@ class TestBuildImageCaptionDocument:
         monkeypatch.setattr(processing, "get_json", lambda key: None)
         monkeypatch.setattr(processing, "set_json", lambda key, value, ttl: None)
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: ("image", "[Image - analysis failed: provider 500]"),
         )
 
-        doc = adapter._build_image_caption_document(
+        doc = caption_documents._build_image_caption_document(
             png_file,
             "plan.png",
             123,
@@ -710,9 +629,9 @@ class TestBuildImageCaptionDocument:
         def forbidden(*a, **k):
             raise AssertionError("live VLM call must not fire on a cache hit")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", forbidden)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", forbidden)
 
-        doc = adapter._build_image_caption_document(
+        doc = caption_documents._build_image_caption_document(
             png_file,
             "plan.png",
             123,
@@ -723,11 +642,6 @@ class TestBuildImageCaptionDocument:
         assert doc is not None
         assert "cached caption" in doc.text
         assert doc.metadata["content_type"] == "image"
-
-
-# =============================================================================
-# _ensure_initialized — embed_batch_size wired
-# =============================================================================
 
 
 class TestEmbedBatchSizeWired:
@@ -747,16 +661,7 @@ class TestEmbedBatchSizeWired:
         assert adapter.EMBED_BATCH_SIZE > 10  # the whole point: beat the llama-index default
 
 
-# =============================================================================
-# reconcile_collection_summaries(file_names=...) — scoped mode
-# =============================================================================
-
-
 class TestScopedReconcile:
-    """The per-job reconcile must diff only the job's own files — the unscoped
-    mode's list_files reads every chunk metadata in the collection
-    (O(collection) on every single-file upload)."""
-
     @pytest.fixture(autouse=True)
     def reset_summary_store(self):
         from agent.knowledge import factory
@@ -819,31 +724,11 @@ class TestScopedReconcile:
 
 
 def test_module_under_test_importable():
-    """Guard against accidental import-time breakage in the touched modules."""
     assert "knowledge_layer.ingest.adapter" in sys.modules
     assert "knowledge_layer.ingest.processing" in sys.modules
 
 
-# =============================================================================
-# render_visual_pages_no_vlm — damaged input must cost only what it damages
-# =============================================================================
-
-
 class TestRenderVisualPagesSurvivesDamagedInput:
-    """Two errors observed in production on the same ingest, one hour apart.
-
-    `Failed to load page.` and `Failed to load document (PDFium: Data format
-    error).` Both were logged at ERROR from one catch-all around the whole
-    function, which filed a GitHub issue for each — while the ingestion they
-    described had actually succeeded, because the text layer is read by pdfplumber
-    on a separate path and never touches pdfium.
-
-    The severity was the visible problem. The structural one underneath it was
-    worse: `doc[page_num]` sat outside the per-page try, so a single unreadable
-    page abandoned every page after it and returned a SHORT LIST rather than an
-    error. Partial output that looks complete is the failure this pins.
-    """
-
     def _install_doc(self, monkeypatch, pages, bad_indices=()):
         pdfium = pytest.importorskip("pypdfium2")
 
@@ -875,7 +760,6 @@ class TestRenderVisualPagesSurvivesDamagedInput:
         )
 
     def test_a_pdf_pdfium_cannot_open_yields_no_pages_and_does_not_raise(self, monkeypatch):
-        """Text ingestion is unaffected, so this is a degraded result, not a failure."""
         pdfium = pytest.importorskip("pypdfium2")
 
         def _explode(path):
@@ -886,7 +770,6 @@ class TestRenderVisualPagesSurvivesDamagedInput:
         assert processing.render_visual_pages_no_vlm("ignored.pdf", page_texts={1: ""}) == []
 
     def test_an_unopenable_pdf_is_not_logged_as_an_error(self, monkeypatch, caplog):
-        """ERROR here files an issue for a document that ingested fine."""
         pdfium = pytest.importorskip("pypdfium2")
 
         def _explode(path):

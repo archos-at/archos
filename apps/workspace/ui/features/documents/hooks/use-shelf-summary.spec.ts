@@ -1,9 +1,3 @@
-/**
- * The shelf summary a paged workspace folds its folder tiles and brief from
- * (ADR-0102): read once per shelf and filter, read again on demand, the
- * previous answer kept while a new one is on its way, and a failure said.
- */
-
 import { describe, expect, it } from 'vitest'
 import { act, renderHook, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'

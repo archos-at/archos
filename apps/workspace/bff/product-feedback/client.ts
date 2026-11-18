@@ -1,8 +1,3 @@
-/**
- * Browser-side client for product feedback. The form and the platform triage
- * page call these; nothing else in the browser talks to the routes directly.
- */
-
 import type {
   OwnProductFeedbackListResponse,
   OwnProductFeedbackThread,
@@ -22,7 +17,6 @@ export interface SubmitProductFeedbackRequest {
   pagePath: string | null
   allowContact: boolean
   context: ProductFeedbackContext
-  /** This browser's PostHog replay session, so the Support ticket links the recording. */
   posthog: { sessionId: string | null }
 }
 
@@ -48,12 +42,6 @@ export async function submitProductFeedback(
   }
 }
 
-/**
- * What the browser can tell a triager without the reporter typing it. Read at
- * send time so it describes the moment of the report, and never the query
- * string or host — a path is enough to find the page, and a query can carry
- * anything.
- */
 export function captureFeedbackContext(): { pagePath: string | null; context: ProductFeedbackContext } {
   if (typeof window === 'undefined') return { pagePath: null, context: {} }
   const intl = Intl.DateTimeFormat().resolvedOptions()
@@ -114,7 +102,6 @@ export async function triagePlatformFeedback(
   return (await response.json()) as ProductFeedbackReportView
 }
 
-/** Assign a feedback ticket to the signed-in platform owner in PostHog. */
 export async function claimPlatformFeedbackTicket(ticketId: string): Promise<ProductFeedbackReportView> {
   const response = await fetch('/api/platform/feedback/claim', {
     method: 'POST',
@@ -126,10 +113,6 @@ export async function claimPlatformFeedbackTicket(ticketId: string): Promise<Pro
   return (await response.json()) as ProductFeedbackReportView
 }
 
-// ---------------------------------------------------------------------------
-// The reporter's own threads
-// ---------------------------------------------------------------------------
-
 export async function fetchOwnFeedback(cursor?: string): Promise<OwnProductFeedbackListResponse> {
   const query = cursor ? `?${new URLSearchParams({ cursor }).toString()}` : ''
   const response = await fetch(`/api/feedback/reports${query}`, { credentials: 'same-origin' })
@@ -137,7 +120,6 @@ export async function fetchOwnFeedback(cursor?: string): Promise<OwnProductFeedb
   return (await response.json()) as OwnProductFeedbackListResponse
 }
 
-/** The office view: every report of the organization. Throws on 403 like any other failure. */
 export async function fetchOfficeFeedback(cursor?: string): Promise<OwnProductFeedbackListResponse> {
   const query = cursor ? `?${new URLSearchParams({ cursor }).toString()}` : ''
   const response = await fetch(`/api/feedback/office-reports${query}`, { credentials: 'same-origin' })

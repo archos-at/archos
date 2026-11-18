@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * Fixture sections for the atoms preview: the controls. Every control on this
- * page should show the 6px control radius; nothing here sets its own radius.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { ArrowRight, Bold, Italic, Plus, Trash2 } from 'lucide-react'

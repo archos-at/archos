@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The wait for a connection, as the chat and the review canvas both read it:
- * `connecting` and `reconnecting` count across the attempts, and every status
- * with a meaning of its own ends the wait.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONNECTION_WAIT_NOTE_AFTER_MS, watchConnectionWait } from './connection-wait'
 import type { TurnSocketStatus } from './turn-socket-machine'

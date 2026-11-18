@@ -52,18 +52,18 @@ Lena is the project lead of a residential building in Wien. It is Tuesday.
 - **08:55, Strg+K, from anywhere.** She types `Fluchtweg GK 4`. The panel shows,
   grouped: three documents across two projects with the passage and page
   ("Fluchtweglänge max. 40 m … S. 7"), an open annotation of her colleague on
-  EP-03 saying the stair is 2 m too far, and yesterday's conversation with Piloti
+  EP-03 saying the stair is 2 m too far, and yesterday's conversation with the agent
   about OIB-RL 2. Each line says where it lives. Enter opens the passage at the
   page.
 - **09:10, the Jour fixe.** In the project she switches to the register: every
   current plan, one row each, Plannummer, Index, Planstand, Maßstab, Verfasser,
   Dokumentart, sorted by Plannummer. Filter "Einreichplan", export, done. The
-  Planliste is a view of what Piloti read, not a list someone maintains.
+  Planliste is a view of what the agent read, not a list someone maintains.
 - **09:30.** "Which documents cite ÖNORM B 1600?" is a filter, across the
   office. So is "everything that references EP-05" and "documents stating
   Gebäudeklasse 4 that are not the current Fassung".
-- **10:00, Piloti.** She asks in chat "find me Statiken from past timber
-  projects in Wien". Piloti runs the same search she would, with the same
+- **10:00, the agent.** She asks in chat "find me Statiken from past timber
+  projects in Wien". The agent runs the same search she would, with the same
   filters, under her rights, through the same API an outside agent uses over
   MCP.
 - **Always.** Nothing she may not open is counted, named or quoted: not a
@@ -86,7 +86,7 @@ flowchart LR
 
   subgraph Clients
     UI[Search page, Strg+K<br/>project Dateien → Suche]
-    PI[Piloti: tool → operation]
+    PI[The agent: tool → operation]
     MCP[Outside agent: MCP door]
   end
   API["POST /api/search<br/>?scope / projectId / folderId<br/>body: the query"]:::api
@@ -202,7 +202,7 @@ The projection is derived, never authored. A row is written:
   catches what the agent writes on its own side.
 
 `superseded` is the listing's `superseded_by`, which only a person's
-confirmation writes; Piloti's `revision_suggestion` never counts. Name, folder,
+confirmation writes; the agent's `revision_suggestion` never counts. Name, folder,
 status and lifecycle are not projected: the search reads them from `documents`
 in the same query, so a rename, a move, an archive or a role declared in the
 project (roles are not a search facet) is current without a rewrite.
@@ -235,7 +235,7 @@ compared", never "unchanged", and the filter finds only positive answers. The
 predecessor's file name (`changed_against`) is not projected: the version
 chain the preview already shows names it better.
 
-A facet counts only what Piloti read: a document without a projection row
+A facet counts only what the agent read: a document without a projection row
 (still reading, failed, uploaded before its shelf's first sync) is in no count
 and found by no reading filter. So the answer carries `unread`, the documents
 in scope without a row, counted with the facets over the reach alone (a reading
@@ -298,9 +298,9 @@ yet for the same reason.
    "a file nobody tagged is as findable".
 2. **One core, one API, one operation.** Query model, reach, providers, facet
    counts, `POST /api/search`, operation `workspace-search` for outside agents
-   and Piloti, the content search pre-filtered by the structured filters
+   and the agent, the content search pre-filtered by the structured filters
    (`document_ids` when 1,000 or fewer, else `reading_types` and `refers_to`).
-   Serves "the same search for Lena, Piloti and an outside agent".
+   Serves "the same search for Lena, the in-app agent and an outside agent".
 3. **The page.** Global page with Strg+K, the same organism in a project's
    Dateien, result list with passages and a register view. Serves 08:55 and
    09:10.
@@ -402,7 +402,7 @@ once. What was typed and not taken still applies on Enter or blur, as before.
 - **One capability, three clients.** `POST /api/search/suggest`
   (`lib/search/suggest.ts`, `suggest-repository.ts`) and the operation
   `workspace-search-suggest`, offered on both doors: an outside agent and
-  Piloti ask for the exact party name or norm token before they filter,
+  the agent asks for the exact party name or norm token before they filter,
   instead of guessing it. Body: `dimension` (`party` with an optional `role`,
   `place`, `cites`, `scale`, `planNumber`, `planIndex`, `fact` with its
   `factKey`), `prefix`, and the search's `filters`; scope is the query, as for
@@ -473,7 +473,7 @@ A preview that is not a PDF (an image, a text file) ignores both.
 A document hit also leads on, through its ⋯ in the list, the register and the
 phone's stack (the house's `ActionMenu`, `features/search/components/hit-actions-menu.tsx`),
 in the order and the words of a Dateien row's ⋯: „Öffnen" goes where the
-row's link goes, at the passage; „Piloti fragen" starts a chat about the file in its project through the one
+row's link goes, at the passage; „Den Agenten fragen" starts a chat about the file in its project through the one
 ask (`askAboutFile`), the question prefilled with the passage's page when the
 hit was found by one; „Aktuelle Fassung öffnen", on a superseded hit, asks the
 document's status for the newer Fassung this reader may open (the hit carries
@@ -482,7 +482,7 @@ the document's Prüfansicht, and closing it returns to the search; „Im Ordner
 zeigen" opens the folder it lies in on its shelf; „Link kopieren" puts the
 document's own absolute address on the clipboard (without the passage or the
 way back, which are this reader's), and a toast says it did. A
-Büroablage document has no chat to start, so it offers no „Piloti fragen".
+Büroablage document has no chat to start, so it offers no „Den Agenten fragen".
 With a row marked, Shift+F10 or the menu key opens its ⋯ while the focus
 stays in the field. Each action is an operation that already exists
 (`agent-ask-create`, `document-status`, `annotation-list`); none is new.
@@ -491,7 +491,7 @@ In the chat composer, `#` and a word search the workspace for a document as
 `@` finds a person (`useDocumentReference`): the palette's live results,
 documents only, in the chat's project. A pick writes the name into the
 message („Grundriss EG“, the name the agent retrieves by) and makes the
-document the message's subject, as „Piloti fragen" does. `/dev/search?composer=1`
+document the message's subject, as „Den Agenten fragen" does. `/dev/search?composer=1`
 shows the picker.
 
 A document or annotation hit comes back to the search. Its link carries
@@ -506,9 +506,9 @@ it all. The ⌘K palette's hits carry no `back`: what lies under the palette is
 not a search. The scroll position is not restored: the answer is fetched
 afresh, and its further pages with it.
 
-### Piloti
+### The agent
 
-Piloti reaches the search as every other client does: `workspace-search` is
+The agent reaches the search as every other client does: `workspace-search` is
 offered on its workspace door, so it filters, sorts and counts exactly as the
 person would, under the person's rights. Its native `list_files` and
 `knowledge_search` stay as they are: they read the turn's own inventory and
@@ -517,7 +517,7 @@ pointer to read). Making `list_files` take its structured filters from the core
 is the next step, once the answer suite measures it (ADR-0127's eval set).
 
 When a person browses their files in chat (`surface_documents` with
-`mode=many`), Piloti asks `workspace-search` once per shelf the turn reads
+`mode=many`), the agent asks `workspace-search` once per shelf the turn reads
 (this project, the office shelf), and the `document_grid` card it shows carries
 the question (`search`: text and scope) and an „In der Suche öffnen“ link to
 the search page asking it, so the rest of the result is one click away. A run

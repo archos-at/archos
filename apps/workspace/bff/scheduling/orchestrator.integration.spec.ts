@@ -40,7 +40,6 @@ const configured = Boolean(process.env.HATCHET_CLIENT_TOKEN && process.env.HATCH
 const STAMP = Date.now()
 const ORG = `org_scheduling_${STAMP}`
 
-/** Poll until `check` is true, or fail after `timeoutMs`. */
 async function eventually(check: () => boolean | Promise<boolean>, timeoutMs = 60_000): Promise<void> {
   const until = Date.now() + timeoutMs
   while (!(await check())) {
@@ -114,12 +113,10 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     expect(await gone(String(firstRun))).toBe(true)
     expect(new Date((await hatchet.scheduled.get(secondRun)).triggerAt).getTime()).toBe(moved.getTime())
 
-    // Paused: no run at all.
     await scheduling.syncScheduledRun({ ...definition, enabled: false, nextRunAt: moved, scheduledRunId: secondRun })
     expect(lastScheduledRunId()).toBeNull()
     expect(await gone(secondRun)).toBe(true)
 
-    // Deleted.
     await scheduling.syncScheduledRun({ ...definition, scheduledRunId: null })
     const thirdRun = String(lastScheduledRunId())
     await scheduling.dropScheduledRun({ scheduledRunId: thirdRun })
@@ -130,7 +127,6 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     const due = new Date(Date.now() + 2000)
     const next = new Date(Date.now() + 7 * 24 * 60 * 60_000)
     const definition = { id: `def_fire_${STAMP}`, organizationId: ORG, enabled: true, nextRunAt: due, scheduledRunId: null }
-    // The occurrence is taken once; every later fire of it finds it moved.
     advanceDueDefinition.mockImplementationOnce(async () => ({
       definition: { ...definition, nextRunAt: next, scheduledRunId: lastScheduledRunId() },
       fire: true,
@@ -147,7 +143,6 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     await eventually(() => lastScheduledRunId() !== fired)
     const rearmed = await hatchet.scheduled.get(String(lastScheduledRunId()))
     expect(new Date(rearmed.triggerAt).getTime()).toBe(next.getTime())
-    // The fire re-arms holding the id of the run that just fired, which the engine no longer has: not worth a line.
     expect(await gone(fired)).toBe(true)
     expect(warned.mock.calls.filter(([line]) => String(line).includes('could not delete scheduled run'))).toEqual([])
     warned.mockRestore()
@@ -155,8 +150,6 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
   }, 90_000)
 
   it('starts a cron on the clock of the zone its CRON_TZ prefix names, which is how the Frist reminder stays on 06:45', async () => {
-    // The minute after next, written as Tokyo's wall clock (UTC+9, no daylight saving): the same digits read as UTC
-    // are nine hours away, so only an engine that honours the prefix runs it now.
     const at = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
     const tokyo = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
     const [hour, minute] = tokyo.format(at).split(':').map(Number)
@@ -184,7 +177,6 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     const second = await overlapping.runNoWait({})
 
     await first.result()
-    // A cancelled run's result() resolves (SDK 1.46), so read the run's status.
     await eventually(async () => (await hatchet.runs.get_status(second)) === 'CANCELLED', 30_000)
     expect(sweepRuns).toBe(1)
   }, 60_000)

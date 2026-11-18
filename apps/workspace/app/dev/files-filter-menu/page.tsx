@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the Dateien FILTER MENU — every way of narrowing and ordering
- * the listing, which used to be an open strip in the page header.
- *
- * The strip showed its state by looking pressed. A popover cannot, so the count
- * on the trigger carries it instead — which makes the badge load-bearing rather
- * than decoration, and is the thing this shot exists to hold: the closed
- * trigger at rest, the closed trigger with three constraints on, and the open
- * menu with its sections.
- *
- * The second open menu has the two widening toggles on, under „Auch zeigen“:
- * „Stillgelegte“ and „Ältere Fassungen“, and the trigger counts them („2“).
- * `?section=open|widen|trigger` shows one block, for captures.
- *
- * Pinned open via `defaultOpen`, because a screenshot of a closed popover
- * photographs a button and proves nothing about what is inside it.
- *
- * German, like `/dev/files-header`: the copy that has to fit is German, and an
- * English shot understates every label's width.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { Suspense } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -35,7 +14,6 @@ export default function FilesFilterMenuDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
-  // `useSearchParams` needs a Suspense boundary in the app router.
   return (
     <Suspense fallback={<div />}>
       <FilesFilterMenuPreview />

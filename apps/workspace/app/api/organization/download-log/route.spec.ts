@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The download log's two routes: the admin read, gated by `org:downloads:view`
- * and mapped onto the service's query, and the retention write, which is the
- * ONLY way to set `downloadLogRetentionDays` (the generic settings save refuses
- * the key) and takes 30 to 365 days, nothing else.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -51,7 +45,6 @@ vi.mock('@/lib/workos/client', () => ({ getWorkOS: vi.fn() }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(), WEB_SEARCH_FLAG: 'web-search' }))
 vi.mock('@/lib/authz/folder-access', () => ({
   loadCustomFolderTree: vi.fn(async () => null),
-  // An organization admin: a name filter narrows to nothing they may not read.
   clearanceOf: vi.fn(async () => ({ levels: {}, seesEverything: true })),
   readableFoldersOfRestrictedProjects: vi.fn(async () => []),
   seesEveryFolder: vi.fn(async () => true),

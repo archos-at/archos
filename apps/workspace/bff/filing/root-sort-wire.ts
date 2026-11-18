@@ -1,13 +1,6 @@
-/**
- * The body a root-sort apply takes (ADR-0121): the one schema the route
- * parses, the agent door describes (`lib/agent-api/catalog/folders.ts`) and
- * the dialog sends. A wire module: no database layer, service or `server-only`.
- */
-
 import { z } from 'zod'
 import { MAX_ROOT_SORT_DOCUMENTS } from './root-sort-types'
 
-/** A placement the person kept: into an existing folder, a new one, or back to the root (`folderId` and `newFolderPath` null). */
 export const keptMoveSchema = z.object({
   documentId: z.guid(),
   folderId: z.guid().nullable(),

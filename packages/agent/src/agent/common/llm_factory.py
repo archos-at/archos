@@ -1,49 +1,3 @@
-"""Fleet-wide LangChain LLM acquisition.
-
-Every agent resolves its chat models through :func:`get_langchain_llm` instead
-of calling ``builder.get_llm`` directly, so cross-cutting request hardening is
-forced on in exactly one place (DRY) and any new agent inherits it
-automatically:
-
-- ``plugins: [{"id": "response-healing"}]``: repair malformed / markdown-fenced
-  JSON provider-side before it reaches us (activates only on json_schema /
-  json_object requests; a no-op on plain calls).
-- the provider-portable chat-request contract (see
-  :mod:`agent.common.message_contract`): a request must never end on an
-  assistant turn, because Google rejects that shape while OpenAI-compatible
-  providers accept it, and OpenRouter picks the provider per request.
-- prompt-cache affinity (see :mod:`agent.common.prompt_caching`): a
-  ``session_id`` + ``prompt_cache_key`` derived from the request's own stable
-  prefix, so the 3-6 calls of one turn land on the endpoint that cached it
-  instead of being spread across a model's providers.
-- the fleet's provider limiter (see :mod:`agent.common.provider_limiter`):
-  every call to an OpenRouter-bound model holds one fleet-wide slot, in the
-  priority class of the task that makes it, for as long as the call or its
-  stream lasts. A 429 gives the slot back and waits its Retry-After outside it.
-- ``use_previous_response_id=False`` on the Responses path (see
-  :func:`disable_previous_response_id`): OpenRouter's Responses API is
-  stateless and rejects the field, while the agent runtime turns it on for every
-  ``api_type: responses`` client.
-- the reasoning floor (see :func:`_needs_reasoning_floor`): a role configured
-  with ``reasoning_effort: none`` that a model override points at a model which
-  cannot stop reasoning gets the 400 "Reasoning is mandatory" on every call. The
-  call is sent once more at the lowest effort instead, and the model is
-  remembered so later calls go there directly.
-
-Every one of these is OpenRouter-specific, so each is applied only to LLMs
-whose ``base_url`` points at OpenRouter — non-OpenRouter deployments (e.g.
-NVIDIA-hosted models) are returned untouched.
-
-We deliberately do NOT force ``provider.require_parameters``: being
-request-scoped, it hard-fails (``404 No endpoints found that can handle the
-requested parameters``) whenever a group is re-pointed at a model whose
-endpoints don't advertise every param we send — see
-_with_openrouter_structured_defaults.
-
-See https://openrouter.ai/docs/guides/features/structured-outputs and
-https://openrouter.ai/docs/guides/features/plugins/response-healing
-"""
-
 from __future__ import annotations
 
 import logging
@@ -67,42 +21,26 @@ logger = logging.getLogger(__name__)
 
 _RESPONSE_HEALING_PLUGIN = {"id": "response-healing"}
 
-#: Marks a chat-model class as already carrying the request contract, so
-#: resolving the same model twice does not stack wrappers.
 _CONTRACT_MARKER = "__request_contract__"
 
-#: One contract subclass per base chat-model class, not per instance — keeps
-#: ``type(llm)`` stable and cheap across the fleet's many resolutions.
 _CONTRACT_SUBCLASSES: dict[type, type] = {}
 
-#: A rate limit that arrives INSIDE a Responses stream, as an ``error`` event.
-#: langchain-openai raises it as a bare ``ValueError("rate_limit_exceeded: …")``
-#: that carries no status code and no "429", so the agent runtime's default filters (status
-#: codes, "Too Many Requests", "429") let it through and the turn ends on the
-#: generic error (GRID-check/grid-oib-agent#826). Matched on the provider's
-#: error code, which is what OpenRouter puts in front of the message.
 _STREAMED_RATE_LIMIT_MESSAGES = ("rate_limit_exceeded",)
 
 
-#: The effort a reasoning-off call is re-sent at when its model cannot stop
-#: reasoning. OpenRouter maps it to the lowest level the model supports.
 _REASONING_FLOOR = "minimal"
 
-#: Model ids a provider has refused reasoning-off for, in first-seen order.
-#: Process-lifetime and bounded, keyed by model id only: no tenant or turn data.
 _REASONING_MANDATORY: OrderedDict[str, None] = OrderedDict()
 _REASONING_MANDATORY_MAX = 64
 
 
 def retry_messages(configured: list[str] | None) -> list[str]:
-    """The config's retry substrings plus the streamed rate-limit code, once each."""
     merged = list(configured or [])
     merged.extend(m for m in _STREAMED_RATE_LIMIT_MESSAGES if m not in merged)
     return merged
 
 
 def _llm_base_url(llm: Any) -> str:
-    """Best-effort base URL for a LangChain chat model."""
     for attr in ("openai_api_base", "base_url"):
         value = getattr(llm, attr, None)
         if value:
@@ -113,21 +51,6 @@ def _llm_base_url(llm: Any) -> str:
 
 
 def _with_openrouter_structured_defaults(extra_body: Any) -> dict[str, Any]:
-    """Merge the response-healing plugin into an existing extra_body.
-
-    Idempotent and non-destructive: preserves any pre-existing plugins, only
-    ensuring the response-healing plugin is present exactly once.
-
-    NOTE: We deliberately do NOT set ``provider.require_parameters``. It is
-    request-scoped — OpenRouter drops every provider that doesn't support ALL
-    params in the request — so the moment a group is re-pointed (via an org
-    model override) at a model whose endpoints don't advertise one of the params
-    we send (json_schema, tools, reasoning, …), the call hard-fails with
-    ``404 No endpoints found that can handle the requested parameters`` instead
-    of degrading. Structured-output reliability comes instead from the strict
-    json_schema we send, this response-healing plugin (repairs fenced/malformed
-    JSON provider-side), and the client-side extract_json fallback.
-    """
     merged: dict[str, Any] = dict(extra_body) if isinstance(extra_body, dict) else {}
 
     plugins = list(merged.get("plugins") or [])
@@ -139,22 +62,10 @@ def _with_openrouter_structured_defaults(extra_body: Any) -> dict[str, Any]:
 
 
 def llm_targets_openrouter(llm: Any) -> bool:
-    """True when a LangChain chat model's traffic goes to OpenRouter.
-
-    Shared with the per-request ZDR seam (``model_overrides``) so both use the
-    same base-URL detection.
-    """
     return targets_openrouter(_llm_base_url(llm))
 
 
 def apply_openrouter_structured_defaults(llm: Any) -> Any:
-    """Force OpenRouter structured-output routing + JSON healing on an LLM.
-
-    No-op for non-OpenRouter models. Mutates the resolved instance in place so
-    The agent runtime's retry-patched bound methods are preserved (a ``model_copy`` would risk
-    dropping them); the defaults are identical for every caller, so sharing a
-    resolved instance is safe.
-    """
     if not llm_targets_openrouter(llm):
         return llm
     if not hasattr(llm, "extra_body"):
@@ -171,26 +82,6 @@ def apply_openrouter_structured_defaults(llm: Any) -> Any:
 
 
 def disable_previous_response_id(llm: Any) -> Any:
-    """Stop an OpenRouter-bound Responses-API client from sending ``previous_response_id``.
-
-    The agent runtime builds every ``api_type: responses`` client with
-    ``use_previous_response_id=True`` (``nat/plugins/langchain/llm.py``), and
-    langchain-openai then fills the field in from the most recent ``AIMessage``
-    whose id starts with ``resp_`` and truncates the request to the messages
-    after it. OpenRouter cannot serve that:
-
-        "Requests that set ``store: true`` or a non-null
-        ``previous_response_id`` are rejected with a ``400`` error."
-        -- https://openrouter.ai/docs/api_reference/responses/overview
-
-    It is dormant only because OpenRouter does not currently hand back ids of
-    that shape; its own documented examples are ``resp_…``, so the day it does,
-    every follow-up call inside a turn 400s at once.
-
-    Flipping the flag off does not leave the Responses path: the agent runtime sets
-    ``use_responses_api=True`` explicitly alongside it. No-op off OpenRouter,
-    where the field is the provider's own state handle and works as documented.
-    """
     if not llm_targets_openrouter(llm):
         return llm
     if not getattr(llm, "use_previous_response_id", False):
@@ -203,7 +94,6 @@ def disable_previous_response_id(llm: Any) -> Any:
 
 
 def _request_organization_id() -> str | None:
-    """The caller's org id, or None outside a request (a CLI run, an ingest thread)."""
     try:
         from agent.project_context import get_organization_id_from_context
 
@@ -214,20 +104,6 @@ def _request_organization_id() -> str | None:
 
 
 def prepare_request(llm: Any, messages: Any, kwargs: dict[str, Any]) -> Any:
-    """Apply both request-shaping rules to one outgoing call, in place on ``kwargs``.
-
-    Returns the messages to send and mutates the call's ``kwargs`` with the
-    prompt-cache routing fields. A block breakpoint the prompt's owner set
-    (``prompt_caching.cached_system_message``) is taken off for a model whose
-    provider does not take one. Each part is a no-op where it does not
-    apply — a non-OpenRouter model keeps its body untouched, and a call with no
-    leading system message gets no key.
-
-    The merge order matters: the instance's own ``extra_body`` (the
-    response-healing plugin, ZDR provider routing) is the base, a per-call
-    ``extra_body`` from a binding layers over it, and only then are the cache
-    fields filled in — so nothing this adds can drop what was already there.
-    """
     from agent.common.prompt_caching import prompt_cache_extra_body
     from agent.common.prompt_caching import strip_block_breakpoints
 
@@ -257,14 +133,12 @@ def _model_label(llm: Any) -> str | None:
 
 
 def _provider_slot(llm: Any):
-    """The fleet slot one call to ``llm`` holds; nothing for a model that is not on the OpenRouter key."""
     if not llm_targets_openrouter(llm):
         return nullcontext()
     return provider_limiter.slot(model=_model_label(llm))
 
 
 def _provider_slot_async(llm: Any):
-    """:func:`_provider_slot` for the async entry points."""
     if not llm_targets_openrouter(llm):
         return nullcontext()
     return provider_limiter.aslot(model=_model_label(llm))
@@ -275,18 +149,12 @@ def _reasoning_off(llm: Any) -> bool:
 
 
 def _with_reasoning_floor(llm: Any) -> Any:
-    """``llm`` itself, or a copy at the floor effort when its model is known to refuse reasoning-off."""
     if not _reasoning_off(llm) or _model_label(llm) not in _REASONING_MANDATORY:
         return llm
     return llm.model_copy(update={"reasoning_effort": _REASONING_FLOOR})
 
 
 def _needs_reasoning_floor(llm: Any, target: Any, error: BaseException) -> bool:
-    """True when ``error`` is the provider refusing reasoning-off for ``llm``'s model; remembers the model.
-
-    Only for a call that went out with reasoning off (``target is llm``): a copy
-    already at the floor that fails again fails for another reason.
-    """
     from agent.common.model_overrides import is_reasoning_incompatible_error
 
     if target is not llm or not _reasoning_off(llm) or not is_reasoning_incompatible_error(error):
@@ -306,11 +174,6 @@ def _needs_reasoning_floor(llm: Any, target: Any, error: BaseException) -> bool:
 
 
 def _expanded(llm: Any, messages: Any, kwargs: dict[str, Any]) -> tuple[Any, Any]:
-    """The request's licensed references expanded, when the call is pinned to zero-retention endpoints.
-
-    Read after :func:`prepare_request` has merged the instance's ``extra_body`` with the call's, so the
-    provider routing the request will carry is what decides (``openrouter.DataPolicy.is_applied_to``).
-    """
     from agent.common.openrouter import ZERO_DATA_RETENTION
 
     body = {**(getattr(llm, "extra_body", None) or {}), **(kwargs.get("extra_body") or {})}
@@ -323,17 +186,10 @@ def _expanded(llm: Any, messages: Any, kwargs: dict[str, Any]) -> tuple[Any, Any
 
 
 def _route(llm: Any) -> residency.Route:
-    """Where a chat call to ``llm`` is processed; refused outside the cell's zone (``common/residency``).
-
-    A chat model's client is bound to its base URL at construction, so nothing is rewritten here: a cell's
-    chat models are built on the zone's endpoint (``OPENROUTER_BASE_URL``, held by the boot check). The
-    organization's placement is checked by the caller: blocking in ``_generate``, off the loop in ``_agenerate``.
-    """
     return residency.enforce(_llm_base_url(llm), rewrite=False)[1]
 
 
 def _capped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
-    """``chunk`` as the stream may yield it: unchanged without a cap, else capped and then reported."""
     if cap is None:
         return chunk
     capper = _chunk_capper(cap)
@@ -344,7 +200,6 @@ def _capped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
 
 
 async def _acapped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
-    """:func:`_capped_chunk` for the async stream."""
     if cap is None:
         return chunk
     capped = _chunk_capper(cap).chunk(chunk)
@@ -354,24 +209,13 @@ async def _acapped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
 
 
 def _chunk_capper(cap: Any) -> ChunkCap:
-    """The one :class:`ChunkCap` a stream's chunks share, kept on its :class:`QuoteCap` (one per call)."""
     capper = getattr(cap, "chunk_capper", None)
     if capper is None:
         capper = cap.chunk_capper = ChunkCap(cap)
     return capper
 
 
-# Each entry point sends once more at the reasoning floor when the provider
-# refuses reasoning-off (`_needs_reasoning_floor`). A stream is re-sent only
-# if nothing of it was yielded yet; the refusal comes before the first chunk.
-# Licensed text (``common/licensed_text.py``) is expanded here, after LangChain has
-# reported the messages to every callback, and a call that expanded any returns
-# capped. langchain-core reports each streamed chunk after ``_astream`` yields it
-# (it passes no run manager down), so callbacks see the capped chunk. A caller that
-# does pass one down would have the implementation report before the cap, so a
-# capped stream withholds it and reports the capped chunk itself (``_capped_chunk``).
 def _contract_generate(base: type) -> Any:
-    """The contract's ``_generate``, over ``base``'s."""
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         residency.check_current_organization()
@@ -393,7 +237,6 @@ def _contract_generate(base: type) -> Any:
 
 
 def _contract_agenerate(base: type) -> Any:
-    """The contract's ``_agenerate``, over ``base``'s."""
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         await residency.acheck_current_organization()
@@ -415,7 +258,6 @@ def _contract_agenerate(base: type) -> Any:
 
 
 def _contract_stream(base: type) -> Any:
-    """The contract's ``_stream``, over ``base``'s."""
 
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
         residency.check_current_organization()
@@ -442,7 +284,6 @@ def _contract_stream(base: type) -> Any:
 
 
 def _contract_astream(base: type) -> Any:
-    """The contract's ``_astream``, over ``base``'s."""
 
     async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
         await residency.acheck_current_organization()
@@ -470,20 +311,6 @@ def _contract_astream(base: type) -> Any:
 
 
 def _contract_subclass(base: type) -> type:
-    """Build (once per base class) a subclass that normalizes outgoing requests.
-
-    The override sits on ``_generate``/``_agenerate``/``_stream``/``_astream``
-    because that is the single point every public entry point converges on —
-    ``invoke``, ``ainvoke``, ``stream``, ``astream``, ``batch``, and everything
-    layered on top of them (``bind``, ``bind_tools``, ``with_structured_output``,
-    ``create_agent``) delegates down to these four. Wrapping ``ainvoke`` instead
-    would be bypassed by the streaming and structured-output paths, which is
-    where the failures actually happened.
-
-    It is also the one seam every chat call passes, so it is where the call takes
-    its fleet slot (``provider_limiter``): inside the agent runtime's retry wrapper, so each
-    retry queues up again after the 429 that caused it has been waited out.
-    """
     cached = _CONTRACT_SUBCLASSES.get(base)
     if cached is not None:
         return cached
@@ -496,10 +323,6 @@ def _contract_subclass(base: type) -> type:
     _astream = _contract_astream(base)
 
     namespace: dict[str, Any] = {_CONTRACT_MARKER: True, "_generate": _generate, "_agenerate": _agenerate}
-    # LangChain decides whether a model can stream by comparing these attributes
-    # against BaseChatModel's (`_should_stream`). Defining them unconditionally
-    # would advertise streaming for models that do not implement it, so each
-    # override is added only when the base class actually provides one.
     if base._stream is not BaseChatModel._stream:
         namespace["_stream"] = _stream
     if base._astream is not BaseChatModel._astream:
@@ -511,18 +334,6 @@ def _contract_subclass(base: type) -> type:
 
 
 def enforce_chat_request_contract(llm: Any) -> Any:
-    """Make ``llm`` incapable of sending a provider-invalid message sequence.
-
-    Re-points the instance at a contract subclass of its own class, so every
-    call it serves — directly, tool-bound, or wrapped in structured output —
-    passes through :func:`~agent.common.message_contract.normalize_chat_request`
-    first. ``isinstance`` checks against ``BaseChatModel`` and friends keep
-    working, and ``model_copy`` (how the per-request override seam produces
-    per-org instances) carries the contract along with the copy.
-
-    Idempotent, and never fatal: a model class that cannot be subclassed is
-    returned untouched rather than failing model resolution.
-    """
     base = type(llm)
     if getattr(base, _CONTRACT_MARKER, False):
         return llm
@@ -533,33 +344,8 @@ def enforce_chat_request_contract(llm: Any) -> Any:
     return llm
 
 
-# NOTE on reasoning_effort: we deliberately do NOT translate effort values
-# per model family app-side. Configs use the OpenRouter/OpenAI-standard
-# vocabulary (none/minimal/low/medium/high/xhigh) and the value is passed
-# through verbatim — OpenRouter's unified reasoning API maps a requested
-# effort to the nearest level each model supports, per model, server-side
-# (https://openrouter.ai/docs/guides/best-practices/reasoning-tokens). An
-# app-side mapping table would duplicate (and inevitably drift from) that
-# contract; provider-native tier names like DeepSeek's "max" must NOT appear
-# in configs — OpenRouter rejects/ignores them (use "xhigh").
-
-
 async def get_langchain_llm(builder: Any, ref: Any) -> Any:
-    """Resolve a LangChain chat model with fleet-wide OpenRouter defaults applied.
-
-    Drop-in replacement for ``builder.get_llm(ref, wrapper_type=LANGCHAIN)``.
-
-    NOTE: this runs at workflow BUILD time (once, shared across tenants), so
-    per-org variation — model overrides AND Zero-Data-Retention routing — is
-    applied later at the per-request seam in ``model_overrides`` (which copies
-    the instance), never here.
-    """
     wrapped = await builder.get_llm(ref, wrapper_type=LLMFrameworkEnum.LANGCHAIN)
-    # The agent runtime 1.9 returns the chat model inside a `RunnableConfigurableFields` (its
-    # per-call `model_name` switch) and retry-patches that wrapper. Every
-    # hardening here, and every per-request copy in `model_overrides`, needs the
-    # chat model itself: on the wrapper they fail or no-op silently. So take it
-    # out and retry-patch it with the same settings the agent runtime used.
     config = builder.get_llm_config(ref)
     llm = patch_with_retry(
         wrapped.default,
@@ -572,29 +358,10 @@ async def get_langchain_llm(builder: Any, ref: Any) -> Any:
 
 
 def strict_response_format(schema: Any) -> Any:
-    """Return a ``create_agent`` response_format that forces native strict json_schema.
-
-    Wraps ``schema`` in ``ProviderStrategy(strict=True)`` so ``create_agent``
-    always emits the ``response_format: {type: json_schema, strict: true}`` wire
-    format instead of ``AutoStrategy``'s model-name-gated tool-call fallback
-    (which no OpenRouter/DeepSeek slug matches, silently downgrading to an
-    unenforced synthetic tool call). Use this for every ``create_agent`` agent
-    that returns structured output. Requires the schema to be strict-valid
-    (all properties required; optionals expressed as nullable).
-    """
     from langchain.agents.structured_output import ProviderStrategy
 
     return ProviderStrategy(schema, strict=True)
 
 
 def strict_json_response_format(schema: Any) -> dict[str, Any]:
-    """Return the OpenRouter strict json_schema ``response_format`` dict for ``llm.bind()``.
-
-    The ``.bind()`` counterpart of :func:`strict_response_format`, for agents
-    that call the model directly (not via ``create_agent``) and want native
-    structured output — e.g. ``llm.bind(response_format=strict_json_response_format(Model))``.
-    Reuses the same ``ProviderStrategy`` wire generation, so the emitted
-    ``{"type": "json_schema", "json_schema": {..., "strict": true}}`` is identical.
-    Requires ``schema`` to be strict-valid (all properties required; optionals nullable).
-    """
     return strict_response_format(schema).to_model_kwargs()["response_format"]

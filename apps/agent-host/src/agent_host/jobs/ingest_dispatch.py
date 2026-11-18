@@ -1,32 +1,3 @@
-"""Where an ingestion job runs: Hatchet's ``ingest-document`` task, on any ingest worker.
-
-A job whose original is at least ``INGEST_HEAVY_FILE_BYTES`` (the BFF states its
-size as ``byte_size``) runs as ``ingest-document-heavy`` on the high-memory pool
-instead, and every job of one document carries its id, so a newer upload of it
-supersedes the run still reading the old bytes (``ingest_workflow``).
-
-``POST /v1/ingest`` prepares a job (validated, recorded PENDING) and hands it to
-Hatchet (``agent.knowledge.ingest_workflow``, ADR-0150), which runs it on the
-ingest-worker tier (``ingest_worker``), fair across organisations: the ``chat``
-and ``api`` roles accept jobs and never run them. A job survives the restart of
-the replica that accepted it, and ingestion scales apart from the web tiers.
-
-A job goes to Hatchet when the ingestor can run it elsewhere and every file is a
-deferred object-store download (a local path exists only on the replica that
-wrote it). Otherwise, and whenever Hatchet cannot take it, the job runs in this
-process's own pool.
-
-The payload carries presigned URLs, bearer credentials to a tenant's objects, so
-it is encrypted (``payload_crypto``, ``JOB_PAYLOAD_KEK``) before it leaves this
-tier, and every URL passes the object-store gate (``agent_host.object_store_url``)
-again when a worker reads it back.
-Without a key nothing goes to Hatchet: its database must hold no tenant content.
-
-A person may stop a job (:func:`cancel`): its status settles ``cancelled`` and
-its run is cancelled by id, so a waiting run never starts and a running one stops
-at its next ownership check, before it reads or writes.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -47,21 +18,13 @@ from . import payload_crypto
 
 logger = logging.getLogger(__name__)
 
-#: The config keys whose entries are deferred downloads, beside ``file_paths``:
-#: the rendition a document is read from, and the one only its thumbnail is
-#: drawn from (``knowledge_layer.ingest.renditions.RENDITION_CONFIG_LISTS``).
 _DEFERRED_CONFIG_LISTS = ("extraction_paths", "preview_paths")
 
-#: Config keys that are URLs a worker requests: gated again on the way back in.
 _URL_CONFIG_KEYS = ("thumbnail_upload_url",)
 
 _DOWNLOAD = "__object_download__"
 _CORPUS_OBJECT = "__corpus_object__"
-#: How an encrypted payload begins (``payload_crypto.serialize``).
 _ENCRYPTED = "enc:"
-
-
-# ----------------------------------------------------------------- payload
 
 
 def _encode_entry(entry: Any) -> Any:
@@ -77,7 +40,6 @@ def _encode_entry(entry: Any) -> Any:
 
 
 def durable(prepared: PreparedIngestJob) -> bool:
-    """Whether the job can run in another process: every file a deferred download."""
     from agent.corpus_store import CorpusObjectDownload
 
     from ..routes.ingest import DeferredObjectDownload
@@ -91,7 +53,6 @@ def durable(prepared: PreparedIngestJob) -> bool:
 
 
 def encode(prepared: PreparedIngestJob) -> str:
-    """The job as a run carries it: encrypted, with its downloads as plain data."""
     config = dict(prepared.config)
     for key in _DEFERRED_CONFIG_LISTS:
         if key in config:
@@ -120,7 +81,6 @@ def _decode_entry(entry: Any) -> Any:
 
 
 def decode(stored: str) -> PreparedIngestJob:
-    """Inverse of ``encode``; raises on anything a worker must not run."""
     data = payload_crypto.deserialize(stored)
     config = dict(data["config"])
     for key in _DEFERRED_CONFIG_LISTS:
@@ -128,7 +88,6 @@ def decode(stored: str) -> PreparedIngestJob:
             config[key] = [_decode_entry(e) for e in config[key]]
     for key in _URL_CONFIG_KEYS:
         if config.get(key):
-            # Gated again and rebuilt on the configured store's origin, whatever the row says.
             config[key] = object_store_request_url(config[key], field=key)
     return PreparedIngestJob(
         job_id=data["job_id"],
@@ -139,15 +98,10 @@ def decode(stored: str) -> PreparedIngestJob:
     )
 
 
-# ---------------------------------------------------------------- dispatch
-
-
-class QueueUnavailable(RuntimeError):
-    """The job cannot be handed to Hatchet, and its caller has no other place to run it."""
+class QueueUnavailable(RuntimeError): ...
 
 
 def _hand_over(prepared: PreparedIngestJob) -> bool:
-    """Start the job's run; whether this call started one. Raises ``QueueUnavailable`` with no payload in it."""
     payload = encode(prepared)
     if not payload.startswith(_ENCRYPTED):
         raise QueueUnavailable("JOB_PAYLOAD_KEK is not set: a job's payload never leaves this tier in plaintext")
@@ -161,19 +115,12 @@ def _hand_over(prepared: PreparedIngestJob) -> bool:
             byte_size=original_bytes(prepared),
         )
     except Exception as error:
-        # Class name only: the payload and its error carry presigned URLs.
         raise QueueUnavailable(
             f"could not hand ingestion job {prepared.job_id} to Hatchet: {type(error).__name__}"
         ) from error
 
 
 def document_of(prepared: PreparedIngestJob) -> str | None:
-    """The one document the job indexes, which a later upload of it supersedes; None for any other job.
-
-    ``POST /v1/ingest`` hands over one ``file_ref`` of one document, and a corpus
-    job one file with no document id. A job of several files is not one
-    document's, so it is keyed on its own id and supersedes nothing.
-    """
     document_id = prepared.config.get("document_id")
     if len(prepared.file_paths) != 1 or not isinstance(document_id, str) or not document_id:
         return None
@@ -181,13 +128,11 @@ def document_of(prepared: PreparedIngestJob) -> str | None:
 
 
 def original_bytes(prepared: PreparedIngestJob) -> int | None:
-    """The original's size as the BFF stated it (``byte_size``), which picks the workflow; None when unstated."""
     size = prepared.config.get("original_bytes")
     return size if isinstance(size, int) and not isinstance(size, bool) and size >= 0 else None
 
 
 def dispatch(ingestor: BaseIngestor, prepared: PreparedIngestJob) -> None:
-    """Hand a PENDING job to Hatchet, or to this process when it cannot go there."""
     if prepared.status.status != JobState.PENDING:
         return
     if getattr(ingestor, "supports_durable_jobs", False) is True and durable(prepared):
@@ -201,14 +146,6 @@ def dispatch(ingestor: BaseIngestor, prepared: PreparedIngestJob) -> None:
 
 
 def enqueue_only(prepared: PreparedIngestJob) -> bool:
-    """Hand a PENDING job to Hatchet, and never run it here; whether this call started its run.
-
-    For work that must run on an ingest worker or not at all (the base corpus):
-    unlike :func:`dispatch` there is no fallback to this process's own pool when
-    the job cannot run elsewhere or Hatchet cannot take it. Each raises
-    :class:`QueueUnavailable`, with a message that carries no payload (it holds
-    URLs). A job whose run is already live is not started again (False).
-    """
     if prepared.status.status != JobState.PENDING:
         raise QueueUnavailable(f"ingestion job {prepared.job_id} was not accepted: {prepared.status.error_message}")
     if not durable(prepared):
@@ -216,34 +153,18 @@ def enqueue_only(prepared: PreparedIngestJob) -> bool:
     return _hand_over(prepared)
 
 
-# ------------------------------------------------------------------ cancel
-
-#: How a cancel ended, as :func:`cancel` reports it.
 CANCEL_STOPPED = "cancelled"
 CANCEL_FINISHED = "finished"
 CANCEL_UNAVAILABLE = "unavailable"
 
 
 def cancel(job_id: str) -> str:
-    """Stop a waiting or running ingestion job; what happened.
-
-    The job's status settles ``cancelled`` and its Hatchet run is cancelled by
-    id: a waiting run never starts, a running one stops at its next ownership
-    check before it reads or writes, and settles its status the same way.
-
-    Returns ``CANCEL_STOPPED`` when a live job was stopped, ``CANCEL_FINISHED``
-    when its status is no longer live (done, never known, or completed or failed
-    while this call was cancelling its run), and
-    ``CANCEL_UNAVAILABLE`` when the job has no run to cancel (it runs in the
-    pool of a process this one cannot reach) or Hatchet could not be reached.
-    """
     status = ingest_status_store.get(job_id)
     if status is None or status.status not in (JobState.PENDING, JobState.PROCESSING):
         return CANCEL_FINISHED
     run_id = ingest_run_hold.run_id_of(job_id)
     if run_id is None:
         return CANCEL_UNAVAILABLE
-    # Before the cancel: the run that sees it must know a person asked, not a newer upload.
     ingest_run_hold.mark_stopped_by_person(job_id)
     try:
         ingest_workflow.cancel_run(run_id)
@@ -251,8 +172,6 @@ def cancel(job_id: str) -> str:
         logger.warning("Could not cancel the run of ingestion job %s: %s", job_id, type(error).__name__)
         return CANCEL_UNAVAILABLE
     if not ingest_status_store.settle_cancelled(job_id):
-        # Nothing live was left to settle. The job ended between the read above and here, or the
-        # write failed: then the row is still live, and the cancelled run settles it itself.
         after = ingest_status_store.get(job_id)
         if after is not None and after.status in (JobState.COMPLETED, JobState.FAILED):
             return CANCEL_FINISHED
@@ -260,11 +179,6 @@ def cancel(job_id: str) -> str:
 
 
 def stamp_queue_ahead(statuses: dict[str, Any]) -> None:
-    """Clear ``metadata.queue_ahead`` on each waiting job: Hatchet does not count a lane's waiting runs.
-
-    The key stays, ``None``, so a reader that showed a count from the claim
-    queue's days clears it rather than keeping the last one.
-    """
     for status in statuses.values():
         if status and status.get("status") == JobState.PENDING.value:
             status.setdefault("metadata", {})["queue_ahead"] = None

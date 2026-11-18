@@ -1,41 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the composer's addressee statement (ADR-0034 addendum) — the real
- * `AddresseeIndicator` in all three of its renderings, inside a mock composer that
- * reproduces the real one's geometry (same `max-w-3xl` column, same card surface,
- * same action row under the textarea), so the line can be reviewed and screenshotted
- * without a backend.
- *
- * Why this surface needs its own evidence: the whole point of the indicator is that
- * it *changes* as the state changes, and the three states cannot coexist in one
- * composer. Stacked here, the transition is legible in a single still:
- *
- *   1. **Silence** — the default, and where a thread always returns. It used to
- *      state "Geht an Piloti" here; that sentence described the case the user is
- *      already in and was rendered forever to do it. What remains on the line is
- *      the `@` offer, which is not a statement but the only thing in the product
- *      that teaches mentions exist. Captured deliberately: an empty row IS the
- *      evidence, and without it nothing would show that the other two are
- *      departures rather than the norm.
- *   2. **Geht an Anna Berger** — a person is tagged in the message being written, so
- *      the agent will stay out; paired with the "Piloti antwortet nicht" hint, which
- *      the user must see BEFORE sending.
- *   3. **Geht an den Chat** — the thread is waiting on a named person, so a plain
- *      message is a remark. This is the rendering the defect was about, and it is the
- *      one that has to carry the way back (`@Piloti eingeben, …`).
- *
- * The fourth row is the honest edge case: tagging a person *and* `@Piloti` addresses
- * both (MN-1), so both are named and the "Piloti stays quiet" hint is suppressed —
- * it would be a false statement.
- *
- * Fetch-free by construction: the component takes its state as props (the composer is
- * what reads `useAwaitingState`), so no shim is needed.
- *
- * Pinned to German: it is the product's primary language, so that is the copy the
- * evidence should carry regardless of the locale cookie the capture runs with.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { ArrowUp, AtSign, Mic, Paperclip } from 'lucide-react'
@@ -44,22 +8,14 @@ import { AddresseeIndicator } from '@/features/collaboration/components/Addresse
 import type { DraftMention } from '@/lib/mentions/mention-text'
 import { I18nProvider, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
 
 const ANNA: DraftMention = { targetId: 'user_anna', display: 'Anna Berger' }
 const TOBIAS: DraftMention = { targetId: 'user_tobias', display: 'Tobias Kern' }
-const AGENT: DraftMention = { targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }
+const AGENT: DraftMention = { targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }
 
-/**
- * The composer's chrome, reproduced. Only the action row matters for this preview,
- * but the textarea above it is what makes the line's placement reviewable.
- *
- * The hint lines under the row are copies of the real composer's (InputArea) — the
- * indicator states the addressee, the hint explains the consequence, and the pair is
- * what has to be judged together.
- */
 function MockComposer({
   text,
   children,
@@ -120,11 +76,6 @@ const Eyebrow = ({ children }: { children: React.ReactNode }): JSX.Element => (
   </SectionLabel>
 )
 
-/**
- * The previews themselves. A child of the provider, not the page, so the hint copy
- * comes from the SAME dictionary entries the real composer uses — a preview with
- * hard-coded German would quietly drift from the product it is evidence of.
- */
 function Previews(): JSX.Element {
   const t = useTranslations(collaborationCopy)
 
@@ -164,10 +115,6 @@ function Previews(): JSX.Element {
           text="@Anna Berger @Tobias Kern könnt ihr den Bestandsplan bestätigen?"
           hint={{
             icon: 'at',
-            // The PLURAL key: German inflects the verb, so the singular string
-            // rendered "Anna Berger, Tobias Kern wird gefragt" — wrong grammar,
-            // and this preview reproduced it because it copies the real
-            // composer's hint rather than sharing it.
             body: t('mentions.composerHintMany', {
               names: `${ANNA.display}, ${TOBIAS.display}`,
             }),

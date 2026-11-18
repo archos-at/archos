@@ -16,7 +16,6 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
 
-// A write into a chat collection is authorized on its conversation.
 vi.mock('@/lib/sharing/access', () => ({
   requireResourceAccess: vi.fn(),
 }))
@@ -35,10 +34,6 @@ const mockRequireProjectAccess = vi.mocked(requireProjectAccess)
 const mockGetDb = vi.mocked(getDb)
 const mockRequireResourceAccess = vi.mocked(requireResourceAccess)
 
-/**
- * Mock the drizzle project lookup used by validateCollectionName for
- * proj_<id> collections: db.select().from().where().limit(1) -> rows.
- */
 function mockDbProjectLookup(rows: Array<{ id: string }>): void {
   mockGetDb.mockReturnValue({
     select: () => ({
@@ -88,13 +83,13 @@ function getHeader(init: RequestInit | undefined, name: string): string | undefi
 describe('/api/v1/[...path]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.REQUIRE_AUTH
-    delete process.env.BASE_COLLECTION_NAME
+    vi.stubEnv('REQUIRE_AUTH', undefined)
+    vi.stubEnv('BASE_COLLECTION_NAME', undefined)
   })
 
   describe('scope header', () => {
     it('attaches scope header for GET requests', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
@@ -129,7 +124,7 @@ describe('/api/v1/[...path]', () => {
     })
 
     it('attaches scope header for POST JSON requests', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
@@ -169,7 +164,7 @@ describe('/api/v1/[...path]', () => {
     })
 
     it('uses anonymous session when auth is disabled', async () => {
-      process.env.REQUIRE_AUTH = 'false'
+      vi.stubEnv('REQUIRE_AUTH', 'false')
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 's_conv-1'],
         scopedCollections: [
@@ -195,10 +190,6 @@ describe('/api/v1/[...path]', () => {
   })
 
   describe('collection name validation', () => {
-    // No product client uploads or deletes through the proxy: every shelf has
-    // a first-party route that writes and removes the document row, runs the
-    // file-type gate and charges the quota. So no write into a collection's
-    // files is forwarded, whatever the collection (`lib/proxy/v1-allowlist.ts`).
     it.each([
       ['POST', 'proj_proj-1'],
       ['DELETE', 'proj_proj-1'],
@@ -208,7 +199,7 @@ describe('/api/v1/[...path]', () => {
       ['POST', 'oib_knowledge'],
       ['POST', 'random-name'],
     ] as const)('forwards no %s into the files of %s (404)', async (method, collection) => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockRequireResourceAccess.mockResolvedValue({} as never)
       const fetchMock = mockFetch()
@@ -228,7 +219,7 @@ describe('/api/v1/[...path]', () => {
     it.each(['POST', 'DELETE'] as const)(
       'refuses a %s to s_<id> files for a viewer, or for a conversation that does not exist (404)',
       async (method) => {
-        process.env.REQUIRE_AUTH = 'true'
+        vi.stubEnv('REQUIRE_AUTH', 'true')
         mockRequireAuthorizedSession.mockResolvedValue(baseSession)
         mockRequireResourceAccess.mockRejectedValue(new NotFoundError())
         const fetchMock = mockFetch()

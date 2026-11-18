@@ -47,11 +47,6 @@ const folder = (id: string, name: string, parentId: string | null = null): Folde
   path: name,
 })
 
-/**
- * Every declared status and the read state it must map to. Typed over
- * KnownDocumentStatus, so a status added to DOCUMENT_STATUS_FACTS fails the
- * typecheck here until somebody decides what it means for reading.
- */
 const EXPECTED_READ_STATE: Record<KnownDocumentStatus, ReadState> = {
   ready: 'readable',
   ingested: 'readable',
@@ -156,10 +151,7 @@ describe('tallyOf', () => {
       held: 1,
       unindexed: 2,
       unplaced: 2,
-      // Pages count only readable documents: 10 + 0 (the 0 adds nothing), the
-      // failed 99, the held 7 and the stored 5 are all excluded.
       pages: 10,
-      // The newest createdAt across ALL files, not only the readable ones.
       latest: '2026-01-07T00:00:00.000Z',
     })
   })
@@ -184,7 +176,6 @@ describe('readShare', () => {
       file({ id: 'e', status: 'uploaded' }),
       file({ id: 'f', status: 'stored' }),
     ])
-    // 2 readable out of the 3 meant to be read (a, b, c): the three unindexed rows do not dilute it.
     expect(readShare(tally)).toBeCloseTo(2 / 3)
   })
 
@@ -206,12 +197,6 @@ describe('readShare', () => {
   })
 })
 
-/**
- * A three-level tree with a sibling:
- *
- *   A ── B ── C
- *   D
- */
 const TREE = [folder('A', 'A'), folder('B', 'B', 'A'), folder('C', 'C', 'B'), folder('D', 'D')]
 
 describe('subtreeTallies', () => {
@@ -321,11 +306,6 @@ describe('filesInSubtree', () => {
 })
 
 describe('buildFolderBrief', () => {
-  /**
-   * Under A (the brief's folder): three readable documents with types, one
-   * untyped readable document, a quarantined document, a failed one and one
-   * still being read. D is a sibling that must never leak in.
-   */
   const r1 = file({
     id: 'r1',
     folderId: 'A',
@@ -344,7 +324,6 @@ describe('buildFolderBrief', () => {
     id: 'r3',
     folderId: 'C',
     status: 'completed',
-    // The same discipline twice on one document is still one document.
     tags: ['Schnitt', 'Brandschutz', 'Brandschutz'],
     contentTypes: ['chart'],
   })
@@ -374,8 +353,6 @@ describe('buildFolderBrief', () => {
 
   it('counts document types only from readable documents, most frequent first', () => {
     const brief = buildFolderBrief(files, TREE, 'A')
-    // Grundriss on r1 and r2; Schnitt on r3. Gutachten sits on a failed and a
-    // processing document, and Bescheid on a quarantined one: none are counted.
     expect(brief.documentTypes).toEqual([
       { label: 'Grundriss', count: 2 },
       { label: 'Schnitt', count: 1 },
@@ -384,7 +361,6 @@ describe('buildFolderBrief', () => {
 
   it('counts disciplines only from readable documents, and a repeated tag once per document', () => {
     const brief = buildFolderBrief(files, TREE, 'A')
-    // Brandschutz on r1, r2, r3 (twice in one document, counted once) and u1.
     expect(brief.disciplines).toEqual([
       { label: 'Brandschutz', count: 4 },
       { label: 'Schallschutz', count: 1 },
@@ -404,8 +380,6 @@ describe('buildFolderBrief', () => {
 
   it('counts content categories only from readable documents, each once per document', () => {
     const brief = buildFolderBrief(files, TREE, 'A')
-    // text on r1 and r2 (r2 lists it twice, counted once); table on r1 only:
-    // the failed f1's table is not counted, nor the quarantined q1's drawing.
     expect(brief.contents).toEqual([
       { label: 'text', count: 2 },
       { label: 'table', count: 1 },
@@ -434,7 +408,6 @@ describe('buildFolderBrief', () => {
   })
 
   it('orders equal counts by the vocabulary, so the list is stable', () => {
-    // Schnitt is listed first in the corpus; Grundriss precedes it in the vocabulary.
     const docs = [
       file({ id: 's', folderId: 'A', status: 'ready', tags: ['Schnitt'] }),
       file({ id: 'g', folderId: 'A', status: 'ready', tags: ['Grundriss'] }),
@@ -462,9 +435,6 @@ describe('buildFolderBrief', () => {
 })
 
 describe('buildFolderBrief hotspots', () => {
-  /**
-   * A>B>C is a chain, E sits under A beside B, and D is a second root.
-   */
   const H_TREE = [
     folder('A', 'A'),
     folder('B', 'B', 'A'),
@@ -538,7 +508,6 @@ describe('buildFolderBrief hotspots', () => {
 
   it('keeps at most MAX_HOTSPOTS, worst first', () => {
     const many = Array.from({ length: MAX_HOTSPOTS + 2 }, (_, i) => folder(`F${i}`, `F${i}`))
-    // F0 has the most failures, so it is the worst; the rest are one failure each.
     const files = [
       ...Array.from({ length: 3 }, (_, i) => broken(`f0-${i}`, 'F0')),
       ...many.slice(1).map((f) => broken(`x-${f.id}`, f.id)),
@@ -558,11 +527,6 @@ describe('buildFolderBrief hotspots', () => {
   })
 })
 
-/**
- * Regression: the ordering was once a weighted sum (1e6 failed, 1e4 held, 100
- * reading, 1 unplaced), so at 100 readings a folder tied with one hold and at
- * 101 unplaced it outranked one reading. The contract is class by class.
- */
 describe('hotspot ordering holds at large counts', () => {
   it('ranks one held document above a folder with 100 documents being read', () => {
     const files = [
@@ -585,9 +549,6 @@ describe('hotspot ordering holds at large counts', () => {
 
 describe('selectInBrief', () => {
   const FOLDERS = [folder('A', 'A'), folder('D', 'D')]
-  // Under A: a typed readable document with a topic and a photo, a readable
-  // one with a topic and no type, a failed and a held document that carry the
-  // same tag and topic, and a photo that is still being read. D is outside.
   const typed = file({
     id: 'typed',
     folderId: 'A',
@@ -645,11 +606,6 @@ describe('selectInBrief', () => {
   })
 })
 
-/**
- * One entry per document (ADR-0099): the brief counts the documents the
- * listing shows, so a document with three Fassungen is one document, and a
- * replaced Fassung is never counted, summed, nagged about or re-read.
- */
 describe('buildFolderBrief over Fassungen', () => {
   const ref = (id: string) => ({ id, filename: `${id}.pdf` })
   const revision = (overrides: Partial<NonNullable<FileItem['revision']>>): FileItem['revision'] => ({
@@ -657,8 +613,6 @@ describe('buildFolderBrief over Fassungen', () => {
     ...overrides,
   })
   const tree = [folder('P', 'Pläne'), folder('ALT', 'alt', 'P'), folder('X', 'Anderswo')]
-  // Index C is current; B and A are older Fassungen of it. B failed to read,
-  // A was read and carries pages and tags that are no longer the basis.
   const indexC = file({
     id: 'c',
     folderId: 'P',
@@ -707,7 +661,6 @@ describe('buildFolderBrief over Fassungen', () => {
 
   it('keeps an older Fassung whose newer one is not in the corpus, or it would vanish without a trace', () => {
     const brief = buildFolderBrief([indexB, indexA], tree, null)
-    // B's newer one is missing, so B counts; A's newer one (B) is listed, so A does not.
     expect(brief.files.map((f) => f.id)).toEqual(['b'])
     expect(brief.attention.failed.map((f) => f.id)).toEqual(['b'])
   })
@@ -718,16 +671,9 @@ describe('buildFolderBrief over Fassungen', () => {
   })
 })
 
-/**
- * The paged workspace's brief and folder tiles (ADR-0102): folded from the
- * shelf summary's per-folder counts instead of from the corpus, and agreeing
- * with what the corpus would have said about everything Postgres can count.
- */
 describe('the brief and the tiles from the shelf summary', () => {
   const S_TREE = [folder('A', 'A'), folder('B', 'B', 'A'), folder('C', 'C', 'B'), folder('D', 'D')]
   const corpus = [
-    // Placed in a document type, so no folder is a hotspot for being unplaced:
-    // that needs the backend's tags, which the summary does not carry.
     file({ id: 'r1', folderId: null, status: 'ready', tags: ['Grundriss'], createdAt: '2026-01-01T00:00:00.000Z' }),
     file({ id: 'a1', folderId: 'A', status: 'ready', tags: ['Grundriss'], createdAt: '2026-02-01T00:00:00.000Z' }),
     file({ id: 'b1', folderId: 'B', status: 'failed', createdAt: '2026-03-01T00:00:00.000Z' }),
@@ -735,7 +681,6 @@ describe('the brief and the tiles from the shelf summary', () => {
     file({ id: 'c2', folderId: 'C', status: 'quarantined', createdAt: '2026-01-15T00:00:00.000Z' }),
     file({ id: 'd1', folderId: 'D', status: 'stored', createdAt: '2026-05-01T00:00:00.000Z' }),
   ]
-  /** The summary Postgres would answer for `corpus`: one row per folder, its direct documents by family. */
   const summary: ShelfSummary = {
     folders: [
       { folderId: null, total: 1, readable: 1, reading: 0, failed: 0, held: 0, unindexed: 0, latest: '2026-01-01T00:00:00.000Z' },
@@ -747,7 +692,6 @@ describe('the brief and the tiles from the shelf summary', () => {
     failed: [{ id: 'b1', folderId: 'B' }],
     failedTruncated: false,
   }
-  /** What a tally says that Postgres can count: unplaced and pages need the backend's tags and counts. */
   const counted = ({ unplaced: _unplaced, pages: _pages, ...rest }: KnowledgeTally) => rest
 
   it('folds the per-folder counts up the tree exactly as the corpus folds', () => {
@@ -770,7 +714,7 @@ describe('the brief and the tiles from the shelf summary', () => {
     }
   })
 
-  it('says it is partial, and claims nothing about what Piloti put on the documents', () => {
+  it('says it is partial, and claims nothing about what the agent put on the documents', () => {
     const brief = buildFolderBriefFromSummary(summary, S_TREE, null)
     expect(brief.partial).toBe(true)
     expect(brief.files).toEqual([])

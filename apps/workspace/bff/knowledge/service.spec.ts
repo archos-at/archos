@@ -3,7 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Sever the workos-authkit import chain pulled in via backend-proxy.
 vi.mock('@/lib/backend-proxy', () => ({
   getBackendUrl: vi.fn().mockReturnValue('http://backend:8000'),
 }))
@@ -244,8 +243,6 @@ describe('knowledge admin operations', () => {
 })
 
 describe('getReleasedKnowledgeBaseStatus', () => {
-  // One file per class the corpus holds. The countries are invented: the rule
-  // compares a file's mark with the reader's countries and knows no country.
   const file = (file_name: string, country_id: string | null, state = 'ingested', chunk_count = 5) => ({ file_name, country_id, state, chunk_count })
   const corpus = {
     collection_name: 'base',
@@ -305,11 +302,11 @@ describe('withdrawCorpusFile', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockReset()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
   })
   afterEach(() => {
     vi.unstubAllGlobals()
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   })
 
   it('marks the file unreleased and keeps its country', async () => {

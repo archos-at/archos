@@ -44,7 +44,6 @@ describe('UploadScreeningCard', () => {
     stubApi({ policy: SUGGESTED_SCREENING_POLICY, suggested: true })
     render(<UploadScreeningCard canEdit />)
     expect(await screen.findByTestId('upload-screening-suggested')).toHaveTextContent(/suggestion applies/i)
-    // Saving the suggestion unchanged is allowed: it makes it the office's own.
     expect(screen.getByTestId('upload-screening-save')).toBeEnabled()
   })
 
@@ -83,7 +82,7 @@ describe('UploadScreeningCard', () => {
     expect(putBody()).toMatchObject({ contentTerms: [] })
   })
 
-  it('"Use suggestion" fills the form with Piloti’s list', async () => {
+  it('"Use suggestion" fills the form with the agent’s list', async () => {
     stubApi({ policy: OWN, suggested: false })
     render(<UploadScreeningCard canEdit />)
     fireEvent.click(await screen.findByRole('button', { name: /use suggestion/i }))

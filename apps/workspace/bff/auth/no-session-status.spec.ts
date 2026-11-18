@@ -38,8 +38,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
-  if (originalRequireAuth === undefined) delete process.env.REQUIRE_AUTH
-  else process.env.REQUIRE_AUTH = originalRequireAuth
+  if (originalRequireAuth === undefined) vi.stubEnv('REQUIRE_AUTH', undefined)
+  else vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
 })
 
 describe('a route behind apiRoute', () => {
@@ -68,7 +68,7 @@ describe('a route behind apiRoute', () => {
 
 describe('the jobs proxy', () => {
   it('answers a request with no session 403 FORBIDDEN, as before', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     withAuth.mockResolvedValue({ user: null, accessToken: null })
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
 

@@ -1,10 +1,3 @@
-/**
- * Stopped-answer API: cut the asker's answer to what they had on screen when
- * they pressed Stop, when the Stop crossed the agent's finished answer and the
- * stored row holds all of it. Thin handler; who may cut, and what the cut
- * keeps, live in `cutStoppedAnswer` (`@/lib/conversations/service`).
- */
-
 import { z } from 'zod'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
@@ -13,7 +6,6 @@ import { cutStoppedAnswer } from '@/lib/conversations/service'
 
 type Params = { id: string; messageId: string }
 
-/** `messages.id` is a uuid column: a malformed id must 400, not blow up in SQL. */
 const messageIdSchema = z.guid()
 
 export const POST = apiRoute<Params>(

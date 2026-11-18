@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Piloti in the document room, and the server's snapshot of who is there:
- * Piloti is one peer per conversation, stamped by the server with the person
- * it acts for, and impossible for a browser to be or to name; and the snapshot holds what people last said about
- * their page, view, selection and draft, per organization, bounded and TTL'd.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -62,7 +56,7 @@ const listen = () => {
 }
 
 describe('publishAsAgent', () => {
-  it('speaks as Piloti, one peer per conversation, in each of its ops', async () => {
+  it('speaks as the agent, one peer per conversation, in each of its ops', async () => {
     const room = listen()
     const box = { page: 2, x: 0.1, y: 0.2, w: 0.3, h: 0.1 }
 
@@ -111,8 +105,8 @@ describe('publishAsAgent', () => {
   })
 })
 
-describe('a browser cannot be Piloti', () => {
-  it('is stamped a person whatever it sends, names nobody it acts for, and cannot send Piloti’s vocabulary', async () => {
+describe('a browser cannot be the agent', () => {
+  it('is stamped a person whatever it sends, names nobody it acts for, and cannot send the agent’s vocabulary', async () => {
     const room = listen()
     await sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: 'piloti-conv_42', presence: 'here' } })
     room.release()
@@ -162,7 +156,6 @@ describe('roomSnapshot', () => {
       expect.objectContaining({ peerId: 'piloti-conv_42', kind: 'piloti', forName: 'Anna Berger', page: null, selected: null }),
     ])
 
-    // A selection alone changes only the selection.
     await sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: 'peer_anna_001', selected: null } })
     expect((await roomSnapshot('doc_1', 'org_1'))[0]).toMatchObject({ selected: null, viewport: { page: 3, y: 0.4 } })
   })

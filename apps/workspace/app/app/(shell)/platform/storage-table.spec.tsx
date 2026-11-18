@@ -180,8 +180,6 @@ describe('PlatformStorageTable', () => {
       .mockResolvedValueOnce(json({ maxUploadFileBytes: 150 * MB }))
       .mockResolvedValueOnce(json(STORAGE))
     render(<PlatformStorageTable />)
-    // org_new inherits its quota, so its quota field opens blank, and blank is
-    // UNLIMITED: sending it would silently lift the quota.
     await openEditor('org_new')
     await userEvent.type(uploadLimitInput('org_new'), '150{Enter}')
 
@@ -266,7 +264,6 @@ describe('PlatformStorageTable', () => {
 
     expect(within(table).queryByRole('button')).toBeNull()
     expect(within(table).queryByRole('columnheader', { name: 'Actions' })).toBeNull()
-    // The limit is still shown; only the editor is withheld.
     expect(within(table).getByRole('columnheader', { name: 'Max. file size' })).toBeDefined()
     expect(screen.queryByText(/At most 250 MB/)).toBeNull()
   })

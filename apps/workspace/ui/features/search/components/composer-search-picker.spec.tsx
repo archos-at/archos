@@ -33,7 +33,6 @@ describe('ComposerSearchPicker', () => {
     render(german(<ComposerSearchPicker ref={ref} query="Flucht" search={answered('Flucht')} onPick={onPick} />))
     const hits = DOCUMENTS_ONLY.sections.document!.hits
     expect(screen.getByTestId(`palette-search-hit-document-${hits[0].id}`)).toBeInTheDocument()
-    // No „Alle Treffer“ row: the composer picks, it does not leave for the search page.
     expect(screen.queryByTestId('palette-workspace-search')).toBeNull()
     act(() => ref.current?.move(1))
     act(() => {

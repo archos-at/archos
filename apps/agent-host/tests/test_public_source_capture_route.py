@@ -1,9 +1,3 @@
-"""The internal capture route (ADR-0170): the BFF's way to a public page, since only backend roles reach the fetcher.
-
-It is a thin door onto ``public_sources.capture``: the internal token is required, an unknown source is a 404, a
-host off the source a 403, and a page comes back with its digest and text.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -108,7 +102,6 @@ async def test_checks_a_configured_source_by_its_inline_fixtures(client, monkeyp
 
 
 async def test_a_fixture_awaiting_its_capture_is_not_valid_and_is_no_problem(client, monkeypatch):
-    """A draft is proposed before its capture can be taken: the check says which fixture waits, not that it failed."""
     from public_sources_testing import SOURCES_DIR
     from public_sources_testing import synthetic_source
 
@@ -155,7 +148,6 @@ async def test_probes_a_configured_source(client, monkeypatch):
 
 
 async def test_lists_the_built_in_sources_with_their_recorded_fixtures(client, monkeypatch):
-    """The repository's own sources, read-only beside the platform's records in source-status (Decision C)."""
     from public_sources_testing import SOURCES_DIR
 
     from agent_host.routes import public_source_capture
@@ -175,8 +167,6 @@ async def test_lists_the_built_in_sources_with_their_recorded_fixtures(client, m
     assert ris["fixtures"]["valid"] is True and all(fixture["ok"] for fixture in ris["fixtures"]["fixtures"])
 
 
-# --- A text kept in the base corpus from a URL (ADR-0165, "Texts are attached in the request") -------------
-
 PDF_BYTES = b"%PDF-1.7\nOIB-Richtlinie 1\n%%EOF"
 PDF_URL = "https://www.ris.bka.gv.at/richtlinie_1.pdf"
 FETCHER = "http://public-source-fetcher.test:8095"
@@ -184,7 +174,6 @@ FETCHER = "http://public-source-fetcher.test:8095"
 
 @pytest.fixture
 def kept(monkeypatch):
-    """The corpus store's side of the import, recorded: nothing is stored or queued for real."""
     from agent import corpus_store
     from agent import oib_sync
 
@@ -205,7 +194,6 @@ def kept(monkeypatch):
 
 @pytest.fixture
 def fetcher(monkeypatch):
-    """Every request this tier sends, recorded; only the fetcher answers (its fetch and its PDF read)."""
     import httpx
 
     requests: list[httpx.Request] = []
@@ -252,7 +240,6 @@ async def test_a_text_from_a_url_is_fetched_and_read_by_the_fetcher_and_never_pa
     assert answer.json()["sha256"] == hashlib.sha256(PDF_BYTES).hexdigest()
     assert answer.json()["pages"] == 1
     assert "text" not in answer.json()
-    # Both the bytes and their read came from the fetcher, and nothing else was requested.
     paths = [str(request.url).removeprefix(FETCHER).split("?")[0] for request in fetcher]
     assert paths == ["/v1/fetch", "/v1/extract"]
     assert kept["stored"] == [(answer.json()["fileName"], PDF_BYTES)]
@@ -294,7 +281,6 @@ async def test_a_page_that_is_no_pdf_is_refused_and_not_kept(client, kept, monke
 async def test_a_text_is_kept_under_a_name_that_carries_its_hash_and_nothing_is_ever_replaced(
     client, kept, fetcher, monkeypatch
 ):
-    """Content-addressed names: the bytes under a name never change, whatever the caller sends."""
     import hashlib
 
     monkeypatch.setenv("PUBLIC_SOURCE_FETCHER_URL", FETCHER)
@@ -307,14 +293,12 @@ async def test_a_text_is_kept_under_a_name_that_carries_its_hash_and_nothing_is_
     assert first.json()["fileName"] == name
     assert kept["stored"] == [(name, PDF_BYTES)]
 
-    # The same bytes again are kept already: nothing is stored or queued twice.
     kept["existing"][name] = sha
     again = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
     assert again.status_code == 200
     assert again.json()["stored"] is False
     assert len(kept["stored"]) == 1
 
-    # Other bytes under that name are never replaced, also when the caller asks for it as it once could.
     kept["existing"][name] = "b" * 64
     taken = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json={**body, "replace": True})
     assert taken.status_code == 409

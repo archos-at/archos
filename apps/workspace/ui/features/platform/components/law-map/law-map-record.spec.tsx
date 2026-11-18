@@ -5,12 +5,6 @@ import type { LawMap } from '@/lib/base-knowledge/platform/law-map'
 import type { RevisionView } from '@/lib/base-knowledge/platform/wire'
 import { namer, RecordBody } from './law-map-record'
 
-/**
- * A record the outline has no branch for reads in words (country-onboarding-ux.md, B): a source says where it
- * fetches from, its licence with the attribution, whether it is watched, the documents it may fetch and what its
- * test proves; a test question says what it asks and what a right answer says. The stored fields stay folded.
- */
-
 const revision = (type: string, recordId: string, body: Record<string, unknown>): RevisionView =>
   ({
     revisionId: `rev-${recordId}`,
@@ -79,7 +73,6 @@ describe('RecordBody', () => {
     expect(shown).toHaveTextContent('Monitoring: off')
     expect(within(shown).getByRole('link', { name: 'MC 3' })).toHaveAttribute('href', 'https://www.guidelines.xa.example/mc-3.pdf')
     expect(shown).toHaveTextContent('Test: MC 2 reads with ≥ 30 passages')
-    // The configuration is no first read.
     expect(shown).not.toHaveTextContent('capture_id')
   })
 
@@ -111,7 +104,6 @@ describe('RecordBody', () => {
     ])
     expect(name('manifestation:oib-rl-1-erlaeuterungen-2023-text')).toBe('Erläuternde Bemerkungen zu OIB-Richtlinie 1 · Ausgabe Mai 2023')
     expect(name('edition:mc-2-2023')).toBe('MC 2 · 2023')
-    // A text for an edition released before this request: its file, still no id.
     expect(name('manifestation:elsewhere-text')).toBe('elsewhere.pdf')
   })
 })

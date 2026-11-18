@@ -12,7 +12,6 @@ describe('timingOf', () => {
   })
 
   it('reads a naive backend time as UTC, and honours an explicit offset', () => {
-    // What `datetime.utcnow()` serializes to: no offset, microseconds.
     expect(timingOf({ started_at: '2026-11-03T10:00:00.250000', completed_at: '2026-11-03T10:01:30.250000' }).processingMs).toBe(90_000)
     expect(timingOf({ started_at: '2026-11-03T10:00:00Z', completed_at: '2026-11-03T11:00:05+01:00' }).processingMs).toBe(5_000)
   })
@@ -32,7 +31,6 @@ describe('timingOf', () => {
         queue_ahead: 3,
       },
     })
-    // Only the stages the worker names, only numbers that can be seconds.
     expect(timing.stageSeconds).toEqual({ text: 1.2, vision: 25.4, dossier: 3 })
     expect(timing.reading).toEqual({ pages: 40, pagesFullyRead: 38, pagesNotRead: 2, pagesOverRenderCap: 0, rastersOverCap: 7 })
   })

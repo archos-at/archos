@@ -1,31 +1,8 @@
-/**
- * Project profile service — business logic for the structured project
- * profile: optimistic-concurrency reads/writes, agent patch application, the
- * intake definition, and AI summary generation.
- *
- * Owns authorization (`requireProjectAccess`) and orchestrates the projects
- * repository, the prompt/display view builders, and the Python backend.
- * Failures are signalled with typed errors from `@/lib/api/errors`; version
- * conflicts on the optimistic profile write surface as 409 `ConflictError`s.
- */
-
 import 'server-only'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
 import { contextForPage } from '@/lib/base-knowledge/context/service'
 import { profileAsTheLawShows } from '@/lib/project-intake/derivation-view'
 
-/**
- * Writing the project profile — the intake brief and the standards the agent
- * reasons from — is a write to the project's structured KNOWLEDGE, so it maps
- * onto `project:memory:write` rather than the document permission.
- *
- * The deprecated umbrella stays in the any-of list for the reason ADR-0038 gave
- * it: the built-in Editor and Admin roles hold both, and a custom role
- * provisioned before the split holds only the umbrella. Requiring the umbrella
- * ALONE — which is what these four call sites used to do — was the mirror-image
- * fault: a role built the way the catalog now recommends could not save the
- * project brief at all.
- */
 const PROFILE_WRITE: readonly ProjectPermission[] = ['project:memory:write', 'project:edit']
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { deleteBindingsOutsideBuildings } from '@/lib/document-roles/repository'
@@ -63,21 +40,7 @@ import type { AiConsistencyFinding, ConsistencyCheckField } from './intake-consi
 import { normalizeLegacyProfile } from './legacy-names'
 import type { ProjectProfile, ProjectProfilePatchOperation } from './types'
 
-/**
- * Server-side backend fetches MUST be time-bounded: an unreachable backend
- * container (inter-container network flakiness) otherwise hangs the request
- * past Cloudflare's ~100s origin timeout and surfaces as a 504. The consistency
- * check is a fail-open pre-save enrichment (short bound); summary generation is
- * a user-visible LLM call (longer bound).
- */
 const CONSISTENCY_CHECK_TIMEOUT_MS = 10_000
-/**
- * MUST stay above the backend's own LLM timeout (30s in generate_summary.py):
- * with the bounds inverted the BFF aborts first, the backend finishes the
- * generation anyway, and the completed summary is thrown away because
- * persistence happens here after the response. Still well under Cloudflare's
- * ~100s origin timeout.
- */
 const GENERATE_SUMMARY_TIMEOUT_MS = 35_000
 
 export async function getProjectProfile(
@@ -90,22 +53,10 @@ export async function getProjectProfile(
     contextForPage(session.organizationId, projectId),
   ])
   if (!state) throw new NotFoundError()
-  // Where the knowledge context withholds law, no derived Gebäudeklasse is shown either (ADR-0169's amendment).
   const profile = profileAsTheLawShows(state.profile, projectIntakeDefinitionV1, context.gate.state)
   return profile === state.profile ? state : { ...state, profile }
 }
 
-/**
- * Replace the whole profile (intake wizard save). 409 on a version conflict.
- *
- * `expectedVersion` is the profileVersion the CLIENT loaded (sent as If-Match):
- * comparing against it is what makes the concurrency check real — without it
- * the version is read and compared inside this one request, so edits made by
- * someone else since the wizard was opened are silently last-writer-wins.
- *
- * A full replace also resets the stored AI summary: the prose described the old
- * profile, and the overview regenerates it from the new one.
- */
 export async function saveProjectProfile(
   session: AuthorizedSession,
   projectId: string,
@@ -118,50 +69,22 @@ export async function saveProjectProfile(
   if (expectedVersion !== undefined && current.profileVersion !== expectedVersion) {
     throw new ConflictError('Conflict: profile was modified since it was loaded')
   }
-  // A tab that has not reloaded since the English names still sends the German ones.
   const named = normalizeLegacyProfile(profile) as ProjectProfile
   if (addsRegisterEvidence(normalizeLegacyProfile(current.profile) as ProjectProfile, named))
     throw new BadRequestError(REGISTER_EVIDENCE_REFUSAL)
   return persistProfile(projectId, session.organizationId, named, current, {
     resetSummary: true,
-    // The wizard is where buildings are removed, and this is its save: the
-    // bindings of a building it no longer has go with it. Removing a building
-    // used to keep them, invisible in every slot and still read by the agent
-    // (as "Bestandspläne (bldg2)"), and a building added later under the reused
-    // id inherited them. In the save's transaction, under the row lock the
-    // update holds: committed with the profile or not at all, and never after
-    // a later save that brought the building back
-    // (docs/architecture/document-roles.md).
     inTransaction: (tx, saved) =>
       deleteBindingsOutsideBuildings(projectId, buildingIds(saved.profile), tx).then(() => undefined),
   })
 }
 
-/** A patch write, plus whether it landed or was already there. */
 export interface PatchedProjectProfile extends ProjectProfileState {
-  /**
-   * The write lost an optimistic-lock race to a request that had ALREADY applied
-   * these exact operations (two collaborators accepting the same card). The
-   * profile holds the change, so this is an idempotent success rather than the
-   * generic 409 — which the caller must keep treating as "your patch did not land".
-   */
   alreadyApplied?: boolean
 }
 
-/**
- * Apply agent-proposed patch operations to the stored profile. Bare values
- * are wrapped with provenance (accepting the card is the user confirmation),
- * then any unknowns the patch just answered are retired. 409 on a version
- * conflict, unless the conflict is the concurrent-accept case above.
- */
-/**
- * The conversation a patch was proposed in, when it came from a
- * `project_profile_patch` card. The brief's own editor sends none: a person
- * typing a value is not content leaving a conversation.
- */
 export interface ProfilePatchOrigin {
   conversationId: string
-  /** The language of a refusal. */
   locale: Locale
 }
 
@@ -170,15 +93,10 @@ export async function patchProjectProfile(
   projectId: string,
   operations: ProjectProfilePatchOperation[],
   origin?: ProfilePatchOrigin,
-  /** Site resolution's own write (ADR-0172), the one that may add `register` evidence. */
   options?: { registerEvidence?: true }
 ): Promise<PatchedProjectProfile> {
   await requireProjectAccess(session, projectId, PROFILE_WRITE)
   if (origin) {
-    // The profile is read by every project member and every chat in the
-    // project, so a patch proposed in a thread that drew on a restricted folder
-    // is refused (ADR-0087). The thread is authorized first, so the refusal
-    // says nothing about a conversation the caller cannot read.
     await requireResourceAccess(session, 'conversation', origin.conversationId, 'viewer')
     await requireMayLeaveConversation(
       { conversationId: origin.conversationId, locale: origin.locale },
@@ -192,12 +110,8 @@ export async function patchProjectProfile(
   let normalized: ProjectProfilePatchOperation[]
   let profile: ProjectProfile
   try {
-    // Defense-in-depth: reject values that violate the intake vocabulary before
-    // they are wrapped with `user_confirmed` provenance and persisted.
     validateProfilePatchVocabulary(operations)
     normalized = normalizeProfilePatchOperations(operations)
-    // A row an older pod wrote still holds the German keys; patched raw, a remove
-    // of `site_address` left `standort_adresse` behind for the tile to show.
     const stored = normalizeLegacyProfile(current.profile) as ProjectProfile
     profile = pruneResolvedUnknowns(applyProjectProfilePatch(stored, normalized))
     if (!options?.registerEvidence && addsRegisterEvidence(stored, profile)) throw new Error(REGISTER_EVIDENCE_REFUSAL)
@@ -211,28 +125,12 @@ export async function patchProjectProfile(
     return await persistProfile(projectId, session.organizationId, profile, current)
   } catch (error) {
     if (!(error instanceof ConflictError)) throw error
-    // Somebody wrote between our read and our write. `updateProjectProfileIfVersion`
-    // only compares `profileVersion`, so a 409 alone says nothing about WHOSE change
-    // won — read the winner's profile and ask whether it already contains ours. Only
-    // then is the outcome a success; anything else is a conflict the caller must see
-    // and be able to retry, or a patch is reported as applied while it was dropped.
     const fresh = await findProjectProfileInOrg(projectId, session.organizationId)
     if (!fresh || !isPatchAlreadyApplied(fresh.profile, normalized)) throw error
     return { ...fresh, alreadyApplied: true }
   }
 }
 
-/**
- * Write a profile onto a project created a moment ago, with more of the same
- * write in its transaction (the intake row, committed with the facts or not at
- * all).
- *
- * No access check, on purpose: the caller created the project this second, and
- * the FGA grant it made may not have reached the check yet, the reason
- * `createProject` closes a new project through the repository too. Every other
- * profile write goes through {@link patchProjectProfile} or
- * {@link saveProjectProfile}, which ask.
- */
 export async function seedProjectProfile(
   project: ProjectProfileState & { id: string; organizationId: string },
   profile: ProjectProfile,
@@ -241,31 +139,16 @@ export async function seedProjectProfile(
   return persistProfile(project.id, project.organizationId, profile, project, { inTransaction })
 }
 
-/**
- * Optimistic-concurrency write shared by save and patch: rebuild the derived
- * prompt/display views (preserving the async-generated summary), bump the
- * version, and refuse the write when a concurrent request got there first.
- */
 async function persistProfile(
   projectId: string,
   organizationId: string,
   rawProfile: ProjectProfile,
   current: ProjectProfileState,
   options?: {
-    /**
-     * Wizard full-replace: clear the stored AI summary instead of carrying it
-     * over — the prose described the profile being replaced. Patch-driven
-     * edits keep preserving it (regenerating on every chat patch would churn).
-     */
     resetSummary?: boolean
-    /** More of the same write, in its transaction (`updateProjectProfileIfVersion`). */
     inTransaction?: Parameters<typeof updateProjectProfileIfVersion>[4]
   }
 ): Promise<ProjectProfileState> {
-  // Single choke point for BOTH the wizard save and agent patches: a confirmed
-  // fact always retires an unconfirmed assumption under the same key (e.g. the
-  // migration-backfilled `federal_state=wien` default once the user answers the
-  // location question).
   const profile = pruneResolvedAssumptions(rawProfile)
   const updated = await updateProjectProfileIfVersion(
     projectId,
@@ -278,9 +161,6 @@ async function persistProfile(
       profileDisplay: buildProjectProfileDisplay(
         profile,
         options?.resetSummary ? '' : (current.profileDisplay?.summary ?? ''),
-        // The locale travels with the summary: a wizard full-replace resets both
-        // (the new prose will record its own locale when regenerated); a patch
-        // preserves both so a chat edit never drops the language provenance.
         options?.resetSummary ? undefined : current.profileDisplay?.summaryLocale
       ),
       profileUpdatedAt: new Date(),
@@ -289,19 +169,11 @@ async function persistProfile(
   )
   if (!updated) throw new ConflictError('Conflict: profile was modified by another request')
 
-  // Drop BOTH profile-derived caches (prompt-view AND federal_state): a location
-  // change must not leave a stale jurisdiction on the WS handshake for up to
-  // the 5-min TTL. This is the single choke point for the wizard save and agent
-  // patches, so both write paths are covered here.
   await invalidateProjectProfileCaches(projectId, organizationId)
-  // The same choke point copies the fingerprint onto the project's chunks, for
-  // the cross-project search's filters and lift. Never throws: the save is
-  // committed, and the weekly sync repairs a copy that failed.
   await syncProjectFacts(organizationId, projectId)
   return updated
 }
 
-/** The static intake questionnaire definition (gated on project visibility). */
 export async function getProjectIntakeDefinition(
   session: AuthorizedSession,
   projectId: string
@@ -310,14 +182,12 @@ export async function getProjectIntakeDefinition(
   return projectIntakeDefinitionV1
 }
 
-/** The raw finding shape the Python backend returns (prose, not i18n keys). */
 interface BackendConsistencyFinding {
   fields?: unknown
   severity?: unknown
   explanation?: unknown
 }
 
-/** Normalise a backend finding into an {@link AiConsistencyFinding}, or drop it. */
 function toAiFinding(raw: BackendConsistencyFinding): AiConsistencyFinding | null {
   const message = typeof raw.explanation === 'string' ? raw.explanation.trim() : ''
   if (!message) return null
@@ -329,19 +199,6 @@ function toAiFinding(raw: BackendConsistencyFinding): AiConsistencyFinding | nul
   return { kind: 'ai', fields, severity, message }
 }
 
-/**
- * End-of-wizard FREE-TEXT consistency check (FB-13): ask the Python backend's
- * LLM whether the free-text answers contradict the structured answers (or each
- * other), BEFORE the profile is saved. Structured answers are checked
- * deterministically on the client (`intake-consistency.ts`) and passed here only
- * as read-only context.
- *
- * Fully fail-open: this never throws and always resolves to a result the wizard
- * can act on. Any backend transport failure or non-200 degrades to
- * `{ findings: null, error }` (the wizard then saves anyway) — an infrastructure
- * problem must never block the user from saving. `findings: []` means the free
- * text is consistent.
- */
 export async function checkProjectConsistency(
   session: AuthorizedSession,
   projectId: string,
@@ -351,16 +208,11 @@ export async function checkProjectConsistency(
     locale?: string
   }
 ): Promise<{ findings: AiConsistencyFinding[] | null; error?: string }> {
-  // Only editors can save the wizard, and this check is part of that save flow —
-  // align it with generateProjectSummary (also PROFILE_WRITE) rather than the
-  // broader 'project:view'.
   await requireProjectAccess(session, projectId, PROFILE_WRITE)
 
   try {
     const backendRes = await fetch(`${getBackendUrl()}/v1/consistency-check`, {
       method: 'POST',
-      // Forward the org id so the backend can resolve this org's BYOK LLM
-      // credential (falls back to the platform env chain when unset).
       headers: {
         'Content-Type': 'application/json',
         'x-organization-id': session.organizationId,
@@ -370,8 +222,6 @@ export async function checkProjectConsistency(
         structured: input.structured ?? [],
         locale: input.locale ?? 'de',
       }),
-      // A hung backend must never block the save — bound the call and let the
-      // TimeoutError land in the fail-open catch below.
       signal: AbortSignal.timeout(CONSISTENCY_CHECK_TIMEOUT_MS),
     })
 
@@ -391,25 +241,11 @@ export async function checkProjectConsistency(
       error: error ?? undefined,
     }
   } catch (e) {
-    // Transport failure to the backend — degrade to "no findings" so the wizard
-    // proceeds. Never surface this as a save-blocking error.
     console.warn('[ConsistencyCheck] Request failed (non-fatal):', e)
     return { findings: null, error: 'check_request_failed' }
   }
 }
 
-/**
- * Generate an AI summary of the profile via the Python backend and persist it
- * onto profileDisplay. Fully best-effort: every failure mode — backend
- * unreachable, timeout, non-2xx, or the backend's own diagnostic code —
- * resolves to HTTP 200 with `{ summary: '', error }` so callers (the brief's
- * auto/manual generate) can render a state instead of a blown-up request.
- *
- * The LLM is fed the human-readable brief rendering (question/option labels),
- * not the machine prompt view — raw tokens like `escape_level=7-11m` were
- * leaking verbatim into the generated prose. `locale` controls the output
- * language (mirrors the consistency check; defaults to German).
- */
 export async function generateProjectSummary(
   session: AuthorizedSession,
   projectId: string,
@@ -425,29 +261,20 @@ export async function generateProjectSummary(
     return { summary: '' }
   }
 
-  // The locale the backend actually writes the prose in (mirrors its own
-  // default). Persisted with the summary so the brief can later detect a
-  // stale-language summary after a UI locale switch.
   const locale = options?.locale ?? 'de'
 
   let backendRes: Response
   try {
     backendRes = await fetch(`${getBackendUrl()}/v1/generate-summary`, {
       method: 'POST',
-      // Forward the org id so the backend can resolve this org's BYOK LLM
-      // credential (falls back to the platform env chain when unset).
       headers: {
         'Content-Type': 'application/json',
         'x-organization-id': session.organizationId,
       },
       body: JSON.stringify({ profile_text: profileText, locale }),
-      // Bound the call so an unreachable backend rejects promptly (as a
-      // TimeoutError) instead of hanging into a Cloudflare 504.
       signal: AbortSignal.timeout(GENERATE_SUMMARY_TIMEOUT_MS),
     })
   } catch (e) {
-    // Transport failure/timeout to the backend — degrade like every other
-    // generation failure instead of surfacing a 500 to the caller.
     console.error('[GenerateSummary] Backend unreachable (non-fatal):', e)
     return { summary: '', error: 'backend_unreachable' }
   }
@@ -465,9 +292,6 @@ export async function generateProjectSummary(
     return { summary: '', error }
   }
 
-  // Only persist a real summary — never let an empty result clobber an
-  // existing good one. Record the locale it was generated in so a later UI
-  // language switch can trigger exactly one regeneration.
   if (summary) {
     await setProjectProfileSummaryInOrg(projectId, session.organizationId, summary, locale)
   }

@@ -1,25 +1,3 @@
-/**
- * The formula card mounted: what the reader sees and does (ADR-0143).
- *
- * The arithmetic is `../lib/formulas.spec.ts`'s, against hand-computed cases.
- * What is asserted here is the part only a mounted tree shows:
- *
- *   1. A changed input recomputes once the reader pauses or leaves the field,
- *      never mid-number: typing „19" does not judge „1".
- *   2. A changed input is marked as the reader's assumption beside the field,
- *      beside every verdict resting on it and beside the header's verdict;
- *      „Zurücksetzen" restores the source and stays mounted.
- *   3. The bound is the Richtlinie's row for the case the model named.
- *   4. An unknown input is said, never guessed; a refused entry is said as
- *      refused, not as missing.
- *   5. Nothing leaves the browser: no fetch, no send.
- *   6. Through the real A2UI renderer, the inputs live in the surface's data
- *      model: a variant's what-if survives switching tabs.
- *   7. A verdict only where the edition the bounds come from binds at the
- *      site and the gate is settled (the server's `site_binding` stamp);
- *      elsewhere a hint with the reason, and no ✓ or ✗.
- */
-
 import { render as rtlRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
@@ -55,16 +33,13 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-/** The editions that bind at a site, as the server stamps them from the turn's knowledge context. */
 type Coverage = 'settled' | 'unsettled' | 'site_unknown' | 'unavailable'
 const siteWhere = (coverage: Coverage, editions: Record<string, string>) => ({
   coverage,
   editions: Object.entries(editions).map(([designation, edition_label]) => ({ designation, edition_label })),
 })
 const GUIDELINES = ['2', '3', '4', '6'].map((number) => `OIB-Richtlinie ${number}`)
-/** Where the card's own editions bind, with a settled gate: the shape of a core site where 2023 binds throughout. */
 const BINDS_2023 = siteWhere('settled', Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])))
-/** As at a core site where RL 6 binds in its 2025 edition. */
 const BINDS_RL6_2025 = siteWhere('settled', {
   ...Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])),
   'OIB-Richtlinie 6': 'Ausgabe September 2025',
@@ -87,11 +62,9 @@ const mount = (card: FormulaCardData) =>
 
 const riserField = () => screen.getByRole('spinbutton', { name: 'Stufenhöhe s' })
 const checks = () => within(screen.getByRole('region', { name: 'Beurteilung' }))
-/** A number in the Rechenweg: the result the card computed (the verdict row repeats it). */
 const derived = (text: string) => within(screen.getByRole('region', { name: 'Rechenweg' })).getByText(text)
 const resetButton = () => screen.getByRole('button', { name: 'Alle Werte auf die Angaben der Quelle zurücksetzen' })
 
-/** Type into a field and leave it, which reports the value at once. */
 const enter = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) => {
   await user.clear(field)
   await user.type(field, text)
@@ -114,12 +87,10 @@ describe('FormulaCard', () => {
     mount(stair())
     await enter(user, riserField(), '19')
 
-    // 2 × 19 + 29 = 67, outside 59–65; 19 > 18: both verdicts moved with the number.
     expect(derived('67')).toBeInTheDocument()
     expect(checks().getAllByText('nicht erfüllt')).toHaveLength(2)
     expect(screen.getByText('Quelle: 17 cm')).toBeInTheDocument()
     expect(screen.getByText('Gerechnet mit Ihren Annahmen, nicht mit den Werten der Quelle.')).toBeInTheDocument()
-    // Beside the field, beside the two verdicts that rest on the riser (not the Auftritt's), and in the header.
     expect(screen.getAllByText('Ihre Annahme')).toHaveLength(3)
     expect(checks().getAllByText('Ihre Annahme')).toHaveLength(2)
     expect(screen.getByText('mit Ihren Annahmen')).toBeInTheDocument()
@@ -131,7 +102,6 @@ describe('FormulaCard', () => {
     mount(stair())
     await user.clear(riserField())
     await user.type(riserField(), '1')
-    // „1" is below the field's 10, but the reader has not finished: nothing moved, nothing announced.
     expect(derived('63')).toBeInTheDocument()
     expect(screen.queryByText('Zulässig sind 10 bis 25 cm.')).toBeNull()
     await user.type(riserField(), '9')
@@ -167,8 +137,6 @@ describe('FormulaCard', () => {
   })
 
   it('clears a refused entry on „Zurücksetzen" even where the source gives no value', async () => {
-    // The source has no Auftritt, and „1x" reports null too: a reset that only
-    // follows the value would leave the text and its error on screen.
     const user = userEvent.setup()
     mount(stair(null))
     const going = () => screen.getByRole('spinbutton', { name: 'Stufenauftritt a' })
@@ -187,7 +155,6 @@ describe('FormulaCard', () => {
     mount(stair())
     riserField().focus()
     await user.keyboard('{ArrowUp}')
-    // 17 + 0,5 = 17,5; 2 × 17,5 + 29 = 64.
     expect(riserField()).toHaveValue('17,5')
     expect(derived('64')).toBeInTheDocument()
   })
@@ -203,7 +170,6 @@ describe('FormulaCard', () => {
 
   it('takes the bound from the row of Tabelle 3 for the stair type the model named', () => {
     mount(fixtureCard('stair-dwelling'))
-    // s 19 passes the Wohnungstreppe's 20 cm that a Haupttreppe's 18 cm would fail.
     expect(screen.getByText('Wohnungstreppe')).toBeInTheDocument()
     expect(checks().getByText('≤ 20 cm')).toBeInTheDocument()
     expect(checks().getAllByText(/Tabelle 3: Wohnungstreppen/)).toHaveLength(2)
@@ -220,11 +186,9 @@ describe('FormulaCard', () => {
   it('states the Neubau row and Pkt. 4.5 on a U-value, and prints R_T at one precision', () => {
     mount(fixtureCard('u-value-external-wall'))
     expect(screen.getByText(/Zeile 1\)\. Bei der Renovierung mittels Einzelmaßnahmen gilt Pkt\. 4\.5\./)).toBeInTheDocument()
-    // R_T printed as its line's result and as the U line's operand, both at four fixed decimals.
     const rechenweg = within(screen.getByRole('region', { name: 'Rechenweg' }))
     expect(rechenweg.getAllByText('5,9911')).toHaveLength(2)
     expect(rechenweg.getAllByText('5,7143')).toHaveLength(2)
-    // The source's λ prints as written, not rounded to the house two decimals.
     expect(rechenweg.getByText('0,035')).toBeInTheDocument()
   })
 
@@ -245,7 +209,6 @@ describe('FormulaCard', () => {
     expect(screen.getByText('Außenwand gegen Außenluft · Renovierung')).toBeInTheDocument()
     expect(checks().getByText('≤ 0,266 W/(m²K)')).toBeInTheDocument()
     expect(checks().getByText(/Pkt\. 4\.5 b\) mit Pkt\. 4\.4\.1, Zeile 1/)).toBeInTheDocument()
-    // The row says it is the bound WITHOUT a Sanierungskonzept.
     expect(checks().getByText('U-Wert, ohne Sanierungskonzept')).toBeInTheDocument()
     expect(checks().getByText('nicht erfüllt')).toBeInTheDocument()
     expect(screen.getByText(/ohne Sanierungskonzept \(Pkt\. 4\.5 b\)/)).toBeInTheDocument()
@@ -335,7 +298,6 @@ describe('the binding edition at the site', () => {
     expect(
       checks().getByText('Werte aus Ausgabe Mai 2023; am Standort gilt Ausgabe September 2025. Darum keine Beurteilung.')
     ).toBeInTheDocument()
-    // The value against the bound stays, and the header carries no verdict.
     expect(checks().getByText('≤ 0,35 W/(m²K)')).toBeInTheDocument()
     expect(screen.queryAllByText('erfüllt')).toHaveLength(0)
   })
@@ -390,7 +352,6 @@ describe('the binding edition at the site', () => {
   })
 
   it('tints the Rechenweg’s result by its verdict, and not where the check is held', () => {
-    // The last step's result, the figure the tint colours.
     const rechenwegResult = () => screen.getByRole('region', { name: 'Rechenweg' }).querySelector('.card-figure-24')
     const { unmount } = mount(uValue(BINDS_2023))
     expect(rechenwegResult()).toHaveAttribute('style')

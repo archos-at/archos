@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run-report route: the door a finished run's answer comes through.
- *
- * Three things are worth a test here and the happy path is only one of them.
- * The door is shut without the service token. The job id comes from the PATH,
- * so a body cannot name a second run and write into another thread. And a run
- * with no message answers 404 — which is not a failure but the signal the worker
- * reads as „write the turn the old way", and the only thing keeping a
- * pre-ADR-0062 run's report in front of its reader.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,7 +17,7 @@ const TARGET = { runId: RUN, conversationId: 's_conv_1', messageId: 'msg-1' }
 
 function call(body: unknown, headers: Record<string, string> = { 'x-grid-internal-token': SECRET }) {
   return POST(
-    new Request(`https://grid.test/api/internal/runs/by-job/${JOB}/report`, {
+    new Request(`https://example.test/api/internal/runs/by-job/${JOB}/report`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
@@ -38,7 +28,7 @@ function call(body: unknown, headers: Record<string, string> = { 'x-grid-interna
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(writeRunReport).mockResolvedValue(TARGET)
 })
 

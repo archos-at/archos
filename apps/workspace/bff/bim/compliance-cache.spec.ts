@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The compliance memo.
- *
- * The dangerous direction is not a miss — a miss just costs the 1.5 s the
- * cache exists to save. It is a HIT that returns verdicts computed for
- * different inputs: the same revision judged at Gebäudeklasse 4 and at 5 has
- * different fire-resistance thresholds, and serving one for the other is a
- * silent wrong answer of exactly the kind this subsystem is built to prevent.
- */
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -53,8 +44,6 @@ describe('the compliance cache', () => {
   })
 
   it('misses on a different Gebäudeklasse', () => {
-    // GK4 wants R 60 where GK5 wants R 90. Serving one for the other would
-    // report a wall as compliant against a threshold nobody applied.
     writeComplianceCache(model('m-1'), 4, 'residential', 'AT', value('gk4'))
 
     expect(readComplianceCache(model('m-1'), 5, 'residential', 'AT')).toBeNull()
@@ -83,8 +72,6 @@ describe('the compliance cache', () => {
   })
 
   it('misses once the same model has been extracted again', () => {
-    // A same-name re-upload keeps the model id. `updatedAt` is what tells the
-    // corrected file from the one it replaced.
     writeComplianceCache(model('m-1', '2026-11-06T10:00:00.000Z'), 4, null, 'AT', value('old'))
 
     expect(readComplianceCache(model('m-1', '2026-11-06T10:05:00.000Z'), 4, null, 'AT')).toBeNull()
@@ -99,8 +86,6 @@ describe('the compliance cache', () => {
   })
 
   it('carries the truncation flag through, so the warning survives a hit', () => {
-    // A cached run of a capped model must still say it was capped; otherwise
-    // the second reader sees the same partial verdicts without the banner.
     writeComplianceCache(model('m-1'), 4, null, 'AT', { ...value('a'), truncated: true })
 
     expect(readComplianceCache(model('m-1'), 4, null, 'AT')?.truncated).toBe(true)
@@ -116,7 +101,6 @@ describe('the compliance cache', () => {
 
   it('evicts the least recently READ, not the oldest written', () => {
     for (let i = 0; i < 64; i += 1) writeComplianceCache(model(`m-${i}`), 4, null, 'AT', value(`v${i}`))
-    // Touch the oldest so it becomes the most recent.
     expect(readComplianceCache(model('m-0'), 4, null, 'AT')).not.toBeNull()
     writeComplianceCache(model('m-new'), 4, null, 'AT', value('new'))
 

@@ -3,21 +3,6 @@
 import type { JSX } from 'react'
 import type { SkillCategoryListItem } from '@/adapters/api/skills-client'
 
-/**
- * Dev preview for Platform → Skills: the catalogue Piloti writes for every
- * organization. Renders the REAL `PlatformSkillCatalog` with a fetch shim
- * serving `/api/platform/skills`, so every row state is reviewable without a
- * backend: two published OFFERS (on every org's Skills tab, each deciding) and
- * a draft (invisible until the switch is flipped).
- *
- * There used to be a third state, a published STANDARD row running for the
- * whole fleet on nobody's tab. Migration 0088 retired the tier.
- *
- * The shim is installed at MODULE scope, not in an effect: a child's effect
- * fires first and would race a parent's fetch patch.
- * Not linked from anywhere and 404s outside development (see ../layout.tsx).
- */
-
 import { PageHeader } from '@/components/ui/page-header'
 import { I18nProvider, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
@@ -78,15 +63,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformSkillsShim?: boolean }
   if (!w.__platformSkillsShim) {
     w.__platformSkillsShim = true
-    // Mutable working copy: the category manager's create/rename/remove runs
-    // against this, so the preview shows the interaction rather than an error.
-    // Annotated rather than inferred from the seed: the shim CREATES
-    // categories too, and a created one has no slug (only the seeded
-    // platform ones do). Inference from `CATEGORIES` alone narrows `slug`
-    // to `string` and rejects the very rows this shim exists to make.
     const categories: SkillCategoryListItem[] = [...CATEGORIES]
 
-    /** The JSON body the BFF clients send — unparseable means no fields. */
     const parseJsonBody = (body: BodyInit | null | undefined): { name?: unknown } => {
       if (typeof body !== 'string') return {}
       try {
@@ -141,9 +119,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url === '/api/platform/skill-categories') {
         return Response.json({ categories: CATEGORIES })
       }
-      // The publish switch and the delete action. Unanswered, both roll back
-      // against the real backend and the preview shows an error toast instead
-      // of the control working.
       if (url.startsWith('/api/platform/skills/')) {
         return Response.json({ skill: SKILLS[0] })
       }

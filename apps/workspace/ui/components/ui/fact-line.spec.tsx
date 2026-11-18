@@ -14,7 +14,6 @@ describe('FactLine', () => {
         </FactLine>
       )
       const line = screen.getByTestId('line')
-      // Signal-coloured words at 12px measured under AA's 4.5:1 (design-language.md, „Warning gold is a glyph colour“).
       expect(line).toHaveClass('text-foreground', 'font-medium')
       expect(line.className).not.toMatch(/(^|\s)text-(error|warning|destructive)(\s|$)/)
       expect(line.className).toMatch(

@@ -61,10 +61,6 @@ export function reviewItemsFor(
         items.push({ label: q.label, value: raw === 'yes' ? 'Ja' : 'Nein' })
       continue
     }
-    // A plain question can be explicitly open too: "Rest überspringen" records
-    // an unanswered one as mode 'open'. Reading the sibling only for
-    // `number_tri` made every skipped text/select question vanish from this
-    // checklist — the one place the feature promises they reappear.
     if (answers[modeKeyFor(key)] === 'open') {
       items.push({ label: q.label, value: '—', mode: 'open' })
       continue
@@ -146,9 +142,6 @@ export function ReviewStep({
 
   const projectStages = definition.stages
     .map((stage, index) => ({ stage, index }))
-    // `H` is the summary itself. `I` holds document slots rather than answers,
-    // so it would render as an empty section here — the bindings live in
-    // `document_roles`, not in the answer map this summarises.
     .filter(({ stage }) => stage.scope !== 'building' && stage.id !== 'H' && stage.id !== 'I')
   const buildingStages = definition.stages
     .map((stage, index) => ({ stage, index }))
@@ -215,10 +208,6 @@ export function ReviewStep({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Findings panel (unchanged behaviour, adapted to modules).
-// ---------------------------------------------------------------------------
-
 export function resolveReviseStage(
   definition: ProjectIntakeDefinition,
   finding: ConsistencyFinding
@@ -279,12 +268,6 @@ export function ConflictFindings({
               key={index}
               className={cn(
                 'rounded-surface border px-4 py-3 text-sm',
-                // `border-destructive` is a real theme colour (`--color-destructive`
-                // in the `@theme inline` block), so its slash form compiles.
-                // `border-warning` is a static `@utility` with no `--modifier()`,
-                // so `border-warning/40` compiled to nothing and the soft-warning
-                // row was outlined in the neutral default. The warning border token
-                // is already ~55% alpha; the solid class is the intended edge.
                 isHard
                   ? 'border-destructive/30 bg-danger-subtle text-destructive'
                   : 'border-warning bg-warning-subtle text-warning'
@@ -328,7 +311,3 @@ export function ConflictFindings({
     </section>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Atomic field renderer — one per question type.
-// ---------------------------------------------------------------------------

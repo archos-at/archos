@@ -38,7 +38,6 @@ const table: fc.Arbitrary<DecisionTable> = fc
     } satisfies DecisionTableInput)
   )
 
-/** First hit over json-logic-js on complete facts: the row id, `null` for otherwise, `undefined` when none applies. */
 function reference(
   decision: DecisionTable,
   facts: Record<string, unknown>

@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * What this place is for and what each step means, where the person is when
- * they wonder: three steps (upload, confirm, keep current) and the licence
- * question, each saying why it matters for the answers. Open by itself while
- * the place is empty, a disclosure once the office knows its way around.
- */
-
 import { useState, type JSX } from 'react'
 import { ChevronDown, CircleHelp } from 'lucide-react'
 import { Button } from '@/components/ui/button'

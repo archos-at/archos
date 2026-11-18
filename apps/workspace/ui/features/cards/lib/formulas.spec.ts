@@ -2,16 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The named rules against hand-computed cases, through `calculation`'s own
- * arithmetic.
- *
- * The cases are `formula-cases.json`, the fixture both sides read: the backend
- * validates every card in it against `cards/models.py`, this spec compiles and
- * judges every one. Each case's `work` field is the hand calculation its
- * expected numbers come from.
- */
-
 import { describe, expect, it } from 'vitest'
 import { answerCardSchema } from '@/shared/cards/schemas'
 import cases from './formula-cases.json'
@@ -52,7 +42,6 @@ interface FormulaCase {
 const fixture = cases as unknown as { tolerance: number; cases: FormulaCase[] }
 const byId = new Map(fixture.cases.map((entry) => [entry.id, entry]))
 
-/** Labels are the keys themselves, so a step can be found by what it computes. */
 const words: FormulaWords = {
   line: (key) => key,
   term: (key, params) => [key, params?.group].filter(Boolean).join(' '),
@@ -75,7 +64,6 @@ const STEP_OF: Record<string, string> = {
   total_resistance: 'totalResistance',
 }
 
-/** A named quantity off a judged rule; `required_share` is the daylight bound, derived or constant. */
 const quantity = (compiled: CompiledFormula, judged: JudgedFormula, name: string) => {
   if (name === 'required_share') {
     const check = judged.checks.find((entry) => entry.spec.id === 'daylightMin')
@@ -94,7 +82,6 @@ describe('the hand-computed cases', () => {
       if (expected == null) {
         expect(actual.value, `${entry.id}: ${name} must not be computed`).toBeNull()
       } else {
-        // Relative, because a U-value of 0,17 and a route of 36,5 m share one tolerance.
         expect(Math.abs((actual.value as number) - expected) / Math.abs(expected)).toBeLessThan(fixture.tolerance)
       }
     }
@@ -148,7 +135,6 @@ describe('the bounds are the Richtlinien’s, transcribed', () => {
     expect(uValueBound('external_wall', 'renovation')).toBe(0.266)
     expect(uValueBound('roof_or_ceiling_to_outside_air', 'renovation')).toBe(0.152)
     expect(uValueBound('external_wall', null)).toBeNull()
-    // A größere Renovierung is held to Pkt. 4.3's energy figures, not to a table row.
     expect(uValueBound('external_wall', 'major_renovation')).toBeNull()
   })
 

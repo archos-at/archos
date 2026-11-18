@@ -121,7 +121,7 @@ describe.skipIf(!url)('the change record against live Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -217,7 +217,6 @@ describe.skipIf(!url)('the change record against live Postgres', () => {
     expect(claim.undoneAt).toBeInstanceOf(Date)
     expect(await inOrg(ORG, () => repo.claimUndo(ORG, row.id, USER))).toBeNull()
 
-    // A release naming another stamp clears nothing.
     await inOrg(ORG, () => repo.releaseUndo(ORG, { ...claim, undoneAt: new Date(claim.undoneAt!.getTime() - 1000) }))
     expect(await inOrg(ORG, () => repo.findAgentChange(ORG, row.id))).toMatchObject({ undoneBy: claim.undoneBy })
 
@@ -231,7 +230,6 @@ describe.skipIf(!url)('the change record against live Postgres', () => {
     expect(await inOrg(OTHER_ORG, () => repo.findAgentChange(OTHER_ORG, row.id))).toBeNull()
     expect(await inOrg(OTHER_ORG, () => repo.claimUndo(OTHER_ORG, row.id, USER))).toBeNull()
     expect(await inOrg(OTHER_ORG, () => repo.listTurnChangeRows(OTHER_ORG, ids.conversation, ANSWER))).toEqual([])
-    // Row-level security, not only the WHERE: the other tenant's scope sees no row at all.
     const seen = await inOrg(OTHER_ORG, () => db.execute(sql`select id from agent_changes where id = ${row.id}::uuid`))
     expect(Array.from(seen)).toHaveLength(0)
 
@@ -256,7 +254,6 @@ describe.skipIf(!url)('the change record against live Postgres', () => {
     await inOrg(ORG, () => db.execute(sql`delete from documents where id = ${doomed}::uuid`))
     expect(await inOrg(ORG, () => repo.findAgentChange(ORG, onDoomed.id))).toBeNull()
 
-    // No mark with MARK's id was ever stored: the record never needed one.
     const markless = await record()
     expect(await inOrg(ORG, () => repo.findAgentChange(ORG, markless.id))).not.toBeNull()
   })

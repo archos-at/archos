@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The stopped-answer cut rewrites an answer's text, so who may ask is the
- * point: a collaborator on the conversation, asking about the answer of a
- * turn whose question is their own. What the cut keeps is
- * `lib/conversations/stopped-cut.spec.ts`.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({
@@ -40,8 +34,6 @@ vi.mock('@/lib/conversations/repository', () => ({
 }))
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
-// Which people may read what the conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -93,7 +85,6 @@ describe('POST /api/conversations/[id]/messages/[messageId]/stopped', () => {
     vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor' } as never)
     vi.mocked(findGrantForSubject).mockResolvedValue(null)
     findMessageInConversation.mockResolvedValue({ id: TURN_ID, role: 'user', authorUserId: 'user_1' })
-    // The repository calls the revision with the stored row under its lock.
     reviseMessage.mockImplementation(async (_conversation, _message, revise) => {
       const revision = revise(answer)
       return revision ? { ...answer, ...revision } : answer

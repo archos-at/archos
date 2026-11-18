@@ -2,11 +2,8 @@ import type { ReactNode } from 'react';
 import { joinClasses } from './join-classes';
 
 export interface HeroProps {
-  /** display-xl, left over eight columns */
   title: ReactNode;
-  /** Lead in ink, right-aligned, bottom-aligned with the title */
   text?: ReactNode;
-  /** Wide image below (an <img>), hero-ratio (about 7:4), gutter-wide. Sub pages: none */
   media?: ReactNode;
   as?: 'h1' | 'h2';
   className?: string;

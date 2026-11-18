@@ -7,29 +7,26 @@ import { dump } from "js-yaml";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POSTHOG_LOG_ATTRIBUTES, POSTHOG_LOG_REDACTION, WITHHELD, posthogLogs } from "./otel-collector";
 
-/**
- * No office text reaches PostHog Logs (configs/subprocessors/posthog.yaml).
- *
- * The positive control: a WARN line naming a document and quoting a licensed
- * norm goes through the real collector, with the processors the PostHog logs
- * pipeline runs, into a file exporter that stands in for PostHog. Neither the
- * name nor the quote may arrive; the area tag, the severity and the code
- * location must. A collector that cannot run the statements fails the spec
- * instead of exporting the line as it came.
- *
- * Needs `OTELCOL_BIN` (CI's infra job installs the pinned build), like
- * `collector-validate.spec.ts`; without it the end-to-end half is skipped.
- */
-
 const OTELCOL_BIN = process.env.OTELCOL_BIN;
 const DOCUMENT = "Gutachten_Brandschutz_Mueller_Haus7.pdf";
 const LICENSED = "Fluchtwege sind so anzuordnen, dass sie von jeder Stelle eines Raumes erreichbar sind";
 
 describe("the PostHog logs pipeline", () => {
   it("runs the redaction after the severity filter and before the exporter", () => {
-    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test");
-    expect(fragment.pipelines?.["logs/posthog"]?.processors).toEqual(["filter/warn_and_above", "transform/posthog_redact"]);
+    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "dev");
+    expect(fragment.pipelines?.["logs/posthog"]?.processors).toEqual([
+      "filter/warn_and_above",
+      "transform/posthog_redact",
+      "resource/logs_environment",
+    ]);
     expect(fragment.processors?.["transform/posthog_redact"]).toBe(POSTHOG_LOG_REDACTION);
+  });
+
+  it("names the stack on every log, so dev and prod stay apart in the one project", () => {
+    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "prod");
+    expect(fragment.processors?.["resource/logs_environment"]).toEqual({
+      attributes: [{ key: "deployment.environment.name", value: "prod", action: "insert" }],
+    });
   });
 
   it("keeps no attribute that carries a message", () => {
@@ -66,7 +63,7 @@ describe.skipIf(!OTELCOL_BIN)("the real collector withholds office text from Pos
     const dir = mkdtempSync(join(tmpdir(), "posthog-redact-"));
     out = join(dir, "exported.jsonl");
     port = await freePort();
-    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test");
+    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "dev");
     const config = {
       receivers: { otlp: { protocols: { http: { endpoint: `127.0.0.1:${port}` } } } },
       processors: fragment.processors,

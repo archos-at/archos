@@ -20,18 +20,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('openPoints.title') }
 }
 
-/**
- * A project's Offene Punkte: the open Anmerkungen of all its documents, for
- * the Jour fixe. The first page is read here, with the page's default filters,
- * so the first paint is the list; the panel reads every other page and filter
- * through the typed client.
- *
- * „Im Projekt ablegen" files the Protokoll into the project root, so it is
- * offered to a reader who may upload there (`canWriteFolder(…, null)`, the
- * check the upload door makes) while the project is not closed. Whether what
- * the filters select may go where every member reads is the list's own answer
- * (`restricted`).
- */
 export default async function OpenPointsPage({ params }: OpenPointsPageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id } = await params

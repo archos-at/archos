@@ -26,11 +26,6 @@ describe('langfuseApiConfig', () => {
     })
   })
 
-  /**
-   * The SDK's own default host is Langfuse Cloud. Keys without a host must not
-   * fall through to it: votes carry tenant text, and ADR-0044 keeps that in the
-   * cluster.
-   */
   it('is null with keys but no host, rather than defaulting to Langfuse Cloud', () => {
     vi.stubEnv('LANGFUSE_PUBLIC_KEY', 'pk-lf-1')
     vi.stubEnv('LANGFUSE_SECRET_KEY', 'sk-lf-1')

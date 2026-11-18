@@ -1,19 +1,3 @@
-"""The Erfassungs-Agent's own tools: ``intake_needs``, ``record_values``, ``withdraw_values``, ``finish_intake``.
-
-ADR-0111.
-
-Built per run in Python, not registered with the agent runtime: they exist only for this
-agent, close over the run's :class:`IntakeSession`, and nothing else binds
-them. The rules about how each is used live in its description (ADR-0060), so
-the prompt keeps only the job.
-
-The BFF decides what a recorded value becomes. This side checks only what it
-can check better than the BFF: that the quote stands in text this run read of
-that file (``read_log``), that a token is one of the question's options, and,
-for a select question, whether the quote says the value at all
-(``knowledge/fingerprint_verify``, ADR-0096's check, ADR-0064 use 12).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -42,17 +26,12 @@ RECORD_VALUES_TOOL = "record_values"
 WITHDRAW_VALUES_TOOL = "withdraw_values"
 FINISH_INTAKE_TOOL = "finish_intake"
 
-#: The quote the model copies: the exact words, short enough to read on the review.
 MAX_QUOTE_CHARS = 300
-#: Needs one rendering lists; the rest are counted and stay for the next call.
 MAX_RENDERED_NEEDS = 60
-#: Unread file names one rendering lists.
 MAX_RENDERED_FILES = 40
 MAX_WHY_CHARS = 160
 MAX_OPTIONS_RENDERED = 30
-#: Opened needs one record answer names; the rest are counted.
 MAX_RENDERED_OPENED = 30
-#: Keys and files the finish hold names.
 MAX_HELD_ITEMS = 12
 
 SELECT_TYPES = frozenset({"single_select", "multi_select"})
@@ -88,14 +67,11 @@ _CLASS_REFUSAL = (
     "refused: the building class is derived from the inputs you record, never recorded; record the inputs the "
     "document gives"
 )
-#: Keys one ``unknown-key`` refusal names as the closest it knows.
 CLOSEST_KEYS = 3
 
 
 @dataclass
 class IntakeSession:
-    """One run's dealings with the intake API: what it was told, and what came of it."""
-
     job_id: str
     organization_id: str | None = None
     needs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -105,11 +81,9 @@ class IntakeSession:
     finish_status: str | None = None
     summary: str = ""
     stale: bool = False
-    #: ``finish_intake`` answered once with what is still open instead of finishing.
     finish_held: bool = False
     outcomes: Counter = field(default_factory=Counter)
     refusals: Counter = field(default_factory=Counter)
-    #: How many opened files the BFF has been told about (``progress``), and how often it was told.
     files_reported: int = 0
     progress_reports: int = 0
 
@@ -120,11 +94,7 @@ class IntakeSession:
         self.decisive_open = sum(1 for need in needs if need.get("decisive") and need.get("state") == "open")
 
     def closest_keys(self, key: str) -> list[str]:
-        """The keys intake_needs listed that come closest to ``key``: for a refusal the model can act on."""
         return difflib.get_close_matches(key, list(self.needs), n=CLOSEST_KEYS, cutoff=0.5)
-
-
-# ── intake_needs ─────────────────────────────────────────────────────────────
 
 
 def _options_text(need: dict[str, Any]) -> str:
@@ -137,7 +107,6 @@ def _options_text(need: dict[str, Any]) -> str:
 
 
 def render_need(need: dict[str, Any]) -> str:
-    """One need as one line: key, label, type and unit, state, options, where it is found, why it is asked."""
     flags = "[decisive] " if need.get("decisive") else ""
     unit = f", {need['unit']}" if need.get("unit") else ""
     found_in = ", ".join(str(item) for item in need.get("foundIn") or [])
@@ -160,11 +129,6 @@ def _need_order(need: dict[str, Any]) -> tuple[int, int]:
 
 
 def render_needs(body: dict[str, Any], start: int = 0) -> str:
-    """The ``needs`` answer as the model reads it: bounded, decisive first, then open, suggested, confirmed.
-
-    ``start`` pages past the first :data:`MAX_RENDERED_NEEDS`; the answer says
-    when it is bounded and which call shows the rest.
-    """
     needs = sorted((need for need in body.get("needs") or [] if isinstance(need, dict)), key=_need_order)
     unread = [str(name) for name in body.get("unreadFiles") or []]
     lines = [f"Mode: {body.get('mode') or 'active'}"]
@@ -217,9 +181,6 @@ class NeedsInput(BaseModel):
     start: int = Field(
         default=0, ge=0, description="Skip this many needs: the answer names the next start when bounded."
     )
-
-
-# ── record_values ────────────────────────────────────────────────────────────
 
 
 class RecordedValue(BaseModel):
@@ -293,7 +254,6 @@ _GROUPED_THOUSANDS = re.compile(r"^-?\d{1,3}(\.\d{3})+$")
 
 
 def _number(text: str) -> int | float | None:
-    """A number as a German document writes it: `12,5`, `1.200`, `1.200,50`; None when it is not one."""
     text = text.strip().replace("\u00a0", "").replace(" ", "")
     if "," in text:
         text = text.replace(".", "").replace(",", ".")
@@ -307,7 +267,6 @@ def _number(text: str) -> int | float | None:
 
 
 def _coerce(value: Any, need: dict[str, Any] | None) -> Any:
-    """The value in the type the question takes, where the model sent it as text: `"12,5"` for a number."""
     kind = (need or {}).get("type")
     if kind in NUMBER_TYPES and isinstance(value, str):
         number = _number(value)
@@ -322,7 +281,6 @@ def _coerce(value: Any, need: dict[str, Any] | None) -> Any:
 
 
 def _outside_options(value: Any, need: dict[str, Any] | None) -> list[str]:
-    """Tokens of a select value that are not among the question's options."""
     if not need or need.get("type") not in SELECT_TYPES or not need.get("options"):
         return []
     tokens = {str(option.get("token")) for option in need["options"] if isinstance(option, dict)}
@@ -350,14 +308,11 @@ class _Candidate:
 
 @dataclass(frozen=True)
 class _NotSent:
-    """Why a value never left the process: a code for the trace, a sentence for the model."""
-
     code: str
     text: str
 
 
 def _checked(index: int, item: RecordedValue, session: IntakeSession) -> _Candidate | _NotSent:
-    """The value ready to verify and send, or why it is not sent."""
     log = current_read_log()
     quote = " ".join((item.quote or "").split())[:MAX_QUOTE_CHARS].strip()
     if log is None:
@@ -393,10 +348,8 @@ def _checked(index: int, item: RecordedValue, session: IntakeSession) -> _Candid
 
 
 def _where(item: RecordedValue) -> tuple[str, int | None]:
-    """The file and page a value names: ``file_name`` and ``page`` when given, else parsed from its citation."""
     if item.file_name and item.file_name.strip():
         name = item.file_name.strip()
-        # A model that put the whole citation in file_name: read it as one.
         parsed, page = citation_parts(name)
         return (name, None) if page is None else (parsed, page)
     if item.citation and item.citation.strip():
@@ -405,7 +358,6 @@ def _where(item: RecordedValue) -> tuple[str, int | None]:
 
 
 def _not_read_text(log: Any, file_name: str, quote: str, page: int | None) -> str:
-    """Why a quote was not sent, with the closest passage that WAS read there, so the next call can succeed."""
     text = f"not sent: the quote does not stand in what you read of „{file_name}“."
     closest = log.closest(file_name, quote, page)
     if closest is None:
@@ -418,11 +370,6 @@ def _not_read_text(log: Any, file_name: str, quote: str, page: int | None) -> st
 
 
 def _verify_selects(candidates: list[_Candidate], session: IntakeSession) -> dict[int, str]:
-    """Ask the decision model whether each select value's quote states it; drop the clear contradictions.
-
-    Blocking. Returns the refusal per candidate index; a multi-select value it
-    trims keeps its remaining tokens in place.
-    """
     from agent.knowledge.fingerprint_verify import verify_fingerprint
     from agent.knowledge.project_experience import Evidence
     from agent.knowledge.project_experience import FingerprintValue
@@ -479,7 +426,6 @@ def _outcome_line(key: str, result: dict[str, Any], session: IntakeSession) -> t
 
 
 def render_opened(opened: Any) -> str:
-    """The needs a record opened, as one line: ``opened: key [decisive], …``; empty when it opened none."""
     items = [item for item in opened or [] if isinstance(item, dict) and item.get("key")]
     if not items:
         return ""
@@ -491,7 +437,6 @@ def render_opened(opened: Any) -> str:
 
 
 async def record_values(session: IntakeSession, values: list[RecordedValue]) -> str:
-    """Check, verify and send ``values``; one line per key. Never raises."""
     if session.stale:
         return "Not sent: this reading is no longer the project's current one. Call finish_intake and stop."
     if session.finished:
@@ -533,7 +478,6 @@ async def record_values(session: IntakeSession, values: list[RecordedValue]) -> 
 def _record_results(
     session: IntakeSession, sent: list[_Candidate], reply: client.IntakeReply, lines: dict[int, str]
 ) -> None:
-    """One line per value the route answered, counted on the session."""
     results = reply.body.get("results") if reply.ok else None
     for position, candidate in enumerate(sent):
         result = results[position] if isinstance(results, list) and position < len(results) else None
@@ -543,9 +487,6 @@ def _record_results(
         counted, text = _outcome_line(candidate.key, result, session)
         (session.refusals if counted.startswith("refused") else session.outcomes)[counted] += 1
         lines[candidate.index] = f"- {candidate.key} = {candidate.value!r}: {text}"
-
-
-# ── withdraw_values ──────────────────────────────────────────────────────────
 
 
 class WithdrawInput(BaseModel):
@@ -565,7 +506,6 @@ WITHDRAW_VALUES_DESCRIPTION = (
 
 
 async def withdraw_values(session: IntakeSession, keys: list[str]) -> str:
-    """Send the keys to ``withdraw``; one line per key. Never raises."""
     if session.stale:
         return "Not sent: this reading is no longer the project's current one. Call finish_intake and stop."
     if session.finished:
@@ -593,9 +533,6 @@ async def withdraw_values(session: IntakeSession, keys: list[str]) -> str:
     return "\n".join(lines) or "No result returned."
 
 
-# ── finish_intake ────────────────────────────────────────────────────────────
-
-
 class FinishInput(BaseModel):
     summary: str = Field(
         description=(
@@ -617,7 +554,6 @@ FINISH_INTAKE_DESCRIPTION = (
 
 
 async def finish_intake(session: IntakeSession, summary: str) -> str:
-    """POST ``finish`` once, with the files the run opened and the trace id. Never raises."""
     from agent.observability.turn_trace import current_trace_id_hex
 
     if session.finished:
@@ -637,14 +573,6 @@ async def finish_intake(session: IntakeSession, summary: str) -> str:
 
 
 async def report_progress(session: IntakeSession) -> None:
-    """POST ``progress`` once the run has opened a file it has not reported yet. Never raises.
-
-    The person who started the reading may watch the setup page count the
-    documents („23 Dokumente gelesen"); ``finish`` alone would leave that count
-    at the last reading's until the end. Not a tool: the middleware calls it
-    after every tool call, and it sends only when the read log grew. A failed
-    report is tried again after the next call; a stale one stops the reports.
-    """
     if session.stale or session.finished or not session.job_id:
         return
     log = current_read_log()
@@ -665,11 +593,6 @@ def _named(items: list[str]) -> str:
 
 
 async def finish_hold(session: IntakeSession) -> str | None:
-    """Once per run: what stands against finishing now, when decisive needs are open and files are unread.
-
-    None when nothing does, when the hold was given already, or when the needs
-    cannot be read: a failed check never keeps a run from finishing.
-    """
     if session.finish_held or session.finished or session.stale:
         return None
     reply = await client.call_intake("needs", client.needs_request(session.job_id))
@@ -693,11 +616,6 @@ async def finish_hold(session: IntakeSession) -> str | None:
 def make_intake_tools(
     session: IntakeSession, *, budget_spent: Callable[[], bool] = lambda: False
 ) -> list[StructuredTool]:
-    """The four intake tools, bound to this run's session.
-
-    ``budget_spent`` says the step budget is used up: then ``finish_intake``
-    finishes at once, since nothing else would run.
-    """
 
     async def _needs(start: int = 0) -> str:
         reply = await client.call_intake("needs", client.needs_request(session.job_id))
@@ -733,8 +651,6 @@ def make_intake_tools(
             description=WITHDRAW_VALUES_DESCRIPTION,
             args_schema=WithdrawInput,
         ),
-        # Not return_direct: a held finish must reach the model. The run ends on
-        # ``session.finished`` instead (``IntakeToolMiddleware.abefore_model``).
         StructuredTool.from_function(
             coroutine=_finish,
             name=FINISH_INTAKE_TOOL,

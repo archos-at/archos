@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run reconciler: which runs it closes, how, and that doing it twice is
- * doing it once.
- *
- * The decision is a pure function of the run's age, the job store's answer and
- * the clock, so its table is pinned case by case. The moves are then pinned
- * against the three functions the worker's own writes reach — the reconciler
- * must be a second caller of the same path, never a second path.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -195,15 +186,12 @@ describe('reconcileRun', () => {
     expect(await reconcileRun(run, CONFIG, NOW)).toBe('closed')
 
     expect(writeRunReport).toHaveBeenCalledWith('job-1', message)
-    // The block is the recorder's to settle, the same as on the worker's own
-    // report: one path, so no closing path can forget it.
     expect(settleRunLedger).not.toHaveBeenCalled()
     expect(recordRunOutcome).toHaveBeenCalledWith(
       run,
       { status: 'success', error: null, report: '# Bericht', cards: null },
       { onlyIfActive: true },
     )
-    // The row last: a sweep that fails halfway leaves it active for the next one.
     expect(order).toEqual(['message', 'row'])
   })
 
@@ -253,10 +241,6 @@ describe('reconcileRun', () => {
   })
 
   describe('a job the store cannot produce, whose block already reads done', () => {
-    // The worker writes `done` only after it stored the report: the block is
-    // the evidence the lost job would have given. Before, such a run was
-    // closed as failed with „nicht mehr auffindbar" beside a block reading
-    // „fertig", and its report was never filed.
     const doneLedger = {
       runId: 'run-1',
       status: 'done' as const,
@@ -396,7 +380,6 @@ describe('reconcileStaleRuns', () => {
     const result = await reconcileStaleRuns(NOW, CONFIG)
 
     expect(claimClosedRunsToHeal).toHaveBeenCalledWith(HEAL_BATCH)
-    // Dated to when the row ended, not to the heal.
     expect(settleRunLedger).toHaveBeenCalledWith(
       reaped,
       { status: 'failure', error: 'Job timed out' },
@@ -434,8 +417,6 @@ describe('reconcileStaleRuns', () => {
 
     await reconcileStaleRuns(NOW, CONFIG)
 
-    // The claim's stamp is past the run's finished_at, which never moves: left
-    // in place, the run would never be claimed again.
     expect(releaseHealClaim).toHaveBeenCalledTimes(1)
     expect(releaseHealClaim).toHaveBeenCalledWith('a')
     expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_a' }, expect.any(Function))

@@ -1,60 +1,25 @@
 'use client'
 
-/**
- * A number with its unit, typed in place: `[ 20 ] cm`.
- *
- * The kit's `Input` is a text field; a quantity needs four things more, and
- * each is easy to get subtly wrong in a card:
- *
- *  - **The Austrian decimal comma.** `type="number"` rejects „0,035" in some
- *    browsers and reports it as blank in others. This is a text field with a
- *    decimal keyboard (`inputMode="decimal"`) read by `parseDecimalInput`, the
- *    product's one strict parse, so „0,035" and „0.035" are the same number and
- *    „0,0x" is an error, never a silent 0.
- *  - **Typing is not deciding.** Typing „19" passes through „1", and a field
- *    that reported every keystroke would announce „1 is out of range" and flip
- *    a verdict the reader never meant. The typed value is reported once the
- *    reader pauses (`settleMs`), leaves the field or presses Enter; an error is
- *    shown and announced (politely) only then. The arrow keys report at once:
- *    each press is a decision.
- *  - **The keyboard.** It is a `spinbutton`: ArrowUp and ArrowDown move by
- *    `step` (PageUp/PageDown by ten steps), Home and End go to the bounds, and
- *    a screen reader hears the value, the unit and the range.
- *  - **The touch floor.** The field is the kit's `Input`, 44px under a coarse
- *    pointer; the unit sits beside it as text, so a long unit („W/(m·K)")
- *    never covers the digits.
- *
- * It reports a number, or `null` with the reason (`QuantityIssue`): blank is
- * no issue, and what null MEANS is the caller's.
- */
-
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Input } from '@/components/ui/input'
 import { useLocale } from '@/i18n'
 import { formatDecimalInput, parseDecimalInput } from '@/lib/text/parse-decimal'
 import { cn } from '@/lib/utils'
 
-/** Why a typed text is not a value: not a number, outside the bounds, or 0 where 0 is impossible. */
 export type QuantityIssue = 'notANumber' | 'outOfRange' | 'zero'
 
 export interface QuantityInputProps {
   value: number | null
   onValueChange: (value: number | null, issue: QuantityIssue | null) => void
   unit: string
-  /** The accessible name: what the quantity is. */
   label: string
   min?: number | null
   max?: number | null
   step?: number | null
-  /** `min` is exclusive at 0: a λ or a floor area of 0 is not a value but a division by zero. */
   positive?: boolean
-  /** Shown in an empty field: what an empty value means. */
   placeholder?: string
-  /** A sentence under the field when the typed text is not an admissible number. */
   invalidMessage?: (issue: QuantityIssue) => string
-  /** Ids of text that describes the field further (its source, the reader's-assumption marker). */
   describedBy?: string
-  /** How long after the last keystroke the typed value is reported. */
   settleMs?: number
   className?: string
 }
@@ -95,7 +60,6 @@ export function QuantityInput({
 }: QuantityInputProps) {
   const { locale } = useLocale()
   const [text, setText] = useState(() => formatDecimalInput(value, locale))
-  // The issue SHOWN: set when a typed text is reported, never while typing.
   const [shown, setShown] = useState<QuantityIssue | null>(null)
   const lastReported = useRef<number | null>(value)
   const pending = useRef<string | null>(null)
@@ -113,8 +77,6 @@ export function QuantityInput({
     onValueChange(reading.value, reading.issue)
   }
 
-  // A value set from outside (a reset to the source) replaces the text; the
-  // reader's own typing, already reported, does not echo back over it.
   useEffect(() => {
     if (Object.is(value, lastReported.current) || pending.current != null) return
     lastReported.current = value
@@ -122,8 +84,6 @@ export function QuantityInput({
     setShown(null)
   }, [value, locale])
 
-  // A typed value not yet reported is reported when the field goes away (a tab
-  // switch), not lost. The ref holds the latest `report` for the cleanup.
   const reportRef = useRef(report)
   reportRef.current = report
   useEffect(

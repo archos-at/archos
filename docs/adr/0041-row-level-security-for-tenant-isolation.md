@@ -166,8 +166,10 @@ organization arrives, or `{ crossTenant }`, recording why there is none.
   The purger and scheduler share one helper and both have specs asserting the
   step-up is issued.
 - **A refactor could drop a factory's `run()`** and reintroduce the keep-alive
-  leak, which fails open and silently. `tenant-context.spec.ts` asserts every
-  factory opens a slot and that `enterWith` has exactly one call site. The
+  leak, which fails open and silently. `tenant-context-routes.spec.ts` asserts
+  each factory runs its request in a slot of its own, and
+  `tenant-slot-coverage.spec.ts` asserts every route opens one and that
+  `enterWith` has exactly one call site. The
   keep-alive reproduction itself is deliberately not a test: it asserts Node's
   scheduling rather than our code and does not fire under the vitest runner, so
   it would be a flake that proves nothing.

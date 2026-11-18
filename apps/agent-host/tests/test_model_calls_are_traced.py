@@ -1,16 +1,3 @@
-"""Every model call a route makes itself is a Langfuse generation (ADR-0089).
-
-A route under ``routes/`` runs outside any agent-runtime workflow, so the runtime's span exporter
-never sees a ``/chat/completions`` POST it makes: six such calls once cost money
-and seconds with no trace anywhere. The ratchet is a source scan: every call
-that names the endpoint must sit inside an ``async with observed_generation(...)``
-block (``agent.observability.direct_trace``), so a seventh route that skips
-it fails here instead of going dark in production.
-
-The route-level test below proves the wrapping is live, not just present: the
-summary route's real handler produces the span, with the provider's usage on it.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -33,7 +20,6 @@ ROUTES = Path(__file__).resolve().parents[1] / "src" / "agent_host" / "routes"
 MODEL_ENDPOINT = "/chat/completions"
 WRAPPER = "observed_generation"
 
-#: The call sites the scan must find, so a glob that matched nothing cannot pass.
 KNOWN = {
     "cleanup_proposal.py",
     "consistency_check.py",
@@ -67,7 +53,6 @@ def _opens_the_wrapper(node: ast.AST) -> bool:
 
 
 def _model_calls(tree: ast.AST) -> list[tuple[ast.Call, list[ast.AST]]]:
-    """Every call whose arguments name the model endpoint, with its ancestors."""
     found: list[tuple[ast.Call, list[ast.AST]]] = []
 
     def visit(node: ast.AST, ancestors: list[ast.AST]) -> None:
@@ -81,7 +66,6 @@ def _model_calls(tree: ast.AST) -> list[tuple[ast.Call, list[ast.AST]]]:
 
 
 def _call_sites() -> list[tuple[str, int, bool]]:
-    """``(file, line, traced)`` for every model call under ``routes/``."""
     sites: list[tuple[str, int, bool]] = []
     for path in sorted(ROUTES.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform storage table.
- *
- * The fixture covers every row state the operator has to tell apart at a glance:
- * one tenant over its quota, one close to it, one comfortably within, one on the
- * inherited platform default, and one explicitly unlimited. Sizes span GB to MB
- * so the byte formatter is exercised across units, and one org has no display
- * name so the id fallback is visible.
- *
- * The upload-limit column shows both of its states: two organizations carry
- * their own per-file limit (one raised for large plan sets, one lowered), the
- * rest read "Standard (100 MB)".
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/page-header'
@@ -85,8 +71,6 @@ const OVERVIEW: PlatformStorageResponse = {
   uploadLimit: { defaultBytes: DEFAULT_UPLOAD_LIMIT, minBytes: MB, ceilingBytes: 250 * MB },
 }
 
-// Module scope, not a useEffect: a shim installed from an effect loses the race
-// with the child component's own mount-time fetch.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformStorageShim?: boolean }
   if (!w.__platformStorageShim) {
@@ -96,8 +80,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url.startsWith('/api/platform/storage')) return Response.json(OVERVIEW)
-      // A quota write: apply it to the fixture so the reload shows it, and
-      // refuse a quota below usage the way the route does.
       const quota = /^\/api\/platform\/organizations\/([^/]+)\/storage$/.exec(url)
       if (quota && init?.method === 'PUT') {
         const { quotaBytes } = JSON.parse(String(init.body)) as { quotaBytes: number | null }
@@ -111,7 +93,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         Object.assign(row, { quotaBytes, inherited: false })
         return Response.json({ quotaBytes })
       }
-      // An upload-limit write: refused above the ceiling the way the route does.
       const limit = /^\/api\/platform\/organizations\/([^/]+)\/upload-limit$/.exec(url)
       if (limit && init?.method === 'PUT') {
         const { maxUploadFileBytes } = JSON.parse(String(init.body)) as {

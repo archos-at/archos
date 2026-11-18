@@ -24,7 +24,7 @@ the `usage-export` Hatchet task every ten minutes (`sweepUsageExport` in
 | Event | One per | What it carries |
 |---|---|---|
 | `llm_usage_hourly` | organization × closed UTC hour × model × activity × purpose × person × project × key | `amount` in the organization's own unit (credits, or tokens on its own key), the number its Budgets page shows; `calls`, the token counts, `credits`, `cost_usd` (what OpenRouter charged), `price_usd` (what the tenant is charged) |
-| `llm_usage_by_outcome` | organization × closed UTC hour × outcome (`message_id`, `job_id`, `conversation_id`) × model × activity × purpose, for ledger rows that name an outcome | `outcome` (`answer`, `ingest`, `job`, `conversation`), the ids, `calls`, the token counts, `cost_usd`, `price_usd`. What one answer or one document cost: join it to `answer_completed` on `message_id`, and to `document_ingest_started` on `job_id`, which names the document whose `document_ingest_finished` carries pages, `file_bytes` and the status. Its own cursor, so its 90-day history arrived with its first runs |
+| `llm_usage_by_outcome` | organization × closed UTC hour × outcome (`message_id`, `job_id`, `conversation_id`) × model × activity × purpose, for ledger rows that name an outcome | `outcome` (`answer`, `ingest`, `job`, `conversation`), the ids, `calls`, the token counts, `cost_usd`, `price_usd`. What one answer or one document cost: join it to `answer_finished` (every turn, from the release that added it in November 2026; before it `answer_completed`, which has only the answers a browser watched) on `message_id`, and to `document_ingest_started` on `job_id`, which names the document whose `document_ingest_finished` carries pages, `file_bytes` and the status. Its own cursor, so its 90-day history arrived with its first runs |
 | `organization_budget_snapshot` | organization × UTC hour, for every organization that spent in the last 35 days or set a limit | Its effective limits (the seeded allowance included), today's and this month's spend against them, `day_pct`/`month_pct`, `blocked`, how many member and project limits it set, its name, and this month's calls, tokens, credits, cost and price |
 
 The full property lists are in [`posthog-events.md`](posthog-events.md).
@@ -69,15 +69,17 @@ DELETE FROM analytics_export_cursors WHERE stream = 'posthog_usage_hourly';
 ### Staging and production
 
 Both stacks send to the one PostHog project, and both run `APP_ENV=production`.
-Every server event carries `app_host`, the stack's app host, from the pinned
-redirect URI (`serverSuperProperties`). It is `app.<baseDomain>` of the stack's
-Pulumi file: `app.piloti.at` for production (`Pulumi.prod.yaml`) and
+Every BFF server event carries `app_host`, the stack's app host, from the
+pinned redirect URI (`serverSuperProperties`); the Python tier's events carry it
+from 2026-11-17 (`POSTHOG_APP_HOST`), and older ones carry none. It is `app.<baseDomain>` of the stack's
+Pulumi file: `app.archos.tech` for production (`Pulumi.prod.yaml`) and
 `app.dev.archos.tech` for staging (`Pulumi.dev.yaml`). Staging moved on
-2026-11-05, so its earlier events carry `app.dev.piloti.at`; production's value
-changes the same way when it moves
-([`domain-cutover.md`](../deployment/domain-cutover.md)), and the SQL defaults
-below change with it. Filter on it; every chart below does. Before this change
-server events carried no deployment at all.
+2026-11-05 and production on 2026-11-15
+([`domain-cutover.md`](../deployment/domain-cutover.md)), so earlier events carry
+`app.dev.piloti.at` and `app.piloti.at`: a production filter that spans the move
+names both hosts, `app_host IN ('app.piloti.at', 'app.archos.tech')`. Filter on
+it; every chart below does. Before 2026-10-20 server events carried no
+deployment at all.
 
 ## What is in PostHog
 
@@ -87,7 +89,7 @@ Project 269895. Everything carries the tag `spend`.
 
 | View | One row per | Use it for |
 |---|---|---|
-| `piloti_llm_usage_hourly` | the `llm_usage_hourly` event, flattened, with `day_utc` and `organization_name` | Anything by model, purpose, person or project |
+| `piloti_llm_usage_hourly` | the `llm_usage_hourly` event, flattened, with `day_utc` and `organization_name`; `model` folded where the ledger named it twice (2026-11-11 until migration 0244) | Anything by model, purpose, person or project |
 | `piloti_org_spend_daily` | deployment × organization × UTC day | Trends and month totals per organization |
 | `piloti_org_budgets` | deployment × organization: the latest snapshot of the last 7 days | Limits, how much of them is used, who is blocked |
 
@@ -103,16 +105,19 @@ Project 269895. Everything carries the tag `spend`.
   table, the members, and what the spend was for.
 
 Both take the SQL variables `piloti_deployment` (default: production's app host,
-`app.piloti.at` today) and,
+`app.archos.tech`) and,
 on the second, `piloti_organization`, a list filled from the organizations that
-spent in the last 90 days.
+spent in the last 90 days. Picking either production host selects both, so a
+month that spans the move (November 2026) counts the days on `app.piloti.at`
+too; the two latest-snapshot tiles read the current host only, which carries the
+whole month.
 
 **Data catalog** (proposed, waiting for a person to approve them):
 `org_llm_spend_month`, `org_budget_utilisation`,
 `platform_llm_cost_and_revenue_daily`. An agent asking a spend question finds
 them first (`metric-list`), and once approved runs them as the canonical answer.
 
-**Inside Piloti** the same per-organization view is Platform → Übersicht → an
+**Inside the app** the same per-organization view is Platform → Übersicht → an
 organization's name (`/app/platform/organizations/[id]`, `platform:usage:view`),
 drawn with the office's own Budgets components.
 
@@ -165,7 +170,7 @@ SQL for the questions the catalog does not hold (`call execute-sql {"query": "�
 -- One office, this month, by model, in its own unit (as its Budgets page shows it)
 SELECT model, sum(amount) AS amount, sum(calls) AS calls, sum(cost_usd) AS cost_usd
 FROM piloti_llm_usage_hourly
-WHERE app_host = 'app.piloti.at'
+WHERE app_host IN ('app.piloti.at', 'app.archos.tech')
   AND organization_name ILIKE '%feld72%'
   AND day_utc >= toStartOfMonth(toDate(toTimeZone(now(), 'UTC')))
 GROUP BY model ORDER BY amount DESC
@@ -174,20 +179,20 @@ GROUP BY model ORDER BY amount DESC
 SELECT toStartOfMonth(day) AS month, sum(cost_usd) AS cost_usd, sum(price_usd) AS price_usd,
        sum(price_usd) - sum(cost_usd) + sum(own_key_cost_usd) AS margin_usd
 FROM piloti_org_spend_daily
-WHERE app_host = 'app.piloti.at'
+WHERE app_host IN ('app.piloti.at', 'app.archos.tech')
 GROUP BY month ORDER BY month
 
 -- What the spend was for (chat answers, ingestion, dictation, helper roles), last 7 days
 SELECT activity, purpose, sum(cost_usd) AS cost_usd, sum(calls) AS calls
 FROM piloti_llm_usage_hourly
-WHERE app_host = 'app.piloti.at' AND day_utc >= today() - 7
+WHERE app_host IN ('app.piloti.at', 'app.archos.tech') AND day_utc >= today() - 7
 GROUP BY activity, purpose ORDER BY cost_usd DESC
 
 -- Biggest spenders by person this month, named from the WorkOS warehouse copy (production only)
 SELECT coalesce(u.email, h.user_id) AS person, h.organization_name, sum(h.cost_usd) AS cost_usd
 FROM piloti_llm_usage_hourly AS h
 LEFT JOIN workos_users AS u ON u.id = h.user_id
-WHERE h.app_host = 'app.piloti.at'
+WHERE h.app_host IN ('app.piloti.at', 'app.archos.tech')
   AND h.day_utc >= toStartOfMonth(toDate(toTimeZone(now(), 'UTC')))
 GROUP BY person, h.organization_name ORDER BY cost_usd DESC LIMIT 20
 ```
@@ -202,7 +207,7 @@ Rules the numbers follow, so an answer is read right:
 - **Dictation is in the ledger and in `amount`, but `billed` is false**: no budget
   counts it, and its `credits` are 0. `cost_usd` still carries what it cost.
 - **The latest hour is up to 70 minutes behind**; the snapshot is up to an hour
-  old. The Budgets page in Piloti is live.
+  old. The Budgets page in the app is live.
 
 ## Changing it
 

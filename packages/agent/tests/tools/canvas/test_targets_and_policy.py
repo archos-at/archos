@@ -1,5 +1,3 @@
-"""Which document a canvas tool acts on, and what it may show to everyone."""
-
 from __future__ import annotations
 
 import pytest
@@ -73,7 +71,6 @@ class TestWhichDocument:
         [
             ("Grundriss", "Ambiguous"),
             ("Ansicht Nord", "Not found"),
-            # The platform corpus is nobody's to mark: never resolved.
             ("OIB-RL2.pdf", "Not found"),
         ],
     )

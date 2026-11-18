@@ -2,45 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Cross-language contract: the payload that says what an agent may load.
- *
- * `GET /api/internal/skills/resolve` is the seam where a row in `skills` or
- * `platform_skills` becomes something the model can reach for. The payload
- * carries each row's `metadata` VERBATIM, and three reserved keys ride it:
- * `grid-hidden` routes the activation off the live line, `grid-cards` inlines
- * the card shapes with the body, and `grid-agents` decides which agent may run
- * the skill at all.
- *
- * `ce47667b` pinned the Python half — the real resolver over a faked BFF
- * payload. This is the other half, and until it existed replacing
- * `metadata: { ...skill.metadata }` with `metadata: {}` in `resolveAll` — the
- * exact regression the comment there records — was caught by nothing, and it
- * takes `grid-hidden` and `grid-cards` down with it.
- *
- * A process boundary cannot be crossed inside one test, so both sides assert
- * against the SAME checked-in fixture, `tests/fixtures/skills_resolve/
- * resolve_payload.json` — the device `citation-wire-contract.spec.ts` uses for
- * the citation formats. This file proves the fixture is still a faithful sample
- * of what the real `resolveSkillsForAgent` emits; the Python counterpart,
- * `packages/agent/tests/skills/test_resolve_payload_contract.py`, proves the real
- * `SkillResolver` still reads it. Rename or drop a field and exactly one of the
- * two fails.
- *
- * "Faithful sample", not "identical bytes": ADDING a field to the payload is
- * invisible to the consumer and must not break the build, while renaming,
- * removing or re-valuing one of the fields the backend reads must.
- *
- * ## The one field this file now asserts is GONE
- *
- * `standard`. It marked a published `delivery: 'standard'` row so
- * `SkillRuntime` would FORCE the skill rather than offer its description, and
- * migration 0088 retired the tier together with the composer's `skills` array:
- * an instruction that always applies is not a capability. The key is therefore
- * pinned by its ABSENCE below — a payload that grew it back would mean the tier
- * came back with it. The shared fixture no longer carries it either, so the
- * row-for-row comparison is now against the sample as checked in.
- */
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -74,7 +35,6 @@ import { resolveSkillsForAgent } from './service'
 import type { Skill } from '@/lib/db/schema/jobs'
 import type { PlatformSkillRow } from '@/lib/db/schema/platform-skills'
 
-// apps/workspace/bff/skills → repo root is five levels up.
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE = resolvePath(HERE, '../../../../tests/fixtures/skills_resolve/resolve_payload.json')
 const SAMPLE = JSON.parse(readFileSync(FIXTURE, 'utf-8')) as Array<Record<string, unknown>>
@@ -82,15 +42,8 @@ const SAMPLE = JSON.parse(readFileSync(FIXTURE, 'utf-8')) as Array<Record<string
 const AGENT = 'researcher'
 const ORG = 'org_1'
 
-/**
- * The house voice — the row the retired `standard` tier existed for, and now an
- * ordinary offer. Hidden from the live line, and declaring the cards its
- * answers prefer: the two reserved keys the payload must carry verbatim.
- */
 const VOICE_ROW: PlatformSkillRow = {
   id: 'ps-voice',
-  // Uncategorized: what this file pins is the RESOLVE payload, and a category
-  // is a browsing affordance that never crosses to the agent.
   categoryId: null,
   name: 'piloti-voice',
   description: 'Schreibt jede Antwort in der Hausstimme.',
@@ -108,7 +61,6 @@ const VOICE_ROW: PlatformSkillRow = {
   updatedAt: new Date('2026-01-01T00:00:00Z'),
 }
 
-/** A second offer the org took up. */
 const OFFER_ROW: PlatformSkillRow = {
   ...VOICE_ROW,
   id: 'ps-offer',
@@ -118,7 +70,6 @@ const OFFER_ROW: PlatformSkillRow = {
   metadata: { 'grid-catalog': 'curated' },
 }
 
-/** The pipeline's own machinery: a builtin file, no `grid-catalog`. */
 const MACHINERY = {
   name: 'data-table-analysis',
   description: 'Analysiert Tabellen deterministisch.',
@@ -128,7 +79,6 @@ const MACHINERY = {
   collection: 'research' as const,
 }
 
-/** The tenant's own skill, scoped to the chat agent. */
 const ORG_ROW: Skill = {
   id: 'skill-1',
   categoryId: null,
@@ -182,10 +132,6 @@ describe('the resolve payload the backend reads', () => {
   })
 
   it('marks no row as fleet policy, because there is no such tier', async () => {
-    // `standard` was the key `_build_org_skills` read to set `Skill.standard`,
-    // and it was the whole difference between a skill that is FORCED and one
-    // the model may choose. Migration 0088 retired the tier; a row that grew
-    // the key back would mean the tier came back with it.
     const live = await served()
     for (const row of live.values()) {
       expect(Object.keys(row)).not.toContain('standard')
@@ -193,10 +139,6 @@ describe('the resolve payload the backend reads', () => {
   })
 
   it('carries the reserved metadata verbatim rather than an empty object', async () => {
-    // The regression `resolveAll` documents: sending `{}` here dropped the
-    // reserved `grid-*` keys, and the backend merges this payload OVER its own
-    // filesystem copy — so the house voice loses `grid-hidden` (a live line on
-    // every answer) and `grid-cards` (no card shapes in front of the model).
     const live = await served()
     expect(live.get('piloti-voice')?.metadata).toEqual({
       'grid-title': 'Piloti-Stimme',

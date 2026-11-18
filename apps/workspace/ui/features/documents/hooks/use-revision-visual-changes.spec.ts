@@ -15,7 +15,6 @@ interface Seen {
   body: { older: string; page: number }
 }
 
-/** Answer the comparison route and record what it was asked. */
 function answerWith(respond: (seen: Seen) => Response | Promise<Response>) {
   const seen: Seen[] = []
   server.use(

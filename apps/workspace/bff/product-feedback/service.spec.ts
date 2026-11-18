@@ -103,7 +103,6 @@ const session: AuthorizedSession = {
   featureFlags: null,
 }
 
-/** An office admin: may manage the organization's settings, so sees the office view. */
 const admin: AuthorizedSession = { ...session, permissions: ['org:settings:manage'] }
 
 const config: PosthogSupportConfig = {
@@ -220,7 +219,6 @@ describe('submitProductFeedback', () => {
       sessionId: 's-0199',
       tags: ['piloti-feedback', 'kind:bug', 'origin:app.piloti.at'],
     })
-    // The session the ticket was opened in is the one later replies must use.
     expect(repository.setProductFeedbackTicket).toHaveBeenCalledWith(REPORT_ID, 'ticket-1', opened?.widgetSessionId)
   })
 
@@ -260,7 +258,6 @@ describe('submitProductFeedback', () => {
     expect(vi.mocked(openFeedbackTicket).mock.calls[0]?.[1].message).toBe(
       `[bug] #${REPORT_ID} /app/projects\nHonorar [maskiert] zu hoch`,
     )
-    // The stored record is what the reporter typed; platform owners read that.
     expect(repository.insertProductFeedback).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Honorar 48.000 EUR zu hoch' }),
     )
@@ -415,7 +412,6 @@ describe('the triage list reads PostHog', () => {
     expect(list.source).toBe('local')
     expect(list.counts).toBeNull()
     expect(list.reports[0]?.ticket).toBeNull()
-    // The offset cursor means nothing to the local log.
     expect(repository.listProductFeedback).toHaveBeenCalledWith(expect.objectContaining({ before: undefined }))
   })
 
@@ -432,7 +428,7 @@ describe('the triage list reads PostHog', () => {
 })
 
 describe('the active support cases', () => {
-  const ANNA = { id: 7, email: 'anna@piloti.test', name: 'Anna Wallner' }
+  const ANNA = { id: 7, email: 'anna@example.test', name: 'Anna Wallner' }
   const MARIA = { id: 9, email: 'Maria@Buero.test', name: 'Maria Huber' }
 
   function withTicket(...tickets: SupportTicket[]): void {
@@ -502,7 +498,7 @@ describe('the active support cases', () => {
   it('names each assignee from the PostHog members, and marks the reader’s own', async () => {
     vi.mocked(listPosthogMembers).mockResolvedValue([ANNA, MARIA])
     withTicket(
-      ticket({ id: 't-anna', assignee: { type: 'user', id: 7, email: 'anna@piloti.test' } }),
+      ticket({ id: 't-anna', assignee: { type: 'user', id: 7, email: 'anna@example.test' } }),
       ticket({ id: 't-mine', assignee: { type: 'user', id: 9, email: 'maria@buero.test' } }),
       ticket({ id: 't-team', assignee: { type: 'role', id: 'r-1', name: 'Support' } })
     )
@@ -510,7 +506,7 @@ describe('the active support cases', () => {
     const list = await listProductFeedbackForPlatform(session, {})
 
     expect(list.reports.map((report) => report.ticket?.assignee)).toEqual([
-      { type: 'user', name: 'Anna Wallner', email: 'anna@piloti.test', isViewer: false },
+      { type: 'user', name: 'Anna Wallner', email: 'anna@example.test', isViewer: false },
       { type: 'user', name: 'Maria Huber', email: 'maria@buero.test', isViewer: true },
       { type: 'role', name: 'Support', email: null, isViewer: false },
     ])
@@ -519,7 +515,7 @@ describe('the active support cases', () => {
   it('shows an assignee by email while the members cannot be read, and still lists', async () => {
     vi.mocked(listPosthogMembers).mockRejectedValue(new PosthogSupportUnavailableError('HTTP 403', 403))
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    withTicket(ticket({ assignee: { type: 'user', id: 7, email: 'anna@piloti.test' } }))
+    withTicket(ticket({ assignee: { type: 'user', id: 7, email: 'anna@example.test' } }))
 
     const list = await listProductFeedbackForPlatform(session, {})
 
@@ -527,7 +523,7 @@ describe('the active support cases', () => {
     expect(list.reports[0]?.ticket?.assignee).toEqual({
       type: 'user',
       name: null,
-      email: 'anna@piloti.test',
+      email: 'anna@example.test',
       isViewer: false,
     })
   })
@@ -541,7 +537,6 @@ describe('the active support cases', () => {
     const list = await listProductFeedbackForPlatform(session, {})
 
     expect(list.reports.map((report) => report.ticket?.awaiting)).toEqual(['team', 'reporter', null])
-    // A resolved ticket owes nobody: its thread is not read.
     expect(lastVisibleMessageAuthor).toHaveBeenCalledTimes(2)
   })
 
@@ -640,7 +635,6 @@ describe('organization names', () => {
 
     expect(list.reports.map((report) => report.organizationName)).toEqual(['feld72 Architekten', 'Büro Nord'])
     expect(one.organizationName).toBe('feld72 Architekten')
-    // Only the organizations the local join could not name are resolved.
     expect(getOrganizationDisplayNames).toHaveBeenCalledWith(['org_prod'])
   })
 })
@@ -705,7 +699,6 @@ describe("the office view: every case of the caller's organization", () => {
         mine: false,
         status: 'pending',
         ticketNumber: 43,
-        // A colleague's news is theirs; a colleague's ticket is not the admin's to answer.
         hasUpdate: false,
         canReply: false,
       })

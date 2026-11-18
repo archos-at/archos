@@ -1,20 +1,9 @@
-/**
- * Home page redirect contract.
- *
- * Regression cover for the sign-in loop: the landing site's only link back to
- * the app is its "Sign in" button, so if `/` bounced *every* logged-out visitor
- * to LANDING_URL the button returned the visitor to the page they came
- * from and the app had no reachable entry point.
- */
-
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { UserSession } from '@/lib/auth/types'
 
 const LANDING_URL = 'https://dev.piloti.at'
 
 const redirect = vi.fn((url: string): never => {
-  // Mirrors next/navigation: redirect() throws to unwind the render, so the
-  // page never falls through to a later redirect() call.
   throw new Error(`NEXT_REDIRECT:${url}`)
 })
 const getUserSession = vi.fn<() => Promise<UserSession | null>>()
@@ -22,9 +11,6 @@ const getUserSession = vi.fn<() => Promise<UserSession | null>>()
 vi.mock('next/navigation', () => ({ redirect: (url: string) => redirect(url) }))
 vi.mock('@/lib/auth/session', () => ({ getUserSession: () => getUserSession() }))
 
-// Regression guard for the RSC cookie-write bug: the page must delegate
-// sign-in initiation to the /api/auth/signin Route Handler (the only context
-// where AuthKit may write its PKCE cookie), never resolve the URL itself.
 vi.mock('@workos-inc/authkit-nextjs', () => ({
   getSignInUrl: async () => {
     throw new Error('page must not call getSignInUrl during render')
@@ -45,7 +31,6 @@ const session: UserSession = {
   featureFlags: null,
 }
 
-/** Run the page and return the URL it redirected to. */
 const visit = async (searchParams: { 'sign-in'?: string } = {}): Promise<string> => {
   try {
     await HomePage({ searchParams: Promise.resolve(searchParams) })
@@ -57,18 +42,18 @@ const visit = async (searchParams: { 'sign-in'?: string } = {}): Promise<string>
   throw new Error('HomePage returned without redirecting')
 }
 
-const originalEnv = process.env
 
 describe('HomePage redirect', () => {
   beforeEach(() => {
-    process.env = { ...originalEnv, REQUIRE_AUTH: 'true', LANDING_URL: LANDING_URL }
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.stubEnv('LANDING_URL', LANDING_URL)
     redirect.mockClear()
     getUserSession.mockReset()
     getUserSession.mockResolvedValue(null)
   })
 
   afterEach(() => {
-    process.env = originalEnv
+    vi.unstubAllEnvs()
   })
 
   test('sends a logged-out visitor to the landing site', async () => {
@@ -76,14 +61,11 @@ describe('HomePage redirect', () => {
   })
 
   test('sends a logged-out visitor who asked to sign in to the sign-in route', async () => {
-    // The regression: without this the landing "Sign in" button bounces back
-    // to the landing site and the app is unreachable. Delegation (not direct
-    // resolution) is asserted by the throwing getSignInUrl mock above.
     expect(await visit({ 'sign-in': '' })).toBe('/api/auth/signin')
   })
 
   test('falls back to the sign-in route when no landing site is configured', async () => {
-    delete process.env.LANDING_URL
+    vi.stubEnv('LANDING_URL', undefined)
 
     expect(await visit()).toBe('/api/auth/signin')
   })
@@ -101,7 +83,7 @@ describe('HomePage redirect', () => {
   })
 
   test('skips auth entirely when REQUIRE_AUTH is off', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
 
     expect(await visit()).toBe('/app/projects')
     expect(getUserSession).not.toHaveBeenCalled()

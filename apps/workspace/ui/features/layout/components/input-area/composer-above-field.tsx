@@ -14,9 +14,6 @@ export function ComposerAboveField({ controller }: { controller: InputAreaContro
       <ComposerSubjectBar
         subject={controller.composerSubject}
         projectId={controller.projectId}
-        // NO ONE-WAY DOORS. Ending the subject also closes the viewer, so it
-        // is the one control here that cannot be walked back by pressing it
-        // again — `dropFileSubject` carries the undo with it.
         onClear={() =>
           dropFileSubject({
             cleared: controller.t('inputArea.subjectCleared'),
@@ -26,8 +23,6 @@ export function ComposerAboveField({ controller }: { controller: InputAreaContro
         onShowFile={
           !controller.fileDockVisible && controller.composerSubject
             ? () => {
-                // Whatever is standing in front of the file, this control
-                // means "show me the file".
                 useFilePreviewStore.getState().peek()
               }
             : undefined
@@ -46,14 +41,6 @@ export function ComposerAboveField({ controller }: { controller: InputAreaContro
         {controller.sessionFiles.length > 0 && (
           <HeightArrival key="session-files" testId="composer-session-files">
             <div
-              // Horizontal scroll strip with a soft right-edge fade so an
-              // overflowing chip dissolves instead of hard-clipping — and the fade
-              // quietly signals there is more to scroll. The mask self-hides when
-              // the chips don't reach the edge (nothing there to fade).
-              // `relative` makes the strip the containing block of the chips'
-              // `sr-only` status labels. Absolutely positioned, they belonged
-              // to the card instead, escaped this scroll box at the chips'
-              // off-screen positions, and widened the PAGE by 133px on a phone.
               className="relative mb-2 flex [scrollbar-width:none] gap-1.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%_-_24px),transparent)] pb-0.5 [-ms-overflow-style:none] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%_-_24px),transparent)] [&::-webkit-scrollbar]:hidden"
               aria-label={controller.t('inputArea.manageFiles')}
             >

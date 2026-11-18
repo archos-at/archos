@@ -31,7 +31,7 @@ import type { AgentPrincipal } from './principal'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -42,7 +42,7 @@ const session = {
 }
 
 const person = (scopes: string[] = []): AgentPrincipal => ({ actor: 'external_agent', session, clientId: 'c', scopes })
-const piloti: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
+const inProduct: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
 const op = (name: string) => FAKE_OPERATIONS.find((candidate) => candidate.name === name)!
 
 describe('callDecision', () => {
@@ -50,16 +50,15 @@ describe('callDecision', () => {
     for (const operation of FAKE_OPERATIONS) expect(callDecision(person(), operation)).toBe('run')
   })
 
-  it('lets in-product Piloti read', () => {
-    expect(callDecision(piloti, op('project-list'))).toBe('run')
-    // A POST that only searches is still a read.
-    expect(callDecision(piloti, op('workspace-search'))).toBe('run')
+  it('lets the in-product agent read', () => {
+    expect(callDecision(inProduct, op('project-list'))).toBe('run')
+    expect(callDecision(inProduct, op('workspace-search'))).toBe('run')
   })
 
-  it('turns every write by in-product Piloti into a proposal', () => {
-    expect(callDecision(piloti, op('project-member-add'))).toBe('propose')
-    expect(callDecision(piloti, op('project-delete'))).toBe('propose')
-    expect(callDecision(piloti, op('project-folder-access-set'))).toBe('propose')
+  it('turns every write by the in-product agent into a proposal', () => {
+    expect(callDecision(inProduct, op('project-member-add'))).toBe('propose')
+    expect(callDecision(inProduct, op('project-delete'))).toBe('propose')
+    expect(callDecision(inProduct, op('project-folder-access-set'))).toBe('propose')
   })
 })
 
@@ -71,22 +70,21 @@ describe('visibleOperations', () => {
     expect(names(person())).toContain('project-member-add')
   })
 
-  it('ignores piloti:sensitive while WorkOS does not define and enforce it (M5)', () => {
-    // A token carrying the string proves nothing until the authorization server grants it on step-up.
+  it('ignores the sensitive scope while WorkOS does not define and enforce it (M5)', () => {
     expect(SENSITIVE_SCOPE_ENFORCED_BY_WORKOS).toBe(false)
     expect(names(person([SENSITIVE_SCOPE]))).not.toContain('project-folder-access-set')
     expect(findVisibleOperation(person([SENSITIVE_SCOPE]), 'project-folder-access-set')).toBeUndefined()
   })
 
-  it('hides it from Piloti, which may not even propose it (M4)', () => {
-    expect(names(piloti)).not.toContain('project-folder-access-set')
-    expect(findVisibleOperation(piloti, 'project-folder-access-set')).toBeUndefined()
+  it('hides it from the in-product agent, which may not even propose it (M4)', () => {
+    expect(names(inProduct)).not.toContain('project-folder-access-set')
+    expect(findVisibleOperation(inProduct, 'project-folder-access-set')).toBeUndefined()
   })
 
   it('keeps every platform operation off the office door, for everyone (H3): it has a door of its own', () => {
     const platformRead = { ...op('project-list'), name: 'platform-overview-get', domain: 'platform' as const }
     expect(isOnDoor(platformRead.name)).toBe(false)
-    expect(canSee(piloti, platformRead)).toBe(false)
+    expect(canSee(inProduct, platformRead)).toBe(false)
     expect(canSee(person(), platformRead)).toBe(false)
   })
 
@@ -105,7 +103,7 @@ describe('visibleOperations', () => {
     const withheld = { ...op('project-list'), name: 'organization-model-config-get' }
     expect(isOnDoor(withheld.name)).toBe(false)
     expect(isOnDoor(withheld.name, 'platform')).toBe(false)
-    expect(canSee(piloti, withheld)).toBe(false)
+    expect(canSee(inProduct, withheld)).toBe(false)
     expect(canSee(person(), withheld)).toBe(false)
     expect(findVisibleOperation(person(), 'organization-model-config-get')).toBeUndefined()
     expect(findVisibleOperation(person(), 'citation-format')).toBeUndefined()
@@ -114,25 +112,23 @@ describe('visibleOperations', () => {
   it('offers a name the config does not know to nobody: no silent default', () => {
     const unknown = { ...op('project-list'), name: 'project-unlisted-thing' }
     expect(canSee(person(), unknown)).toBe(false)
-    expect(canSee(piloti, unknown)).toBe(false)
+    expect(canSee(inProduct, unknown)).toBe(false)
     expect(isOnDoor(unknown.name)).toBe(false)
   })
 
-  it('hides from Piloti, and only from Piloti, what Piloti does with a native tool; it stays on the door', () => {
-    // `annotation-create` is Piloti's `canvas__mark` (exposure.config.ts); the fake catalog has no native twin of its own.
+  it('hides from the in-product agent, and only from it, what it does with a native tool; it stays on the door', () => {
     const mark = { ...op('project-member-add'), name: 'annotation-create' }
     expect(nativeToolOf('annotation-create')).toBe('canvas__mark')
-    expect(canSee(piloti, mark)).toBe(false)
+    expect(canSee(inProduct, mark)).toBe(false)
     expect(canSee(person(), mark)).toBe(true)
-    // Visibility only: the operation is on the office door, so a proposal filed before still applies.
     expect(isOnDoor('annotation-create')).toBe(true)
     expect(nativeToolOf('project-list')).toBeUndefined()
   })
 
-  it('hides the asks from Piloti, and only from Piloti: Piloti never asks Piloti (ADR-0124)', () => {
+  it('hides the asks from the in-product agent, and only from it: the in-product agent never asks itself (ADR-0124)', () => {
     for (const name of ['agent-ask-create', 'agent-ask-get', 'agent-ask-cancel']) {
       const ask = { ...op('project-list'), name, domain: 'conversations' as const }
-      expect(canSee(piloti, ask), name).toBe(false)
+      expect(canSee(inProduct, ask), name).toBe(false)
       expect(canSee(person(), ask), name).toBe(true)
     }
   })
@@ -151,7 +147,6 @@ describe('the guards on a sensitive operation (ADR-0122)', () => {
 
   it('needs the organization’s opt-in for that class, the scope, and the scope enforced', () => {
     expect(maySeeSensitive(optedIn(['access']), 'access', true)).toBe(true)
-    // The other class stays off: an office may let agents share and keep its keys.
     expect(maySeeSensitive(optedIn(['access']), 'secret', true)).toBe(false)
     expect(maySeeSensitive(optedIn(['secret']), 'secret', true)).toBe(true)
     expect(maySeeSensitive(optedIn([]), 'access', true)).toBe(false)
@@ -164,25 +159,25 @@ describe('the guards on a sensitive operation (ADR-0122)', () => {
     expect(canSee(optedIn(['access', 'secret']), op('project-folder-access-set'))).toBe(false)
   })
 
-  it('never lets Piloti see one, whatever its principal claims', () => {
-    const claiming: AgentPrincipal = { ...piloti, scopes: [SENSITIVE_SCOPE], sensitiveOptIns: ['access', 'secret'] }
+  it('never lets the in-product agent see one, whatever its principal claims', () => {
+    const claiming: AgentPrincipal = { ...inProduct, scopes: [SENSITIVE_SCOPE], sensitiveOptIns: ['access', 'secret'] }
     expect(maySeeSensitive(claiming, 'access', true)).toBe(false)
     expect(canSee(claiming, op('project-folder-access-set'))).toBe(false)
   })
 })
 
 describe('backend operations', () => {
-  it('are shown to a person and hidden from Piloti, which has them as native tools', () => {
+  it('are shown to a person and hidden from the in-product agent, which has them as native tools', () => {
     expect(visibleBackendOperations(person()).map((o) => o.name)).toContain('knowledge-search')
     expect(findVisibleBackendOperation(person(), 'knowledge-search')?.name).toBe('knowledge-search')
-    expect(visibleBackendOperations(piloti)).toEqual([])
-    expect(findVisibleBackendOperation(piloti, 'knowledge-search')).toBeUndefined()
+    expect(visibleBackendOperations(inProduct)).toEqual([])
+    expect(findVisibleBackendOperation(inProduct, 'knowledge-search')).toBeUndefined()
   })
 
   it('answer to a renamed one’s old name for one release, without listing it under that name', () => {
     expect(findVisibleBackendOperation(person(), 'knowledge-image-view')?.name).toBe('document-look')
     expect(visibleBackendOperations(person()).map((o) => o.name)).not.toContain('knowledge-image-view')
-    expect(findVisibleBackendOperation(piloti, 'knowledge-image-view')).toBeUndefined()
+    expect(findVisibleBackendOperation(inProduct, 'knowledge-image-view')).toBeUndefined()
     for (const current of Object.values(RENAMED_BACKEND_OPERATIONS)) {
       expect(visibleBackendOperations(person()).map((o) => o.name)).toContain(current)
     }

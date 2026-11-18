@@ -1,13 +1,3 @@
-"""No environment variable is read or set under an old ``AIQ_`` or ``GRID_`` name (ADR-0145 row 10b).
-
-Every variable lost its prefix: ``GRID_X``, and ``AIQ_X`` before it, is now
-``X``. For one release the images' start (``apps/agent-host/entrypoint.py`` for the
-backend, ``legacy-env-names.cjs`` for the UI) still adopts an old name an
-operator set by hand, and the Compose files interpolate it; those, the rename
-table and the published release notes are the only files that may spell one.
-Remove an entry here when its fallback goes.
-"""
-
 from __future__ import annotations
 
 import re
@@ -16,14 +6,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: The one-release fallback, its tests, the rename table and history.
 ALLOWED = (
     "apps/agent-host/entrypoint.py",
     "tests/test_entrypoint_roles.py",
     "tests/test_no_legacy_env_names.py",
-    # The prose check's test plants identifiers to show it leaves them to the identifier check.
     "tests/test_check_brand_prose.py",
-    # The recorded times are keyed by test id, and a parametrized id quotes its old name.
     "tests/.test_durations",
     "apps/workspace/scripts/legacy-env-names.cjs",
     "apps/workspace/scripts/legacy-env-names.spec.mjs",
@@ -36,10 +23,6 @@ ALLOWED = (
 
 OLD_NAME = re.compile(r"\bAIQ_")
 
-#: ``GRID_`` is checked in code and config, not in prose, where a retired name is
-#: history. A Compose value keeps it as its fallback (``${X:-${GRID_X:-...}}``).
-#: The listed constants are code names, not variables, and go with the header
-#: and card-key rename.
 GRID_NAME = re.compile(r"\bGRID_(?!(HEADER_NAMES|TITLE_KEY|METADATA_KEYS|HIDDEN_KEY|CARDS_KEY|AUTO_INVOKE_KEY)\b)[A-Z]")
 GRID_FALLBACK = re.compile(r":-\$\{GRID_")
 PROSE = (".md", ".mdx")

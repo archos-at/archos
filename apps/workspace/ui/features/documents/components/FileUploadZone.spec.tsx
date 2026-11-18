@@ -2,7 +2,6 @@ import { render, screen } from '@/test-utils'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { FileUploadZone } from './FileUploadZone'
 
-// Mock the documents store
 let mockTrackedFiles: Array<{
   id: string
   file?: File
@@ -19,7 +18,6 @@ vi.mock('../store', () => ({
     selector({ trackedFiles: mockTrackedFiles }),
 }))
 
-// Mock useAppConfig (required by useFileDragDrop inside FileUploadZone)
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     authRequired: true,
@@ -34,7 +32,6 @@ vi.mock('@/shared/context', () => ({
   }),
 }))
 
-// Mock the constants
 vi.mock('../constants', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../constants')>()),
   ACCEPTED_FILE_TYPES: '.pdf,.docx,.txt',
@@ -53,7 +50,6 @@ describe('FileUploadZone', () => {
     test('renders upload zone', () => {
       render(<FileUploadZone onUpload={mockOnUpload} />)
 
-      // Should show file size limit
       expect(screen.getByText('Up to 10 MB per file')).toBeInTheDocument()
     })
 
@@ -101,8 +97,6 @@ describe('FileUploadZone', () => {
     test('is disabled when isUploading is true', () => {
       render(<FileUploadZone onUpload={mockOnUpload} isUploading={true} />)
 
-      // The Upload component should be disabled
-      // Check for disabled state via the input element
       const fileInput = screen.getByTestId('nv-upload-input-element')
       expect(fileInput).toBeDisabled()
     })
@@ -141,7 +135,6 @@ describe('FileUploadZone', () => {
         />
       )
 
-      // Should only show file from session-1
       expect(screen.getByText('file1.pdf')).toBeInTheDocument()
       expect(screen.queryByText('file2.pdf')).not.toBeInTheDocument()
     })
@@ -219,9 +212,6 @@ describe('FileUploadZone', () => {
       expect(screen.getByText('uploading.pdf')).toBeInTheDocument()
     })
 
-    // The zone draws the tray's glyph for the same phase (`ingestionMarkOfPhase`):
-    // its own icon list had a check for „stored" and a red-looking cross for
-    // „canceled", which the tray draws as an open ring and a ban sign.
     test.each([
       ['success', 'citable'],
       ['held', 'held'],
@@ -280,8 +270,6 @@ describe('FileUploadZone', () => {
 
       render(<FileUploadZone onUpload={mockOnUpload} sessionId="session-1" />)
 
-      // Mock KUI Upload would trigger with existing file
-      // Since the file is already tracked, onUpload should not be called
       expect(mockOnUpload).not.toHaveBeenCalled()
     })
   })
@@ -300,7 +288,6 @@ describe('FileUploadZone', () => {
 
       render(<FileUploadZone onUpload={mockOnUpload} sessionId="session-1" />)
 
-      // The file without File object should not appear in the list
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
   })

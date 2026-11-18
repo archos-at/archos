@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('@/lib/personal-memory/service', () => ({ createPersonalMemoryItem: vi.fn() }))
-// Which conversations are temporary (ADR-0180), keyed `organization/conversation` as the SQL scopes it.
 const temporary = vi.hoisted(() => ({ conversations: new Set<string>() }))
 vi.mock('@/lib/conversations/temporary-repository', () => ({
   readConversationTemporary: vi.fn(async (id: string, org: string) => temporary.conversations.has(`${org}/${id}`)),
@@ -51,7 +50,7 @@ function call(body: unknown = BODY, headers: Record<string, string> = signedHead
 beforeEach(() => {
   vi.clearAllMocks()
   temporary.conversations.clear()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(SESSION)
   vi.mocked(createPersonalMemoryItem).mockResolvedValue({ item: NOTE, created: true } as never)
 })

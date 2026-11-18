@@ -16,12 +16,6 @@ export interface ProjectDeleteDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-/**
- * Soft-delete the project behind a type-the-name confirmation, opened from the
- * Overview hero's menu. It used to be a red "danger zone" box at the foot of
- * Settings; on a dashboard a destructive control belongs one deliberate click
- * away, not in the reading flow. The grace-period restore is unchanged.
- */
 export function ProjectDeleteDialog({
   projectId,
   projectName,
@@ -38,9 +32,6 @@ export function ProjectDeleteDialog({
     setPending(true)
     try {
       const data = await deleteProject(projectId, projectName)
-      // The DELETE response carries the grace deadline (purgeAfter); surface it
-      // as a concrete, locale-formatted date so the toast is honest about how
-      // long the project can still be restored.
       const purgeAfter = data.purgeAfter ? new Date(data.purgeAfter) : null
       toast.success(
         purgeAfter && !Number.isNaN(purgeAfter.getTime())
@@ -58,7 +49,6 @@ export function ProjectDeleteDialog({
       router.push('/app/projects')
     } catch (error) {
       if (error instanceof ProjectRequestError) {
-        // The server's own sentence when it sent one, ours when it did not.
         toast.error(error.serverMessage ?? t('dangerZone.deleteError'))
       } else {
         toast.error(error instanceof Error ? error.message : t('dangerZone.deleteError'))

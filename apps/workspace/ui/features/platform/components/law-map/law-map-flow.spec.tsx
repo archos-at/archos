@@ -10,14 +10,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
-// The person who proposed the records, as on dev where one operator does it all.
 vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: 'author' } }) }))
-
-/**
- * The owner's path on dev, end to end in the law map and nowhere else: confirm every unit (ticking the source
- * check where a page was pasted), approve alone with a reason, publish to preview, publish to stable. The server
- * here is a stand-in that keeps state the way the routes do on a deployment that runs one operator alone.
- */
 
 const ID = '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
 const BASE = `/api/platform/knowledge/change-requests/${ID}`
@@ -118,7 +111,6 @@ describe('the owner’s path through the law map', () => {
       </PlatformAccessProvider>,
     )
 
-    // Confirm what waits, one unit after another, ticking the source check where a page was pasted.
     for (let round = 0; round < 10; round += 1) {
       const next = await screen.findByTestId('next-to-confirm').catch(() => null)
       if (!next) break
@@ -132,14 +124,12 @@ describe('the owner’s path through the law map', () => {
     expect(stub.state.revisions.flatMap((rev) => rev.claims).every((claim) => claim.decision === 'accepted')).toBe(true)
     expect(stub.state.sourceChecked).toBe(true)
 
-    // Approve alone, with the reason the audit keeps.
     await user.click(await screen.findByRole('button', { name: 'Approve without a second review' }))
     const alone = await screen.findByRole('dialog', { name: 'Approve without a second review?' })
     await user.type(within(alone).getByTestId('approve-alone-reason'), 'One operator on dev; nobody else can approve it.')
     await user.click(within(alone).getByRole('button', { name: 'Approve without a second review' }))
     await waitFor(() => expect(stub.state.status).toBe('approved'))
 
-    // Preview, then stable.
     await user.click(await screen.findByRole('button', { name: 'Publish to preview' }))
     await user.click(within(await screen.findByRole('dialog', { name: 'Publish to the preview?' })).getByRole('button', { name: 'Publish to preview' }))
     await waitFor(() => expect(stub.state.releases).toEqual([{ channel: 'preview', action: 'publish' }]))

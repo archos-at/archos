@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/projects/[id]/inbound-mails`: the list's query is parsed here, from the wire's schema.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

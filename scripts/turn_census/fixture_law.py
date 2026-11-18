@@ -1,13 +1,3 @@
-"""The law a suite turn reads about its site: what an entitled Austrian office's turn carries.
-
-Since ADR-0175 the agent reads which law applies from the turn context's ``knowledgeContext`` and
-nothing else (its chain text and every edition's role); a turn without it reads no law at all. Every
-fixture BFF answer to ``POST /api/internal/turn-context`` therefore carries it, for the Land of the
-turn's project, as the production resolvers wrote it from the Austria and EU packs
-(``tests/fixtures/base-knowledge/turn_law_austria.json``, from
-``apps/workspace/bff/base-knowledge/context/turn-law.fixture.spec.ts``).
-"""
-
 from __future__ import annotations
 
 import functools
@@ -18,7 +8,6 @@ from typing import Any
 
 LAW_FILE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "base-knowledge" / "turn_law_austria.json"
 
-#: The intake's Land tokens (``federal_state``) as the territories the packs name.
 TERRITORY_OF_STATE: dict[str, str] = {
     "burgenland": "AT-1",
     "carinthia": "AT-2",
@@ -31,7 +20,6 @@ TERRITORY_OF_STATE: dict[str, str] = {
     "vienna": "AT-9",
 }
 
-#: Where a suite question sits when nothing says: the question set is a Viennese office's.
 DEFAULT_TERRITORY = "AT-9"
 
 
@@ -41,20 +29,13 @@ def _law() -> dict[str, dict[str, Any]]:
 
 
 def territory_of(federal_state: str | None) -> str:
-    """The territory of an intake Land token; Vienna when there is none."""
     return TERRITORY_OF_STATE.get(federal_state or "", DEFAULT_TERRITORY)
 
 
-#: The key a turn-context answer states its site under, when the question names one (a golden case's territory).
 SITE = "site_territory"
 
 
 def with_law(answer: dict[str, Any], project: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A turn-context answer with the ``knowledgeContext`` of its site in its data.
-
-    The site is the one the answer states (:data:`SITE`, a golden case's territory), else ``project``'s Land.
-    A stated site the fixture holds no law for, or none at all, gets no law: the turn then reads none.
-    """
     rest = {key: value for key, value in answer.items() if key != SITE}
     if SITE in answer:
         law = _law().get(str(answer[SITE]), {})
@@ -64,11 +45,6 @@ def with_law(answer: dict[str, Any], project: dict[str, Any] | None = None) -> d
 
 
 class _LawOnly:
-    """The norm sets' turn context: no project, no memory; ``FixtureBFF`` adds the law of the site (``fixture_law.py``).
-
-    Vienna's unless the question stated its own site (``territory``, a golden case's), which :meth:`place` records.
-    """
-
     def __init__(self) -> None:
         self._sites: dict[str, str | None] = {}
 
@@ -83,13 +59,6 @@ class _LawOnly:
 
 
 def start_law_bff(out: Path, envelope: Callable[..., tuple[str, str]]) -> tuple[Any, Any]:
-    """``--set loop``: a fixture BFF that serves the turn context alone, with Vienna's law (ADR-0175).
-
-    The norm questions are a Viennese office's. Since ADR-0175 a turn reads which law applies from the
-    knowledge context and the chain the BFF sends, and a turn without them reads none; this serves what an
-    entitled Austrian office's turn in Vienna carries once the packs are published. Every other route is
-    dropped, as it was when this set ran with no BFF at all.
-    """
     import secrets
 
     from fixture_bff import FixtureBFF

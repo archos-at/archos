@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * PageRegionThumbnail: a place on a document, small (ADR-0128). The clip of
- * the page around the box (or the whole page) with the box marked by the
- * viewer's own `RegionMarks`, so the thumbnail and the opened document agree.
- *
- * Shared by the look card, the Herleitung's look row and the citation peek.
- * Drawing is `drawPlace`: the document's own routes, pdf.js for a PDF, the
- * preview route's signed URL for an image upload, only the clip, at the size
- * it is shown. With `lazy` (the default) nothing is fetched until the
- * thumbnail comes on screen. A reader who may not open the document sees a
- * tile saying so and nothing of the page.
- */
-
 import { useEffect, useRef, useState, type CSSProperties, type FC } from 'react'
 import { FileX2, Lock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,41 +13,24 @@ import { PageSheet } from './pdf-viewer-atoms'
 import { RegionMarks } from './region-marks'
 import type { PageRegion } from '../lib/page-region'
 
-/** Width drawn at when the frame has not been laid out (a test, a hidden tab). */
 const FALLBACK_WIDTH = 288
-/** The shape of the frame while nothing is drawn yet. */
 const WAITING_ASPECT = 3 / 2
 
 type State = { status: 'waiting' } | DrawnPlace
 
 export interface PageRegionThumbnailProps {
   place: PagePlace
-  /** Draw the part around the box (default) or the whole page with the box on it. */
   clip?: boolean
-  /** Wait until on screen before fetching anything (default). */
   lazy?: boolean
-  /** Width in CSS pixels; the frame's own width when unset. */
   width?: number
-  /** The drawing is never taller than this, in CSS pixels. */
   maxHeight?: number
-  /** CSS colour of the mark. */
   color?: string
-  /** What the picture shows, for a screen reader; „Seite N“ when unset. */
   label?: string
-  /** `none`: render nothing when the page cannot be shown, instead of a tile saying so. */
   fallback?: 'tile' | 'none'
-  /** Told once the place is drawn: an image upload's signed picture, so a viewer can open it. */
   onDrawn?: (drawn: { image?: ImageClip }) => void
-  /** Told when the reader may not open the document. */
   onDenied?: () => void
-  /**
-   * The boxes to mark, in the page's frame, instead of the place's own: a
-   * citation with several depictions on one page. Only with `clip={false}`,
-   * where the drawn part is the page.
-   */
   marks?: readonly PageRegion[]
   className?: string
-  /** Marker attributes for the outer element, e.g. `data-citation-thumbnail`. */
   [data: `data-${string}`]: string | undefined
 }
 
@@ -94,7 +64,6 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [state, setState] = useState<State>({ status: 'waiting' })
   const near = !lazy || seen
-  // The callbacks are read when the drawing ends, not a reason to draw again.
   const told = useRef({ onDrawn, onDenied })
   told.current = { onDrawn, onDenied }
   const regionKey = `${place.region?.join(',') ?? ''}|${place.point?.join(',') ?? ''}`
@@ -117,7 +86,6 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
       if (drawn.status === 'denied') told.current.onDenied?.()
     })
     return () => controller.abort()
-    // `place` is keyed by its address below; a new object for the same place draws nothing new.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     near,
@@ -153,7 +121,6 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
           'bg-muted/60 text-muted-foreground flex w-full flex-col items-center justify-center gap-1 rounded-sm p-3 text-center text-xs',
           className
         )}
-        // At a given width the tile keeps the thumbnail's shape; at the column's width it stays a line high.
         style={width ? { width, aspectRatio: WAITING_ASPECT, maxHeight } : { minHeight: 72 }}
       >
         <Icon aria-hidden className="size-4" />
@@ -181,7 +148,6 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
         }}
       >
         {drawn?.image && (
-          // An image upload's signed picture, placed so only the clip shows.
           // oxlint-disable-next-line nextjs/no-img-element -- a signed object-store URL the optimizer cannot fetch
           <img src={drawn.image.url} alt={name} style={imageStyle(drawn.image)} />
         )}

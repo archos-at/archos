@@ -1,11 +1,3 @@
-/**
- * What an office reads of the platform's base knowledge (ADR-0165): the norms
- * the platform lists that the office holds no copy of, and the authority
- * directives that apply to a project. Every query runs as the office
- * (`withTenant`) and names the office's read itself (`store/visibility.ts`),
- * so the layered RLS is the backstop, not the filter.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -19,10 +11,8 @@ import { directiveVerdict, type PlatformAddressee } from '../platform'
 import { recordReadable } from '../store/visibility'
 import { readTerritoryChain } from '../time/repository'
 
-/** Most listings or directives one turn reads. */
 const MAX_READ = 200
 
-/** `ÖNORM B 1600:2017` and `önorm  b 1600` name the same work: case, spacing and the edition suffix aside. */
 export function designationKey(designation: string): string {
   return designation.toLocaleLowerCase('de').replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
 }
@@ -73,7 +63,6 @@ interface AuthorityRow extends Record<string, unknown> {
   name: string
 }
 
-/** Who is competent at the site, by the competence rulesets of its chain on the office's today. */
 async function competenceAt(organizationId: string, territoryId: string): Promise<SiteAuthority> {
   const today = calendarDayIn(await officeTimeZone(organizationId))
   const chain = await readTerritoryChain(organizationId, territoryId, today)
@@ -122,7 +111,6 @@ async function directivesFor(organizationId: string, territoryId: string | null)
   })
 }
 
-/** The platform as offices read it: the released records of the countries each office is entitled to. */
 export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
   async listedNotHeld(organizationId, held) {
     const holds = new Set(held.map(designationKey))

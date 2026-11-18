@@ -1,9 +1,3 @@
-/**
- * The confirmation of „Wie vorgeschlagen ablegen“ for several mails: where
- * everything goes. Whether a mail may be filed so is the server's
- * (`lib/inbound-mail/review-defaults.spec.ts`).
- */
-
 import { describe, expect, it } from 'vitest'
 import { DETAIL_VARIANTS, FOLDERS } from '@/app/dev/inbound-mail/fixtures'
 import { asSuggested, bulkPlan, fileableReason, isReady } from './completeness'

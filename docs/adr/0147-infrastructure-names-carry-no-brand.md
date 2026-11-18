@@ -39,7 +39,7 @@ until the old namespace is deleted, and deleting it is its own last step.
   kubectl.
 * **Rollback is a config change until the very end.** The old namespace stays
   intact and managed until a separate, last PR deletes it.
-* **No ciphertext is hand-edited** (`deploy/AGENTS.md`). A `secure:` value is
+* **No ciphertext is hand-edited** (`deploy/README.md`). A `secure:` value is
   encrypted by its stack's key. It moves only by being decrypted by its own
   stack and written again by a CLI.
 * **Dev first.** Each step lands on the `dev` stack and is verified there, with
@@ -407,6 +407,6 @@ code, so that ADR is written together with the code-identifier session.
 * Revisit if the cluster provider stops reserving a released LoadBalancer IP
   for re-claim. The edge plan above rests on that, and without it the switch
   has to change DNS instead.
-* [`deploy/AGENTS.md`](../../deploy/AGENTS.md) for the stack-file rules,
+* [`deploy/README.md`](../../deploy/README.md#rules-for-changes) for the stack-file rules,
   ADR-0041 (least-privilege Postgres roles), ADR-0043 (SeaweedFS topology),
   ADR-0115 (Qdrant), ADR-0044 (Langfuse).

@@ -1,12 +1,3 @@
-"""``marks``, ``mark``, ``reply``: what they refuse, what they say, and what they never claim.
-
-The HTTP call is the only thing faked (``conftest.answering``). What is under
-test is the seam: the signed bytes leave unchanged, a run with no envelope
-sends nothing, the BFF's refusals reach the model as sentences it can relay, a
-list reads as text a model can cite by number, a proposal is never reported as
-a finding that was recorded, and what the BFF confirmed lands on the card.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -87,7 +78,6 @@ class TestRefusals:
 
     @pytest.mark.parametrize("reason", ["mark-discussed", "mark-carried"])
     def test_a_kept_mark_is_said_as_kept_not_as_a_race(self, reason) -> None:
-        """A delete the thread or a carry refuses is a 409 too, but rereading would not change it."""
         refused = canvas_calls.refusal_for(
             CanvasRequestError("x", status=409, code="CONFLICT", reason=reason), "delete"
         )
@@ -95,7 +85,6 @@ class TestRefusals:
         assert "Not deleted" in str(refused) and "just changed" not in str(refused)
 
     async def test_no_document_subject_wins_over_the_status(self, monkeypatch, calls) -> None:
-        """The reason is what tells „name the document“ from a malformed request."""
         answering(monkeypatch, calls, CanvasRequestError("x", status=422, reason="no-document-subject"))
 
         result = await run_mark([PROPOSAL])
@@ -166,6 +155,18 @@ class TestWhatItSays:
         assert result.index("No. 2") < result.index("No. 1")
         assert "proposal, not yet taken over" in result and "by you, for Martin Huber" in result
         assert "point x 0.10, y 0.20" in result
+
+    async def test_an_agent_proposal_under_its_new_actor_kind_reads_the_same(self, monkeypatch, calls) -> None:
+        body = {
+            "documentId": DOCUMENT,
+            "documentName": NAME,
+            "annotations": [listed(id="b", number=2, page=3, status="proposed", authorKind="agent", shape="point")],
+        }
+        answering(monkeypatch, calls, body)
+
+        result = await run_marks()
+
+        assert "proposal, not yet taken over" in result and "by you, for Martin Huber" in result
 
     async def test_an_older_revision_is_named(self, monkeypatch, calls) -> None:
         answering(monkeypatch, calls, {**LIST_BODY, "annotations": [listed(onCurrentRevision=False)]})

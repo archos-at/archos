@@ -4,10 +4,6 @@ import { blogEntries, type SitemapEntry } from '../lib/blog-sitemap';
 import identity from '../lib/identity';
 import { BLOG_CACHE_CONTROL, getBlogPosts } from '../lib/posts';
 
-// The blog's sitemap, on request like the blog (ADR-0155), so a post published in the CMS is
-// listed at once; robots.txt names it beside the sitemap index @astrojs/sitemap builds for the
-// prerendered pages. Each URL carries its twin as hreflang alternates and its date: a post's
-// last change, the listings' newest post.
 export const prerender = false;
 
 const LOCALES: Locale[] = ['de', 'en'];

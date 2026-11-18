@@ -2,17 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The workspace eval's WORKSPACE block, written by the production renderer
- * (ADR-0123). The fixture office (`tests/fixtures/workspace/office.json`) is
- * the source; this writes the block the real BFF would hand a turn of Lena
- * Berger's in its current project to `tests/fixtures/workspace/rendered.json`,
- * which `scripts/turn_census/fixture_workspace.py` serves with `{conversation}`
- * replaced by the run's conversation. A change to the block fails here until the
- * fixture is regenerated:
- *
- *   UPDATE_FIXTURES=1 npx vitest run bff/turn-context/workspace-block.fixture.spec.ts
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -35,7 +24,6 @@ function render(): string {
     organizationRole: 'admin',
     projectRole: 'project-admin',
     project,
-    // A new conversation of the asker's own: the eval's runs start with none.
     conversation: { id: '{conversation}', audience: 'solo' },
     inboxWaiting: office.reads['inbox-list'].items.filter((item) => !item.read).length,
     activeRuns: 0,
@@ -43,7 +31,6 @@ function render(): string {
     proposalsTruncated: false,
   }
   const workspace = renderWorkspaceBlock(facts)
-  // The lines a turn's proposals add, with placeholders, so the fixture lists what a run filed as production would.
   const withOne = renderWorkspaceBlock({
     ...facts,
     proposals: [{ id: '{id}', kind: 'operation', status: 'proposed', summary: '{summary}' }],

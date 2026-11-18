@@ -1,9 +1,3 @@
-/**
- * Where every office is placed (ADR-0158, ADR-0165): each organization's home
- * country or why it has none, and the countries it is entitled to, a page at a
- * time. Read only; platform staff with `platform:organizations:view`.
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

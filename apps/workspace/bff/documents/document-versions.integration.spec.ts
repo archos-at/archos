@@ -49,7 +49,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     withTenant({ organizationId: ORG, userId: USER }, run)
 
   let seq = 0
-  /** A document of its own per case, so a count is a statement about that case. */
   async function seedDocument(fileSize = 1_000): Promise<{ id: string; storageKey: string }> {
     seq += 1
     const storageKey = `org/${ORG}/project/p/doc/d${seq}/plan-${seq}.md`
@@ -79,7 +78,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     createdBy: USER,
   })
 
-  /** A person's upload as `createDocumentVersion` writes it: published, approved by nobody (migration 0137). */
   const published = (documentId: string, storageKey: string, fileSize = 1_000) => ({
     ...baseVersion(documentId, storageKey, fileSize),
     state: 'published' as const,
@@ -99,7 +97,7 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     db = (await import('@/lib/db')).getDb()
@@ -133,8 +131,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     const doc = await seedDocument()
     await inTenant(() => repo.insertPublishedVersion(published(doc.id, doc.storageKey)))
 
-    // Both "re-uploads" arrive at once. Before 0092 both read max = 1 and both
-    // recorded version 2; now the second waits on the document's lock.
     await Promise.all([
       inTenant(() => repo.insertPublishedVersion(published(doc.id, `${doc.storageKey}.a`))),
       inTenant(() => repo.insertPublishedVersion(published(doc.id, `${doc.storageKey}.b`))),
@@ -159,14 +155,9 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       () => null,
       (error: unknown) => error,
     )
-    // drizzle wraps the driver's error ("Failed query: …"); the Postgres one is
-    // its `cause`, and it names the constraint.
     const cause = (refusal as { cause?: { code?: string; constraint_name?: string } } | null)?.cause
     expect(cause?.code).toBe('23505')
     expect(cause?.constraint_name).toBe('document_versions_document_id_version_number_key')
-    // The premise of `isUniqueViolation` (ADR-0054 correction 15): the thrown
-    // wrapper carries no code of its own, so `error.code === '23505'` is never
-    // true of a real failure.
     expect((refusal as { code?: unknown } | null)?.code).toBeUndefined()
   })
 
@@ -190,7 +181,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
 
     expect(outcomes.filter((outcome) => outcome === null)).toHaveLength(1)
     const rows = await versionsOf(doc.id)
-    // The loser's supersede rolled back with it: still exactly one published.
     expect(rows.map((row) => row.state)).toEqual(['superseded', 'published'])
   })
 
@@ -204,11 +194,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       ),
     )
 
-  /*
-   * A review round is written in the transaction that swaps the version's
-   * state (migration 0136, ADR-0104). A submit opens one; a decision closes
-   * it; a lost swap writes nothing.
-   */
   it('opens a round on submit and decides it on the review, in the swap\'s transaction', async () => {
     const doc = await seedDocument()
     const draft = await inTenant(() =>
@@ -234,7 +219,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       inTenant(() => repo.compareAndSwapVersionState(draft.id, ORG, 'in_review', refuse, decide)),
     ])
 
-    // One winner; the loser's swap and its round write rolled back together.
     expect(outcomes.filter((outcome) => outcome === null)).toHaveLength(1)
     expect(await roundsOf(draft.id)).toEqual([
       { outcome: 'changes_requested', requested_by: 'user_author', decided_by: 'user_reviewer', comment: 'Maße prüfen' },
@@ -258,11 +242,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     await expect(refusal).rejects.toThrow()
   })
 
-  /*
-   * ADR-0104 rules 5 and 6 (migration 0137): an upload is published with no
-   * approver, a version that began as a draft never is, and „Freigeben"
-   * promotes the version and decides its round in one transaction.
-   */
   it('publishes an upload without an approver, and refuses a draft published without one', async () => {
     const doc = await seedDocument()
     await inTenant(() => repo.insertPublishedVersion(published(doc.id, `${doc.storageKey}.u1`)))
@@ -354,7 +333,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     const won = outcomes.filter((outcome) => outcome.ok)
     expect(won).toHaveLength(1)
     expect(outcomes.filter((outcome) => !outcome.ok)).toEqual([{ ok: false, reason: 'conflict' }])
-    // The row names the winner's key AND the winner's hash — never a mix.
     const rows = await versionsOf(doc.id)
     const winnerKey = won[0].ok ? won[0].version.storageKey : ''
     expect(rows[1].storage_key).toBe(winnerKey)
@@ -362,13 +340,10 @@ describe.skipIf(!url)('document versions under concurrency', () => {
   })
 
   it('charges a fresh fork’s first write in full, under the lock, and rolls back a crossing', async () => {
-    // Measured against the whole organization's usage, so the ceiling is set
-    // relative to whatever the earlier cases left behind.
     const doc = await seedDocument(1_000)
     const live = await inTenant(() =>
       repo.insertPublishedVersion(published(doc.id, doc.storageKey, 1_000)),
     )
-    // A fork: a second row over the SAME object, so it costs nothing yet.
     const fork = await inTenant(() =>
       repo.insertDocumentVersion({ ...baseVersion(doc.id, doc.storageKey, 1_000), state: 'draft' }),
     )
@@ -394,14 +369,11 @@ describe.skipIf(!url)('document versions under concurrency', () => {
         }),
       )
 
-    // A same-sized revision of a 1_000-byte file: the old delta was 0. The
-    // published object stays, so the commit really adds 1_000.
     await expect(swap(used + 999)).resolves.toEqual({ ok: false, reason: 'quota', usedBytes: used })
     expect((await versionsOf(doc.id))[1].storage_key).toBe(doc.storageKey)
 
     const admitted = await swap(used + 1_000)
     expect(admitted).toMatchObject({ ok: true, previousKeyOrphaned: false })
-    // The published row still names the shared object, so it was not orphaned.
     expect(live.version.storageKey).toBe(doc.storageKey)
   })
 
@@ -421,19 +393,16 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       createdBy: USER,
     })
 
-    // The old arithmetic excluded this document and called 900 bytes free.
     await expect(
       inTenant(() => storage.replaceDocumentWithinQuota(ORG, doc.id, next(900), used + 899)),
     ).resolves.toEqual({ ok: false, usedBytes: used })
     await expect(
       inTenant(() => storage.replaceDocumentWithinQuota(ORG, doc.id, next(900), used + 900)),
     ).resolves.toEqual({ ok: true })
-    // And the ledger agrees afterwards: the old version joined the overhead.
     const after = await inTenant(() => db.transaction((tx) => storage.readStorageUsage(tx, ORG)))
     expect(after).toBe(used + 900)
   })
 
-  /** A first upload's row, as `uploadDocument` hands it to admission. */
   const firstUpload = (filename: string, fileSize: number) => {
     const id = randomUUID()
     return {
@@ -459,8 +428,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     const a = firstUpload(filename, 300)
     const b = firstUpload(filename, 300)
 
-    // Both probes have missed by now; the two inserts meet the index. The
-    // quota lock serializes them, so the second sees the first's COMMITTED row.
     const outcomes = await Promise.allSettled([
       inTenant(() => storage.insertDocumentWithinQuota(a, null)),
       inTenant(() => storage.insertDocumentWithinQuota(b, null)),
@@ -469,8 +436,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1)
     const lost = outcomes.find((outcome) => outcome.status === 'rejected')
     const reason = lost?.status === 'rejected' ? lost.reason : null
-    // Mapped at the repository — not a raw drizzle wrapper, which a route
-    // would have answered with a 500.
     expect(reason).toBeInstanceOf(conflicts.LiveFilenameTakenError)
     expect(reason).toMatchObject({ status: 409 })
 
@@ -498,9 +463,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       inTenant(() => storage.insertDocumentWithinQuota(loser, null)),
     ).rejects.toBeInstanceOf(conflicts.LiveFilenameTakenError)
 
-    // The retry: the loser's bytes under a write key of the WINNER's document,
-    // admitted as a replacement — interleaved with the winner still recording
-    // its own version 1, which is the order the race actually produces.
     const retryKey = `org/${ORG}/project/p/doc/${winner.id}/v1/abcdef012345/${filename}`
     await inTenant(() =>
       storage.replaceDocumentWithinQuota(
@@ -537,8 +499,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     expect(rows.map((row) => Number(row.version_number))).toEqual([1, 2])
     expect(rows.filter((row) => row.state === 'published')).toHaveLength(1)
     expect(new Set(rows.map((row) => row.storage_key))).toEqual(new Set([winner.storageKey, retryKey]))
-    // Two objects are kept, so both are charged — and nothing for the loser's
-    // first object, which was never admitted.
     const after = await inTenant(() => db.transaction((tx) => storage.readStorageUsage(tx, ORG)))
     expect(after).toBe(used + 500)
   })
@@ -563,8 +523,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
   it('leaves a 23505 on any other document_versions constraint unmapped', async () => {
     const doc = await seedDocument()
     await inTenant(() => repo.insertPublishedVersion(published(doc.id, doc.storageKey)))
-    // A second PUBLISHED insert outside `insertPublishedVersion` meets the
-    // published-per-document index, which is a bug and must stay a 500.
     const refusal = await inTenant(() =>
       repo.insertDocumentVersion(published(doc.id, `${doc.storageKey}.again`)),
     ).then(
@@ -579,7 +537,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
   it('reports a re-upload whose document was deleted after the probe, changing and charging nothing', async () => {
     const doc = await seedDocument(1_000)
     await inTenant(() => repo.insertPublishedVersion(published(doc.id, doc.storageKey, 1_000)))
-    // The upload probed the name and found this row; then somebody deleted it.
     await inTenant(() => db.execute(sql`DELETE FROM documents WHERE id = ${doc.id}::uuid`))
     const used = await inTenant(() => db.transaction((tx) => storage.readStorageUsage(tx, ORG)))
 
@@ -600,16 +557,12 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       ),
     )
 
-    // It used to resolve `{ ok: true }` having updated nothing, and the caller
-    // went on to record a version for a document that no longer existed while
-    // its new object was named by no row.
     await expect(replaced).rejects.toBeInstanceOf(conflicts.ReplacedDocumentGoneError)
     const after = await inTenant(() => db.transaction((tx) => storage.readStorageUsage(tx, ORG)))
     expect(after).toBe(used)
     expect(await versionsOf(doc.id)).toEqual([])
   })
 
-  /** An Archiv row: `project_id` NULL, the shelf the composite key checks nothing on. */
   async function seedOfficeShelfDocument(): Promise<{ id: string; storageKey: string }> {
     seq += 1
     const storageKey = `org/${ORG}/archiv/doc/a${seq}/norm-${seq}.pdf`
@@ -634,8 +587,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
 
     await inTenant(() => db.execute(sql`DELETE FROM documents WHERE id = ${doc.id}::uuid`))
 
-    // Before 0094 the row stayed: the composite key is MATCH SIMPLE, and with
-    // project_id NULL it neither checked nor cascaded anything.
     expect(await versionsOf(doc.id)).toEqual([])
   })
 
@@ -644,8 +595,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     ['an Archiv document', true],
   ])('refuses a version for %s deleted first, as DocumentDeletedError', async (_label, officeShelf) => {
     const doc = officeShelf ? await seedOfficeShelfDocument() : await seedDocument()
-    // The upload wrote the row and pointed it at its bytes; a delete commits
-    // before the upload records its version.
     await inTenant(() => db.execute(sql`DELETE FROM documents WHERE id = ${doc.id}::uuid`))
 
     const recorded = inTenant(() =>
@@ -655,21 +604,11 @@ describe.skipIf(!url)('document versions under concurrency', () => {
       }),
     )
 
-    // On the Archiv this used to SUCCEED: a published version, naming the
-    // upload's object, for a document nothing lists — bytes and a row nothing
-    // would ever reach again.
     await expect(recorded).rejects.toBeInstanceOf(conflicts.DocumentDeletedError)
     await expect(recorded).rejects.toMatchObject({ status: 409, documentId: doc.id })
     expect(await versionsOf(doc.id)).toEqual([])
   })
 
-  /**
-   * The chat shelf (ADR-0047 Phase 2) meets the same two races, and answers them
-   * the same way, because a session attachment is the same table under the
-   * same live-name index. `uploadSessionDocument` wraps these statements in
-   * `retryRacedUpload`; the unit suite drives the retry, this one proves the
-   * database hands it the typed errors it retries on.
-   */
   describe('session attachments', () => {
     let conversationId: string
 
@@ -725,7 +664,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
         ),
       )
       expect(rows).toHaveLength(1)
-      // Nothing charged for the loser.
       const after = await inTenant(() => db.transaction((tx) => storage.readStorageUsage(tx, ORG)))
       expect(after).toBe(used + 300)
     })
@@ -740,8 +678,6 @@ describe.skipIf(!url)('document versions under concurrency', () => {
         inTenant(() => storage.insertDocumentWithinQuota(loser, null)),
       ).rejects.toBeInstanceOf(conflicts.LiveFilenameTakenError)
 
-      // The retry reads the winner's next number as 1 (it has no version yet),
-      // and the write key still differs from the winner's own.
       const { versionWriteKey } = await import('./version-content')
       const retryKey = versionWriteKey(winner.storageKey, 1, 'abcdef012345')
       expect(retryKey).not.toBe(winner.storageKey)

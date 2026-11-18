@@ -34,7 +34,6 @@ describe('findSlashCommandQuery', () => {
   })
 
   it('does not fire mid-sentence — the domain is full of slashes', () => {
-    // Every one of these is ordinary text a user writes about a Richtlinie.
     expect(findSlashCommandQuery('gilt am 12/05 noch?', 13)).toBeNull()
     expect(findSlashCommandQuery('siehe OIB-RL 2/3', 16)).toBeNull()
     expect(findSlashCommandQuery('und/oder', 8)).toBeNull()
@@ -110,8 +109,6 @@ describe('resolveSlashInvocation', () => {
   })
 
   it('matches the longer name, not a prefix of it', () => {
-    // `/oib-schallschutz` must not resolve to `oib-brandschutz` or vice versa;
-    // the token is delimited by whitespace, so this is exact by construction.
     expect(resolveSlashInvocation('/oib-schallschutz', NAMES)?.skillName).toBe('oib-schallschutz')
   })
 })
@@ -132,9 +129,7 @@ describe('filterSlashCommands', () => {
   it('ranks a name prefix above a name substring above a description match', () => {
     const ranked = filterSlashCommands(SKILLS, 'brandschutz')
     expect(ranked.map((skill) => skill.name)).toEqual([
-      // substring of the name…
       'oib-brandschutz',
-      // …then the one that only mentions it in its description.
       'projekt-zusammenfassung',
     ])
   })

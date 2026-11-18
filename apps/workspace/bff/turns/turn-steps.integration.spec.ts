@@ -36,7 +36,6 @@ const THREAD = `s_${randomUUID().replace(/-/g, '_')}`
 const QUESTION = randomUUID()
 const ANSWER = randomUUID()
 
-/** A recorded turn with steps, steers and subagents, re-addressed to this thread's question. */
 const FRAMES = wireFixtureLines<Record<string, unknown>>('turn-subagents.jsonl').map((frame) => ({
   ...frame,
   conversation_id: THREAD,
@@ -51,7 +50,6 @@ describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
   let steps: typeof import('./turn-steps')
   let view: typeof import('@/lib/conversations/message-view')
 
-  /** The thread as a reload reads it, with the steps asked for. */
   const reloadedQuestion = async (): Promise<StoredThinkingStep[] | undefined> => {
     const page = await as(ORG, () => repo.listMessagePage(THREAD, { limit: 50 }))
     const row = page.rows.find((message) => message.id === QUESTION)!
@@ -61,7 +59,7 @@ describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     as = (organizationId, run) => context.withTenant({ organizationId, userId: null }, run)
     withPlatformAccess = context.withPlatformAccess
@@ -103,13 +101,11 @@ describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
     const [row] = await as(ORG, () => repo.listMessagePage(THREAD, { limit: 50 })).then((page) =>
       page.rows.filter((message) => message.id === QUESTION)
     )
-    // The rest of the question's metadata is kept: the door's mark still says who asked.
     expect(row!.metadata).toMatchObject({ agentConsult: { askId: QUESTION } })
   })
 
   it('leaves one copy when the browser stored the steps too, in either order', async () => {
     const browser = steps.foldedTurnSteps(THREAD, QUESTION, FRAMES)
-    // The browser's PATCH (`updateMessageDetail`): the provenance replaced whole.
     await as(ORG, () => repo.mergeMessageMetadata(THREAD, QUESTION, { provenance: { thinkingSteps: browser } }))
     await as(ORG, () => steps.recordTurnSteps(ORG, THREAD, QUESTION, FRAMES))
     await as(ORG, () => steps.recordTurnSteps(ORG, THREAD, QUESTION, FRAMES))

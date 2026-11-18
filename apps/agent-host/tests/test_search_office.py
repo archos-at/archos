@@ -1,11 +1,3 @@
-"""The office a search route reads as (``document_search.request_office``).
-
-A plain FastAPI route never sees the agent runtime's context headers, so the
-searches here name their office themselves: the signed envelope's
-organization, or in anonymous mode the organization header (``ORGANIZATION_ID_HEADER``). The
-knowledge layer refuses a project read with no office (``vector_store.scope.ScopeRead``).
-"""
-
 from __future__ import annotations
 
 import base64
@@ -97,7 +89,6 @@ def app(monkeypatch):
 
 
 def _retriever(seen: list[str | None]) -> MagicMock:
-    """A retriever that records the office the knowledge layer would read as at the moment it is asked."""
 
     async def search_grouped(query, collections, **_kwargs):
         seen.append(office_for(collections))
@@ -127,5 +118,4 @@ async def test_the_grouped_and_the_single_search_read_as_the_signed_office(app):
 
     assert grouped.status_code == 200 and single.status_code == 200
     assert seen == ["org_a", "org_a"]
-    # Outside the request the office is gone again.
     assert office_for(["proj_a"]) is None

@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the viewer's chrome.
- *
- * The canvas needs WebGPU and headless Chromium has none, so the 3D picture
- * itself cannot be captured here — `/dev/bim-model` pins the no-WebGPU
- * fallback for that reason. What CAN be captured, now that every control is an
- * atom that owns no canvas, is the whole of the chrome: the dock, the rail,
- * the selection card, the loading veil. That is all of the copy and all of the
- * layout decisions.
- *
- * Rendered over the muted panel the stage uses, so contrast is judged against
- * the real backdrop rather than against white.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -53,10 +37,8 @@ import {
 } from '@/features/bim/components/viewer'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** The model's vertical extent, as the loaded fixture reports it. */
 const CUT_RANGE = { minMetres: -0.25, maxMetres: 6.25 }
 
-/** The wall the selection stages are about. */
 const SELECTED_WALL: BimElementDetail = {
   globalId: '2O2Fr$t4X7Zf8NOew3FLKU',
   expressId: 21,
@@ -74,7 +56,6 @@ const SELECTED_WALL: BimElementDetail = {
   quantities: { Qto_WallBaseQuantities: { NetSideArea: 18.44, Width: 0.38 } },
 }
 
-/** The wall as the phone sheet shows it: a 22-character id that used to be clipped. */
 const PHONE_WALL: BimElementDetail = {
   ...SELECTED_WALL,
   globalId: '1kTvXnbbzCWw8lcMd1dR4o',
@@ -90,7 +71,6 @@ function Stage({
 }: {
   title: string
   description: string
-  /** A desktop arrangement: drawn at desktop width and scrolled sideways on a phone, never squeezed into it. */
   desktopOnly?: boolean
   children: React.ReactNode
 }): JSX.Element {
@@ -122,8 +102,6 @@ export default function BimViewportDevPage(): JSX.Element {
   const [xray, setXray] = useState(false)
   const [railOpen, setRailOpen] = useState(true)
   const [storey, setStorey] = useState<string | null>('Erdgeschoss')
-  // Starts pressed: the state that had no drawing at all is the one worth
-  // capturing, and one click shows the other.
   const [isolated, setIsolated] = useState(true)
 
   if (process.env.NODE_ENV !== 'development') {
@@ -189,14 +167,6 @@ export default function BimViewportDevPage(): JSX.Element {
         )}
 
         <ViewerDock
-          /*
-            The pair that answers "get me back", and the preview was missing
-            half of it — with the other half under a name the product had
-            already dropped. "Alles anzeigen" is what the camera button used
-            to be called, until it collided with the restore button beside it
-            and a screen reader read out two near-identical names for two
-            unrelated acts.
-          */
           lead={
             <>
               <ViewerIconButton label="Letzte Änderung rückgängig machen" icon={Undo2} />
@@ -370,7 +340,6 @@ export default function BimViewportDevPage(): JSX.Element {
   )
 }
 
-/** Fixed stand-ins for the stage's own state: the preview pins the chrome, not the logic. */
 function usePhoneToolState() {
   const [sheet, setSheet] = useState<'levels' | 'more' | null>(null)
   const [cameraView, setCameraView] = useState<BimCameraView>('iso')

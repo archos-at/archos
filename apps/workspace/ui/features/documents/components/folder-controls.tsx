@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * The folder level's two small controls, beside the drill-down in `folder-navigation.tsx`: „Ordner anlegen“ as a
- * popover form where the reader stands, and a folder's own ⋯ where the caller supplies no menu of its own.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Folder, FolderPlus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
@@ -24,11 +19,6 @@ interface FolderLevelProps {
   onCreateFolder: (name: string, parentId?: string) => Promise<boolean>
 }
 
-/**
- * "New folder" as a popover form: name it where you stand, Enter creates it in
- * the CURRENT level. Failure keeps the popover open with the typed name — the
- * workspace surfaces the error toast.
- */
 export function NewFolderControl({
   currentFolderId,
   onCreateFolder,

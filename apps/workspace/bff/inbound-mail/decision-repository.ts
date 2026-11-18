@@ -1,13 +1,3 @@
-/**
- * SQL for a person's decisions on a mail's parts (ADR-0137): filing,
- * dismissing and restoring them, their audit, and the agent's suggestion a
- * decision may follow (D21).
- *
- * No authorization here: the service decides who may ask, and row-level
- * security is the backstop. Every list is bounded. The rules a row must keep
- * are CHECKs in the migration (`./repository.ts`).
- */
-
 import 'server-only'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -18,7 +8,6 @@ import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { findMailParts, OPEN_PART_STATES } from './review-read-repository'
 import { expiryIsFinal } from './sender-class'
 
-/** The mail changed since the person read it: their `ifMatch` no longer names it (C3). */
 export class MailChangedError extends Error {
   constructor(readonly mailId: string) {
     super(`inbound mail ${mailId} changed since it was read`)
@@ -26,7 +15,6 @@ export class MailChangedError extends Error {
   }
 }
 
-/** A part a decision named is no longer waiting: someone else decided first (C3). */
 export class PartNotWaitingError extends Error {
   constructor(readonly mailId: string) {
     super(`a part of inbound mail ${mailId} is no longer waiting`)
@@ -34,59 +22,29 @@ export class PartNotWaitingError extends Error {
   }
 }
 
-/** One mail's decision as the transaction writes it. */
 export interface MailDecisionWrite {
   mailId: string
-  /** The token the person read the mail at; checked against the rows under the lock. */
   ifMatch: string
-  /** The `file` decisions, one per part filed, ids assigned by the caller. */
   files: NewInboundMailDecisionRow[]
-  /**
-   * Leave the other waiting parts waiting instead of dismissing them: a
-   * sender's direct filing files what it can and leaves the rest to the
-   * sender in the E-Mail-Eingang (`./sender-file-job.ts`). A person's request
-   * decides the whole mail.
-   */
   keepOthers?: boolean
 }
 
-/** Who decided and how, the same for every row of one request. */
 export interface DecisionActor {
   decidedBy: string
-  /** `sender`: a verified writer's own mail, filed as them without a click (migration 0197). */
   via: 'app' | 'agent' | 'agent_proposal' | 'sender'
   proposalId: string | null
 }
 
-/** A filing job to queue in the same transaction as the decisions it reads. */
 export interface FilingJob {
   jobId: string
   organizationId: string
   payload: Record<string, unknown>
 }
 
-/** What the transaction wrote, per mail: every decision row (file and dismiss). */
 export interface DecisionsWritten {
   decisions: InboundMailDecisionRow[]
 }
 
-/**
- * Write one request's decisions (D26), all or nothing:
- *
- * 1. Lock each mail (`FOR UPDATE`) and refuse one whose `ifMatch`, recomputed
- *    from the rows under the lock by `ifMatchOf`, is not the one the person
- *    read ({@link MailChangedError}).
- * 2. Insert the `file` decisions, then claim each filed part `waiting →
- *    filing` with its own decision (compare-and-set: a part another request
- *    claimed first is {@link PartNotWaitingError}).
- * 3. Dismiss every other waiting part of the mail, each with a `dismiss`
- *    decision: a request decides the whole mail.
- * 4. Queue the filing job, in the same transaction, so a claimed part always
- *    has the job that files it and a job never reads a decision that is not there.
- *
- * The database holds the rest: a claim needs a `file` decision about that very
- * part, a clean scan, a person's id (migration 0196).
- */
 export async function writeMailDecisions(
   writes: readonly MailDecisionWrite[],
   actor: DecisionActor,
@@ -128,7 +86,6 @@ export async function writeMailDecisions(
   })
 }
 
-/** Dismiss these waiting parts of `mail`, each with its `dismiss` decision. */
 async function dismissParts(
   tx: DbTransaction,
   mail: InboundMailRow,
@@ -170,11 +127,6 @@ function decisionRow(
   }
 }
 
-/**
- * Dismiss every waiting part of these mails (`inbound-mail-dismiss`), each with
- * its decision. A mail that is not waiting, or has nothing waiting, is skipped:
- * dismissing twice changes nothing. Parts being filed are left to their job.
- */
 export async function dismissMails(projectId: string, mailIds: readonly string[], actor: DecisionActor): Promise<DecisionsWritten> {
   return getDb().transaction(async (tx) => {
     const now = new Date()
@@ -196,14 +148,6 @@ export async function dismissMails(projectId: string, mailIds: readonly string[]
   })
 }
 
-/**
- * Restore a mail's dismissed and expired parts that are still within their
- * seven days (D8): each waits again, with a `restore` decision. Only while the
- * mail itself is held (a settled mail is scrubbed and cannot be shown again);
- * an attachment only while its bytes are there. A restored expired mail waits
- * at least seven more days. Empty when there was nothing to restore, which
- * makes a repeated call a no-op.
- */
 export async function restoreMailParts(
   projectId: string,
   mailId: string,
@@ -223,7 +167,6 @@ export async function restoreMailParts(
     const restorable = (await findMailParts([mailId], tx)).filter(
       (part) =>
         (part.state === 'dismissed' || part.state === 'expired') &&
-        // An outsider's mail that ran out is discarded, never restored (migration 0197 refuses it too).
         !(part.state === 'expired' && expiryIsFinal(mail)) &&
         part.endedAt !== null &&
         new Date(part.endedAt) > restorableAfter &&
@@ -244,7 +187,6 @@ export async function restoreMailParts(
   })
 }
 
-/** These decisions reached the audit trail (`audited_at`, once); sweep 11 sends the rest. */
 export async function markDecisionsAudited(decisionIds: readonly string[], at: Date = new Date()): Promise<void> {
   if (decisionIds.length === 0) return
   await getDb()
@@ -253,7 +195,6 @@ export async function markDecisionsAudited(decisionIds: readonly string[], at: D
     .where(and(inArray(inboundMailDecisions.id, [...decisionIds]), isNull(inboundMailDecisions.auditedAt)))
 }
 
-/** The parts' kinds, for the audit lines of their decisions. */
 export async function findPartKinds(partIds: readonly string[]): Promise<Map<string, 'message' | 'attachment'>> {
   if (partIds.length === 0) return new Map()
   const rows = await getDb()
@@ -264,7 +205,6 @@ export async function findPartKinds(partIds: readonly string[]): Promise<Map<str
   return new Map(rows.map((row) => [row.id, row.kind]))
 }
 
-/** Whether any part of the mail still waits for a person (or is being filed). */
 export async function hasOpenParts(mailId: string): Promise<boolean> {
   const [row] = await getDb()
     .select({ id: inboundMailParts.id })
@@ -274,21 +214,6 @@ export async function hasOpenParts(mailId: string): Promise<boolean> {
   return Boolean(row)
 }
 
-// ---------------------------------------------------------------------------
-// The suggest job (The agent's suggestion, D21)
-// ---------------------------------------------------------------------------
-
-/**
- * Store the agent's suggestion on the parts it placed, with the generation's
- * trace. Only a part that still waits takes one: a person who decided in the
- * meantime decided without it, and the suggestion would name a file whose
- * bytes may be gone (`inbound_mail_parts_suggestion_with_bytes`). The number
- * of parts that took one.
- *
- * `updated_at` is left alone on purpose: it is part of the mail's `ifMatch`
- * (`mailIfMatch`), and a suggestion arriving while a person reads the mail must
- * not make their decision stale. It advises; it changes nothing they decide on.
- */
 export async function storePartSuggestions(
   mailId: string,
   suggestions: ReadonlyMap<string, Record<string, unknown>>,

@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The conversation draft-preview door: what it proxies, and what it refuses.
- *
- * The working directory lives in the agent service's own store, so this route
- * is a scoped proxy — the conversation's `viewer` gate first, the internal
- * service token second. Three properties pin that scope:
- *
- *   - it answers what the backend holds, with the internal token and the
- *     conversation id + path encoded as their own segments;
- *   - a reader who may not see the conversation gets the same 404 as an
- *     absent one (spec SH-6), and the backend is never addressed;
- *   - a missing path is a 400 that never reaches the backend either.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotFoundError } from '@/lib/api/errors'
@@ -46,7 +33,7 @@ const get = (query: string) =>
 describe('GET /api/conversations/[id]/draft', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
     vi.stubGlobal('fetch', fetchMock)
     requireResourceAccessMock.mockResolvedValue({ role: 'viewer' })
     fetchMock.mockResolvedValue({
@@ -66,7 +53,6 @@ describe('GET /api/conversations/[id]/draft', () => {
       version: 2,
       bytes: 4,
     })
-    // The gate first: only drafts of conversations the reader may access.
     expect(requireResourceAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user_1', organizationId: 'org_1' }),
       'conversation',
@@ -74,8 +60,6 @@ describe('GET /api/conversations/[id]/draft', () => {
       'viewer',
     )
     const [url, init] = fetchMock.mock.calls[0]
-    // One namespace element, one suffix path — each encoded as its own
-    // segment, so neither can widen the read beyond this draft.
     expect(url).toBe('http://backend:8000/v1/drafts/conv-1/entwuerfe/a.md')
     expect(init.method).toBe('GET')
     expect(init.headers['x-internal-token']).toBe('test-token')

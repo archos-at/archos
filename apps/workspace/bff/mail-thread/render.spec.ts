@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The E-Mail-Verlauf rendition (DECISION D11, D12, D13, D34; RT-S2, RT-S13).
- *
- * Golden files pin the bytes (`__golden__/`; a deliberate change to the
- * format updates them with `-u` and bumps `MAIL_THREAD_RENDER_VERSION`). The
- * rest holds the properties the bytes must keep: the superset invariant with
- * detach as its one exception, honest headings, the clamp, quotes labelled by
- * the message that kept them, masked spans, and that nothing a stranger wrote
- * becomes a section, for CommonMark or for the knowledge layer's chunker
- * (`@/test-utils/markdown-chunker`).
- */
 
 import { chunkerReads } from '@/test-utils/markdown-chunker'
 import remarkGfm from 'remark-gfm'
@@ -35,7 +24,6 @@ const at = (iso: string) => new Date(iso)
 
 type EntryInput = Omit<MailThreadRenderEntry, 'heading'> & { heading?: string }
 
-/** An entry with its heading made the way the filing job makes it. */
 function entry(input: Partial<EntryInput> & Pick<EntryInput, 'id' | 'sentAt'>, taken: string[] = []): MailThreadRenderEntry {
   const fields: Omit<MailThreadRenderEntry, 'heading'> = {
     source: 'inbound',
@@ -131,7 +119,6 @@ function render(entries: MailThreadRenderEntry[], overrides: Partial<MailThreadR
   return renderMailThread({ title: 'Stellplatznachweis Bauplatz 12', locale: 'de', continues: null, entries, ...overrides })
 }
 
-/** Each `##` section of a rendition, its `###` subsections included, keyed by its heading line. */
 function sectionsOf(markdown: string): Map<string, string> {
   const sections = new Map<string, string>()
   for (const block of markdown.split(/\n(?=## )/).slice(1)) sections.set(block.split('\n')[0], block.trimEnd())
@@ -153,7 +140,6 @@ describe('renderMailThread: golden files', () => {
 
 describe('the rendition speaks the domain words (CONTEXT.md, E-Mail-Eingang)', () => {
   it('never calls an e-mail a Nachricht or a message', () => {
-    // A function entry's source holds its template, so every word is read without calling it.
     const words = (copy: object): string => Object.values(copy).map(String).join(' ')
     expect(words(MAIL_THREAD_RENDER_COPY.de)).not.toMatch(/Nachricht/)
     expect(words(MAIL_THREAD_RENDER_COPY.en)).not.toMatch(/\bmessage\b/i)
@@ -163,7 +149,6 @@ describe('the rendition speaks the domain words (CONTEXT.md, E-Mail-Eingang)', (
 describe('renderMailThread: the superset invariant', () => {
   const all = [BERGER, HUBER, FORGER, ARCHIVE]
 
-  /** Every filing order of the entries; each step must keep every section of the step before byte for byte. */
   function* filingOrders(entries: MailThreadRenderEntry[]): Generator<MailThreadRenderEntry[]> {
     if (entries.length <= 1) {
       yield entries
@@ -177,7 +162,6 @@ describe('renderMailThread: the superset invariant', () => {
     let orders = 0
     for (const order of filingOrders(all)) {
       orders += 1
-      // Filing time follows the order; send times stay, so late messages are inserted in the middle.
       const filed = order.map((e, i) => ({ ...e, filedAt: new Date(Date.UTC(2026, 10, 1, 0, i)) }))
       let previous = new Map<string, string>()
       for (let n = 1; n <= filed.length; n += 1) {
@@ -227,7 +211,6 @@ describe('renderMailThread: detach, the one exception', () => {
 
     const afterArchive = sectionsOf(render([BERGER, HUBER, FORGER]).markdown)
     expect([...afterArchive.keys()]).toEqual([...before.keys()].filter((h) => h !== `## ${ARCHIVE.heading}`))
-    // Huber's quote of Weber was folded while Weber's message was in the thread; it is shown again.
     expect(afterArchive.get(`## ${HUBER.heading}`)).not.toBe(before.get(`## ${HUBER.heading}`))
     expect(afterArchive.get(`## ${HUBER.heading}`)).toContain(WEBER_TEXT)
     for (const heading of [BERGER.heading, FORGER.heading])
@@ -331,7 +314,6 @@ describe('headings by source and trust', () => {
 })
 
 describe('a forwarded message (migration 0198)', () => {
-  // A colleague of the office forwards the Behörde's letter of six weeks earlier.
   const FORWARD = entry({
     id: '00000000-0000-4000-8000-000000000195',
     sentAt: at('2026-10-14T07:12:00Z'),
@@ -501,7 +483,6 @@ describe('nothing a stranger wrote becomes structure', () => {
     const markdown = render([BERGER, HUBER, FORGER, ARCHIVE]).markdown
     const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown)
     const headings = tree.children.filter((node) => node.type === 'heading').map((node) => node.depth)
-    // Weber's archived message was filed before Huber's reply, so its quote there is folded.
     expect(headings).toEqual([1, 2, 2, 2, 2])
     expect(tree.children.some((node) => node.type === 'code' || node.type === 'html')).toBe(false)
   })
@@ -512,7 +493,6 @@ describe('nothing a stranger wrote becomes structure', () => {
   })
 
   it('drops zero-width characters and bidi controls, in the text and in a name', () => {
-    // A split word is missed by every search; a right-to-left override shows „Rechnung_fdp.exe“ as „Rechnung_exe.pdf“.
     const e = entry({
       id: 'z',
       sentAt: at('2026-10-03T08:00:00Z'),

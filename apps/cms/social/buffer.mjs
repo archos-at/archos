@@ -48,12 +48,10 @@ function slugFor(post) {
  * @param {Date} now
  */
 export function refusal(post, now) {
-  // `sending` is an approved post the hand-off has claimed; it is built again only to find it in Buffer.
   if (post.status !== 'approved' && post.status !== 'sending') return `status is ${post.status}, not approved`;
   if (!post.account?.active) return 'its account is not active';
   if (!post.account.publisherChannelId) return 'its account has no publisher channel id (publish it by hand)';
   if (!post.blogPost && !post.linkUrl) return 'it links nothing: set a blog post or a link';
-  // The hand-off reads only live posts: an id that did not populate is a post that is not live.
   if (post.blogPost && typeof post.blogPost !== 'object') return 'the blog post it links is not live';
   if (post.blogPost && !slugFor(post)) return `the blog post has no ${post.language} version`;
   const due = post.scheduledAt ? new Date(post.scheduledAt) : now;

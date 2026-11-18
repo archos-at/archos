@@ -1,10 +1,3 @@
-/**
- * Platform norm-registry API — read the curated catalog and persist edits.
- * Platform owners only. The whole registry is written at once under the held
- * optimistic-concurrency version; backend 409/422/400 statuses are relayed
- * faithfully so the client can react (reload prompt / validation message).
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

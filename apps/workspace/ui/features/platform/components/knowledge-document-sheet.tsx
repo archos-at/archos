@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * One base-corpus document, in a side sheet: what it is, where it stands, and
- * (for a platform admin) the edits that used to sit on every table row.
- *
- * The sheet is a detail view, so it holds the file the caller resolves from
- * the live list on every render: an optimistic edit or a poll shows up here
- * instead of freezing a stale copy. Only the rename draft is local, and it
- * resets when a different document opens.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Eye } from 'lucide-react'
@@ -55,7 +45,6 @@ import type { KnowledgeFile } from '@/lib/knowledge/service'
 export interface KnowledgeDocumentSheetProps {
   file: KnowledgeFile | null
   onClose: () => void
-  /** Rename and reclassify render only when true. A text leaves the corpus only through its country's change request. */
   canManage: boolean
   onRename: (file: KnowledgeFile, title: string) => void
   onReclassify: (file: KnowledgeFile, next: DocClass) => void

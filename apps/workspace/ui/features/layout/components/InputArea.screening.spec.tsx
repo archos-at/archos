@@ -1,23 +1,3 @@
-/**
- * The composer's „Sensible Daten" gate (ADR-0086, "Chat messages are screened
- * too"), through the real composer.
- *
- * A message that matches the office's content terms or detectors is not sent
- * as typed. The composer says what it found and offers exactly two ways on:
- * „Maskiert senden" sends the message with each match replaced by its
- * placeholder, „Bearbeiten" sends nothing and leaves the text in the editor.
- * There is no way to send it unmasked from here. A message with no match, or
- * an office that switched screening off, sends as before. A dictated
- * transcript is held like typed text: its audio has already reached the
- * transcription model, so the notice promises only that the ANSWERING model
- * does not see it.
- *
- * The matcher itself is pinned by `content-screen.spec.ts` against the shared
- * fixture; this file pins the WIRING. Its own file, beside
- * `InputArea.slash.spec.tsx`, because `InputArea.spec.tsx` is already the
- * slowest file in the suite.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
@@ -69,7 +49,6 @@ vi.mock('@/adapters/api/upload-screening-policy', () => ({
 
 const IBAN = 'AT61 1904 3002 3457 3201'
 
-// A stand-in microphone that delivers what a recording of an IBAN would.
 vi.mock('@/features/dictation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/dictation')>()),
   DictationButton: ({ onTranscript }: DictationButtonProps) => (
@@ -90,7 +69,6 @@ beforeEach(() => {
 const composer = () => screen.getByRole('textbox')
 const send = () => screen.getByRole('button', { name: /send message/i })
 
-/** Type into the composer in one paste: `user.type` would read `[`… as key descriptors. */
 async function enter(user: ReturnType<typeof userEvent.setup>, text: string): Promise<void> {
   await user.click(composer())
   await user.paste(text)
@@ -111,7 +89,6 @@ describe('the composer screens a message against the office’s „Sensible Date
     expect(notice).toHaveTextContent('The model sees: “Bitte überweise an [IBAN entfernt]”')
     expect(notice).not.toHaveTextContent(IBAN)
     expect(mockSendMessage).not.toHaveBeenCalled()
-    // Exactly the two ways on; nothing sends it as typed.
     expect(screen.getByRole('button', { name: 'Send masked' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /unmasked|anyway/i })).not.toBeInTheDocument()
@@ -158,7 +135,6 @@ describe('the composer screens a message against the office’s „Sensible Date
 
     expect(screen.queryByTestId('chat-screening-notice')).not.toBeInTheDocument()
     await user.click(send())
-    // „Rechnung" is a NAME term, for file and folder names: it does not apply to chat.
     expect(mockSendMessage).toHaveBeenCalledWith('Konto siehe Rechnung')
   })
 
@@ -177,7 +153,6 @@ describe('the composer screens a message against the office’s „Sensible Date
     policy.current = { ...SUGGESTED_SCREENING_POLICY, enabled: false }
     const user = userEvent.setup()
     render(<InputArea isAuthenticated connectionMode="sse" />)
-    // The policy is read when the composer mounts.
     await waitFor(async () => {
       const { loadUploadScreeningPolicy } = await import('@/adapters/api/upload-screening-policy')
       expect(loadUploadScreeningPolicy).toHaveBeenCalled()
@@ -200,7 +175,6 @@ describe('the composer screens a message against the office’s „Sensible Date
 
     const notice = await screen.findByTestId('chat-screening-notice')
     expect(mockSendMessage).not.toHaveBeenCalled()
-    // The transcription model has already heard the audio: "the model" would be untrue.
     expect(notice).toHaveTextContent(`${PRODUCT_NAME} does not send this to the answering model.`)
     await user.click(screen.getByRole('button', { name: 'Send masked' }))
     await waitFor(() =>
@@ -208,7 +182,7 @@ describe('the composer screens a message against the office’s „Sensible Date
     )
   })
 
-  test("an answer to Piloti's question is screened like a question", async () => {
+  test("an answer to the agent's question is screened like a question", async () => {
     interaction.pending = { id: 'ask_01', content: { input_type: 'text', text: 'Welches Konto?' } }
     const user = userEvent.setup()
     render(<InputArea isAuthenticated connectionMode="sse" />)

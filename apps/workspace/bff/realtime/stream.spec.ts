@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The live channels' stream: who the reader is comes first, a channel the
- * reader may not be in is never opened, a revoked one is dropped on the next
- * re-check, the connection carries at most eight channels, and every exit
- * leaves no listener behind on the hub.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -37,7 +31,6 @@ const SESSION = {
 
 const ANNA = { peerId: 'peer_abcdef12', userId: 'user_1', name: 'Anna Berger', kind: 'person' as const }
 
-/** Read frames off an SSE response as they come. */
 function reader(response: Response) {
   const body = response.body!.getReader()
   const decoder = new TextDecoder()
@@ -201,7 +194,7 @@ describe('openRealtimeStream', () => {
     expect(hubStats()).toEqual({ topics: 0, listeners: 0 })
   })
 
-  it('carries what Piloti is reading, as a Piloti peer acting for its person', async () => {
+  it('carries what the agent is reading, as the agent\'s peer acting for its person', async () => {
     const read = reader(await openRealtimeStream(SESSION, ['doc:doc_1'], request('')))
     await settle()
 

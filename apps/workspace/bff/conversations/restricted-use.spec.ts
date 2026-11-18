@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The per-person rule for restricted folders (ADR-0087, ADR-0088; product owner
- * 2026-10-02: "only when actually used … being restricted is unique to one
- * person"), driven with the stores mocked and the folder rule real. The record
- * names SOURCE FOLDERS and is judged against the folders' access at read time.
- * The SQL, the lock and the races are `restricted-use.integration.spec.ts`,
- * against Postgres.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -18,27 +10,17 @@ import type { ConversationAudienceRow } from './restricted-use-repository'
 vi.mock('server-only', () => ({}))
 
 const COLLECTION = 'proj_alpha'
-/**
- * Verträge: the Geschäftsführung writes, the contracts clerk reads. Personal:
- * Geschäftsführung only. Who is on each list is the folder roles WorkOS
- * reports (ADR-0097), so a clearance is the levels a person holds.
- */
 const VERTRAEGE_ID = '01234567-89ab-4cde-8f01-23456789abcd'
 const PERSONAL_ID = 'ba987654-3210-4cde-8f01-23456789abcd'
-/** Once restricted, since opened to everyone. */
 const OPENED_ID = 'c0ffee00-0000-4000-8000-000000000001'
-/** A deleted folder's tombstone, Geschäftsführung only. */
 const DELETED_ID = 'dead0000-0000-4000-8000-000000000001'
 const VERTRAEGE = `${COLLECTION}_r0123456789ab`
 const PERSONAL = `${COLLECTION}_rba9876543210`
-/** „Honorare" in another project (ADR-0094): Geschäftsführung only. */
 const FEES_ID = 'aaaa0000-0000-4000-8000-0000000000aa'
-/** On every Geschäftsführung list; reads Opened too, once it gets one. */
 const GF: FolderClearance = {
   levels: { [VERTRAEGE_ID]: 'write', [PERSONAL_ID]: 'write', [DELETED_ID]: 'read', [OPENED_ID]: 'read', [FEES_ID]: 'read' },
   seesEverything: false,
 }
-/** Reads Verträge, and nothing else with a list. */
 const VERTRAEGE_READER: FolderClearance = { levels: { [VERTRAEGE_ID]: 'read' }, seesEverything: false }
 const NOBODY: FolderClearance = { levels: {}, seesEverything: false }
 
@@ -55,22 +37,16 @@ const TREE: AccessFolder[] = [
 ]
 
 const state = vi.hoisted(() => ({
-  /** The audience the first read sees, and the one read under the lock. */
   audiences: [] as ConversationAudienceRow[],
   recorded: [] as string[],
-  /** What each of a list's conversations recorded. */
   recordedFor: new Map<string, string[]>(),
   written: [] as string[][],
   members: new Map<string, FolderClearance>(),
   tree: [] as AccessFolder[],
-  /** Another project's folder tree, by project id (ADR-0094); every other project reads `tree`. */
   trees: new Map<string, AccessFolder[]>(),
-  /** Which project a folder of another project belongs to. */
   folderOwners: new Map<string, string>(),
-  /** The other projects a conversation drew on, and per listed conversation. */
   projects: [] as string[],
   projectsFor: new Map<string, string[]>(),
-  /** Who may open which project: `${userId}:${projectId}`. */
   opens: new Set<string>(),
   tx: { tx: true },
 }))
@@ -111,7 +87,6 @@ vi.mock('@/lib/authz/projects', () => ({
     return { role: 'project-viewer' }
   }),
 }))
-/** The session paths clear by the real `clearanceOf`: the folder roles of the session's membership. */
 vi.mock('@/lib/authz/folder-roles', () => ({
   heldFolderLevels: vi.fn(async (_org: string, membershipId: string) =>
     membershipId === 'om_owner' ? GF.levels : membershipId === 'om_vertraege' ? VERTRAEGE_READER.levels : {}
@@ -248,7 +223,6 @@ describe('admitRestrictedUse — the record of use, by source folder', () => {
   })
 
   it('refuses when someone joined between the clearance lookup and the lock', async () => {
-    // First read: the owner alone. Under the lock: a reader nobody asked about.
     state.audiences = [audience(), audience(['user_ina'])]
 
     const result = await admitRestrictedUse(request, [VERTRAEGE])
@@ -401,7 +375,6 @@ describe('peopleWhoMayRead: who may read the conversation now (ADR-0088)', () =>
 
     const readers = await peopleWhoMayRead(ORG, CONV, PEOPLE)
 
-    // Verträge reads the clerk and the Geschäftsführung; Personal only the Geschäftsführung.
     expect([...readers]).toEqual([OWNER])
   })
 
@@ -520,7 +493,6 @@ describe('lockedConversationIds: which of a list the session may no longer read 
 
 describe('a chat that drew on another project (ADR-0094)', () => {
   const OTHER = 'project_2'
-  /** An open folder of the other project. */
   const PLANS_ID = 'aaaa0000-0000-4000-8000-0000000000bb'
   const OTHER_TREE: AccessFolder[] = [
     { id: FEES_ID, parentId: null, accessMode: 'custom', everyoneReads: false },

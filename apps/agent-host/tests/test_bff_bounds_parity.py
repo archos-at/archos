@@ -1,14 +1,3 @@
-"""Parity guard: the BFF's copies of this tier's request bounds.
-
-The BFF keeps what it sends inside these models' bounds instead of having a
-whole upload or search refused with a 422: the collections one search may
-name (``BACKEND_SEARCH_MAX_COLLECTIONS``), the project facts it copies onto
-every chunk (``PROJECT_FACTS_LIMITS``), and the batch it sends the
-document facts repair (``DOCUMENT_FACTS_BATCH``). There is no shared schema,
-so a bound changed here and not there is caught by this test, not by an
-office whose uploads start failing.
-"""
-
 import re
 from pathlib import Path
 
@@ -37,7 +26,6 @@ def _ts_facts_limits() -> dict[str, int]:
 
 
 def _refuses_collections(model, count: int) -> bool:
-    """Whether ``model`` refuses ``count`` collections, whatever else the body lacks."""
     try:
         model.model_validate({"collections": [f"proj_{n}" for n in range(count)]})
     except ValidationError as error:

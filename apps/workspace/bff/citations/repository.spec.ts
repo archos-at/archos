@@ -29,7 +29,6 @@ import {
 
 const mockGetDb = vi.mocked(getDb)
 
-/** September 2026, every organization and project. */
 const SEPTEMBER: CitationScopeFilter = {
   start: new Date('2026-09-01T00:00:00.000Z'),
   endExclusive: new Date('2026-10-01T00:00:00.000Z'),
@@ -39,16 +38,10 @@ const SEPTEMBER: CitationScopeFilter = {
 
 const PROJECT = '0f0f0f0f-0000-4000-8000-0000000000a1'
 
-/** What Postgres would receive: the SQL text with placeholders, and the bound values. */
 function render(fragment: SQL): { sql: string; params: unknown[] } {
   return new PgDialect().sqlToQuery(fragment)
 }
 
-/**
- * SELECT-chain stand-in resolving to the rows the pg driver actually hands
- * back — aggregate columns arrive as STRINGS even where the drizzle
- * `sql<number>` annotation claims otherwise, so the repository must coerce.
- */
 function mockSelect(driverRows: unknown[]) {
   const groupBy = vi.fn().mockResolvedValue(driverRows)
   const where = vi.fn(() => ({
@@ -65,7 +58,6 @@ function mockExecute(driverRows: unknown[]) {
   return execute
 }
 
-/** The literal SQL text of the first executed query (bound values excluded). */
 function sqlText(execute: ReturnType<typeof vi.fn>): string {
   const chunks = (execute.mock.calls[0][0] as ReturnType<typeof sql>).queryChunks as unknown[]
   return chunks
@@ -187,7 +179,6 @@ describe('aggregate coercion', () => {
   })
 
   it('reads the lanes the emitter writes into the source mix', async () => {
-    // Regression: detail.lanes was written by build_turn_events and never read.
     const execute = mockExecute([
       { dimension: 'lane', label: 'oib', turns: '6' },
       { dimension: 'origin', label: 'building_law', turns: '4' },
@@ -204,8 +195,6 @@ describe('aggregate coercion', () => {
 
 describe('countTurnsForTargets', () => {
   it('counts the DISTINCT turns behind a set of rejected targets', async () => {
-    // The union, not the sum: three documents rejected on the same turn are
-    // three `aggregateFailedTargets` rows of one turn each.
     mockExecute([{ turns: '1' }])
     expect(await countTurnsForTargets(SEPTEMBER, ['a.pdf', 'b.pdf', 'c.pdf'])).toBe(1)
   })
@@ -219,13 +208,8 @@ describe('countTurnsForTargets', () => {
     const execute = mockExecute([{ turns: '2' }])
     await countTurnsForTargets(SEPTEMBER, ["o'brien.pdf", 'b.pdf'])
 
-    // Walk only the chunk tree (arrays + nested SQL), never arbitrary object
-    // properties — `queryChunks` also holds the drizzle table, which is cyclic.
     const params: unknown[] = []
     const literalSql: string[] = []
-    // A value passed THROUGH the template sits in the chunk list as a bare
-    // string (drizzle binds it); text drizzle will emit verbatim is wrapped in
-    // a StringChunk. That distinction is exactly what this test is about.
     const collect = (node: unknown): void => {
       if (typeof node === 'string') return void params.push(node)
       if (Array.isArray(node)) return node.forEach(collect)
@@ -247,8 +231,6 @@ describe('the scope predicate', () => {
   it('bounds created_at to [start, endExclusive) as cast ISO strings, never a Date', () => {
     const { sql: text, params } = render(citationScopeWhere(SEPTEMBER, 'e'))
     expect(text).toBe('"e".created_at >= $1::timestamptz and "e".created_at < $2::timestamptz')
-    // A raw fragment carries no column type: a bare Date reaches postgres-js
-    // unencodable and the query dies at bind time.
     expect(params).toEqual(['2026-09-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z'])
   })
 
@@ -280,10 +262,6 @@ describe('the scope predicate', () => {
     expect(params).not.toContain('not-a-uuid')
   })
 
-  /**
-   * Every query, select builder or raw, must carry the whole scope: one that
-   * forgot the organization filter would mix tenants into a narrowed view.
-   */
   const SCOPED: CitationScopeFilter = {
     ...SEPTEMBER,
     organizationIds: ['org_scope'],

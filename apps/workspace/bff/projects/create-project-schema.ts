@@ -1,9 +1,3 @@
-/**
- * The body of `POST /api/projects`, kept out of the route file (a Next route
- * exports handlers only) so the spec parses against the very schema the route
- * does. No `server-only`: the form reads the bounds too.
- */
-
 import { z } from 'zod'
 import { geocodeResultSchema } from '@/lib/geocoding/types'
 import { isValidCountryToken, isValidFederalStateToken } from '@/lib/project-profile/intake-conditions'
@@ -11,13 +5,15 @@ import { normalizeProfileToken } from '@/lib/project-profile/legacy-names'
 import { MAX_INTAKE_DESCRIPTION_LENGTH } from '@/lib/project-intake/types'
 import { monthSchema } from './month'
 import { PROJECT_OUTCOMES } from './project-status'
+import { isLegacyAgentSetup, LEGACY_AGENT_SETUP } from './legacy-project-setup'
 
-/** Longest address line a person may type. */
 export const MAX_ADDRESS_LENGTH = 200
 
-/** How a new project is set up. `piloti` reads the documents; `self` is the wizard. */
-export const PROJECT_SETUPS = ['piloti', 'self'] as const
+export const PROJECT_SETUPS = ['agent', LEGACY_AGENT_SETUP, 'self'] as const
 export type ProjectSetup = (typeof PROJECT_SETUPS)[number]
+
+export const isAgentSetup = (setup: ProjectSetup | undefined): boolean =>
+  setup === 'agent' || isLegacyAgentSetup(setup)
 
 export const createProjectFieldsSchema = z
   .object({
@@ -30,39 +26,29 @@ export const createProjectFieldsSchema = z
       })
       .strict()
       .optional(),
-    /** Default `piloti`: the project gets an intake row and lands on its setup page. */
-    setup: z.enum(PROJECT_SETUPS).default('piloti'),
-    /** „Worum geht es?". Blank counts as not given. */
+    setup: z.enum(PROJECT_SETUPS).default(LEGACY_AGENT_SETUP),
     description: z
       .string()
       .trim()
       .max(MAX_INTAKE_DESCRIPTION_LENGTH)
       .transform((value) => value || undefined)
       .optional(),
-    /** The address search's hit. */
     location: geocodeResultSchema.optional(),
-    /** The address as typed, when no hit was chosen. Blank counts as not given. */
     address: z
       .string()
       .trim()
       .max(MAX_ADDRESS_LENGTH)
       .transform((value) => value || undefined)
       .optional(),
-    /** A federal-state token chosen by hand when no geocoder is configured. A tab that has not reloaded still sends the German token. */
     federalState: z
       .string()
       .transform((token) => normalizeProfileToken('federal_state', token))
       .refine(isValidFederalStateToken, 'A Bundesland token.')
       .optional(),
-    /** The site's country, chosen first: `at`, `de`, `ch` or `other`. Any but `at` places the project outside Austria. */
     country: z.string().trim().toLowerCase().refine(isValidCountryToken, 'A country token: at, de, ch or other.').optional(),
   })
   .strict()
 
-/**
- * A tab that has not reloaded still posts `bundesland`. Read for one release
- * (remove after); a body that sends both keeps the new one.
- */
 const renameLegacyFederalState = (value: unknown): unknown => {
   if (typeof value !== 'object' || value === null || !('bundesland' in value)) return value
   const { bundesland, ...rest } = value as Record<string, unknown>

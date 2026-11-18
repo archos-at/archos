@@ -1,33 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Fassungen und Freigabe", the one section that says what a
- * document has been and where it stands now, framed at the rail's REAL width:
- * a 280px rail with p-4 on the sunken surface, so 248px of content. (A wider
- * card frame once hid every wrap the real rail has.)
- *
- * One block per question a reader arrives with:
- *
- *  - plain:      a single upload. No state word, no track: nobody approved it.
- *  - same:       three uploads under one name, numbered Fassung 3, 2, 1.
- *  - cross:      Index C with Index B and A linked under other names.
- *  - mixed:      both histories at once, merged by date.
- *  - review:     a report in review while Fassung 1 stays published; the
- *                round was sent to Sabine Gruber.
- *  - changes:    changes requested, with the reviewer's words.
- *  - replaced:   an older Fassung, opened: the newer document is the top row.
- *  - suggestion: Piloti's suggestion that this replaces another.
- *  - long:       long file names, middle-truncated; approved, waiting to be
- *                published.
- *
- * `?state=<id>` shows one block, for captures; `?open=1` opens the sections
- * that are shut at rest; `?locale=en` renders English.
- *
- * The section takes its client as a prop, so this page needs no backend. The
- * buttons that call the real routes (linking, deciding) fail here. 404s outside
- * development.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { Suspense, useEffect } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -44,7 +16,6 @@ const MARKUS = 'user_markus'
 const SABINE = 'user_sabine'
 const CLARA = 'user_clara'
 const ME = 'user_me'
-/** What the listing resolves for the people who acted (`DocumentVersionListResponse.people`). */
 const PEOPLE = [
   { userId: ANNA, name: 'Anna Berger' },
   { userId: MARKUS, name: 'Markus Feld' },
@@ -84,7 +55,6 @@ function version(
   }
 }
 
-/** A person's upload, as the server stores it: born published, approved by nobody (migration 0137). */
 function upload(documentId: string, versionNumber: number, createdAt: string, by: string, state: DocumentVersionState = 'published') {
   return version(documentId, versionNumber, state, createdAt, {
     createdBy: by,
@@ -394,7 +364,6 @@ function Frame({ block }: { block: Block }): JSX.Element {
   )
 }
 
-/** Opens the sections that are shut at rest, once, so a capture shows the timeline. */
 function OpenShut({ enabled }: { enabled: boolean }): null {
   useEffect(() => {
     if (!enabled) return
@@ -443,7 +412,6 @@ export default function RevisionsDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
-  // `useSearchParams` needs a Suspense boundary in the app router.
   return (
     <Suspense fallback={<div />}>
       <RevisionsPreview />

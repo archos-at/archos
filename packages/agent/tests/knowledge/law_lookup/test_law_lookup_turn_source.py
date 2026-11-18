@@ -1,5 +1,3 @@
-"""A lookup reads the source the turn carries; without one it reads its fallback and says what it could not read."""
-
 from __future__ import annotations
 
 import logging
@@ -76,7 +74,6 @@ def test_the_site_country_s_source_is_read_before_another_country_s():
             KnowledgeContext(gate="core", sources=(source("xa-gazette", "XA"), source("xb-portal", "XB")))
         )
         assert turn_source() is None
-        # A site's law is its own country's: the one record carried, of another country, does not answer for it.
         set_turn_knowledge_context(
             KnowledgeContext(gate="core", site_country="XC", sources=(source("xa-gazette", "XA"),))
         )
@@ -87,7 +84,6 @@ def test_the_site_country_s_source_is_read_before_another_country_s():
 
 @pytest.mark.asyncio
 async def test_the_fallback_is_no_way_past_the_gate():
-    """A turn whose own sources are not chosen falls back only where its gate reads the fallback's country."""
     other = TurnSource(key="xa-gazette", revision_id="r-xa", country="XA", config={"lookup": {}})
     more = TurnSource(key="xb-portal", revision_id="r-xb", country="XB", config={"lookup": {}})
     set_turn_knowledge_context(
@@ -127,7 +123,6 @@ def test_the_chat_binding_is_gated_by_whether_the_turn_reads_law_and_deep_resear
     ids=["licensed", "unknown-field", "hosts-off-the-access"],
 )
 async def test_a_record_this_build_cannot_read_falls_back_and_answers(break_it, caplog):
-    """One bad released record must not take its country's lookup down: the fallback answers, and it is logged."""
     record = released_record()
     break_it(record)
     with caplog.at_level(logging.ERROR):

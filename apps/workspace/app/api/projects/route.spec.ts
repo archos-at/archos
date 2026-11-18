@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/projects` answers one lean row per project unless `view=full` is
- * asked for: the profile of ten projects was ~46 KB, and every client reads
- * only id and name.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeProject } from '@/test-utils/db-fixtures'
 

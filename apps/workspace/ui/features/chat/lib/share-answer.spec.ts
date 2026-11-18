@@ -8,7 +8,7 @@ import {
   resetConversationsOnServer,
 } from './conversation-on-server'
 
-const payload = { title: 'Antwort von Piloti', text: 'Die Fluchtweglänge beträgt 40 m.' }
+const payload = { title: 'Antwort des Agenten', text: 'Die Fluchtweglänge beträgt 40 m.' }
 
 describe('shareAnswer', () => {
   test('hands the answer to the share sheet', async () => {
@@ -25,13 +25,13 @@ describe('shareAnswer', () => {
   test('carries the thread address when there is one', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
 
-    await shareAnswer({ ...payload, url: 'https://piloti.example/app/chat?session=c1' }, vi.fn(), {
+    await shareAnswer({ ...payload, url: 'https://example.test/app/chat?session=c1' }, vi.fn(), {
       share,
     })
 
     expect(share).toHaveBeenCalledWith({
       ...payload,
-      url: 'https://piloti.example/app/chat?session=c1',
+      url: 'https://example.test/app/chat?session=c1',
     })
   })
 
@@ -68,13 +68,13 @@ describe('shareAnswer', () => {
 })
 
 describe('answerShareUrl', () => {
-  const chat = { origin: 'https://piloti.example', pathname: '/app/projects/p1/chat' }
+  const chat = { origin: 'https://example.test', pathname: '/app/projects/p1/chat' }
 
   beforeEach(() => resetConversationsOnServer())
 
   test('is the thread address on the chat page', () => {
     expect(answerShareUrl('c1', chat)).toBe(
-      'https://piloti.example/app/projects/p1/chat?session=c1',
+      'https://example.test/app/projects/p1/chat?session=c1',
     )
   })
 

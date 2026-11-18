@@ -1,88 +1,25 @@
-/**
- * App Configuration Context
- *
- * Provides runtime configuration values from server-side environment variables.
- * This allows configuration to be changed at runtime without rebuilding.
- *
- * Values are passed from server components (layout.tsx) to client components
- * via this context, avoiding the need for NEXT_PUBLIC_ prefixed variables.
- */
-
 'use client'
 
 import { createContext, useContext, type ReactNode } from 'react'
 import type { PostHogConfig, PostHogIdentity } from '@/lib/analytics/posthog-config'
 
-/**
- * File upload configuration for validation limits
- */
 export interface FileUploadConfig {
-  /** Accepted file extensions (e.g., ".pdf,.docx,.txt,.md") */
   acceptedTypes: string
-  /** Accepted MIME types for drag-drop validation */
   acceptedMimeTypes: string[]
-  /** {@link maxTotalSize} in MB */
   maxTotalSizeMB: number
-  /**
-   * Maximum size in bytes of ONE file that is not a model: the organization's
-   * own limit when platform staff set one (`maxUploadFileBytes`), else
-   * `FILE_UPLOAD_MAX_SIZE_MB`. The server enforces the same number.
-   */
   maxFileSize: number
-  /**
-   * Maximum size in bytes for a `.ifc`/`.ifczip`, which gets its own much
-   * larger ceiling (`BIM_MAX_IFC_BYTES`, 250 MB by default) because a building
-   * model is an order of magnitude bigger than the documents `maxFileSize` was
-   * sized for. `0` when IFC upload is off for this session.
-   */
   maxIfcFileSize: number
-  /**
-   * Maximum total size in bytes of a chat session's attachments: the deployment
-   * default, raised to {@link maxFileSize} when the organization's per-file limit
-   * is higher, so one admissible file always fits.
-   */
   maxTotalSize: number
-  /** Maximum number of files per session */
   maxFileCount: number
-  /** Hours after upload before files may expire on the backend (0 = no expiry shown) */
   fileExpirationCheckIntervalHours: number
-  /**
-   * Why image extensions are absent from `acceptedTypes`, when the absence is
-   * explainable to the user. `'vlm-unavailable'` means the `image-upload` flag
-   * is on but no vision model is configured (so ingestion would fail); the UI
-   * uses this to show a VLM-specific rejection message. `null` when images are
-   * allowed, or when they're simply not enabled by the product flag.
-   */
   imageUploadBlockedReason?: 'vlm-unavailable' | null
 }
 
-/**
- * Runtime configuration passed from server to client
- */
 export interface AppConfig {
-  /** Whether authentication is required (set REQUIRE_AUTH=true to enable WorkOS AuthKit) */
   authRequired: boolean
-  /** File upload validation configuration */
   fileUpload: FileUploadConfig
-  /**
-   * PostHog analytics configuration (fail-open). Optional so dev previews and
-   * specs that construct an `AppConfig` by hand stay untouched — absent means
-   * disabled, and the single reader (`PostHogIdentitySync` in providers)
-   * falls back to the disabled config.
-   */
   posthog?: PostHogConfig
-  /**
-   * The signed-in person as the server knows them (PostHog `bootstrap` and the
-   * non-personal super properties). `null` or absent: signed out, analytics off
-   * or the lookup failed; the browser then identifies once AuthKit has restored
-   * its session.
-   */
   posthogIdentity?: PostHogIdentity | null
-  /**
-   * The public website's origin (`LANDING_URL`, `https://<webDomain>`), for the
-   * help links into it (`publicSiteLink`, `@/shared/public-site`). `null` or
-   * absent: unset or not an origin, and the UI shows no such link.
-   */
   publicSiteUrl?: string | null
 }
 
@@ -93,26 +30,12 @@ interface AppConfigProviderProps {
   children: ReactNode
 }
 
-/**
- * Provider for runtime app configuration.
- * Wrap your app with this provider and pass config from a server component.
- */
 export const AppConfigProvider = ({ config, children }: AppConfigProviderProps): ReactNode => {
   return <AppConfigContext.Provider value={config}>{children}</AppConfigContext.Provider>
 }
 
-/**
- * The public website's origin, or null. Unlike {@link useAppConfig} it does not
- * need the provider: a component rendered outside it shows no link to the site.
- */
 export const usePublicSiteUrl = (): string | null => useContext(AppConfigContext)?.publicSiteUrl ?? null
 
-/**
- * Hook to access runtime app configuration.
- * Must be used within an AppConfigProvider.
- *
- * @throws Error if used outside of AppConfigProvider
- */
 export const useAppConfig = (): AppConfig => {
   const config = useContext(AppConfigContext)
   if (config === null) {

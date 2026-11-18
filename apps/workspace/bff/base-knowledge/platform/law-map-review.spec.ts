@@ -32,7 +32,6 @@ const capture = (captureId: string, countsAsFetched: boolean): CaptureView => ({
   retrievedAt: '2026-11-01T00:00:00Z',
 })
 
-/** XA with one region, its building act and ordinance, a model code in one edition with its text, the adoption, and a golden case. */
 const REVISIONS: RevisionView[] = [
   revision('territory', 'XA', { kind: 'country', name: 'Xanadu', parents: [] }),
   revision('territory', 'XA-1', { kind: 'state', name: 'Nordland', parents: [{ id: 'XA' }] }),
@@ -54,7 +53,6 @@ describe('reviewUnitsOf', () => {
       ['work:to-n|2024-03-01', ['relation:n-2-23', 'work:to-n']],
       ['statute:work:ba-n', ['work:ba-n']],
       ['regions', ['XA', 'XA-1']],
-      // A series' edition of a year comes with its work and its text, confirmed in one.
       ['batch:MC 2023', ['work:mc-2', 'edition:mc-2-2023', 'manifestation:mc-2-2023-text']],
       ['kind:golden_case', ['golden_case:fire-1']],
     ])
@@ -63,7 +61,6 @@ describe('reviewUnitsOf', () => {
   })
 
   it('confirms a country the size of Austria in a few dozen units, not one per record', () => {
-    // Nine guidelines in two editions each, a text each, a document added outside any statement, and two of each other kind.
     const many: RevisionView[] = [
       ...[1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap((n) => [
         revision('work', `work:mc-${n}`, { kind: 'model_code', title: `Guideline ${n}`, identifiers: { designation: `MC ${n}` }, territoryIds: ['XA'] }),
@@ -78,7 +75,6 @@ describe('reviewUnitsOf', () => {
     ]
     const grouped = reviewUnitsOf(lawMapOf('XA', many, []), { revisions: many, captures: [], texts: [] })
     expect(grouped.map((one) => one.key)).toEqual(['batch:MC 2019', 'batch:MC 2023', 'kind:source', 'kind:golden_case', 'kind:ruleset'])
-    // Each work rides with its newest edition; the older year holds only editions and texts.
     expect(grouped[1]?.revisions.filter((one) => one.type === 'work')).toHaveLength(9)
     expect(grouped[0]?.revisions).toHaveLength(18)
     expect(grouped.flatMap((one) => one.revisions)).toHaveLength(many.length)
@@ -95,7 +91,6 @@ describe('reviewUnitsOf', () => {
     const calls = verdictCalls(units[0]!, 'accepted', { sourceChecked: true })
     expect(calls).toHaveLength(1)
     expect(calls[0]?.decisions).toHaveLength(9)
-    // The relation's six claims carry the check; the act it names, fetched by nobody's paste, does not.
     expect(calls[0]?.decisions.filter((one) => one.sourceChecked).map((one) => one.revisionId)).toEqual(Array(6).fill(REVISIONS[7]?.revisionId))
     expect(verdictCalls(units[0]!, 'rejected', { note: 'no', sourceChecked: true })[0]?.decisions.some((one) => one.sourceChecked)).toBe(false)
     const big = { ...units[0]!, revisions: [{ ...REVISIONS[0]!, claims: Array.from({ length: VERDICTS_PER_CALL + 1 }, (_, index) => ({ path: `p${index}`, value: index, decision: null })) }] }
@@ -108,20 +103,17 @@ describe('reviewUnitsOf on Austria’s guidelines and their companion documents'
   const page = 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/'
   const cited = (type: RevisionView['type'], recordId: string, body: Record<string, unknown>, url: string): RevisionView => ({ ...revision(type, recordId, body), citations: [{ url, quote: 'the words on the page' }] })
   const LABEL: Record<string, string> = { '2015': 'Ausgabe März 2015', '2019': 'Ausgabe April 2019', '2023': 'Ausgabe Mai 2023', '2025': 'Ausgabe September 2025' }
-  /** A work with its editions and a text each, as the dev request holds them (`platform-knowledge-text-list`, 2026-11-11). */
   const work = (key: string, title: string, years: string[], extra: Record<string, unknown>, editionKeys: Record<string, string> = {}): RevisionView[] => [
     revision('work', `work:${key}`, { kind: 'model_code', title, territoryIds: ['AT'], ...extra }),
     ...years.flatMap((year) => {
       const edition = editionKeys[year] ?? `${key}-${year}`
       return [
-        // An edition may cite the gazette that adopted it; its text cites the publisher.
         cited('edition', `edition:${edition}`, { workId: `work:${key}`, label: edition.endsWith('rev-1') ? 'Ausgabe Mai 2023 Rev. 1' : LABEL[year] }, 'https://ris.example.at/lgbl/1'),
         cited('manifestation', `manifestation:${edition}-text`, { editionId: `edition:${edition}`, corpusFile: `${edition}-text.pdf` }, page),
       ]
     }),
   ]
   const guideline = (n: string, years: string[]) => work(`oib-rl-${n.replace('.', '-')}`, `Richtlinie ${n}`, years, { identifiers: { designation: `OIB-Richtlinie ${n}` }, issuer: OIB })
-  // Half the companions name their issuer; the other half are known only by the site their text came from.
   const companion = (key: string, title: string, years: string[], withIssuer: boolean, editionKeys?: Record<string, string>) => work(key, title, years, withIssuer ? { issuer: OIB } : {}, editionKeys)
   const REQUEST: RevisionView[] = [
     ...['1', '2', '2.1', '2.2', '2.3', '3', '4', '5'].flatMap((n) => guideline(n, ['2019', '2023'])),

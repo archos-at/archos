@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The owners of a resource are told when a project admin takes ownership of it
- * (ADR-0032 decision 5, amended 2026-11-11): who did it, and the row's time.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/db/tenant-context', () => ({

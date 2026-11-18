@@ -1,18 +1,3 @@
-"""``GET /v1/drafts/...``: read doors onto the working directory.
-
-The unfiled draft card cannot preview what the model wrote without a route that
-exposes the bytes to the browser, so the namespace the ``DELETE`` door sweeps
-is also served read-only: ``GET /v1/drafts/{conversation_id}`` lists
-``{path, bytes, version}`` without content, and the same URL with ``?path=`` —
-or the ``/{path...}`` suffix spelling — returns ``{path, content, version}``
-plus ``filing`` once the draft has been filed.
-
-The store is the real ``InMemoryStore`` behind the real ``DraftBackend``,
-seeded directly (the way the model writes), because the thing under test is
-that the routes expose exactly that namespace: its rows, its version counters,
-its filing records — and nothing outside it.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -41,7 +26,6 @@ CONTENT = "# Befund\n\nText.\n"
 
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> InMemoryStore:
-    """One store behind the routes and the assertions."""
     memory = InMemoryStore()
 
     async def _get_store(dsn: str | None = None) -> InMemoryStore:
@@ -70,7 +54,6 @@ def prod_token(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def _write(store: InMemoryStore, conversation_id: str, name: str, content: str = CONTENT) -> DraftBackend:
-    """Seed the way the model writes: through the backend, not around it."""
     backend = DraftBackend(store=store, conversation_id=conversation_id)
     result = await backend.awrite(f"{DRAFT_ROOT}{name}.md", content)
     assert result.error is None
@@ -94,8 +77,6 @@ def _read_suffix(client: TestClient, path: str, conversation_id: str = CONVERSAT
 
 
 class TestTheGuard:
-    """Internal-token only, failing closed exactly as the delete door does."""
-
     def test_a_missing_token_is_forbidden_on_the_list(self, client, prod_token) -> None:
         assert _list(client, token=None).status_code == 403
 
@@ -114,11 +95,7 @@ class TestTheGuard:
 
 
 class TestTheListing:
-    """One conversation's drafts as {path, bytes, version} — and no content."""
-
     def test_an_empty_namespace_is_a_404(self, client, prod_token) -> None:
-        """The 404-means-nothing-to-discard convention, read-side: most
-        conversations never wrote a draft, and that is not an error."""
         response = _list(client)
         assert response.status_code == 404
 
@@ -150,7 +127,6 @@ class TestTheListing:
         assert entry["version"] == 2
 
     async def test_another_conversations_files_are_not_listed(self, client, prod_token, store) -> None:
-        # The namespace is the whole of the predicate, read-side too.
         await _write(store, CONVERSATION, "befund")
         await _write(store, OTHER, "protokoll")
 
@@ -170,8 +146,6 @@ class TestTheListing:
 
 
 class TestTheRead:
-    """One draft's {path, content, version} — plus filing once it has been filed."""
-
     async def test_an_existing_file_reads_back_what_was_written(self, client, prod_token, store) -> None:
         await _write(store, CONVERSATION, "befund")
 
@@ -237,8 +211,6 @@ class TestTheRead:
 
 
 class TestTheRefusals:
-    """Traversal and over-size reads are refused, never served and never stored."""
-
     def test_a_dotdot_conversation_is_refused(self, client, prod_token) -> None:
         assert _list(client, conversation_id="conv..x").status_code == 400
 
@@ -261,8 +233,6 @@ class TestTheRefusals:
         assert listing["drafts"] == [{"path": PATH, "bytes": len(CONTENT.encode("utf-8")), "version": 1}]
 
     async def test_an_oversize_draft_is_a_413_not_a_stream(self, client, prod_token, store) -> None:
-        # Unreachable through the backend, which refuses past the same ceiling,
-        # so it is placed directly: the route must still refuse to serve it.
         namespace = draft_namespace(CONVERSATION)
         await store.aput(namespace, PATH, {"content": "x" * (MAX_DRAFT_BYTES + 1)})
 
@@ -270,8 +240,6 @@ class TestTheRefusals:
 
 
 class TestAuthRefusedWithoutToken:
-    """Read-only does not mean open: no token, no bytes."""
-
     async def test_an_unauthenticated_list_and_read_answer_403(self, client, prod_token, store) -> None:
         await _write(store, CONVERSATION, "befund")
 

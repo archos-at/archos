@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Who that is — the panel behind a mention pill.
- *
- * A tag in a thread is a reference to a person, and in a project with forty
- * members a name is often not enough to place them: "@S. Gruber" is either the
- * fire-safety engineer or somebody in accounts. The reader either interrupts
- * themselves to go and look, or guesses. So the reference answers the question
- * where it is asked, on a glance, exactly as a citation does.
- *
- * ONE component for every surface that previews a person, on the same reasoning
- * `CitationPeek` states for citations: two panels describing the same person are
- * two things that can disagree.
- *
- * Deliberately not a profile page in a popover. It carries who they are, how to
- * reach them, and the one fact that matters *in this thread* — whether they can
- * read it. No actions: a mention is a reference, and a panel that appears on
- * hover is the wrong place to put anything consequential.
- */
-
 import type { JSX } from 'react'
 import { Sparkles } from 'lucide-react'
 
@@ -36,14 +17,8 @@ export interface PersonPeekPerson {
 
 export interface PersonPeekProps {
   person: PersonPeekPerson
-  /** The assistant, which gets its own line rather than an email address. */
   isAgent?: boolean
-  /** The reader themselves — worth saying, since "@you" reads oddly otherwise. */
   isYou?: boolean
-  /**
-   * Whether they can actually read this conversation. `undefined` where the
-   * caller does not know — better silent than wrong about someone's access.
-   */
   isParticipant?: boolean
   className?: string
 }

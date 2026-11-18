@@ -1,5 +1,3 @@
-"""The turning circle a wheelchair needs in a room, measured on its free floor."""
-
 from __future__ import annotations
 
 import math
@@ -20,65 +18,8 @@ from .operators import _geometry_or_answer
 from .operators import _require
 from .operators import _wrong_kind
 
-# ════════════════════════════════════════════════════════════════════════════
-# 1 — turning circle
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def turning_circle(model: SpatialModel, space_global_id: str, diameter: float | None = None) -> Answer[dict[str, Any]]:
-    """The largest circle that fits in this room's clear floor, and where it sits.
-
-    The Bewegungsfläche question, as geometry: the room's own footprint polygon,
-    less the plan shadow of everything standing on it, eroded until nothing is
-    left. See :func:`_largest_circle` for why erosion IS the inscribed-circle
-    test rather than an approximation of it, and :func:`_free_floor` for what
-    gets subtracted.
-
-    ## The diameter, and why it is optional rather than required
-
-    ``diameter`` defaults to ``None`` and this module never supplies one. OIB 4
-    names 1.50 m; that number is a fact about the clause and writing it as a
-    default here would make this file believe in it.
-
-    The choice against a hard refusal — the one ``light_incidence`` makes about
-    its 45° — is deliberate and rests on a difference between the two questions.
-    A light prism without an angle is not a smaller answer, it is no geometry at
-    all: there is nothing to build and nothing to report, so refusing is the only
-    honest move. A turning circle without a diameter is a complete measurement —
-    *the largest circle that fits is 3.46 m and its centre is here* — and that
-    number is useful, checkable and clause-free. Refusing to hand it over would
-    withhold a measurement in order to enforce a parameter it does not need.
-
-    When a diameter IS given it adds one field, ``requested.fits``, which is a
-    comparison of two measured lengths and not a verdict: it says the circle fits
-    on this geometry, not that the room complies. A nonsensical diameter is
-    refused outright rather than silently clamped.
-
-    ## What was counted, which is a judgment and not a measurement
-
-    ``value["diameter"]`` counts **fixed** obstruction only — walls intruding,
-    columns, stairs, the door leaf as modelled. Loose furniture
-    (``IfcFurnishingElement`` and its subtypes) is reported in the parallel
-    ``mitMoeblierung`` block and is NOT in the headline, because a permit is
-    granted on the building and the piano in this fixture's living room was
-    placed by whoever made the visualisation. IFC carries no fixed/loose flag at
-    all, so the split is by entity type: a built-in wardrobe exported as
-    ``IfcFurniture`` lands on the loose side and the caveat says so.
-
-    Measured on ``Ifc4_SampleHouse``: bedroom 3.463 m fixed / 2.478 m furnished,
-    living room 5.606 / 4.402, entrance hall 1.953 / 1.953. The bedroom's fixed
-    figure is its own clear width to the millimetre, which is the check that the
-    polygon is the room and not something near it.
-
-    ## What this does not see
-
-    The shadow is taken over the full height of each obstacle, so a wall cabinet
-    hung clear of the floor is not counted (it fails the floor-contact test) and
-    a table is counted over its whole top (a footrest fits under it). The first
-    error makes the circle too large and the second too small; both are named in
-    the caveat, because a clearance whose error direction is invisible cannot be
-    argued with.
-    """
     method = (
         f"turningCircle({space_global_id})" if diameter is None else f"turningCircle({space_global_id}, {diameter})"
     )

@@ -1,16 +1,3 @@
-/**
- * Platform knowledge management — remove a PDF from the shared base corpus
- * (stored file, registry entry, indexed chunks). Every file lives in object
- * storage, uploaded through the admin route (`data/oib` ships empty), so any
- * may be deleted, except a file a platform record names as its text (409):
- * its publish or its next re-index would find no file (ADR-0165).
- *
- * GET streams the PDF of any file the corpus lists, released or not, for the
- * viewer of the platform's knowledge page. An office reads only what is
- * released to it, through `GET /api/knowledge-base/documents/[fileName]`.
- * Platform staff with `platform:settings:view`.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
@@ -25,8 +12,6 @@ export const GET = platformApiRoute<{ fileName: string }>(
 
 export const DELETE = platformApiRoute<{ fileName: string }>(
   async ({ params }) => {
-    // One name for the check and the removal: the service trims what it is given, so a name checked as it arrived
-    // (a leading space, another normal form) once passed the check and then removed the file a record names.
     const fileName = params.fileName.trim()
     await refuseRemovingNamedText(fileName)
     await deleteKnowledgeBaseDocument(fileName)

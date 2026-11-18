@@ -1,4 +1,3 @@
-/** Error, not-found, and auth-error surfaces. */
 export const errors = {
   notFound: {
     code: '404',
@@ -43,12 +42,6 @@ export const errors = {
       Default: 'An error occurred during authentication.',
     },
   },
-  /**
-   * A conversation that drew on a folder with restricted access, refusing to
-   * carry its content where others read it (ADR-0087,
-   * `lib/conversations/restricted-egress.ts`). One sentence per door, relayed
-   * as the API error: the agent quotes the German one to the reader.
-   */
   confinement: {
     deepResearch:
       'This conversation draws on a folder with restricted access or on another project, so it cannot start a deep research run: the run, its title and its report would be visible to everyone in the project, including people who may not read that folder or project.',
@@ -64,11 +57,6 @@ export const errors = {
     planDocument:
       'A document you named sits in a folder with restricted access, so it cannot be handed to a research run: a run’s documents and its report are visible to everyone in the project, including people not cleared for that folder.',
   },
-  /**
-   * The cross-project lookups (ADR-0094), refusing where their findings could
-   * reach someone who may not open the other project. Relayed as the API error;
-   * the agent quotes the German one to the reader.
-   */
   crossProject: {
     audienceChanged:
       'Who may read this conversation changed just now, so nothing was taken from other projects. Please ask again.',

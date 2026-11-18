@@ -26,7 +26,6 @@ vi.mock('./collection-placement', () => ({
 
 const uuid = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 
-/** The repository's contract over a fixed set of project ids, as Postgres answers it. */
 function serve(ids: string[]): void {
   const sorted = [...ids].sort()
   listProjects.mockImplementation(async ({ after, upTo, limit }) =>
@@ -64,7 +63,6 @@ describe('sweepCollectionPlacement', () => {
 
     const placed = place.mock.calls.map(([, projectId]) => projectId)
     expect(new Set(placed)).toEqual(new Set(ids))
-    // One lap places each project once, then the walk starts round again.
     expect(placed.slice(0, ids.length).sort()).toEqual([...ids].sort())
     expect(checked.every((count) => count <= sweep.PLACEMENT_SWEEP_PROJECTS)).toBe(true)
   })

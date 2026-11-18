@@ -1,5 +1,3 @@
-/** Version history of the org's model configuration. Org admins only. */
-
 import { apiRoute } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { FEATURE_FLAGS, requireFeature } from '@/lib/authz/feature-flags'

@@ -1,5 +1,3 @@
-"""Housekeeping as routes a scheduler calls, with the loops off (ADR-0082 step A1)."""
-
 from __future__ import annotations
 
 import pytest

@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Organisation -> Download-Protokoll: who took which document out, and who
- * opened one in a folder with its own access list (ADR-0088).
- *
- * Personal data about staff, so the page is plain about three things before it
- * shows a row: what the log is for (security and accountability, nothing like
- * an activity report), how long it is kept, and that reading it is itself
- * recorded. There is deliberately no total per person, no chart and no ranking:
- * a list of events, newest first, filtered by the three questions an admin has
- * (who, which document, when) and nothing that aggregates.
- *
- * The server is the authority: it refuses anyone without `org:downloads:view`,
- * and it refuses to answer when it cannot record the read, in which case this
- * page shows the failure and no rows.
- */
-
 import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 import { History, ScrollText } from 'lucide-react'
 
@@ -46,11 +30,9 @@ export interface DownloadLogPerson {
 }
 
 interface DownloadLogViewProps {
-  /** The organization's members, for the person filter. Empty when WorkOS could not be asked. */
   people: readonly DownloadLogPerson[]
 }
 
-/** Radix Select cannot hold an empty value, so "no filter" has its own. */
 const ANY = '__any__'
 
 export const DownloadLogView: FC<DownloadLogViewProps> = ({ people }) => {
@@ -63,7 +45,6 @@ export const DownloadLogView: FC<DownloadLogViewProps> = ({ people }) => {
   const [retentionDays, setRetentionDays] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
-  // The newest request wins: a slow first page must not overwrite a newer filter's rows.
   const requestRef = useRef(0)
 
   const load = useCallback(async (filters: DownloadLogFilters, cursor: string | null) => {

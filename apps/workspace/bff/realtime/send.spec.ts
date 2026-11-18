@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Sending in a live channel: who a message is from is the session's word,
- * never the client's; sending is reading the document; a grant is remembered
- * only as long as a stream re-checks; and the channel's rate limit is spent.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -152,7 +147,6 @@ describe('sendToChannel, the limit', () => {
     await expect(
       sendToChannel({ ...SESSION, userId: 'user_2' }, { ch: 'test:a', msg: { peerId: 'peer_abcdef12' } }, channels)
     ).resolves.toBeNull()
-    // The same person in a second document (another tab) has a budget of its own.
     await expect(say('test:b')).resolves.toBeNull()
   })
 
@@ -175,7 +169,6 @@ describe('sendToChannel, the limit', () => {
     await expect(send({ presence: 'here' })).resolves.toBeNull()
     await expect(send({ selected: null })).resolves.toBeNull()
     await expect(send({ presence: 'gone' })).resolves.toBeNull()
-    // Claims are bounded too, by their own budget.
     await expect(send({ presence: 'here' })).rejects.toBeInstanceOf(TooManyRequestsError)
   })
 

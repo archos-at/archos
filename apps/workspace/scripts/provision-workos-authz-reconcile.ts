@@ -1,21 +1,3 @@
-/**
- * The reconcile behind `provision-workos-authz.ts`: make a WorkOS environment
- * agree with the authorization catalog, or say where it does not.
- *
- * Its own module so a spec can run it against a fake client
- * (`provision-workos-authz-reconcile.spec.mjs`); the entry file reads the
- * environment and the arguments and holds no logic.
- *
- * What it writes under `--apply`, and nothing else:
- *   - creates a catalog permission or role that is missing;
- *   - sets a catalog role's permissions to the catalog's;
- *   - takes a RETIRED permission (`bff/authz/retired-permissions.ts`) off every
- *     role that holds it, then deletes it.
- * It deletes no role, and no permission that is not on the retired list. A
- * custom role an office made is touched only to take a retired permission off
- * it, which no code checks any more.
- */
-
 import type { Role, WorkOS } from '@workos-inc/node'
 import {
   ALL_PERMISSION_SPECS,
@@ -25,7 +7,6 @@ import {
 } from '../bff/authz/catalog'
 import { RETIRED_PERMISSIONS, type RetiredPermission } from '../bff/authz/retired-permissions'
 
-/** The part of the WorkOS SDK the reconcile calls; a spec passes a fake of it. */
 export interface AuthzClient {
   authorization: Pick<
     WorkOS['authorization'],
@@ -46,9 +27,7 @@ export interface AuthzClient {
 export interface ReconcileOptions {
   apply: boolean
   platformOrgExternalId: string
-  /** Progress lines; the entry file prints them. */
   note?: (message: string) => void
-  /** The retired list; a spec passes its own. */
   retired?: readonly RetiredPermission[]
 }
 
@@ -67,10 +46,8 @@ interface Run {
   note: (message: string) => void
 }
 
-/** Our permission namespaces, past ones included: `workflow:` and `skill:` left the catalog. */
 const OUR_NAMESPACES = /^(org|platform|project|skill|folder|workflow):/
 
-/** Permissions we own. `widgets:*` are WorkOS system permissions — never ours. */
 const OWNED_PERMISSIONS = ALL_PERMISSION_SPECS.filter((permission) => !permission.system)
 
 async function listAll<T>(
@@ -86,12 +63,6 @@ async function listAll<T>(
   return all
 }
 
-/**
- * The resource type a permission or role of `tier` attaches to: the type the
- * tier names, and Organization for the org and platform tiers (the same mapping
- * `catalog.spec.ts` holds every tier to). A permission created without one lands
- * on Organization, where a role of another type cannot hold it.
- */
 function resourceTypeSlugFor(tier: PermissionTier): string {
   return tier === 'platform' || tier === 'org' ? 'organization' : tier
 }
@@ -107,9 +78,6 @@ async function reconcilePermissions(run: Run): Promise<void> {
   for (const spec of OWNED_PERMISSIONS) {
     const found = bySlug.get(spec.slug)
     if (found) {
-      // A permission on the wrong resource type cannot be held by a role of its
-      // tier, and WorkOS cannot move it: the fix is a delete and re-create in
-      // the dashboard, so this only reports it.
       const expected = resourceTypeSlugFor(spec.tier)
       if (found.resourceTypeSlug && found.resourceTypeSlug !== expected) {
         drift.push(
@@ -136,22 +104,11 @@ async function reconcilePermissions(run: Run): Promise<void> {
       applied.push(`created permission ${spec.slug}`)
       note(`  created  ${spec.slug}`)
     } catch (error) {
-      // A create that fails because the resource type is absent is the signal
-      // that the dashboard step has not been done for this environment.
       drift.push(`could not create ${spec.slug} (${spec.tier} tier): ${String(error)}`)
       note(`  FAILED   ${spec.slug} — ${String(error)}`)
     }
   }
 
-  // A permission in WorkOS, in one of OUR namespaces, that the catalog does not
-  // declare and the retired list does not name. This IS an error: it is drift,
-  // and drift exits 1 under `--check` and under `--apply`, so it fails the
-  // deploy's catalog Job. Such a slug is a half-removed feature (retire it in
-  // `bff/authz/retired-permissions.ts`) or a permission made by hand. WorkOS's
-  // own permissions (`widgets:*`) are in no namespace of ours and are skipped.
-  // `workflow:` and `skill:` stay in the pattern BECAUSE the catalog no longer
-  // defines them: dropping a prefix would hide a leftover from the check meant
-  // to find it. Retired slugs are handled by `retirePermissions`.
   const declared = new Set(ALL_PERMISSION_SPECS.map((permission) => permission.slug))
   const retired = new Set(run.retired.map((permission) => permission.slug))
   for (const permission of existing) {
@@ -182,7 +139,6 @@ async function reconcileRoles(run: Run): Promise<void> {
   const { client, drift, applied, note } = run
   note('\nRoles')
 
-  // Both list endpoints return the full set in one response (no pagination).
   const envRoles = (await client.authorization.listEnvironmentRoles()).data
 
   const platformOrgId = await findPlatformOrgId(run)
@@ -240,7 +196,6 @@ async function reconcileRoles(run: Run): Promise<void> {
   }
 }
 
-/** Permissions are set separately from creation — the create endpoints take no list. */
 async function setPermissions(
   run: Run,
   spec: RoleSpec,
@@ -285,18 +240,11 @@ async function createRole(run: Run, spec: RoleSpec, platformOrgId: string | null
   }
 }
 
-/** A role that holds a permission: an environment role, or a custom role of one organization. */
 interface Holder {
   role: Role
   organizationId: string | null
 }
 
-/**
- * Every role in the environment: the environment roles, and each
- * organization's custom roles (the per-organization listing repeats the
- * environment roles, which are dropped). One call per organization, so it is
- * read only when a retired permission is actually present.
- */
 async function listEveryRole(client: AuthzClient): Promise<Holder[]> {
   const holders: Holder[] = (await client.authorization.listEnvironmentRoles()).data.map(
     (role) => ({
@@ -316,27 +264,11 @@ async function listEveryRole(client: AuthzClient): Promise<Holder[]> {
   return holders
 }
 
-/**
- * Take a retired permission off the roles that hold it, then delete it.
- *
- * WorkOS endpoints, each through the SDK method the rest of this file's
- * neighbours use (`workos.authorization.*`):
- *   - environment role: "Set permissions for an environment role",
- *     PUT /authorization/roles/{slug}/permissions
- *     https://workos.com/docs/reference/roles/role/set-permissions
- *     (there is no remove-one endpoint for an environment role);
- *   - custom role: "Remove a permission from a custom role",
- *     DELETE /authorization/organizations/{organization_id}/roles/{slug}/permissions/{permission_slug}
- *     https://workos.com/docs/reference/roles/custom-role/remove-permission
- *   - "Delete a permission", DELETE /authorization/permissions/{slug}
- *     https://workos.com/docs/reference/roles/permission/delete
- * The delete page does not say what happens to a role still holding the
- * permission, so the roles are cleared first and nothing depends on a cascade.
- */
 async function retireOne(run: Run, slug: string, holders: readonly Holder[]): Promise<void> {
   const { client } = run
   for (const holder of holders) {
     if (!holder.role.permissions.includes(slug)) continue
+    // https://workos.com/docs/reference/roles/custom-role/remove-permission and https://workos.com/docs/reference/roles/role/set-permissions
     if (holder.organizationId) {
       await client.authorization.removeOrganizationRolePermission(
         holder.organizationId,
@@ -350,25 +282,18 @@ async function retireOne(run: Run, slug: string, holders: readonly Holder[]): Pr
         permissions: holder.role.permissions.filter((held) => held !== slug),
       })
     }
-    // The next retired slug must not be written back by a stale copy.
     holder.role.permissions = holder.role.permissions.filter((held) => held !== slug)
     run.applied.push(`removed retired permission ${slug} from role ${holder.role.slug}`)
     run.note(`  removed  ${slug} from role ${holder.role.slug}`)
   }
+  // https://workos.com/docs/reference/roles/permission/delete
   await client.authorization.deletePermission(slug)
   run.applied.push(`deleted retired permission ${slug}`)
   run.note(`  deleted  ${slug}`)
 }
 
-/**
- * Retired permissions that an environment still has. Runs after the roles are
- * reconciled, so a catalog role has already lost the permission and what is
- * left to clear is a custom role.
- */
 async function retirePermissions(run: Run): Promise<void> {
   const { client, drift, note } = run
-  // A slug the catalog still declares is never deleted, whatever the retired list says: the list is
-  // checked by a spec, but this runs against production on every deploy, so it refuses here too.
   const declared = new Set(ALL_PERMISSION_SPECS.map((permission) => permission.slug))
   const contradictions = run.retired.filter((permission) => declared.has(permission.slug))
   for (const permission of contradictions) {
@@ -406,7 +331,6 @@ async function retirePermissions(run: Run): Promise<void> {
   }
 }
 
-/** Reconcile (or, without `apply`, only compare) and report what differs and what was written. */
 export async function reconcileAuthzCatalog(
   client: AuthzClient,
   options: ReconcileOptions
@@ -426,7 +350,6 @@ export async function reconcileAuthzCatalog(
   return { drift: run.drift, applied: run.applied }
 }
 
-/** The process exit code for a result: any drift fails, in both modes. */
 export function exitCodeFor(result: ReconcileResult): 0 | 1 {
   return result.drift.length === 0 ? 0 : 1
 }

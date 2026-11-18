@@ -54,7 +54,6 @@ const MANAGE = ['platform:settings:view', 'platform:knowledge:write', 'platform:
 const person = (userId: string, permissions: string[]) =>
   ({ userId, email: `${userId}@example.com`, organizationId: fixed.platformOrg, permissions }) as unknown as UserSession
 
-/** A database refusal, by its reason: drizzle puts the server's message in `cause`. */
 const refusedWith = (reason: RegExp) => (error: unknown) => {
   const failure = error as { message?: string; cause?: { message?: string } }
   return reason.test(`${failure?.message ?? ''} ${failure?.cause?.message ?? ''}`)
@@ -85,7 +84,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
   const counsel = person(`user_alone_counsel_${RUN}`, ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review', 'platform:knowledge:approve_as_counsel'])
   const managerOnly = person(`user_alone_manager_${RUN}`, ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review'])
 
-  /** A submitted request holding one work, written by the owner; `key` names the work when two requests share it. */
   async function submitted(name: string, key = name): Promise<string> {
     const id = await store.insertChangeRequest({ title: name, countryId: 'AT', createdBy: AUTHOR })
     const records = [wire.proposedRecordSchema.parse({ type: 'work', key: `${key}-${RUN}`, kind: 'guideline', title: `Leitfaden ${name}` })]
@@ -116,7 +114,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
 
   const alone = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: REASON } }
 
-  /** A request the owner approved alone in two roles, as a request needing counsel would be, and so approved. */
   async function approvedAloneTwice(name: string): Promise<string> {
     const id = await submitted(name)
     await store.platformTransaction(async (tx) => {
@@ -136,7 +133,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
@@ -217,7 +214,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     expect(view.releases.every((release) => release.approval === 'single')).toBe(true)
     expect(view.approvals[0]?.overrideReason).toBe(REASON)
 
-    // Another person's review, then their approve: the second review closes and leaves the queue.
     await expect(service.decidePlatformChangeRequest(owner, id, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/four eyes/)
     await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/not accepted/)
     await acceptAll(id, expert)
@@ -243,7 +239,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     })
     expect(audit.record).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'platform.knowledge.second_review_disputed' }))
     await expect(service.publishPlatformChangeRequest(owner, id, { channel: 'stable' })).rejects.toThrow(/disputed/)
-    // A closed second review stays closed: the trigger refuses to reopen it.
     await expect(
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'due', second_review_by = NULL, second_review_at = NULL WHERE id = ${id}::uuid`)),
     ).rejects.toSatisfy(refusedWith(/moves only from due/))
@@ -262,7 +257,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
 
   it('voids the review a request owed once it is rejected before approval: off the queue and the list, no badge left due', async () => {
     const id = await submitted('rejected-after-alone')
-    // The owner's override left it submitted, as one still waiting for counsel would be.
     await store.platformTransaction((tx) =>
       store.insertApproval(tx, { changeRequestId: id, approver: AUTHOR, role: 'domain_expert', decisionSource: 'app', overrideReason: REASON }),
     )
@@ -274,7 +268,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     expect(await queued(id)).toBe(false)
     const due = await service.listPlatformChangeRequests(expert, { secondReview: 'due' })
     expect(due.changeRequests.some((request) => request.id === id)).toBe(false)
-    // A void review stays void: nothing moves it back to due.
     await expect(
       withPlatformAccess('alone spec', () =>
         db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'due', second_review_by = NULL, second_review_at = NULL WHERE id = ${id}::uuid`),
@@ -324,7 +317,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       secondReviewDue: ['counsel'],
     })
     expect(await queued(id)).toBe(true)
-    // The expert does not hold counsel, so cannot close that role; the database refuses a confirmation while it is owed.
     await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'counsel' })).rejects.toMatchObject({ status: 403 })
     await expect(
       withPlatformAccess('alone spec', () =>
@@ -355,7 +347,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     const disputed = await submitted('shared-preview-a', 'shared-preview')
     await service.decidePlatformChangeRequest(owner, disputed, alone)
     await service.publishPlatformChangeRequest(owner, disputed, { channel: 'preview' })
-    // A second request on the same work, approved with four eyes, previews over it.
     const later = await submitted('shared-preview-b', 'shared-preview')
     await acceptAll(later, expert)
     await service.decidePlatformChangeRequest(expert, later, { decision: 'approve', role: 'domain_expert' })
@@ -391,11 +382,9 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       )
       return row?.to ?? null
     }
-    // The second is disputed and rejected: its withdrawal puts the first one's revision back in preview.
     await service.decidePlatformChangeRequest(expert, second, { decision: 'reject', role: 'domain_expert' })
     await service.decidePlatformChangeRequest(expert, second, { decision: 'reject', role: 'domain_expert' })
     expect(await previewOf()).toBe(firstRevision!.revisionId)
-    // The first is disputed and rejected too: its revision is withdrawn although another request's move restored it.
     await service.decidePlatformChangeRequest(expert, first, { decision: 'reject', role: 'domain_expert' })
     await service.decidePlatformChangeRequest(expert, first, { decision: 'reject', role: 'domain_expert' })
     expect(audit.record).toHaveBeenLastCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ withdrawn: 1 }) }))
@@ -409,7 +398,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       status: 'submitted',
       awaiting: ['domain_expert'],
     })
-    // Nor does any path around the service: the status trigger refuses the move.
     await expect(
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${id}::uuid`)),
     ).rejects.toSatisfy(refusedWith(/every role it needs has approved it/))
@@ -420,7 +408,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     const move = (status: string) =>
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = ${status} WHERE id = ${id}::uuid`))
     await expect(move('published')).rejects.toSatisfy(refusedWith(/does not move from submitted to published/))
-    // A domain expert's approval with a rejected claim and nobody else's verdicts: still not approvable.
     const view = await service.getPlatformChangeRequest(expert, id)
     const [revision] = view.revisions
     await service.reviewPlatformChangeRequest(expert, id, [{ revisionId: revision!.revisionId, claimPath: revision!.claims[0]!.path, decision: 'rejected' }])
@@ -449,7 +436,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       await store.insertProposedRecords(tx, request!, [record], { createdBy: AUTHOR, proposedBy: 'person' })
       await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
     })
-    // The view says so, so the UI offers no approval alone that could only be refused.
     expect((await service.getPlatformChangeRequest(owner, id)).sourcesUnchecked).toBe(true)
     await expect(service.decidePlatformChangeRequest(owner, id, alone)).rejects.toThrow(/cite a fetched capture/)
     expect(await approvalRows(id)).toHaveLength(0)
@@ -471,7 +457,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
         if (submit) await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
       })
     await propose([work([{ captureId: capture.captureId, quote: 'Leitfaden Barrierefreiheit, Ausgabe 2027' }])], false)
-    // Resent after a repair, in a later call, without the pasted page: the record's newest revision is what the request releases.
     await propose([work([])], true)
     expect((await service.getPlatformChangeRequest(owner, id)).sourcesUnchecked).toBe(false)
     await expect(service.decidePlatformChangeRequest(owner, id, alone)).resolves.toMatchObject({ status: 'approved' })
@@ -486,7 +471,6 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     const setStatus = (id: string, status: string) =>
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = ${status} WHERE id = ${id}::uuid`))
 
-    /** A request in `status`, reached the lawful way. */
     async function requestIn(status: Status): Promise<string> {
       const name = `edge-${status}-${Math.random().toString(36).slice(2, 8)}`
       if (status === 'draft') return store.insertChangeRequest({ title: name, countryId: 'AT', createdBy: AUTHOR })

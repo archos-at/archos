@@ -11,12 +11,8 @@ import { cn } from '@/lib/utils'
 import { MarkBody } from './mark-body'
 import { useAgentByline } from './agent-attribution'
 import { markInk, pinLabel } from './review-page-layer'
+import { isAgentKind } from '@/lib/agent-kind'
 
-/**
- * The surface of one mark's row: the review's list (a button) and a project's
- * Offene Punkte (a link into that review) both wear it, so a row reads the
- * same wherever a mark is listed.
- */
 export const markRowClassName = (selected = false): string =>
   cn(
     'flex w-full gap-3 rounded-control px-2.5 py-2.5 text-left transition-colors duration-quick ease-out outline-none',
@@ -24,19 +20,11 @@ export const markRowClassName = (selected = false): string =>
     selected && 'bg-selected hover:bg-selected'
   )
 
-/** The two rings of a point on Offene Punkte: ink (the theme's foreground, light on a dark page), and ochre where it needs the reader. */
 const VERDICT_RING = { ink: 'var(--foreground)', needsYou: 'var(--text-color-feedback-warning)' } as const
 
-/** One meta line: muted 12px, its clauses apart by a bound „·“ after each. */
 const META_LINE =
   "text-muted-foreground flex min-w-0 items-center gap-x-1 text-xs [&>*:not(:last-child)]:after:ml-1 [&>.inline-flex:not(:last-child)]:after:ml-0.5 [&>*:not(:last-child)]:after:text-muted-foreground/40 [&>*:not(:last-child)]:after:content-['·']"
 
-/**
- * What a row says about one mark: its number (what people say aloud), what it
- * says, and one quiet line of what kind, who, how many answers, by when, and
- * the Fassung it was set on when that is an earlier one. The row's
- * element (a button, a link) is the caller's.
- */
 export function MarkRowContent({
   annotation,
   viewerId,
@@ -46,20 +34,10 @@ export function MarkRowContent({
   columns = false,
 }: {
   annotation: AnnotationView
-  /** The reader, so a mention of them stands out. */
   viewerId: string | null
-  /** Name the page in the quiet line: where nothing around the row says which page it is on. */
   showPage?: boolean
-  /** News on it the reader has not read (`DocumentReview.unread`): a dot on the pin, and words for a screen reader. */
   unread?: boolean
-  /**
-   * What the pin's ring says. `author` (the review, beside the page): whose mark it is, the colour of the pin on the
-   * sheet, so the row and the pin are found as one. `verdict` (Offene Punkte, where no page is beside it): ink at 1.5px
-   * for every point, ochre only for one assigned to the reader or overdue (paper on a desk, principle 7: colour is a
-   * verdict). Who set it is then the name in the meta line.
-   */
   marker?: 'author' | 'verdict'
-  /** Who and by when in a column of their own on the row's right edge (Offene Punkte, a page-wide list); a phone puts them on a second meta line. */
   columns?: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -68,7 +46,7 @@ export function MarkRowContent({
   const overdue = isOverdue(annotation, localCalendarDay())
   const needsReader = isLive(annotation) && (overdue || isForReader(annotation, viewerId))
   const author =
-    annotation.authorKind === 'piloti' ? byline(annotation.createdByName) : (annotation.createdByName ?? t('review.someone'))
+    isAgentKind(annotation.authorKind) ? byline(annotation.createdByName) : (annotation.createdByName ?? t('review.someone'))
   const who = annotation.assigneeName ? (
     <span className="inline-flex min-w-0 items-center gap-0.5 whitespace-nowrap" data-testid="mark-row-assignee">
       <UserRound className="size-3 shrink-0" aria-hidden />
@@ -91,7 +69,6 @@ export function MarkRowContent({
         {annotation.replies.length}
       </span>
     ) : null
-  // The Fassung it was set on, when an earlier one: one more clause of the meta line, never a third line.
   const revision = annotation.onCurrentRevision ? null : (
     <span className="whitespace-nowrap" title={t('annotations.earlierRevisionHint')} data-testid="mark-row-earlier-revision">
       {annotation.revisionNumber ? t('annotations.earlierRevision', { number: annotation.revisionNumber }) : t('annotations.earlierRevisionUnnumbered')}
@@ -110,8 +87,6 @@ export function MarkRowContent({
           as="span"
           number={annotation.number}
           color={marker === 'author' ? markInk(annotation) : needsReader ? VERDICT_RING.needsYou : VERDICT_RING.ink}
-          // A verdict pin is a small sheet: the sheet's fill, its number in ink, the ring 1.5px in ink or 2px in ochre.
-          // Round 3 kept the pin's fixed white face, the brightest thing on a dark page.
           className={cn(marker === 'verdict' && 'bg-sheet text-foreground shadow-none', marker === 'verdict' && !needsReader && 'border-[1.5px]')}
           proposed={annotation.status === 'proposed'}
           done={!isLive(annotation)}

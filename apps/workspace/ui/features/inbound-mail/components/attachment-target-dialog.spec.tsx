@@ -1,10 +1,3 @@
-/**
- * „Ändern“ is an editor, so it keeps an unsaved edit through a stray press
- * (`design-language.md`, „Getting back out“): Escape asks first, „Weiter
- * bearbeiten“ keeps the edit, the confirmation closes with nothing applied,
- * and an unchanged dialog closes without asking.
- */
-
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'

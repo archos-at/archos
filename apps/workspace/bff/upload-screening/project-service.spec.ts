@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One project's sensitive-data list (migration 0158): who reads it, who may
- * change it, and that only what changes something is stored and audited.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
@@ -109,7 +105,7 @@ describe('saveProjectUploadScreening', () => {
     expect(JSON.stringify(vi.mocked(recordAuditEvent).mock.calls)).not.toContain('Wettbewerb')
   })
 
-  it("fails rather than measuring the change against Piloti's suggestion when the office list cannot be read", async () => {
+  it("fails rather than measuring the change against the agent's suggestion when the office list cannot be read", async () => {
     given({ manage: true })
     vi.mocked(getUploadScreeningPolicy).mockRejectedValue(new Error('db down'))
     await expect(

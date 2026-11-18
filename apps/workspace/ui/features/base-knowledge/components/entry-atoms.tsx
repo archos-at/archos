@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The atoms an office standard is shown with, in the list and in its sheet:
- * its name (designation first, as it is cited), its status, what happens to
- * its text, and its last check. Each chip carries a tooltip that says what the
- * state means for the answers, so a person learns the vocabulary where it is
- * used rather than from a help page.
- */
-
 import type { JSX } from 'react'
 import { Chip } from '@/components/ui/chip'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -16,7 +8,6 @@ import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
 import { isSuperseded, needs } from '@/lib/base-knowledge/office/listing'
 
-/** A date for a person: a date alone (an edition's start, YYYY-MM-DD) is that calendar day, a timestamp the reader's own day. */
 export const day = (iso: string, locale: string) =>
   new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso).toLocaleDateString(locale === 'de' ? 'de-AT' : 'en-GB', {
     day: '2-digit',
@@ -24,10 +15,8 @@ export const day = (iso: string, locale: string) =>
     year: 'numeric',
   })
 
-/** Whether the entry needs a check: confirmed, overdue (never checked, too old, or found not current), and not superseded. */
 export const checkDue = (entry: BaseKnowledgeEntry) => needs(entry, 'check_due')
 
-/** A confirmed edition another edition of the same standard replaced today (`listing.ts`). */
 export const superseded = isSuperseded
 
 export function EntryName({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
@@ -83,7 +72,6 @@ export function StatusChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Elemen
   )
 }
 
-/** What happens to the text: held until confirmed, metadata only without the AI statement, or read. */
 export function TextUseChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const state =

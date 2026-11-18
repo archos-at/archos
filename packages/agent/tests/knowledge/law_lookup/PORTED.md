@@ -1,7 +1,7 @@
 # The RIS tool's behaviour tests, ported to `law_lookup`
 
 The country-as-data plan (step 4, `docs/design/international/country-as-data.md`)
-deletes `packages/ris-adapter/src/lookup/` once `agent.knowledge.law_lookup`
+deletes `packages/ris-adapter/src/ris_adapter/lookup/` once `agent.knowledge.law_lookup`
 replaces it. This table is the evidence that no behaviour its tests asserted dies
 with it: every test in `packages/ris-adapter/tests/test_ris_lookup_*.py`, and every
 other test that ran `ris_adapter.lookup`, mapped to the test that now asserts the

@@ -1,10 +1,3 @@
-/**
- * The browser's door to saved searches (`/api/search/saved`): a person's own
- * searches, and the ones colleagues shared within the office.
- *
- * The shapes are the routes' own (`./saved-search-wire`).
- */
-
 import type { SavedSearchView } from './saved-search-wire'
 import type { SearchBody, SearchScopeQuery } from './search-wire'
 

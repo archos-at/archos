@@ -1,19 +1,3 @@
-"""Outline mode: ``read_passage(document=…)`` with neither Punkt nor page.
-
-An overview question — "Was weißt du über die OIB 2?", "worum geht es im
-Brandschutzkonzept?" — names a document and nothing else. There is no Punkt and
-no page to pass, so the locator used to refuse and send the model to
-``knowledge_search``, which returns cover pages; the model then GUESSED a Punkt
-("Anwendungsbereich", which OIB 2 does not have), was refused again, and
-searched again.
-
-These tests pin the primitive that answers that question deterministically: one
-filtered fetch for the document's top two heading levels, the scope passage
-rendered as an ordinary grounding block so a citation resolves to it, and a
-``## Gliederung`` index of the Punkte the model may open next — an index, never
-evidence.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -54,8 +38,6 @@ def _clause_chunk(
     chunk_id: str = "",
     file_name: str = OIB,
 ) -> Chunk:
-    """A Punkt chunk as ``clause_documents`` writes it: depth is an int, page a string,
-    and the text opens with the Punkt's own heading line, the body after a blank line."""
     return Chunk(
         chunk_id=chunk_id or f"{file_name}:{clause}",
         content=content or f"{clause} {title}\n\nText zu {title}.",
@@ -75,11 +57,6 @@ def _clause_chunk(
 
 
 def _sheet_chunk(sheet: str, content: str, *, file_name: str = SHEET) -> Chunk:
-    """A worksheet of an indexed workbook, as ``office_extractors`` writes it.
-
-    ``page_label`` carries the SHEET NAME, not a page number — the whole reason
-    the fallback may not narrow on it.
-    """
     return Chunk(
         chunk_id=f"{file_name}:{sheet}",
         content=content,
@@ -93,7 +70,6 @@ def _sheet_chunk(sheet: str, content: str, *, file_name: str = SHEET) -> Chunk:
 
 
 def _page_chunk(page: int, content: str, *, file_name: str = PLAN) -> Chunk:
-    """A chunk of a document the Punkt chunker rejected: no punkt_* metadata at all."""
     return Chunk(
         chunk_id=f"{file_name}:p{page}",
         content=content,
@@ -107,13 +83,10 @@ def _page_chunk(page: int, content: str, *, file_name: str = PLAN) -> Chunk:
 
 
 def _is_fallback_fetch(filters: dict) -> bool:
-    """The fallback fetch narrows to the file alone; the outline fetch adds the depth group."""
     return "$and" not in filters
 
 
 class _Store:
-    """The retriever and the document metadata store, answering per filter shape."""
-
     def __init__(self, documents: list[SimpleNamespace]):
         self.documents = documents
         self.calls: list[dict] = []
@@ -139,8 +112,6 @@ def store(monkeypatch):
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("oib_knowledge", Shelf.BASE)],
     )
-    # The formatter's three store lookups are not what these tests are about;
-    # an empty map is the documented fail-open and keeps the run database-free.
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     return handle
@@ -160,12 +131,10 @@ async def _read(**kwargs) -> str:
 
 
 def _outline(out: str) -> list[str]:
-    """The Gliederung block's lines, which is the only place a heading may appear."""
     assert "## Gliederung" in out, out
     return [line for line in out.split("## Gliederung", 1)[1].splitlines() if line.strip()]
 
 
-#: OIB 2's real top level, plus one split Punkt and one depth-3 child.
 def _oib_outline() -> list[Chunk]:
     return [
         _clause_chunk("0", 1, "Vorbemerkungen", 3, content="Diese Richtlinie gilt für …", chunk_id="v1"),
@@ -180,8 +149,6 @@ def _oib_outline() -> list[Chunk]:
 
 
 def _section_chunk(locator: str, depth: int, title: str, order: int, *, file_name: str = PLAN) -> Chunk:
-    """A tenant section as ``text_formats``/``section_chunking`` write it: no page,
-    an address that is not a number, and its place in the document."""
     return Chunk(
         chunk_id=f"{file_name}:{locator}",
         content=f"Digest › {title}\n\nText zu {title}.",
@@ -201,8 +168,6 @@ def _section_chunk(locator: str, depth: int, title: str, order: int, *, file_nam
 
 
 class TestATenantSectionOutline:
-    """A Markdown file or a sectioned tenant PDF answers "what is in it" with its headings."""
-
     async def test_unnumbered_sections_are_listed_in_document_order_under_their_address(self, store):
         store.outline_chunks = [
             _section_chunk("Materialien", 1, "Materialien", 5),
@@ -233,10 +198,7 @@ class TestATenantSectionOutline:
 
 
 class TestTheClauseOutline:
-    """A Punkt-structured document answers "what is in it" with its own headings."""
-
     async def test_it_lists_depth_one_and_two_in_numbering_order(self, store):
-        """2.10 after 2.9, which a string sort gets backwards."""
         store.outline_chunks = _oib_outline()
 
         out = await _read(document=OIB, conclusion="Ich kenne die OIB 2 noch nicht.")
@@ -251,13 +213,6 @@ class TestTheClauseOutline:
         ]
 
     async def test_a_chapter_line_carries_its_opening_sentence_and_a_sub_clause_does_not(self, store):
-        """What a chapter is ABOUT beside what it is called. A heading list told
-        an overview question nothing it did not know, so the model opened every
-        chapter to find out: one round of eight parallel opens per member of a
-        family, three once the fan-out crossed the per-round width cap. The
-        sentence is bounded, quoted from the body after the heading line, and
-        depth 2 stays a bare index — four members at 120 characters per chapter
-        is the whole budget."""
         long_body = "Tragende Bauteile müssen " + "sehr " * 40 + "lange halten. Zweiter Satz."
         store.outline_chunks = [
             _clause_chunk(
@@ -280,9 +235,6 @@ class TestTheClauseOutline:
         assert lines[2] == "  - Punkt 2.1: Abstände (p. 4)"
 
     async def test_the_numbering_orders_the_index_even_when_a_page_runs_ahead(self, store):
-        """An outline is an index of the document's own numbering, not a walk
-        through its pages: ordering by page first would print 2.2 after 3, which
-        reads as a child of the wrong parent."""
         store.outline_chunks = [
             _clause_chunk("2", 1, "Allgemeine Anforderungen", 4),
             _clause_chunk("2.1", 2, "Abstände", 4),
@@ -299,8 +251,6 @@ class TestTheClauseOutline:
         ]
 
     async def test_a_split_clause_is_one_line_not_two(self, store):
-        """A Punkt long enough for `SentenceSplitter` to cut arrives as several
-        chunks carrying one `clause_id`; listing it twice would read as two Punkte."""
         store.outline_chunks = _oib_outline()
 
         lines = _outline(await _read(document=OIB))
@@ -313,8 +263,6 @@ class TestTheClauseOutline:
         assert "2.1.1" not in "\n".join(_outline(await _read(document=OIB)))
 
     async def test_clause_zero_is_the_passage_and_carries_a_citation(self, store):
-        """The scope passage is a passage: the citation the answer copies resolves
-        to it, and the Trace-Lanes fan-out sees it like any searched hit."""
         store.outline_chunks = _oib_outline()
 
         out = await _read(document=OIB)
@@ -326,7 +274,6 @@ class TestTheClauseOutline:
         assert "## Trace-Lanes" in head
 
     async def test_the_headings_are_not_rendered_as_passages(self, store):
-        """A heading is not evidence. Only the scope passage's chunks are results."""
         store.outline_chunks = _oib_outline()
 
         out = await _read(document=OIB)
@@ -343,7 +290,6 @@ class TestTheClauseOutline:
         assert "not evidence" in out
 
     async def test_a_document_without_clause_zero_opens_its_first_clause(self, store):
-        """Lowest-numbered, not first-returned: 1 before 2 before 10."""
         store.outline_chunks = [
             _clause_chunk("10", 1, "Schlussbestimmungen", 3, content="Zehntens …"),
             _clause_chunk("2", 1, "Allgemeine Anforderungen", 3, content="Zweitens …"),
@@ -361,9 +307,6 @@ class TestTheClauseOutline:
 
 
 class TestTheRecheckHoldsWhenTheBackendDoesNot:
-    """One backend reaches its index through an HTTP service that may honour a
-    narrower set of clauses. The re-check is what keeps the outline an outline."""
-
     async def test_depth_three_chunks_a_backend_smuggled_in_are_dropped(self, store):
         store.outline_chunks = [
             _clause_chunk("2", 1, "Allgemeine Anforderungen", 4),
@@ -381,8 +324,6 @@ class TestTheRecheckHoldsWhenTheBackendDoesNot:
         assert not any("2.1.1" in line or "2.1.2" in line for line in lines)
 
     async def test_a_depth_stored_as_a_string_still_counts(self, store):
-        """A backend that round-trips metadata through JSON may hand `clause_depth`
-        back as "1". Dropping it would empty the outline of a whole corpus."""
         chunk = _clause_chunk("2", 1, "Allgemeine Anforderungen", 4)
         chunk.metadata["clause_depth"] = "1"
         store.outline_chunks = [chunk]
@@ -410,9 +351,6 @@ class TestTheCap:
 
 
 class TestThePerPageFallback:
-    """A document the Punkt chunker rejected (project uploads, Begriffsbestimmungen)
-    carries no punkt_* metadata at all — its opening pages are the overview."""
-
     async def test_the_first_pages_are_the_passages(self, store):
         store.page_chunks = [_page_chunk(page, f"Seite {page} des Konzepts") for page in (1, 2, 3)]
 
@@ -439,8 +377,6 @@ class TestThePerPageFallback:
         assert out.index(f"Citation: {PLAN}, p.1") < out.index(f"Citation: {PLAN}, p.3")
 
     async def test_only_the_opening_passages_travel(self, store):
-        """The fetch is bounded by `_MAX_OUTLINE_CHUNKS`, what is RENDERED by
-        `_MAX_PASSAGE_CHUNKS` — a long document opens, it does not arrive."""
         store.page_chunks = [_page_chunk(page, f"Seite {page}") for page in range(1, 41)]
 
         out = await _read(document=PLAN)
@@ -480,8 +416,6 @@ class TestWhatTheStoreIsAsked:
         assert call["collection"] == "oib_knowledge"
 
     async def test_the_fetch_names_the_document_alone(self, store):
-        """`_locus_label` with no Punkt and no page reads as the document: the
-        probe text is never empty, and it never claims a Punkt it did not ask for."""
         store.outline_chunks = _oib_outline()
 
         await _read(document=OIB)
@@ -489,9 +423,6 @@ class TestWhatTheStoreIsAsked:
         assert store.calls[0]["query"] == OIB
 
     async def test_the_fallback_asks_for_the_document_and_nothing_narrower(self, store):
-        """It used to add `page_label $in ("1", "2", "3")`, which no workbook can
-        match: `page_label` holds the WORKSHEET NAME for .xlsx/.xlsm. The file
-        clause and `_MAX_OUTLINE_CHUNKS` bound the set on their own."""
         store.page_chunks = [_page_chunk(1, "Seite 1")]
 
         await _read(document=PLAN)
@@ -507,9 +438,6 @@ class TestWhatTheStoreIsAsked:
         assert len(store.calls) == 1
 
     def test_both_filters_survive_the_real_translator(self):
-        """The dialect is the store's, not this module's opinion of it: an
-        operator or field it cannot translate raises at the tool boundary
-        rather than silently over-retrieving."""
         from knowledge_layer.vector_store import translate
 
         assert translate(rp._outline_filters(OIB)) is not None
@@ -517,11 +445,6 @@ class TestWhatTheStoreIsAsked:
 
 
 class TestADocumentWhosePageLabelIsNotAPage:
-    """`page_label` is whatever the extractor wrote: the WORKSHEET NAME for
-    .xlsx/.xlsm (`ingest/office_extractors`). The fallback used to filter
-    `page_label $in ("1", "2", "3")`, so an indexed spreadsheet matched nothing
-    and the outline told the model the store held no chunk of it."""
-
     async def test_a_workbook_outlines_with_its_sheets_as_passages(self, store):
         store.page_chunks = [
             _sheet_chunk("Kostenaufstellung", "Position | Betrag …"),
@@ -546,14 +469,7 @@ class TestADocumentWhosePageLabelIsNotAPage:
 
 
 class TestTheDepthClauseMatchesTheRecheck:
-    """`_clause_depth` accepts the string a JSON round-trip produces, so the
-    clause has to ASK for it: an int-only `$in` can never deliver the chunk the
-    re-check was written to keep, and the tolerance is dead code."""
-
     def test_the_clause_asks_for_both_spellings(self):
-        """Two homogeneous `$in` clauses, not one mixed list: `MetadataFilter.value`
-        is typed `list[int] | list[str] | …`, so a mixed list fails validation
-        before it reaches any store."""
         assert rp._outline_filters(OIB)["$and"][1]["$or"][1:] == [
             {"clause_depth": {"$in": [1, 2]}},
             {"clause_depth": {"$in": ["1", "2"]}},
@@ -597,7 +513,6 @@ class TestTheContract:
 
     def test_the_refusal_that_sent_the_model_back_to_a_search_is_gone(self):
         assert "Provide `clause=`" not in rp._READ_PASSAGE_DESCRIPTION
-        assert "Provide `clause=`" not in (rp.read_passage.__doc__ or "")
 
     def test_returns_describes_the_outline_as_an_index(self):
         returns = rp._READ_PASSAGE_DESCRIPTION.split("Returns:")[1]
@@ -606,53 +521,33 @@ class TestTheContract:
         assert "not evidence" in returns
 
 
-#: The bytes this tool returned before the Gliederung moved inside the block.
-#: Captured from the code that appended it, so the move cannot change what the
-#: model reads (ADR-0061: the text may not move by a byte).
 OUTLINE_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "read_passage_outline.txt"
 
 
 @pytest.fixture
 def capturing():
-    """The turn-scoped capture ``ChatAgent.run`` opens around a live turn."""
     token = begin_grounding_capture()
     yield
     end_grounding_capture(token)
 
 
 class TestTheOutlineIsReadAsRecords:
-    """An outline result must be findable by its own bytes.
-
-    ``read_passage(document=…)`` is the most common call this tool takes, and
-    its output used to be concatenated after the renderer had already filed the
-    block under the hash of what it returned. Every one of those results missed
-    the structured reader and fell to the regex parser, which recovers less than
-    the producer stated. The Gliederung travels as the block's trailer now.
-    """
-
     async def test_an_outline_result_is_filed_under_its_own_bytes(self, store, capturing):
         store.outline_chunks = _oib_outline()
 
         assert get_grounding_block(await _read(document=OIB)) is not None
 
     async def test_a_document_without_clauses_is_filed_too(self, store, capturing):
-        """The no-Punkte line is the same decoration, and was the same miss."""
         store.page_chunks = [_page_chunk(1, "Seite 1 des Konzepts")]
 
         assert get_grounding_block(await _read(document=PLAN)) is not None
 
     async def test_the_outline_bytes_did_not_move(self, store):
-        """Byte identity against what the concatenating code produced."""
         store.outline_chunks = _oib_outline()
 
         assert await _read(document=OIB) == OUTLINE_FIXTURE.read_text(encoding="utf-8")
 
     async def test_the_outline_is_still_not_evidence_on_the_text_path(self, store):
-        """The reader that parses the text cuts at ``## Trace-Lanes``.
-
-        The trailer sits after the fan-out, so a heading cannot arrive as a
-        passage body no matter which of the two readers sees the result.
-        """
         store.outline_chunks = _oib_outline()
 
         entries = extract_sources_from_tool_result("read_passage", await _read(document=OIB))
@@ -661,14 +556,6 @@ class TestTheOutlineIsReadAsRecords:
 
 
 class TestANumericClause:
-    """A whole-numbered Punkt arrives as a number, and must open that Punkt.
-
-    Providers answer the schema's type, so `clause=3` is what a top-level Punkt
-    looks like on the wire. Typed `str` only, the call died in argument
-    validation before the tool ran, and the model was handed pydantic's own
-    message instead of a passage.
-    """
-
     async def test_an_int_clause_opens_that_clause(self, store):
         store.outline_chunks = [_clause_chunk("3", 5, "Brandschutz", 2)]
 

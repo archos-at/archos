@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the engagement notice (ADR-0036) — the line that states when
- * Piloti answers a message that tags nobody, and is also the control that changes it.
- *
- * Two shapes, and the difference is the whole point:
- *
- *   1. `ask` + a suggestion — a QUESTION about the future. `ask` is the default and
- *      stays the default however many people are in the thread, so a multi-person
- *      thread is OFFERED the alternative and never quietly switched to it.
- *   2. `mention` — the rule STATED, with the way back. Permanent rather than
- *      dismissible, because it has to be present at the moment somebody asks "why
- *      didn't Piloti answer that?", which is not the moment the mode was set.
- *
- * The third row is a viewer: they get the explanation for behaviour they can see, and
- * no control, because it is not their rule to change. (In `ask` mode a viewer sees
- * nothing at all — an offer nobody may accept is noise.)
- *
- * The first two rows hold the mode in local state, so pressing the control actually
- * performs the transition it promises — the way back from `mention` to `ask` is part
- * of what this preview is here to show. The third is static on purpose: a viewer has
- * no control to press.
- *
- * Not linked from anywhere; 404s outside development. Pinned to German (`fixedLocale`,
- * which also skips the provider's reconciliation against the viewer's own preference)
- * so the evidence carries the copy that ships whoever captures it.
- */
-
 import { useState } from 'react'
 import { notFound } from 'next/navigation'
 
@@ -45,7 +18,6 @@ const Row = ({ label, children }: { label: string; children: React.ReactNode }) 
   </section>
 )
 
-/** A row whose control works: the accepted mode becomes the mode in force. */
 const LiveRow = ({
   label,
   initialMode,

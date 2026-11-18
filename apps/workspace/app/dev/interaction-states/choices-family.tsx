@@ -15,7 +15,6 @@ const COLUMNS = ['Ruhe', 'Zeiger auf nicht Gewähltem', 'Zeiger auf Gewähltem',
 const UNCHOSEN = '[data-state="off"]:first-of-type, [data-state="unchecked"]:first-of-type'
 const CHOSEN = '[data-state="on"], [data-state="checked"]'
 
-/** One choice in the four states a choice has: at rest, the pointer on what is not chosen, on what is, and the keys. */
 function states(draw: () => JSX.Element): readonly JSX.Element[] {
   const cell = (key: string, state?: ForcedState, target?: string): JSX.Element => (
     <Forced key={key} state={state} target={target}>
@@ -135,7 +134,6 @@ const ROWS: readonly StateRowSpec[] = [
   },
 ]
 
-/** Everything that picks among options without leaving the place. */
 export function ChoicesFamily(): JSX.Element {
   return (
     <Family

@@ -1,12 +1,3 @@
-"""The Python reader of ADR-0087's restricted-folder collection names.
-
-The writer is ``restrictedCollectionName`` in
-``apps/workspace/bff/authz/folder-access.ts``:
-``${projectCollection}_r`` + the first twelve hex digits of the folder uuid,
-dashes removed, lowercased. ``_bff_name`` restates that rule so the two sides
-are checked against one spelling of it.
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -57,7 +48,6 @@ def test_every_other_collection_is_not(name: str | None) -> None:
 
 
 def test_case_does_not_open_a_restricted_collection() -> None:
-    """A reader that changes case on the way must not turn one into an open collection."""
     assert is_restricted_collection(f"{PROJECT}_r0123456789AB".upper())
 
 

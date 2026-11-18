@@ -1,11 +1,3 @@
-/**
- * Agent Skills: the organization's skill library, its editor, and the `/` invocation
- * surface in the chat composer.
- *
- * A skill knows nothing about time. Everything about running a prompt on a
- * timer — including which skill (if any) it attaches and what a run produces —
- * lives in the `jobs` namespace.
- */
 export const skills = {
   title: 'Skills',
   subtitle:
@@ -22,8 +14,6 @@ export const skills = {
       action: 'New skill',
     },
     origin: {
-      // Said on the card only when it is true. A skill that IS in play needs no
-      // label saying so — the switch already shows it.
       disabled: 'Switched off',
     },
     scope: {
@@ -37,18 +27,15 @@ export const skills = {
       enabledAria: 'Use the skill “{name}” in this organization',
       openAria: 'Open the skill “{name}”',
     },
-    /** Filter the whole page by name or description. */
     search: {
       label: 'Search skills',
       placeholder: 'Search skills…',
       noMatches: 'No skills match “{query}”.',
       showAll: 'Show everything',
     },
-    /** Category subheadings inside each half of the page. */
     category: {
       unsortedHeading: 'Unsorted',
     },
-    /** The org's own category arrangement — create, rename, remove. */
     categories: {
       button: 'Categories',
       title: 'Arrange categories',
@@ -75,7 +62,6 @@ export const skills = {
     },
   },
 
-  /** The skill drawer — the same card, opened up. */
   drawer: {
     close: 'Close details',
     categoryLabel: 'Category',
@@ -92,12 +78,9 @@ export const skills = {
     originClone: 'Cloned from “{name}”',
     goneTitle: 'Not found',
     gone: 'This skill is not on this page. The link may be stale, or the skill was deleted.',
-    /** The title while a deep link is still being checked — no finding yet. */
     loadingTitle: 'Loading',
   },
 
-  // What Piloti curates for every organization — the top of the page, because
-  // switching one of ours on beats starting from a blank editor.
   curated: {
     heading: 'Featured skills',
     origin: 'Curated by {productName}',
@@ -113,12 +96,10 @@ export const skills = {
   },
 
   editor: {
-    /** Schließen mit ungespeicherten Eingaben: Escape, Tippen daneben, Abbrechen und das Kreuz fragen alle dasselbe. */
     discardTitle: 'Discard your changes?',
     discardBody: 'What you entered for this skill will be lost.',
     discardConfirm: 'Discard',
     discardKeep: 'Keep editing',
-    /** The three questions the builder asks, in order. */
     steps: {
       label: 'Steps',
       progress: 'Step {current} of {total}',
@@ -145,17 +126,11 @@ export const skills = {
       action: 'Check this skill',
       running: 'Checking…',
       clean: 'Nothing to flag. The description says what the skill does and when to use it.',
-      // Deliberately not "looks good": the reviewer did not run.
       unavailable: 'The check could not run just now. Nothing was assessed — you can still save.',
-      /** Under the disabled save, so the button is never a dead end. */
       required: 'Run the check before saving.',
-      /** The button once a verdict exists: re-running IS the job by then. */
       again: 'Check again',
-      /** Beside a field, how many findings it still carries. */
       openCount: '{count, plural, one {# finding} other {# findings}}',
-      /** The verdict on screen is about text that has since changed. */
       staleAction: 'The skill has changed since this check. Run it again to see where it stands.',
-      /** The verdict on screen is about text that has since changed. */
       stale: 'The skill has changed since this check. Run it again.',
       fields: {
         name: 'Name',
@@ -282,12 +257,9 @@ export const skills = {
     deleteConfirm: 'Delete skill',
   },
 
-  // The `/` invocation surface in the chat composer.
   composer: {
     picker: {
       resultsAria: 'Available skills',
-      // The empty state is the one place we can teach what a skill IS, so it
-      // says where they come from rather than just reporting a count of zero.
       empty: 'No skills available yet',
       emptyHint: 'Skills your organization adds appear here. Manage them under Skills.',
       noResults: 'No skill matches “{query}”',
@@ -296,25 +268,17 @@ export const skills = {
       builtin: 'Built-in',
       keyboardHint: '↑↓ to choose · ↵ to insert · esc to dismiss',
     },
-    // The chip shown under the composer once a skill is invoked.
     invoked: {
       label: 'Skill',
-      // Never „its instructions load". That was true when a named skill was
-      // FORCED onto the turn; since ADR-0060 the name is just text Piloti
-      // reads, and it decides. A chip that promises loading is the UI
-      // asserting an affordance the product no longer has.
       hint: '{productName} sees this name and decides whether to load the skill.',
       remove: 'Remove the {name} skill from this message',
     },
-    // How an activated skill is reported on the answer.
     activated: {
       one: '1 skill used',
       other: '{count} skills used',
       title: 'Skills used for this answer',
       descriptionMore: 'Show more',
       descriptionLess: 'Show less',
-      // States the mechanism plainly: the description is always in context, the
-      // instructions were pulled in only because the skill was activated.
       explainer:
         'The assistant sees every skill’s name and description at the start of a turn, and loads the full instructions only for the ones it activates. These were activated.',
     },

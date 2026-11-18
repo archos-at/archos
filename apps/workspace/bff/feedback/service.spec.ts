@@ -18,19 +18,14 @@ vi.mock('./repository', () => ({
   getFeedbackHealth: vi.fn(),
 }))
 
-// The memory-implication trigger: mocked wholesale — its own behavior is
-// covered in memory-service.spec; here only the firing conditions matter.
 vi.mock('@/lib/projects/memory-service', () => ({
   implicateMemoryFromFeedback: vi.fn(async () => 0),
 }))
 
-// The voter's folder clearance (ADR-0087), decided in the projects service.
 vi.mock('@/lib/projects/service', () => ({
   memoryClearance: vi.fn(async () => ({ cleared: ['00000000-0000-4000-8000-0000000000aa'] })),
 }))
 
-// The office's chat screening (ADR-0086): the REAL matcher over Piloti's
-// suggested list, with no database behind it.
 vi.mock('@/lib/upload-screening/service', async () => {
   const { chatScreeningRules, maskText } = await import('@/lib/upload-screening/content-screen')
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
@@ -43,8 +38,6 @@ vi.mock('@/lib/upload-screening/service', async () => {
 
 vi.mock('./digest', () => ({ getFeedbackDigest: vi.fn() }))
 
-// The Langfuse client: its own behaviour is pinned in lib/langfuse/*.spec.ts;
-// here only when the service calls it, with what, and that it never waits on it.
 vi.mock('@/lib/langfuse/feedback-score', () => ({
   feedbackScoringEnabled: vi.fn(() => true),
   upsertFeedbackScore: vi.fn(async () => true),
@@ -127,8 +120,6 @@ const storedRow = {
   reason: null,
   comment: null,
   expectedAnswer: null,
-  // No experiment arm: the holdout is off by default (see
-  // lib/platform-lessons/holdout.ts), so an ordinary vote carries null.
   lessonsHoldout: null,
   restrictedSource: false,
   createdAt: new Date(),
@@ -143,11 +134,6 @@ beforeEach(() => {
 })
 
 describe('submitAnswerFeedback', () => {
-  /**
-   * `conversation_id` used to be stored exactly as the client sent it, and the
-   * readers joined topics and titles on it. When the answer row exists in the
-   * voter's organization, its conversation is the one stored.
-   */
   it("stores the persisted answer's conversation, not the one the client named", async () => {
     vi.mocked(getPersistedAnswerConversationId).mockResolvedValueOnce('conv_real')
     await submitAnswerFeedback(session, { messageId: 'msg_1', verdict: 'up', conversationId: 'conv_claimed' })
@@ -156,7 +142,6 @@ describe('submitAnswerFeedback', () => {
     expect(mockUpsert).toHaveBeenCalledWith(expect.objectContaining({ conversationId: 'conv_real' }))
   })
 
-  /** A shallow turn may never be persisted; its vote must still land. */
   it("keeps the client's conversation for a turn that has no answer row", async () => {
     vi.mocked(getPersistedAnswerConversationId).mockResolvedValueOnce(null)
     await submitAnswerFeedback(session, { messageId: 'msg_1', verdict: 'up', conversationId: 'conv_1' })
@@ -238,7 +223,6 @@ describe('submitAnswerFeedback', () => {
       comment: 'OIB 4 falsch zitiert',
       projectId: 'proj_1',
     })
-    // Among the notes this voter may see (ADR-0087): their clearance rides along.
     await vi.waitFor(() =>
       expect(mockImplicate).toHaveBeenCalledWith({
         organizationId: 'org_1',
@@ -368,10 +352,6 @@ describe('retractAnswerFeedback', () => {
   })
 })
 
-/**
- * Every vote also lands in Langfuse as a score on its answer's trace
- * (ADR-0044, Amendment 3), after the database write and never in its way.
- */
 describe('submitAnswerFeedback -> Langfuse score', () => {
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -404,7 +384,6 @@ describe('submitAnswerFeedback -> Langfuse score', () => {
     })
   })
 
-  /** As the platform's feedback views leave such a vote out (`OUTSIDE_RESTRICTED_USE`). */
   it("scores a vote on a restricted conversation without the voter's words", async () => {
     vi.mocked(getAnswerTraceId).mockResolvedValueOnce('6135ac80f26d5f7dab0f1633fe313293')
     vi.mocked(isRestrictedUseVote).mockResolvedValueOnce(true)
@@ -437,7 +416,6 @@ describe('submitAnswerFeedback -> Langfuse score', () => {
     })
   })
 
-  /** The review queue takes a down-vote once, not again for every edit of it. */
   it('passes the verdict the row held before this vote', async () => {
     vi.mocked(getAnswerTraceId).mockResolvedValueOnce('6135ac80f26d5f7dab0f1633fe313293')
     mockGetPrior.mockResolvedValueOnce({ ...storedRow, verdict: 'down', reason: 'inaccurate' })
@@ -512,12 +490,6 @@ describe('getOwnConversationFeedback', () => {
   })
 })
 
-/**
- * The cross-tenant read. Every other query in this domain is scoped by
- * organizationId in SQL; this one is not scoped at all, so `requirePlatformPermission`
- * IS its tenancy boundary — these two tests are the whole of what stops one
- * organization's feedback reaching another.
- */
 describe('getAnswerFeedbackHealth', () => {
   beforeEach(() => {
     vi.mocked(requirePlatformPermission).mockReset()
@@ -530,8 +502,6 @@ describe('getAnswerFeedbackHealth', () => {
     await expect(getAnswerFeedbackHealth({} as never, Q)).rejects.toBeInstanceOf(
       PlatformAccessDeniedError
     )
-    // The guard runs BEFORE the unscoped query — a refusal must not still have
-    // touched every tenant's rows.
     expect(getFeedbackHealth).not.toHaveBeenCalled()
   })
 
@@ -553,7 +523,6 @@ describe('getAnswerFeedbackHealth', () => {
     expect(requirePlatformPermission).toHaveBeenCalledOnce()
   })
 
-  /** The platform view links each rated turn to its trace, and the project to its scores. */
   it('links turns to their Langfuse traces when the UI is configured, and not otherwise', async () => {
     vi.mocked(requirePlatformPermission).mockResolvedValue(undefined)
     const health = {
@@ -594,7 +563,6 @@ describe('getAnswerFeedbackHealth', () => {
     }
   })
 
-  /** A raw `org_arch_buero` tells the platform owner nothing; the name does. */
   it('names every organization in the rollup and in the drill-in, null where unknown', async () => {
     vi.mocked(requirePlatformPermission).mockResolvedValue(undefined)
     vi.mocked(getOrganizationDisplayNames).mockResolvedValue(
@@ -629,11 +597,6 @@ describe('getAnswerFeedbackHealth', () => {
   })
 })
 
-/**
- * The digest reads across every tenant's questions at once and hands a summary
- * of all of them to a model — so it needs the same gate as the numbers, and
- * needs it to run BEFORE anything is read or sent.
- */
 describe('getAnswerFeedbackDigest', () => {
   beforeEach(() => {
     vi.mocked(requirePlatformPermission).mockReset()
@@ -659,8 +622,6 @@ describe('getAnswerFeedbackDigest', () => {
 
     const result = await getAnswerFeedbackDigest({} as never, Q, { locale: 'en' })
 
-    // `turnLimit: 0` — the digest samples its own turns in both directions, so
-    // the aggregate read must not also pay for a list nobody will look at.
     expect(getFeedbackHealth).toHaveBeenCalledWith(Q, { turnLimit: 0 })
     expect(getFeedbackDigest).toHaveBeenCalledWith(health, Q, { locale: 'en' })
     expect(result).toEqual({ digest: null, error: 'too_few_votes' })

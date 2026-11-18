@@ -1,26 +1,3 @@
-"""Read one inbound mail for the BFF: ``POST /v1/mail/read``.
-
-The BFF's receive job stages a mail sent to a project's address as ``raw.eml``
-in object storage and hands this route a presigned GET for it. The answer is a
-:class:`~agent_host.mail.models.MailRead`: the body as the sender's own text, the
-blocks they quoted, and the calendar invitations it carried. The BFF stages it
-as ``read.json`` beside the raw message, and nothing is filed until a person
-decides (DECISION D12, §6).
-
-The route is internal-token only, a dependency so a caller without the token
-gets 403 before its body is looked at. ``file_ref`` is an
-:data:`~agent_host.object_store_url.ObjectStoreUrl`: a URL naming anything but the
-object store is refused with 422 before a byte is requested. The fetch itself
-follows no redirect and stops reading past the message cap.
-
-Answers the BFF acts on: 200 with a ``MailRead`` whatever the bytes are (a part
-past a cap, a parser failure or the deadline is ``unreadable`` in the body, not
-an error, so a mail is never lost to a parser); 502 when the object store did
-not hand over the message (retry); 422 for a URL that is not the store's (no
-retry helps). No model is called, nothing is stored, and no log line carries
-the URL (a bearer credential) or a byte of the message.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -46,16 +23,13 @@ logger = logging.getLogger(__name__)
 class MailReadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    #: A presigned GET for the staged raw message, against the in-network endpoint.
     file_ref: ObjectStoreUrl
 
 
-class MessageTooLargeError(Exception):
-    """The stored message is larger than :data:`~agent_host.mail.limits.MAX_MESSAGE_BYTES`."""
+class MessageTooLargeError(Exception): ...
 
 
 def add_mail_routes(router: APIRouter) -> None:
-    """Register the inbound-mail reading endpoint."""
 
     @router.post(
         "/v1/mail/read",
@@ -75,11 +49,6 @@ def add_mail_routes(router: APIRouter) -> None:
 
 
 async def fetch_message(url: str, transport: httpx.AsyncBaseTransport | None = None) -> bytes:
-    """The object at ``url``, at most the message cap; :class:`MessageTooLargeError` past it.
-
-    In-network: no proxy from the environment and no redirect, so the request
-    goes to the origin the gate checked and nowhere else. ``transport`` is for tests.
-    """
     timeout = httpx.Timeout(limits.FETCH_TIMEOUT_SECONDS, connect=10.0)
     async with (
         httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False, transport=transport) as client,
@@ -93,7 +62,6 @@ async def fetch_message(url: str, transport: httpx.AsyncBaseTransport | None = N
 
 
 async def _read_capped(response: httpx.Response) -> bytes:
-    """The body, counted as it streams; :class:`MessageTooLargeError` once it passes the message cap."""
     chunks: list[bytes] = []
     size = 0
     async for chunk in response.aiter_bytes():

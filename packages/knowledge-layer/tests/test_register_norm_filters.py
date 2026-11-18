@@ -1,15 +1,11 @@
-"""Base-collection metadata filter: the page-chunk exclusion, ``exclude_file_names``, caller filters."""
-
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.search import scope as search_scope
 
-#: What every base-corpus search carries, whatever else is configured.
 NO_PAGE_CHUNKS = {"chunking": {"$ne": "page"}}
 
 
 class TestBaseCollectionFilters:
     def test_page_chunks_are_excluded_even_when_nothing_is_configured(self):
-        """The cover page and the Impressum are never evidence — see ``_NON_EVIDENCE_CHUNKING``."""
         config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
         assert search_scope.base_collection_filters(config, None) == NO_PAGE_CHUNKS
 
@@ -34,20 +30,11 @@ class TestBaseCollectionFilters:
         }
 
     def test_the_filter_is_never_empty(self):
-        """It used to return None when nothing was configured; the page exclusion is unconditional."""
         config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
         assert search_scope.base_collection_filters(config, None) is not None
 
 
 class TestBaseCollectionProfileRouting:
-    """Country-profile base-collection routing — behavior-neutral for Austria.
-
-    The AT profile's ``corpus_collection`` IS the configured ``oib_knowledge``,
-    so profile-aware routing returns the same base and leaves the assembled
-    collection set unchanged. This guards that the new seam (for country #2)
-    does not shift Austria's retrieval scope.
-    """
-
     def test_resolved_base_matches_configured_collection_for_austria(self):
         config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
         assert search_scope.resolve_base_collection(config) == "oib_knowledge"
@@ -59,16 +46,12 @@ class TestBaseCollectionProfileRouting:
             include_session_collection=True,
         )
         base = search_scope.resolve_base_collection(config)
-        # profile == config → the profile-resolved base yields the same set as
-        # the legacy config-only resolution.
         assert search_scope._resolve_target_collections(
             config, "s_abc", base
         ) == search_scope._resolve_target_collections(config, "s_abc")
         assert search_scope._resolve_target_collections(config, "s_abc", base) == ["oib_knowledge", "s_abc"]
 
     def test_target_collections_default_base_is_backward_compatible(self):
-        # The legacy two-arg call (no base_collection) still resolves to the
-        # configured collection_name — existing callers are unaffected.
         config = KnowledgeRetrievalConfig(
             collection_name="oib_knowledge",
             include_base_collection=True,
@@ -77,7 +60,6 @@ class TestBaseCollectionProfileRouting:
 
 
 def test_explicit_non_default_collection_is_never_rerouted():
-    """Test/bench configs pointing at a custom collection keep it verbatim."""
     from knowledge_layer.register import KnowledgeRetrievalConfig
     from knowledge_layer.search import resolve_base_collection
 

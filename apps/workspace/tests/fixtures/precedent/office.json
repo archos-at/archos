@@ -1432,7 +1432,7 @@
       }
     },
     "leeres-buero": {
-      "$comment": "An office with no other project in Piloti: no catalog, nothing to find, nothing to invent.",
+      "$comment": "An office with no other project in the workspace: no catalog, nothing to find, nothing to invent.",
       "projects": []
     }
   }

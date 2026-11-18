@@ -3,24 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { LEGACY_PROJECT } from "./src/names";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * Every Secret or ConfigMap key a pod asks for exists in the object the program
- * creates (the 2026-10 incident).
- *
- * A `secretKeyRef` to a key the Secret lacks is not a plan error, and Pulumi's
- * await does not catch it: the pod sits in `CreateContainerConfigError`
- * (`couldn't find key … in Secret …`) while the rest of the update goes green.
- * `bff-jobs`, `purger` and the since-retired `skill-scheduler` waited eight days on a renamed
- * database URL key that way. This builds the whole program and checks
- * each reference of every pod template (Deployment, StatefulSet, DaemonSet, Job,
- * CronJob, Pod, init containers too) against the keys the program puts there.
- *
- * Out of scope on purpose: a reference marked `optional`, and an object some
- * other controller writes (`EXTERNAL`). Keys that come from ESC reach the
- * program as stack config and are written into a Secret by it, so they are
- * checked like the rest.
- */
-
 type Ref = { name?: string; key?: string; optional?: boolean };
 type EnvVar = {
   name: string;
@@ -66,11 +48,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-/**
- * Objects other controllers write, and the keys they promise: CloudNativePG's
- * `<cluster>-superuser` and `<cluster>-app` Secrets, which the operator creates
- * once the Cluster is reconciled (`data/postgres-rename.ts` waits for it).
- */
 const EXTERNAL: Record<string, string[]> = {};
 const OPERATOR_SECRET = /-(superuser|app)$/;
 
@@ -83,7 +60,6 @@ const POD_TYPES = new Set([
   "kubernetes:core/v1:Pod",
 ]);
 
-/** Pulumi marks a secret input in the mock as `{ <signature>: …, value: {…} }`; the keys are in `value`. */
 const SECRET_SIGNATURE = "4dabf18193072939515e22adb298388d";
 const unwrap = (m: Record<string, unknown> | undefined): Record<string, unknown> =>
   m && SECRET_SIGNATURE in m ? ((m.value as Record<string, unknown> | undefined) ?? {}) : (m ?? {});
@@ -93,7 +69,6 @@ function podSpecOf(inputs: Inputs): PodSpec | undefined {
   return inputs.spec?.template?.spec ?? inputs.spec?.jobTemplate?.spec?.template?.spec ?? inputs.spec;
 }
 
-/** `Secret ns/app-secrets`: what the object is called where the kubelet looks it up. */
 const idOf = (kind: "Secret" | "ConfigMap", namespace: string | undefined, name: string) =>
   `${kind} ${namespace ?? "?"}/${name}`;
 
@@ -134,7 +109,6 @@ function wantedBy(owner: string, namespace: string | undefined, pod: PodSpec): W
   return out;
 }
 
-/** What the program provides, by object: its name, and the keys it writes. */
 function provided(resources: typeof RESOURCES): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
   for (const r of resources) {

@@ -1,11 +1,11 @@
 # Agent-document provenance
 
-What a published Piloti document carries into retrieval, so a reader and the
+What a published agent document carries into retrieval, so a reader and the
 model can see who wrote it — and cannot mistake it for a norm.
 
 ## The gap this fills
 
-A document Piloti wrote and a person approved is filed like any other document:
+A document the agent wrote and a person approved is filed like any other document:
 same shelf, same folder, same ingest. Once it is in the index, nothing that
 travels with a retrieved chunk says an agent wrote it, and the two axes that
 look like they could say it both fail:
@@ -13,7 +13,7 @@ look like they could say it both fail:
 | Axis | Why it cannot carry authorship |
 |---|---|
 | `doc_class` ("Dokumentart") | A closed nine-value NORM-HIERARCHY vocabulary (`knowledge/document_classification.py`), human-set, whose fail-open lane is `building_law_base` — "Basisdokument", in law blue. Filing authorship here files it under authority, where an unknown value reads as a weak norm. `agent_authored` is deliberately NOT a member |
-| Shelf (ADR-0047) | The shelf says WHERE the document sits, and a published Piloti document really does sit on the project or the Archiv shelf. It would render as Projektwissen or Büroablage, both true and both silent about the author |
+| Shelf (ADR-0047) | The shelf says WHERE the document sits, and a published agent document really does sit on the project or the Archiv shelf. It would render as Projektwissen or Büroablage, both true and both silent about the author |
 
 So authorship is its own axis, and it beats both.
 
@@ -49,7 +49,7 @@ doc_class stamped at ingest would place it in the norm hierarchy under the
 
 ## What retrieval says
 
-`packages/knowledge-layer/src/register.py` adds one line to a marked hit's
+`packages/knowledge-layer/src/knowledge_layer/register.py` adds one line to a marked hit's
 grounding block, and nothing to an unmarked one:
 
 ```

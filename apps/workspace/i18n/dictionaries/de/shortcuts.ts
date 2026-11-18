@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Keyboard shortcuts: command palette, cheatsheet, and the profile toggle. */
 export const shortcuts: typeof en.shortcuts = {
   palette: {
     title: 'Befehlspalette',
@@ -12,7 +11,6 @@ export const shortcuts: typeof en.shortcuts = {
       currentProject: 'Aktuelles Projekt',
       general: 'Allgemein',
     },
-    /** The intake wizard section (labelled "Einrichtung" in the product). */
     intake: 'Einrichtung',
     toggleTheme: 'Design umschalten',
     hints: {
@@ -26,7 +24,6 @@ export const shortcuts: typeof en.shortcuts = {
     title: 'Tastaturkürzel',
     description: '{productName} bedienen, ohne die Tastatur zu verlassen.',
     thenSeparator: 'dann',
-    /** The control key as a German keyboard prints it; `⌘` on a Mac. */
     controlKey: 'Strg',
     orSeparator: 'oder',
     groups: {
@@ -38,7 +35,6 @@ export const shortcuts: typeof en.shortcuts = {
       inbox: 'Postfach',
       inboundMail: 'E-Mail-Eingang',
     },
-    /** Shown under the navigation group, which mixes scoped and global jumps. */
     projectScopeNote: 'Bereichs-Kürzel öffnen den Bereich des Projekts, in dem Sie gerade sind.',
     items: {
       palette: 'Befehlspalette öffnen',

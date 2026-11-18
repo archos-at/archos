@@ -5,54 +5,38 @@ hosts:
   jusline.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   lexfind.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   data.legilux.public.lu: the JOLux ontology's namespace in Fedlex's SPARQL query, never fetched
-  docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/engines/akn.py), never fetched
+  docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/public_sources/engines/akn.py), never fetched
   publications.europa.eu: EU language-authority IRIs in Fedlex's SPARQL query, compared as identifiers, never fetched
   cv.iptc.org: an IPTC digital-source-type vocabulary term in AI provenance metadata, never fetched
   iptc.org: an XMP namespace in AI provenance metadata, never fetched
   ns.adobe.com: an XMP namespace in AI provenance metadata, never fetched
   www.geonames.org: the attribution of the bundled postal-code data (CC BY 4.0), never fetched
-  1.2.0.3: a version-like example in a comment
-  aspmx.l.google.com: an example in a comment (another domain's MX, which project mail never touches)
   budurl.com: a URL shortener the citation sanitizer strips, never fetched
   short.io: a URL shortener the citation sanitizer strips, never fetched
   t.co: a URL shortener the citation sanitizer strips, never fetched
   tinyurl.com: a URL shortener the citation sanitizer strips, never fetched
   yourls.org: a URL shortener the citation sanitizer strips, never fetched
   cloudflare-dns.com: the operator's project-mail smoke script resolves MX records through it; no product data
-  smtp.google.com: the operator's project-mail smoke script sends a test mail through it; no product data
-  gv.at: an example sender domain in the operator's smoke script
   docs.hatchet.run: a documentation link in a comment
   esm.sh: Excalidraw's font fallback CDN; copy-excalidraw-assets.mjs stages every font so it is never fetched
   gateway.envoyproxy.io: a Kubernetes API group name, never fetched
-  vcluster.cnpg.io: a Kubernetes API group name, never fetched
   integrate.api.nvidia.com: the removed NIM host, named so config_validation can refuse an llm entry on it
-  ma37.wien.gv.at: an example sender domain in a docstring
   wien.gv.at: a source link in a docstring and the registry, shown to people
-  news.buero.at: an example sender domain
-  xn--mller-kva.at: an example sender domain
-  xample.org: an example address in a component
-  notopenrouter.ai: an example of a non-OpenRouter host in a comment
   schema.org: a structured-data vocabulary identifier, never fetched
   www.sitemaps.org: an XML namespace, never fetched
   www.dsb.gv.at: a link to the Austrian data protection authority, shown to people
-  accounts.google.com: an example issuer in a docstring
-  agentskills.io: a link to the Agent Skills format, shown to people
   app.example.at: an example address in a comment
-  app.piloti.at: our own app's domain
   piloti.at: our own domain
-  arxiv.org: an example in a docstring
-  weathercams.faa.gov: an example in a comment
   cdn.plot.ly: the tokenomics report (a developer tool) loads plotly when a developer opens it
   ec.europa.eu: a link on the legal page (the EU complaint platform)
   errors.pydantic.dev: a link inside pydantic error text
   json-schema.org: a JSON Schema dialect identifier, never fetched
   www.w3.org: an XML namespace, never fetched
   schemas.openxmlformats.org: an Office XML namespace, never fetched
-  langfuse.com: links to Langfuse documentation in comments
-  oib.at: an example in a comment
   www.oib.or.at: a link to the OIB guidelines, shown to people
   www.openstreetmap.org: a link a person may click to see a photo's location; the app loads nothing from it
   www.wien.gv.at: a source link in the norm registry, shown to people
+  data.gv.at: a link in the public-sources reader's User-Agent string, never fetched
   vilmapflaum.com: the photographer's site, linked in the photo credit on the website's home page; the page loads nothing from it
   www.instagram.com: the photographer's Instagram, linked in the photo credit on the website's home page; the page loads nothing from it
   eur-lex.europa.eu: a citation in the EU knowledge pack (configs/knowledge-packs/eu.json), a source a reviewer opens; nothing fetches it
@@ -104,6 +88,7 @@ env:
   NEXTAUTH_SECRET: Langfuse's sign-in secret, in the cluster
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
   POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
+  POSTHOG_APP_HOST: our own app's host, sent as the app_host label on the Python tiers' events (posthog.yaml)
   PUBLIC_POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
   OPENROUTER_KEY: read by development scripts as OPENROUTER_API_KEY (openrouter.yaml)
   PAYLOAD_SECRET: our own website CMS's secret

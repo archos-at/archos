@@ -1,8 +1,3 @@
-/**
- * Drizzle access for `org_llm_credentials` (ADR-0022). The only module that
- * may query the table; tenancy is enforced in every WHERE clause.
- */
-
 import 'server-only'
 import { and, desc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -38,11 +33,6 @@ export async function getActiveCredential(organizationId: string): Promise<OrgLl
   return row ?? null
 }
 
-/**
- * Insert the new active credential, revoking whichever credential is
- * currently active in the same transaction (the partial unique index makes
- * "two actives" impossible even under a race — the insert would fail).
- */
 export async function insertActiveCredential(
   values: NewOrgLlmCredential,
   actorUserId: string,
@@ -104,7 +94,6 @@ export async function markVerified(organizationId: string, id: string): Promise<
     .where(and(eq(orgLlmCredentials.id, id), eq(orgLlmCredentials.organizationId, organizationId)))
 }
 
-/** Throttled by the caller — records that the backend pulled this credential. */
 export async function markUsed(organizationId: string, id: string): Promise<void> {
   const db = getDb()
   await db

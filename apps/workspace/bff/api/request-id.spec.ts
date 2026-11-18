@@ -1,12 +1,3 @@
-/**
- * The id a user quotes and an operator greps.
- *
- * Two properties carry the whole feature, and both are easy to break without
- * noticing: the id must be the SAME on the header, in the body and in the log
- * line for one request, and the short form must be a literal PREFIX of the long
- * one — a digest would look identical on screen and find nothing.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { REQUEST_ID_HEADER, resolveRequestId, shortRequestId } from './request-id'
 import { errorResponse } from './handler'
@@ -42,8 +33,6 @@ describe('resolveRequestId', () => {
   })
 
   it('refuses an inbound id that would forge a log line or inject a header', () => {
-    // The id is printed into a log line and written into a response header, so
-    // an unbounded caller-controlled string is a real surface, not a nicety.
     const forged = makeRequest({ 'x-request-id': 'abc\r\nX-Admin: true' })
 
     const id = resolveRequestId(forged)

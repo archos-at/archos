@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema is what the Python tier reads, and this is what
- * keeps it from going stale.
- *
- * It REWRITES the fixture when `UPDATE_FIXTURES=1` and otherwise compares —
- * the same asymmetry `lifecycle-schema.spec.ts` carries, for the same reason: a
- * generated artifact nobody regenerates is a second hand-written contract with
- * extra steps, and one that regenerates itself silently on every run is not a
- * gate.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -67,9 +57,6 @@ describe('run ledger JSON Schema', () => {
   })
 
   it('refuses a step field that would name a tool', () => {
-    // The op set is closed AND the step is: `additionalProperties: false` is what
-    // stops a producer adding `tool` back on the side, which is the one field
-    // this ledger is defined by not having.
     const step = ((defs().runLedger.properties as Record<string, Node>).steps as { items: Node })
       .items
     expect(step.additionalProperties).toBe(false)

@@ -10,8 +10,6 @@ vi.mock('./proposal-decision-rows', () => ({
   listRecentDecidedProposals: vi.fn(),
 }))
 
-// The office's chat screening (ADR-0086): the REAL matcher over Piloti's
-// suggested list, no database. What the matcher does has its own spec.
 vi.mock('@/lib/upload-screening/service', async () => {
   const { chatScreeningRules, maskText } = await import('@/lib/upload-screening/content-screen')
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
@@ -83,11 +81,6 @@ describe('buildProposalDecisionsBlock', () => {
   })
 })
 
-/**
- * A stored card and its decision are the client's word (`metadata` is an open
- * record on the message POST, and the decision PATCH is the browser's too), so
- * the block masks what it quotes, whoever wrote the row.
- */
 describe('buildProposalDecisionsBlock with a card nobody vetted', () => {
   const IBAN = 'AT61 1904 3002 3457 3201'
   const decided = (key: string, extra: Record<string, unknown> = {}) => ({
@@ -170,10 +163,6 @@ const row = (over: Partial<DecidedProposalRow> & Pick<DecidedProposalRow, 'kind'
   ...over,
 })
 
-/**
- * A card with a `proposal_id` is decided on the server (ADR-0105): the block
- * states it from the `proposed_changes` row, described from its payload.
- */
 describe('buildProposalDecisionsBlock with server proposals', () => {
   it('reads the rows of the project, bounded like the message scan', async () => {
     await buildProposalDecisionsBlock('proj-1', 'org-1')
@@ -219,7 +208,7 @@ describe('buildProposalDecisionsBlock with server proposals', () => {
     expect(lines?.[3]).toMatch(/^- \[accepted \| profile \| 2026-09-01\] "Fluchtniveau anpassen \(.*: → 4\)"$/)
   })
 
-  it('carries the reason Piloti gave for a file move into the line', async () => {
+  it('carries the reason the agent gave for a file move into the line', async () => {
     vi.mocked(listRecentDecidedProposals).mockResolvedValue([
       row({
         kind: 'file_operation',
@@ -272,7 +261,6 @@ describe('buildProposalDecisionsBlock with server proposals', () => {
     expect(block).not.toContain('Harmlos')
     expect(block).toContain('→ 7')
     expect(block).toContain('→ —')
-    // At most three changes ride on a line; a path outside the profile is not one of them.
     expect(block).not.toContain('passwd')
     expect(block.match(/;/g)).toHaveLength(2)
   })
@@ -315,7 +303,6 @@ describe('buildProposalDecisionsBlock with server proposals', () => {
       }),
     ])
     const block = await buildProposalDecisionsBlock('proj-1', 'org-1')
-    // The row's verdict wins; the browser's entry for the same card is dropped.
     expect(block?.match(/Atrium/g)).toHaveLength(2)
     expect(block?.split('\n').filter((line) => line.includes('declined'))).toHaveLength(2)
     expect(block).not.toContain('accepted')
@@ -380,7 +367,6 @@ describe('buildProposalDecisionsBlock with server proposals', () => {
     expect(block).not.toContain('Honorarvereinbarung')
     expect(block).not.toContain('Gehaltsabrechnung')
     expect(block.match(/\[IBAN entfernt\]/g)?.length).toBeGreaterThanOrEqual(3)
-    // The long note is cut to one line's size, so it cannot push the later ones out.
     expect(block.split('\n').every((line) => line.length < 300)).toBe(true)
   })
 

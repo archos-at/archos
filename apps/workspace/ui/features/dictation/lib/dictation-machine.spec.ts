@@ -1,10 +1,3 @@
-/**
- * The dictation statechart against fake actors: a support check, a microphone
- * and a transcription the test settles by hand. Every state is entered, every
- * declared event is sent in every state, and what a state does not declare is
- * shown to be ignored.
- */
-
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createActor, fromCallback, fromPromise } from 'xstate'
 import { MAX_DICTATION_SECONDS } from '@/lib/dictation/contract'
@@ -178,7 +171,6 @@ describe('idle', () => {
     const { actor, toIdle, phase, capture } = harness()
     await toIdle()
     actor.send({ type: 'toggle' })
-    // Synchronous: Safari suspends an audio context created after the click returned.
     expect(capture.inputs).toEqual([{ mimeType: 'audio/webm' }])
     expect(phase()).toBe('starting')
   })
@@ -195,7 +187,6 @@ describe('starting', () => {
     expect(capture.commands).toHaveLength(0)
   })
 
-  // A permission prompt left unanswered, or hidden behind another window, never settles.
   test('a second toggle gives up: back to idle, the capture released, nothing said', async () => {
     const { actor, toStarting, phase, capture, onError } = harness()
     await toStarting()
@@ -203,7 +194,6 @@ describe('starting', () => {
     expect(phase()).toBe('idle')
     expect(capture.released).toBe(1)
     expect(onError).not.toHaveBeenCalled()
-    // What the abandoned microphone reports later belongs to nobody.
     capture.report({ type: 'microphone.failed', key: 'denied' })
     capture.report({ type: 'microphone.opened' })
     expect(phase()).toBe('idle')
@@ -304,7 +294,6 @@ describe('recording', () => {
     expect(capture.commands).toEqual([{ type: 'stop' }])
     expect(actor.getSnapshot().matches({ capturing: { recording: 'stopping' } })).toBe(true)
     expect(phase()).toBe('recording')
-    // The ticker still runs until the recorder reports.
     capture.report({ type: 'level.sampled', level: 0.1, elapsedSeconds: 5 })
     expect(dictationStateOf(actor.getSnapshot())).toMatchObject({ elapsedSeconds: 5 })
   })

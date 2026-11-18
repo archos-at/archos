@@ -1,9 +1,3 @@
-"""Which Dependabot pull requests merge themselves once `CI OK` passes.
-
-`ci/dependabot_merge.py` is the policy the auto-merge workflow asks; a wrong
-yes lands an unread bump on staging, so each boundary is pinned here.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -75,11 +69,8 @@ ACTIONS = 15368
 
 def test_ci_ok_from_github_actions_is_the_only_required_check_that_counts(mod):
     assert mod.ci_ok_required([status_rule({"context": "CI OK", "integration_id": ACTIONS})])
-    # No rule at all: auto-merge would merge at once.
     assert not mod.ci_ok_required([])
     assert not mod.ci_ok_required([{"type": "pull_request", "parameters": {}}])
-    # Another check, or CI OK from any source or from another app, which an
-    # integration other than this repository's workflows could pass.
     assert not mod.ci_ok_required([status_rule({"context": "Conventional PR title", "integration_id": ACTIONS})])
     assert not mod.ci_ok_required([status_rule({"context": "CI OK"})])
     assert not mod.ci_ok_required([status_rule({"context": "CI OK", "integration_id": 1})])

@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Platform → storage. Every tenant's consumption, and the quota that bounds it.
- *
- * A TABLE, not meters. The org-side panel answers one tenant's "am I about to be
- * cut off"; this answers the operator's "who is about to cause a problem and
- * what do I do about it", which is a comparison across rows. Rows are ordered by
- * consumption for the same reason — alphabetical would bury the answer.
- *
- * The bar in each row is a proportion-of-quota cue, deliberately secondary: the
- * numbers are written out beside it, and the bar is never the only carrier of
- * state (the over/near copy is text, with an icon).
- *
- * Each row also carries the organization's per-file upload limit ("Max.
- * Dateigröße"): its own value when one is set, else "Standard (100 MB)", the
- * deployment default. Both limits refuse uploads and both belong to the
- * platform, so they share one editor row.
- *
- * Editing is inline and one row at a time. A bulk editor would be faster to
- * build and much easier to get wrong — a quota is a commercial commitment per
- * tenant, and there is no plausible reason to change twelve at once. Writing
- * needs `platform:organizations:manage`; a read-only viewer gets no pencil and
- * no actions column at all.
- *
- * The editor writes only what changed, each through its own route (`.../storage`
- * for the quota, `.../upload-limit` for the file size). Sending an untouched
- * field would not be harmless: a blank quota is UNLIMITED, so saving a new file
- * size on a row whose quota is inherited would silently lift the quota.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState, type FC, type FormEvent } from 'react'
 import { AlertTriangle, Check, HardDrive, Pencil, X } from 'lucide-react'
@@ -72,7 +43,6 @@ interface OrganizationStorageRow {
   documents: number
   quotaBytes: number | null
   inherited: boolean
-  /** The organization's own per-file upload limit, or null on the deployment default. */
   maxUploadFileBytes: number | null
   effectiveMaxUploadFileBytes: number
 }
@@ -90,13 +60,11 @@ export interface PlatformStorageResponse {
   uploadLimit: UploadLimitBounds
 }
 
-/** The two drafts the inline editor holds, as typed. */
 interface LimitDrafts {
   quotaGb: string
   uploadLimitMb: string
 }
 
-/** A refused field, keyed by which input it belongs to. */
 interface DraftErrors {
   quota: string | null
   uploadLimit: string | null
@@ -106,12 +74,6 @@ const NO_ERRORS: DraftErrors = { quota: null, uploadLimit: null }
 
 const NEAR_QUOTA_RATIO = 0.9
 
-/**
- * The typed quota, read in two steps: the shared strict decimal parse first (so
- * "2,5" is 2.5 GB and "12x" or "0x10" is not a number), then the storage
- * contract's own judgement of the byte count. Blank is still "unlimited",
- * which the hint under the table says in words.
- */
 export function readQuotaInput(raw: string, locale: string): QuotaDraft {
   const parsed = parseDecimalInput(raw, locale)
   if (parsed.status === 'blank') return parseQuotaDraft('')
@@ -119,11 +81,6 @@ export function readQuotaInput(raw: string, locale: string): QuotaDraft {
   return parseQuotaDraft(String(parsed.value))
 }
 
-/**
- * The typed upload limit, in MB: the same strict decimal parse, then the shared
- * contract's range check against the deployment ceiling the overview reported.
- * Blank is "back to the deployment default".
- */
 export function readUploadLimitInput(
   raw: string,
   locale: string,
@@ -135,17 +92,12 @@ export function readUploadLimitInput(
   return judgeUploadLimitMegabytes(parsed.value, ceilingBytes)
 }
 
-/** The editor's starting text for each field, from the row as stored. */
 function initialDrafts(row: OrganizationStorageRow, locale: string): LimitDrafts {
   return {
-    // An inherited quota starts blank rather than pre-filled with the default:
-    // pre-filling would turn "opening the editor and pressing save" into
-    // silently pinning the org to today's default forever.
     quotaGb:
       row.inherited || row.quotaBytes === null
         ? ''
         : formatDecimalInput(Number(formatQuotaDraft(row.quotaBytes)), locale),
-    // Same for the upload limit: blank is the deployment default.
     uploadLimitMb:
       row.maxUploadFileBytes === null
         ? ''
@@ -153,7 +105,6 @@ function initialDrafts(row: OrganizationStorageRow, locale: string): LimitDrafts
   }
 }
 
-/** PUT one platform write; the parsed error body rides along on failure. */
 async function putLimit(
   url: string,
   body: Record<string, number | null>
@@ -206,7 +157,6 @@ export const PlatformStorageTable: FC = () => {
   const request = useRef(0)
 
   const load = useCallback(async () => {
-    // A reload that loses the race to a newer one must not overwrite it.
     const id = ++request.current
     setLoading(true)
     try {
@@ -246,14 +196,9 @@ export const PlatformStorageTable: FC = () => {
     if (!data) return
     const ceilingBytes = data.uploadLimit.ceilingBytes
 
-    // Both parsed BEFORE anything is sent. `null` is how the quota API spells
-    // UNLIMITED, so a value that is not a number must never reach a body — it
-    // is a field error that keeps the editor open.
     const quota = readQuotaInput(drafts.quotaGb, locale)
     const uploadLimit = readUploadLimitInput(drafts.uploadLimitMb, locale, ceilingBytes)
     const errors: DraftErrors = {
-      // Two quota messages, because the two rejections need different advice:
-      // one says "that is not a quota", the other "that number is too big to carry".
       quota: quota.ok
         ? null
         : quota.reason === 'tooLarge'
@@ -268,7 +213,6 @@ export const PlatformStorageTable: FC = () => {
       return
     }
 
-    // Only what the operator changed is written; see the module note.
     const initial = initialDrafts(row, locale)
     const initialQuota = readQuotaInput(initial.quotaGb, locale)
     const initialLimit = readUploadLimitInput(initial.uploadLimitMb, locale, Number.MAX_SAFE_INTEGER)
@@ -283,14 +227,9 @@ export const PlatformStorageTable: FC = () => {
     const base = `/api/platform/organizations/${encodeURIComponent(row.organizationId)}`
     setSaving(true)
     try {
-      // The quota first: it is the write the server can refuse for a reason the
-      // editor cannot see (usage moved since the page loaded). A refusal there
-      // stops before the file size is touched, so nothing is half-saved.
       if (quotaChanged) {
         const result = await putLimit(`${base}/storage`, { quotaBytes: quota.quotaBytes })
         if (!result.ok) {
-          // The translated sentence is the message; the server's own words, when
-          // it sent any, are the secondary detail rather than the headline.
           toast.error(result.status === 422 ? t('storage.belowUsage') : t('storage.saveError'), {
             description: result.error,
           })
@@ -303,7 +242,6 @@ export const PlatformStorageTable: FC = () => {
         })
         if (!result.ok) {
           toast.error(t('storage.uploadLimitSaveError'), { description: result.error })
-          // The quota may already be saved; show the rows as they now are.
           if (quotaChanged) await load()
           return
         }
@@ -543,8 +481,6 @@ function StorageRow({
         ) : null}
       </TableRow>
       {editing ? (
-        // The editor takes a row of its own under the organization, so it has
-        // the width for a field, two actions and an error at every viewport.
         <TableRow className="bg-desk hover:bg-desk">
           <TableCell colSpan={5} className="pb-3 pt-0">
             <LimitsEditor
@@ -564,7 +500,6 @@ function StorageRow({
   )
 }
 
-/** One labelled number field of the editor, with its unit as an addon. */
 const LimitField: FC<{
   id: string
   label: string
@@ -585,9 +520,6 @@ const LimitField: FC<{
       <Input
         id={id}
         autoFocus={autoFocus}
-        // Text, not `type="number"`: a number input reports anything it
-        // cannot parse ("2,5" in an English browser) as an empty value, and
-        // empty is how this editor spells UNLIMITED (quota) or DEFAULT (size).
         type="text"
         inputMode="decimal"
         autoComplete="off"
@@ -600,8 +532,6 @@ const LimitField: FC<{
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
-            // Escape leaves the editor, and must not also close whatever
-            // overlay the table might sit in.
             event.preventDefault()
             event.stopPropagation()
             onCancel()
@@ -657,8 +587,6 @@ const LimitsEditor: FC<{
           label={t('storage.columnUploadLimit')}
           ariaLabel={t('storage.uploadLimitFor', { org: name })}
           unit={t('storage.uploadLimitUnit')}
-          // The size itself is in the cell above and in the hint below; the
-          // field is too narrow to repeat it.
           placeholder={t('storage.uploadLimitPlaceholder')}
           value={drafts.uploadLimitMb}
           error={draftErrors.uploadLimit}

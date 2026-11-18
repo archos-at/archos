@@ -1,16 +1,3 @@
-"""A released text is cut on its Punkte, because the platform's records say what it is.
-
-The platform stores a released text under ``<manifestationKey>-<hash>.pdf``, a name no
-filename reader classes, so ingestion cut it on its headings. A Richtlinie sets its
-sub-Punkte as numbered paragraphs in body type, not as headings, and the chunk holding
-5.1.1 to 5.1.4 was cited "Pkt. 5.1", where the corpus's own copy of the same bytes, cut
-on its Punkte, cites "Pkt. 5.1.1". The records name the file as an edition's text: its
-ingest job carries ``knowledge_edition_id`` (ADR-0173). That, not the file name and not
-the human-set ``doc_class`` (ADR-0064), routes it to the Punkt chunker.
-
-Synthetic page dicts only: no third-party PDF.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -83,7 +70,6 @@ def test_a_released_text_is_cut_on_its_numbered_clauses() -> None:
 
 
 def test_without_the_records_the_same_file_takes_the_heading_path() -> None:
-    """The file name says nothing; only the records route it."""
     docs = text_documents_for_pages(_pages(CONTENTS, BODY, ESCAPE, FIGHTING, ANNEX), RELEASED, 1)
     assert {doc.metadata.get("chunking") for doc in docs} != {"clause", "page"}
     assert not any(doc.metadata.get("chunking") == "clause" for doc in docs)
@@ -102,15 +88,13 @@ def test_the_job_knows_a_released_text_by_the_edition_its_mark_names() -> None:
 
 
 def test_an_office_copy_of_an_edition_is_no_released_text() -> None:
-    """A confirmed office copy (its licensed ÖNORM) carries the edition too, on the office's own shelf."""
     edition = {"knowledge_edition_id": "edition:onorm-b-1600-2017"}
     for office_collection in ("archiv_org_1", "proj_7f3a", "s_session_1"):
         assert not is_released_text(edition, office_collection), office_collection
 
 
 def test_the_ingest_job_passes_its_config_and_collection_to_the_choice() -> None:
-    """Dropping the argument would cut every released text on its headings again, and nothing else would notice."""
-    source = Path(ingest.__file__).with_name("adapter.py").read_text(encoding="utf-8")
+    source = Path(ingest.__file__).with_name("pdf_ingest.py").read_text(encoding="utf-8")
     calls = [
         node
         for node in ast.walk(ast.parse(source))
@@ -119,18 +103,19 @@ def test_the_ingest_job_passes_its_config_and_collection_to_the_choice() -> None
     released = [call for call in calls if len(call.args) == 4]
     assert len(released) == 1
     choice = released[0].args[3]
-    assert isinstance(choice, ast.Call) and [ast.unparse(arg) for arg in choice.args] == ["config", "collection_name"]
+    assert isinstance(choice, ast.Call) and [ast.unparse(arg) for arg in choice.args] == [
+        "run.config",
+        "run.collection_name",
+    ]
 
 
 def test_the_footer_of_any_edition_month_is_furniture() -> None:
-    """Matched on May alone, a September edition's footer stayed in its Punkte as text."""
     docs = _released()
     assert not any("Ausgabe September 2025" in doc.text for doc in docs if doc.metadata.get("chunking") == "clause")
     assert _clause(docs, "3.1.1").text.startswith("Richtlinie 2\n")
 
 
 def test_the_annex_the_contents_page_lists_is_no_part_of_the_last_clause() -> None:
-    """Otherwise the forms after the last Punkt were filed, and cited, as that Punkt."""
     docs = _released()
     assert "Muster der Bescheinigung" not in _clause(docs, "4.1").text
     annex = [doc for doc in docs if "Muster der Bescheinigung" in doc.text]
@@ -139,14 +124,12 @@ def test_the_annex_the_contents_page_lists_is_no_part_of_the_last_clause() -> No
 
 
 def test_the_annex_does_not_count_against_the_coverage_gate() -> None:
-    """A long annex of forms is back matter, not a sign the document is not Punkt-structured."""
     long_annex = ANNEX + "Feld fuer weitere Angaben zur Anlage und ihrer Wartung im Betrieb.\n" * 60
     docs = clause_documents(_pages(CONTENTS, BODY, ESCAPE, FIGHTING, long_annex), RELEASED, 1)
     assert docs is not None
 
 
 def test_a_sentence_that_starts_with_the_annex_word_stays_in_the_last_clause() -> None:
-    """Only a line that IS the contents entry opens the back matter, not one that begins with its word."""
     fighting = FIGHTING.replace(
         "4.1 Gebaeude muessen fuer die Feuerwehr zugaenglich sein.\n",
         "4.1 Der Nachweis ist nach dem Muster in\nAnhang 1 auszustellen und muss die Pruefung nennen.\n",
@@ -157,7 +140,6 @@ def test_a_sentence_that_starts_with_the_annex_word_stays_in_the_last_clause() -
 
 
 def test_a_list_of_tables_after_the_contents_opens_no_back_matter() -> None:
-    """A caption the last Punkt quotes is its text; the Tabellenverzeichnis lists it, the contents page does not."""
     tables = (
         "Tabellenverzeichnis\n"
         "Tabelle 1: Gehweglaengen .............................. 3\n"
@@ -171,14 +153,12 @@ def test_a_list_of_tables_after_the_contents_opens_no_back_matter() -> None:
 
 
 def test_an_edition_named_in_the_text_is_no_footer() -> None:
-    """Only a month makes a footer: "Leitfaden Ausgabe Wien 2020" is a line of the text."""
     escape = ESCAPE.replace("3.1.4 Im Falle", "Siehe den Leitfaden Ausgabe Wien 2020\n3.1.4 Im Falle")
     docs = text_documents_for_pages(_pages(CONTENTS, BODY, escape, FIGHTING, ANNEX), RELEASED, 1, released_text=True)
     assert "Leitfaden Ausgabe Wien 2020" in _clause(docs, "3.1.3").text
 
 
 def test_an_annex_heading_with_its_title_on_the_same_line_opens_the_back_matter() -> None:
-    """The 2015 RL 6 prints "Anhang Muster Energieausweis …" as one line at the top of its page."""
     annex = ANNEX.replace("Anhang\n", "Anhang Muster der Bescheinigung Seite 1\n")
     docs = text_documents_for_pages(_pages(CONTENTS, BODY, ESCAPE, FIGHTING, annex), RELEASED, 1, released_text=True)
     assert "Anhang Muster" not in _clause(docs, "4.1").text

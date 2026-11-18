@@ -25,8 +25,6 @@ describe('StorageUsageCard', () => {
     )
   })
 
-  // A member whose file was refused for its size lands here to find out why,
-  // so the per-file limit sits beside the quota. Read-only: no control for it.
   test('names the organization upload limit, read-only, beside the quota', async () => {
     render(<StorageUsageCard />)
 

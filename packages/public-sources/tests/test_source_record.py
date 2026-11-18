@@ -1,5 +1,3 @@
-"""What a source record must say before it is accepted."""
-
 from __future__ import annotations
 
 import pytest
@@ -94,7 +92,6 @@ def test_two_records_with_one_id_are_refused(tmp_path):
 
 
 def test_a_record_names_the_hosts_that_republish_it():
-    """``copy_hosts`` is read by the web screen (``agent.common.web_sources``); a fetch never reaches one."""
     source = parse_source(html_source(copy_hosts=["mirror.example.net"]))
     assert source.copy_hosts == ("mirror.example.net",)
     assert not source.allows("https://mirror.example.net/bo.html")

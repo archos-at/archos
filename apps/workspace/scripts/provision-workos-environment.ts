@@ -1,49 +1,3 @@
-/**
- * Reconcile GRID's WorkOS environment identity — or report the drift.
- *
- * `provision:authz` makes WorkOS agree with the authorization catalog; this
- * script does the same for the pieces around it that used to be dashboard
- * steps: the platform organization, the owner's membership and role, AuthKit
- * web origins, the observability Connect application, and feature-flag
- * targeting. Runbook: `docs/deployment/workos-provisioning.md`.
- *
- *   Usage:
- *     WORKOS_API_KEY=sk_… npm run provision:workos-env          # check (read-only)
- *     WORKOS_API_KEY=sk_… npm run provision:workos-env -- --apply
- *
- * `--check` is the default and never writes. Run it in CI.
- *
- * ## Desired state comes from the environment
- *
- *   PLATFORM_ORG_EXTERNAL_ID   platform org external id (default grid-platform)
- *   PLATFORM_OWNER_EMAIL       owner to seat in the platform org (unset = skip)
- *   WORKOS_DESIRED_REDIRECT_URIS    desired AuthKit redirect URIs (comma-separated)
- *   WORKOS_DESIRED_CORS_ORIGINS     desired AuthKit CORS origins (comma-separated)
- *   WORKOS_CONNECT_APP_NAME         observability Connect app name (default GRID Observability)
- *   WORKOS_CONNECT_REDIRECT_URIS    its sign-in callback URIs (comma-separated)
- *   WORKOS_FLAG_TARGETS_JSON        {"<flag-slug>": ["org_id", …]} targeting plan
- *
- * Unset sections are skipped cleanly — a check with none set only verifies the
- * platform organization and reports which flags from the registry are missing.
- *
- * ## Deliberate limits
- *
- * - Resource types have no SDK binding; they stay a dashboard step. A missing
- *   one surfaces in `provision:authz` as a failed permission create naming it.
- * - Flag CREATION has no SDK binding (`listFeatureFlags` exists, create does
- *   not), so missing registry flags are reported as MANUAL, never attempted.
- * - Flag targeting is ADDITIVE: this script adds missing targets but never
- *   removes one — silently untargeting an org would switch a feature off for
- *   it, so removal stays a human decision.
- * - Extras (origins present in WorkOS but not in the desired lists) are
- *   REPORTED, not deleted. Pass `--prune` together with `--apply` to remove
- *   them; without that flag the check stays safe to run against an
- *   environment shared with local-development origins.
- * - The Connect application's scopes (the `platform:organizations:view`
- *   permission under Scopes) are assigned in the dashboard — the SDK's
- *   `scopes` field carries OAuth scopes, not permission assignments.
- */
-
 import { NotFoundException, WorkOS } from '@workos-inc/node'
 
 import { REGISTRY_FLAG_SLUGS } from '../bff/authz/feature-flags'
@@ -65,7 +19,6 @@ if (!apiKey) {
 const workos = new WorkOS(apiKey)
 const drift: string[] = []
 const applied: string[] = []
-/** Steps nothing here can perform — printed as the closing summary. */
 const manual: string[] = ['create resource types Organization → Project → Skill in the dashboard (no SDK binding)']
 
 const note = (message: string) => console.log(`  ${message}`)
@@ -83,11 +36,6 @@ async function listAll<T>(
   return all
 }
 
-/**
- * Raw REST call for the two User Management settings the SDK does not bind
- * (redirect URIs / CORS origins). Responses are validated defensively — the
- * payload shape is not covered by the installed typings.
- */
 async function workosRest(
   method: 'GET' | 'POST' | 'DELETE',
   path: string,
@@ -116,10 +64,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/**
- * The rows of a list response. The API may return a bare array or a paged
- * `{ data: […] }` envelope depending on version — accept both.
- */
 function normalizeRows(payload: unknown): Record<string, unknown>[] {
   if (Array.isArray(payload)) return payload.filter(isPlainObject)
   if (isPlainObject(payload) && Array.isArray(payload['data'])) {
@@ -198,8 +142,6 @@ async function reconcileOwner(platformOrgId: string | null): Promise<void> {
     note(`created  membership for ${email}`)
   }
 
-  // Re-read through the membership we found or just created: role checks need
-  // the roles array either way.
   const current =
     membership ??
     (
@@ -238,10 +180,6 @@ async function reconcileOwner(platformOrgId: string | null): Promise<void> {
   }
 }
 
-/**
- * One AuthKit web-origin list (redirect URIs or CORS origins) via raw REST —
- * the Node SDK binds neither. Extras are report-only unless --apply --prune.
- */
 async function reconcileWebOrigins(
   label: string,
   kind: 'redirect_uris' | 'cors_origins',
@@ -310,7 +248,6 @@ async function connectAppName(): Promise<string> {
   return process.env.WORKOS_CONNECT_APP_NAME?.trim() || 'GRID Observability'
 }
 
-/** Mint a client secret and print the credential pair exactly once. */
 async function mintConnectSecret(appName: string, id: string, clientId: string): Promise<void> {
   try {
     const secret = await workos.connect.createApplicationClientSecret({ id })
@@ -332,10 +269,6 @@ async function mintConnectSecret(appName: string, id: string, clientId: string):
   }
 }
 
-/**
- * An existing application may predate a failed first run that created it but
- * could not mint its secret — retry the mint on every check/apply pass.
- */
 async function ensureConnectSecret(appName: string, id: string, clientId: string): Promise<void> {
   let secrets
   try {
@@ -410,14 +343,8 @@ async function reconcileConnectApp(): Promise<void> {
     return
   }
 
-  // Creation and secret minting are separately retryable: a failure in the
-  // second must not lose the first — the next run takes the existing-app
-  // path above and mints the missing secret there.
   let createdId: string | undefined
   try {
-    // Confidential client: PKCE off. Scopes are NOT passed — the SDK field
-    // takes OAuth scopes, while the dashboard's "assign permission" step is
-    // what grants platform:organizations:view (kept MANUAL below).
     const created = await workos.connect.createApplication({
       name: appName,
       applicationType: 'oauth',
@@ -443,11 +370,9 @@ async function reconcileFlags(): Promise<void> {
     (flag) => flag.slug
   )
   const existingSlugs = new Set(existing)
-  // The same verdict `task workspace:provision:flags` reaches, from the same helper.
   const plan = planFlagCheck(REGISTRY_FLAG_SLUGS, existing)
   for (const slug of plan.present) note(`ok       ${slug}`)
   for (const slug of plan.missing) {
-    // No SDK binding for flag creation — reporting is all this script can do.
     manual.push(`create feature flag "${slug}" in the dashboard (creation has no SDK binding)`)
     drift.push(`feature flag missing in WorkOS: ${slug}`)
     note(`MISSING  ${slug} — MANUAL (dashboard-only creation)`)
@@ -465,8 +390,6 @@ async function reconcileFlags(): Promise<void> {
     return
   }
 
-  // One read per targeted org, cached: the SDK cannot enumerate a flag's
-  // targets directly, but it can list what an org sees.
   const orgFlags = new Map<string, Set<string>>()
   const flagsForOrg = async (orgId: string): Promise<Set<string>> => {
     const cached = orgFlags.get(orgId)
@@ -524,8 +447,6 @@ async function main(): Promise<void> {
     for (const change of applied) console.log(`  - ${change}`)
   }
 
-  // Controls no WorkOS API can set or verify — reported on EVERY run so a
-  // clean reconcile never reads as "fully configured".
   manual.push(
     'create FGA resource types organization/project/skill if absent (dashboard-only)',
     'toggle AuthKit "Allow sign-ups" OFF (dashboard-only)',

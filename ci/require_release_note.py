@@ -1,36 +1,4 @@
 #!/usr/bin/env python3
-"""Fail a PR that touches a product file but adds no release note.
-
-The rule (AGENTS.md, "Release notes are mandatory"): a change a customer can
-notice carries its note in the same pull request. A note in a customer section
-(features, improvements, fixes, deprecations, upgrade, other) is published to
-the app's "What's new" on merge, and the week's public summary is written from
-it (ADR-0156); one in `security`, `incident` or `operators` is kept in the
-repository and never published. Either way the PR
-is the last moment at which the person who knows what changed is still the one
-writing it down.
-
-Any section satisfies this check, an internal one included: a security or
-severe fix needs its note as much as a feature does, it just does not reach the
-app. Which sections are internal is `INTERNAL_SECTIONS` in
-scripts/release_notes_rules.py.
-
-The check goes by file, not by reading the diff. A product file is one under the
-agent backend, the API, the app UI or the CLI, minus tests, specs, fixtures,
-mocks, snapshots and Markdown, which change nothing a user of the app can
-observe. Touching a product file requires a note; whether the change inside it
-could be noticed is the author's call, made with the label below.
-
-A note counts only when this PR adds it. Editing or deleting an old note does
-not satisfy the rule.
-
-Escape hatch: the `no-release-note` label on the PR, for a change a user cannot
-notice (a refactor, a comment, internal tooling). The workflow reads the PR's
-labels when the job runs and skips this script when it is set, so labelling a
-PR and re-running the job is enough.
-
-Usage: require_release_note.py <base-sha> <head-sha>
-"""
 
 from __future__ import annotations
 
@@ -38,9 +6,10 @@ import re
 import subprocess
 import sys
 
+USAGE = "usage: require_release_note.py <base-sha> <head-sha>"
+
 NOTES_PREFIX = "releasenotes/notes/"
 
-# Product surfaces: touching one of these is what makes a note mandatory.
 PRODUCT_PATTERNS = [
     re.compile(r"^packages/agent/src/agent/"),
     re.compile(r"^sources/[^/]+/src/"),
@@ -48,7 +17,6 @@ PRODUCT_PATTERNS = [
     re.compile(r"^apps/workspace/(app|bff|ui|i18n|shared)/"),
 ]
 
-# ...except for the parts of them that only a developer ever sees.
 EXEMPT_PATTERNS = [
     re.compile(r"(^|/)tests?/"),
     re.compile(r"\.spec\.(ts|tsx|js|jsx)$"),
@@ -63,7 +31,6 @@ def _git(*args: str) -> subprocess.CompletedProcess[bytes]:
 
 
 def _revs(base: str, head: str) -> str:
-    """The revision spec git can diff: the merge-base form, or the two commits when there is none."""
     for spec in (f"{base}...{head}", f"{base} {head}"):
         if _git("diff", "--quiet", *spec.split()).returncode in (0, 1):
             return spec
@@ -71,7 +38,6 @@ def _revs(base: str, head: str) -> str:
 
 
 def changed_files(base: str, head: str) -> list[str]:
-    """Files the PR touches, via the merge base so unrelated base commits do not count."""
     result = _git("diff", "--name-only", *_revs(base, head).split())
     if result.returncode != 0:
         print("Could not diff the pull request against its base — skipping the check.", file=sys.stderr)
@@ -80,13 +46,11 @@ def changed_files(base: str, head: str) -> list[str]:
 
 
 def added_files(base: str, head: str) -> list[str]:
-    """Files the PR adds. A note the PR deletes or edits does not count."""
     result = _git("diff", "--name-only", "--diff-filter=A", *_revs(base, head).split())
     return [line.strip() for line in result.stdout.decode().splitlines() if line.strip()]
 
 
 def needs_note(files: list[str]) -> list[str]:
-    """The touched files that are product."""
     return [
         path
         for path in files
@@ -100,7 +64,7 @@ def has_note(files: list[str]) -> bool:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
-        print(__doc__, file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     base, head = argv[1], argv[2]
     files = changed_files(base, head)

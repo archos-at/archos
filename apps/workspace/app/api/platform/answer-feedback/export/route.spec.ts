@@ -5,6 +5,7 @@ import { Workbook } from 'exceljs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedbackExport, feedbackWeeklyRecord } from '@/test-utils/feedback-export-fixtures'
 import type { FeedbackQuery } from '@/lib/feedback/filters'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const isOwner = { value: false }
 const locale = { value: 'de' as 'de' | 'en' }
@@ -15,7 +16,7 @@ vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
     userId: 'user_1',
     organizationId: 'org_1',
-    email: 'owner@grid.com',
+    email: 'owner@example.test',
     role: 'admin',
   }),
 }))
@@ -32,8 +33,6 @@ vi.mock('@/lib/authz/platform', () => {
   }
 })
 
-// The reads are mocked; the file names, the columns and both renderers are real,
-// so these specs see the bytes a person downloads.
 vi.mock('@/lib/feedback/export-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/feedback/export-service')>()
   const gate = async (session: unknown) => {
@@ -72,7 +71,6 @@ import { getAnswerFeedbackExport, getAnswerFeedbackWeeklyExport } from '@/lib/fe
 
 const request = (query = ''): Request => new Request(`http://localhost/api/platform/answer-feedback/export${query}`)
 
-/** `.text()` strips a leading BOM per the fetch spec; the bytes keep it. */
 const bytesOf = async (res: Response): Promise<Uint8Array> => new Uint8Array(await res.arrayBuffer())
 
 describe('GET /api/platform/answer-feedback/export', () => {
@@ -88,7 +86,6 @@ describe('GET /api/platform/answer-feedback/export', () => {
     }
   })
 
-  /** The file is what the page shows: the page's scope and its ratings filters, by the page's parameters. */
   it('exports the scope and the ratings filters it is given, named for the one organization', async () => {
     isOwner.value = true
     const res = await GET(
@@ -122,7 +119,6 @@ describe('GET /api/platform/answer-feedback/export', () => {
     expect(getAnswerFeedbackExport).not.toHaveBeenCalled()
   })
 
-  /** Older links: `scope=all` is every vote in the scope; `scope=selection` the old drill-in. */
   it('keeps the old `scope` links working', async () => {
     isOwner.value = true
     await GET(request('?scope=all&days=7&verdict=down&reason=inaccurate&org=org_2'))
@@ -150,7 +146,6 @@ describe('GET /api/platform/answer-feedback/export', () => {
       isOwner.value = true
       const res = await GET(request())
       const bytes = await bytesOf(res)
-      // TextDecoder drops the BOM it was just shown to carry.
       const header = new TextDecoder().decode(bytes).split('\r\n')[0]
 
       expect(res.headers.get('Content-Type')).toBe('text/csv; charset=utf-8')
@@ -167,7 +162,6 @@ describe('GET /api/platform/answer-feedback/export', () => {
   describe('?format=xlsx', () => {
     it('is a workbook with the four sheets, in the requester’s language', async () => {
       isOwner.value = true
-      // No range given: the last 30 days up to today, so today is pinned.
       vi.useFakeTimers({ toFake: ['Date'] })
       vi.setSystemTime(new Date('2026-10-09T15:00:00Z'))
       const res = await GET(request('?format=xlsx')).finally(() => vi.useRealTimers())
@@ -197,13 +191,13 @@ describe('GET /api/platform/answer-feedback/export', () => {
     })
   })
 
-  /** The page shows 50; the export used to stop there too, and said nothing. */
   it('says so, in a header and the file name, when the export hit its row cap', async () => {
     isOwner.value = true
     vi.mocked(getAnswerFeedbackExport).mockResolvedValueOnce(feedbackExport({ truncated: true }))
     const res = await GET(request('?format=xlsx'))
 
-    expect(res.headers.get('X-Grid-Export-Truncated')).toBe('5000')
+    expect(res.headers.get('X-Export-Truncated')).toBe('5000')
+    expect(res.headers.get(legacyHeaderName('X-Export-Truncated'))).toBe('5000')
     expect(res.headers.get('Content-Disposition')).toMatch(/_erste-5000\.xlsx"$/)
   })
 
@@ -211,7 +205,8 @@ describe('GET /api/platform/answer-feedback/export', () => {
     isOwner.value = true
     const res = await GET(request())
 
-    expect(res.headers.get('X-Grid-Export-Truncated')).toBeNull()
+    expect(res.headers.get('X-Export-Truncated')).toBeNull()
+    expect(res.headers.get(legacyHeaderName('X-Export-Truncated'))).toBeNull()
     expect(res.headers.get('Content-Disposition')).not.toContain('erste-')
   })
 
@@ -238,7 +233,7 @@ describe('GET /api/platform/answer-feedback/export', () => {
           ratings: expect.objectContaining({ topics: ['structural'] }),
         })
       )
-      expect(res.headers.get('X-Grid-Export-Ignored-Filters')).toBeNull()
+      expect(res.headers.get('X-Export-Ignored-Filters')).toBeNull()
       expect(getAnswerFeedbackExport).not.toHaveBeenCalled()
     })
 
@@ -258,15 +253,16 @@ describe('GET /api/platform/answer-feedback/export', () => {
       })
       const res = await GET(request('?summary=weekly'))
 
-      expect(res.headers.get('X-Grid-Export-Truncated')).toBe('5000')
+      expect(res.headers.get('X-Export-Truncated')).toBe('5000')
+      expect(res.headers.get(legacyHeaderName('X-Export-Truncated'))).toBe('5000')
       expect(res.headers.get('Content-Disposition')).toMatch(/_erste-5000\.csv"$/)
     })
 
-    /** A rate cannot honour a verdict or a reason; the script that asked is told which it lost. */
     it('names the filters a rate cannot honour in a header', async () => {
       isOwner.value = true
       const res = await GET(request('?summary=weekly&verdict=down&reason=inaccurate&topic=structural'))
-      expect(res.headers.get('X-Grid-Export-Ignored-Filters')).toBe('verdict,reason')
+      expect(res.headers.get('X-Export-Ignored-Filters')).toBe('verdict,reason')
+      expect(res.headers.get(legacyHeaderName('X-Export-Ignored-Filters'))).toBe('verdict,reason')
     })
   })
 })

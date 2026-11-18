@@ -1,11 +1,3 @@
-/**
- * Capture from the composer: the attach menu a touch screen opens (camera,
- * photo library, documents), what each input accepts, the name a site photo
- * is uploaded under, and the microphone that says why it cannot record.
- *
- * The upload hook is faked; the photo preparation, the inputs and the menu are
- * real. jsdom has no `matchMedia`, so the pointer kind is stubbed per test.
- */
 import { act, fireEvent, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -76,9 +68,7 @@ const pointer = (coarse: boolean) =>
 beforeEach(() => {
   upload.config = PHOTOS_ON
   mockUploadFiles.mockReset()
-  // Uploads are offered only where the knowledge layer answers.
   useLayoutStore.setState({ knowledgeLayerAvailable: true })
-  // The conversation row an attachment needs; no server here.
   useChatStore.setState({
     ensureSession: () => 'session-1',
     _ensureConversationExists: vi.fn(async () => undefined),
@@ -91,7 +81,6 @@ afterEach(() => {
 const attach = () => screen.getByTestId('composer-attach')
 const input = (testId: string) => screen.getByTestId(testId) as HTMLInputElement
 
-/** Radix opens a menu on a pointer press, which `user.click` delivers. */
 async function openAttachMenu() {
   const user = userEvent.setup()
   await user.click(attach())
@@ -191,7 +180,6 @@ describe('a site photo is uploaded under a name of its own', () => {
 })
 
 describe('a microphone this browser cannot use', () => {
-  // jsdom has no MediaRecorder, so the microphone is unavailable here.
   test('a press says why under the composer, where a touch screen can read it', async () => {
     pointer(true)
     render(<InputArea isAuthenticated={true} />)

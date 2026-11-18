@@ -1,12 +1,3 @@
-"""Stand-ins for the vector store and the ingest worker, for tests of the base corpus's ingest jobs.
-
-:class:`FakeIngestor` can only PREPARE a job, as the real one does (a PENDING status in the ingest status
-store); it raises on anything that would ingest in the calling process. :func:`run_worker` plays the ingest
-worker: it takes each run handed to Hatchet (the recording fake ``tests.object_corpus_fakes.install``
-installs), runs the job's download for real, and writes the outcome as the ingestor does, on the real
-status store in the test database.
-"""
-
 from __future__ import annotations
 
 import os
@@ -35,8 +26,6 @@ class FakeCollection:
 
 
 class FakeIngestor:
-    """Can prepare a job, as the real one does (a PENDING status), and nothing else: it never ingests."""
-
     supports_durable_jobs = True
     backend_name = "fake"
 
@@ -90,10 +79,6 @@ def _engine():
 
 
 def run_worker(*, succeed: bool = True, downloaded: list[bytes] | None = None) -> list[PreparedIngestJob]:
-    """What an ingest worker does with its runs, minus the pipeline: take, download, write the outcome.
-
-    Each job's downloaded bytes are appended to ``downloaded`` when it is given.
-    """
     ran: list[PreparedIngestJob] = []
     while run := take_run():
         ran.append(finish(ingest_dispatch.decode(run.input.payload), succeed=succeed, downloaded=downloaded))
@@ -103,7 +88,6 @@ def run_worker(*, succeed: bool = True, downloaded: list[bytes] | None = None) -
 def finish(
     prepared: PreparedIngestJob, *, succeed: bool = True, downloaded: list[bytes] | None = None
 ) -> PreparedIngestJob:
-    """One job as a worker ends it, minus the pipeline: its download for real, then its outcome written."""
     path = prepared.file_paths[0]()  # the job's own download, for real
     if downloaded is not None:
         with open(path, "rb") as handle:
@@ -118,7 +102,6 @@ def finish(
 
 
 def lose_the_workers_for(job_id: str) -> None:
-    """Every attempt of the job died: its run's last attempt released the hold, and its owner stopped beating."""
     while take_run(job_id) is not None:
         pass
     ingest_run_hold.release(job_id)

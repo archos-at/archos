@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The by-name resolve's two routes, driven THROUGH the typed client
- * (ADR-0055), so the client and the handlers cannot disagree about a path, a
- * verb or a field.
- *
- * The resolve exists because citation chips and surfaced-document cards looked
- * their document up in the listing's first page, and a document older than the
- * newest 500 resolved to nothing.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -93,7 +84,6 @@ describe('POST /api/documents/by-name', () => {
       'proj_1',
       ['bestand-1962.PDF'],
     )
-    // The listing's wire row: ISO timestamps and the version summary.
     expect(row).toMatchObject({
       id: 'doc_1',
       filename: 'Bestand-1962.pdf',

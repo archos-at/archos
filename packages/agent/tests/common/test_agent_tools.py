@@ -1,9 +1,3 @@
-"""A blank string for a numeric tool argument is an omitted argument, for every tool (#656).
-
-Driven through the agent runtime's real builder and LangChain tool wrapper, because that is
-where the ``InputArgsSchema`` that rejected ``page=''`` is made.
-"""
-
 from __future__ import annotations
 
 import re
@@ -32,7 +26,6 @@ class _PagedSearchConfig(FunctionBaseConfig, name="test_fixture_paged_search"):
 @register_function(config_type=_PagedSearchConfig)
 async def _paged_search(config: _PagedSearchConfig, builder: Builder):
     async def _search(query: str, page: int = 1, note: str = "") -> str:
-        """Search, like ris_search: an int page with a default."""
         return f"{query}|{page}|{note}"
 
     yield FunctionInfo.from_fn(_search, description="Search.")
@@ -46,7 +39,6 @@ async def builder():
 
 
 async def test_nat_alone_rejects_a_blank_page(builder):
-    # The failure #656 filed, reproduced on the agent runtime's own tool.
     raw = (await builder.get_tools(tool_names=["paged_search"], wrapper_type=LLMFrameworkEnum.LANGCHAIN))[0]
     with pytest.raises(Exception, match="InputArgsSchema"):
         await raw.ainvoke({"query": "q", "page": ""})
@@ -57,7 +49,6 @@ async def test_an_agent_tool_reads_a_blank_page_as_omitted(builder):
     assert await tool.ainvoke({"query": "q", "page": ""}) == "q|1|"
     assert await tool.ainvoke({"query": "q", "page": "  "}) == "q|1|"
     assert await tool.ainvoke({"query": "q", "page": "3"}) == "q|3|"
-    # A string field keeps its blank: it is a value, not an omission.
     assert await tool.ainvoke({"query": "q", "note": ""}) == "q|1|"
 
 
@@ -81,9 +72,6 @@ def test_a_blank_required_field_is_still_a_missing_field():
 
 
 def test_every_agent_loads_its_tools_through_the_one_seam():
-    # The ratchet: a fifth `builder.get_tools(` would load tools that reject
-    # blank arguments again, which is how ris_search kept failing after
-    # read_passage was fixed on its own.
     offenders = [
         str(path.relative_to(_SRC))
         for path in _SRC.rglob("*.py")

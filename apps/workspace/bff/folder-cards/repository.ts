@@ -1,10 +1,3 @@
-/**
- * The folder cards (ADR-0127, migration 0180). The only module that talks to
- * `folder_cards`. Every function runs inside a tenant scope the caller opened
- * with the organization it names (`withTenant`), so row-level security, not only
- * the WHERE, keeps another office's cards out.
- */
-
 import 'server-only'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
@@ -33,22 +26,9 @@ export interface CardFolder {
 interface CollectionOwner {
   scope: 'project' | 'office_shelf'
   projectId: string | null
-  /** The project's own collection; null for the office shelf. */
   projectCollection: string | null
 }
 
-/**
- * The folder a collection and a path name, inside `organizationId`; null when the
- * collection is not the organization's, no living folder has that path, or the
- * folder's documents do not live in that collection.
- *
- * A collection is the office shelf's, a project's, or a restricted folder's
- * inside a project (`<project>_r<12 hex>`, ADR-0087). The last check is what
- * keeps a card in its folder's scope: a restricted folder's card named under the
- * project's collection, under another folder's restricted collection, or under
- * a collection no folder has, is refused, because whoever reads that collection
- * may not read this folder (ADR-0088).
- */
 export async function findCardFolder(
   organizationId: string,
   collection: string,
@@ -98,11 +78,6 @@ async function resolveCollectionOwner(organizationId: string, collection: string
   return null
 }
 
-/**
- * Write the folder's card, replacing what was there: one card per folder. A
- * write that is not `fresh` (a `stale` or `failed` mark) keeps when the last good
- * card was generated.
- */
 export async function upsertFolderCard(
   organizationId: string,
   folder: CardFolder,
@@ -137,16 +112,6 @@ export async function upsertFolderCard(
     })
 }
 
-/**
- * The cards of the folders whose documents live in `collection` NOW, each with
- * the folder's path and person-written description, and every such living
- * folder's description whether it has a card or not.
- *
- * The collection a card was written under is not trusted: a folder restricted
- * after its card was written has its documents in its own collection, and its
- * card is served there and no longer under the project's. It is recomputed from
- * the folder tree on every read (`collection-scope.ts`).
- */
 export async function getFolderCards(
   organizationId: string,
   collection: string,
@@ -208,7 +173,6 @@ export async function getFolderCards(
   return cardsInCollection(folders, collection, cardCollectionResolver(tree, owner.projectCollection))
 }
 
-/** Remove a folder's card; false when it had none. */
 export async function deleteFolderCard(organizationId: string, folder: CardFolder): Promise<boolean> {
   const db = getDb()
   const removed = await db

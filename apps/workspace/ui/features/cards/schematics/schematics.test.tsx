@@ -1,11 +1,3 @@
-/**
- * Render tests for the schematic Grid cards: realistic OIB parameter
- * sets in, deterministic SVG + verdict chrome out. Focus: to-scale rendering
- * never throws, statuses surface as German verdicts, unknown values read
- * "fehlende Angabe" instead of a guessed number, and the NormReference
- * footer grounds every drawn limit.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
@@ -20,13 +12,6 @@ import { DaylightIncidenceCard } from './DaylightIncidenceCard'
 import { GuardrailCheckCard } from './GuardrailCheckCard'
 import { FireAccessPlanCard } from './FireAccessPlanCard'
 
-/**
- * The cards render in German because the reader is Austrian, and the copy now
- * comes from the dictionary rather than from literals in the components. A
- * test that renders without a provider sees the default locale (`en`), so the
- * locale is pinned here; `fixedLocale` also skips the provider's preference
- * reconciliation, which would be a fetch.
- */
 const render = (ui: ReactElement) =>
   rtlRender(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -246,7 +231,6 @@ describe('DaylightIncidenceCard', () => {
 
     expect(screen.getByText('45°')).toBeInTheDocument()
     expect(screen.getByText('Gegenüberliegendes Gebäude')).toBeInTheDocument()
-    // Renderer-derived: 10 % of 20 m² floor area → ≥ 2 m² glass.
     expect(screen.getByText(/Bodenfläche 20 m²/)).toBeInTheDocument()
     expect(screen.getAllByText(/≥ 2 m²/).length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('erfüllt')).toBeInTheDocument()
@@ -270,7 +254,6 @@ describe('DaylightIncidenceCard', () => {
       />
     )
 
-    // Renderer trig: 10 m above the sill at 6 m distance pierces the cone.
     expect(
       screen.getByText('Die Verschattung durchdringt den 45°-Lichteinfallskegel.')
     ).toBeInTheDocument()
@@ -327,7 +310,6 @@ describe('GuardrailCheckCard', () => {
     expect(screen.getByText('Geländerhöhe')).toBeInTheDocument()
     expect(screen.getByText('Bodenspalt')).toBeInTheDocument()
     expect(screen.getAllByText('110 cm').length).toBeGreaterThanOrEqual(1)
-    // fall_height > 12 m surfaces the stricter 110 cm minimum next to the drop.
     expect(screen.getByText(/mind\. 110 cm/)).toBeInTheDocument()
     expect(screen.getByText('grenzwertig')).toBeInTheDocument()
   })
@@ -408,16 +390,6 @@ describe('FireAccessPlanCard', () => {
   })
 })
 
-/**
- * The provenance of a number, which the card used to drop on the floor.
- *
- * `ifc_measure` answers „gemessen: 2,47 m (±5 mm) — aus der Geometrie
- * berechnet, nicht deklariert", the assistant repeats that in the prose, and
- * this card drew **2,47 m ✓** beside it — indistinguishable from a figure the
- * architect had stated in their own file. A card is the part a reviewer
- * screenshots into a submission, so the surface that dropped the qualifier was
- * the one most likely to be forwarded without it.
- */
 describe('a measured number carries where it came from', () => {
   it('separates our measurement from the architect’s own statement', () => {
     render(
@@ -497,9 +469,6 @@ describe('a measured number carries where it came from', () => {
       />
     )
 
-    // Twice on purpose: once on the drawing where the dimension would have
-    // been, once in the legend. Both are the absence; only the legend can carry
-    // the remedy, which is why the remedy is asserted separately.
     expect(screen.getAllByText('fehlende Angabe').length).toBeGreaterThan(0)
     expect(screen.getByText(/im CAD als Öffnung modellieren/)).toBeInTheDocument()
   })
@@ -507,12 +476,6 @@ describe('a measured number carries where it came from', () => {
 
 describe('the tolerance band against the limit', () => {
   it('says the check is undecided when the band straddles the limit', () => {
-    /**
-     * The one thing this bar can say faster than a sentence can. A value whose
-     * ± band crosses the threshold is on BOTH sides of the line at the
-     * precision we actually have, and a bar that filled it green or red would
-     * assert a verdict the measurement does not support.
-     */
     render(
       <LimitBar
         check={{
@@ -533,12 +496,6 @@ describe('the tolerance band against the limit', () => {
   })
 
   it('stays quiet when the whole band satisfies an inclusive limit', () => {
-    /**
-     * 54 ±3 against „≤ 55" warns, because 57 fails it. 50 ±5 against the same
-     * limit must NOT: every value in [45, 55] meets a „≤ 55", and the endpoint
-     * is inside the limit, not across it. The first version tested `hi >=
-     * required` and warned here.
-     */
     render(
       <LimitBar
         check={{
@@ -557,12 +514,6 @@ describe('the tolerance band against the limit', () => {
   })
 
   it('still warns at the same endpoint when the limit points the other way', () => {
-    /**
-     * The half a symmetric strict test gets wrong. 50 ±5 against „≥ 55" reaches
-     * the limit at its top end and fails everywhere below it, so it IS
-     * undecided — and a rule written as `lo < required && hi > required`, which
-     * fixes the case above, silently stops warning here.
-     */
     render(
       <LimitBar
         check={{
@@ -581,15 +532,9 @@ describe('the tolerance band against the limit', () => {
   })
 
   it('says nothing about crossing when no comparator gives the limit a direction', () => {
-    /**
-     * Every card that uses the bar defaults the comparator (`comparator ??
-     * '<='`), so a null one is unreachable through a card. The branch is
-     * defensive, and the bar is the level at which it is real.
-     */
     render(<LimitBar check={{ label: 'Breite', value: 54, required: 55, unit: 'cm', status: 'warning',
                               provenance: 'computed', tolerance: 3 }} />)
     expect(screen.queryByText(/Messtoleranz reicht über den Grenzwert/)).not.toBeInTheDocument()
-    // The band itself is still shown: it qualifies the number either way.
     expect(screen.getByText('±3 cm')).toBeInTheDocument()
   })
 
@@ -610,8 +555,6 @@ describe('the tolerance band against the limit', () => {
     )
 
     expect(screen.queryByText(/Messtoleranz reicht über den Grenzwert/)).not.toBeInTheDocument()
-    // The band is still shown — it qualifies the number whether or not it
-    // changes the verdict.
     expect(screen.getByText('±3 kWh/(m²a)')).toBeInTheDocument()
   })
 })
@@ -619,14 +562,6 @@ describe('the tolerance band against the limit', () => {
 describe('a drawing fits the card it is printed in', () => {
   const SHAPES = ['door', 'ramp', 'corridor', 'turning_circle', 'threshold', 'parking_space'] as const
 
-  /**
-   * A schematic is geometry, not a styled box: whatever the SVG does not have
-   * room for is cut off at the card edge, and the part that goes missing is
-   * the outer gutter where the dimension arrows and their numbers are placed.
-   * The canvas therefore may never ask for more width than it is given — no
-   * pixel floor, no intrinsic width — so on a phone the drawing shrinks and
-   * stays whole instead of running past the edge with a number on it.
-   */
   it.each(SHAPES)('the %s drawing never claims a width the card cannot give', (shape) => {
     const { container } = render(
       <DimensionDiagramCard
@@ -644,13 +579,6 @@ describe('a drawing fits the card it is printed in', () => {
     expect(svg.getAttribute('class')).toContain('w-full')
   })
 
-  /**
-   * And it may not be blown up without limit either: the drawings are authored
-   * in units that behave like pixels, so a narrow one stretched to fill a wide
-   * column turns two numbers into several hundred pixels of picture. The cap
-   * is a plain multiple of the authored width, which keeps the scale uniform —
-   * every ratio the drawing asserts survives it.
-   */
   it('caps how far a narrow drawing is blown up, in proportion to how it was drawn', () => {
     const { container } = render(
       <DimensionDiagramCard

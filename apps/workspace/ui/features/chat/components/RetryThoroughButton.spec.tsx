@@ -10,7 +10,6 @@ const capture = vi.fn()
 
 vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: (...args: unknown[]) => capture(...args) }))
 vi.mock('../hooks/use-current-session-busy', () => ({ useIsCurrentSessionBusy: () => false }))
-/** The answer's recorded Aufwand; `undefined` is an answer stored before it was recorded. */
 let answerRanAt: string | undefined
 vi.mock('../store', () => ({
   useChatStore: vi.fn((selector: (s: unknown) => unknown) =>
@@ -109,8 +108,6 @@ describe('RetryThoroughButton', () => {
   })
 
   test('steps up from the level the answer ran at, not from where the dial moved since', async () => {
-    // Asked at medium, then the reader turned the dial to high: the retry is
-    // one step above the answer (high), not above the dial (xhigh).
     answerRanAt = 'medium'
     useEffortStore.setState({ byConversation: { conv_1: 'high' } })
     hydrate('down')
@@ -120,7 +117,6 @@ describe('RetryThoroughButton', () => {
     expect(capture).toHaveBeenCalledWith('answer_retry_thorough', { message_id: 'a1', original_effort: 'medium' })
     unmount()
 
-    // Asked at xhigh, dial turned down since: still nothing thorougher to offer.
     __clearAnswerFeedbackCache()
     answerRanAt = 'xhigh'
     useEffortStore.setState({ byConversation: { conv_1: 'minimal' } })

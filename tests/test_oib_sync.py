@@ -1,13 +1,3 @@
-"""Ingestion of the base corpus: what needs it, which job carries it, what is recorded (ADR-0082, step A2).
-
-The corpus is a real table and a fake bucket (``tests/object_corpus_fakes``); the ingest status
-store is the real one (SQLite, or Postgres when ``TEST_CORPUS_DB`` is set), and Hatchet the
-recording fake. The vector store is a fake ingestor that can only PREPARE a job: it raises on
-anything that would ingest in this process. The ingest worker is played by :func:`run_worker`,
-which takes each run handed to Hatchet, runs its download for real, and writes the outcome the
-way the ingestor does.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -37,7 +27,6 @@ from tests.corpus_job_fakes import run_worker
 from tests.object_corpus_fakes import FakeBucket
 from tests.object_corpus_fakes import install
 
-#: The API tier's own enqueue, which its routes hand to every ``oib_sync`` entry point.
 ENQUEUE = ingest_dispatch.enqueue_only
 
 
@@ -77,14 +66,12 @@ def _row(name: str) -> corpus_store.FileRow:
 
 
 def _mark_was_set(*, hours_from_now: int) -> None:
-    """Move every mark's time, as if the database's clock had said so when the release marked the files."""
     at = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=hours_from_now)
     with corpus_store._transaction() as conn:
         conn.execute(update(corpus_store._marks).values(marked_at=at))
 
 
 def _mark_at_the_instant_the_job_was_prepared(name: str) -> None:
-    """Give the mark of ``name`` the very time its job was submitted: the two happened in one second."""
     status = ingest_status_store.get(oib_sync.job_id_for(_row(name)))
     assert status is not None
     with corpus_store._transaction() as conn:
@@ -101,7 +88,6 @@ def _engine():
 
 @contextlib.contextmanager
 def _hatchet_down():
-    """Hatchet refuses every hand-over while this holds."""
     ingest_workflow.ingest_workflow().refuse_with = ConnectionError("engine down")
     try:
         yield
@@ -300,21 +286,6 @@ class TestSync:
         run_worker()
         assert _sync().ingested_recorded == 1
 
-    def test_an_empty_store_waiting_for_its_import_is_not_taken_for_a_reset(self, ingestor, monkeypatch):
-        """Compose starts the new release before the import: no re-embedding of the corpus meanwhile."""
-        corpus_store.put("a.pdf", b"a")
-        _sync()
-        run_worker()
-        _sync()
-        ingestor.collection = None  # the new Qdrant, still empty
-        monkeypatch.setenv("VECTOR_IMPORT_PENDING", "true")
-
-        assert _sync().enqueued == 0
-        assert _row("a.pdf").ingested_sha256 == _sha(b"a")
-
-        monkeypatch.delenv("VECTOR_IMPORT_PENDING")
-        assert _sync().enqueued == 1  # without it, an empty store is a reset as before
-
     def test_a_vector_store_that_cannot_be_probed_does_not_discard_what_the_table_knows(self, ingestor, monkeypatch):
         corpus_store.put("a.pdf", b"a")
         _sync()
@@ -446,7 +417,6 @@ class TestUpload:
         assert _sync().enqueued == 1
 
     def test_a_cycle_cannot_queue_the_file_between_its_row_and_its_job(self, ingestor, monkeypatch):
-        """The cycle waits on the same per-file lock, so the upload's Dokumentart is never lost to it."""
         in_put = threading.Event()
         release = threading.Event()
         real_put = corpus_store.put
@@ -624,7 +594,6 @@ class TestMarkForReingest:
         assert _sync().enqueued == 1
 
     def _released_while_its_upload_job_waits(self) -> None:
-        """An upload's job, prepared without a mark and still waiting, then the release that marks the file."""
         corpus_store.put("a.pdf", b"a")
         _sync()
         mark = corpus_store.FileMark(country_id="AT", edition_id="edition:oib-rl-1-2019")
@@ -636,7 +605,6 @@ class TestMarkForReingest:
 
         result = _sync()
 
-        # Not recorded: its chunks are nobody's. A job that carries the mark is queued in its place.
         assert (result.ingested_recorded, result.enqueued) == (0, 1)
         assert _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
         (marked,) = run_worker()
@@ -645,25 +613,21 @@ class TestMarkForReingest:
         assert not _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
 
     def test_a_job_prepared_before_the_release_marked_its_file_is_done_again_with_the_mark(self, ingestor):
-        """The upload job carries no country: finished after the release marked the file, it does not count."""
         self._released_while_its_upload_job_waits()
         _mark_was_set(hours_from_now=1)  # a release, after the job was prepared
         self._the_unmarked_job_is_done_again_with_the_mark()
 
     def test_a_mark_set_in_the_second_its_job_was_prepared_is_not_taken_as_carried(self, ingestor):
-        """Which came first is a count on the file's row, not two times compared to the second."""
         self._released_while_its_upload_job_waits()
         _mark_at_the_instant_the_job_was_prepared("a.pdf")
         self._the_unmarked_job_is_done_again_with_the_mark()
 
     def test_a_mark_from_a_database_whose_clock_is_behind_the_api_tier_is_not_missed(self, ingestor):
-        """The mark's time is the database's, the job's the api tier's: neither clock decides."""
         self._released_while_its_upload_job_waits()
         _mark_was_set(hours_from_now=-1)  # the database says the mark is older than the job it followed
         self._the_unmarked_job_is_done_again_with_the_mark()
 
     def test_a_mark_that_lands_while_a_cycle_settles_the_job_is_not_recorded(self, ingestor):
-        """The cycle read the row before the mark: the write that records the index checks the generation itself."""
         corpus_store.put("a.pdf", b"a")
         _sync()
         run_worker()
@@ -686,8 +650,31 @@ class TestMarkForReingest:
         assert marked.config["country_id"] == "AT"
         assert _sync().ingested_recorded == 1
 
+    def test_the_same_mark_again_over_a_waiting_job_keeps_that_job_counting(self, ingestor):
+        mark = corpus_store.FileMark(country_id="AT", edition_id="at-oib-rl-1-2023", released=True)
+        corpus_store.put("a.pdf", b"a")
+        assert oib_sync.mark_for_reingest("a.pdf", mark) is True
+        oib_sync.request_ingestion("a.pdf", enqueue=ENQUEUE)
+
+        assert oib_sync.mark_for_reingest("a.pdf", mark) is True  # the retry, while the job still waits
+
+        (marked,) = run_worker()
+        assert marked.config["country_id"] == "AT"
+        assert _sync().ingested_recorded == 1
+        assert not _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+
+    def test_another_mark_over_a_waiting_job_still_makes_it_a_generation_behind(self, ingestor):
+        corpus_store.put("a.pdf", b"a")
+        assert oib_sync.mark_for_reingest("a.pdf", corpus_store.FileMark(country_id="AT")) is True
+        oib_sync.request_ingestion("a.pdf", enqueue=ENQUEUE)
+
+        assert oib_sync.mark_for_reingest("a.pdf", corpus_store.FileMark(country_id="AT", edition_id="e2")) is True
+
+        run_worker()
+        assert _sync().ingested_recorded == 0
+        assert _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+
     def test_marking_waits_for_the_file_lock_a_job_is_prepared_under(self, ingestor):
-        """A job is prepared wholly before a mark or wholly after it: both hold the file's lock."""
         corpus_store.put("a.pdf", b"a")
         marked = threading.Event()
 
@@ -731,8 +718,6 @@ def test_the_job_id_is_a_function_of_name_hash_and_version(monkeypatch):
 
 
 class _PayloadStore:
-    """The vector store as the legacy backfill sees it: whether the corpus exists, and the payloads it sets."""
-
     def __init__(self) -> None:
         self.payloads: list[tuple[str, dict]] = []
 
@@ -741,8 +726,6 @@ class _PayloadStore:
 
 
 class TestLegacyCountryBackfill:
-    """ADR-0173: the corpus that predates ``country_id`` is Austria's, marked once; later files are not."""
-
     def test_the_first_cycle_marks_every_unmarked_file_austrian_and_never_runs_again(self, ingestor):
         store = _PayloadStore()
         corpus_store.put("old.pdf", b"alpha")

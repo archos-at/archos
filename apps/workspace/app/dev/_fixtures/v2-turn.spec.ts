@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The dev pages' v2 turn is a real one: every frame is a contract event, the
- * turn folds to its recorded answer, and no frame but the two that carry the
- * whole answer is over 4 KB (`chat-wire-v2.md`, definition of done 4).
- *
- * The design names only the terminal as the exception. On these recorded
- * answers the settle is one too: `STATE_SNAPSHOT` carries the verified text and
- * every cited source with its passage, 10 to 13 KB here, mostly sources.
- */
 import { describe, expect, it } from 'vitest'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
 import { foldTurnEvents } from '@/lib/turns/turn-fold'

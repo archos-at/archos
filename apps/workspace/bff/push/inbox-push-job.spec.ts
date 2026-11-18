@@ -151,8 +151,6 @@ describe('it decides again, at the moment it sends', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
-  // The lenient resolver reads a failed WorkOS lookup as "not a member"; here
-  // that removed every device the person had over one 503.
   it('keeps the devices and lets the queue retry when membership could not be looked up', async () => {
     vi.mocked(resolvePinnedRequesterSessionStrict).mockRejectedValue(new Error('workos 503'))
     const { sender, send } = senderReturning({})
@@ -259,7 +257,6 @@ describe('a burst of one type’s rows is one notification (the fold)', () => {
   })
 
   it('tells the rows before it when the newest row was read before its job ran: they left the telling to it', async () => {
-    // i1's job runs after the person read i1 alone; i2–i4 folded into it and are still news.
     const read = { ...newest.row, readAt: new Date() }
     vi.mocked(findInboxItemForRecipient).mockResolvedValue(read)
     vi.mocked(listTouchedOfType).mockResolvedValue([read, ...morning.slice(1).map((entry) => entry.row)])
@@ -275,7 +272,6 @@ describe('a burst of one type’s rows is one notification (the fold)', () => {
   })
 
   it('keeps a burst whole across a row read in its middle, and still leaves it to its newest', async () => {
-    // i3 was read; i4's job must not tell i4 on its own: i3 still links it to i2 and i1.
     const earlier = morning[3]!
     vi.mocked(findInboxItemForRecipient).mockResolvedValue(earlier.row)
     vi.mocked(listTouchedOfType).mockResolvedValue(
@@ -308,7 +304,6 @@ describe('a burst of one type’s rows is one notification (the fold)', () => {
 })
 
 describe('a burst of news on the reader’s own marks is one notification', () => {
-  // A colleague resolves the reader's marks one after another: each row is `yours` (results, on by default).
   const news = (id: string, secondsBefore: number, variant: string, yours: boolean) => ({
     row: row({
       id,
@@ -346,7 +341,6 @@ describe('a burst of news on the reader’s own marks is one notification', () =
       url: '/app/inbox',
     })
 
-    // Every earlier row's job leaves it to the newest.
     vi.mocked(findInboxItemForRecipient).mockResolvedValue(burst[7]!.row)
     await expect(
       runInboxPush(ORG, { ...payload, itemId: 'i8', stamp: burst[7]!.row.updatedAt.toISOString() }, first, sender)
@@ -355,7 +349,6 @@ describe('a burst of news on the reader’s own marks is one notification', () =
   })
 
   it('counts only the rows the reader’s categories push, and a newer row they get no push for does not take the telling', async () => {
-    // i1 is a reply in a thread the reader only takes part in (activity, off by default); i2–i4 are on their own marks.
     const participant = news('i1', 0, 'reply', false)
     const own = [news('i2', 1, 'resolved', true), news('i3', 2, 'resolved', true), news('i4', 3, 'dismissed', true)]
     serveBurst([participant, ...own], own[0]!)
@@ -370,7 +363,6 @@ describe('a burst of news on the reader’s own marks is one notification', () =
     })
     expect(vi.mocked(viewInboxItemAs).mock.calls.map(([, item]) => item.id)).not.toContain('i1')
 
-    // The participant's own row is not pushed at all.
     vi.mocked(findInboxItemForRecipient).mockResolvedValue(participant.row)
     await expect(runInboxPush(ORG, payload, first, sender)).resolves.toEqual({ sent: false, reason: 'category-off' })
   })

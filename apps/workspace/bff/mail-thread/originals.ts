@@ -1,29 +1,4 @@
 import 'server-only'
-/**
- * A filed message's original `.eml` (ADR-0137, D6): evidence, kept beside its
- * section of the E-Mail-Verlauf, never a document, never indexed, never read
- * by a model.
- *
- * **The move** ({@link finishOriginalMove}). Filing a message marks its mail's
- * raw message as moving (`inbound_mails.original_move_pending_at`, in the
- * commit of the entry); this copies it to `_mail-originals/<entryId>.eml` in
- * the same bucket, reads the copy back and checks its SHA-256, records it on
- * the entry, and only then erases the staged raw by its key and forgets the
- * key. Every step finds what the step before it left, so a run that stopped
- * anywhere is finished by the next run of the filing job or by sweep 13, and
- * no step loses the bytes: the raw is erased only once the copy is proven.
- *
- * **The download** ({@link readEntryOriginal}). Anyone who may read the
- * Verlauf may download it (D9): the office's `inbound-mail` entitlement,
- * `project:view`, and the thread document screened, live and in a folder they
- * may open. It is scanned WHOLE on every request (C5, `ScanMail`, so clamd
- * opens the MIME tree itself): signatures change, and a verdict from the day it
- * arrived says nothing about today. Served only on a clean answer (409
- * `original_not_clean` otherwise), never sniffed or run, and audited
- * (`mail_thread.original_read`); a rate limit bounds the scanning
- * (`MAIL_ORIGINAL_DOWNLOAD_LIMIT`). No agent door offers it (withheld,
- * `evidence`).
- */
 
 import { createHash } from 'node:crypto'
 import { captureServer } from '@/lib/analytics/posthog-server'
@@ -50,7 +25,6 @@ import { findEntry, forgetMovedRaw, recordEntryOriginal } from './write-reposito
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
-/** The raw message's scan as an entry's original keeps it: the verdict it was shown with. */
 function originalScanOf(
   mail: Pick<InboundMailRow, 'rawScanStatus' | 'rawScannedAt'>
 ): Pick<MailThreadEntryRow, 'originalScanStatus' | 'originalScannedAt'> {
@@ -60,12 +34,6 @@ function originalScanOf(
   }
 }
 
-/**
- * Move a filed message's raw message to its entry's original, retry-safe (see
- * the module header). `mail` is the row as the caller read it; `entry` the
- * entry the mail was filed as. Throws when a store step fails or the copy does
- * not read back as the bytes, for the caller's queue to retry; the raw stays.
- */
 export async function finishOriginalMove(
   mail: Pick<
     InboundMailRow,
@@ -108,7 +76,6 @@ export async function finishOriginalMove(
   return 'moved'
 }
 
-/** The entry of a thread the reader may read, or 404. */
 async function readableEntry(
   session: AuthorizedSession,
   projectId: string,
@@ -127,13 +94,6 @@ async function readableEntry(
   return entry
 }
 
-/**
- * The original `.eml` of a filed message (`mail-thread-entry-original-get`),
- * scanned whole on this request (see the module header). 404 for a message
- * whose thread the reader may not read; `gone` for one that has no original (an
- * archive entry, or one whose move has not finished); `original_not_clean`
- * unless the scan said clean.
- */
 export async function readEntryOriginal(
   session: AuthorizedSession,
   projectId: string,

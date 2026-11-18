@@ -25,9 +25,7 @@ import { FieldPair, FieldStack, KeyFieldRow, RailBody, RailSection } from './sea
 export interface SearchFilterFormProps {
   state: SearchUrlState
   onChange: (next: SearchUrlState) => void
-  /** Offers „Von mir hochgeladen“ when known. */
   currentUserId?: string
-  /** Open from the start (the preview, a phone that asked for filters). */
   defaultOpen?: boolean
 }
 
@@ -38,11 +36,6 @@ function numberOrUndefined(value: string): number | undefined {
   return Number.isFinite(number) ? number : undefined
 }
 
-/**
- * The three filters a drawing is found by in the Jour fixe: Plannummer, Index
- * and „Nur aktuelle Fassung“. The rail's first group, always open, because
- * they are typed rather than counted and are what an office reaches for first.
- */
 export function SearchKeyFilters({ state, onChange }: Pick<SearchFilterFormProps, 'state' | 'onChange'>): JSX.Element {
   const t = useTranslations(searchCopy, 'filters')
   const f = state.filters
@@ -80,17 +73,6 @@ export function SearchKeyFilters({ state, onChange }: Pick<SearchFilterFormProps
   )
 }
 
-/**
- * The rest of the structured filters of `DocumentFilters` that are typed
- * rather than counted: Planstand, Maßstab, Ort, Angaben, Hochgeladen, Seiten.
- * What the rail counts (Beteiligte, Verweist auf, Dateityp) is chosen in its
- * facet group and nowhere else, so no filter has two controls; a party's name,
- * which no count lists, is typed inside the Beteiligte group
- * (`PartyNameFilter`). Folded under „Weitere Filter“: they are
- * reached for less, and a rail that shows them all buries the counts. A typed
- * field takes effect on Enter or when it loses focus, so the search does not
- * run on every keystroke of a number.
- */
 export function SearchFilterForm({ state, onChange, currentUserId, defaultOpen = false }: SearchFilterFormProps): JSX.Element {
   const t = useTranslations(searchCopy, 'filters')
   const f = state.filters
@@ -154,7 +136,6 @@ export function SearchFilterForm({ state, onChange, currentUserId, defaultOpen =
   )
 }
 
-/** The props of {@link CommitText}. */
 interface CommitTextProps {
   label: string
   hint?: string
@@ -163,25 +144,15 @@ interface CommitTextProps {
   value: string
   onCommit: (value: string) => void
   clearOnCommit?: boolean
-  /** Offer the values the documents hold for this filter (`useFilterSuggestions`). */
   suggest?: Omit<SuggestQuestion, 'prefix'>
-  /** A comma-separated list: the completions are for the entry being typed, and a taken one is appended. */
   list?: boolean
   testId?: string
 }
 
-/**
- * A text field that takes effect on Enter or blur, keyed to its committed
- * value so the URL resets it. With `suggest` it completes from what the
- * office's documents hold, each value with its count, so a person picks
- * „Atelier Lindner ZT GmbH“ instead of guessing its spelling; taking one
- * applies it at once.
- */
 function CommitText(props: CommitTextProps): JSX.Element {
   return <CommitTextField key={props.value} {...props} />
 }
 
-/** The words a completion shows: the documents' own spelling, and for a reference its kind. */
 function useSuggestOptions(dimension: SuggestDimension | undefined): (values: readonly FacetCount[]) => SuggestOption[] {
   const t = useTranslations(searchCopy, 'filters')
   return (values) =>
@@ -337,7 +308,6 @@ function NumberRange({
   const [draftMax, setDraftMax] = useState(max === undefined ? '' : String(max))
   const nextMin = numberOrUndefined(draftMin)
   const nextMax = numberOrUndefined(draftMax)
-  // A range that ends before it starts finds nothing: it is marked, not sent.
   const invalid = nextMin !== undefined && nextMax !== undefined && nextMin > nextMax
   const commit = (): void => {
     if (invalid) return
@@ -368,10 +338,6 @@ function Flag({ label, checked, onChange, testId }: { label: string; checked: bo
   )
 }
 
-/**
- * A party by name, inside the Beteiligte group: the roles are counted there,
- * a name is typed. Enter adds it as a chip and empties the field for the next.
- */
 export function PartyNameFilter({ state, onChange }: Pick<SearchFilterFormProps, 'state' | 'onChange'>): JSX.Element {
   const t = useTranslations(searchCopy, 'filters')
   const f = state.filters
@@ -392,12 +358,6 @@ export function PartyNameFilter({ state, onChange }: Pick<SearchFilterFormProps,
   )
 }
 
-/**
- * A reference beyond the ones the Verweist auf group counts, inside that
- * group: the counts list the thirty most cited, a norm cited twice is found by
- * typing. Taking a completion adds its token; Enter on typed words adds them
- * as they are, which the filter matches in any reference's number or label.
- */
 export function CitesFilter({ state, onChange }: Pick<SearchFilterFormProps, 'state' | 'onChange'>): JSX.Element {
   const t = useTranslations(searchCopy, 'filters')
   const f = state.filters
@@ -432,7 +392,6 @@ function FactAdder({ onAdd }: { onAdd: (fact: { key: DossierFactKey; equals?: st
   const upper = numberOrUndefined(max)
   const inverted = lower !== undefined && upper !== undefined && lower > upper
   const ready = numeric ? !inverted && (lower !== undefined || upper !== undefined) : equals.trim() !== ''
-  // Never greyed out (a disabled button cannot say why): a press with nothing to add says so under the fields.
   const [tried, setTried] = useState(false)
   const missing = tried && !ready && !inverted
   const factValues = useFilterSuggestions(numeric ? null : { dimension: 'fact', factKey: key }, equals, focused)
@@ -473,7 +432,6 @@ function FactAdder({ onAdd }: { onAdd: (fact: { key: DossierFactKey; equals?: st
           <Input inputMode="decimal" placeholder={t('max')} aria-label={t('max')} value={max} onChange={(event) => setMax(event.target.value)} onKeyDown={onKeyDown} data-testid="filter-fact-max" />
         </FieldPair>
       ) : (
-        // The values the documents state for this Angabe, „GK 4“ as they write it; taking one adds it.
         <SuggestInput
           placeholder={t('factValue')}
           aria-label={t('factValue')}

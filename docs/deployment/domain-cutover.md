@@ -73,7 +73,7 @@ NEW_DEV="dev.$NEW"
 
 The values to set on switch day, per stack. Keys are written without the project's
 namespace, as `pulumi config set <key>` takes them in `deploy/pulumi`. Never touch a `secure:`
-value by hand (`deploy/AGENTS.md`); set secrets with `pulumi config set --secret` or ESC.
+value by hand (`deploy/README.md`); set secrets with `pulumi config set --secret` or ESC.
 
 ### Prod (`deploy/pulumi/Pulumi.prod.yaml`)
 
@@ -177,7 +177,9 @@ with the owner's go-ahead):
 | Replay trigger "Baseline sample (production only)" | URL regex for the former app host | `^https://app\.$NEW(/|$)` with the dots escaped; during the transition match both hosts |
 | Conversations widget domains | `https://app.$OLD/`, `https://app.dev.$OLD/` | `https://app.$NEW/`, `https://app.$NEW_DEV/` |
 | Cookieless server hash mode | `0` (off) | **Stateful** (Settings → Web analytics). Independent of the move and needed now: without it PostHog drops every cookieless website event (`apps/website/README.md`, Analytics) |
-| Hog functions (`deploy/posthog/README.md`) | `default_host` = `app.$OLD`, `allowed_hosts` = both former app hosts | `default_host` = `app.$NEW`; `allowed_hosts` adds `app.$NEW`, `app.$NEW_DEV` |
+| Hog functions (`deploy/posthog/README.md`) | `default_host` = `app.$OLD`, `allowed_hosts` = both former app hosts | `default_host` = `app.$NEW`; `allowed_hosts` adds `app.$NEW`, `app.$NEW_DEV`; the thumbs-down destination's `$host` filter adds `app.$NEW`. An edit to an enabled destination is staged as a draft: publish it |
+| Saved insights and alerts that select production by host | `= 'app.$OLD'` | `IN ('app.$OLD', 'app.$NEW')`, and a staging exclusion of `app.dev.$OLD` also excludes `app.dev.$NEW`. Find them with `SELECT short_id, name FROM system.insights WHERE NOT deleted AND position(toString(query), 'app.$OLD') > 0 AND position(toString(query), 'app.$NEW') = 0`. The repo copies under `deploy/posthog/` are checked by `tests/test_posthog_alert_sources.py`; the saved insights only by this query. Missed on 2026-11-15: 61 insights, three alerts among them, read zero for two days |
+| SQL variable `piloti_deployment` | choices and default `app.$OLD` | add `app.$NEW`, `app.$NEW_DEV` to its values; default `app.$NEW` |
 
 ### Langfuse and Qdrant
 
@@ -261,7 +263,8 @@ the image's input hash for `web` changes.
    ```
    Sign in on `https://app.$NEW` (AuthKit's session cookie is per host, so everyone signs in
    once more), open a document preview (S3), connect an agent to the new URL.
-8. Search Console Change of Address; PostHog replay regex; a release note for the move.
+8. Search Console Change of Address; PostHog replay regex, saved insights, alerts, destinations
+   and the `piloti_deployment` variable (the PostHog table above); a release note for the move.
 
 **Months later (the sunset):** the former hosts serve agents only until `formerBaseDomain` is
 unset, so that is a decision, made on evidence: the gateway's access log (or the frontend's

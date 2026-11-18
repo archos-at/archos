@@ -1,13 +1,3 @@
-"""A `.gitignore` directory pattern is anchored unless its name never names source.
-
-An unanchored `name/` matches at ANY depth, so `coverage/` (vitest's output) also
-ignored the app route `app/api/base-knowledge/coverage/route.ts`: the file built
-locally, was never committed, and CI failed on an unresolvable import (PR 1574,
-docs/contributing/gotchas.md). `parts/` and `lib/` did the same before. A new
-output directory is written `/name/`, relative to its `.gitignore`; a name may
-stay unanchored only if it is listed here with why no source tree uses it.
-"""
-
 from __future__ import annotations
 
 import re
@@ -16,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: Names that may match at any depth, because each is a tool's output and never a source folder.
 ANY_DEPTH = {
     "__pycache__": "Python's bytecode cache",
     "node_modules": "npm's install tree",

@@ -1,20 +1,12 @@
-"""The proposal cards, each waiting for the person's yes.
-
-A project-profile patch, a memory and a workspace operation.
-"""
-
 from typing import Any
 from typing import Literal
 
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
 
 from agent.cards.card_model import CardModel
 
-# Canonical project-profile fact keys (mirrors the intake definition in
-# apps/workspace/bff/project-profile/intake-definition.ts). Included in the
-# emit_card guidance so the model patches known keys with valid values instead
-# of inventing near-duplicates ("gebaeudeklasse" vs "building_class").
 PROFILE_FACT_VOCABULARY = (
     "main_use: residential|office|lodging|assembly|healthcare|agriculture|manufacturing|storage|other; "
     "building_class: GK1|GK2|GK3|GK4|GK5; "
@@ -30,24 +22,19 @@ PROFILE_FACT_VOCABULARY = (
 )
 
 
-#: A server proposal's id (``POST /api/internal/proposals``, ADR-0105).
 PROPOSAL_ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-#: Fields of a model-composed card that only the server may fill. Stripped from
-#: whatever the model writes (``cards/envelope.validate_model_card``) and hidden
-#: from the shapes the model is taught (``cards/catalog._shape``): an id the model
-#: made up would point a person's Accept at somebody else's proposal.
 SERVER_FILLED_CARD_FIELDS = frozenset({"proposal_id"})
 
 
-#: Fields the server stamps while a card validates (``FormulaCard.site_binding``): replaced whatever the model
-#: wrote, and hidden from the shapes like the fields above.
 SERVER_SET_CARD_FIELDS = SERVER_FILLED_CARD_FIELDS | {"site_binding"}
 
 
 class ProjectProfilePatchOperation(CardModel):
-    """A JSON Patch operation targeting a project profile section."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "A JSON Patch operation targeting a project profile section."}
+    )
 
     op: Literal["add", "replace", "remove"]
     path: str = Field(
@@ -78,7 +65,7 @@ class ProjectProfilePatchOperation(CardModel):
 
 
 class ProjectProfilePatchPreviewItem(CardModel):
-    """A before/after preview for a single patched field."""
+    model_config = ConfigDict(json_schema_extra={"description": "A before/after preview for a single patched field."})
 
     label: str
     before: str
@@ -86,7 +73,13 @@ class ProjectProfilePatchPreviewItem(CardModel):
 
 
 class ProjectProfilePatchCard(CardModel):
-    """Propose an update to the project brief (hard project facts) — applied only if the user accepts."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Propose an update to the project brief (hard project facts) — applied only if the user accepts."
+            )
+        }
+    )
 
     type: Literal["project_profile_patch"] = "project_profile_patch"
     title: str = Field(description='Short action title, e.g. "Projektkontext aktualisieren: Fluchtniveau"')
@@ -115,13 +108,19 @@ class ProjectProfilePatchCard(CardModel):
 
 
 class MemoryProposalCard(CardModel):
-    """A proposal to save a finding to long-term memory, confirmed by the user.
-
-    System-emitted by the `remember` tool when an org-scoped write needs human
-    authorization. With `proposal_id` the note is a stored proposal (kind
-    `memory`) the server files in the accepting person's session, org-wide or,
-    if they choose, in the project; without one the browser writes it through the
-    reader's own session."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "A proposal to save a finding to long-term memory, confirmed by the user.\n"
+                "\n"
+                "System-emitted by the `remember` tool when an org-scoped write needs human\n"
+                "authorization. With `proposal_id` the note is a stored proposal (kind\n"
+                "`memory`) the server files in the accepting person's session, org-wide or,\n"
+                "if they choose, in the project; without one the browser writes it through the\n"
+                "reader's own session."
+            )
+        }
+    )
 
     type: Literal["memory_proposal"]
     title: str = Field(min_length=1, description="Short title for the memory proposal")
@@ -133,7 +132,6 @@ class MemoryProposalCard(CardModel):
         max_length=500,
         description="The earlier note this one corrects, quoted verbatim; accepting the proposal retires it",
     )
-    # default_factory, not default: an absent topic is an optional field in the generated schema, not a null default.
     topic: str | None = Field(
         default_factory=lambda: None,
         max_length=40,
@@ -150,16 +148,21 @@ class MemoryProposalCard(CardModel):
 
 
 class OperationProposalCard(CardModel):
-    """A workspace operation the agent PROPOSES through the MCP surface and a person runs.
-
-    System-emitted for a write operation the agent called on the product's own MCP
-    server (ADR-0122): the call changed nothing, it stored an ``operation``
-    proposal (ADR-0105) and this card shows it. Accepting runs the operation
-    as the ACCEPTING person through the operation's own route, so that route's
-    authorization decides; dismissing runs nothing. ``proposal_id`` is
-    required: a call that stored no proposal has no card, and says so in its
-    own result text.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "A workspace operation the agent PROPOSES through the MCP surface and a person runs.\n"
+                "\n"
+                "System-emitted for a write operation the agent called on the product's own MCP\n"
+                "server (ADR-0122): the call changed nothing, it stored an ``operation``\n"
+                "proposal (ADR-0105) and this card shows it. Accepting runs the operation\n"
+                "as the ACCEPTING person through the operation's own route, so that route's\n"
+                "authorization decides; dismissing runs nothing. ``proposal_id`` is\n"
+                "required: a call that stored no proposal has no card, and says so in its\n"
+                "own result text."
+            )
+        }
+    )
 
     type: Literal["operation_proposal"] = "operation_proposal"
     title: str = Field(min_length=1, description="The one-line English description of what accepting would do")

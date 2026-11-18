@@ -1,8 +1,3 @@
-/**
- * Piloti's work on a mark, read off its newest wake: what each wake status
- * shows, and for how long an end without an answer stays said.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -26,7 +21,7 @@ const wake = (patch: Partial<Parameters<typeof agentWorkOf>[0]>): Parameters<typ
 })
 
 describe('agentWorkOf', () => {
-  it('says Piloti is on it while queued, and working once its turn started, for whom', () => {
+  it('says the agent is on it while queued, and working once its turn started, for whom', () => {
     expect(agentWorkOf(wake({}), 'Anna Berger', NOW)).toMatchObject({
       state: 'queued',
       forUserId: 'user_anna',

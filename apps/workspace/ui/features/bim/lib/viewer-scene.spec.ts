@@ -1,14 +1,3 @@
-/**
- * The lighting is a design decision, so it is pinned like one.
- *
- * These assertions are not "the renderer works" — they are the handful of
- * relationships that stop a future tweak from quietly breaking the look:
- * the sun stays above the horizon and in front of the camera, the ground stays
- * darker than the sky so the building stands on something, and dark mode keeps
- * its rim light, which is the only thing separating a dark model from a dark
- * background.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   observeViewerTheme,
@@ -19,7 +8,6 @@ import {
   viewerEnvironment,
 } from './viewer-scene'
 
-/** Rough relative brightness — enough to order two bands of the same gradient. */
 const luminance = (channels?: readonly number[]): number =>
   (channels ?? []).reduce((sum, value) => sum + value, 0)
 
@@ -45,11 +33,6 @@ describe('viewerEnvironment', () => {
   )
 
   it('brightens upward on paper and toward the horizon on charcoal', () => {
-    // Not the same gradient inverted. On paper the light comes from above, so
-    // the zenith is the brightest band and the model reads against a lit sky.
-    // On charcoal that would put the darkest value directly behind the roof
-    // and lose the silhouette, so dark mode keeps a lighter band AT the
-    // horizon — a soft glow the building stands in front of.
     const light = viewerEnvironment('light').sky
     expect(luminance(light?.horizon)).toBeLessThan(luminance(light?.zenith))
 
@@ -58,8 +41,6 @@ describe('viewerEnvironment', () => {
   })
 
   it('keeps enough ambient that a north facade is still readable', () => {
-    // A physically honest ambient leaves interiors black. This is a viewer:
-    // an architect has to be able to see the thing they clicked.
     expect(viewerEnvironment('light').ambientIntensity ?? 0).toBeGreaterThan(0.3)
     expect(viewerEnvironment('dark').ambientIntensity ?? 0).toBeGreaterThan(0.3)
   })
@@ -116,17 +97,6 @@ describe('readViewerTheme', () => {
   })
 })
 
-/**
- * The observer runs against a stand-in rather than the real thing.
- *
- * happy-dom ships a `MutationObserver` that never delivers attribute records,
- * so observing `<html>` for real here would assert nothing while looking like
- * it asserted everything — the worst kind of green. The stand-in gives the
- * test the one control it needs: deliver a record, now. What is under test is
- * this module's own logic — that it observes the right node and attribute,
- * that it reports only an actual theme CHANGE, and that disconnecting stops it
- * — and none of that depends on the DOM implementation.
- */
 describe('observeViewerTheme', () => {
   let deliver: (() => void) | null = null
   let observed: { target: unknown; options: MutationObserverInit } | null = null
@@ -160,14 +130,10 @@ describe('observeViewerTheme', () => {
   it('watches the class on the element the theme actually lives on', () => {
     observeViewerTheme(() => {})
     expect(observed?.target).toBe(document.documentElement)
-    // Filtered, so the app's other classes do not wake the viewport.
     expect(observed?.options.attributeFilter).toEqual(['class'])
   })
 
   it('reports a switch that happens under an open viewport', () => {
-    // The theme can be `system`, in which case this fires at sunset with
-    // nobody touching anything. Reading it once at load left the model lit for
-    // the wrong environment, with no control on screen to correct it.
     const seen: string[] = []
     observeViewerTheme((theme) => seen.push(theme))
 
@@ -181,8 +147,6 @@ describe('observeViewerTheme', () => {
   })
 
   it('stays quiet when the class changed but the theme did not', () => {
-    // The callback redraws the viewport. Every unrelated class the app writes
-    // onto `<html>` would otherwise cost a frame.
     const seen: string[] = []
     observeViewerTheme((theme) => seen.push(theme))
 

@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the shared project-section chrome on a phone, for any section
- * (`/dev/projects/demo/settings`, `/automation`, `/knowledge`, …): the shell's
- * phone header and tab bar as stand-ins, the real `ProjectSectionFrame` between
- * them, and a marker where the page's own content begins
- * (`data-testid="content-start"`), so a capture can measure how far down the
- * screen the chrome pushes it. Dateien has its own page next door
- * (`../files`), which renders the real workspace.
- *
- * 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { use } from 'react'
 import { notFound } from 'next/navigation'

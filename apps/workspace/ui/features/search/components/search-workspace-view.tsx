@@ -52,7 +52,6 @@ export interface SearchWorkspaceViewProps {
   surface: SearchSurface
   state: SearchUrlState
   onStateChange: (next: SearchUrlState) => void
-  /** What the field shows, ahead of `state.text` while the reader types. */
   fieldValue: string
   onFieldChange: (value: string) => void
   response: SearchResponse | null
@@ -61,20 +60,15 @@ export interface SearchWorkspaceViewProps {
   failed: boolean
   onRetry: () => void
   onLoadMore: (kind: SearchKind) => void
-  /** Absent: no export offered. Offered in the register view only, where the Planliste it writes is on screen. */
   onExport?: (format: SearchExportFormat) => void
   exporting?: boolean
-  /** The saved searches control (`SavedSearchesMenu`), wired by the caller: one button, saving included. */
   savedSearches?: ReactNode
-  /** Controls before the view switch: the way back to the Dateien. */
   leading?: ReactNode
   currentUserId?: string
   autoFocus?: boolean
-  /** Open the rail's further filters from the start, and under `md` the filter sheet. */
   filtersOpen?: boolean
 }
 
-/** The hits in the order the arrow keys walk them: the list's sections in turn, or the register's rows. */
 function walkOrder(view: SearchView, sections: Partial<Record<SearchKind, SectionView>>): SearchHit[] {
   if (view === 'register') return sections.document?.hits ?? []
   return SEARCH_KINDS.flatMap((kind) => sections[kind]?.hits ?? [])
@@ -82,27 +76,9 @@ function walkOrder(view: SearchView, sections: Partial<Record<SearchKind, Sectio
 
 const hitKey = (hit: SearchHit): string => `${hit.kind}:${hit.id}`
 
-/** The platform's key for "the menu of the thing I am on": Shift+F10, or the keyboard's own menu key. */
 export const isMenuKey = (event: Pick<KeyboardEvent, 'key' | 'shiftKey'>): boolean =>
   event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)
 
-/**
- * The search, at any scope: the field, the facets and filters beside the
- * result, the result as a list of what matched or as the register. It holds
- * no question of its own; the question is `state`, which the caller keeps in
- * the URL (`SearchWorkspace`) or, in the preview, in memory.
- *
- * The toolbar is set as the Dateien header sets its own: the view as an icon
- * pair, the secondary actions as quiet icon buttons with their name on hover
- * (saved searches, and in the register the export), so no row of equal
- * labelled buttons competes with the field. Under `md` the rail is a sheet
- * behind „Filter“, the one labelled control, so the first result sits under
- * the field.
- *
- * The keyboard: ⌘K / Strg+K focuses the field from anywhere on the page; in
- * the field ↑ and ↓ walk the results, Enter opens the one marked, Shift+F10
- * (or the menu key) opens the marked document's ⋯, Escape clears the words.
- */
 export function SearchWorkspaceView({
   surface,
   state,
@@ -134,8 +110,6 @@ export function SearchWorkspaceView({
   const filterCount = activeFilterCount(state)
   const officeWide = surface.kind === 'office'
 
-  // ⌘K / Strg+K: here it is the field, the page's own command line. Caught
-  // before the shell's palette chord, which would open the palette over it.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent): void => {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
@@ -154,11 +128,9 @@ export function SearchWorkspaceView({
 
   const order = useMemo(() => walkOrder(state.view, sections), [state.view, sections])
   const [activeKey, setActiveKey] = useState<string | null>(null)
-  // The keys are taught where they work: in the field, until the first arrow.
   const [fieldFocused, setFieldFocused] = useState(false)
   const [menuKey, setMenuKey] = useState<string | null>(null)
   const hitMenus = useMemo<HitMenuState>(() => ({ openKey: menuKey, onOpenKeyChange: setMenuKey }), [menuKey])
-  // The combobox's ids: each kind's listbox (or the register's table) and each hit's option.
   const idPrefix = useId()
   const listId = (kind: SearchKind): string => `${idPrefix}-list-${kind}`
   const registerId = `${idPrefix}-register`
@@ -166,7 +138,6 @@ export function SearchWorkspaceView({
   const activeHit = order.find((hit) => hitKey(hit) === activeKey)
   const controls =
     state.view === 'register' ? registerId : SEARCH_KINDS.filter((kind) => (sections[kind]?.hits.length ?? 0) > 0).map(listId).join(' ')
-  // A new answer starts the walk again at the top.
   const [seen, setSeen] = useState(response)
   if (seen !== response) {
     setSeen(response)
@@ -208,7 +179,6 @@ export function SearchWorkspaceView({
     null
 
   const onFacet = (dimension: SearchFacetDimension, value: string): void => onStateChange(toggleFacet(state, dimension, value))
-  // The register shows the documents alone, so it counts them alone.
   const visibleSections = (state.view === 'register' ? [sections.document] : Object.values(sections)).filter(
     (section): section is SectionView => Boolean(section)
   )
@@ -216,16 +186,12 @@ export function SearchWorkspaceView({
   const total = visibleSections.reduce((sum, section) => sum + section.total, 0)
   const lowerBound = visibleSections.some((section) => section.totalIsLowerBound)
   const documents = sections.document as SectionView<DocumentHit> | undefined
-  // A phone cut the long placeholder mid-word: there it is one word.
   const placeholder = phone ? t('field.placeholderShort') : t(`field.placeholder.${surface.kind}`)
   const building = response?.building.length ?? 0
   const oneKind = state.view === 'list' && state.kinds?.length === 1 ? state.kinds[0] : null
-  // Kinds a filter that is set cannot narrow are not searched (`setAsideKinds`); the list says which, once.
   const setAside = state.view === 'list' ? (response?.setAside ?? {}) : {}
   const kindTabs = SEARCH_KINDS.filter((kind) => officeWide || kind !== 'project')
-  // Every tab its count, or none: a count shows only once it is known (`kindCountsKnown`).
   const countsKnown = kindCountsKnown(response, kindTabs)
-  // On a phone the note is one line and the greyed tab carries the whole sentence.
   const setAsideNotes = (['document_filters', 'annotation_filters'] as const).flatMap((reason) => {
     const named = SEARCH_KINDS.filter((kind) => setAside[kind] === reason && (officeWide || kind !== 'project'))
     if (named.length === 0) return []
@@ -241,15 +207,9 @@ export function SearchWorkspaceView({
       : lowerBound
         ? t('summaryAtLeast', { count: total })
         : t('total', { count: total })
-  // The shelves still being read are said once, short, in the status line;
-  // when a filter that is set depends on what they hold, the same clause says
-  // what that costs.
-  // On a phone the short clause always: the line above the first hit stays one line.
   const buildingNote = filtersByReading(state) && !phone ? 'notes.buildingFiltered' : 'notes.buildingShort'
   const statusLine = status && building > 0 && anyHits && !loading ? `${status} · ${t(buildingNote, { count: building })}` : status
 
-  // The typed filters an office reaches for first lead, always open; the
-  // counts follow; the rest waits behind „Weitere Filter“.
   const rail = (
     <>
       <SearchKeyFilters state={state} onChange={onStateChange} />
@@ -265,7 +225,6 @@ export function SearchWorkspaceView({
     </>
   )
 
-  // An empty answer offers the ways out that can change it, not a sentence about them.
   const emptyActions = [
     filterCount > 0 ? (
       <Button key="clear" type="button" variant="secondary" size="sm" onClick={() => onStateChange(clearFilters(state))} data-testid="search-empty-clear">
@@ -445,7 +404,6 @@ export function SearchWorkspaceView({
           title={building > 0 ? t('empty.readingTitle') : t('empty.title')}
           description={emptyDescription}
           action={emptyActions.length > 0 ? <EmptyActions>{emptyActions}</EmptyActions> : undefined}
-          // Bare, as Dateien draws a filter that matches nothing: the answer is the page, not a card on it.
           variant="bare"
           data-testid="search-empty"
         />

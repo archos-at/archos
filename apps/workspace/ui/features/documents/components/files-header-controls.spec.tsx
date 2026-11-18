@@ -39,7 +39,6 @@ describe('FilesHeaderControls', () => {
     german(controls({ opensSearch: true, onSubmit, value: 'EP-03' }))
     const field = screen.getByRole('textbox', { name: 'Dateien durchsuchen' })
     expect(field).toHaveAttribute('placeholder', 'Filtern, Enter sucht alles…')
-    // No second door beside it.
     expect(screen.queryByRole('button', { name: 'Suche' })).toBeNull()
     await userEvent.type(field, '{Enter}')
     expect(onSubmit).toHaveBeenCalledTimes(1)
@@ -53,7 +52,6 @@ describe('FilesHeaderControls', () => {
     expect(screen.getByRole('textbox', { name: 'Dateien durchsuchen' })).toHaveAttribute('placeholder', 'Suchen…')
   })
 
-  // Ticket #38, topic 11: the field stood 4px taller than the Filter and Hochladen beside it.
   it('stands the search exactly as tall as the buttons beside it, wide and on a phone', () => {
     const filter = (compact: boolean): ReactElement => (
       <Button size={compact ? 'icon' : 'sm'} data-testid="filter">Filter</Button>
@@ -68,7 +66,6 @@ describe('FilesHeaderControls', () => {
     }
     expect(field).not.toHaveClass('h-9')
     unmount()
-    // A phone's row is the filter glyph and ⋯, `icon` buttons: 36px, and the field is too.
     german(controls({ onSubmit: () => {} }, true, { filter }))
     expect(screen.getByRole('textbox', { name: 'Dateien durchsuchen' })).toHaveClass('h-9')
     expect(screen.getByTestId('filter')).toHaveClass('size-9')

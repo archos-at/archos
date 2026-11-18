@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The original `.eml`: the service's response (scanned whole, never sniffed) is passed through unchanged.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

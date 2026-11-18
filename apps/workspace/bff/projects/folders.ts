@@ -53,37 +53,10 @@ export function buildFolderPath(parentPath: string | null | undefined, name: str
   return normalizedParent ? `${normalizedParent}/${validated.name}` : validated.name
 }
 
-/**
- * The key two folder names are compared on when deciding whether they are THE
- * SAME folder.
- *
- * Used by the folder-upload planner in the browser and by the server that
- * resolves the same paths, which is why it lives here rather than in either of
- * them: a disagreement does not fail, it silently creates a second „Pläne"
- * beside the one that was already there and files half the project into it.
- *
- * Three normalizations, each for a case that happens:
- *
- *   - **Unicode form.** macOS stores filenames decomposed (NFD), so a folder
- *     dragged off a Mac arrives as `Pla\u0308ne` while the same name typed into
- *     Piloti is `Pl\u00e4ne`. They render identically and are different strings.
- *     This is the one that would have made folder matching look broken for
- *     exactly the users who bulk-upload.
- *   - **Case.** `PLAENE` and `Plaene` are one folder to a person, and the
- *     office server that produced the tree may not even preserve the case.
- *   - **Whitespace**, via {@link normalizeFolderName}, which also strips the
- *     separators a segment must not contain.
- *
- * Matching is deliberately looser than the database's uniqueness rule, which is
- * exact (migration 0063). That rule exists to stop a race between two identical
- * writes; this one answers a product question — "did the reader mean the folder
- * that is already here?" — and the honest answer to `PLAENE` vs `Plaene` is yes.
- */
 export function folderMatchKey(value: string): string {
   return normalizeFolderName(value).normalize('NFC').toLowerCase()
 }
 
-/** A folder path keyed for comparison segment by segment, with {@link folderMatchKey}; `''` is the shelf root. */
 export function folderPathKey(path: string | null | undefined): string {
   return (path ?? '')
     .split('/')
@@ -92,15 +65,8 @@ export function folderPathKey(path: string | null | undefined): string {
     .join('/')
 }
 
-/** Longest folder description; mirrors `project_folders_description_length` (migration 0145). */
 export const FOLDER_DESCRIPTION_MAX_LENGTH = 500
 
-/**
- * A folder description as it is stored: whitespace folded, trimmed, and `null`
- * for one that says nothing, so an emptied field clears the description rather
- * than storing a blank the database refuses. Too long is the caller's refusal,
- * not a silent cut: a person's sentence is not shortened behind their back.
- */
 export function normalizeFolderDescription(value: string | null | undefined): string | null {
   const text = (value ?? '').replace(/\s+/g, ' ').trim()
   return text ? text : null

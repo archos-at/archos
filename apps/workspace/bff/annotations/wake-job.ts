@@ -1,36 +1,3 @@
-/**
- * Run one wake of Piloti (ADR-0106): the `piloti_wake` job of the bff-jobs
- * pool, as the person whose act woke it.
- *
- * Everything is asked again here, because a wake can wait in the queue and
- * the person's rights are those of today, not of the moment they replied:
- *
- * 1. The person, resolved from WorkOS now (`resolvePinnedRequesterSession`);
- *    a person who left ends the wake.
- * 2. The organization's switch, from their session's flags.
- * 3. Their right to write the document, and the mark still there.
- * 4. The caps, counting the wakes recorded ahead of this one.
- * 5. Their thread about the document (`./document-thread.ts`), and the
- *    trigger written into it as a message: who, which mark, what they wrote.
- * 6. The turn context for their pinned session and that thread
- *    (`resolveTurnContext`), which refuses a spent budget.
- * 7. The chat socket, opened as an internal caller with the signed envelope
- *    (the thread inside it) and `X-Chat-Mode: headless`
- *    (`lib/turns/headless-turn.ts`), and one `user_message` with `trigger`,
- *    `if_idle`, the mark's region and `reply_in_thread`.
- *
- * A turn already running in the thread is never superseded (`if_idle`): the
- * answer is `busy`, and the job waits (`notBefore`) without spending an
- * attempt. `duplicate_turn` is a wake already answered. Every way it ends
- * without a turn is recorded on its `agent_wakes` row and in the audit trail;
- * a turn that started is in the trail as `piloti.wake.started` and has its
- * trace in Langfuse. A wake that was refused or gave up is then ended as a
- * turn's end is (`lib/turns/outcome.ts`): a delegated mark is handed back, the
- * trail records the end (`piloti.wake.ended`), and the person who woke Piloti
- * hears why (`piloti.work_failed`). A suppressed wake tells nobody: the
- * person's own act, a rule or a cap held it (`piloti.wake.suppressed`).
- */
-
 import 'server-only'
 import { ApiError, isAuthzRefusal } from '@/lib/api/errors'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
@@ -57,8 +24,8 @@ import { delegationEventId } from './wake-ids'
 import { announceAgentWork } from './agent-work'
 import { findWake, handBackDelegation, settleWake } from './wake-repository'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
-/** The hello entries a server must name before a wake is sent: without `if_idle` it would supersede. */
 export const WAKE_REQUIRES = [
   'user_message.trigger',
   'user_message.if_idle',
@@ -66,29 +33,24 @@ export const WAKE_REQUIRES = [
   'user_message.reply_in_thread',
 ] as const
 
-/** How often a wake waits (a busy thread, no server) before it gives up. ~45 minutes in all. */
 export const MAX_WAKE_WAITS = 12
 const FIRST_WAIT_MS = 15_000
 const LONGEST_WAIT_MS = 5 * 60_000
 
-/** How long the wake waits before it asks again, after `waits` waits. */
 export const waitAfter = (waits: number): number => Math.min(FIRST_WAIT_MS * 2 ** waits, LONGEST_WAIT_MS)
 
 type Result = JobSliceResult<AgentWakePayload>
 
-/** What the turn is asked: the reply that woke Piloti, or the mark handed to it. */
 function questionOf(payload: AgentWakePayload, mark: AnnotationRecord): string | null {
   if (payload.trigger === 'assigned') return mark.body
   return mark.replies.find((reply) => reply.id === payload.eventId)?.body ?? null
 }
 
-/** The line the thread keeps of the trigger: who, which mark, what they wrote. */
 function triggerLine(payload: AgentWakePayload, mark: AnnotationRecord, who: string, text: string): string {
   if (payload.trigger === 'assigned') return `${who} hat Anmerkung ${mark.number} an ${PRODUCT_NAME} delegiert: „${text}“`
   return `${who} in Anmerkung ${mark.number}: „${text}“`
 }
 
-/** The question as the wire carries it (`docs/api/websocket-protocol.md`, „A turn an event woke"). */
 export function wakeMessage(input: {
   payload: AgentWakePayload
   conversationId: string
@@ -114,7 +76,6 @@ export function wakeMessage(input: {
   }
 }
 
-/** Write the trigger into the thread, once: its id is the turn's, so a retry writes nothing. */
 async function recordTrigger(
   conversationId: string,
   payload: AgentWakePayload,
@@ -143,7 +104,6 @@ async function recordTrigger(
   ])
 }
 
-/** The wake as the audit trail names it (`./wake-audit.ts`). */
 const auditedWake = (
   organizationId: string,
   payload: AgentWakePayload,
@@ -160,7 +120,6 @@ const auditedWake = (
   markNumber: mark.number,
 })
 
-/** Hand a delegation still this wake's back, and tell the room; whether it was handed back. Never throws. */
 async function handBack(organizationId: string, payload: AgentWakePayload, doc: Document, mark: AnnotationRecord) {
   const delegatedAt = mark.delegatedAt ? new Date(mark.delegatedAt) : null
   const ownsDelegation =
@@ -175,7 +134,7 @@ async function handBack(organizationId: string, payload: AgentWakePayload, doc: 
         kind: 'annotations.changed',
         annotationIds: [mark.id],
         change: 'updated',
-        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: 'piloti' },
+        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
       }).catch(() => undefined)
     }
     return handedBack
@@ -185,15 +144,6 @@ async function handBack(organizationId: string, payload: AgentWakePayload, doc: 
   }
 }
 
-/**
- * A wake the job ended without an answer (`refused`, or `failed` after its
- * waits or a rejected message), once this call settled it: afterwards the
- * same as a turn's end (`lib/turns/outcome.ts`). A delegation still this
- * wake's is handed back, so the mark stops reading „Piloti arbeitet daran",
- * the audit trail records the end (`piloti.wake.ended`, without a turn
- * outcome), and the person who woke Piloti is told why (`onWakeEnded`).
- * Nothing here fails the job.
- */
 async function afterEndWithoutAnswer(input: {
   organizationId: string
   payload: AgentWakePayload
@@ -224,7 +174,6 @@ async function afterEndWithoutAnswer(input: {
   })
 }
 
-/** The person's document, for writing, today; null when they may no longer write it. */
 async function writableDocument(session: AuthorizedSession, documentId: string): Promise<Document | null> {
   try {
     return await getAccessibleDocument(session, documentId, 'write')
@@ -241,10 +190,8 @@ export async function runAgentWake(
 ): Promise<Result> {
   const done: Result = { done: true, payload }
   const wake = await findWake(organizationId, payload.wakeId)
-  // Settled by an earlier run of this job, or gone with its mark.
   if (!wake || wake.status !== 'queued') return done
 
-  // Nothing to tell: the person's own act, a rule or a cap held it.
   const end = async (status: 'suppressed', reason: string): Promise<Result> => {
     if (await settleWake(organizationId, payload.wakeId, { status, reason })) {
       void announceAgentWork(wake)
@@ -268,13 +215,11 @@ export async function runAgentWake(
     organizationId,
   })
   if (!session) return end('suppressed', 'the person is no longer a member')
-  if (!wakesEnabled(session)) return end('suppressed', 'piloti-wakes is off for the organization')
+  if (!wakesEnabled(session)) return end('suppressed', 'agent-thread-replies is off for the organization')
   const doc = await writableDocument(session, payload.documentId)
   if (!doc) return end('suppressed', 'the person may no longer write the document')
   const mark = await findDocumentAnnotation(organizationId, doc.id, payload.annotationId)
   if (!mark) return end('suppressed', 'the mark is gone')
-  // Piloti was asked and did not answer: the person hears why, as from a turn's end. Only
-  // the settle that moved it from `queued` goes on: a turn that already reported its end adds nothing.
   const fail = async (status: 'refused' | 'failed', reason: string): Promise<Result> => {
     if (await settleWake(organizationId, payload.wakeId, { status, reason })) {
       void announceAgentWork(wake)
@@ -290,9 +235,6 @@ export async function runAgentWake(
       notBefore: new Date(Date.now() + waitAfter(payload.waits)),
     }
   }
-  // A delegation taken back (or re-delegated) since this wake was queued must
-  // not still run: the take-back suppresses the queued wake after its commit,
-  // and a crash in between would otherwise leave it to run anyway.
   if (
     payload.trigger === 'assigned' &&
     (!mark.delegatedAt || delegationEventId(mark.id, mark.delegatedAt) !== payload.eventId)
@@ -307,14 +249,12 @@ export async function runAgentWake(
   const text = questionOf(payload, mark)?.trim()
   if (!text) return end('suppressed', 'the reply is gone')
 
-  // The pinned session knows the person by name (`resolvePerson`), as a live one does.
   const authorName = session.name
   let conversationId: string
   try {
     conversationId = await ensureDocumentThread(session, doc)
   } catch (error) {
     if (isAuthzRefusal(error)) return end('suppressed', 'the person may no longer chat here')
-    // Their thread is being deleted: its id comes free once the erasure ran.
     if (error instanceof ApiError && error.status === 409) return wait('the thread is being deleted')
     throw error
   }
@@ -329,8 +269,6 @@ export async function runAgentWake(
     throw error
   }
   const secret = process.env.INTERNAL_API_TOKEN
-  // Without it the envelope is unsigned and the backend would not trust it: a
-  // deployment fault, which the queue's retries and dead row make visible.
   if (!secret) throw new Error('INTERNAL_API_TOKEN is not set: a wake cannot sign its turn')
 
   const outcome = await runHeadlessTurn({
@@ -344,8 +282,6 @@ export async function runAgentWake(
   switch (outcome.kind) {
     case 'started':
     case 'duplicate':
-      // Only the settle that moved it from `queued`: a second run of the job, or
-      // a turn that already reported its end, adds no line.
       if (await settleWake(organizationId, payload.wakeId, { status: 'started' })) {
         void announceAgentWork(wake)
         auditWakeStarted(auditedWake(organizationId, payload, doc, mark), payload.waits)
@@ -358,8 +294,6 @@ export async function runAgentWake(
     case 'refused':
       return fail('refused', outcome.reason)
     case 'rejected':
-      // The session or the envelope was wrong: a fresh one may not be, so the
-      // queue retries it, and the last attempt records why it gave up.
       if ((outcome.code === 'auth_expired' || outcome.code === 'conversation_mismatch') && !attempt.last) {
         throw new Error(`the chat socket refused the wake: ${outcome.code}`)
       }

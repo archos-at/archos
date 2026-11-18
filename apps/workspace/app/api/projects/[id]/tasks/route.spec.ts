@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Characterization of the project-scoped /tasks HTTP contract (was /jobs) (slice 01 of the
- * task-model follow-up, PR #659). The routes are thin adapters; these pin the
- * wire shape and the service call they delegate to, both of which the
- * definitions/runs collapse must preserve.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'

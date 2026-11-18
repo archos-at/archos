@@ -1,10 +1,3 @@
-"""The collection listing carries what the ingest read: the dossier, the references, the coverage.
-
-The BFF reads all three off ``GET /v1/collections/{c}/documents`` (``FileInfo``) and derives the
-project's findings from them (``docs/architecture/document-dossier.md``). They ride the same merge
-as the other per-document metadata: a stored value fills an empty field and never overwrites one.
-"""
-
 import json
 
 from agent.knowledge.schema import AvailableDocument
@@ -39,7 +32,6 @@ def test_a_value_the_file_already_carries_is_not_overwritten():
 
 
 async def test_a_listing_read_without_the_metadata_store_says_so(monkeypatch):
-    """The files still list; the header tells a projector not to take the empty readings as read."""
     from unittest.mock import MagicMock
 
     from fastapi import APIRouter

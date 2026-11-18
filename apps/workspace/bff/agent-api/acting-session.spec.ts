@@ -2,15 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Only the dispatcher may enter the acting session (ADR-0122).
- *
- * `runAsActingSession` makes `getUserSession()` answer with a session no
- * cookie proved, so every route's `authz` trusts whoever bound it. The
- * dispatcher binds a session `lib/agent-api/principal.ts` resolved from a
- * verified credential; a second caller would be a way past every gate, and
- * nothing at runtime could tell the two apart. So the rule is checked here.
- */
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -19,11 +10,10 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { actingProposalId, actingReaderIsAgent, currentActingSession, runAsActingSession } from './acting-session'
+import { actingDoor, actingProposalId, actingReaderIsAgent, currentActingSession, runAsActingSession } from './acting-session'
 import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
 
 
-/** The files allowed to name it: where it is defined, and the one caller. */
 const ALLOWED = new Set(['lib/agent-api/acting-session.ts', 'lib/agent-api/dispatch.ts'])
 
 function sourceFiles(dir: string): string[] {
@@ -52,7 +42,6 @@ describe('the acting session', () => {
       expect(currentActingSession()).toBe(session)
       expect(actingReaderIsAgent()).toBe(true)
     }, 'agent')
-    // A person applying a proposal reads the route's words in their own language.
     await runAsActingSession(session, async () => expect(actingReaderIsAgent()).toBe(false))
     expect(currentActingSession()).toBeUndefined()
   })
@@ -62,5 +51,17 @@ describe('the acting session', () => {
     await runAsActingSession(session, async () => expect(actingProposalId()).toBe('prop-1'), 'person', { proposalId: 'prop-1' })
     await runAsActingSession(session, async () => expect(actingProposalId()).toBeUndefined(), 'agent')
     expect(actingProposalId()).toBeUndefined()
+  })
+
+  it('names the agent door the call came through, and none outside a door', async () => {
+    const session = { userId: 'user_1' } as AuthorizedSession
+    await runAsActingSession(
+      session,
+      async () => expect(actingDoor()).toEqual({ door: 'mcp', sessionSource: 'mcp' }),
+      'agent',
+      { door: 'mcp', sessionSource: 'mcp' },
+    )
+    await runAsActingSession(session, async () => expect(actingDoor()).toBeUndefined(), 'agent')
+    expect(actingDoor()).toBeUndefined()
   })
 })

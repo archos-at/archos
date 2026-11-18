@@ -14,18 +14,14 @@ const ruleTester = new RuleTester({
   languageOptions: { sourceType: 'module', parserOptions: { lang: 'jsx' } },
 })
 
-// `RuleTester.run` declares its own suite, so it has to sit at the top level.
 ruleTester.run('card-type-scale', rule, {
   valid: [
-    // The ramp itself.
     `const a = 'card-eyebrow text-muted-foreground'`,
     `const a = 'card-meta font-mono text-muted-foreground/60'`,
     `const a = 'card-body text-pretty'`,
     `const a = 'card-title text-foreground'`,
     `const a = 'card-figure-30 tracking-tight text-balance'`,
-    // Semantic INK, which is spelled `text-*` too and is not a size.
     `const a = 'text-muted-foreground text-subtle text-error text-success'`,
-    // Sizes of things that are not type.
     `const a = 'size-3.5 w-3 h-[3px] max-w-[46ch]'`,
   ],
   invalid: [
@@ -38,12 +34,10 @@ ruleTester.run('card-type-scale', rule, {
       errors: [{ messageId: 'offRamp' }],
     },
     {
-      // The exact drift the charter measured: one size, two spellings.
       code: `const a = 'text-xs'; const b = 'text-[12px]'`,
       errors: [{ messageId: 'offRamp' }, { messageId: 'offRamp' }],
     },
     {
-      // Variants and `!` are the same finding.
       code: `const a = 'md:text-lg text-2xl!'`,
       errors: [{ messageId: 'offRamp' }, { messageId: 'offRamp' }],
     },
@@ -52,12 +46,6 @@ ruleTester.run('card-type-scale', rule, {
       errors: [{ messageId: 'offRamp' }],
     },
     {
-      // Whole-token matching means PROSE that names a size is reported too.
-      // Deliberate, and the same trade motion-vocabulary.mjs makes: a string
-      // carrying `text-sm` as its own token is a class list in practice, and
-      // the alternative (substring matching) would miss nothing and flag far
-      // more. A comment is not a Literal, so the usual place to explain a size
-      // is unaffected.
       code: `const a = 'the text-sm step is gone'`,
       errors: [{ messageId: 'offRamp' }],
     },

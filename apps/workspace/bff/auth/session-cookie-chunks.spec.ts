@@ -1,18 +1,4 @@
 // @vitest-environment node
-/**
- * The AuthKit session cookie is split once it outgrows one cookie
- * (`patches/@workos-inc%2Fauthkit-nextjs@*.patch`, workos/authkit-nextjs#404).
- *
- * Dev looped through sign-in for every new browser: the sealed session carries
- * the access token, the token carries every permission and feature flag WorkOS
- * grants (18 and 33 for an admin of GRID Test), and the cookie came to about
- * 4.2 KB. A browser drops a cookie over 4096 bytes without a word, so the next
- * request had no session and AuthKit sent it back to WorkOS, which was still
- * signed in and sent it straight back.
- *
- * These run the INSTALLED package, so an upgrade that leaves the patch behind
- * fails here rather than on the next sign-in.
- */
 
 import path from 'node:path'
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -38,8 +24,6 @@ vi.mock('next/headers', () => ({
   cookies: async () => jar,
   headers: async () => new Headers({ 'x-url': 'https://app.dev.piloti.at/app/projects' }),
 }))
-// `saveSession` verifies the access token against WorkOS's JWKS before sealing it,
-// with the `jose` AuthKit ships beside itself rather than ours.
 vi.mock('../../node_modules/@workos-inc/authkit-nextjs/node_modules/jose/dist/node/esm/index.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('jose')>()),
   createRemoteJWKSet: () => () => Promise.resolve(undefined),
@@ -49,7 +33,6 @@ vi.mock('../../node_modules/@workos-inc/authkit-nextjs/node_modules/jose/dist/no
 const PASSWORD = 'a-test-cookie-password-of-32-chars-or-more'
 const BROWSER_COOKIE_LIMIT = 4096
 
-/** A token as large as an admin's in GRID Test, or larger. */
 const accessToken = (claimBytes: number): string => {
   const encode = (value: object): string => Buffer.from(JSON.stringify(value)).toString('base64url')
   return `${encode({ alg: 'RS256' })}.${encode({ sub: 'user_1', org_id: 'org_1', padding: 'x'.repeat(claimBytes) })}.${'s'.repeat(342)}`

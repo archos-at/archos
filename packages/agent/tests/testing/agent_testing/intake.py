@@ -1,9 +1,3 @@
-"""Doubles for the Erfassungs-Agent's suite: the BFF's intake route, the signed run, a project's pages.
-
-Only the transport is faked (``bff_http._opener.open``), so every body a test
-reads is the one ``post_intake`` really built, headers included.
-"""
-
 from __future__ import annotations
 
 import json
@@ -95,20 +89,16 @@ DOCUMENTS = [
 
 
 class FakeIntakeRoute(_IntakeRoute):
-    """The intake eval's transport double, with this suite's needs as the default ``needs`` answer."""
-
     def __init__(self, **answers: Any) -> None:
         super().__init__(**{"needs": NEEDS_BODY, **answers})
 
 
 def recorded_all(outcome: str = "suggested"):
-    """A ``record`` answer giving every value ``outcome``."""
     return lambda body: {"results": [{"key": value["key"], "outcome": outcome} for value in body["values"]]}
 
 
 @pytest.fixture
 def signed_run(monkeypatch):
-    """A background run that carries its requester's envelope, with a service token."""
     monkeypatch.setattr(pc, "get_request_envelope_from_context", lambda: (HEADER, SIGNATURE))
     monkeypatch.setenv("INTERNAL_API_TOKEN", TOKEN)
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://bff.test")
@@ -132,7 +122,6 @@ def route(monkeypatch):
 
 @pytest.fixture
 def project(monkeypatch):
-    """The run's project: two documents, one with indexed pages."""
 
     async def documents():
         return list(DOCUMENTS)
@@ -150,13 +139,11 @@ def read_log():
 
 @pytest.fixture(autouse=True)
 def no_decision_model(monkeypatch):
-    """No test reaches a real decision model: undecided, unless a test installs :func:`decider`."""
     monkeypatch.setattr("agent.common.decisions.decide_many_blocking", lambda states, *a, **k: [None] * len(states))
 
 
 @pytest.fixture
 def decider(monkeypatch):
-    """The decision model answering p(stated) by the value's label; records the states it was asked."""
     from agent.common.decisions import Decision
 
     def install(by_label: dict[str, float]) -> list[dict]:
@@ -186,5 +173,4 @@ def intake_schema() -> dict[str, Any]:
 
 
 def validator(schema: dict[str, Any], name: str) -> Draft202012Validator:
-    """One named definition, ``$ref`` resolved against the whole file, formats asserted."""
     return Draft202012Validator({**schema["$defs"][name], "$defs": schema["$defs"]}, format_checker=FormatChecker())

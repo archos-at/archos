@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The WebSocket frame observer (ADR-0040 L2b).
- *
- * The property under test is SYNC. This parser rides a live byte stream it does
- * not control: if it ever mis-computes one frame's length it stays wrong
- * forever, and the limiter it feeds silently stops counting on that socket. So
- * the cases below are mostly about boundaries — several frames in one chunk,
- * one frame split across chunks, each extended-length encoding — rather than
- * about the happy path.
- */
 
 import { describe, expect, it } from 'vitest'
 import { classifyFrame, createFrameObserver } from './ws-frames.js'
@@ -22,7 +12,6 @@ interface Observed {
   truncated: boolean
 }
 
-/** Build a client→server frame the way a browser does: always masked. */
 function frame(opcode: number, payload: string | Buffer = '', fin = true): Buffer {
   const body = Buffer.isBuffer(payload) ? payload : Buffer.from(payload, 'utf8')
   const mask = Buffer.from([0x37, 0xfa, 0x21, 0x3d])
@@ -80,8 +69,6 @@ describe('createFrameObserver', () => {
     const bytes = frame(0x1, userMessage)
     const seen = collect([...bytes].map((b) => Buffer.from([b])))
 
-    // The pathological split: if the parser ever needed a whole frame in one
-    // chunk, this is where it would fail.
     expect(seen).toHaveLength(1)
     expect(seen[0].peek).toContain('"type":"user_message"')
   })
@@ -91,7 +78,6 @@ describe('createFrameObserver', () => {
     const seen = collect([Buffer.concat([frame(0x1, long), frame(0x1, userMessage)])])
 
     expect(seen).toHaveLength(2)
-    // Sync survived the first frame, so the SECOND is still classifiable.
     expect(seen[1].peek).toContain('"type":"user_message"')
   })
 
@@ -106,9 +92,7 @@ describe('createFrameObserver', () => {
   it('caps how much of a payload it inspects', () => {
     const seen = collect([frame(0x1, 'z'.repeat(4000))])
 
-    // Never buffers a whole message — it is watching a stream, not collecting it.
     expect(seen[0].peek.length).toBeLessThanOrEqual(512)
-    // …and says so, because a prefix cannot rule a user message out.
     expect(seen[0].truncated).toBe(true)
   })
 
@@ -119,11 +103,6 @@ describe('createFrameObserver', () => {
   })
 
   it('charges a padded SINGLE frame as a chat turn', () => {
-    // The single-frame twin of the fragmentation bypass, and the one that
-    // survived fixing it: one unfragmented frame, valid JSON the backend
-    // accepts, with `type` pushed past the 512-byte window by padding. Reading
-    // a prefix and concluding "cheap" would buy ~40x the agent runs the budget
-    // allows.
     const padded = '{"padding":"' + 'p'.repeat(600) + '","type":"user_message"}'
     const seen = collect([frame(0x1, padded)])
 
@@ -133,8 +112,6 @@ describe('createFrameObserver', () => {
   })
 
   it('still charges an honest small control message as cheap', () => {
-    // The other half of the contract: closing the bypass must not silently
-    // promote ordinary traffic to the expensive rule.
     const seen = collect([frame(0x1, interaction)])
 
     expect(seen[0].truncated).toBe(false)
@@ -156,9 +133,6 @@ describe('classifyFrame', () => {
   })
 
   it('charges a message it read IN FULL and ruled out as cheap', () => {
-    // Not a guess: the whole payload fit in the window, so "not a user message"
-    // is established rather than assumed. Charging the expensive rule on these
-    // would refuse honest traffic, the failure an abuse bound must avoid.
     const cheap = { fragmented: false, truncated: false }
     expect(classifyFrame({ opcode: 0x1, peek: interaction, ...cheap })).toBe('control')
     expect(classifyFrame({ opcode: 0x1, peek: '{"typ', ...cheap })).toBe('control')
@@ -167,16 +141,12 @@ describe('classifyFrame', () => {
   })
 
   it('charges a message it could NOT read in full as a chat turn', () => {
-    // The bypass this closes: pad past MAX_PEEK in a single unfragmented frame
-    // and the type never enters the window, so "unrecognised" would have bought
-    // the cheap budget for something that starts an agent run.
     expect(
       classifyFrame({ opcode: 0x1, peek: '{"padding":"ppp', fragmented: false, truncated: true })
     ).toBe('chat-turn')
   })
 
   it('never throttles the close handshake', () => {
-    // A rate-limited close frame would leave sockets unable to shut down.
     expect(classifyFrame({ opcode: 0x8, peek: '', fragmented: false, truncated: false })).toBe(
       'ignore'
     )
@@ -185,11 +155,6 @@ describe('classifyFrame', () => {
 
 describe('fragmented messages', () => {
   it('classifies a message whose type only appears in a continuation', () => {
-    // The bypass this closes: split the message so the type never appears in
-    // the peek window, and every fragment would otherwise be charged as a cheap
-    // control frame — buying roughly 40x the agent runs the budget allows.
-    // 600 bytes of padding outruns MAX_PEEK entirely, so accumulation alone
-    // cannot save it; fragmentation itself is what condemns it.
     const head = '{"padding":"' + 'p'.repeat(600) + '",'
     const tail = '"type":"user_message","id":"m1"}'
     const seen = collect([
@@ -210,8 +175,6 @@ describe('fragmented messages', () => {
   })
 
   it('does not let a control frame between fragments reset the accumulator', () => {
-    // Ping/pong may legally interleave with a fragmented message. If they wiped
-    // the peek, interleaving would restore the bypass.
     const seen = collect([
       Buffer.concat([
         frame(0x1, '{"type":', false),
@@ -232,14 +195,11 @@ describe('fragmented messages', () => {
       ]),
     ])
 
-    // A completed message must not leak its classification into the next one.
     expect(classifyFrame(seen[0])).toBe('chat-turn')
     expect(classifyFrame(seen[1])).toBe('control')
   })
 
   it('stays in sync when a frame declares a huge 127-encoded length', () => {
-    // A client that declares more than it sends leaves the parser mid-payload.
-    // What matters is that it cannot make the observer emit phantom frames.
     const header = Buffer.alloc(10)
     header[0] = 0x81
     header[1] = 0x80 | 127

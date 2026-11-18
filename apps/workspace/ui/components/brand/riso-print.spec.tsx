@@ -18,7 +18,6 @@ describe('RisoPrint', () => {
     expect(img.getAttribute('srcset')).toMatch(
       /-320\.webp\?v=[0-9a-f]{8} 320w, .*-640\.webp\?v=[0-9a-f]{8} 640w$/
     )
-    // The slot is 320 CSS px from sm up and exactly half below: never a size the layout picks.
     expect(img).toHaveAttribute('sizes', '(min-width: 640px) 320px, 160px')
     expect(img).toHaveAttribute('width', '320')
     expect(img.getAttribute('src')).toMatch(/-320\.webp\?v=/)
@@ -41,9 +40,6 @@ describe('RisoPrint', () => {
   })
 })
 
-// The riso harness (packages/brand/art/riso/check.mjs) is the full gate; this is
-// the app's own half of it, so an app-only change that drops or orphans a file
-// fails here even when the riso check does not run.
 describe('the app art manifest', () => {
   it('names only files that exist in public/art', () => {
     for (const id of ids) {

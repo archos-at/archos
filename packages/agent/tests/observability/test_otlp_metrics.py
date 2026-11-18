@@ -1,5 +1,3 @@
-"""The process's MeterProvider, installed from the environment by a process that reports before any workflow."""
-
 from opentelemetry import metrics as otel_metrics
 
 from agent.observability import otlp_metrics
@@ -22,7 +20,6 @@ def test_the_injected_endpoint_installs_the_one_provider(monkeypatch):
     env = {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel-collector:4318/v1/traces"}
 
     first = otlp_metrics.install_from_env(env)
-    # The workflow the first job builds installs again through the logging method.
     second = otlp_metrics.install(env["OTEL_EXPORTER_OTLP_ENDPOINT"], env)
 
     assert first is second

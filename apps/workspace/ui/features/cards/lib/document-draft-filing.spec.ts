@@ -1,13 +1,3 @@
-/**
- * The browser client for the conversation draft-filing API.
- *
- * One base path, spelled once: the unfiled card files its draft through the
- * BFF (`POST /api/conversations/[id]/draft/file`). A wrong URL or verb here
- * is a button that 404s every draft, so the path, the body and the refusal
- * mapping are pinned, not described — and the same-name 409 must keep its
- * details, because they are what the card's explicit confirmation is about.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { DraftFileError, fileConversationDraft } from './document-draft-filing'
 
@@ -38,8 +28,6 @@ describe('fileConversationDraft', () => {
 
     expect(filed).toEqual(FILED)
     const [url, init] = run.mock.calls[0]
-    // The conversation id is encoded; the path travels in the body, never as
-    // route segments.
     expect(url).toBe('/api/conversations/s_conv%201/draft/file')
     expect(init).toMatchObject({ method: 'POST' })
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({

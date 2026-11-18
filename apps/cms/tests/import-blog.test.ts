@@ -1,7 +1,3 @@
-/**
- * The MDX posts convert to what the CMS holds: Lexical rich text whose figures
- * are the typed blocks of the same components, both languages in one record.
- */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -27,7 +23,6 @@ test('every post of the website converts, and its twins pair', () => {
   for (const twins of posts) {
     const record = toRecord(twins);
     assert.ok(['draft', 'published'].includes(record.status));
-    // Twins carry the same figures in the same order: an editor sees them side by side.
     const figures = Object.values(record.locales).map((l) => {
       const kinds: string[] = [];
       walk(l.body.root, (n) => n.type === 'block' && kinds.push(String(n.fields?.blockType)));
@@ -60,7 +55,6 @@ test("Markdown becomes the editor's own nodes, formats and nesting kept", () => 
   assert.deepEqual(para.children!.map((n) => [n.type, n.format ?? null]), [
     ['text', 0], ['text', FORMAT.bold], ['text', 0], ['text', FORMAT.code], ['text', 0], ['link', ''], ['text', 0], ['text', FORMAT.strikethrough],
   ]);
-  // A nested list is the only child of a list item of its own, as Lexical keeps it.
   assert.deepEqual(list.children!.map((item) => item.children![0].type), ['text', 'list']);
   assert.equal(quote.type, 'quote');
   assert.deepEqual(table.children!.map((row) => row.type), ['tablerow', 'tablerow']);

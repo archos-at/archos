@@ -1,16 +1,7 @@
 import type { en } from '../en'
 
-/**
- * `diagrams` — siehe die englische Quelle für die Begründung.
- *
- * „Schematisch" statt „Skizze": eine Skizze ist eine Zeichnung, die noch nicht
- * fertig ist; schematisch heißt, dass die Darstellung bewusst keine Maße
- * behauptet. Das ist hier der ganze Punkt und der Unterschied zu den fünfzehn
- * Schemakarten, deren Geometrie gerechnet wird.
- */
 export const diagrams: typeof en.diagrams = {
   schematicOnly: 'Schematisch — ohne Maßangabe.',
-  /** The file name a diagram gets when neither the source nor the surface names it. */
   defaultTitle: 'Diagramm',
   fallback: 'Dieses Diagramm konnte nicht gezeichnet werden. Der Quelltext steht darüber.',
   kind: {
@@ -32,9 +23,6 @@ export const diagrams: typeof en.diagrams = {
   },
   marking:
     'Von {productName} erstellt — KI-generiert, nicht geprüft. Schematisch: ohne Maßangabe. Kein Nachweis; prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben.',
-  // Hier ist „Skizze" das richtige Wort: eine Person hat die Zeichnung von Hand
-  // weitergeführt, und von Hand kann sie alles gezeichnet haben, auch einen
-  // Umriss des Grundstücks. Deshalb zusätzlich „nicht maßstäblich".
   markingEdited:
     'Von {productName} entworfen, von einer Person bearbeitet — KI-unterstützt, nicht geprüft. Skizze: nicht maßstäblich, ohne Maßangabe. Kein Nachweis; prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben.',
   markingSketch:

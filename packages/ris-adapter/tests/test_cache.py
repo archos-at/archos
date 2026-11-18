@@ -1,5 +1,3 @@
-"""Unit tests for the RIS shared-cache facade (keys + TTL parsing)."""
-
 from __future__ import annotations
 
 import pytest
@@ -33,9 +31,6 @@ class TestKeys:
         assert doc_cache_key("https://x") != doc_cache_key("https://y")
 
     def test_the_doc_key_moves_with_the_text_conversion(self):
-        # The cache holds converted text for a week. If this fails you changed
-        # what html_to_text keeps: bump DOC_TEXT_VERSION, then update both
-        # values here, or cached laws keep the old text until they expire.
         from ris_adapter.cache import DOC_TEXT_VERSION
         from ris_adapter.client import html_to_text
 

@@ -1,8 +1,3 @@
-/**
- * Platform norm-registry verification — check a pointer against RIS and return
- * candidate matches for the admin to pick from. Platform owners only.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

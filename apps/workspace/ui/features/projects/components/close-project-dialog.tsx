@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Closing a project (ADR-0098), in three steps, each one question:
- *
- *   1. **Abschluss**: how did it end (completed, or not realized) and in which
- *      month. Both are the closing's own facts: the Abschluss is no longer a
- *      field of the Steckbrief that a running project could carry, it is the
- *      month this step names. Below them, what closing changes, said once.
- *   2. **Was bleibt**: the closing debrief (`closing-debrief.tsx`, passed as
- *      `children`): how Piloti finds the project again, and what the office
- *      keeps from its memory, while that memory can still be written.
- *   3. **Ausmisten** (ADR-0092): Piloti's proposal of what the finished project
- *      no longer needs, labelled as an AI proposal (EU AI Act Art. 50), every
- *      item pre-selected and deselectable. Only what is still selected goes to
- *      the Papierkorb, and only when the person confirms; then it closes.
- *
- * The outcome is chosen, never preselected, unless an earlier close of this
- * project named one: a default would nudge a late tidy-up towards the wrong
- * record. Steps two and three ask nothing that is required: „Weiter" is open,
- * and closing without removing anything is always one button. The proposal is
- * a paid model call (a POST), so it is asked for once the person moves past
- * the first step, not when the dialog opens; step two is its time to arrive.
- */
-
 import { useEffect, useState, type JSX, type ReactNode } from 'react'
 import { CircleCheck, CircleSlash, Sparkles } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -51,13 +28,10 @@ import type { ClosingChoice } from '../lib/use-project-lifecycle'
 
 export interface CloseProjectDialogProps {
   projectId: string
-  /** Where the project stands: its Beginn bounds the Abschluss, and an earlier close suggests one. */
   lifecycle: Pick<ProjectLifecycleView, 'startedOn' | 'suggestedEndedOn' | 'suggestedOutcome'>
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Close the project as chosen; resolves true when it closed. */
   onClose: (choice: ClosingChoice) => Promise<boolean>
-  /** The second step: the closing debrief. */
   children?: ReactNode
 }
 
@@ -83,7 +57,6 @@ export function CloseProjectDialog({
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pending, setPending] = useState(false)
-  /** Why the last attempt failed: in general, or with files possibly left in these folders. */
   const [error, setError] = useState<false | { partialIn: string[] | null }>(false)
 
   useEffect(() => {
@@ -96,7 +69,6 @@ export function CloseProjectDialog({
     setError(false)
   }, [open, lifecycle.suggestedOutcome, lifecycle.suggestedEndedOn, lifecycle.startedOn])
 
-  // The proposal, once per opening, as soon as the person is past step one.
   const askForProposal = open && furthest >= 1
   useEffect(() => {
     if (!askForProposal) return
@@ -149,13 +121,11 @@ export function CloseProjectDialog({
           proposedIds: items.map((item) => item.documentId),
           aiUsed: proposal.aiUsed,
         })
-        // Binned: what is left to retry, should the close itself fail, is the close.
         setSelected(new Set())
         setLoad({ state: 'ready', proposal: { ...proposal, items: [] } })
       }
       if (await onClose({ outcome, endedOn })) onOpenChange(false)
     } catch (error) {
-      // A refused clean-out may name the folders it could not fully undo.
       setError({ partialIn: error instanceof CleanupRequestError ? partiallyUndoneIn(error.body) : null })
     } finally {
       setPending(false)
@@ -334,7 +304,6 @@ export function CloseProjectDialog({
   )
 }
 
-/** The folders a clean-out that could not be fully undone may have left files in; null for any other failure. */
 function partiallyUndoneIn(body: unknown): string[] | null {
   if (!body || typeof body !== 'object') return null
   const details = (body as { details?: { reason?: unknown; folders?: unknown } }).details

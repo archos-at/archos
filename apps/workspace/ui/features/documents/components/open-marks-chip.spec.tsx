@@ -1,11 +1,3 @@
-/**
- * What is still open on a document, where an architect scans a folder: the
- * card's footer and the list's row carry the live Anmerkungen the listing
- * counted, how many are the reader's, and a press that opens the review of
- * that document (the page's own URL with `doc` and `review=1`, which the
- * shelf already answers), never the file preview the row itself opens.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -51,7 +43,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** jsdom counts every focus as keyboard focus, which is the case the tooltip opens for. */
 function focusVisible() {
   const matches = Element.prototype.matches
   vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
@@ -115,7 +106,7 @@ describe('the open Anmerkungen on a file card', () => {
     expect(screen.getByRole('button', { name: '2 open annotations in “Schnitt_AA.pdf”' })).toBeInTheDocument()
   })
 
-  it('tells Piloti’s proposals nobody took over apart from what is open, as Offene Punkte and the Protokoll count', () => {
+  it('tells the agent’s proposals nobody took over apart from what is open, as Offene Punkte and the Protokoll count', () => {
     focusVisible()
     render(<FileCard file={doc({ marks: { open: 2, proposed: 12, forYou: 1 } })} isSelected={false} onSelect={vi.fn()} locale="en" />)
     const chip = screen.getByRole('button', {

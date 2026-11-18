@@ -49,7 +49,6 @@ describe('PlatformConnect', () => {
 
     expect(screen.getByTestId('platform-connect-console-notice')).toHaveTextContent('Not set up in this installation')
     expect(screen.queryByTestId('platform-connect-console-setup')).not.toBeInTheDocument()
-    // What the console offers is still worth knowing before it is set up.
     expect(screen.getByTestId('platform-connect-console')).toHaveTextContent('What your agent can do here')
   })
 })

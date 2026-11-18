@@ -11,15 +11,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   listed: [] as Record<string, unknown>[],
   rows: [] as Record<string, unknown>[],
-  /** What each update set, and the id list its WHERE named. */
   sets: [] as unknown[],
   updatedIds: [] as string[][],
 }))
 
 vi.mock('server-only', () => ({}))
 
-// The conditions are recorded as data, so the test reads which ids the update named,
-// and a select's rows are filtered by the visibility and the note id its WHERE names.
 vi.mock('drizzle-orm', async (importOriginal) => {
   const actual = await importOriginal<typeof import('drizzle-orm')>()
   return {
@@ -32,7 +29,6 @@ vi.mock('drizzle-orm', async (importOriginal) => {
 })
 
 vi.mock('./memory-service', () => ({
-  // Honours the readable folders the way the list path does: a restricted note only for a reader cleared for all of it.
   listProjectMemory: vi.fn(async (_projectId: string, options: { readableFolderIds?: readonly string[] }) =>
     h.listed.filter((item) => {
       const restricted = (item.restrictedFolderIds as string[] | null) ?? []
@@ -79,7 +75,6 @@ const ORG = 'org_1'
 const CONTRACTS = 'aaaaaaaa-0000-4000-8000-000000000001'
 const OTHER = 'bbbbbbbb-0000-4000-8000-000000000002'
 
-/** A row of the fake select: visible to a reader cleared for all of its folders, and the one note an `id` condition names. */
 function rowPasses(row: Record<string, unknown>, condition: { conditions: Record<string, unknown>[] }): boolean {
   return condition.conditions.every((part) => {
     if ('visibleTo' in part) {
@@ -137,7 +132,6 @@ describe('renameProjectShelfTopic', () => {
       note('archived-1', 'Brandschutz', { status: 'dismissed' }),
       note('restricted-1', 'Brandschutz', { restrictedFolderIds: ['f1'] }),
       note('other-topic', 'Stellplätze'),
-      // An office note on the same name is another shelf and never moves.
       note('office-1', 'Brandschutz', { scope: 'organization', projectId: null }),
     ]
 

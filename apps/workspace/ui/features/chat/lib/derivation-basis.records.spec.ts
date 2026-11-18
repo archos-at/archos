@@ -16,7 +16,6 @@ import {
 import { documentShortName } from './document-names'
 import { mapServerMessageToChatMessage } from './server-message-mapper'
 
-/** The cards of a stored answer, read back the way a reload reads it. */
 const cardsOf = (stored: typeof stairs | typeof uValue) =>
   buildCitationModel({ citations: mapServerMessageToChatMessage(stored.answer)?.citations ?? [] })
 
@@ -27,7 +26,6 @@ describe('the Herleitung names a cited edition by its records, never by its file
   test('the last card says the edition, the act it is binding through and since when, then the passage', () => {
     const law = basisLines(t, cardsOf(stairs)).law.map((line) => line.text)
     expect(law[0]).toBe('OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020 seit 01.09.2020, laut Plattformdaten, noch nie an der Quelle geprüft), Tabelle 3 · S. 4, 10')
-    // Law read live keeps its own title and has no route: it is law in its own territory.
     expect(law[1]).toBe('Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1')
     for (const text of law) expect(text).not.toMatch(FILE_NAME)
   })

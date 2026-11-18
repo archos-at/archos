@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * „Switch organization" in the avatar menu, for a person who works in more than
- * one office. The list comes from the server (`switchableOrganizations`: the
- * person's active WorkOS memberships, by name); picking one asks AuthKit to move
- * the session there, which is a refresh into that organization, or a sign-in
- * when it requires SSO or MFA.
- *
- * Every page under `/app` belongs to the organization it was rendered for, so
- * after the switch the browser goes to the new office's projects with a full
- * load, rather than refreshing a page that may name a project the new office
- * does not have.
- *
- * A submenu of our own menu rather than WorkOS's `OrganizationSwitcher` widget:
- * the widget mounts a root Radix Theme, whose `min-height: 100dvh` and global
- * stylesheet came into the shell with it and stretched the header to the height
- * of the window, and its own dropdown cannot nest in this one.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useState } from 'react'
 import { ArrowLeftRight, Check } from 'lucide-react'
@@ -36,12 +18,6 @@ import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 const AFTER_SWITCH = '/app/projects'
 
-/**
- * An organization that requires SSO or MFA: AuthKit's server action answers
- * with `redirect()` to WorkOS, and Next is already navigating there when it
- * rejects the action's promise with its redirect error (`NEXT_REDIRECT…`
- * digest, what Next's own `isRedirectError` reads). Nothing failed.
- */
 export function isNavigatingAway(error: unknown): boolean {
   return isFrameworkControlFlow(error)
 }

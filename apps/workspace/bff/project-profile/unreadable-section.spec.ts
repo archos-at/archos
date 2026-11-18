@@ -30,7 +30,6 @@ function doc(overrides: Partial<UnreadableDocument> = {}): UnreadableDocument {
   return { filename: 'Honorarnote.pdf', displayName: null, folderPath: null, ...overrides }
 }
 
-/** `count` distinct rows, each with its own filename, so a cap is visible in the output. */
 function manyRows(count: number): UnreadableRow[] {
   return Array.from({ length: count }, (_, index) => row({ filename: `datei-${index + 1}.pdf` }))
 }

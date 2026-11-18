@@ -48,8 +48,6 @@ describe('queueResearchReportFiling', () => {
   it('queues one interactive job in the organization’s lane, carrying the whole payload', async () => {
     await expect(queueResearchReportFiling({ organizationId: 'org_1', payload })).resolves.toEqual({ jobId: 'job-new' })
 
-    // Interactive: the answer to a run somebody waited minutes for must not sit
-    // behind that office's own reindex.
     expect(enqueueJob).toHaveBeenCalledWith({
       kind: 'file_research_report',
       organizationId: 'org_1',
@@ -63,7 +61,6 @@ describe('queueResearchReportFiling', () => {
 
     await expect(queueResearchReportFiling({ organizationId: 'org_1', payload })).resolves.toEqual({ jobId: 'job-open' })
 
-    // The run's id is the key: whoever asked first, the filing is the same one.
     expect(findOpenJobId).toHaveBeenCalledWith({
       kind: 'file_research_report',
       organizationId: 'org_1',

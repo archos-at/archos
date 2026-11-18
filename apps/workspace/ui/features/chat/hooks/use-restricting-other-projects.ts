@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * The other projects that restrict the open chat NOW (ADR-0094), read from the
- * server, for the composer's notice.
- *
- * Not derived from the answers' citations. A citation carries the project's
- * status as it was when the answer was written, and the server judges at read
- * time: a project closed since restricts nobody, one reopened restricts again,
- * and a restricted folder of any other project, a closed one's too, still does.
- * The conversation read (`GET /api/conversations/:id`) answers that with the
- * same repository functions the doors use, so the notice cannot disagree with
- * what the chat is refused.
- *
- * Read when the chat opens, once the server has it (a new chat has no row until
- * its first message), and again whenever no turn is running and a new answer
- * has landed: the lookup that narrows the chat records before it answers, so
- * by then the record holds it. A failed read keeps what was shown.
- */
-
 import { useEffect, useState } from 'react'
 import { conversationsClient, type RestrictingOtherProject } from '@/adapters/api/conversations-client'
 import { useConversationOnServer } from '../lib/conversation-on-server'
@@ -45,6 +27,5 @@ export function useRestrictingOtherProjects(conversationId: string | null | unde
     }
   }, [conversationId, onServer, isStreaming, newestAnswerId])
 
-  // What was read belongs to its conversation: a switch shows nothing until the new read lands.
   return read !== null && read.conversationId === conversationId ? read.projects : NONE
 }

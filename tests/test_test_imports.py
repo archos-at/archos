@@ -1,19 +1,3 @@
-"""No test imports another suite's code by its directory (ADR-0145 row 5).
-
-A dotted path through a suite's directory (``tests.aiq_agent.…``,
-``tests.knowledge_layer_tests.…``, ``sources.<package>.tests.…``) names where a
-file lives, so every directory move breaks it, and the hyphenated
-``packages/<distribution>/`` the moves aim at has no dotted name at all.
-``sources.<package>.src.…`` is the same path reaching a library past its
-installed name, which loads a second copy of the module. A suite's shared
-helpers live in its ``<distribution>_testing`` package, on pytest's
-``pythonpath``; the library is imported by its installed name.
-
-What stays allowed: a module at the top of ``tests/`` (``tests.provider_doubles``)
-and ``tests.fixtures``, because ``tests/`` keeps its place, and a relative import
-inside one directory, which moves with it.
-"""
-
 from __future__ import annotations
 
 import re
@@ -22,21 +6,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: An import statement, or a ``patch``/``monkeypatch`` target string, naming a
-#: module under ``tests.`` or ``sources.``.
 DOTTED = re.compile(
     r"""(?:^[ \t]*(?:from|import)[ \t]+|["'])(?P<path>(?P<root>tests|sources)\.(?P<top>[A-Za-z_]\w*)[\w.]*)""",
     re.MULTILINE,
 )
 
 
-#: Through `sources.`, only a package's own `src` or `tests` directory is a path
-#: (`"sources.count"`, a telemetry key, is not).
 SOURCES_PATH = re.compile(r"sources\.\w+\.(?:src|tests)\b")
 
 
 def _suite_directories() -> frozenset[str]:
-    """The directories under ``tests/`` a move may take with it: all but ``fixtures``."""
     return frozenset(path.name for path in (ROOT / "tests").iterdir() if path.is_dir() and path.name != "fixtures")
 
 

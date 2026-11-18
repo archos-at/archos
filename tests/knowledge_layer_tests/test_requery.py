@@ -1,12 +1,3 @@
-"""The retrieval loop: judge the fused pool, re-query when it is not enough.
-
-Two halves. The judge (`knowledge_layer.search.requery`) is a bounded LLM call that
-fails open to "sufficient". The loop in `knowledge_search` retrieves the
-judge's alternative formulations from every collection in scope and fuses them
-into the same RRF as new channels — one-shot when the judge is unset, silent,
-or satisfied.
-"""
-
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -16,13 +7,13 @@ from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 from knowledge_layer.search import SUFFICIENT
 from knowledge_layer.search import SufficiencyVerdict
+from knowledge_layer.search import _parse_verdict
 from knowledge_layer.search import coverage_gap
 from knowledge_layer.search import decisions as decisions_module
 from knowledge_layer.search import judge_sufficiency
 from knowledge_layer.search import requery as requery_module
 from knowledge_layer.search import requery_notice
 from knowledge_layer.search import results as results_module
-from knowledge_layer.search.requery import _parse_verdict
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -43,7 +34,6 @@ class _RaisingLLM:
 
 
 def _chunk(text: str, chunk_id: str = "c1"):
-    # A real Chunk: the merge builds a real RetrievalResult, which validates.
     from agent.knowledge.schema import Chunk
 
     return Chunk(
@@ -135,9 +125,6 @@ class TestJudgeSufficiency:
         assert await judge_sufficiency(_Slow(), "q", [], max_queries=2, timeout_seconds=0.01) is SUFFICIENT
 
 
-# --- The loop inside knowledge_search ---------------------------------------
-
-
 class _FakeResult:
     def __init__(self, chunks):
         self.chunks = chunks
@@ -152,8 +139,6 @@ class _FakeResult:
 
 
 class _FakeRetriever:
-    """Answers each query with the chunks a test registered for it."""
-
     backend_name = "fake"
 
     def __init__(self, answers: dict[str, list]):
@@ -166,7 +151,6 @@ class _FakeRetriever:
 
 
 def _grounding(merged, query, notice="", trailer="", preamble_note="", opened_files=frozenset(), coverage_gap=None):
-    """Stands in for the renderer, which carries every decoration inside its bytes."""
     gap = f"GAP[{coverage_gap}]" if coverage_gap else ""
     return (
         notice + gap + preamble_note + ("|".join(chunk.chunk_id for chunk in merged.chunks) or "no results") + trailer
@@ -177,7 +161,6 @@ _NOTICE_MARK = "Note: the search was widened by"
 
 
 def _body(out: str) -> str:
-    """The tool result without the widening notice, which has its own tests."""
     return out.split("\n\n", 1)[1] if out.startswith(_NOTICE_MARK) else out
 
 
@@ -237,8 +220,6 @@ class TestRetrievalLoop:
         assert out == "a"
 
     async def test_an_insufficient_pool_fans_out_and_fuses(self, loop_harness):
-        # The original query finds one chunk; the paraphrase finds it AGAIN plus
-        # a new one. Fusion must keep the shared chunk once and admit the new one.
         shared = _chunk("shared", "shared")
         retriever = _FakeRetriever(
             {
@@ -253,13 +234,9 @@ class TestRetrievalLoop:
         assert [call["query"] for call in retriever.retrieve_calls] == ["Fluchtweg GK4", "Gehweglänge Gebäudeklasse 4"]
         assert set(out.split("|")) == {"shared", "new"}
         assert out.count("shared") == 1
-        # The chunk both formulations reached outranks the one only the paraphrase found.
         assert out.split("|")[0] == "shared"
 
     async def test_a_file_scoped_search_is_never_widened(self, loop_harness):
-        # A search pinned to one document is a precision lookup (the repair
-        # pass makes them). Paraphrasing it across every shelf is the opposite
-        # of what was asked, so the judge does not run at all.
         retriever = _FakeRetriever({"Fluchtweg GK4": [_chunk("a", "a")]})
         judge = _FakeLLM('{"sufficient": false, "queries": ["Gehweglänge"]}')
         loop_harness(retriever, judge)
@@ -288,15 +265,6 @@ class TestRetrievalLoop:
 
 
 class TestTheNoticeTheModelReads:
-    """The widening is an observation, not a silent rewrite of the search.
-
-    ``emit_retrieval_requery`` tells the READER the pool was widened. Until the
-    line below existed, the agent that issued the search was the one party that
-    was never told: it received excerpts fetched for formulations it had not
-    chosen, and could neither build on that nor avoid repeating a query the
-    loop had already tried (roadmap §3, "hidden loops the model does not own").
-    """
-
     def test_nothing_widened_is_no_line_at_all(self):
         assert requery_notice([]) == ""
         assert requery_notice(["", "   "]) == ""
@@ -334,8 +302,6 @@ class TestTheNoticeTheModelReads:
         assert _body(out).split("|")[0] in {"a", "b"}
 
     async def test_a_widened_search_that_still_finds_nothing_says_so_too(self, loop_harness):
-        """The case the model most needs: its own wording AND two paraphrases
-        came back empty, so a third rewording is not the next move."""
         retriever = _FakeRetriever({})
         loop_harness(retriever, _FakeLLM('{"sufficient": false, "queries": ["Gehweglänge"]}'))
 
@@ -353,17 +319,6 @@ class TestTheNoticeTheModelReads:
 
 
 class TestLaneToolScope:
-    """The renderer runs with ``knowledge_search`` declared as the lane tool.
-
-    It rides this harness because this is where a real ``search()`` is driven
-    against a fake store. What it pins is placement, not plumbing: the scope
-    has to be open when ``format_results`` runs, and that render happens in
-    ``asyncio.to_thread``, which copies the context AT CALL TIME. A scope
-    entered inside the thread, or after the await, is a copy nobody reads back
-    and every hit of every search would reach the ledger unstamped — where it
-    cannot be told from a passage somebody opened.
-    """
-
     async def test_the_renderer_sees_the_tool_that_called_it(self, loop_harness, monkeypatch):
         from agent.common.turn_status import current_lane_tool
 
@@ -392,14 +347,6 @@ class TestLaneToolScope:
 
 
 class _Decider:
-    """The decision client behind ``knowledge_layer.search.decisions``, answering by call.
-
-    ``rounds[i]`` is the p(answers) every passage gets on the i-th batch: the
-    first is the judge's decider on the fused head, the second the coverage
-    check on the pool the model gets. ``None`` in a round is a passage the
-    decider did not answer.
-    """
-
     def __init__(self, *rounds):
         self.rounds = list(rounds)
         self.calls: list[dict] = []
@@ -422,15 +369,12 @@ def _pool(prefix: str, count: int) -> list:
 
 
 class TestTheCoverageSignal:
-    """After the requery round, a pool the decider still finds unanswered says so, and is kept whole."""
-
     WIDEN = '{"sufficient": false, "queries": ["Gehweglänge Gebäudeklasse 4"]}'
 
     def _retriever(self):
         return _FakeRetriever({"Fluchtweg GK4": _pool("a", 5), "Gehweglänge Gebäudeklasse 4": _pool("b", 3)})
 
     async def test_an_unanswered_pool_says_why_and_stays_whole(self, loop_harness, monkeypatch):
-        """The gap is stated, never enforced: a decision withholds no passage (ADR-0064)."""
         decider = _Decider(0.1, 0.2)
         monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
@@ -470,7 +414,6 @@ class TestTheCoverageSignal:
         assert "GAP[" not in out and len(decider.calls) == 1
 
     async def test_the_llm_decider_claims_nothing(self, loop_harness, monkeypatch):
-        """Its verdict was on the fused head before the reranker; re-asking it is a frontier call."""
         decider = _Decider(0.1)
         monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
@@ -490,8 +433,6 @@ class TestTheCoverageSignal:
 
 
 class TestTheCoverageGate:
-    """``coverage_gap`` asks only where the judge ran, said no, and the pool is whole."""
-
     CONFIG = SimpleNamespace(requery_decider="jev", decision_sufficiency_threshold=0.55)
 
     @pytest.mark.parametrize(
@@ -527,8 +468,6 @@ class TestTheCoverageGate:
 
 class TestTheSearchRetrieverHandle:
     async def test_teardown_clears_the_warm_up_handle(self, loop_harness):
-        """The handle was last-wins and never cleared: a torn-down tool's
-        retriever stayed alive and kept being warmed."""
         from agent.knowledge import factory
 
         retriever = _FakeRetriever({})
@@ -542,7 +481,6 @@ class TestTheSearchRetrieverHandle:
     async def test_teardown_leaves_a_later_tools_handle(self, loop_harness, monkeypatch):
         from agent.knowledge import factory
 
-        # Restored even when the assert fails, so no later test inherits the handle.
         monkeypatch.setattr(factory, "_SEARCH_RETRIEVER", None)
         loop_harness(_FakeRetriever({}), None)
         later = object()
@@ -554,10 +492,6 @@ class TestTheSearchRetrieverHandle:
 
 
 def test_the_prefetch_requery_switch_stays_removed():
-    """`requery_on_prefetch: false` was measured 3.4 s slower on the turns it
-    applied to (turn-latency-measured-2026-09.md §3.5) and removed with its
-    marker; the PR that measured it carries the
-    implementation if it is ever needed again."""
     from agent.common import turn_status
 
     assert "requery_on_prefetch" not in KnowledgeRetrievalConfig.model_fields

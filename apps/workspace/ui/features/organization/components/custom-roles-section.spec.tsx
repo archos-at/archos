@@ -18,12 +18,11 @@ const GF: OrganizationRole = {
   name: 'Geschäftsführung',
   description: 'Sees fee agreements',
   custom: true,
-  permissions: ['org:archiv:manage', 'org:models:manage'],
+  permissions: ['org:office_shelf:manage', 'org:models:manage'],
 }
-/** A User Admin: may manage roles, holds Archiv and members, not models. */
 const ASSIGNABLE: AssignablePermission[] = [
   { slug: 'org:models:manage', grantable: false },
-  { slug: 'org:archiv:manage', grantable: true },
+  { slug: 'org:office_shelf:manage', grantable: true },
   { slug: 'org:members:manage', grantable: true },
 ]
 
@@ -31,7 +30,6 @@ interface Stub {
   roles: OrganizationRole[]
   assignable: AssignablePermission[] | null
   status?: { POST?: number; PATCH?: number; DELETE?: number }
-  /** The reason the DELETE refusal carries. */
   reason?: string
 }
 
@@ -66,7 +64,7 @@ describe('CustomRolesSection', () => {
   beforeEach(() => vi.clearAllMocks())
   afterEach(() => vi.unstubAllGlobals())
 
-  it('lists the office’s roles with labelled permissions, and Piloti’s read-only', async () => {
+  it('lists the office’s roles with labelled permissions, and the agent’s read-only', async () => {
     stubApi({ roles: [ADMIN, GF], assignable: ASSIGNABLE })
     render(<CustomRolesSection />)
 
@@ -79,7 +77,6 @@ describe('CustomRolesSection', () => {
     const platform = screen.getByTestId('custom-roles-environment')
     expect(within(platform).getByTestId('role-row-admin')).toHaveTextContent('2 permissions')
     expect(within(platform).queryByRole('button')).toBeNull()
-    // The copy says where roles are assigned and what they are for here.
     expect(screen.getByTestId('custom-roles')).toHaveTextContent(/People tab/)
     expect(screen.getByTestId('custom-roles')).toHaveTextContent(/set on the folder, under “Access…”, person by person/)
   })
@@ -106,8 +103,7 @@ describe('CustomRolesSection', () => {
     fireEvent.click(within(dialog).getByTestId('custom-role-save'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
-    expect(bodyOf('POST')).toEqual({ name: 'Projektleitung', description: null, permissions: ['org:archiv:manage'] })
-    // The list is read again so the new role appears with its slug.
+    expect(bodyOf('POST')).toEqual({ name: 'Projektleitung', description: null, permissions: ['org:office_shelf:manage'] })
     await waitFor(() => expect(calls('GET').length).toBe(2))
   })
 
@@ -128,14 +124,13 @@ describe('CustomRolesSection', () => {
 
     const dialog = await screen.findByTestId('custom-role-dialog')
     const models = within(dialog).getByRole('checkbox', { name: 'Manage AI models' })
-    // Already on the role: taking it away grants nothing, so it stays changeable.
     expect(models).toBeEnabled()
     fireEvent.click(models)
     fireEvent.click(within(dialog).getByTestId('custom-role-save'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
     expect(calls('PATCH')[0][0]).toBe('/api/organization/roles/org-geschaeftsfuehrung')
-    expect(bodyOf('PATCH')).toEqual({ permissions: ['org:archiv:manage'] })
+    expect(bodyOf('PATCH')).toEqual({ permissions: ['org:office_shelf:manage'] })
   })
 
   it('asks before throwing away unsaved changes', async () => {
@@ -148,7 +143,6 @@ describe('CustomRolesSection', () => {
     expect(await screen.findByText('Discard your changes?')).toBeInTheDocument()
   })
 
-  /** Open the delete dialog for Geschäftsführung. */
   async function openDelete(): Promise<HTMLElement> {
     fireEvent.click(await screen.findByTestId('custom-role-delete-org-geschaeftsfuehrung'))
     expect(await screen.findByText('Delete the role “Geschäftsführung”?')).toBeInTheDocument()
@@ -165,7 +159,6 @@ describe('CustomRolesSection', () => {
     fireEvent.click(confirm)
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
     expect(calls('DELETE')[0][0]).toBe('/api/organization/roles/org-geschaeftsfuehrung')
-    // Nothing is read about the role before it goes.
     expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/usage'))).toHaveLength(0)
   })
 

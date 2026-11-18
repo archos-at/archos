@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The two inbox behaviours that only exist in generated SQL: the mark-read paths
- * spending the group counter, and the batch fan-out folding a conflict exactly as
- * the single-row upsert does. Neither survives a chain-spy — what matters is the
- * statement Postgres receives, so these tests assert it.
- *
- * The DB is a drizzle `pg-proxy` instance — a real query builder over a callback
- * "driver" that records the SQL and parameters instead of connecting anywhere
- * (same harness as `lib/conversations/repository.spec.ts`).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/pg-proxy'
@@ -50,20 +40,17 @@ import {
 
 import type { NewInboxItem } from '@/lib/db/schema/inbox'
 
-/** The one statement the call under test produced. */
 function onlyQuery(): CapturedQuery {
   expect(captured).toHaveLength(1)
   return captured[0]
 }
 
-/** The `do update set` list of an upsert, without the insert or the RETURNING. */
 function conflictSet(sql: string): string {
   const match = /do update set (.+?) returning /.exec(sql)
   expect(match, sql).not.toBeNull()
   return match![1]
 }
 
-/** Which columns that `set` list assigns, in statement order. */
 function assignedColumns(sql: string): string[] {
   return [...conflictSet(sql).matchAll(/"([a-z_]+)" = /g)].map((match) => match[1])
 }
@@ -113,11 +100,6 @@ describe('mark-read — reading a group spends its counter', () => {
       await run()
 
       const { sql, params } = onlyQuery()
-      // `count` is occurrences SINCE THE ROW WAS LAST READ, and the upsert
-      // increments from whatever mark-read leaves behind. Setting only `read_at`
-      // left the counter standing, so a group of twenty the user had just read
-      // said "21 new messages" the moment a twenty-first arrived — twenty of
-      // which they had already seen. Zeroed here, that next arrival reads "1".
       expect(sql).toContain('set "count" = $1, "read_at" = $2')
       expect(params[0]).toBe(0)
     })
@@ -125,19 +107,12 @@ describe('mark-read — reading a group spends its counter', () => {
 })
 
 describe('upsertInboxItems — the batch fold matches the single-row fold', () => {
-  /** Two recipients, so the fan-out is genuinely ONE statement for many rows. */
   const fanOut = [newItem(), newItem({ recipientUserId: 'user_you' })]
 
   it('takes the newest actor and anchor from the row being inserted', async () => {
     await upsertInboxItems(fanOut)
 
     const set = conflictSet(onlyQuery().sql)
-    // `excluded`, not a literal: one `set` serves every conflicting row in the
-    // batch, so a bound parameter would stamp the first recipient's actor onto
-    // everyone. Missing entirely — as they were — a collapsed group kept its
-    // FIRST actor and FIRST anchor for good: "Anna shared a conversation with
-    // you" stayed Anna's name after Bob re-shared, and the deep link kept
-    // pointing at the message that opened the group.
     expect(set).toContain('"actor_user_id" = excluded.actor_user_id')
     expect(set).toContain('"anchor_id" = excluded.anchor_id')
   })
@@ -146,12 +121,6 @@ describe('upsertInboxItems — the batch fold matches the single-row fold', () =
     await upsertInboxItems(fanOut)
 
     const set = conflictSet(onlyQuery().sql)
-    // `||` is jsonb concat: new keys win, absent keys are left alone. The
-    // activity fan-out emits `{}` whenever the title lookup comes back null, and
-    // a straight `excluded.payload` let that one null wipe the subject off every
-    // recipient's row — permanently, because the row is never re-emitted with the
-    // title. The negative assertion is the point: the presence of an assignment
-    // is not the behaviour, the merge is.
     expect(set).toContain('"payload" = "inbox_items"."payload" || excluded.payload')
     expect(set).not.toMatch(/"payload" = excluded\.payload/)
   })
@@ -164,10 +133,6 @@ describe('upsertInboxItems — the batch fold matches the single-row fold', () =
     await upsertInboxItem(newItem())
     const single = assignedColumns(onlyQuery().sql)
 
-    // The doc comment above `upsertInboxItems` PROMISES "conflicts fold exactly
-    // as upsertInboxItem does", and the two lists drifted apart unnoticed. This
-    // pins the promise itself, so the next column added to one and forgotten in
-    // the other fails here rather than in someone's inbox.
     expect(batch).toEqual(single)
     expect(batch).toContain('actor_user_id')
     expect(batch).toContain('anchor_id')
@@ -182,10 +147,6 @@ describe('upsertInboxItems — the batch fold matches the single-row fold', () =
     await upsertInboxItem(newItem())
     const singleSet = conflictSet(onlyQuery().sql)
 
-    // Counting adds to the STORED row what the incoming one stands for: the
-    // column's default 1, or the occurrences one emission folded (fifteen marks
-    // Piloti set in one write). And a new occurrence is new information, so the
-    // fold clears the states that would otherwise keep the row out of sight.
     for (const set of [batchSet, singleSet]) {
       expect(set).toContain('"count" = "inbox_items"."count" + excluded.count')
       expect(set).toContain('"read_at" = ')
@@ -201,16 +162,6 @@ describe('upsertInboxItems — the batch fold matches the single-row fold', () =
   })
 })
 
-/**
- * The suppression probe and the retire sweep behind the storage alert's
- * fire-once-per-crossing behaviour (ADR-0042).
- *
- * Both guarantees reduce to one SQL predicate — `archived_at is null` — and
- * neither survives a chain-spy, so what matters is the statement Postgres
- * receives. If the probe stopped excluding archived rows, a recovered-then
- * -re-crossed alert would be suppressed forever and the tenant would walk into
- * a full disk in silence.
- */
 describe('findLiveInboxGroupKeys — the fire-once probe', () => {
   it('asks only about UNARCHIVED rows, which is what re-arms a later crossing', async () => {
     await findLiveInboxGroupKeys('org_1', [
@@ -218,9 +169,6 @@ describe('findLiveInboxGroupKeys — the fire-once probe', () => {
     ])
 
     const { sql, params } = onlyQuery()
-    // Retiring an alert (archiving it) must make it invisible to this probe;
-    // otherwise the row that was archived on recovery would still read as "live"
-    // and the next crossing would be swallowed.
     expect(sql).toContain('"archived_at" is null')
     expect(sql).toContain('"organization_id" = $1')
     expect(params).toEqual([
@@ -237,8 +185,6 @@ describe('findLiveInboxGroupKeys — the fire-once probe', () => {
     ])
 
     const { sql, params } = onlyQuery()
-    // An `IN (recipients) AND IN (keys)` shortcut would report user_a as already
-    // holding user_b's alert and silently drop one recipient's notification.
     expect(sql).toContain('or')
     expect(params).toEqual(['org_1', 'user_a', 'k_a', 'user_b', 'k_b'])
   })
@@ -254,8 +200,6 @@ describe('archiveInboxItemsOfType — retiring a condition that no longer holds'
     await archiveInboxItemsOfType('org_1', 'storage.quota_warning')
 
     const { sql, params } = onlyQuery()
-    // Archived, not deleted: the row was really shown to somebody, and retention
-    // (spec IB-15) still owns its death.
     expect(sql).toContain('set "archived_at" = $1')
     expect(sql).toContain('"archived_at" is null')
     expect(params.slice(1)).toEqual(['org_1', 'storage.quota_warning'])
@@ -265,8 +209,6 @@ describe('archiveInboxItemsOfType — retiring a condition that no longer holds'
     await archiveInboxItemsOfType('org_1', 'storage.quota_warning', { exceptAnchorId: '90' })
 
     const { sql, params } = onlyQuery()
-    // Rows for OTHER buckets go; the 90% row stays, so the recipient ends up
-    // with one row about one disk instead of two.
     expect(sql).toContain('"anchor_id" is null or')
     expect(sql).toContain('"anchor_id" <> ')
     expect(params).toContain('90')
@@ -281,7 +223,7 @@ describe('markItemsInertAnchoredOn', () => {
   it('turns every live item of the named types on one anchor inert, for everyone, and wipes what it quoted', async () => {
     await markItemsInertAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you', 'annotation.activity'],
+      types: ['agent.asks_you', 'annotation.activity'],
       anchorId: 'ann_1',
     })
 
@@ -294,7 +236,7 @@ describe('markItemsInertAnchoredOn', () => {
     expect(sql).toContain('"anchor_id" = $')
     expect(sql).toContain('"inert_at" is null')
     expect(sql).not.toContain('"recipient_user_id" = $')
-    expect(params).toEqual(expect.arrayContaining(['org_1', 'piloti.asks_you', 'annotation.activity', 'ann_1']))
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'agent.asks_you', 'piloti.asks_you', 'annotation.activity', 'ann_1']))
   })
 
   it('turns one recipient’s items inert, and nobody else’s, when one is named', async () => {
@@ -325,7 +267,7 @@ describe('resolveOpenItemsAnchoredOn', () => {
   it('resolves the open items of the named types on one anchor, in one organization, for everyone', async () => {
     await resolveOpenItemsAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you'],
+      types: ['agent.asks_you'],
       anchorId: 'ann_1',
     })
 
@@ -336,13 +278,13 @@ describe('resolveOpenItemsAnchoredOn', () => {
     expect(sql).toContain('"anchor_id" = $')
     expect(sql).toContain('"resolved_at" is null')
     expect(sql).not.toContain('"recipient_user_id" = $')
-    expect(params).toEqual(expect.arrayContaining(['org_1', 'piloti.asks_you', 'ann_1']))
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'agent.asks_you', 'piloti.asks_you', 'ann_1']))
   })
 
   it('narrows to one recipient when one is named', async () => {
     await resolveOpenItemsAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you'],
+      types: ['agent.asks_you'],
       anchorId: 'ann_1',
       recipientUserId: 'user_me',
     })
@@ -367,7 +309,6 @@ describe('markAnchorItemsRead — opening one mark reads its news, and only its 
     expect(sql).toContain('"resource_type" = $')
     expect(sql).toContain('"resource_id" = $')
     expect(sql).toContain('"anchor_id" = $')
-    // A request survives being seen, as it does for the whole resource.
     expect(sql).toContain('"actionable" = $')
     expect(sql).toContain('"read_at" is null')
     expect(sql).toContain('"type" in ($')
@@ -442,10 +383,8 @@ describe('listInboxItems — the filters and the page after a cursor', () => {
     expect(sql).toContain(
       `("inbox_items"."updated_at", "inbox_items"."id") < (timestamptz 'epoch' + $`,
     )
-    // Ordered on the column itself, which `idx_inbox_items_recipient_org_updated` covers.
     expect(sql).toMatch(/order by "inbox_items"\."updated_at" desc, "inbox_items"\."id" desc limit \$/)
     expect(sql).not.toContain('date_trunc')
-    // The exact moment travels beside the row, for the next cursor.
     expect(sql).toContain('(extract(epoch from "updated_at") * 1000000)::bigint::text')
     expect(params).toEqual(expect.arrayContaining(['1790848800123456', '00000000-0000-4000-8000-000000000001', 51]))
   })
@@ -468,8 +407,8 @@ describe('listTouchedOfType — the rows a burst is made of', () => {
     await listTouchedOfType('org_1', 'user_me', 'annotation.assigned_to_you', { from, to }, 51)
 
     const { sql, params } = onlyQuery()
-    for (const column of ['organization_id', 'recipient_user_id', 'type']) expect(sql).toContain(`"inbox_items"."${column}" = $`)
-    // A row read since still links its burst: the job tells only the rows still news.
+    for (const column of ['organization_id', 'recipient_user_id']) expect(sql).toContain(`"inbox_items"."${column}" = $`)
+    expect(sql).toContain('"inbox_items"."type" in ($')
     for (const state of ['read_at', 'archived_at', 'resolved_at', 'inert_at']) expect(sql).not.toContain(`"inbox_items"."${state}"`)
     expect(sql).toContain('"inbox_items"."updated_at" >= $')
     expect(sql).toContain('"inbox_items"."updated_at" <= $')

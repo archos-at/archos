@@ -1,56 +1,12 @@
 'use client'
 
-/**
- * Platform → Feedback: every report members sent, across organizations, and
- * the one control that matters for each — where it is in triage.
- *
- * Triage lives in PostHog Support. The server opens a ticket for every report,
- * and the status shown and set here is that ticket's, read live and named as
- * PostHog names it (`new`, `open`, `pending`, `on_hold`, `resolved`); each row
- * links to its ticket. When PostHog cannot be read, or Support is not
- * configured, the list is the local log (`source: 'local'`): read-only, no
- * status filter, and an alert says where statuses are managed. Reports whose
- * ticket failed to open are listed apart ("not in PostHog yet"), so nothing a
- * member sent is out of sight.
- *
- * The page opens on the active support cases: every ticket that is not
- * resolved, whoever has it, because the question an owner arrives with is
- * "what is still open, who has it, and are we the ones who owe an answer?".
- * Each row says who the ticket is assigned to, when something last happened on
- * it and whose move it is, and offers „Übernehmen" (assign it to the reader in
- * PostHog) when it is not the reader's yet. A second chip row narrows to the
- * reader's own tickets or the unassigned ones; „Alle" and „Erledigt" bring the
- * resolved back. Answering stays in PostHog: the row links its ticket there.
- * An inbox row lands here with `?report=<id>`; that report is
- * pinned to the top and marked, whatever the filter says, so the link always
- * shows what it promised. A link to a report that no longer exists (or that
- * this reader cannot see) says so, instead of silently showing the list.
- *
- * Filters refetch, and a slow answer for the previous filter must not land on
- * top of the current one: only the newest request writes. While a refetch is
- * in flight the rows on screen stay, marked busy, rather than blinking out.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
-import {
-  ChevronDown,
-  CloudOff,
-  ExternalLink,
-  Inbox,
-  Mail,
-  MessageSquarePlus,
-  SearchX,
-  UserRound,
-  UserRoundX,
-} from 'lucide-react'
+import { CloudOff, MessageSquarePlus, SearchX, UserRoundX } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Chip, ChipCount } from '@/components/ui/chip'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
 import {
@@ -60,9 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { TimeAgo } from '@/components/ui/time-ago'
 import { SectionCard } from '@/features/platform/components/section-card'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import { feedbackCopy } from '@/i18n/namespaces/feedback'
 import {
   fetchPlatformFeedback,
@@ -80,17 +35,15 @@ import {
   type ProductFeedbackListResponse,
   type ProductFeedbackReportView,
   type ProductFeedbackStatusFilter,
-  type ProductFeedbackTicketView,
   type SupportTicketStatus,
 } from '@/lib/product-feedback/types'
-import { cn } from '@/lib/utils'
-import { FEEDBACK_KIND_ICONS } from './feedback-form'
+import { ReportRow } from './feedback-triage/report-row'
+import { StatusFilterChip } from './feedback-triage/status-filter-chip'
 
 export interface FeedbackTriageClient {
   list: (filters: ListFeedbackFilters) => Promise<ProductFeedbackListResponse>
   get: (id: string) => Promise<ProductFeedbackReportView | null>
   triage: (id: string, status: SupportTicketStatus) => Promise<ProductFeedbackReportView>
-  /** Assign a ticket to the reader in PostHog (the Slack alert's „Übernehmen"). */
   claim?: (ticketId: string) => Promise<ProductFeedbackReportView>
 }
 
@@ -101,43 +54,15 @@ const defaultClient: FeedbackTriageClient = {
   claim: claimPlatformFeedbackTicket,
 }
 
-const STATUS_CHIP: Record<SupportTicketStatus, 'info' | 'warning' | 'default' | 'success' | 'muted'> = {
-  new: 'info',
-  open: 'warning',
-  pending: 'default',
-  on_hold: 'muted',
-  resolved: 'success',
-}
-
-const KIND_CHIP: Record<ProductFeedbackKind, 'destructive' | 'default' | 'success' | 'secondary'> =
-  {
-    bug: 'destructive',
-    idea: 'default',
-    praise: 'success',
-    question: 'secondary',
-  }
-
 type StatusFilter = ProductFeedbackStatusFilter | 'all'
 type KindFilter = ProductFeedbackKind | 'all'
 type AssigneeFilter = ProductFeedbackAssigneeFilter | 'all'
 
 const ASSIGNEE_FILTERS: readonly AssigneeFilter[] = ['all', 'mine', 'unassigned']
 
-/** A ticket the reader can take: still open, and not theirs already. */
-function claimable(ticket: ProductFeedbackTicketView): boolean {
-  return ticket.status !== 'resolved' && !ticket.assignee?.isViewer
-}
-
 export interface FeedbackTriageProps {
-  /** Whether the reader holds the manage permission; view-only otherwise. */
   canTriage: boolean
-  /** The report an inbox row linked to, pinned and marked. */
   focusReportId?: string | null
-  /**
-   * A ticket to take on arrival: the Slack alert's „Übernehmen" button lands
-   * with `?claim=<ticket id>`. The ticket is assigned to the reader in PostHog
-   * and its report pinned like a linked one.
-   */
   claimTicketId?: string | null
   client?: FeedbackTriageClient
 }
@@ -154,15 +79,12 @@ export function FeedbackTriage({
   const [assignee, setAssignee] = React.useState<AssigneeFilter>('all')
   const [data, setData] = React.useState<ProductFeedbackListResponse | null>(null)
   const [focused, setFocused] = React.useState<ProductFeedbackReportView | null>(null)
-  /** The linked report could not be found (deleted, or not visible to this reader). */
   const [focusMissing, setFocusMissing] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [loadingMore, setLoadingMore] = React.useState(false)
   const [error, setError] = React.useState(false)
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const [claimingId, setClaimingId] = React.useState<string | null>(null)
-  // Only the newest list request may write: switching filters quickly must
-  // not let the answer for the previous filter overwrite the current one.
   const requestId = React.useRef(0)
 
   const filters = React.useMemo<ListFeedbackFilters>(
@@ -240,10 +162,8 @@ export function FeedbackTriage({
     setLoadingMore(true)
     try {
       const next = await client.list({ ...filters, cursor: data.nextCursor })
-      // A filter change while the page was loading made this page stale.
       if (id !== requestId.current) return
       setData((current) =>
-        // The unticketed reports belong to the first page; later pages only add tickets.
         current
           ? { ...next, reports: [...current.reports, ...next.reports], unticketed: current.unticketed }
           : next
@@ -286,7 +206,6 @@ export function FeedbackTriage({
     }
   }
 
-  /** Take a row's ticket: PostHog assigns it to the reader, and the row shows it. */
   async function claimRow(report: ProductFeedbackReportView): Promise<void> {
     const ticketId = report.ticket?.id
     if (!ticketId || !client.claim) return
@@ -319,7 +238,6 @@ export function FeedbackTriage({
     ? ACTIVE_SUPPORT_TICKET_STATUSES.reduce((sum, option) => sum + counts[option], 0)
     : undefined
   const canClaim = canTriage && Boolean(client.claim)
-  // The local log has no triage state: the status filter would be a lie there.
   const local = data?.source === 'local'
   const live = data?.source === 'posthog'
   const nothingShown = !focused && reports.length === 0
@@ -509,294 +427,5 @@ export function FeedbackTriage({
         )}
       </div>
     </SectionCard>
-  )
-}
-
-function StatusFilterChip({
-  active,
-  onClick,
-  count,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  /** Absent until the PostHog counts are known. */
-  count?: number
-  children: React.ReactNode
-}): JSX.Element {
-  return (
-    <Chip asChild interactive variant={active ? 'default' : 'outline'}>
-      <button type="button" aria-pressed={active} onClick={onClick}>
-        {children}
-        {count === undefined ? null : <ChipCount count={count} />}
-      </button>
-    </Chip>
-  )
-}
-
-/** A text link that leaves Piloti (PostHog), styled like the row's mail link. */
-function ExternalTextLink({
-  href,
-  testId,
-  children,
-}: {
-  href: string
-  testId: string
-  children: React.ReactNode
-}): JSX.Element {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      data-testid={testId}
-      className="text-primary pointer-coarse:min-h-11 inline-flex items-center gap-1 hover:underline"
-    >
-      <ExternalLink className="size-3.5" aria-hidden />
-      {children}
-    </a>
-  )
-}
-
-function ReportRow({
-  report,
-  focused = false,
-  canTriage,
-  busy,
-  onStatusChange,
-  canClaim = false,
-  claiming = false,
-  onClaim,
-}: {
-  report: ProductFeedbackReportView
-  focused?: boolean
-  /** Whether the status select shows: the reader may triage and the list is PostHog's. */
-  canTriage: boolean
-  busy: boolean
-  onStatusChange: (status: SupportTicketStatus) => void
-  /** Whether „Übernehmen" may show: the reader may triage and the list is PostHog's. */
-  canClaim?: boolean
-  claiming?: boolean
-  onClaim?: () => void
-}): JSX.Element {
-  const t = useTranslations(feedbackCopy)
-  const { locale } = useLocale()
-  const ref = React.useRef<HTMLLIElement>(null)
-  const KindIcon = FEEDBACK_KIND_ICONS[report.kind]
-  const { ticket } = report
-
-  React.useEffect(() => {
-    if (focused) ref.current?.scrollIntoView({ block: 'nearest' })
-  }, [focused])
-
-  const reporter = report.reporter.name ?? report.reporter.email ?? t('platform.unknownReporter')
-  const organization = report.organizationName ?? t('platform.unknownOrganization')
-
-  return (
-    <li
-      ref={ref}
-      data-testid="feedback-report"
-      data-report-id={report.id}
-      data-focused={focused || undefined}
-      className={cn('flex flex-col gap-3 py-4', focused && 'bg-muted/50 -mx-6 px-6')}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        {focused ? (
-          <Badge variant="outline" className="font-normal">
-            <Inbox aria-hidden />
-            {t('platform.linked')}
-          </Badge>
-        ) : null}
-        {ticket?.number != null ? (
-          <span className="text-foreground font-mono text-xs" data-testid="feedback-ticket-number">
-            #{ticket.number}
-          </span>
-        ) : null}
-        <Chip variant={KIND_CHIP[report.kind]} size="sm">
-          <KindIcon aria-hidden />
-          {t(`kinds.${report.kind}.label`)}
-        </Chip>
-        <span className="text-muted-foreground min-w-0 truncate text-xs">
-          {t('platform.from', { name: reporter, organization })}
-        </span>
-        <TimeAgo
-          date={report.createdAt}
-          locale={locale}
-          className="text-muted-foreground text-xs"
-        />
-        {ticket ? (
-          <div className="ml-auto">
-            {canTriage ? (
-              <Select
-                value={ticket.status}
-                onValueChange={(value) => onStatusChange(value as SupportTicketStatus)}
-                disabled={busy}
-              >
-                <SelectTrigger size="sm" aria-label={t('platform.statusLabel')} className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPPORT_TICKET_STATUSES.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {t(`statuses.${option}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Chip variant={STATUS_CHIP[ticket.status]} size="sm">
-                {t(`statuses.${ticket.status}`)}
-              </Chip>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {/* The list reads as a queue: a few lines say which report it is, and the
-          linked report shows in full. */}
-      <p
-        className={cn(
-          'text-foreground whitespace-pre-wrap break-words text-sm leading-relaxed',
-          !focused && 'line-clamp-3'
-        )}
-      >
-        {report.message}
-      </p>
-
-      {ticket ? (
-        <CaseLine
-          ticket={ticket}
-          canClaim={canClaim && claimable(ticket)}
-          claiming={claiming}
-          onClaim={onClaim}
-        />
-      ) : null}
-
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        {report.pagePath && (
-          <span className="font-mono">{t('platform.onPage', { page: report.pagePath })}</span>
-        )}
-        {report.reporter.email ? (
-          <a
-            href={`mailto:${report.reporter.email}`}
-            className="text-primary pointer-coarse:min-h-11 inline-flex items-center gap-1 hover:underline"
-          >
-            <Mail className="size-3.5" aria-hidden />
-            {t('platform.contact')}
-          </a>
-        ) : (
-          <span>{t('platform.noContact')}</span>
-        )}
-        {ticket ? (
-          <ExternalTextLink href={ticket.url} testId="feedback-ticket-link">
-            {t('platform.openInPosthog')}
-          </ExternalTextLink>
-        ) : report.posthogPersonUrl ? (
-          <ExternalTextLink href={report.posthogPersonUrl} testId="feedback-recordings-link">
-            {t('platform.recordingsLink')}
-          </ExternalTextLink>
-        ) : null}
-      </div>
-
-      {(report.context.userAgent || report.context.viewport) && (
-        <Collapsible>
-          <CollapsibleTrigger className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 group inline-flex items-center gap-1 text-xs">
-            {t('platform.details')}
-            <ChevronDown
-              aria-hidden
-              className="duration-quick size-3.5 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-              {(
-                [
-                  [t('dialog.context.browser'), report.context.userAgent],
-                  [t('dialog.context.screen'), report.context.viewport],
-                  [t('dialog.context.locale'), report.context.locale],
-                  [t('dialog.context.timeZone'), report.context.timeZone],
-                ] as const
-              )
-                .filter(([, value]) => Boolean(value))
-                .map(([label, value]) => (
-                  <React.Fragment key={label}>
-                    <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="min-w-0 break-words">{value}</dd>
-                  </React.Fragment>
-                ))}
-            </dl>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-    </li>
-  )
-}
-
-/**
- * The case on one row: who has the ticket, whose move it is, when something
- * last happened, and „Übernehmen" when the reader can take it.
- */
-function CaseLine({
-  ticket,
-  canClaim,
-  claiming,
-  onClaim,
-}: {
-  ticket: ProductFeedbackTicketView
-  canClaim: boolean
-  claiming: boolean
-  onClaim?: () => void
-}): JSX.Element {
-  const t = useTranslations(feedbackCopy)
-  const { locale } = useLocale()
-  const { assignee } = ticket
-  const holder = !assignee
-    ? t('platform.case.unassigned')
-    : assignee.isViewer
-      ? t('platform.case.assignedToYou')
-      : t('platform.case.assignedTo', {
-          name: assignee.name ?? assignee.email ?? t('platform.case.unnamedAssignee'),
-        })
-  const HolderIcon = assignee ? UserRound : UserRoundX
-
-  return (
-    <div
-      data-testid="feedback-case"
-      className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-2 text-xs"
-    >
-      <span
-        data-testid="feedback-assignee"
-        className={cn('inline-flex min-w-0 items-center gap-1', !assignee && 'text-foreground')}
-      >
-        <HolderIcon className="size-3.5 shrink-0" aria-hidden />
-        <span className="truncate">{holder}</span>
-      </span>
-      {ticket.awaiting ? (
-        <Chip
-          size="sm"
-          variant={ticket.awaiting === 'team' ? 'warning' : 'muted'}
-          data-testid="feedback-awaiting"
-          data-awaiting={ticket.awaiting}
-        >
-          {t(`platform.case.awaiting.${ticket.awaiting}`)}
-        </Chip>
-      ) : null}
-      <span className="inline-flex items-center gap-1">
-        {t('platform.case.lastActivity')}
-        <TimeAgo date={ticket.lastActivityAt} locale={locale} />
-      </span>
-      {canClaim && onClaim ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="ml-auto"
-          loading={claiming}
-          onClick={onClaim}
-          data-testid="feedback-claim"
-        >
-          {t('platform.case.claim')}
-        </Button>
-      ) : null}
-    </div>
   )
 }

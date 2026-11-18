@@ -16,7 +16,6 @@ const FOLDERS: FolderItem[] = [
   { id: 'f-2', name: 'Statik', parentId: 'f-1', path: 'Planung/Statik' },
 ]
 
-/** One tree, two shelves: the hook only knows the URL it is handed. */
 describe.each([
   ['a project', '/api/projects/proj-1/folders'],
   ['the Archiv', '/api/office-shelf/folders'],
@@ -73,7 +72,6 @@ describe.each([
     await waitFor(() => expect(result.current.folders).toEqual(FOLDERS))
     expect(result.current.isFirstLoad).toBe(false)
 
-    // A rename or a move re-reads the tree; the tiles on screen stay there.
     let reread: Promise<unknown> = Promise.resolve()
     act(() => {
       reread = result.current.load()
@@ -112,8 +110,6 @@ describe.each([
     const { result } = render()
     await waitFor(() => expect(result.current.folders).toEqual(FOLDERS))
 
-    // The first re-read is slow and answers with the tree before a folder was
-    // made; the second answers with the folder. The older answer lands last.
     const NEU: FolderItem = { id: 'f-9', name: 'Neu', parentId: null, path: 'Neu' }
     let releaseOld: () => void = () => undefined
     const oldAnswered = new Promise<void>((resolve) => {
@@ -306,7 +302,6 @@ describe.each([
   })
 })
 
-/** A project's shelf has a Papierkorb (ADR-0088): a delete moves the folder there, with its contents. */
 describe('useFolderTree over a shelf with a Papierkorb', () => {
   const foldersUrl = '/api/projects/proj-1/folders'
   const binHref = '/app/projects/proj-1/files/bin'

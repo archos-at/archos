@@ -27,7 +27,6 @@ describe('the setup records', () => {
     const territory = at.records.find((record) => record.type === 'territory' && record.id === 'AT')
     expect(territory).toMatchObject({ zone: 'Europe/Vienna' })
     expect(proposedRecordSchema.safeParse({ ...territory, citations: [{ note: 'spec' }] }).success).toBe(true)
-    // A zone the runtime does not know is refused at the door, never stored.
     expect(proposedRecordSchema.safeParse({ type: 'territory', id: 'AT', kind: 'country', name: 'x', zone: 'Mars/Olympus' }).success).toBe(false)
   })
 
@@ -60,7 +59,6 @@ describe('the setup records', () => {
     const result = rulesetValuesSchema.safeParse(wrong)
     expect(result.success).toBe(false)
     expect(JSON.stringify(result.error?.issues)).toMatch(/serves the purpose fact_sources/)
-    // A decision purpose takes a table only.
     expect(rulesetValuesSchema.safeParse({ ...sourcesSeed, purpose: 'classification' }).success).toBe(false)
   })
 
@@ -99,7 +97,6 @@ describe('the setup records', () => {
       payload: values.body.payload,
     } as unknown as Parameters<typeof rulesetFromRow>[0]
     expect(rulesetFromRow(row)).toEqual({ id: 'rec-1', values })
-    // A payload the schema cannot read is left out, never half-read.
     expect(rulesetFromRow({ ...row, payload: { entries: [] } })).toBeNull()
   })
 })

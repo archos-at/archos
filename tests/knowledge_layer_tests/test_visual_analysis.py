@@ -1,21 +1,10 @@
-"""Unit tests for the domain-neutral visual extraction kernel.
-
-Three things are under test and they are deliberately separable:
-
-- ``visual_domains`` — the vocabulary, as data. A domain is added here and
-  nothing else changes.
-- ``visual_analysis`` — the kernel: JSON Schema, prompt, parser, renderer,
-  chunk payloads. It never names a room or a floor plan.
-- the adapter seams — that a rendered page, a raster embedded in a PDF and an
-  uploaded image file are all understood by the SAME analysis.
-"""
-
 import json
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
 
@@ -29,8 +18,6 @@ def _reply(segments, document=None):
     return json.dumps({"segments": segments, "document": document or {}})
 
 
-#: One sheet carrying a plan, a section, a chart and a photo — the case the
-#: whole per-segment design exists for.
 _MIXED_SHEET = _reply(
     [
         {
@@ -60,8 +47,6 @@ _MIXED_SHEET = _reply(
                     "source": "text",
                     "confidence": "high",
                 },
-                # Meaningless without an object — the failure the schema exists
-                # to prevent.
                 {"object": None, "property": "x", "value": "9"},
             ],
             "relations": [{"subject": "Rampe", "relation": "verbindet", "object": "Hof und Dach"}],
@@ -93,30 +78,20 @@ class TestDomainRegistry:
         assert vd.resolve_registry("architecture,general").domain_ids == ("architecture", "general")
 
     def test_the_fallback_domain_is_always_enabled(self):
-        # A segment falls back to it, so a deployment cannot switch it off.
         assert vd.FALLBACK_DOMAIN_ID in vd.resolve_registry("architecture").domain_ids
 
     def test_unknown_ids_are_skipped_rather_than_fatal(self):
-        # A typo in one deployment's env must not fail every upload there.
         assert vd.resolve_registry("architecture,nonsense").domain_ids == ("architecture", "general")
-        # Nothing recognisable still yields a usable vocabulary.
         assert vd.resolve_registry("nonsense").domain_ids == ("general",)
-        # Unset falls back to the deployment default, not to nothing.
         assert vd.resolve_registry("").domain_ids == vd.resolve_registry(None).domain_ids
 
     def test_identity_names_the_enabled_set_and_its_contents(self, registry):
         assert registry.id == "architecture+general"
         assert registry.fingerprint == f"architecture+general@{registry.content_hash}"
         assert va.cache_prompt_type(registry) == f"visual:v{va.SCHEMA_VERSION}:{registry.fingerprint}"
-        # Enabling a domain must not serve the other set's categories.
         assert va.cache_prompt_type(vd.resolve_registry("general")) != va.cache_prompt_type(registry)
 
     def test_editing_a_terms_wording_moves_the_content_hash(self, registry):
-        # The id names WHICH domains are on; the hash names what they say. The
-        # difference is invisible while the vocabulary is code and total the
-        # moment it is editable: a renamed category changes what the model is
-        # asked to look for, and a cache keyed on the id alone would serve the
-        # old reading for the whole TTL.
         import dataclasses
 
         edited = dataclasses.replace(
@@ -143,9 +118,7 @@ class TestDomainRegistry:
         )
         one = vd.DomainRegistry((retired,))
 
-        # Withheld from the model, so nothing new is written under it…
         assert "old_term" not in one.category_keys()
-        # …but still resolvable, so a record extracted under it keeps rendering.
         assert "old_term" in retired.category_keys
         assert "old_term" not in va.build_prompt(one)
 
@@ -155,29 +128,22 @@ class TestDomainRegistry:
         assert registry.content_type_for([{"domain": "general", "segment_type": "photo"}]) == "image"
 
     def test_a_mixed_sheet_is_typed_by_the_reader_came_for_it(self, registry):
-        # A plan sheet carrying a chart and a photo is still a plan sheet.
         mixed = [
             {"domain": "general", "segment_type": "photo"},
             {"domain": "architecture", "segment_type": "diagram"},
             {"domain": "architecture", "segment_type": "floor_plan"},
         ]
         assert registry.content_type_for(mixed) == "drawing"
-        # …but a photo sheet carrying a small diagram is a chart, not a drawing.
         assert registry.content_type_for(mixed[:2]) == "chart"
 
 
 class TestJsonSchema:
-    """The schema is a standalone artifact: it is what a provider's structured
-    decoding is handed, and what the prompt's shape is derived from."""
-
     def test_conforms_to_the_strict_structured_output_subset(self, registry):
         schema = va.json_schema(registry)
 
         def check(node):
             if node.get("type") == "object" or "properties" in node:
                 assert node.get("additionalProperties") is False
-                # Strict mode requires every property to be listed as required;
-                # optionality is carried by the type union instead.
                 assert set(node.get("required", [])) == set(node["properties"])
                 for child in node["properties"].values():
                     check(child)
@@ -193,17 +159,11 @@ class TestJsonSchema:
         assert "space" in segment["properties"]["entities"]["items"]["properties"]["category"]["enum"]
 
     def test_does_not_attempt_conditional_validation(self, registry):
-        # "a category must belong to the segment's domain" is deliberately NOT
-        # expressed here — the strict subsets reject if/then — so the parser
-        # owns that check. A schema that grew one would silently stop being
-        # accepted by providers.
         rendered = json.dumps(va.json_schema(registry))
         for unsupported in ('"if"', '"then"', '"allOf"', '"oneOf"', '"$ref"'):
             assert unsupported not in rendered
 
     def test_the_prompt_shape_is_derived_from_the_schema(self, registry):
-        # One source of truth: a field added to the schema shows up in the
-        # prompt without anyone remembering to add it there too.
         schema = va.json_schema(registry)
         schema["properties"]["segments"]["items"]["properties"]["invented_field"] = {
             "type": "string",
@@ -213,20 +173,13 @@ class TestJsonSchema:
 
     def test_the_prompt_states_the_rules_the_parser_depends_on(self, registry):
         prompt = va.build_prompt(registry)
-        # Contract, not prose: the shared rules, the per-domain vocabularies,
-        # and the instruction that keeps free text searchable in its own
-        # language.
         for token in ("segments", "quantities", "relations", "compositions", "bbox", "confidence", "watermark"):
             assert token in prompt
         assert "architecture" in prompt and "floor_plan" in prompt and "space" in prompt
         assert "LANGUAGE OF THE DOCUMENT" in prompt
-        # It must stay affordable to send with every image.
         assert len(prompt) < 12000
 
     def test_the_prompt_names_side_by_side_repeats_as_separate_segments(self, registry):
-        # Issue #440: two floor plans next to each other must be read as two
-        # segments, even though both are "floor_plan". The prompt never named
-        # that case, so a merge was the model's reasonable reading of it.
         prompt = va.build_prompt(registry)
         assert "side by side" in prompt
         assert "Two floor plans" in prompt
@@ -234,8 +187,6 @@ class TestJsonSchema:
 
 
 class TestPromptContext:
-    """The file's own facts (a photo's capture time) reach the prompt only when given."""
-
     def test_the_context_is_in_the_prompt_when_given(self, registry):
         prompt = va.build_prompt(registry, context="Aufgenommen am 14.09.2026 um 10:32 Uhr.")
         assert "Aufgenommen am 14.09.2026 um 10:32 Uhr." in prompt
@@ -266,7 +217,6 @@ class TestParsing:
             ("architecture", "diagram"),
             ("general", "photo"),
         ]
-        # Scale belongs to the segment, not to the image.
         assert [s["scale"] for s in analysis["segments"]] == ["1:100", "1:50", None, None]
         assert analysis["schema_version"] == va.SCHEMA_VERSION
         assert analysis["registry"] == registry.fingerprint
@@ -281,8 +231,6 @@ class TestParsing:
         )
         segment = analysis["segments"][0]
         assert segment["domain"] == "general"
-        # Re-filing under a domain the model did not choose would be worse than
-        # admitting the type is unknown.
         assert segment["segment_type"] == "other"
         assert segment["summary"] == "A schematic."
 
@@ -299,8 +247,6 @@ class TestParsing:
             ),
             registry,
         )
-        # The thing WAS recognised; dropping it because the model coined a word
-        # is the worse failure.
         assert analysis["segments"][0]["entities"] == [
             {"name": "Nordlicht", "category": "other", "role": None, "measure": None}
         ]
@@ -345,8 +291,6 @@ class TestParsing:
         assert bbox_of([0.05, -0.1, 0.55, 1.7]) == [0.05, 0.0, 0.55, 1.0]
         for malformed in ([0.5, 0.1, 0.4, 0.9], [0.1, 0.2, 0.3], "top left", None):
             assert bbox_of(malformed) is None
-        # Non-finite, which a plain clamp would turn into a plausible box: NaN
-        # to 0.0, an infinity to an edge.
         for non_finite in ([float("nan"), 0.2, 0.8, 0.9], [0.1, 0.2, float("inf"), 0.9]):
             assert bbox_of(non_finite) is None
 
@@ -357,8 +301,6 @@ class TestParsing:
         assert len(analysis["segments"]) == va._MAX_SEGMENTS
 
     def test_truncating_a_runaway_reply_says_so(self, registry, caplog):
-        # Issue #437: a sheet with more depictions than the cap kept its first
-        # twelve and silently lost the rest. The cap stays; the silence goes.
         import logging
 
         segments = [{"domain": "general", "segment_type": "photo", "summary": f"p{i}"} for i in range(15)]
@@ -371,7 +313,6 @@ class TestParsing:
     def test_returns_none_when_there_is_nothing_usable(self, registry):
         for reply in (None, "", "ZEICHNUNGSTYP: schnitt", '{"segments": []}', '{"segments": "broken"'):
             assert va.parse_visual_analysis(reply, registry) is None
-        # A segment with no type signal and no content is model noise.
         assert va.parse_visual_analysis(_reply([{"domain": "general", "segment_type": "other"}]), registry) is None
 
 
@@ -394,8 +335,6 @@ class TestRendering:
             assert expected in text
 
     def test_labels_are_english_but_values_keep_the_documents_language(self, registry):
-        # The labels are business logic; the values are what a German query has
-        # to match lexically.
         analysis = va.parse_visual_analysis(_MIXED_SHEET, registry)
         text = va.render_segment_text(analysis["segments"][0], registry)
         assert "Wärmepumpe" in text and "Regelgeschoss" in text
@@ -428,8 +367,6 @@ class TestSegmentPayloads:
 
     def test_document_facts_ride_on_the_first_chunk_only(self, registry):
         payloads = va.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
-        # Repeating the title block on every chunk would let one project-name
-        # query retrieve four near-identical chunks from one sheet.
         assert "Wohnbau Nord" in payloads[0]["text"]
         assert not any("Wohnbau Nord" in p["text"] for p in payloads[1:])
 
@@ -442,8 +379,6 @@ class TestSegmentPayloads:
         assert data["document"]["title"] == "Wohnbau Nord"
 
     def test_a_chunks_drawing_data_is_what_the_dossier_lifts_facts_from(self, registry):
-        # The contract between the two halves: the chunk payload the ingest stores and
-        # the dossier lift that reads it back (``adapter._reading_of``).
         from agent.knowledge.dossier import lifted_drawing_facts
 
         reply = _reply(
@@ -470,7 +405,6 @@ class TestSegmentPayloads:
 
 
 def _two_floor_plans_reply() -> str:
-    """One sheet, two floor plans side by side plus a section — issue #440."""
     return _reply(
         [
             {"domain": "architecture", "segment_type": "floor_plan", "title": "EG", "summary": "Erdgeschoss."},
@@ -481,11 +415,6 @@ def _two_floor_plans_reply() -> str:
 
 
 class TestRepeatedSegmentOrdinals:
-    """A repeated type stays addressable: two floor plans side by side read
-    "Floor plan 1 of 2" and "Floor plan 2 of 2", so the chunks are
-    distinguishable in retrieval even when the model gave both the same
-    title. A type that occurs once renders exactly as before."""
-
     def test_repeated_types_carry_per_type_ordinals(self, registry):
         payloads = va.segment_payloads(va.parse_visual_analysis(_two_floor_plans_reply(), registry), registry)
 
@@ -527,7 +456,7 @@ class TestLegacyFields:
 
     def test_still_feeds_the_deterministic_summary_synthesiser(self, registry):
         fields = va.legacy_fields(va.parse_visual_analysis(_MIXED_SHEET, registry))
-        summary = adapter._summary_from_drawing_fields([{"fields": fields}])
+        summary = caption_documents._summary_from_drawing_fields([{"fields": fields}])
         assert summary.startswith("Plansatz.")
 
 
@@ -564,12 +493,6 @@ def _write_image(tmp_path, name="plan.webp", fmt="WEBP"):
 
 
 class TestOneAnalysisForEverySource:
-    """The unification: a rendered page, a raster embedded in a PDF and an
-    uploaded image file are understood by the SAME analysis. Embedded rasters
-    used to get a generic caption prompt instead, so a scanned plan placed
-    inside a PDF was indexed as one paragraph while the identical sheet as a
-    vector page was indexed per drawing."""
-
     def _fields(self, registry):
         analysis = va.parse_visual_analysis(_MIXED_SHEET, registry)
         return {**va.legacy_fields(analysis), "analysis": analysis}
@@ -578,11 +501,10 @@ class TestOneAnalysisForEverySource:
         import openai
 
         with patch.object(openai, "OpenAI", _fake_openai(_MIXED_SHEET)):
-            content_type, caption, fields = adapter.analyze_visual(b"img", vlm_api_key="k")
+            content_type, caption, fields = vision_reads.analyze_visual(b"img", vlm_api_key="k")
 
         assert content_type == "drawing"
         assert fields["analysis"]["segments"][3]["domain"] == "general"
-        # The chunk body is rendered text, never raw JSON.
         assert "{" not in caption
         assert "Floor plan — EG (scale 1:100)" in caption
 
@@ -595,9 +517,9 @@ class TestOneAnalysisForEverySource:
             seen.append(image_bytes)
             return ("caption", self._fields(registry))
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", one_analyser)
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", one_analyser)
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: (_ for _ in ()).throw(AssertionError("the caption prompt fired")),
         )
@@ -618,7 +540,9 @@ class TestOneAnalysisForEverySource:
     def test_an_embedded_raster_yields_per_segment_chunks(self, monkeypatch, registry):
         from knowledge_layer.ingest import processing
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry)))
+        monkeypatch.setattr(
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry))
+        )
         record = {
             "image_bytes": b"scanned-plan",
             "page_number": 7,
@@ -630,7 +554,7 @@ class TestOneAnalysisForEverySource:
         (image_results, _) = processing.enrich_vlm_batch([record], [], "model", "url", "key")
         enriched, content_type, caption = image_results[0]
 
-        docs = adapter.visual_documents(
+        docs = caption_documents.visual_documents(
             content_type,
             caption,
             enriched["fields"],
@@ -644,9 +568,13 @@ class TestOneAnalysisForEverySource:
         assert all(d.text.startswith("[DRAWING from page 7]") for d in docs)
 
     def test_a_standalone_image_takes_the_same_path(self, tmp_path, monkeypatch, registry):
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry)))
+        monkeypatch.setattr(
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry))
+        )
 
-        docs = adapter._build_image_documents(_write_image(tmp_path), "plan.webp", 999, "webp", vlm_api_key="k")
+        docs = caption_documents._build_image_documents(
+            _write_image(tmp_path), "plan.webp", 999, "webp", vlm_api_key="k"
+        )
 
         assert [d.metadata["drawing_type"] for d in docs] == ["floor_plan", "section", "diagram", "photo"]
         assert all(d.metadata["image_format"] == "webp" for d in docs)
@@ -656,38 +584,38 @@ class TestOneAnalysisForEverySource:
         analysis = va.parse_visual_analysis(
             _reply([{"domain": "general", "segment_type": "photo", "summary": "Ein Baustellenfoto."}]), registry
         )
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", {"analysis": analysis}))
+        monkeypatch.setattr(
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", {"analysis": analysis})
+        )
 
         def forbidden(*a, **k):
             raise AssertionError("a parsed analysis must never spend a second VLM call")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", forbidden)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", forbidden)
 
-        docs = adapter._build_image_documents(
+        docs = caption_documents._build_image_documents(
             _write_image(tmp_path, "foto.png", "PNG"), "foto.png", 5, "png", vlm_api_key="k"
         )
         assert len(docs) == 1
         assert docs[0].metadata["content_type"] == "image"
 
     def test_an_unparseable_reply_falls_back_to_the_caption_prompt(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("just prose", {}))
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Baustellenfoto."))
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("just prose", {}))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Baustellenfoto."))
 
-        docs = adapter._build_image_documents(
+        docs = caption_documents._build_image_documents(
             _write_image(tmp_path, "foto.png", "PNG"), "foto.png", 5, "png", vlm_api_key="k"
         )
         assert len(docs) == 1
         assert "Baustellenfoto" in docs[0].text
 
     def test_a_hard_failure_still_falls_back_before_giving_up(self, tmp_path, monkeypatch):
-        # A provider error on the big structured prompt must not cost the file:
-        # the smaller caption prompt is the last rung of the ladder.
         monkeypatch.setattr(
-            adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("[Drawing - analysis failed: boom]", {})
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("[Drawing - analysis failed: boom]", {})
         )
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Foto."))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Foto."))
 
-        docs = adapter._build_image_documents(
+        docs = caption_documents._build_image_documents(
             _write_image(tmp_path, "foto.png", "PNG"), "foto.png", 5, "png", vlm_api_key="k"
         )
         assert len(docs) == 1
@@ -696,12 +624,12 @@ class TestOneAnalysisForEverySource:
     def test_an_undecodable_image_fails_the_file(self, tmp_path):
         path = tmp_path / "kaputt.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\nnot really a png")
-        assert adapter._build_image_documents(str(path), "kaputt.png", 5, "png", vlm_api_key="k") is None
+        assert caption_documents._build_image_documents(str(path), "kaputt.png", 5, "png", vlm_api_key="k") is None
 
 
 class TestVisualDocumentsBuilder:
     def test_a_caption_only_result_is_one_chunk_with_the_typed_prefix(self):
-        docs = adapter.visual_documents(
+        docs = caption_documents.visual_documents(
             "chart", "Ein Balkendiagramm.", {}, file_name="f.pdf", file_size=3, page_number=2
         )
         assert len(docs) == 1
@@ -711,8 +639,12 @@ class TestVisualDocumentsBuilder:
     def test_extra_metadata_is_the_only_source_specific_part(self, registry):
         fields = {"analysis": va.parse_visual_analysis(_MIXED_SHEET, registry)}
         common = dict(file_name="f.pdf", file_size=3, page_number=1)
-        page_docs = adapter.visual_documents("drawing", "c", fields, **common, extra_metadata={"image_width": 2048})
-        raster_docs = adapter.visual_documents("drawing", "c", fields, **common, extra_metadata={"image_index": 4})
+        page_docs = caption_documents.visual_documents(
+            "drawing", "c", fields, **common, extra_metadata={"image_width": 2048}
+        )
+        raster_docs = caption_documents.visual_documents(
+            "drawing", "c", fields, **common, extra_metadata={"image_index": 4}
+        )
 
         assert [d.text for d in page_docs] == [d.text for d in raster_docs]
         assert page_docs[0].metadata["image_width"] == 2048

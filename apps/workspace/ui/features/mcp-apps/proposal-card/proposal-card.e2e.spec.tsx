@@ -1,21 +1,3 @@
-/**
- * The proposal card as an MCP App, end to end (ADR-0142), with nothing faked
- * between the card and the door but the route itself:
- *
- *   the card (`ProposalCardFrame`, the SDK's `App`)
- *     ⇄ the host (the SDK's own `AppBridge`, with an MCP `Client`)
- *     ⇄ Piloti's door (`buildMcpServer`, the real catalog and policy)
- *     → `callOperation` (mocked: the route's answer)
- *
- * The host calls `proposal-get` as its model would, hands the result to the
- * view, and the person presses Apply on the card: the press travels as the
- * app-only tool through the host to the door, which runs `proposal-apply` as
- * the person. The card shows the decided proposal, the model is told
- * (`ui/update-model-context`), and the card wears the host's theme and
- * language. The SDK's reference host (`examples/basic-host`) is an example app,
- * not a package; `AppBridge` is the part of it a host is built from.
- */
-
 import { act, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { webcrypto } from 'node:crypto'
@@ -37,9 +19,13 @@ import type { AgentPrincipal } from '@/lib/agent-api/principal'
 import { APP_INFO, ProposalCardFrame } from './ProposalCardApp'
 import { PRODUCT_NAME } from '@/lib/brand'
 
+it('introduces itself to the host as proposal-card', () => {
+  expect(APP_INFO.name).toBe('proposal-card')
+})
+
 const session = {
   userId: 'user_anna',
-  email: 'anna@piloti.test',
+  email: 'anna@example.test',
   name: 'Anna Berger',
   accessToken: '',
   organizationId: 'org_1',
@@ -86,7 +72,6 @@ afterEach(() => {
   document.documentElement.removeAttribute('style')
 })
 
-/** Door ⇄ host ⇄ view, connected the way a host connects them. */
 async function connect() {
   const [doorSide, hostClientSide] = InMemoryTransport.createLinkedPair()
   const door = buildMcpServer(outside, 'search')
@@ -117,7 +102,6 @@ async function connect() {
   return { client, bridge, app, contexts, delivered: () => delivered }
 }
 
-/** The proposal routes, as the door reaches them: a read answers the stored state, a press moves it. */
 function serveProposal(initial: 'proposed' | 'applied') {
   let state: 'proposed' | 'applied' = initial
   vi.mocked(callOperation).mockReset().mockImplementation(async (op) => {
@@ -134,22 +118,18 @@ describe('the proposal card in a host', () => {
     serveProposal('proposed')
     const { client, bridge, app, contexts, delivered } = await connect()
 
-    // The host's model calls the tool; the host hands its result to the view.
     const result = (await client.callTool({ name: 'proposal-get', arguments: { params: { id: ID } } })) as CallToolResult
     await bridge.sendToolResult(result)
     await waitFor(() => expect(delivered()).not.toBeNull())
 
     render(<ProposalCardFrame result={delivered()} hostContext={app.getHostContext()} app={app} />)
     expect(await screen.findByText('Rename the folder „Pläne alt“ to „Archiv 2025“')).toBeInTheDocument()
-    // German copy from the host's locale; the host's theme on the document.
     expect(screen.getByText('Übernehmen?')).toBeInTheDocument()
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.style.getPropertyValue('--background')).toBe('var(--color-background-primary)')
     expect(document.documentElement.style.getPropertyValue('--foreground')).toBe('var(--color-text-primary)')
-    // A token the host did not give keeps Piloti's own value.
     expect(document.documentElement.style.getPropertyValue('--muted-foreground')).toBe('')
 
-    // The seed may be a stored result the host replays: the open card reads the proposal again, once.
     await waitFor(() => expect(calledOperations()).toEqual(['proposal-get', 'proposal-get']))
     await act(async () => {
       await userEvent.click(screen.getByRole('button', { name: 'Übernehmen' }))
@@ -171,7 +151,6 @@ describe('the proposal card in a host', () => {
   it('shows a replayed result that was decided since as decided, and tells the model it is no longer open', async () => {
     const server = serveProposal('proposed')
     const { client, bridge, app, contexts, delivered } = await connect()
-    // The host stored yesterday's open result; somebody applied the proposal since.
     const result = (await client.callTool({ name: 'proposal-get', arguments: { params: { id: ID } } })) as CallToolResult
     server.decideElsewhere()
     await bridge.sendToolResult(result)

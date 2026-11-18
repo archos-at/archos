@@ -1,9 +1,3 @@
-/**
- * The unlisted pages (UNLISTED_ROUTES in src/i18n/paths.ts) are built and answer at their
- * address, but nothing on the site offers them: no navigation or footer link, no link from
- * a page, a post or llms.txt, no sitemap entry. BaseLayout marks them noindex; the sitemap
- * filter leaves them out. This holds the links.
- */
 import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -13,7 +7,6 @@ import { LOCALES, ROUTES, UNLISTED_ROUTES, isUnlisted } from '../i18n/paths';
 
 const SRC = join(import.meta.dir, '..');
 
-/** The unlisted pages' own views, and the route table: they may name them. */
 const OWN_FILES = new Set([
   'views/FirmsView.astro',
   'views/BuildingLawView.astro',

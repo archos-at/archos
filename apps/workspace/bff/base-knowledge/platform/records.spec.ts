@@ -33,7 +33,6 @@ describe('a territory body', () => {
   })
 
   it('reads a stored body without a stated zone as no claim, and a stated one as a claim (0235)', () => {
-    // A body stored before 0235 reads back with `zone: null`: no claim a reviewer still owes a verdict on.
     expect(claimsOf({ ...bodyOf(austria), zone: null }).map((claim) => claim.path)).not.toContain('zone')
     const zoned = proposedRecordSchema.parse({ type: 'territory', id: 'XA', kind: 'country', name: 'Xanadu', zone: 'Asia/Tokyo' })
     expect(claimsOf(bodyOf(zoned))).toContainEqual({ path: 'zone', value: 'Asia/Tokyo' })

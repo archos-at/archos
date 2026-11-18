@@ -48,7 +48,6 @@ const store = vi.hoisted(() => ({
   writes: [] as string[],
   erased: [] as string[],
   dns: null as unknown,
-  /** Whether the member holds `project:documents:write` (WorkOS, mocked). */
   memberWrites: false,
 }))
 
@@ -105,7 +104,6 @@ vi.mock('@/lib/documents/accepted-types', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/documents/accepted-types')>()),
   acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md']),
 }))
-// The receive job asks the strict form (a failed read is a fault, `receive-faults.ts`); both answer the same here.
 vi.mock('@/lib/sharing/directory', () => {
   const loadOrganizationDirectory = vi.fn()
   return { loadOrganizationDirectory, loadOrganizationDirectoryStrict: loadOrganizationDirectory }
@@ -208,7 +206,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     ).map((row) => row.kind)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
@@ -258,7 +256,6 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
         VALUES (${ORG}, ${projectId}::uuid, ${TOKEN}, 'wohnbau', ${MEMBER_ID}) RETURNING id`)
     )[0]!.id
 
-    // A perfect mail: the member's, signed for real, to the project, with a PDF.
     const raw = await hostile.sign(
       hostile.message(
         hostile.multipart('mixed', [
@@ -274,7 +271,6 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     mailId = await stage(raw)
   })
 
-  /** Stage a raw message as the webhook does (`received`, its bytes in the store); its id. */
   async function stage(raw: string): Promise<string> {
     const id = crypto.randomUUID()
     delivery += 1
@@ -286,7 +282,6 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     return id
   }
 
-  /** A signed mail of the member's with one PDF; `headers` as `hostile.message` takes them. */
   async function memberMail(file: string, headers: Record<string, string | null>, signed = true): Promise<string> {
     const raw = hostile.message(
       hostile.multipart('mixed', [hostile.BODY, hostile.attachment(file, 'application/pdf', hostile.pdf(file))]),
@@ -432,7 +427,6 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
       { kind: 'attachment', state: 'filed', erased: true },
     ])
     expect(store.erased).toContain(file.storageKey)
-    // What the filing then says it became (`filedAs`): the Fassung of the document it made, read per project.
     const filedPart = (await inTenant(() => repository.findMailParts([mailId]))).find((part) => part.kind === 'attachment')
     expect(filedPart?.documentVersionId).toEqual(expect.any(String))
     const versionId = filedPart?.documentVersionId as string
@@ -455,7 +449,6 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     vi.mocked(resolvePinnedRequesterSessionStrict).mockResolvedValue(session)
     vi.mocked(uploadDocument).mockClear()
     store.memberWrites = true
-    // The text the reader could not read waits for its sender (a flagged part is never filed without a click); the attachment goes.
     const { readMail } = await import('./read-client')
     const read = await readMail('unused')
     vi.mocked(readMail).mockResolvedValueOnce({ ...read, unreadable: true, unreadableReasons: ['failed'] })
@@ -465,7 +458,6 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     await receive(direct)
     expect(await classOf(direct)).toEqual({ status: 'waiting', sender_trust: 'member_verified', sender_class: 'verified_writer' })
     expect(await jobKinds()).toContain('inbound_mail_sender_file')
-    // The agent's suggestion, as the suggest job would store it: the attachment's confident place.
     await rows(sql`
       UPDATE inbound_mail_parts SET suggestion = ${JSON.stringify({ folderId, folderPath: 'Statik', newFolder: false, documentType: null, reason: 'Statik' })}::jsonb
        WHERE mail_id = ${direct}::uuid AND kind = 'attachment'`)

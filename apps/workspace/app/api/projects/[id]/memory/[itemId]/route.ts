@@ -1,8 +1,3 @@
-/**
- * Project memory item API — edit or delete a single memory item.
- * Thin handlers; authz and logic live in `@/lib/projects/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { editProjectMemoryItem, removeProjectMemoryItem } from '@/lib/projects/service'
 import { patchMemorySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'

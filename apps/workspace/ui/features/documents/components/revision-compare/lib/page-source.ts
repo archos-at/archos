@@ -1,14 +1,3 @@
-/**
- * Opens a stored document as something the comparison can draw.
- *
- * It reuses what the preview already trusts: pdf.js through the one runtime
- * loader (`pdfjs-runtime`, assets staged in `public/pdfjs`), the same-origin
- * `/api/documents/{id}/file` stream for PDFs and for the PDF rendition of an
- * office file (ADR-0070), and the preview route's presigned URL for images,
- * which `/file` refuses by design (an SVG served inline from this origin is
- * stored XSS).
- */
-
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { documentFileUrl } from '@/lib/documents/urls'
 import { documentParameters, loadPdfjs } from '@/features/knowledge/lib/pdfjs-runtime'
@@ -22,12 +11,6 @@ import {
 } from '../types'
 import { compareKindOf } from './compare-kind'
 
-/**
- * The bitmap a page gets at `scale`: device resolution, held to the canvas
- * budget (`pdf-raster.ts`). Two pages are on screen at once in every view, and
- * iOS draws NOTHING for a canvas past its limit: an A1 sheet at 6x on a DPR 3
- * phone was blank, not soft.
- */
 export function pageRaster(size: PageSize, scale: number, pixelRatio: number): Raster {
   const coarse = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
   return rasterFor({
@@ -38,7 +21,6 @@ export function pageRaster(size: PageSize, scale: number, pixelRatio: number): R
   })
 }
 
-/** The bitmap for a region the caller already planned inside the budget (`detailPlan`). */
 const regionRaster = (region: { width: number; height: number }, pixelRatio: number): Raster => {
   const coarse = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
   return rasterFor({ width: region.width, height: region.height, dpr: pixelRatio, maxPixels: maxCanvasPixels(coarse) })
@@ -57,8 +39,6 @@ async function openPdf(file: CompareFile, isRendition: boolean): Promise<PageSou
     doc = await task.promise
   } catch (error) {
     void task.destroy()
-    // The BFF answers an office file it cannot convert with 415 or 502: nothing
-    // a retry fixes, and not a fault of the viewer either.
     if (isRendition) throw new NotComparableError()
     throw error
   }
@@ -84,7 +64,6 @@ async function openPdf(file: CompareFile, isRendition: boolean): Promise<PageSou
         canvas.height = region ? raster.height : Math.floor(viewport.height)
         const render = pdfPage.render({ canvas, viewport })
         cancel = () => render.cancel()
-        // A cancelled render rejects; that is the teardown path, not a failure.
         await render.promise.catch(() => {})
       })
       return { promise, cancel: () => cancel() }
@@ -121,8 +100,6 @@ async function openImage(file: CompareFile): Promise<PageSource> {
       sizeCanvas(canvas, region ? regionRaster(region, pixelRatio) : pageRaster(size, scale, pixelRatio))
       const context = canvas.getContext('2d')
       if (context) {
-        // Paper first: a transparent PNG would otherwise take the whole ink in
-        // the overlay's recolouring.
         context.fillStyle = '#fff'
         context.fillRect(0, 0, canvas.width, canvas.height)
         if (region) {
@@ -137,7 +114,6 @@ async function openImage(file: CompareFile): Promise<PageSource> {
   }
 }
 
-/** The default {@link SourceLoader}: PDF, office rendition or image, by file name. */
 export async function openPageSource(file: CompareFile): Promise<PageSource> {
   const kind = compareKindOf(file.filename)
   if (kind === 'pdf') return openPdf(file, false)

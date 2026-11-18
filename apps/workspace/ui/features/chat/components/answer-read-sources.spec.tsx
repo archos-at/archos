@@ -1,19 +1,3 @@
-/**
- * The "Gelesen, nicht zitiert" disclosure: the last hop, the cap, and the
- * empty case.
- *
- * `read_sources` on the terminal frame → `readSources` on the message →
- * `AgentResponse`, which puts collapsed, muted document chips inside the
- * answer details. What these assert is the contract of that section: it names
- * documents, never passages (an uncited document must not ground anything),
- * it caps at eight with an overflow count, and it is absent when everything
- * retrieved was cited.
- *
- * Rendered for BOTH variants, because the prop is passed twice — the default
- * card the thread uses and the box-less inline rendering. One of the two is
- * always the one a refactor forgets.
- */
-
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -35,8 +19,6 @@ vi.mock('../store', () => ({
 
 vi.mock('@/adapters/api', () => ({ cancelJob: vi.fn() }))
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-// The disclosure fetches descriptions on expand; a standard skill has none,
-// which is the shape this test wants anyway.
 const listInvocableSkills = vi.fn()
 vi.mock('@/adapters/api/skills-client', () => ({
   listInvocableSkills: (...args: unknown[]) => listInvocableSkills(...args),
@@ -53,12 +35,6 @@ beforeEach(() => {
   ])
 })
 
-/**
- * The copy is READ from the dictionaries rather than pasted here: what these
- * assert is that the answer resolves the right key in whichever locale is
- * reading (the harness renders English), not that someone typed the sentence
- * into two places.
- */
 const copy = {
   label: chatCopy.messages.en.answerDetails.readSources.label,
   more: (count: number) =>
@@ -88,7 +64,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
         readSources={[readSource(), readSource({ fileName: 'plan.pdf', page: 3, id: 'read-plan' })]}
       />
     )
-    // Collapsed: nothing shows before the reader opens the details.
     expect(screen.queryByTestId('read-sources')).not.toBeInTheDocument()
 
     await userEvent.setup().click(screen.getByTestId('answer-details-trigger'))
@@ -110,9 +85,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
     )
     await userEvent.setup().click(screen.getByTestId('answer-details-trigger'))
 
-    // The entry carries a snippet on the object (a producer that did not
-    // strip it); the section must still not print it — an uncited document
-    // grounds nothing.
     expect(screen.getByText('oib-rl_2.pdf')).toBeInTheDocument()
     expect(screen.queryByText(passage)).not.toBeInTheDocument()
   })
@@ -128,9 +100,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
     )
     await userEvent.setup().click(screen.getByTestId('answer-details-trigger'))
 
-    // The entry has an identity, so it renders — but as its name only. The
-    // `.passthrough()` schema lets a locator line or passage ride `content`,
-    // which must never become chip text.
     expect(screen.getByText('oib-rl_2.pdf')).toBeInTheDocument()
     expect(screen.queryByText(passage)).not.toBeInTheDocument()
   })
@@ -144,10 +113,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
     }
     render(<AgentResponse content={CITED} variant={variant} readSources={[orphan]} />)
 
-    // No fileName, title or citationKey: the old `?? source.content` fallback
-    // would have printed the passage as a chip, and the old length-based
-    // `hasDetailsContent` still mounted a trigger that opened onto an empty
-    // section. Now the disclosure holds nothing, so no trigger renders.
     expect(screen.queryByTestId('answer-details-trigger')).not.toBeInTheDocument()
     expect(screen.queryByText(passage)).not.toBeInTheDocument()
   })
@@ -192,7 +157,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
 
     await user.click(toggle)
     expect(screen.getAllByTestId('read-source-chip')).toHaveLength(10)
-    // Every retrieved document is named — and nothing else: names, no passages.
     expect(screen.getByText('doc-8.pdf')).toBeInTheDocument()
     expect(screen.getByText('doc-9.pdf')).toBeInTheDocument()
     expect(screen.getByTestId('read-sources-more')).toHaveTextContent(copy.less)
@@ -204,8 +168,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
   })
 
   test('a turn that cited everything it read says nothing at all', async () => {
-    // A timestamp so the details trigger renders; the disclosure itself must
-    // still be absent.
     const at = new Date('2026-09-01T10:00:00.000Z')
     render(<AgentResponse content={CITED} variant={variant} timestamp={at} />)
     await userEvent.setup().click(screen.getByTestId('answer-details-trigger'))
@@ -217,9 +179,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
 
 describe('both locales carry a real label', () => {
   test('the label is written twice, not translated once', () => {
-    // German is the product's language here and English is its own label, not
-    // a gloss of it — so the two must differ, and neither may be a
-    // half-finished template that ships a brace to the reader.
     expect(chatCopy.messages.de.answerDetails.readSources.label).not.toBe(chatCopy.messages.en.answerDetails.readSources.label)
     for (const text of [
       chatCopy.messages.de.answerDetails.readSources.label,

@@ -13,29 +13,6 @@ import {
   type PhoneTabLabel,
 } from './phone-tabs'
 
-/**
- * What "Mehr" lists on a phone: the destinations the bottom tab bar does NOT
- * carry, and nothing it does.
- *
- * The drawer behind "Mehr" used to be the whole rail, so it repeated Frag
- * Piloti, Dateien, Übersicht and Postfach under the bar that already had them.
- * This is derived from the bar's own tab list (`projectPhoneTabs`,
- * `orgPhoneTabs`) and from the rail's own section list (`railSections`, the
- * same gates), so a destination added to the bar leaves this list by itself and
- * the two can never drift. `phone-more.spec.ts` pins it per scope.
- *
- * Groups as the rail groups them: `project` (the project's sections without a
- * tab: Automatisierung), `organization` (the organisation's doorways without a
- * tab: the Büroablage), `account` (the avatar menu's links, in the menu's
- * order and gated as the menu gates them) and `help` (Neuerungen, after the
- * tour, as the menu has it). Suche is listed with the organisation's doorways:
- * a page's title line ends in the search, but the chat and Alle Dateien have
- * none there, so „Mehr" is where it is on every page. The project's and the
- * organisation's places stood in one „Bereiche" list, which the rail keeps
- * apart on purpose. Actions (theme, language, tour, feedback, sign out) are the sheet's
- * own and not destinations.
- */
-
 export interface MoreDestination {
   key: string
   href: string
@@ -46,7 +23,6 @@ export interface MoreDestination {
 
 export interface MoreFlags extends PhoneTabFlags {
   showSkills: boolean
-  /** The office's own standards have their doorway (`office-standards`, ADR-0163). Absent: off. */
   canAccessOfficeStandards?: boolean
   canViewOrganization: boolean
   canManageOrganization: boolean
@@ -55,7 +31,6 @@ export interface MoreFlags extends PhoneTabFlags {
 
 const GROUP_ORDER: readonly MoreDestination['group'][] = ['project', 'organization', 'account', 'help']
 
-/** The destination keys the bar carries, so a section with a tab never appears twice. */
 function carried(tabs: readonly PhoneTab[]): ReadonlySet<string> {
   return new Set(tabs.filter((tab) => tab.href !== null).map((tab) => tab.key))
 }
@@ -69,7 +44,6 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       label: { namespace: 'nav', key: 'userMenu.profile' },
       group: 'account',
     },
-    // The person's own notes (ADR-0180), beside the profile as in the avatar menu.
     {
       key: 'memory',
       href: '/app/memory',
@@ -84,7 +58,6 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       href: '/app/organization',
       icon: Building2,
       label: { namespace: 'nav', key: 'userMenu.organization' },
-      // Under Konto, as in the avatar menu on a desk: one place on both shapes.
       group: 'account',
     })
   }
@@ -97,7 +70,6 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       group: 'account',
     })
   }
-  // Last, as in the avatar menu, after the places the account reaches.
   list.push({
     key: 'whats-new',
     href: '/app/whats-new',
@@ -108,7 +80,6 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
   return list
 }
 
-/** The destinations "Mehr" lists inside a project (`projectId`) or above one (`null`). */
 export function moreDestinations(projectId: string | null, pathname: string, flags: MoreFlags): MoreDestination[] {
   const account = accountDestinations(flags)
   if (projectId === null) return account
@@ -131,11 +102,9 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
         group: section.group === 'org' ? 'organization' : 'project',
       })
     )
-  // The organisation's settings follow its doorways, under its heading.
   return [...places, ...account].sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group))
 }
 
-/** Which listed destination is the page the reader is on. */
 export function isCurrentDestination(destination: MoreDestination, pathname: string): boolean {
   return pathname === destination.href || pathname.startsWith(`${destination.href}/`)
 }

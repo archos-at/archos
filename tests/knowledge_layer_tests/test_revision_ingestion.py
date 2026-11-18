@@ -1,25 +1,12 @@
-"""The two ingestion hooks that read Fassungen (``ingest/revisions.py``, wired in ``adapter.py``).
-
-A NEW file name may be a newer Fassung of another document: the summary model reads
-a few candidates from the same collection and its answer is stored as a SUGGESTION.
-A re-upload under a name the collection holds says what changed against the
-previous upload. A person's confirmed link and a dismissed suggestion survive a
-re-read. And no name of a held file reaches the model (ADR-0086).
-
-The unit tests drive ``fassungen`` directly; the end-to-end ones run
-``_run_ingestion`` over a real SQLite store and a real Qdrant collection with a
-model that answers by the kind of prompt it is given.
-"""
-
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import _PreviousVersion
+from knowledge_layer.ingest import file_versions
 from knowledge_layer.ingest import revisions
-from knowledge_layer.ingest.adapter import _PreviousVersion
 from knowledge_layer_testing import revision_ingestion as harness
 from knowledge_layer_testing.revision_ingestion import _documents
 from knowledge_layer_testing.revision_ingestion import _ingest
@@ -28,7 +15,6 @@ from langchain_core.messages import AIMessage
 
 from agent.knowledge.schema import AvailableDocument
 
-# The harness's fixtures, under the names these tests ask for.
 live_ingestor = harness.live_ingestor
 model = harness.model
 stores = harness.stores
@@ -39,11 +25,6 @@ def _row(name, summary="Beschreibung.", **kwargs) -> AvailableDocument:
 
 
 SUGGESTION = {"of": "B.pdf", "confidence": 0.9, "reason": "Gleicher Grundriss.", "basis": "name", "dismissed": False}
-
-
-# ---------------------------------------------------------------------------
-# Who may be a candidate
-# ---------------------------------------------------------------------------
 
 
 class TestCandidates:
@@ -107,11 +88,6 @@ class TestCandidates:
         assert first.revision is None and later.revision == "Index B"
 
 
-# ---------------------------------------------------------------------------
-# Held files (ADR-0086)
-# ---------------------------------------------------------------------------
-
-
 def _job(*files):
     return SimpleNamespace(file_details=[SimpleNamespace(file_name=n, screening=s) for n, s in files])
 
@@ -144,7 +120,6 @@ class TestHeldNames:
         assert revisions.held_file_names("coll") == {"lese.pdf", "lohn.pdf"}
 
     def test_the_newest_job_that_names_a_file_decides(self, job_store):
-        # Quarantined first, released and indexed later: no longer held. The reverse is held.
         job_store.jobs = [
             _job(("frei.pdf", "quarantined"), ("neu.pdf", "clean")),
             _job(("frei.pdf", "clean"), ("neu.pdf", "quarantined")),
@@ -262,14 +237,8 @@ class TestCarriedLinks:
         assert revisions.carried_links({"revision_suggestion": "[1]"}) == (None, None)
 
 
-# ---------------------------------------------------------------------------
-# A Fassung a person chose at upload (ADR-0099)
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def real_store():
-    """A real metadata store behind the factory seams, so a link goes through the one locked step."""
     from agent.knowledge import configure_summary_db
     from agent.knowledge import factory
     from agent.knowledge.document_metadata_store import DocumentMetadataStore
@@ -368,7 +337,6 @@ class TestConfirmRevision:
         assert "missing" in caplog.text
 
     def test_a_link_that_would_close_a_loop_is_refused(self, real_store, caplog):
-        # C is already replaced by B: B cannot be replaced by C in turn.
         real_store.register("coll", "B.pdf", "Alt.")
         real_store.register("coll", "C.pdf", "Neu.")
         real_store.set_superseded_by("coll", "C.pdf", "B.pdf")
@@ -432,11 +400,6 @@ class TestRecordRevisionsWithAChoice:
         assert calls.ran == ["suggest"]
 
 
-# ---------------------------------------------------------------------------
-# End to end through _run_ingestion
-# ---------------------------------------------------------------------------
-
-
 class TestANewNameMayBeANewerRevision:
     def test_a_confident_judgement_is_stored_as_a_suggestion_and_links_nothing(
         self, tmp_path, live_ingestor, stores, model
@@ -459,7 +422,6 @@ class TestANewNameMayBeANewerRevision:
             "dismissed": False,
             "dismissed_of": [],
         }
-        # Nothing is linked, hidden or marked until a person confirms.
         assert all(doc.superseded_by is None and not doc.supersedes for doc in docs.values())
         (prompt,) = model.asked("NEWER FASSUNG")
         assert "Grundriss_EG_Index_B.txt" in prompt and "Grundriss Erdgeschoss, Stiege im Süden." in prompt
@@ -564,12 +526,10 @@ class TestARevisionChosenAtUpload:
         assert docs["Grundriss_EG_Index_C.txt"].supersedes == ["Grundriss_EG_Index_B.txt"]
         assert docs["Grundriss_EG_Index_C.txt"].change_summary == "- Stiege nach Norden verschoben"
         assert docs["Grundriss_EG_Index_C.txt"].change_basis == "Grundriss_EG_Index_B.txt"
-        # A person decided; the model is not asked whether this is a newer Fassung.
         assert model.asked("NEWER FASSUNG") == []
         assert docs["Grundriss_EG_Index_C.txt"].revision_suggestion is None
 
     def test_a_job_queued_before_the_rename_still_carries_the_old_key(self, tmp_path, live_ingestor, stores, model):
-        """`fassung_of` was the config key until migration 0165; the queue outlives a deploy."""
         from agent.knowledge import register_summary
 
         register_summary("proj_queued", "Grundriss_EG_Index_B.txt", "Grundriss Erdgeschoss, Stiege im Süden.")
@@ -581,7 +541,6 @@ class TestARevisionChosenAtUpload:
         assert _documents("proj_queued")["Grundriss_EG_Index_B.txt"].superseded_by == "Grundriss_EG_Index_C.txt"
 
     def test_without_the_summary_model_the_link_is_still_written(self, tmp_path, live_ingestor, stores, model):
-        # The person's choice does not wait for the model: only the change line needs it.
         from agent.knowledge import register_summary
 
         live_ingestor.generate_summary_enabled = False
@@ -608,8 +567,6 @@ class TestARevisionChosenAtUpload:
         _ingest(live_ingestor, tmp_path, "proj_nosummary", "C.txt", revision_of="B.txt")
 
         assert get_document_superseded_by("proj_nosummary", ["B.txt"]) == {"B.txt": "C.txt"}
-        # The listing's reconciliation backfill writes C's row („Indexed document: C.txt“), and the
-        # link that waited for it is live.
         docs = _documents("proj_nosummary")
         assert docs["B.txt"].superseded_by == "C.txt"
         assert docs["C.txt"].supersedes == ["B.txt"]
@@ -617,9 +574,6 @@ class TestARevisionChosenAtUpload:
     def test_the_backstop_row_is_written_before_the_job_reads_as_terminal(
         self, tmp_path, live_ingestor, stores, model, monkeypatch
     ):
-        # A caller that waits for COMPLETED and then lists the collection (the BFF's settle,
-        # the test above) must find the row the reconciliation writes. It once ran after the
-        # terminal status, and CI's slower runner listed in between.
         from agent.knowledge import factory
 
         seen: list[str] = []
@@ -674,7 +628,6 @@ class TestARevisionChosenAtUpload:
 
         docs = _documents("proj_again")
         assert docs["B.txt"].superseded_by == "C.txt"
-        # The change is told against the file the person named, not against the earlier upload of C.
         assert docs["C.txt"].change_basis == "B.txt"
 
     def test_the_base_corpus_ignores_it(self, tmp_path, live_ingestor, stores, model):
@@ -688,8 +641,6 @@ class TestARevisionChosenAtUpload:
 
 
 class TestAPurgeThatCanBeUndone:
-    """Archive and restore, the folder bin, a publish: the BFF purges, then reads the document again."""
-
     def _linked(self, live_ingestor, tmp_path, collection):
         from agent.knowledge import register_summary
 
@@ -742,7 +693,6 @@ class TestAReuploadSaysWhatChanged:
         (prompt,) = model.asked("replaced one Fassung")
         assert "Die alte Statik." in prompt
         assert "Neue Statik mit anderer Bewehrung." in prompt
-        # A name already in the collection is not a new document: no suggestion is sought.
         assert model.asked("NEWER FASSUNG") == []
         assert doc.revision_suggestion is None
 
@@ -820,7 +770,7 @@ class TestAPersonsDecisionsSurviveTheReread:
         )
         found = {"statik.pdf": _PreviousVersion(chunk_ids=["c1"], stored_names=["statik.pdf"])}
 
-        adapter_module._read_human_set_fields("proj_1", found)
+        file_versions._read_human_set_fields("proj_1", found)
 
         assert found["statik.pdf"].preserved["superseded_by"] == "neu.pdf"
         assert found["statik.pdf"].preserved["revision_suggestion"] == '{"of": "x"}'

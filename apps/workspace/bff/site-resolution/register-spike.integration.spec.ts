@@ -34,7 +34,6 @@ interface Sampled {
   municipality: string
 }
 
-/** The ways a person types one address; the last is an address the register does not hold. */
 const WAYS: Record<string, (address: Sampled) => string> = {
   canonical: (a) => `${a.street} ${a.number}, ${a.postcode} ${a.municipality}`,
   lowercase_no_commas: (a) => `${a.street.toLowerCase().replace(/straße$/, 'str.')} ${a.number} ${a.postcode} ${a.municipality.toLowerCase()}`,
@@ -51,7 +50,7 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
   const sample: Sampled[] = []
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     service = await import('./service')
     const { readBevArchive } = await import('./bev-archive')
     const { importRelease } = await import('./import')
@@ -68,7 +67,6 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
       }) as ReturnType<typeof fn>
     const archive = readBevArchive(readFileSync(archivePath!))
     const all = [...archive.entries()]
-    // Every n-th address, so the sample spans every Land and kind of place; deterministic, so runs compare.
     const step = Math.floor(all.length / SAMPLE)
     for (let index = 0; sample.length < SAMPLE; index += step) {
       const entry = all[index]
@@ -127,13 +125,9 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
     )
     process.stdout.write(`${header}\n${lines.join('\n')}\n`)
     process.stdout.write(`canonical misses: ${misses.length}\n${misses.join('\n')}\n`)
-    // A verified site is always the typed address: never a neighbour, never a guess.
     for (const [way, tally] of Object.entries(report)) expect(tally.right, way).toBe(tally.verified)
-    // An address the register does not hold is never verified.
     expect(report.absent_number.verified).toBe(0)
-    // A street and number alone are never verified, however unique (invariant A1).
     expect(report.street_only.verified).toBe(0)
-    // Typed in full, nearly every register address is found.
     expect(report.canonical.verified).toBeGreaterThanOrEqual(SAMPLE * 0.95)
   }, 600_000)
 })

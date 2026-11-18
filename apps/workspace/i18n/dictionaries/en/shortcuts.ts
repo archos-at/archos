@@ -1,4 +1,3 @@
-/** Keyboard shortcuts: command palette, cheatsheet, and the profile toggle. */
 export const shortcuts = {
   palette: {
     title: 'Command palette',
@@ -10,7 +9,6 @@ export const shortcuts = {
       currentProject: 'Current project',
       general: 'General',
     },
-    /** The intake wizard section (labelled "Setup" in the product). */
     intake: 'Setup',
     toggleTheme: 'Toggle theme',
     hints: {
@@ -24,7 +22,6 @@ export const shortcuts = {
     title: 'Keyboard shortcuts',
     description: 'Navigate {productName} without leaving the keyboard.',
     thenSeparator: 'then',
-    /** The control key as the keyboard prints it; `⌘` on a Mac. */
     controlKey: 'Ctrl',
     orSeparator: 'or',
     groups: {
@@ -36,7 +33,6 @@ export const shortcuts = {
       inbox: 'Inbox',
       inboundMail: 'Project mail',
     },
-    /** Shown under the navigation group, which mixes scoped and global jumps. */
     projectScopeNote: 'Section jumps open that section of the project you are in.',
     items: {
       palette: 'Open the command palette',

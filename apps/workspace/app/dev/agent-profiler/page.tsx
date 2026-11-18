@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform AgentProfiler (Answer quality → timing). Renders
- * the REAL organism over a module-scope fetch shim serving
- * `/api/platform/profiler/conversations` (list, `?q=` filters by title or id)
- * and `/api/platform/profiler/conversations/<id>` (timeline), in the shapes
- * `lib/profiler/service.ts` returns.
- *
- * The fixture carries the cases the view exists to tell apart: a nested turn
- * (step → model call → tool call), a failed tool call, a turn whose root span
- * never reached the ledger (the server's synthetic root), a capped timeline, a long list that has to scroll, and a conversation
- * without an organization. The first conversation is preselected the way a
- * citation-health link does it (`?conversation=`), unless the URL names another.
- *
- * The list is read in a scope like on the real page (`from`, `to`, repeatable
- * `org` and `project` on the URL; default the 30 days to 8 Oct 2026). The shim
- * answers by query: rows whose last activity falls in the range and whose
- * organization is named, and `selected` for the asked-about conversation.
- *
- * Variants: `?error` fails the first list load; `?empty` returns no
- * conversations; `?none` starts with nothing selected; `?narrow` reads two
- * organizations.
- *
- * Not linked from anywhere; 404s outside development. Pinned to German.
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -149,7 +124,6 @@ const TIMELINE_TURNS = [
     durationMs: 3_120,
     status: 'ok',
     spanCount: 3,
-    // The server's stand-in for a root span that never reached the ledger.
     root: {
       ...span('turn', 'turn', 300_000, 3_120, [
         span('node', 'retrieve', 300_000, 1_240, [
@@ -168,7 +142,6 @@ const params =
     ? new URLSearchParams()
     : new URLSearchParams(window.location.search)
 
-/** The page's scope: the URL's, else the fixture's 30 days; `?narrow` names two organizations. */
 function previewScope(url: URLSearchParams): QualityScope {
   const read = new URLSearchParams(url)
   if (!read.has('from') && !read.has('days')) {
@@ -182,7 +155,6 @@ function previewScope(url: URLSearchParams): QualityScope {
   return readQualityScope(read)
 }
 
-/** The fixture rows a scope holds, the way the server filters them. */
 function inScope(scope: QualityScope): typeof CONVERSATIONS {
   return CONVERSATIONS.filter((row) => {
     const day = row.lastActiveAt.slice(0, 10)
@@ -199,8 +171,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   if (!w.__agentProfilerShim) {
     w.__agentProfilerShim = true
     const real = window.fetch.bind(window)
-    // Fails for the first seconds, so a dev StrictMode double mount still
-    // sees the failure and a later Retry recovers.
     const failUntil = params.has('error') ? Date.now() + 2500 : 0
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const raw =
@@ -227,7 +197,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       if (url.pathname.startsWith('/api/platform/profiler/conversations/')) {
         const conversationId = decodeURIComponent(url.pathname.split('/').pop() ?? '')
-        // Capped like the server: the newest turns of a longer conversation.
         return Response.json({
           conversationId,
           turns: TIMELINE_TURNS,
@@ -240,10 +209,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-/**
- * The organism in the URL's scope. Read through `useSearchParams`, not the
- * module-scope `params`, so the server render and the client agree on it.
- */
 function ScopedAgentProfiler({ initial }: { initial?: string }): JSX.Element {
   return (
     <AgentProfiler

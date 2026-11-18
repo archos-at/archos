@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The follow job (`inbound_mail_follow`, D31): a reply's text is decided as the
- * follower and filed by the filing job's own step only while ALL nine of D31's
- * conditions hold. Each case below breaks exactly one condition of a reply
- * that would otherwise be appended, and the mail must simply wait: no decision
- * written, nothing filed. Losing access or the thread document ends the
- * follow; a thread another filing holds makes the run try again shortly; a
- * text the job decided and could not finish is filed on that decision.
- *
- * Conditions 1–6 run through the real `judgeFollow` and `followEligibility`
- * (the database reads stood in); 7–9 through the follower's session, their
- * folder rights, the thread document's state and the caps the decision's
- * transaction answers (`follow.integration.spec.ts` runs that SQL).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -106,7 +92,6 @@ const writable = (overrides: Partial<WritableThread['thread']> = {}): WritableTh
   document: { id: 'doc-thread', filename: 'Statik Einreichung.md', folderId: 'folder-statik', contentHash: 'h' },
 })
 
-/** The reply's header block: To is present, and signed in the fixture's `signedHeaders`. */
 const RAW = new TextEncoder().encode(
   'From: p.weber@statik-weber.at\r\nTo: project+wohnbau.abcdefgh2345@example.org\r\nSubject: AW: Statik\r\n\r\nFreigegeben.\r\n',
 )
@@ -142,7 +127,6 @@ beforeEach(() => {
   vi.mocked(findMailParts).mockResolvedValue([textPart({ state: 'filed' }), filePart()])
 })
 
-/** Nothing was decided or filed for the mail: it waits exactly as without a follow. */
 function expectWaitsUntouched() {
   expect(writeFollowDecision).not.toHaveBeenCalled()
   expect(runInboundMailFiling).not.toHaveBeenCalled()
@@ -168,18 +152,14 @@ describe('a reply every condition of D31 holds for', () => {
       via: 'follow',
       decision: { parts: [], message: { partId: textPart().id, text: 'full', thread: { action: 'append', mailThreadId: THREAD_ID } } },
     })
-    // The attachments still wait: scoring them now would score them as not filed.
     expect(scored.parts.map((part) => part.kind)).toEqual(['message'])
     expect(captureServer).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'inbound_mail_decided', properties: expect.objectContaining({ via: 'follow', files: 1 }) }),
     )
-    // Filed as the follower, by the filing job's own step, for this one mail.
     const [asWho, filing] = vi.mocked(runInboundMailFiling).mock.calls[0]!
     expect(asWho).toBe(follower)
     expect(filing).toMatchObject({ projectId: PROJECT_ID, mailIds: [MAIL_ID], requester: { userId: PERSON } })
-    // Its own decision only: a person's decision on the same mail is theirs to file.
     expect(filing.decisionIds).toEqual([decided.id])
-    // Resolved strictly: a directory that does not answer retries, it never reads as "left".
     expect(resolvePinnedRequesterSessionStrict).toHaveBeenCalledWith({
       userId: PERSON,
       email: 'petra@example.test',
@@ -273,7 +253,6 @@ describe('each of D31’s nine conditions, failing alone, leaves the mail waitin
     expect(outcome.kind).toBe('waits')
     expect(runInboundMailFiling).not.toHaveBeenCalled()
     expect(endFollowBySystem).not.toHaveBeenCalled()
-    // A cap is the transaction's answer: it wrote nothing either.
     if (vi.mocked(writeFollowDecision).mock.calls.length === 0) expectWaitsUntouched()
     expect(auditDecisions).not.toHaveBeenCalled()
   })
@@ -344,7 +323,6 @@ describe('the mail itself', () => {
   it('waits with the upload path’s failure when the Fassung was refused', async () => {
     vi.mocked(findMailParts).mockResolvedValue([textPart({ lastFailure: 'quota' }), filePart()])
     expect(await followMail('org_1', payload)).toEqual({ kind: 'waits', reason: 'not_filed' })
-    // Nothing went into the Verlauf, so nobody is told it did.
     expect(announceAppended).not.toHaveBeenCalled()
   })
 
@@ -376,7 +354,6 @@ describe('the run', () => {
     expect(resolvePinnedRequesterSessionStrict).toHaveBeenCalledWith({ userId: OTHER_FOLLOWER, email: null, organizationId: 'org_1' })
     expect(runInboundMailFiling).toHaveBeenCalledOnce()
     expect(vi.mocked(runInboundMailFiling).mock.calls[0]![1].decisionIds).toEqual(['decision-1'])
-    // The thread is the decision's own, and the one told is its decider.
     expect(announceAppended).toHaveBeenCalledWith(expect.objectContaining({ threadId: THREAD_ID, followerUserId: OTHER_FOLLOWER }))
   })
 

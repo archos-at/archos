@@ -39,7 +39,6 @@ const spaceOf = (taken: string[], open: string[]): FolderSpace => ({
   openKeys: new Set(open.map(folderPathKey)),
 })
 
-/** `Vertraulich` has its own access list; `Statik` is hidden from this person. */
 const SPACE = spaceOf(
   ['01 Entwurf', '03 Fachplaner', 'Vertraulich', 'Statik'],
   ['01 Entwurf', '03 Fachplaner']

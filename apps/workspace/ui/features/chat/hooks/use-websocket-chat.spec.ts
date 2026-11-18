@@ -1,8 +1,3 @@
-/**
- * The chat socket's driver (docs/design/chat-wire-v2.md §e.2, §e.3), driven
- * through a mock socket that delivers the recorded v2 turns
- * (`contracts/wire/v2/`) into the real store.
- */
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClientMessage, WireEvent } from '@/adapters/api/wire-v2'
@@ -116,7 +111,6 @@ const questionOf = (id: string): ChatMessage => ({
   messageType: 'user',
 })
 
-/** A recorded turn, as this conversation's turn `turnId`. */
 const retarget = (events: WireEvent[], conversationId: string, turnId: string): WireEvent[] =>
   events.map((event) => ({ ...event, conversation_id: conversationId, turn_id: turnId }) as WireEvent)
 
@@ -141,10 +135,6 @@ const open = (conversation: Conversation) => {
   return hook
 }
 
-/**
- * A socket open on `events`' conversation, and the turn of those events just
- * sent from it: its question in the thread, its view begun.
- */
 const openTurn = (events: WireEvent[]) => {
   const { conversation_id: conversationId, turn_id: turnId } = events[0]!
   const hook = open(conversationOf(conversationId))
@@ -181,8 +171,6 @@ afterEach(() => vi.useRealTimers())
 
 describe('a question', () => {
   it('states no source selection while the source list has not loaded, rather than selecting none', () => {
-    // `[]` on the wire switches every source off; the composer's list is empty
-    // only because nothing has loaded yet.
     layout.sources = { enabledDataSourceIds: [], availableDataSources: null }
     try {
       const { result } = open(conversationOf(CONVERSATION))
@@ -203,7 +191,6 @@ describe('a question', () => {
       expect.objectContaining({ message_id: question.id, conversation_id: CONVERSATION, data_sources: ['web_search'] }),
     ])
     expect(useChatStore.getState()).toMatchObject({ isStreaming: true, isLoading: true })
-    // Not acknowledged: not attached either, since the server may not have it.
     expect(socket().options.openTurns()).toEqual([])
 
     status('reconnecting')
@@ -276,7 +263,6 @@ describe('a question', () => {
       effort: 'xhigh',
       data_source_count: 1,
     })
-    // The question is never an event property.
     expect(JSON.stringify(vi.mocked(capturePosthog).mock.calls)).not.toContain('Fluchtweg')
   })
 
@@ -319,7 +305,6 @@ describe('folding', () => {
     expect(bubble()!.content).not.toBe('')
 
     deliver(answered.filter((event) => event.seq === 14 || event.seq === 15))
-    // The card flushed the delta before it, without waiting.
     expect(bubble()!.cards?.[0]?.type).toBe('egress_diagram')
     expect(bubble()!.content).toBe(useChatStore.getState().turns[TURN]!.text)
   })
@@ -422,7 +407,6 @@ describe('Stop', () => {
 
     act(() => useChatStore.getState().stopStreaming())
 
-    // With where the reader was: the socket leaves `shown` out for a server whose hello does not accept it.
     expect(sentOf('cancel_turn')).toEqual([
       {
         type: 'cancel_turn',
@@ -432,21 +416,17 @@ describe('Stop', () => {
       },
     ])
     expect(useChatStore.getState().isStreaming).toBe(false)
-    // Cut by the rule the server cuts its row by, which trims.
     expect(messages().find((message) => message.messageType === 'agent_response')).toMatchObject({
       content: drawn.trim(),
       stopped: true,
     })
 
-    // The cancelled terminal carries the server's text; the answer keeps what was drawn.
     deliver(cancelled.filter((event) => event.seq === 5))
     const answer = messages().find((message) => message.messageType === 'agent_response')!
     expect(answer).toMatchObject({ stopped: true, content: drawn.trim() })
     vi.useRealTimers()
   })
 
-  // A delta still waiting for its flush was never on screen: a Stop does not
-  // add it, nor does a terminal that comes straight back.
   it('adds nothing that was not drawn at the press', () => {
     openTurn(cancelled)
     deliver(cancelled.filter((event) => event.seq <= 4))
@@ -455,15 +435,11 @@ describe('Stop', () => {
     deliver(cancelled.filter((event) => event.seq === 5))
 
     expect(sentOf('cancel_turn')).toHaveLength(1)
-    // Nothing was on screen, and the server is told so: it stores nothing either.
     expect(sentOf('cancel_turn')[0]).toMatchObject({ shown: { chars: 0 } })
     expect(messages().some((message) => message.messageType === 'agent_response')).toBe(false)
     expect(useChatStore.getState().turns[TURN]).toMatchObject({ outcome: 'cancelled', text: '' })
   })
 
-  // The server had finished before the Stop reached it, and this page never
-  // folded its terminal: the answer on screen is stored, and the server's
-  // whole row is cut to it.
   it('keeps the stopped answer when the server answers the Stop with turn_not_found', async () => {
     vi.useFakeTimers()
     openTurn(cancelled)
@@ -575,19 +551,16 @@ describe('nothing waits on silence', () => {
     act(() => void result.current.sendMessage('Wie lang darf der Fluchtweg sein?'))
     expect(useChatStore.getState().isLoading).toBe(true)
 
-    // First miss: the socket that did not answer is reopened, and the question goes out again.
     act(() => void vi.advanceTimersByTime(ACK_TIMEOUT_MS))
     expect(socket().reconnect).toHaveBeenCalledOnce()
     status('reconnecting')
     status('open')
     expect(sentOf('user_message')).toHaveLength(2)
 
-    // Second miss: the turn ends, visibly.
     act(() => void vi.advanceTimersByTime(ACK_TIMEOUT_MS))
     expect(useChatStore.getState()).toMatchObject({ isLoading: false, isStreaming: false })
     await vi.waitFor(() => expect(lastError()).toMatchObject({ errorData: { errorCode: 'agent.no_response' } }))
 
-    // And it is not asked again behind the reader's back.
     status('reconnecting')
     status('open')
     expect(sentOf('user_message')).toHaveLength(2)
@@ -623,7 +596,6 @@ describe('nothing waits on silence', () => {
   it('opens a new socket for a question asked after the last one gave up', async () => {
     const { result } = open(conversationOf(CONVERSATION))
     status('failed')
-    // The explanation is asynchronous; let it land here, not in the next test's thread.
     await vi.waitFor(() => expect(lastError()).toMatchObject({ errorData: { errorCode: 'connection.failed' } }))
     const connects = socket().connect.mock.calls.length
 
@@ -664,7 +636,6 @@ describe('nothing waits on silence', () => {
     deliver(answered.filter((event) => event.seq <= 3))
 
     act(() => socket().options.onSilent?.([TURN]))
-    // Something of the turn in between: it lives, and the count starts over.
     deliver(answered.filter((event) => event.seq === 4))
     act(() => socket().options.onSilent?.([TURN]))
     expect(useChatStore.getState().isStreaming).toBe(true)
@@ -802,7 +773,6 @@ describe('steering the running turn', () => {
 describe('a phone away: locked, offline, or a network that gave up', () => {
   const TURN = answered[0]!.turn_id
   const ANSWER_ID = answered[0]!.type === 'RUN_STARTED' ? answered[0]!.message_id : ''
-  /** Up to the card: the answer's first two sentences are on screen, the turn still runs. */
   const halfway = answered.filter((event) => event.seq <= 15)
   const answerRow = () => messages().find((message) => message.id === ANSWER_ID)
   const lastError = () => messages().filter((message) => message.messageType === 'error').at(-1)
@@ -838,7 +808,6 @@ describe('a phone away: locked, offline, or a network that gave up', () => {
     expect(client.listMessages).not.toHaveBeenCalled()
     expect(socket().options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 15 }])
 
-    // The socket that opens again attaches it; the rest of the answer folds on.
     status('open')
     deliver(answered.filter((event) => event.seq > 15))
     expect(useChatStore.getState().turns[TURN]?.phase).not.toBe('running')
@@ -855,7 +824,6 @@ describe('a phone away: locked, offline, or a network that gave up', () => {
     const at = messages().findIndex((message) => message.id === ANSWER_ID)
 
     deliver([notFound()])
-    // Not dropped before the server has answered.
     expect(answerRow()?.content).toBeTruthy()
 
     await vi.waitFor(() => expect(answerRow()?.content).toBe('Die ganze Antwort, wie der Server sie gespeichert hat.'))
@@ -899,7 +867,6 @@ describe('a phone away: locked, offline, or a network that gave up', () => {
     act(() => void vi.advanceTimersByTime(ACK_TIMEOUT_MS))
 
     expect(socket().reconnect).not.toHaveBeenCalled()
-    // Back for real: the deadline runs again from now, and counts.
     act(() => void vi.advanceTimersByTime(ACK_TIMEOUT_MS))
     expect(socket().reconnect).toHaveBeenCalledOnce()
   })
@@ -936,12 +903,10 @@ describe('a socket that is reconnecting', () => {
     status('reconnecting')
     wait(RESTORING_NOTE_AFTER_MS - 1)
     expect(line.current).toBe(false)
-    // The ladder's attempts in between do not start the wait over.
     status('connecting')
     status('reconnecting')
     wait(1)
     expect(line.current).toBe(true)
-    // A line, not a message: nothing is added to the thread, and the turn waits.
     expect(messages().filter((message) => message.messageType === 'error')).toEqual([])
     expect(useChatStore.getState().turns[TURN]?.phase).toBe('running')
 
@@ -985,14 +950,12 @@ describe('a socket that is reconnecting', () => {
     deliver(halfway)
     const line = restoring()
 
-    // The page was hidden and is visible again: suspended, then one connecting, and the dial does not answer.
     status('suspended')
     status('connecting')
     wait(RESTORING_NOTE_AFTER_MS - 1)
     expect(line.current).toBe(false)
     wait(1)
     expect(line.current).toBe(true)
-    // The dial gives up and the ladder takes over: the same wait, the same line.
     status('reconnecting')
     status('connecting')
     expect(line.current).toBe(true)
@@ -1036,8 +999,7 @@ describe('a socket that is reconnecting', () => {
   })
 })
 
-// ADR-0144: a viewer action moves only the asker's live page, and only once the answer is there.
-describe('Piloti’s viewer actions', () => {
+describe('the agent’s viewer actions', () => {
   const recorded = wireEvents('turn-viewer-action.jsonl')
   const VIEWER_CONVERSATION = recorded[0]!.conversation_id
   const finishedAt = recorded.findIndex((event) => event.type === 'RUN_FINISHED')
@@ -1080,7 +1042,6 @@ describe('Piloti’s viewer actions', () => {
     deliver(turn.slice(finishedAt))
     deliver(turn)
     await settle()
-    // One place per answer moves the viewer; the others, and the comparison and the model element, are offered.
     expect(run.mock.calls.map(([call]) => call.tool_call_name)).toEqual(['highlight_passage'])
   })
 

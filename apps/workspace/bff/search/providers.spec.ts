@@ -233,7 +233,6 @@ describe('searchAnnotations', () => {
         kinds: null,
         assigneeUserId: 'user_me',
         createdBy: 'user_me',
-        // The annotation narrows through its document: the documents' question goes along unchanged.
         documents: { filters: { documentTypes: ['submission_drawing'] }, citedBy: null, citing: null },
       },
       { limit: 100, offset: 0 }

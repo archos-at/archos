@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the page sheet — the third overlay intent beside the modal
- * and the side sheet: a whole PLACE risen near-fullscreen over the current
- * page. Not linked anywhere and 404s
- * outside development.
- *
- * The stand-in page behind the sheet is deliberately busy: whether the scrim
- * dims it legibly, and whether the sheet's top margin shows the app
- * underneath, is the whole visual claim this surface makes. The open state is
- * real, so the preview exercises the whole lifecycle — the entrance, the
- * grabber's pull-down dismissal, the exit — not just the resting frame.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { notFound } from 'next/navigation'

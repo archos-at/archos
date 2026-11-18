@@ -13,7 +13,6 @@ describe('the site leaves of a profile, with the Länder the released records li
 
   it('places a Land token no published record lists nowhere, rather than in Austria', () => {
     expect(siteLeaves({ facts: { federal_state: entry('styria') } }, {})).toEqual([])
-    // The country the profile states still places it.
     expect(siteLeaves({ facts: { federal_state: entry('styria'), country: entry('at') } }, {})).toEqual([{ territoryId: 'AT', certainty: 'verified' }])
   })
 
@@ -27,9 +26,7 @@ describe('the site leaves of a profile, with the Länder the released records li
 describe('what is recorded wins, then the office default (sitePlacement, ADR-0158)', () => {
   const VIENNA = 'AT-9'
   const at = (value: string, extra: Record<string, unknown> = {}) => ({ value, ...extra })
-  /** Migration 0018's Land: an onboarding default with no evidence. */
   const onboardingDefault = at('vienna', { source: 'onboarding_default' })
-  /** Migration 0201's or a typed address's postal-code Land: an onboarding default with its derivation. */
   const postalLand = at('tyrol', { source: 'onboarding_default', evidence: [{ kind: 'derivation', rule: 'postal_code' }] })
   const place = (profile: Parameters<typeof sitePlacement>[0]) => sitePlacement(profile, AT_SUBDIVISIONS, VIENNA)
 
@@ -58,7 +55,6 @@ describe('what is recorded wins, then the office default (sitePlacement, ADR-015
     expect(place({})).toEqual({ step: 'office_default', territoryId: VIENNA })
     expect(place(null)).toEqual({ step: 'office_default', territoryId: VIENNA })
     expect(place({ assumptions: { site_address: at('Somewhere without a code') } })?.step).toBe('office_default')
-    // An address naming another country is a place recorded: nothing assumes the office's home for it.
     expect(place({ facts: { site_address: at('Marienplatz 1, 80331 München, Deutschland') } })).toBeNull()
     expect(siteLeaves({}, AT_SUBDIVISIONS, VIENNA)).toEqual([{ territoryId: VIENNA, certainty: 'unverified' }])
   })

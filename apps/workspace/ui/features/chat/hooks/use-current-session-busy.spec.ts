@@ -1,19 +1,10 @@
-/**
- */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { ChatStore, Conversation, PendingInteraction } from '../types'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
 
-/**
- * The slice of the chat store this hook actually selects from. Deriving it
- * from `ChatStore` means a rename or a type change in the store surfaces here
- * as a compile error rather than as a test that silently stops exercising the
- * real shape.
- */
 type BusySlice = Pick<ChatStore, 'isStreaming' | 'currentConversation' | 'pendingInteraction'>
 
-/** A zustand selector as the hook calls it, narrowed to the slice above. */
 type BusySelector = (state: BusySlice) => unknown
 
 const makeConversation = (overrides: Partial<Conversation> = {}): Conversation => ({
@@ -78,9 +69,6 @@ describe('useIsCurrentSessionBusy', () => {
   })
 
   it('is NOT busy because a run is going in the thread', () => {
-    // The run is a message with its own stop control (ADR-0062); the person
-    // keeps chatting beside it, and a lost terminal event must not lock the
-    // session.
     withState({
       ...idleState,
       currentConversation: makeConversation({

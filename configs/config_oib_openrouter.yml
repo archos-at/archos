@@ -1,4 +1,4 @@
-# Grid OIB workflow config — OpenRouter endpoint + credential, persistent OIB
+# OIB workflow config — OpenRouter endpoint + credential, persistent OIB
 # knowledge base plus web search. The MODEL each role runs on is admin-controlled
 # at runtime (Platform → Models), not decided here; see the note above `llms:`.
 
@@ -363,7 +363,7 @@ llms:
     request_timeout: 25
     reasoning_effort: none
 
-# The review canvas (packages/agent/src/agent/tools/canvas), one NAT function group: Piloti
+# The review canvas (packages/agent/src/agent/tools/canvas), one NAT function group: the agent
 # works a document the way a person at the canvas does. See who is in the
 # `room`, `point` and `highlight` for everyone,
 # read the `marks`, propose a `mark` (a person takes it over), and, when the
@@ -376,7 +376,7 @@ function_groups:
   canvas:
     _type: document_canvas
 
-  # Everything a person can do in Piloti, through Piloti's own MCP server
+  # Everything a person can do in the workspace, through the agent's own MCP server
   # (packages/agent/src/agent/tools/workspace, ADR-0122): `workspace__search`,
   # `workspace__describe`, `workspace__call`, `workspace__report_missing`. The
   # model finds an operation, reads its schema, calls it; a write comes back as a
@@ -648,7 +648,7 @@ functions:
 
   # The locator beside the search: open the passage a conclusion NAMED
   # (document + Punkt, or document + page) instead of searching for it again.
-  # Bound by deep research, intake and the door; Piloti's chat reads with
+  # Bound by deep research, intake and the door; the agent's conversation reads with
   # `read_file` instead (ADR-0133 slice 6); a `read_passage` call there is
   # answered by the tool node with the tools it has.
   # Deterministic — one filtered fetch, no reranker, no requery judge, no LLM.
@@ -659,12 +659,12 @@ functions:
     _type: read_passage
     knowledge_search: knowledge_search
 
-  # The file browser (packages/knowledge-layer/src/browse/tool.py): `ls` over the
+  # The file browser (packages/knowledge-layer/src/knowledge_layer/browse/tool.py): `ls` over the
   # reader's own shelves — every file, by folder, name, Dokumentart and upload
   # date, paged. The prompt inventory stops at a few dozen names; this does
   # not. Deterministic, no LLM, and it reads only the scope `knowledge_search`
   # reads. Its partner, Ctrl+F across the files, is `knowledge_search(match=
-  # "exact")` for deep research and intake, and `grep` for Piloti's chat, which
+  # "exact")` for deep research and intake, and `grep` for the agent's conversation, which
   # binds `list_files` without its tree view (`ls(depth=…)` draws the tree;
   # `knowledge_layer.chat_binding`) (docs/architecture/agent-tool-surface.md).
   list_files:
@@ -728,7 +728,7 @@ functions:
   # the single writer of `app` (ADR-0003), which is why there is no
   # backend path here to write with.
   #
-  # Bound on Piloti only. Deep research runs unattended on the
+  # Bound on the agent only. Deep research runs unattended on the
   # job worker with nobody to press Accept, so a proposal card there is a
   # decision nobody is on the other end of; the two agents differ here for the
   # same reason `ask_user` does.
@@ -745,7 +745,7 @@ functions:
   # under their permissions and their audit actor (ADR-0054 §4). The BFF stays
   # the single writer of `app`.
   #
-  # Bound on Piloti only, for the same reason as the proposal
+  # Bound on the agent only, for the same reason as the proposal
   # tool and one more: the envelope is minted per chat turn, so an unattended
   # deep-research run has no signed identity to file as and the tool refuses.
   file_draft:
@@ -758,7 +758,7 @@ functions:
   # is created in the requesting person's pinned session, under their
   # permissions, and spends their budget.
   #
-  # Bound on Piloti only, for the two reasons the filing tools
+  # Bound on the agent only, for the two reasons the filing tools
   # give and one of its own: the envelope is minted per chat turn, so an
   # unattended run has no identity to delegate as; and a background run
   # delegating further background runs is a loop with nobody in it.
@@ -861,7 +861,7 @@ functions:
     # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of
     # the longest chain this surface documents, plus one repair.
     #
-    # The accounting is one unit per ROUND in `piloti/agent.py`: a round is one
+    # The accounting is one unit per ROUND in `core/agent.py`: a round is one
     # LLM decision that emitted tool calls, charged when the model emits it and
     # never refunded. Three consequences that are not obvious from the name:
     #   * a round that comes back with 0 hits costs what one that answers costs;
@@ -1050,7 +1050,7 @@ functions:
     checkpoint_db: ${DEEP_CHECKPOINT_DB:-}
 
   # The Erfassungs-Agent (ADR-0111, docs/design/agentic-project-intake.md):
-  # Piloti sets a new project's profile up from its documents, as a background
+  # The agent sets a new project's profile up from its documents, as a background
   # run on the research worker (agent type `project_intake`). It runs on the
   # chat model's agent group (`research_llm`; the runner maps this type to
   # AgentGroup.RESEARCH), so an organization's model choice for chat applies.
@@ -1079,7 +1079,7 @@ workflow:
   # reconstruct. A single call on this surface carries 37-84k input tokens and
   # the static prompt alone is ~14k, so 8 000 trimmed the user's own words and
   # their corrections while re-sending everything else. See the field docstring
-  # in `piloti/conversation_register.py`.
+  # in `core/conversation_register.py`.
   max_history_tokens: 40000
   enable_clarifier: true
   # The clarification step that confirms a research plan before deep research

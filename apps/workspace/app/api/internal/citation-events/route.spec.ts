@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -16,7 +14,6 @@ vi.mock('@/lib/citations/service', () => ({
 import { POST } from './route'
 import { recordCitationEvents } from '@/lib/citations/service'
 
-/** The exact shape `citation_events.py` posts for a defective research turn. */
 const VALID_BATCH = {
   organizationId: 'org_1',
   conversationId: 'conv_1',
@@ -54,8 +51,8 @@ const request = (body: unknown, token: string | null = 'test-token'): Request =>
 describe('POST /api/internal/citation-events', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
   })
 
   it('rejects when the token is missing or wrong', async () => {
@@ -65,7 +62,7 @@ describe('POST /api/internal/citation-events', () => {
   })
 
   it('fails closed when the token is unconfigured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await POST(request(VALID_BATCH, 'anything'))).status).toBe(503)
   })
 

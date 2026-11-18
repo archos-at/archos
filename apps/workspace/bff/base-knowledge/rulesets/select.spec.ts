@@ -19,7 +19,6 @@ const ruleset = (id: string, values: RulesetValuesInput): StoredRuleset => ({
   values: rulesetValuesSchema.parse(values),
 })
 
-/** A Land whose building authority is the Bezirksamt of the site's city district. */
 function districtCompetence(
   id: string,
   land: string,

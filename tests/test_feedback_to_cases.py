@@ -1,5 +1,3 @@
-"""`scripts/feedback_to_cases.py`: a down-vote becomes a draft case, and nothing private rides along."""
-
 from __future__ import annotations
 
 import importlib.util
@@ -55,27 +53,23 @@ def test_a_csv_without_the_expected_answer_column_gives_no_cases(tmp_path):
 
 
 def test_the_exports_bom_does_not_hide_the_first_column(tmp_path):
-    """The export starts with a BOM for Excel; read as plain utf-8 it glued itself to `created_at`."""
     cases = yaml.safe_load(_run(tmp_path, "\ufeff" + CSV))["questions"]
     assert cases[0]["draft"]["reported"] == "2026-10-06"
 
 
 def test_the_exports_formula_apostrophe_is_taken_back_off(tmp_path):
-    """A cell the export neutralised (`'-...`) reads back as what the user wrote."""
     row = "2026-10-06T08:00:00Z,o,c,m,down,other,,'=Frage?,A,\"'- 1,10 m\"\n"
     case = yaml.safe_load(_run(tmp_path, HEADER + row))["questions"][0]
     assert (case["question"], case["draft"]["expected_answer"]) == ("=Frage?", "- 1,10 m")
 
 
 def _documented_header() -> list[str]:
-    """The export's columns as the data dictionary lists them (held to the code by `export-columns.spec.ts`)."""
     doc = (REPO_ROOT / "docs/technical-reference/answer-feedback-export.md").read_text(encoding="utf-8")
     section = doc.split("## Vote columns", 1)[1].split("\n## ", 1)[0]
     return [line.split("`")[1] for line in section.splitlines() if line.startswith("| `")]
 
 
 def test_the_current_export_header_still_drafts_a_case(tmp_path):
-    """The reworked export: every vote, both verdicts, `voted_at` instead of `created_at`, and many more columns."""
     columns = _documented_header()
     assert {"verdict", "question", "expected_answer", "reason", "voted_at"} <= set(columns)
     assert "created_at" not in columns

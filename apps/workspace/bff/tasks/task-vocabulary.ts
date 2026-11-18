@@ -1,82 +1,27 @@
-/**
- * The task vocabularies, free of drizzle.
- *
- * `db/schema/task-model.ts` is where these belong by subject and the wrong place to
- * import them FROM: a client component that wants to label a status must not
- * drag the schema — and therefore the database — into the browser bundle
- * (`server-component-db-access.spec.ts` is what fails when it does). Same
- * arrangement as `documents/lifecycle-types.ts`: the tuples live here, the
- * schema imports them, and `@/lib/db/schema` re-exports so no existing caller
- * moves.
- */
-
 import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { DELEGATABLE_TASK_KINDS } from '@/shared/vocabularies.generated'
 
 export { DELEGATABLE_TASK_KINDS }
 
-/**
- * Every kind a task row can be: the two job outputs, then the kinds a person
- * delegates (generated from the agent's `TaskKind`). See the schema for what
- * each one means.
- */
 export const TASK_KINDS = ['deep-research', 'chat', ...DELEGATABLE_TASK_KINDS] as const
 export type TaskKind = (typeof TASK_KINDS)[number]
 
-/**
- * Kinds as they were stored before migration 0167. A Python agent that has not
- * rolled yet still asks for `einreichcheck`; the wire maps it
- * (`canonicalTaskKind`) so the old name is never written again. Remove after one
- * release.
- */
 export const LEGACY_TASK_KINDS: Readonly<Record<string, TaskKind>> = {
   einreichcheck: 'submission_check',
 }
 
-/** The current kind for a value that may be a legacy one; anything else passes through for validation. */
 export const canonicalTaskKind = (value: unknown): unknown =>
   typeof value === 'string' ? (LEGACY_TASK_KINDS[value] ?? value) : value
 
-/** The lifecycle. `queued` from creation until the worker reports. */
 export const TASK_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'interrupted'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 
-/**
- * What makes a `task_definitions` row run (the collapsed model of jobs +
- * delegated tasks).
- *
- *   - `manual`   — never on its own; a person presses "Run now".
- *   - `once`     — fires exactly once. A delegated task is this with no
- *                  `due_at` (it is dispatched on creation); a due date makes it
- *                  a one-shot schedule, which the task wizard creates and the
- *                  scheduler claims like any other due row (0090). The due
- *                  date is therefore what tells the two apart, and what the
- *                  standing-task list filters on — filtering on the TRIGGER
- *                  would hide a one-shot from the list that created it.
- *   - `schedule` — a cron fires it again and again; `next_run_at` is live.
- */
 export const DEFINITION_TRIGGERS = ['manual', 'once', 'schedule'] as const
 export type DefinitionTrigger = (typeof DEFINITION_TRIGGERS)[number]
 
-/**
- * How one `task_runs` row started.
- *
- * `delegated` is the run a person asked for in chat or from a review — the
- * trigger the old `tasks` row could not name because a delegated task had no
- * `job_runs` row to carry one.
- */
 export const TASK_RUN_TRIGGERS = ['manual', 'schedule', 'delegated'] as const
 export type TaskRunTrigger = (typeof TASK_RUN_TRIGGERS)[number]
 
-/**
- * The merged run lifecycle: the worker's own terminal words, the submission's
- * (`skipped` / `error`), and the two active states.
- *
- * `skipped` and `error` are first-class because a fire that never reached the
- * agent is still an attempt a person must be able to see in their Aufgaben
- * list — the defect the collapse closes. `detail` from the old `job_runs` row
- * is folded into `error`, so a skip reason has one place to live.
- */
 export const TASK_RUN_STATUSES = [
   'queued',
   'running',
@@ -88,22 +33,6 @@ export const TASK_RUN_STATUSES = [
 ] as const
 export type TaskRunStatus = (typeof TASK_RUN_STATUSES)[number]
 
-/**
- * One run's row, `task_runs.status`, and every move a writer makes on it
- * (ADR-0179).
- *
- * A run is born `queued`, or `running` when it has no message for the
- * worker's first flush to start it by (`submittedRunStatus`), or already
- * ended as `skipped` or `error` when the fire never reached the agent. The
- * worker's first flush starts a queued run (`markRunStarted`). An ending is
- * written once, from a live state, by compare-and-set (`closeActiveRun`): the
- * worker's report, the reconciler and the kill switch cannot overwrite each
- * other, so the first final word stands. The submit is held to it too: what
- * it records after the backend took the job (`recordSubmission`, `./run-moves`)
- * moves the status only by `start`, so it cannot reopen a row the kill switch
- * closed meanwhile or put a started run back to `queued`, and a submit that
- * failed ends its run through the same close.
- */
 export const TASK_RUN_LIFECYCLE = defineLifecycle<TaskRunStatus, 'start' | 'succeed' | 'fail' | 'interrupt'>({
   id: 'task-run',
   initial: 'queued',
@@ -119,26 +48,10 @@ export const TASK_RUN_LIFECYCLE = defineLifecycle<TaskRunStatus, 'start' | 'succ
   },
 })
 
-/**
- * The run is still in the worker's hands: nothing about it can be judged yet,
- * and it is the only state a cancel can reach. `queued` counts — a run stuck
- * before its first status transition would otherwise be un-cancellable while
- * still holding a slot (the same reason the backend cancels `SUBMITTED` jobs).
- */
 export function isActiveTaskRunStatus(status: TaskRunStatus): boolean {
   return TASK_RUN_LIFECYCLE.liveStates.includes(status)
 }
 
-/**
- * The status a run is recorded with once the backend took its job.
- *
- * A job that waits for a worker is a QUEUED run, not a running one: the reader's
- * list says what is true. The worker's first ledger flush moves it to running
- * (`applyRunLedgerOp`, then `markRunStarted`), so it is queued only where there
- * is a message for that flush to reach. A run without one would stay queued
- * until it ended, which is a lie of the other kind, so it is recorded running
- * as it always was.
- */
 export function submittedRunStatus(submitted: {
   queued: boolean
   runMessageId: string | null
@@ -146,6 +59,5 @@ export function submittedRunStatus(submitted: {
   return submitted.queued && submitted.runMessageId ? 'queued' : 'running'
 }
 
-/** How a person judged the result. Null until somebody did. */
 export const TASK_REVIEWS = ['accepted', 'rejected'] as const
 export type TaskReview = (typeof TASK_REVIEWS)[number]

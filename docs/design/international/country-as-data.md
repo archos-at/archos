@@ -56,7 +56,7 @@ The golden questions of each country run on every release and on every change to
 3. It asks the work's source record for the text. The source record declares which operations its protocol supports (`fetch_by_identifier`, `search`, `as_of`) and the parameter tables it needs, keyed by territory id (the nine Bundesland parameters are already such a table in `source.yml`).
 4. The engine returns anchored passages. Cutting "§ 63 Abs. 1" out of a document is an anchor lookup, the same for every engine.
 
-RIS becomes a source record with `rest` access and the `ris_xml` engine, which both exist (`packages/public-sources/src/access/rest.py`, `engines/ris_xml.py`). What is Austrian in `ris-adapter` splits three ways: protocol quirks go into the engine, parameters into the record, and the search planning stays as the generic tool's one model call. Delete the "built-in" class from ADR-0174, `LAW_SOURCE_COUNTRIES`, and the package.
+RIS becomes a source record with `rest` access and the `ris_xml` engine, which both exist (`packages/public-sources/src/public_sources/access/rest.py`, `engines/ris_xml.py`). What is Austrian in `ris-adapter` splits three ways: protocol quirks go into the engine, parameters into the record, and the search planning stays as the generic tool's one model call. Delete the "built-in" class from ADR-0174, `LAW_SOURCE_COUNTRIES`, and the package.
 
 **Why.** It is the only design under which "Germany onboarded with no code" is true for an answer and not only for a database row. It also fixes the door: an outside agent gets one `law-lookup` that names the countries the office may read.
 

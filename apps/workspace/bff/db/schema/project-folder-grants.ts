@@ -3,22 +3,9 @@ import { sql } from 'drizzle-orm'
 import { projectFolders } from './project-folders'
 import { projects } from './projects'
 
-/** What a grant lets a role do in a folder (ADR-0088). */
 export const FOLDER_GRANT_LEVELS = ['read', 'write'] as const
 export type FolderGrantLevel = (typeof FOLDER_GRANT_LEVELS)[number]
 
-/**
- * `project_folder_grants` — one role's access to a folder that has its own
- * access list (`project_folders.access_mode = 'custom'`, migration 0111,
- * ADR-0088). `read`: see, open, download, search and use in answers. `write`:
- * read plus everything that changes the folder or what is in it. A role not
- * listed gets nothing; `*` is every member of the project.
- *
- * `lib/authz/folder-access.ts` is the one place that reads these: the level on
- * a folder is the minimum over it and every ancestor with its own list, and the
- * project permission caps write. A deferred constraint trigger keeps a custom
- * list between 1 and 20 entries.
- */
 export const projectFolderGrants = pgTable(
   'project_folder_grants',
   {

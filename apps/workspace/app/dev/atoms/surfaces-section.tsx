@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * Fixture sections for the atoms preview: surfaces (cards, quotes, menus,
- * popovers, tooltips, dialogs, sheets). Surfaces take 10px, floating layers
- * 14px, the controls inside them 6px.
- */
-
 import type { JSX } from 'react'
 import { FileText, Folder, Layers, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'

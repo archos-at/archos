@@ -17,44 +17,19 @@ import {
 } from '@/lib/documents/drawing-structured'
 import { DrawingStructuredDetails } from './drawing-structured-details'
 
-/** One visual chunk's VLM description (mirrors the BFF visual-details payload). */
 export interface VisualDetail {
   page: number
   contentType: string
   drawingType: string
   scale: string
   text: string
-  /** Which drawing on the sheet — a sheet is indexed one chunk per drawing. */
   segment?: number
-  /**
-   * How many drawings share this chunk's sheet. Optional because chunks
-   * indexed before per-segment chunking recorded it carry none; absent reads
-   * as a single depiction and renders no position.
-   */
   segmentCount?: number
-  /** The structured analysis behind the description; absent on older chunks. */
   structured?: DrawingStructured | null
 }
 
-/**
- * Entries shown before the list asks for the space. Four is what fits beside
- * the document in the split without pushing the approval section off the
- * first screen; a 40-sheet Einreichplan would otherwise be the whole rail.
- */
 const FIRST_ENTRIES = 4
 
-/**
- * What Piloti saw on each page: the drawing type, its scale and its words for
- * the drawing, page by page.
- *
- * It used to be „Detaillierte Informationen", a collapsed disclosure at the
- * foot of the rail that loaded nothing until opened, under Project, Type and
- * Updated. For a drawing set this is the most specific thing the rail knows:
- * the summary says what the document is, this says what is on sheet 7. So it
- * leads, loaded with the document, and each entry opens its page in the
- * viewer beside it when there is one, which ties the sentence to the drawing
- * it describes.
- */
 export function PageReadings({
   details,
   loading,
@@ -67,7 +42,6 @@ export function PageReadings({
   loading: boolean
   failed: boolean
   onRetry: () => void
-  /** Present only where the well can turn to a page (the inline PDF viewer). */
   onShowPage?: (page: number) => void
   className?: string
 }): JSX.Element | null {
@@ -75,8 +49,6 @@ export function PageReadings({
   const [expanded, setExpanded] = useState(false)
   useEffect(() => setExpanded(false), [details])
 
-  // A document whose visual chunks carry no descriptions has nothing to say
-  // here, and an empty group would be a heading over nothing.
   if (!loading && !failed && details && details.length === 0) return null
 
   const shown = details ? (expanded ? details : details.slice(0, FIRST_ENTRIES)) : []
@@ -106,7 +78,6 @@ export function PageReadings({
             </Button>
           </div>
         ) : (
-          // Rows apart by space, no hairlines: the design system's lines are for fields and info lists, and this panel is one.
           <ol className="flex flex-col">
             {shown.map((detail, index) => (
               <PageReading
@@ -141,12 +112,6 @@ function PageReading({
   onShowPage?: (page: number) => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  /**
-   * The drawing type's label. A type this build has no translation for is
-   * humanized from its key, the same contract as the structured vocabulary:
-   * a domain added on the backend shows up without a frontend release. The
-   * raw key (`floor_plan`) is what this row used to print.
-   */
   const typeLabel = (() => {
     if (!detail.drawingType) return null
     const path = `preview.visualDetails.segmentTypes.${detail.drawingType}`
@@ -162,7 +127,6 @@ function PageReading({
   const heading = (
     <>
       <span
-        // White on the group's grey: nothing grey on grey.
         className="bg-background text-muted-foreground inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums"
         aria-label={t('preview.visualDetails.page', { page: detail.page })}
       >

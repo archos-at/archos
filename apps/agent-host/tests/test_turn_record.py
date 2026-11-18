@@ -1,12 +1,3 @@
-"""The frames a turn's Herleitung is folded from (``agent_host.turn_record``).
-
-The BFF folds what this keeps with the browser's fold, and
-``apps/workspace/bff/turns/turn-steps.spec.ts`` holds the two together: it
-reads :data:`STEP_FRAME_TYPES`, :data:`STEP_CUSTOM_NAMES`, :data:`MAX_STEP_ROWS`
-and :data:`MAX_STEP_FRAMES` from this module, and folds the frames kept of the
-turn below (the same seqs) to the rows the browser stores. Here: what is kept.
-"""
-
 from __future__ import annotations
 
 import json
@@ -76,7 +67,6 @@ def test_keeps_per_row_the_first_the_newest_titled_and_the_newest_frame_and_a_su
         frames.append(frame)
 
     assert [frame["seq"] for frame in frames] == [29, 30, 31]  # the replay window
-    # turn-steps.spec.ts folds these same seqs to the browser's rows: the error, the title, the first end.
     assert [frame["seq"] for frame in frames.steps] == [2, 23, 24, 25, 26, 27, 28, 30, 31]
 
 

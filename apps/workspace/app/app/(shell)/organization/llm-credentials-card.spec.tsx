@@ -6,11 +6,6 @@ import { REPLAY_BLOCK_CLASS } from '@/lib/analytics/posthog-config'
 
 vi.mock('posthog-js', () => ({ default: {} }))
 
-/**
- * The BYOK key is the one value in the product that is a credential for a
- * third party. Autocapture and the session recorder must not be able to see it,
- * whatever else about their configuration changes.
- */
 describe('LlmCredentialsCard BYOK key input', () => {
   beforeEach(() => {
     vi.stubGlobal(

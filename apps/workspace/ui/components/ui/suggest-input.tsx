@@ -1,31 +1,14 @@
 'use client'
 
-/**
- * SuggestInput — a text field that offers values as it is typed into, each
- * with how often it occurs: the WAI-ARIA combobox with list autocomplete.
- * Focus stays in the field; ↑ ↓ move the active option
- * (`aria-activedescendant`), Enter takes it, Escape closes the list and
- * nothing else. Nothing is active until an arrow is pressed, so Enter on what
- * was typed keeps meaning what it meant without suggestions: take the text.
- *
- * The list floats under the field in its own subtree rather than a portal
- * (`Listbox`, whose header says why), so it works inside a sheet or a rail.
- * Knows no domain: where the options come from, and what taking one does, is
- * the caller's.
- */
-
 import * as React from 'react'
 
 import { Input } from '@/components/ui/input'
 import { Listbox, ListboxOption } from '@/components/ui/listbox'
 
 export interface SuggestOption {
-  /** What taking it hands back; unique within the list. */
   value: string
   label: string
-  /** How many hold it, shown at the end of the line. */
   count?: number
-  /** A second, quiet line: what kind of value it is. */
   hint?: string
 }
 
@@ -36,15 +19,10 @@ export interface SuggestInputProps extends Omit<
   value: string
   onValueChange: (value: string) => void
   options: readonly SuggestOption[]
-  /** The option was taken, by Enter on it or a press. */
   onPick: (option: SuggestOption, index: number) => void
-  /** Enter with no option active, or the field let go: take what was typed. */
   onCommit?: () => void
-  /** Whether letting go of the field commits, as Enter does. Default true; false where a button beside it adds. */
   commitOnBlur?: boolean
-  /** The field took or lost focus (the caller asks for options only while it has it). */
   onFocusChange?: (focused: boolean) => void
-  /** The list's accessible name. */
   listLabel: string
   'data-testid'?: string
 }
@@ -68,7 +46,6 @@ export function SuggestInput({
   const listId = `${generated}-list`
   const [open, setOpen] = React.useState(false)
   const [active, setActive] = React.useState(-1)
-  // A new list starts with nothing active: what the arrows were on may be gone.
   const [listed, setListed] = React.useState(options)
   if (listed !== options) {
     setListed(options)
@@ -87,7 +64,6 @@ export function SuggestInput({
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'Escape') {
       if (!shown) return
-      // The list closes; the sheet or dialog around it stays.
       event.preventDefault()
       event.stopPropagation()
       setOpen(false)

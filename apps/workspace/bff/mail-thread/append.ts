@@ -1,53 +1,4 @@
 import 'server-only'
-/**
- * Filing a mail's text into its E-Mail-Verlauf (ADR-0137, DECISION §6 "File",
- * D11, D12, D36): one new entry, and the thread document's next Fassung, which
- * holds every section of the last one and the new message's.
- *
- * Called by the filing job (`lib/inbound-mail/file-job.ts`) as the person who
- * decided, and by the follow job (D10) as the follower; the archive import
- * (`./archive.ts`, D11) writes its entries itself and renders each Verlauf it
- * touched once per slice through {@link uploadThreadVersion}. What it guarantees:
- *
- * 1. **One writer per thread at a time.** The thread's render lease
- *    (`mail_threads.render_lease_*`) is taken before the entries are read and
- *    let go after the Fassung is recorded: two filings rendering side by side
- *    could upload the smaller set last and drop the other's section, which the
- *    superset invariant forbids. Another writer holding it answers `busy`; the
- *    job tries again shortly, without spending an attempt.
- * 2. **Fassung N+1 is a superset of N** (`./render.ts`). The new entry's
- *    heading is made against the thread's headings once and stored; what came
- *    with it is decided once ({@link sectionAttachment}) and frozen on its
- *    rows (D36); every entry's JSON is parsed through the wire schemas, and a
- *    row that does not parse fails the filing rather than rendering text it
- *    did not mean.
- * 3. **Retry-safe.** The entry's id and the new thread's id are the
- *    decision's (uuid5), its filing time is the decision's, so a retry renders
- *    the same bytes: an upload whose answer was lost is found by its digest and
- *    not uploaded again, and the commit of an entry already recorded changes
- *    nothing. The entry, its Message-IDs, what came with it and the part's
- *    `filed` commit in one transaction, after the upload: DELETE is revoked on
- *    the entries, so nothing is written that a refused upload would have to
- *    take back.
- * 4. **Filed as the person, quietly.** The Fassung is uploaded through the
- *    ordinary upload path in their session (`uploadDocument`): their folder
- *    rights, the Namensprüfung, the Inhaltsprüfung, quota and the office's
- *    types apply. It goes into a quiet batch (D35's append row,
- *    `INBOUND_THREAD_APPEND_EFFECTS`), with `documentType: 'correspondence'`
- *    and the thread's ingest facts (`mail_thread`), both kept with the filing
- *    choice so a held Verlauf's release keeps them.
- * 5. **The original is evidence.** The commit marks the mail's raw message as
- *    moving; {@link finishOriginalMove} (`./originals.ts`) moves it to the
- *    entry's own key.
- * 6. **An original is attributed once.** A forward whose attached original
- *    another mail's entry already holds (`author_message_id`, migration 0198)
- *    is filed as its forwarder's own message, never as a second section under
- *    the original's author; the forward itself is always filed.
- *
- * Every refusal of the upload path maps to a typed failure the part waits
- * again with (`INBOUND_MAIL_FILING_FAILURES`); anything else throws for the
- * job's queue to retry.
- */
 
 import { v5 as uuidv5 } from 'uuid'
 import {
@@ -120,46 +71,33 @@ export {
   type AttachmentFact,
 } from './attachment-rows'
 
-/** How long a writer holds a thread's render lease: the part claim's own five minutes. */
 export const RENDER_LEASE_MS = 5 * 60 * 1000
 
-/** When a writer that found the lease taken tries again. */
 export const RENDER_LEASE_RETRY_MS = 15 * 1000
 
-/** The namespace the ids a decision gives an entry and a new thread are derived in. Fixed: changing it breaks retries. */
 const APPEND_NAMESPACE = '3f0b8d6e-5c2a-4e7b-9a14-6d2e8c0f1b73'
 
-/** The entry a `file` decision about a mail's text becomes: the same id on every retry. */
 export const entryIdOf = (decisionId: string): string =>
   uuidv5(`entry:${decisionId}`, APPEND_NAMESPACE)
 
-/** The thread a `create` decision starts: the same id on every retry. */
 export const newThreadIdOf = (decisionId: string): string =>
   uuidv5(`thread:${decisionId}`, APPEND_NAMESPACE)
 
-/** The file name of a thread document: the name a person gave it, as Markdown. */
 export function threadDocumentFilename(name: string): string {
   const clean = documentNameKey(name)
   return /\.md$/i.test(clean) ? clean : `${clean}.md`
 }
 
-/** A thread document's title, as its rendition's first line prints it: the name without `.md`. */
 export function threadTitleOf(filename: string): string {
   return filename.replace(/\.md$/i, '')
 }
 
-// ---------------------------------------------------------------------------
-// The entry
-// ---------------------------------------------------------------------------
-
-/** `text`, cut to at most `maxBytes` of UTF-8 without splitting a character. */
 export function cutToBytes(text: string, maxBytes: number): string {
   const bytes = new TextEncoder().encode(text)
   if (bytes.length <= maxBytes) return text
   return new TextDecoder().decode(bytes.slice(0, maxBytes)).replace(/�$/, '')
 }
 
-/** A reader's calendar event in the entry's shape: times in UTC, nothing the renderer does not print. */
 function calendarEventOf(event: MailRead['calendar'][number]): MailThreadCalendarEvent {
   const utc = (value: string | null) => {
     if (!value) return null
@@ -177,22 +115,11 @@ function calendarEventOf(event: MailRead['calendar'][number]): MailThreadCalenda
   }
 }
 
-/** The person's choice of form (D13): masked where the office's content check finds something, or the text as sent. */
 export interface MessageForm {
   masked: boolean
-  /** The office's content rules for prose; null when the screening is off (nothing is masked then). */
   rules: ContentScreenRules | null
 }
 
-/**
- * The entry a held mail's text becomes, before the commit gives it its first
- * Fassung. Pure. The own text is cut to the entry's bound (the rest is in the
- * original); masking keeps the text and records the spans, so the section
- * prints placeholders while the entry keeps what was sent; a quote is stored
- * masked, since it has no spans of its own. A quote's header line is not kept:
- * it names people by their addresses, and the section labels a quote by the
- * message that kept it.
- */
 export function inboundEntryOf(input: {
   id: string
   threadId: string
@@ -230,7 +157,6 @@ export function inboundEntryOf(input: {
     signerDomain: mail.signerDomain,
     senderTrust: mail.senderTrust ?? 'external_unverified',
     authenticationResults: mail.authenticationResults,
-    // Who wrote a forwarded message (migration 0198); the sender stays the forwarder.
     ...authorOf(mail),
     participants: mail.participants
       .slice(0, 50)
@@ -242,12 +168,10 @@ export function inboundEntryOf(input: {
     firstVersionId: null,
     filedBy: decision.decidedBy,
     filedVia: decision.via,
-    // The decision's time, not the run's: a retry renders the same bytes.
     filedAt: decision.decidedAt,
   }
 }
 
-/** The entry's author columns from the mail's original, or none for a mail that is no forward. */
 function authorOf(mail: InboundMailRow): Pick<NewMailThreadEntryRow, 'authorAddress' | 'authorName' | 'authorSentAt' | 'authorMessageId'> {
   if (!mail.originalAuthorAddress && !mail.originalAuthorName) return {}
   return {
@@ -258,23 +182,15 @@ function authorOf(mail: InboundMailRow): Pick<NewMailThreadEntryRow, 'authorAddr
   }
 }
 
-/**
- * An attached original another mail's entry already holds (migration 0198):
- * the original is not given a second section under its author's name. Its
- * Message-ID is the forward's sender's word, so this decides attribution only;
- * the forward itself is always filed, its text and what came with it.
- */
 async function originalFiledBefore(mail: InboundMailRow): Promise<boolean> {
   if (!mail.originalMessageId) return false
   return isOriginalFiledByAnother(mail.projectId, mail.originalMessageId, mail.id)
 }
 
-/** The mail as its forwarder's own message: no original named, so the section is headed by who sent it. */
 function asForwardersOwn(mail: InboundMailRow): InboundMailRow {
   return { ...mail, originalAuthorAddress: null, originalAuthorName: null, originalSentAt: null, originalMessageId: null }
 }
 
-/** The entry an answer `inReplyTo` names, among the thread's: the latest filed of them. */
 export function answeredEntryOf(
   entries: ReadonlyArray<Pick<MailThreadEntryRow, 'id' | 'messageId' | 'filedAt'>>,
   inReplyTo: readonly string[]
@@ -285,7 +201,6 @@ export function answeredEntryOf(
   return answered[0]?.id ?? null
 }
 
-/** A row parsed through the wire schemas into the renderer's input. Throws on a row that does not parse (a bug, never input). */
 export function renderEntryOf(
   row: NewMailThreadEntryRow | MailThreadEntryRow,
   attachments: readonly MailThreadSectionAttachment[]
@@ -327,7 +242,6 @@ export function renderEntryOf(
   }
 }
 
-/** The renderer's input for every entry of a thread, what came with each read from its rows. */
 export async function renderEntriesOf(
   rows: readonly MailThreadEntryRow[]
 ): Promise<MailThreadRenderEntry[]> {
@@ -335,11 +249,6 @@ export async function renderEntriesOf(
   return rows.map((row) => renderEntryOf(row, (attachments.get(row.id) ?? []).map(sectionLineOf)))
 }
 
-// ---------------------------------------------------------------------------
-// A Fassung
-// ---------------------------------------------------------------------------
-
-/** One Fassung of a thread document to upload. */
 export interface ThreadVersionUpload {
   session: AuthorizedSession
   projectId: string
@@ -347,12 +256,9 @@ export interface ThreadVersionUpload {
   filename: string
   markdown: string
   facts: MailThreadIngestFacts
-  /** The thread's document, when there is one: same bytes already its newest Fassung is a retry, not a new Fassung. */
   current: WritableThread['document'] | null
-  /** A new thread under a name the Namensprüfung stopped, which the person released. */
   screeningRelease: boolean
   uploadBatchId: string | null
-  /** `bulk` for a Fassung a machine files on the person's behalf in quantity (the archive import, ADR-0085). */
   priority?: IngestPriority
   request: Request
 }
@@ -361,13 +267,6 @@ export type ThreadVersionResult =
   | { ok: true; documentId: string; versionId: string | null }
   | { ok: false; failure: InboundMailFilingFailure }
 
-/**
- * Upload one Fassung as the person: the same name in the same folder, so the
- * thread document gets its next version, or a new document. Bytes the document
- * already holds are not uploaded again (a retry). A new thread's name another
- * document holds is `name_taken`, never that document's next version: the
- * upload path would replace it.
- */
 export async function uploadThreadVersion(upload: ThreadVersionUpload): Promise<ThreadVersionResult> {
   const bytes = Buffer.from(upload.markdown, 'utf8')
   const digest = contentDigest(bytes)
@@ -414,10 +313,6 @@ export async function uploadThreadVersion(upload: ThreadVersionUpload): Promise<
   }
 }
 
-/**
- * Run an upload, or anything on its path, and say which typed failure its
- * refusal is. A fault the person cannot act on throws for the job's queue.
- */
 export async function uploadOrFailure<T>(
   run: () => Promise<T>
 ): Promise<{ ok: true; value: T } | { ok: false; failure: InboundMailFilingFailure }> {
@@ -430,11 +325,6 @@ export async function uploadOrFailure<T>(
   }
 }
 
-/**
- * The typed failure a refusal of the upload path stands for (a retry would be
- * refused the same way, so the part waits again and the person is told why),
- * or null for anything else, which the queue retries.
- */
 export function filingFailureOf(error: unknown): InboundMailFilingFailure | null {
   if (!(error instanceof ApiError)) return null
   if (error instanceof ScreenedUploadError) return 'screened'
@@ -447,12 +337,6 @@ export function filingFailureOf(error: unknown): InboundMailFilingFailure | null
   return null
 }
 
-/**
- * The folder a filing goes into, as the person: an existing folder that is
- * still there, a path created now (`ensureProjectFolderPaths` asks their right
- * to create it), or the project root. `access` when the folder is gone or the
- * person may not create the path.
- */
 export async function ensureTargetFolder(
   session: AuthorizedSession,
   projectId: string,
@@ -482,27 +366,16 @@ export async function ensureTargetFolder(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Appending a held mail's text
-// ---------------------------------------------------------------------------
-
-/** One message part to file, and everything the filing read about its mail. */
 export interface AppendRequest {
   session: AuthorizedSession
   mail: InboundMailRow
-  /** The message part, being filed on `decision`. */
   part: InboundMailPartRow
   decision: InboundMailDecisionRow
-  /** What the reader made of the mail (`read.json`). */
   read: MailRead
   form: MessageForm
-  /** Every attachment of the mail as it stands after this run's filings, for the entry's rows (D36). */
   attachments: readonly AttachmentFact[]
-  /** The project's folder tree, for whether an attachment may be named beside the thread. */
   folderTree: ReadonlyMap<string, AccessFolder>
-  /** A new thread's folder, created by the caller when the decision named a path; ignored on append. */
   newThreadFolderId: string | null
-  /** A new thread's locale; an existing thread keeps its own. */
   newThreadLocale: MailThreadLocale
   uploadBatchId: string | null
   request: Request
@@ -517,10 +390,8 @@ export type AppendOutcome =
       versionId: string | null
     }
   | { kind: 'failed'; failure: InboundMailFilingFailure }
-  /** Another writer holds the thread's render lease: try again shortly. */
   | { kind: 'busy' }
 
-/** File the mail's text as the next entry of its thread (see the module header). */
 export async function appendInboundMessage(request: AppendRequest): Promise<AppendOutcome> {
   const { decision } = request
   if (decision.threadAction === 'append' && decision.mailThreadId) {

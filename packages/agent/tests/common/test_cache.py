@@ -1,14 +1,3 @@
-"""The shared cache's two contracts (ADR-0020): fail-open, and a cooldown that
-is about the STORE, not about one key.
-
-Only an unreachable/deploy-wide store (connection refused, socket timeout,
-OOM, read-only, ACL, cluster down, auth, busy-loading, wedged protocol)
-engages the global cooldown. A per-key rejection (WRONGTYPE, NOSCRIPT,
-EXECABORT, DataError, MaxConnections pool leak, bad JSON) fails open for
-that key only: reads return None (never stale local), writes skip the local
-replica, and the breaker stays out.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -83,8 +72,6 @@ class _FailingClient:
 
 
 class _DictClient:
-    """Minimal working shared store (no failures)."""
-
     def __init__(self) -> None:
         self.store: dict[str, str] = {}
 
@@ -131,8 +118,6 @@ class _DictPipeline:
 
 
 class _PartialPipeline:
-    """INCR landed on the server but EXPIRE did not."""
-
     def incr(self, _key: str):
         return self
 
@@ -144,13 +129,6 @@ class _PartialPipeline:
 
 
 class _PartialClient:
-    """A server whose pipelined EXPIRE fails; the repair path is recorded.
-
-    ``repair_fails`` stands for the deployment where EXPIRE is denied outright
-    (an ACL, or Redis < 7.0 rejecting ``NX``) rather than blipping — the case
-    where the counter would otherwise never get a TTL at all.
-    """
-
     def __init__(self, ttl: int = -1, repair_fails: bool = False) -> None:
         self.ttl_calls: list[str] = []
         self.expire_calls: list[tuple[str, int]] = []
@@ -172,8 +150,6 @@ class _PartialClient:
 
 
 class _SelectiveClient(_DictClient):
-    """Raise only for one bad key; every other key works normally."""
-
     def __init__(self, bad_key: str, exc: BaseException) -> None:
         super().__init__()
         self._bad_key = bad_key
@@ -197,8 +173,6 @@ class _SelectiveClient(_DictClient):
 
 
 class _DeleteFailGetOkClient:
-    """Shared delete always fails; shared reads still serve the old copy."""
-
     def __init__(self, exc: BaseException, value: str) -> None:
         self._exc = exc
         self._value = value
@@ -223,7 +197,6 @@ class _DeleteFailGetOkClient:
 
 @pytest.fixture
 def _shared_store(monkeypatch):
-    """Route the module at an injected client, never touching the network."""
     monkeypatch.setenv("REDIS_URL", "redis://test:6379/0")
     from_url_calls: list = []
     orig_from_url = redis.Redis.from_url
@@ -253,8 +226,6 @@ class TestFailOpen:
     def test_transport_write_and_read_fall_back_to_local(self, exc):
         _install(_FailingClient(exc))
         cache.set_json("k", {"a": 1}, ttl_seconds=60)
-        # Re-install: a transport failure engages the cooldown (client is None),
-        # so the read below exercises the local fallback, not the mock.
         cache._client = _FailingClient(exc)
         assert cache.get_json("k") == {"a": 1}
 
@@ -277,10 +248,8 @@ class TestFailOpen:
         client = _DeleteFailGetOkClient(ResponseError("nope"), json.dumps({"v": 1}))
         _install(client)
         assert cache.delete("k") is False
-        # Tombstoned: the not-deleted server copy stays hidden.
         assert cache.get_json("k") is None
         assert client.get_calls == 0, "tombstone must hide the server copy without a read"
-        # After expiry the server copy resurrects (delete really failed).
         now[0] += cache._TOMBSTONE_TTL_SECONDS + 1.0
         assert cache.get_json("k") == {"v": 1}
 
@@ -301,23 +270,17 @@ class TestFailOpen:
         _install(client)
         assert cache.incr_fixed_window("rl", 60) == 7
         assert cache._local_store == {}
-        # The count is authoritative, but the dropped EXPIRE left the key with
-        # no TTL: without the repair it never rolls over and the limiter denies
-        # this key permanently.
         assert client.expire_calls == [("rl", 60)]
 
     def test_incr_partial_apply_leaves_a_ticking_window_alone(self):
         client = _PartialClient(ttl=42)
         _install(client)
         assert cache.incr_fixed_window("rl", 60) == 7
-        # EXPIRE ... NX correctly refuses a key that already has a TTL, so the
-        # repair must not slide the window it is checking.
         assert client.expire_calls == []
 
     def test_incr_falls_back_locally_when_the_window_ttl_cannot_be_repaired(self):
         client = _PartialClient(repair_fails=True)
         _install(client)
-        # A count that never resets is worse than an advisory per-process one.
         assert cache.incr_fixed_window("rl", 60) is None
 
     @pytest.mark.parametrize("exc", [c[0] for c in _per_key_cases()], ids=_PER_KEY_IDS)
@@ -436,7 +399,6 @@ def _run_op(op: str) -> None:
 
 
 def test_no_shared_url_uses_local_only(monkeypatch):
-    """Without REDIS_URL there is no shared tier and no client is ever built."""
     monkeypatch.delenv("REDIS_URL", raising=False)
     monkeypatch.setattr(redis.Redis, "from_url", _no_client_allowed)
     cache.reset_local_store()
@@ -460,14 +422,6 @@ def _no_client_allowed(*_args, **_kwargs):
 
 @pytest.mark.parametrize("uptime", [1.0, 10_000.0], ids=["fresh-boot", "long-running"])
 def test_cold_start_builds_the_client_whatever_the_uptime(monkeypatch, uptime):
-    """A process that has never failed builds the client, however young the host.
-
-    ``time.monotonic()`` is time since boot on Linux. While "never failed" was
-    the float ``0.0``, ``now - 0.0 < _CLIENT_RETRY_SECONDS`` held for the first
-    30 seconds of a fresh container: ``_get_client`` returned None and every
-    call silently took the in-process tier, with nothing in the logs. The cold
-    start is exactly when the shared cache is worth most.
-    """
     built = []
 
     def _from_url(*args, **kwargs):
@@ -489,9 +443,6 @@ def test_cold_start_builds_the_client_whatever_the_uptime(monkeypatch, uptime):
         cache.reset_local_store()
 
 
-# --- Every public function, one client that refuses everything ---------------
-
-
 _PUBLIC_OPS: tuple[tuple[str, ...], ...] = (
     ("get_json", "read"),
     ("set_json", "write"),
@@ -502,7 +453,6 @@ _PUBLIC_OPS: tuple[tuple[str, ...], ...] = (
 
 
 def _call_public(name: str):
-    """One call of each public function, with arguments it accepts."""
     if name == "get_json":
         return cache.get_json("k")
     if name == "set_json":
@@ -518,14 +468,6 @@ def _call_public(name: str):
 
 @pytest.mark.usefixtures("_shared_store")
 class TestAClientThatRefusesEverything:
-    """ADR-0020's floor, asserted as a whole: a store that raises on every
-    operation leaves every public function returning its fallback.
-
-    The audit that asked for this (§4.4, option E6) found the fail-open
-    contract asserted nowhere — which is how a cache outage could have started
-    taking turns down without a single test going red.
-    """
-
     @pytest.mark.parametrize("name", [op[0] for op in _PUBLIC_OPS])
     @pytest.mark.parametrize("exc", [c[0] for c in _store_down_cases()], ids=_STORE_DOWN_IDS)
     def test_no_public_function_raises_when_the_store_is_down(self, name, exc):
@@ -539,14 +481,6 @@ class TestAClientThatRefusesEverything:
         _call_public(name)
 
     def test_each_function_returns_its_documented_fallback(self):
-        """Not merely "does not raise": the VALUE each one degrades to.
-
-        A local value written while the store was down must still read back
-        (that is the fallback tier doing its job), the delete must REPORT the
-        failure rather than claim success, the limiter must still count, and
-        `eval_script` — the one primitive with no local equivalent — must
-        answer None so its caller picks its own failure policy.
-        """
         refuse = RedisConnectionError("refused")
         _install(_FailingClient(refuse))
         assert cache.set_json("k", {"a": 1}, ttl_seconds=60) is None
@@ -562,12 +496,6 @@ class TestAClientThatRefusesEverything:
         assert cache.eval_script("return 1", [], []) is None
 
     def test_the_outage_is_logged_once_per_process_not_once_per_call(self, caplog):
-        """Twenty calls into a dead store are ONE warning, not twenty tracebacks.
-
-        Every operation of every turn takes this path while Dragonfly is
-        unreachable, so a warning per call — with `exc_info` — buries the one
-        line that says the cache is gone under its own stack traces.
-        """
         with caplog.at_level(logging.DEBUG, logger="agent.common.cache"):
             caplog.clear()
             for _ in range(4):
@@ -581,7 +509,6 @@ class TestAClientThatRefusesEverything:
         assert any(record.levelno == logging.DEBUG for record in caplog.records), "the rest must still be recorded"
 
     def test_the_window_reopens_after_the_interval(self, monkeypatch):
-        """Throttled, not silenced: a second outage an hour later still warns."""
         clock = {"now": 1_000.0}
         monkeypatch.setattr(cache.time, "monotonic", lambda: clock["now"])
         cache.reset_local_store()
@@ -600,11 +527,6 @@ class TestAClientThatRefusesEverything:
 
 @contextlib.contextmanager
 def caplog_at_debug():
-    """Collect this module's records without pytest's caplog fixture.
-
-    ``caplog`` and a monkeypatched ``time.monotonic`` do not mix: the handler
-    stamps every record with the clock the test froze.
-    """
     records: list[logging.LogRecord] = []
 
     class _Sink(logging.Handler):
@@ -623,17 +545,7 @@ def caplog_at_debug():
         logger.setLevel(previous)
 
 
-# --- Counting what the cache answered ----------------------------------------
-
-
 class TestCounters:
-    """Hit/miss counters, so "is the cache working" stops being a belief.
-
-    The latency audit's option E7: neither cache module counted a hit, so every
-    argument about caching in this repo was made from the code rather than from
-    a measurement.
-    """
-
     def test_the_local_tier_counts_hits_and_misses(self, monkeypatch):
         monkeypatch.delenv("REDIS_URL", raising=False)
         cache.reset_local_store()
@@ -655,7 +567,6 @@ class TestCounters:
         assert (counters.local_hits, counters.local_misses) == (0, 0)
 
     def test_an_error_is_an_error_and_not_a_miss(self, _shared_store):
-        """The two have different fixes, so they are never the same number."""
         _install(_FailingClient(RedisConnectionError("refused")))
         with cache.count_cache_operations():
             cache.get_json("k")
@@ -664,9 +575,6 @@ class TestCounters:
         assert counters.shared_misses == 0
 
     def test_a_scope_does_not_leak_into_the_next_turn(self, monkeypatch):
-        """The counters are per-turn ContextVar state, like every other
-        per-turn registry here: a replica answering two turns at once must not
-        report one turn's cache traffic on the other's span."""
         monkeypatch.delenv("REDIS_URL", raising=False)
         cache.reset_local_store()
         with cache.count_cache_operations():

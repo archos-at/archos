@@ -1,9 +1,3 @@
-/**
- * Which of an office's editions of one standard is in force on a day: the
- * platform's own rule (`newestInForce`) over the office's editions, an edition
- * starting on its in-force date or else its issue date.
- */
-
 import { describe, expect, it } from 'vitest'
 import type { StoredEntry } from '../store/repository'
 import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
@@ -69,7 +63,6 @@ describe('the edition in force on a day', () => {
     expect(editionOnDay([expired], '2026-11-11')).toBeNull()
     const undated = edition('e-undated', null)
     expect(editionOnDay([future, undated], '2026-11-11')).toBe(undated)
-    // Without a start, but ended: in force on no day after its end.
     const endedUndated = edition('e-undated-ended', null, {}, { inForceTo: '2025-12-31' })
     expect(editionOnDay([endedUndated], '2026-11-11')).toBeNull()
   })

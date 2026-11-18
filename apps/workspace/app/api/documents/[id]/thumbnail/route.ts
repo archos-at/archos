@@ -1,9 +1,3 @@
-/**
- * Document thumbnail API — presign a browser-facing thumbnail URL
- * (null url signals no thumbnail available).
- * Thin handler; all logic lives in `@/lib/documents/document-delivery`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { refuseLicensedFileForAgent } from '@/lib/base-knowledge/door-guard'
 import { getDocumentThumbnail } from '@/lib/documents/document-delivery'

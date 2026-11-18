@@ -1,21 +1,5 @@
-/**
- * The BEV Adressregister's relational tables ("Adresse Relationale Tabellen –
- * Stichtagsdaten", CSV, `;`-separated, quoted, UTF-8 with a BOM) as register
- * entries (ADR-0172). Pure: the importer (`scripts/import-address-register.ts`)
- * reads the files and writes what this returns.
- *
- * The BEV's own column names are read as string keys: they are the publisher's
- * data, not names of ours. Four of the archive's tables are read: GEMEINDE (GKZ → name), ORTSCHAFT
- * (GKZ + OKZ → locality), STRASSE (SKZ → street, delivery place) and ADRESSE
- * (one row per address). An address with no street (a farm, a hamlet with
- * house numbers only) is keyed by its farm name, else its locality, which is
- * how such an address is written. Format: the archive's own
- * `BEV_S_AD_Adresse_Relationale_Tabellen-Stichtagsdaten-CSV_V1.5.pdf`.
- */
-
 import { houseKey, placeKey, streetKey } from './normalize'
 
-/** One `;`-separated line with `"`-quoted fields; a doubled quote is a quote. */
 export function splitCsvLine(line: string): string[] {
   const fields: string[] = []
   let field = ''
@@ -38,7 +22,6 @@ export function splitCsvLine(line: string): string[] {
   return fields
 }
 
-/** A table's rows as objects keyed by its header, BOM and blank lines dropped. */
 export function* csvRecords(lines: Iterable<string>): Generator<Record<string, string>> {
   let header: string[] | null = null
   for (const raw of lines) {
@@ -59,7 +42,6 @@ export interface BevLookups {
   streets: Map<string, { name: string; deliveryPlace: string }>
 }
 
-/** The three small tables as maps, for {@link bevEntry}. */
 export function bevLookups(tables: {
   municipalityRows: Iterable<Record<string, string>>
   localityRows: Iterable<Record<string, string>>
@@ -77,7 +59,6 @@ export function bevLookups(tables: {
   return { municipalities, localities, streets }
 }
 
-/** One row of `address_register_entries`, without its release. */
 export interface RegisterEntry {
   addressId: string
   municipalityCode: string
@@ -100,11 +81,6 @@ function coordinate(raw: string | undefined): number | null {
   return Number.isFinite(value) ? value : null
 }
 
-/**
- * An ADRESSE row as an entry, or null when it cannot be keyed: no municipality
- * the GEMEINDE table names, no postcode, or no house number. Skipped rows are
- * counted by the importer, never guessed at.
- */
 export function bevEntry(row: Record<string, string>, lookups: BevLookups): RegisterEntry | null {
   const municipalityName = lookups.municipalities.get(row.GKZ)
   const houseNumber = row['HNR_ADR_ZUSAMMEN']?.trim()
@@ -131,7 +107,6 @@ export function bevEntry(row: Record<string, string>, lookups: BevLookups): Regi
   }
 }
 
-/** What the licence asks every use to say (the archive's `Licensing_Conditions.txt`). */
 export function bevAttribution(referenceDate: string): string {
   const [year, month, day] = referenceDate.split('-')
   return `© Österreichisches Adressregister, Stichtagsdaten vom ${day}.${month}.${year}`

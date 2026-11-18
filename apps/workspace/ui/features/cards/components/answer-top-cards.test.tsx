@@ -1,8 +1,3 @@
-/**
- * The proposal shell's lifecycle accent, because "pending" is a lifecycle
- * state and not a compliance warning (§A3).
- */
-
 import { describe, expect, it } from 'vitest'
 import { render as rtlRender } from '@testing-library/react'
 import type { ReactElement } from 'react'
@@ -18,9 +13,6 @@ const render = (ui: ReactElement) =>
 
 describe('ProposalShell', () => {
   it('draws no accent edge in any state, and never the warning colour', () => {
-    // Side stripes are discouraged (design-language.md, "Emphasis without
-    // a stripe"), and lifecycle is its own axis (§A3): amber means "close to a
-    // limit" everywhere else in the set.
     for (const tone of ['pending', 'accepted', 'dismissed'] as const) {
       const { container, unmount } = render(<ProposalShell tone={tone}>Text</ProposalShell>)
       const card = container.querySelector('[data-slot="card"]')

@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    Platform owners can read agent traces from their own AI assistant through
+    the Langfuse connection: every trace on staging, and in production only the
+    traces of the platform team's own organizations. Customers' offices stay
+    out of reach.

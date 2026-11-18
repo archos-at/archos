@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What an outside agent finds for the requests it actually typed. Each query
- * below was written by a model dogfooding the door, against the real catalog;
- * the operation it wanted must rank in the first three. A ranking change that
- * pushes one out fails here, so the ranking only gets better.
- *
- * Add a query when a transcript shows an agent searching twice for one thing.
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -19,7 +11,7 @@ import type { AgentPrincipal } from './principal'
 
 const session = {
   userId: 'user_eval',
-  email: 'eval@piloti.test',
+  email: 'eval@example.test',
   name: 'Eval',
   accessToken: '',
   organizationId: 'org_eval',
@@ -55,14 +47,11 @@ const FOUND_IN_THE_FIRST_THREE: ReadonlyArray<readonly [string, string]> = [
   ['undo deleting a document', 'document-restore'],
   ['create a task', 'task-create'],
   ['open points of the project', 'project-annotation-list'],
-  // The project's mail (ADR-0137): what waits, filing it, the address it comes to.
   ['incoming email', 'inbound-mail-list'],
   ['file email attachment', 'inbound-mail-file'],
   ['project email address', 'inbound-mail-address-get'],
   ['E-Mail-Anhang ablegen', 'inbound-mail-file'],
   ['email thread of the project', 'mail-thread-list'],
-  // `mail-thread-follow` is `control`-sensitive: no outside agent sees it until the step-up scope is
-  // enforced (`SENSITIVE_SCOPE_ENFORCED_BY_WORKOS`), so no query can find it yet. Its way back out is.
   ['stop following email thread', 'mail-thread-unfollow'],
 ]
 

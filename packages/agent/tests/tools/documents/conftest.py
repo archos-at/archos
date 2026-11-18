@@ -1,11 +1,3 @@
-"""Shared doubles for the filing tools: one working directory, one signed turn.
-
-In ``conftest`` rather than in ``test_filing`` because the wire-contract test
-(``test_wire_contract.py``) drives the same tool against the BFF's own JSON
-Schema, and a fixture imported from another test module is not a fixture — pytest
-resolves them by conftest, not by import.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -34,7 +26,6 @@ PROJECT = "3f8b0d2e-0000-4000-8000-000000000001"
 
 
 def envelope(payload: dict[str, Any]) -> tuple[str, str]:
-    """The BFF's own encoding: base64url(JSON) plus the hex HMAC of the raw JSON."""
     raw = json.dumps(payload)
     header = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
     signature = hmac.new(SECRET.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -58,8 +49,6 @@ class _Metadata:
 
 
 class _Context:
-    """The half of the agent runtime's Context these tools read."""
-
     def __init__(self, headers: dict[str, str], conversation_id: str | None) -> None:
         self.metadata = _Metadata(headers)
         self.conversation_id = conversation_id
@@ -72,7 +61,6 @@ def calls() -> list[tuple[dict[str, Any], filing.SignedEnvelope]]:
 
 @pytest.fixture
 def registry() -> Any:
-    """A bound card registry, reset with the test."""
     bound = CardRegistry()
     token = set_card_registry(bound)
     yield bound
@@ -85,7 +73,6 @@ def _draft_cards(registry: CardRegistry) -> list[dict[str, Any]]:
 
 @pytest.fixture(autouse=True)
 def _one_store(monkeypatch: pytest.MonkeyPatch) -> InMemoryStore:
-    """One working directory for the whole test, shared by the tool and the assertions."""
     store = InMemoryStore()
 
     async def _backend(conversation_id: str, dsn: str | None = None) -> DraftBackend:
@@ -98,7 +85,6 @@ def _one_store(monkeypatch: pytest.MonkeyPatch) -> InMemoryStore:
 
 @pytest.fixture(autouse=True)
 def _context(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A signed, project-scoped chat turn, as the WS upgrade would leave it."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     _bind_context(
         monkeypatch,
@@ -154,6 +140,5 @@ async def _file(monkeypatch: pytest.MonkeyPatch, responses: list[dict], calls: l
 
 
 async def _submit(monkeypatch: pytest.MonkeyPatch, responses: list[dict], calls: list, reviewer: str = "") -> str:
-    """``file_draft`` with ``submit=True``: the call that used to be ``submit_draft``."""
     monkeypatch.setattr(filing_tools, "post_document_version", _responder(responses, calls))
     return await filing_tools.run_file_draft(DRAFT, submit=True, reviewer=reviewer)

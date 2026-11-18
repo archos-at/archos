@@ -63,9 +63,6 @@ export function PdfDocumentViewView({ controller }: { controller: PdfDocumentVie
             currentPage={currentPage}
             defaultAspect={defaultAspect}
             onSelect={goToPage}
-            // Not on a phone, not even on its side: 150px of an 852px-wide,
-            // 393px-high screen is a column of thumbnails standing where the
-            // drawing should be, and the page field turns the pages.
             className="@max-3xl:hidden phone:hidden"
           />
         )}
@@ -82,9 +79,6 @@ export function PdfDocumentViewView({ controller }: { controller: PdfDocumentVie
             role="group"
             aria-label={title}
             className={cn(
-              // A column flex, so a sheet shorter than the frame sits in its
-              // middle (`my-auto` below) rather than at its top over an empty
-              // stage, and still scrolls from its top edge once it is taller.
               'isolate flex min-h-0 w-full flex-1 flex-col touch-pan-x touch-pan-y overflow-auto overscroll-contain px-3 pt-4 pb-16 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset',
               bleed &&
                 'phone:pt-2 phone:pr-[max(0.25rem,env(safe-area-inset-right))] phone:pl-[max(0.25rem,env(safe-area-inset-left))]',
@@ -176,10 +170,6 @@ export function PdfDocumentViewView({ controller }: { controller: PdfDocumentVie
                 />
               )}
               {passageMissing && !searchOpen && (
-                // The reader clicked a Fundstelle and nothing lit up. Without
-                // this the viewer let them conclude what they liked from that.
-                // It is none of those: the page is right and the sentence
-                // could not be located on it.
                 <FloatingNote data-testid="pdf-passage-missing">
                   <AlertTriangle aria-hidden />
                   {t('viewer.passageNotFound')}

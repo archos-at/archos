@@ -14,14 +14,6 @@ import {
   PRUNE_BATCH,
 } from './maintenance-sql.js'
 
-// Same fake-sql idiom as purger/db.spec.mjs: a tagged-template fn that records
-// the rendered SQL text (`join('$')` renders each interpolation as `$`) plus the
-// bound values in order. Both entry points run inside `sql.begin`, so the fake
-// `sql` exposes `.begin(cb)` and invokes cb with the recording tx template.
-//
-// The tx also records `.unsafe()` calls: every transaction must step up to the
-// BYPASSRLS role before it queries, because these sweeps span tenants
-// and row-level security would otherwise hide every other organization's rows (ADR-0041).
 function makeTx(executed, respond) {
   const tx = (strings, ...values) => {
     const text = strings.join('$').replace(/\s+/g, ' ').trim()
@@ -42,8 +34,6 @@ function makeSelectSql(selectRows) {
   return { sql: { begin: (cb) => cb(tx) }, executed }
 }
 
-// Each DELETE returns the next array from `sequence`; a short final batch ends
-// the loop. One transaction per batch, so `begin` is called per iteration.
 function makePruneSql(sequence) {
   const executed = []
   let i = 0
@@ -109,7 +99,6 @@ describe('platform scope', () => {
 
     const stepUps = executed.filter((q) => q.text === `SET LOCAL ROLE ${PLATFORM_ROLE}`)
     expect(stepUps).toHaveLength(2)
-    // …and each one precedes its own DELETE rather than all landing up front.
     expect(executed.map((q) => (q.text.startsWith('SET LOCAL ROLE') ? 'role' : 'query'))).toEqual([
       'role',
       'query',
@@ -134,7 +123,6 @@ describe('conversation trace erasure queries', () => {
     expect(select.text).toContain('q.purged_at <= now() - make_interval(mins => $)')
     expect(select.text).toContain("q.payload->>'langfuseTracesErasedAt' IS NULL")
     expect(select.text).toContain('NOT legal_hold_blocks(q.entity_type, q.entity_id, q.organization_id)')
-    // 35 days and 15 minutes for each kind of row, then 100 rows.
     expect(select.values).toEqual([35, 15, 35, 15, 100])
   })
 
@@ -147,7 +135,6 @@ describe('conversation trace erasure queries', () => {
       "q.status = 'failed' AND q.claimed_at >= now() - make_interval(days => $) AND q.claimed_at <= now() - make_interval(mins => $) " +
         'AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = q.entity_id)',
     )
-    // The purger still holds these, with attempts left.
     expect(select.text).not.toContain("'pending'")
     expect(select.text).not.toContain("'purging'")
   })
@@ -172,9 +159,7 @@ describe('conversation trace erasure queries', () => {
     expect(close.text).toContain("q.entity_type = 'conversation' AND q.status = 'failed'")
     expect(close.text).toContain('NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = q.entity_id)')
     expect(close.values).toEqual(['q1'])
-    // The worker is plain JavaScript and spells the statuses; the declaration decides whether it may.
     expect(DELETION_LIFECYCLE.moves).toContainEqual(expect.objectContaining({ from: 'failed', to: 'purged', event: 'close' }))
-    // One transaction: one step-up for both writes.
     expect(executed.filter((q) => q.text.startsWith('SET LOCAL ROLE'))).toHaveLength(1)
   })
 

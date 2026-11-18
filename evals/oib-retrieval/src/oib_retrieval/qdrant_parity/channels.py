@@ -1,20 +1,3 @@
-"""The rankings measured, each produced by the production code that serves it.
-
-* :func:`qdrant_bm25` — the BM25 prefetch of ``vector_store/search.py`` on its own: the
-  same ``Document`` (``store.bm25``, so ``BM25_OPTIONS``), the same ``lexical_query.bm25_text``
-  input, the same per-scope IDF, the same scope filter. It is the only query here
-  that drives ``qdrant_client`` directly, because production never runs BM25 alone;
-  the objects it is built from are the package's.
-* :func:`hybrid` — ``LlamaIndexRetriever._retrieve_sync``: the full
-  per-collection retrieval.
-* :func:`exact_matches` — ``_find_text_sync``: Qdrant's scroll, narrowed on the
-  server by the pattern's literal words, plus Python ``re``, for one
-  ``browse.phrase_pattern``.
-* :func:`regex_oracle` — the same pattern over every chunk's text with nothing
-  narrowed: what Chroma's ``$regex`` full scan returned, and what ``find_text``
-  must still return.
-"""
-
 from __future__ import annotations
 
 import re
@@ -25,7 +8,6 @@ from typing import Any
 
 from oib_retrieval.qdrant_parity.stores import SCOPE
 
-#: The base collection's filter, as ``search_scope.base_collection_filters`` builds it.
 NON_EVIDENCE_CHUNKING = "page"
 
 
@@ -37,12 +19,6 @@ def base_filters(excluded: Sequence[str]) -> dict[str, Any]:
 
 
 def qdrant_bm25(retriever: Any, query: str, depth: int, filters: dict[str, Any] | None) -> list[str]:
-    """Chunk ids from Qdrant's server-side German BM25 alone, best first.
-
-    The query text is the one the adapter sends (``lexical_query.lexical_inputs``: the
-    question's terms priced against the collection), so an empty text, and an
-    empty result, is the channel staying silent as it would in production.
-    """
     from knowledge_layer.vector_store import LEXICAL
     from knowledge_layer.vector_store import bm25
     from knowledge_layer.vector_store import get_store
@@ -70,7 +46,6 @@ def qdrant_bm25(retriever: Any, query: str, depth: int, filters: dict[str, Any] 
 def hybrid(
     retriever: Any, query: str, depth: int, filters: dict[str, Any] | None, scope: str = SCOPE
 ) -> tuple[list[Any], float]:
-    """The per-collection retrieval and its wall time in ms (no embedding inside it)."""
     started = time.perf_counter()
     result = retriever._retrieve_sync(query, scope, depth, filters)
     elapsed = (time.perf_counter() - started) * 1000.0
@@ -80,7 +55,6 @@ def hybrid(
 
 
 def exact_matches(retriever: Any, phrase: str, filters: dict[str, Any] | None, limit: int = 5000) -> set[str]:
-    """Chunk ids ``find_text`` returns for one phrase (through ``browse.phrase_pattern``)."""
     from knowledge_layer.browse import phrase_pattern
 
     pattern = phrase_pattern([phrase])
@@ -90,10 +64,6 @@ def exact_matches(retriever: Any, phrase: str, filters: dict[str, Any] | None, l
 
 
 def regex_oracle(chunks: Iterable[Any], phrase: str) -> set[str]:
-    """Chunk ids of ``chunks`` whose text the phrase's pattern matches: a full scan, nothing narrowed.
-
-    ``chunks`` are the ones the base filter admits (``runner.Corpus.allowed``).
-    """
     from knowledge_layer.browse import phrase_pattern
 
     pattern = phrase_pattern([phrase])
@@ -104,7 +74,6 @@ def regex_oracle(chunks: Iterable[Any], phrase: str) -> set[str]:
 
 
 def phrase_index_matches(phrase: str, filters: dict[str, Any] | None) -> set[str]:
-    """Chunk ids the full-text index's ``MatchPhrase`` alone admits (design Q3: can it serve exact mode?)."""
     from knowledge_layer.vector_store import get_store
     from knowledge_layer.vector_store import phrase as phrase_condition
     from knowledge_layer.vector_store import scope_filter

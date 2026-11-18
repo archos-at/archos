@@ -18,7 +18,6 @@ import { DELETION_LIFECYCLE, DELETION_MAX_ATTEMPTS, DELETION_STATUSES, deletionQ
 const CONSTRAINT = 'deletion_queue_status_known'
 const quoted = DELETION_STATUSES.map((status) => `'${status}'`).join(', ')
 
-/** A file by its path from `apps/workspace`, where vitest runs. */
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8')
 
 describe('deletion_queue.status is one list in four places', () => {
@@ -33,7 +32,6 @@ describe('deletion_queue.status is one list in four places', () => {
   it('migration 0223 adds that CHECK, with the same values in the same order', () => {
     const migration = read('migrations/0223_deletion_queue_status_known.sql').replace(/\s+/g, ' ')
     expect(migration).toContain(`ADD CONSTRAINT "${CONSTRAINT}" CHECK ("status" IN (${quoted})) NOT VALID;`)
-    // No other statement in it spells a status the tuple does not have.
     const spelled = [...migration.matchAll(/CHECK \("status" IN \(([^)]*)\)\)/g)].flatMap((match) =>
       [...match[1].matchAll(/'([a-z_]+)'/g)].map((value) => value[1]),
     )
@@ -52,13 +50,6 @@ describe('deletion_queue.status is one list in four places', () => {
   })
 })
 
-/**
- * "A `pending` row always has an attempt left" is written down three times too:
- * the schema's CHECK (from `DELETION_MAX_ATTEMPTS`), migration 0227's SQL, which
- * also repairs the rows from before it, and the definition
- * `scripts/rls-test-db.sh` expects Postgres to print. The purger's own copy of
- * the cap is held to the constant by `purger/deletion-lifecycle.spec.mjs`.
- */
 describe('a pending deletion has an attempt left, in the schema, the migration and the database check', () => {
   const NAME = 'deletion_queue_pending_has_attempts'
   const migration = read('migrations/0227_deletion_queue_pending_has_attempts.sql').replace(/\s+/g, ' ')

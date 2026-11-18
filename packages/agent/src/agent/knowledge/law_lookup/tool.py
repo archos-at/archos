@@ -1,10 +1,3 @@
-"""The agent-runtime function: config, description, and the stages in order.
-
-Nothing is decided here. Every bound, every fallback and every sentence the
-model reads lives in the stage that owns it, and every word of the source in
-its record; this module says what the tool takes and which stage runs next.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -53,13 +46,10 @@ from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
 
-#: Sources (revisions) one bound tool keeps clients for; the oldest is let go past it.
 _MAX_BOUND = 16
 
 
 class LawLookupToolConfig(FunctionBaseConfig, name="law_lookup"):
-    """One law source, read through its record: question in, citable passages out."""
-
     source: str = Field(
         description=(
             "The repository record (configs/sources/, by id) read when no released record reaches the turn; "
@@ -110,8 +100,6 @@ async def law_lookup(tool_config: LawLookupToolConfig, builder: Builder):
         application: str = "",
         as_of: str = "",
     ) -> str:
-        # `conclusion` is deliberately unread: it is the derivation's checkpoint slot, read
-        # off the CALL; a tool that acted on it would turn a transparency field into a control channel.
         return await lookup.call(question, jurisdiction, instrument, application, as_of)
 
     try:
@@ -122,25 +110,19 @@ async def law_lookup(tool_config: LawLookupToolConfig, builder: Builder):
 
 @dataclass
 class _Bound:
-    """One source as one call reads it: the source, its client, its search, its picker."""
-
     law: LawSource
     client: object
     search: Search
     picker: object
-    #: ``turn`` (the released record the turn carries) or ``repository`` (the fallback file), and the revision.
     origin: str = ""
     revision: str = ""
 
 
 class _Lookup:
-    """One bound tool: its config, and each source it has read, built once per revision."""
-
     def __init__(self, config: LawLookupToolConfig, llms) -> None:
         self.config, self.llms = config, llms
         self.ttl = ttl_seconds(config.cache_ttl_days)
         self.bound: dict[str, _Bound] = {}
-        #: Let go of past the cap, closed with the tool.
         self.retired: list[_Bound] = []
 
     def _bind(self, key: str, law: LawSource, origin: str, revision: str) -> _Bound:
@@ -156,7 +138,6 @@ class _Lookup:
         return self.bound[key]
 
     def for_turn(self) -> tuple[_Bound, str]:
-        """The source this turn reads, and a note when the turn's own source could not be carried or read."""
         chosen = turn_source()
         if chosen is not None:
             try:
@@ -209,7 +190,6 @@ class _Lookup:
     ) -> str:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
-        # Today or later is today's text, by the usual path; only a past day reads version documents (ADR-0171).
         now = today()
         current = bool(as_of) and reads_today(as_of, now)
         trace = LookupTrace(
@@ -223,8 +203,6 @@ class _Lookup:
         ingested = await ingest_documents(documents, self.config.ingest_into_knowledge, law, self.ttl)
         emit_lookup_span(question, address, trace, passages, tool)
         outcome.hits = len(passages)
-        # The call's notes go INSIDE the rendered block: its records are filed under the text it renders, and a
-        # line put before it afterwards loses them (``grounding_block.get_grounding_block``). A miss files none.
         notes = [line for line in (note, today_note(as_of, now) if current else "") if line]
         if not passages:
             return "\n".join([*notes, miss_message(question, address, trace, law)])
@@ -234,13 +212,6 @@ class _Lookup:
 
 
 async def _resolve_llms(tool_config: LawLookupToolConfig, builder: Builder):
-    """What builds a source's search planner and provision picker from the configured model, or None.
-
-    One configured model serves both: they are the same kind of bounded
-    structured-output call. A model that cannot be resolved is not fatal: the
-    live search then uses the caller's own words and the picker only answers a
-    named provision.
-    """
     if not tool_config.planner_llm:
         return None
     try:

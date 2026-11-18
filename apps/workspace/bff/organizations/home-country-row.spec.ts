@@ -19,7 +19,6 @@ import { ensureOrganizationRow, homeCountryFromDirectory, stateHomeCountry, UNPL
 
 const row = (homeCountry: string | null) => ({ workosOrganizationId: 'org', homeCountry }) as unknown as Organization
 let next = 0
-/** A fresh id per test: the module remembers which organizations it has seen placed. */
 const orgId = () => `org_${++next}`
 
 beforeEach(() => {

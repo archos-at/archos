@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The SKILL.md this form is writing, shown as the document it actually is.
- *
- * A skill authored through four fields and two switches looks like a database
- * record; it is in fact a file with YAML frontmatter and Markdown instructions,
- * and almost everything surprising about how skills behave follows from the
- * seam between those two halves. So the preview does not merely echo the
- * document — it labels the seam:
- *
- *   - the frontmatter is in the agent's context for EVERY turn, which is why the
- *     description has to say when the skill applies and why it is capped;
- *   - the body is loaded only if the agent activates the skill, which is why it
- *     can be long without costing anything.
- *
- * Seeing those two bands next to the fields that produce them is the fastest
- * way to understand why a vague description makes a skill that never triggers,
- * which is the single most common way a hand-written skill fails.
- *
- * Deterministic by construction (`renderSkillDocument` is pure), so this pane is
- * not an approximation of what will be stored — it is what will be stored.
- */
-
 import { type FC } from 'react'
 import { useTranslations } from '@/i18n'
 import { skillsCopy } from '@/i18n/namespaces/skills'
@@ -42,8 +20,6 @@ export const SkillDocumentPreview: FC<SkillDocumentPreviewProps> = ({
 }) => {
   const t = useTranslations(skillsCopy)
   const { frontmatter, body: renderedBody } = renderSkillDocumentParts({
-    // Placeholders keep the document well-formed while it is being typed, so
-    // the pane never flickers between valid and broken YAML mid-keystroke.
     name: name.trim() || 'skill-name',
     description: description.trim() || t('editor.preview.descriptionPlaceholder'),
     body,

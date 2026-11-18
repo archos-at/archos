@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `readPageTextItems` must read pdf.js's text stream the way Safari before 27
- * can: with a reader, never by async iteration.
- *
- * `page.getTextContent()` drained the same stream with `for await`, and on every
- * Safari that cannot iterate a `ReadableStream` it threw. The viewer took that
- * for a page with no text, so a cited passage was never marked while the page
- * rendered fine. The stream built here is a real `ReadableStream` with its async
- * iterator removed, which is that Safari's stream as far as this code can tell.
- * Against real pdf.js the helper is exercised by every spec that goes through
- * `@/test-utils/read-pdf`.
- */
 
 import { describe, expect, it } from 'vitest'
 import type { PDFPageProxy } from 'pdfjs-dist'
@@ -20,7 +8,6 @@ import { readPageTextItems } from './pdfjs-runtime'
 
 type TextStream = ReturnType<PDFPageProxy['streamTextContent']>
 
-/** A text stream in pdf.js's chunk shape that cannot be async-iterated. */
 const safariStream = (chunks: Array<{ items: unknown[]; styles?: Record<string, unknown> }>): TextStream => {
   const stream = new ReadableStream({
     start(controller) {
@@ -49,7 +36,6 @@ describe('readPageTextItems', () => {
         safariStream([{ items: [run('Die Sitztreppe')] }, { items: [run('im Innenhof')] }]),
     }
 
-    // The guard guards itself: this stream really cannot be for-awaited.
     await expect(async () => {
       for await (const _chunk of page.streamTextContent() as unknown as AsyncIterable<unknown>) {
         // unreachable

@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * „Verlauf folgen“ as a decision (D31): who may follow a thread and with which
- * rights, how a second call renews rather than duplicates, that a follow run
- * out is ended before a new one starts, who may end whose follow, and that
- * every start, renewal and end reaches the audit trail and PostHog with ids
- * and codes only; and that closing a project ends every follow on it.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -149,7 +142,6 @@ describe('followMailThread', () => {
     expect(startFollow).not.toHaveBeenCalled()
     expect(renewFollow).toHaveBeenCalledWith('f-1', expect.any(Date), expect.any(Date))
     expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ properties: { action: 'renew', days: 90 } }))
-    // Day 55's „Verlängern“ row is answered by the renewal.
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
   })
 
@@ -193,7 +185,6 @@ describe('unfollowMailThread', () => {
     expect(captureServer).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'mail_thread_followed', distinctId: ME, properties: { action: 'end', reason: 'unfollowed' } }),
     )
-    // An ended follow is asked to renew no more.
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
   })
 

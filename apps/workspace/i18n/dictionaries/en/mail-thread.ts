@@ -1,15 +1,4 @@
-/**
- * mailThread namespace: the E-Mail-Verlauf, one conversation filed as one
- * document (ADR-0137). The „Mails“ tab, following and detaching (D16) add to
- * it; the closed code lists of `lib/mail-thread` are worded here so every
- * surface says them the same way.
- *
- * The rendition's own words (section headings, „received …“, „quoted in the
- * mail of …“) are NOT here: they live in `lib/mail-thread/render-copy.ts`,
- * versioned, because changing them would rewrite every thread's sections.
- */
 export const mailThread = {
-  /** Why a reply's text waited although someone follows the mail thread (`FOLLOW_INELIGIBILITY_REASONS`). */
   followIneligible: {
     no_active_follow: 'Nobody follows this mail thread',
     sender_not_verified: 'The sender’s domain is not verified',
@@ -22,7 +11,6 @@ export const mailThread = {
     name_stop: 'The name check stopped the subject',
     content_finding: 'The content check found something in the text',
   },
-  /** Why a follow ended (`MAIL_THREAD_FOLLOW_END_REASONS`). */
   followEnd: {
     unfollowed: 'You stopped following',
     expired: 'The follow ran out',
@@ -34,7 +22,6 @@ export const mailThread = {
     project_closed: 'The project was closed',
   },
 
-  /** The „E-Mails“ tab of a thread document's preview (D16). */
   tab: {
     label: 'Mails',
     views: 'View',
@@ -46,7 +33,6 @@ export const mailThread = {
     waiting: '{count, plural, one {# mail of this mail thread waits} other {# mails of this mail thread wait}} in Project mail',
     waitingOpen: 'View',
   },
-  /** One filed mail in the tab. */
   entry: {
     fromRevision: 'from revision {number}',
     received: 'received {time}',
@@ -56,7 +42,6 @@ export const mailThread = {
       unverified: 'Domain not verified',
       notChecked: 'From the Outlook archive · not checked',
     },
-    /** How it was filed, said only where it is not a person deciding in the app. */
     filedVia: {
       agent: 'Filed by an agent on a person’s behalf',
       agent_proposal: 'Filed on {productName}’s suggestion',
@@ -64,7 +49,6 @@ export const mailThread = {
       archive_import: 'Taken over from the Outlook archive',
       sender: 'Filed directly: sent by a member who may file in the project, and verified by their domain',
     },
-    /** Under the heading of a forwarded mail, which names its original sender. */
     forwardedBy: 'Forwarded by {name}',
     compare: 'Compare',
     compareLabel: 'Compare revision {from} with revision {to}',
@@ -72,7 +56,6 @@ export const mailThread = {
     menu: 'More for the mail of {heading}',
     detach: 'Detach …',
   },
-  /** What came with a mail (D36). */
   attachments: {
     label: 'Attachments',
     hidden: 'An attachment in a folder you cannot see',
@@ -98,7 +81,6 @@ export const mailThread = {
       unreadable: 'not readable',
     },
   },
-  /** The original `.eml` of one filed mail, kept as evidence. */
   original: {
     download: 'Original (.eml)',
     downloading: 'Checking …',
@@ -108,7 +90,6 @@ export const mailThread = {
     gone: 'No original: taken over from the Outlook archive',
     failed: 'The download did not work. Try again.',
   },
-  /** „Verlauf folgen“ in the tab: the viewer's own follow, and for managers everybody's. */
   follow: {
     offer: 'Follow this mail thread',
     start: 'Follow',
@@ -134,7 +115,6 @@ export const mailThread = {
     failed: 'That did not work. Try again.',
     closed: 'The project is closed. Reopen it to follow.',
   },
-  /** „Herauslösen …“: a mail filed into the wrong mail thread (D34). */
   detach: {
     title: 'Detach this mail?',
     description: 'The mail of {heading} moves into another mail thread.',
@@ -157,7 +137,6 @@ export const mailThread = {
     followsEnded: '{count, plural, one {# follow ended} other {# follows ended}}',
     open: 'Open',
   },
-  /** Why a write on a mail thread was refused (`MAIL_THREAD_REFUSALS`, and a follow in a closed project). */
   refusals: {
     last_entry: 'This is the only mail of the mail thread. Delete the document instead.',
     busy: 'A mail is being filed into this mail thread right now. Try again in a moment.',
@@ -171,12 +150,10 @@ export const mailThread = {
     project_closed: 'The project is closed. Reopen it first.',
     unknown: 'That did not work. Try again.',
   },
-  /** Where a Fassung came from (D36): the header row of a document a mail brought, and a row of its timeline. */
   provenance: {
     label: 'Origin',
     cameWith: 'Came with the mail from {name} on {date}',
     cameWithAnonymous: 'Came with a mail on {date}',
-    // The mail thread heading's words: who wrote it first, then who forwarded it.
     cameWithForwarded: 'Came with the mail from {name}, forwarded by {forwarder}, on {date}',
     cameWithForwardedAnonymous: 'Came with a forwarded mail on {date}',
     open: 'View in the mail thread',

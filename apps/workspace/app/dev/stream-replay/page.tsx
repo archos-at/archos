@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * `/dev/stream-replay?fixture=varianten&speed=1[&ending=recorded]` — a recorded live answer,
- * replayed as v2 events at its recorded pace, through `foldTurnEvent`, into the
- * real `AgentResponse`.
- *
- * What it is for: seeing (and measuring) what a streamed answer does to the
- * page. Every layout shift is recorded with the phase it happened in and the
- * elements that moved, and the prose's first paragraph is tracked as the
- * reader's anchor. `window.__replay` holds both for a headless capture.
- */
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AgentResponse } from '@/features/chat/components/AgentResponse'
@@ -26,11 +15,6 @@ interface Shift {
   t: number
   phase: string
   value: number
-  /**
-   * `edge`: the source entered or left the viewport (its rect before or after
-   * is empty). The browser reports only a rect's visible part, so its dy/dh
-   * are not how far it moved (docs/contributing/gotchas.md).
-   */
   sources: { node: string; dy: number; dh: number; edge: boolean }[]
 }
 
@@ -48,7 +32,6 @@ declare global {
 }
 
 interface View {
-  /** The answer so far, folded by the one fold every reader uses. */
   turn: TurnView
   phase: 'waiting' | 'prose' | 'settled' | 'cards' | 'final'
 }
@@ -56,12 +39,6 @@ interface View {
 const IDS = { conversationId: 'replay', turnId: 'replay', messageId: 'replay' }
 const EMPTY: View = { turn: initialTurnView(IDS.turnId, IDS.conversationId), phase: 'waiting' }
 
-/**
- * The recorded answer as v2 events (`_fixtures/v2-turn.ts`), each at its
- * recorded time, ending as the product ends today: the terminal continues the
- * settled snapshot (`asSettled`). The `oib2` recording predates ADR-0067 and
- * its terminal rewrote the answer; `?ending=recorded` replays that instead.
- */
 const replayEvents = (
   name: 'varianten' | 'oib2',
   speed: number,
@@ -74,7 +51,6 @@ const replayEvents = (
   })
 }
 
-/** One event folded by `foldTurnEvent`; the phase label is read off the event. */
 const applyEvent = (view: View, event: WireEvent): View => {
   const turn = foldTurnEvent(view.turn, event)
   if (event.type === 'RUN_FINISHED') return { turn, phase: 'final' }
@@ -102,7 +78,6 @@ export default function StreamReplayPage() {
     () => ({ phase: 'waiting', done: false, shifts: [], anchorTops: [] }),
     []
   )
-  // When the replay started: shifts and anchor tops are both timed from it.
   const startRef = useRef(0)
 
   useEffect(() => {
@@ -129,8 +104,6 @@ export default function StreamReplayPage() {
     })
     observer.observe({ type: 'layout-shift', buffered: false })
 
-    // Every timer this effect starts, the settle timer the last frame starts
-    // included, so an unmount mid-replay leaves none of them running.
     const timers: number[] = []
     const later = (run: () => void, ms: number) => timers.push(window.setTimeout(run, ms))
     events.forEach(({ at, event }, index) =>
@@ -145,7 +118,6 @@ export default function StreamReplayPage() {
     }
   }, [probe, events])
 
-  // The reader's anchor: where the first paragraph of the prose sits.
   useEffect(() => {
     probe.phase = view.phase
     const first = document.querySelector('[data-replay-answer] .markdown-content > :first-child')

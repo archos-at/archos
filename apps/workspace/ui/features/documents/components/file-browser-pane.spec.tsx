@@ -53,16 +53,9 @@ const files: FileItem[] = [
 
 type PaneProps = Parameters<typeof FileBrowserPane>[0]
 type HarnessProps = Omit<Partial<PaneProps>, 'search'> & {
-  /** Corpus the semantic search runs against. Omit to offer the filter alone. */
   projectId?: string
 }
 
-/**
- * The pane as the PAGE composes it — search field above, listing below. The
- * query is owned by `useFileSearch` one level up (Files renders the field in
- * the page header), so a test that types has to go through the same two-part
- * arrangement the app uses rather than reaching into the pane.
- */
 function Harness({ projectId, ...paneProps }: HarnessProps) {
   const t = useTranslations(filesCopy)
   const search = useFileSearch(projectId ? projectSearchScope(projectId) : undefined)
@@ -95,20 +88,16 @@ function renderPane(overrides: HarnessProps = {}) {
 
 describe('FileBrowserPane — card grid', () => {
   it('renders one card per file with a content-aware skeleton thumbnail', async () => {
-    // A card asks for its thumbnail once it has been on screen; here, at once.
     const restoreObservers = installLayoutObservers({ intersecting: true })
     try {
       renderPane()
       const cards = screen.getAllByTestId('file-card')
       expect(cards).toHaveLength(2)
-      // Kind inference drives the thumbnail: "site-plan.pdf" → siteplan sketch.
-      // The thumbnail request settles (a brief skeleton first) before the fallback.
       const sitePlanCard = cards.find((c) => within(c).queryByText('site-plan.pdf'))!
       expect(await within(sitePlanCard).findByTestId('document-kind-thumbnail')).toHaveAttribute(
         'data-kind',
         'siteplan'
       )
-      // "permit.pdf" → official-notice sketch.
       const permitCard = cards.find((c) => within(c).queryByText('permit.pdf'))!
       expect(await within(permitCard).findByTestId('document-kind-thumbnail')).toHaveAttribute(
         'data-kind',
@@ -122,11 +111,9 @@ describe('FileBrowserPane — card grid', () => {
   it('says the format and size in the facts line, and a status badge only when the document is not citable', () => {
     const { unmount } = renderPane()
     const card = screen.getAllByTestId('file-card').find((c) => within(c).queryByText('site-plan.pdf'))!
-    // The format and the size are in the footer, the card button's sibling: ink, not a tinted chip.
     const footer = card.nextElementSibling as HTMLElement
     expect(within(footer).getByText('PDF')).toBeInTheDocument()
     expect(within(footer).getByText(/1 kB/)).toBeInTheDocument()
-    // Citable is the normal state: the card says nothing about it.
     expect(within(card).queryByText('Citable')).not.toBeInTheDocument()
     unmount()
 
@@ -142,9 +129,6 @@ describe('FileBrowserPane — card grid', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument()
   })
 
-  // `aria-current`, not `aria-pressed`: the card opens the file, it does not
-  // toggle. It used to close the preview when you clicked the row you were
-  // already looking at — the one surface in the product that did.
   it('marks the card the preview is showing with aria-current', () => {
     renderPane({ selectedFileId: 'f1' })
     const cards = screen.getAllByTestId('file-card')
@@ -154,7 +138,6 @@ describe('FileBrowserPane — card grid', () => {
   })
 
   it('draws no upload tile among the files: the header uploads and the whole page takes a drop', () => {
-    // A dashed „Drag files here or browse“ cell stood in the grid as a file that was not one (dev, 2026-11-10).
     renderPane({})
     expect(screen.queryByTestId('project-upload-dropcard')).not.toBeInTheDocument()
     expect(screen.getAllByTestId('file-card')).toHaveLength(files.length)
@@ -167,7 +150,6 @@ describe('FileBrowserPane — document descriptions', () => {
       { ...files[0], summary: 'A ground-floor plan of the east wing.' },
       files[1],
     ]
-    // Paper on a desk: a tile is the sheet, the name and one meta line; the summary is the list's and the preview's.
     const { unmount } = renderPane({ files: withSummary })
     expect(screen.queryByText('A ground-floor plan of the east wing.')).not.toBeInTheDocument()
     unmount()
@@ -199,7 +181,6 @@ describe('FileBrowserPane — folder drill-down', () => {
 
     expect(screen.getByRole('button', { name: 'Open folder “Pläne”' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open folder “Bescheide”' })).toBeInTheDocument()
-    // A nested folder belongs to ITS level, not the root.
     expect(screen.queryByRole('button', { name: 'Open folder “EG”' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Open folder “Pläne”' }))
@@ -210,7 +191,6 @@ describe('FileBrowserPane — folder drill-down', () => {
     const user = userEvent.setup()
     const onNavigate = vi.fn()
     renderPane({
-      // Standing inside Pläne › EG: its own level shows, the path walks up.
       files: [],
       searchFiles: files,
       folderNav: folderNav('child-1', onNavigate),
@@ -230,16 +210,10 @@ describe('FileBrowserPane — folder drill-down', () => {
       searchFiles: [{ ...files[0], folderId: 'root-1' }, files[1]],
       folderNav: folderNav(null),
     })
-    // Pläne holds one document and one subfolder — two items.
     const card = screen.getByTestId('folder-card-root-1')
     expect(within(card).getByText('2 items')).toBeInTheDocument()
   })
 
-  /**
-   * In the list view the folders are the file table's first rows, under its one column head and in its columns
-   * (paper on a desk, tables): a block above the table put the head mid-table and the counts off the Größe column.
-   * A row with its own radius or shadow would be a pill.
-   */
   it('lists the level’s folders as the first rows of the file table, under its head', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')
@@ -250,8 +224,6 @@ describe('FileBrowserPane — folder drill-down', () => {
     expect(row.className).not.toMatch(/\brounded|\bshadow/)
   })
 
-  // Review of 2026-11-10, findings 9 and 10: a subfolder mixed its folders and files in one grid (a folder stretched to
-  // a thumbnail's height), and the root labelled its kinds while a subfolder did not.
   it('draws every level in one grammar: its folders first, then its files, each labelled when both are there', () => {
     renderPane({ files: [{ ...files[0], folderId: 'root-1' }], folderNav: folderNav('root-1') })
     const folderTiles = screen.getByTestId('folder-tiles')
@@ -269,7 +241,6 @@ describe('FileBrowserPane — folder drill-down', () => {
   })
 
   it('starts each result’s meta line with the folder it lies in: a search spans every folder', async () => {
-    // Finding 13: results said nothing of where they were.
     const user = userEvent.setup()
     renderPane({ files: [], searchFiles: [{ ...files[1], folderId: 'root-2' }], folderNav: folderNav(null) })
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'permit')
@@ -277,13 +248,11 @@ describe('FileBrowserPane — folder drill-down', () => {
   })
 
   it('keeps „Select“ in place where the level holds only folders, disabled, so nothing moves under the pointer', () => {
-    // Finding 19: the press came and went with the level's files and moved „Create folder“ under the pointer.
     renderPane({ files: [], searchFiles: files, folderNav: folderNav(null), selection: { active: false, selectedIds: new Set(), onToggle: vi.fn(), onStart: vi.fn() } })
     expect(screen.getByTestId('selection-start')).toBeDisabled()
   })
 
   it('marks an empty level so its own Hochladen is the pane’s one ink press', () => {
-    // Finding 8: two black Hochladen (the toolbar's and the empty state's; a phone's floating one and the empty state's).
     const { container } = renderPane({ files: [], searchFiles: files, folderNav: folderNav('root-2') })
     expect(container.querySelector('[data-empty-level]')).not.toBeNull()
   })
@@ -291,7 +260,6 @@ describe('FileBrowserPane — folder drill-down', () => {
   it('a typed query escapes the current folder and searches the corpus', async () => {
     const user = userEvent.setup()
     renderPane({
-      // Standing inside an empty folder; the corpus lives elsewhere.
       files: [],
       searchFiles: files,
       folderNav: folderNav('root-2'),
@@ -303,7 +271,6 @@ describe('FileBrowserPane — folder drill-down', () => {
 
   it('lifts no document out of a level the reader may only read; the server would refuse the move', () => {
     const readOnly = folders.map((folder) => (folder.id === 'root-2' ? { ...folder, access: 'read' as const } : folder))
-    // The tile around each card is what lifts; folder tiles are not counted.
     const liftingCards = (container: HTMLElement) =>
       screen.getAllByTestId('file-card').filter((card) => card.closest('[draggable="true"]') && container.contains(card))
 
@@ -375,7 +342,6 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
       if (href.includes('/api/search?')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(searchAnswer) })
       }
-      // Thumbnail probes and anything else: fall back to the SVG sketch.
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -387,11 +353,6 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
   })
 
   it('says the search failed rather than reporting an empty corpus', async () => {
-    // The hook fails OPEN — an empty hit list, never a crash — and reports
-    // which of the two happened. Nothing read that flag, so a backend timeout
-    // rendered as "no semantic matches for 'fire escape'": the pane told the
-    // reader something about their own files that it had no way of knowing,
-    // and offered them a reset for it.
     fetchMock.mockImplementation((url: string | URL) =>
       String(url).includes('/api/search?')
         ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })
@@ -402,12 +363,8 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
 
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'fire escape{Enter}')
 
-    // Said once, by the panel — the banner that used to repeat it is gone.
     expect(await screen.findAllByText(/could not be run/i)).toHaveLength(1)
     expect(screen.queryByText(/no semantic matches/i)).not.toBeInTheDocument()
-    // And nowhere a count: a count is a claim about the corpus, and a search
-    // that never ran has not counted anything. "0 results" beside a panel that
-    // says the search failed is the same lie twice.
     expect(screen.queryByText(/0 results/i)).not.toBeInTheDocument()
   })
 
@@ -429,8 +386,6 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'fire escape{Enter}')
     await user.click(await screen.findByRole('button', { name: /try again/i }))
 
-    // The reader had already typed the query once; a "show all files" button
-    // as the only way out asks them to start over.
     expect(await screen.findByTestId('semantic-match')).toBeInTheDocument()
     expect(attempt).toBe(2)
   })
@@ -441,18 +396,13 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
 
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'fire escape{Enter}')
 
-    // The toggle was read only on the un-searched branch, so pressing Enter
-    // threw a reader who had deliberately switched to the detail view back into
-    // cards — and clearing the query threw them back again.
     expect(await screen.findByTestId('file-list-view')).toBeInTheDocument()
     expect(screen.queryByTestId('semantic-match')).not.toBeInTheDocument()
-    // And the ranking survives into it: the rows in rank order, with no „1, 2“ column repeating it.
     expect(await screen.findAllByTestId('file-list-row')).not.toHaveLength(0)
     expect(screen.queryByTestId('file-list-relevance')).toBeNull()
   })
 
   it('waits in the shape of the view the answer will arrive in', async () => {
-    // Held open so the searching state is observable at all.
     let release: () => void = () => undefined
     fetchMock.mockImplementation((url: string | URL) =>
       String(url).includes('/api/search?')
@@ -466,8 +416,6 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
 
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'fire escape{Enter}')
 
-    // Card skeletons were drawn whatever the reader had chosen, so a search from
-    // the list flashed a wall of tiles and then snapped to a table.
     expect(await screen.findByTestId('file-list-skeleton')).toBeInTheDocument()
     release()
     expect(await screen.findByTestId('file-list-view')).toBeInTheDocument()
@@ -485,7 +433,6 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'permit')
     expect(screen.getByText('permit.pdf')).toBeInTheDocument()
     expect(screen.queryByText('site-plan.pdf')).not.toBeInTheDocument()
-    // Substring filtering never hits the semantic endpoint.
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/api/search?'))).toBe(false)
   })
 
@@ -495,17 +442,13 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
 
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'fire escape{Enter}')
 
-    // The results ARE the report — no banner restating the mode and the count
-    // over a list that shows both.
     expect(screen.queryByText(/semantic search:/i)).not.toBeInTheDocument()
 
-    // The match evidence: the passage and its page. The search ranks and shows no score (ADR-0136).
     const match = await screen.findByTestId('semantic-match')
     expect(match).toHaveTextContent(/second escape route/i)
     expect(within(match).getByTestId('semantic-page')).toHaveTextContent(/page 4/i)
     expect(within(match).queryByText(/%/)).not.toBeInTheDocument()
 
-    // The right endpoint was called with the query.
     const call = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/search?'))
     expect(String(call?.[0])).toBe('/api/search?projectId=proj-1')
     expect(JSON.parse((call?.[1] as RequestInit).body as string)).toEqual({
@@ -522,12 +465,9 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'fire escape{Enter}')
     await screen.findByTestId('semantic-match')
 
-    // The field's own ✕ is the whole way out now that the banner — which used
-    // to carry a second one — is gone.
     await user.click(screen.getByRole('button', { name: /reset search/i }))
 
     expect(screen.queryByTestId('semantic-match')).not.toBeInTheDocument()
-    // Back to the full list.
     expect(screen.getByText('site-plan.pdf')).toBeInTheDocument()
     expect(screen.getByText('permit.pdf')).toBeInTheDocument()
   })
@@ -543,7 +483,6 @@ describe('FileBrowserPane — search zero-match', () => {
     expect(screen.getByText(/no files match/i)).toBeInTheDocument()
     expect(screen.getByText(/“zzzz”/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /clear search/i })).toBeInTheDocument()
-    // The file cards are gone while the query has no matches.
     expect(screen.queryByText('site-plan.pdf')).not.toBeInTheDocument()
   })
 
@@ -561,19 +500,10 @@ describe('FileBrowserPane — search zero-match', () => {
 })
 
 
-/**
- * A FILTER THAT MATCHES NOTHING MUST NOT CLAIM THE FOLDER IS EMPTY.
- *
- * The pane is handed already-filtered files, so it could not tell the two
- * apart and drew "this folder is empty" over a folder full of documents. „Von
- * Piloti" paid for that twice: it is the filter whose meaning nobody could
- * infer, and the one state where the product could have explained it said
- * something false instead.
- */
 describe('FileBrowserPane — a filter emptied the level', () => {
   const notice = {
-    title: 'Piloti hat hier noch nichts abgelegt',
-    description: 'Hier erscheinen die Dateien, die Piloti selbst erstellt hat.',
+    title: 'Der Agent hat hier noch nichts abgelegt',
+    description: 'Hier erscheinen die Dateien, die der Agent selbst erstellt hat.',
     onClear: vi.fn(),
   }
 
@@ -595,8 +525,6 @@ describe('FileBrowserPane — a filter emptied the level', () => {
       uploadControl: <button type="button">Upload a file</button>,
     })
 
-    // Uploading answers a question nobody asked: the files exist, the filter
-    // is hiding them.
     expect(screen.queryByText('Upload a file')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /clear filters/i }))
@@ -611,19 +539,6 @@ describe('FileBrowserPane — a filter emptied the level', () => {
   })
 })
 
-/**
- * THE SKELETON IS A PROMISE ABOUT THE NEXT FRAME.
- *
- * The one it replaced drew a full-width `h-9` bar — a search field the page had
- * moved into its header a release earlier and was never bringing back — above a
- * full-width grid of six card placeholders. What then arrived was a breadcrumb
- * row over a 1200px column that starts with folder tiles and ends with a dashed
- * upload cell. Every load ended in a jump, and the loading state described a
- * layout that had not existed for months.
- *
- * These pin the parts that made it wrong, so the next person to move a control
- * out of this pane finds out here rather than in a screenshot.
- */
 describe('FileBrowserPane — loading', () => {
   const folderNav = {
     folders: [] as FolderItem[],
@@ -652,18 +567,10 @@ describe('FileBrowserPane — loading', () => {
     renderPane({ isLoading: true, view: 'list', folderNav })
     const skeleton = screen.getByTestId('file-browser-skeleton')
     expect(within(skeleton).getByTestId('file-list-skeleton')).toBeInTheDocument()
-    // The detail view's column headings are known before the listing is, so the
-    // rows do not jump down by a header when the answer lands.
     expect(within(skeleton).getByText('Name')).toBeInTheDocument()
   })
 })
 
-/**
- * A folder card carries two aggregates — how much is inside, and how recently
- * anything under it changed. Both used to be computed per card by re-scanning
- * the corpus, and the second recursed while doing it. They are one pass now;
- * these say the answers did not move.
- */
 describe('FileBrowserPane — folder aggregates', () => {
   const tree: FolderItem[] = [
     { id: 'root-a', parentId: null, name: 'Einreichung', path: 'Einreichung' },
@@ -689,10 +596,7 @@ describe('FileBrowserPane — folder aggregates', () => {
     })
 
     const card = screen.getByTestId('folder-card-root-a')
-    // One document + one subfolder directly inside: two items, not the three
-    // things that exist underneath it.
     expect(within(card).getByText('2 items')).toBeInTheDocument()
-    // The tile says how much it holds; when it last changed is the list's column.
     expect(within(card).queryByRole('time')).not.toBeInTheDocument()
   })
 
@@ -716,8 +620,6 @@ describe('FileBrowserPane — folder aggregates', () => {
     expect(within(screen.getByTestId('folder-card-root-a')).getByText('2 items')).toBeInTheDocument()
     unmount()
 
-    // The replaced Fassung failed to read, and nobody is told about it on the
-    // list view's row: the row says only what departs from all read, and this is not that.
     const list = renderPane({ files: [], searchFiles: [...corpus, older], folderNav: nav, view: 'list' })
     expect(
       within(screen.getByTestId('folder-row-root-a')).queryByTestId('folder-read-state')?.getAttribute('data-state')
@@ -741,7 +643,6 @@ describe('FileBrowserPane — folder aggregates', () => {
     const { unmount } = renderPane({ files: [], searchFiles: [...corpus, failed], folderNav: nav })
     const dot = within(screen.getByTestId('folder-card-root-a')).getByTestId('folder-read-state')
     expect(dot).toHaveAttribute('data-state', 'failed')
-    // An exception carries its words on the tile: a colour never travels alone.
     expect(within(dot).getByText('1 failed')).not.toHaveClass('sr-only')
     unmount()
 
@@ -774,21 +675,6 @@ describe('FileBrowserPane — folder aggregates', () => {
   })
 })
 
-/**
- * THE LISTING MUST BE VISIBLE IN THE HTML THE SERVER SENDS.
- *
- * The Files page reads its documents server-side so the first paint is the
- * corpus rather than a skeleton. motion writes an `initial` prop into the
- * SERVER's markup — `initial={{opacity: 0}}` really does render
- * `style="opacity:0"` — so every per-tile entrance animation this pane had was
- * quietly undoing that: the cards were in the document and invisible until the
- * bundle booted and hydration released them, which is the exact wait the server
- * render exists to remove.
- *
- * This renders the pane the way the server does and asserts the markup carries
- * no hidden content. It is the only place that catches it: in a browser the
- * animation completes in 240ms and everything looks fine.
- */
 describe('FileBrowserPane — server-rendered markup', () => {
   const folderNav = {
     folders: [{ id: 'f1', parentId: null, name: 'Brandschutz', path: 'Brandschutz' }],
@@ -801,18 +687,13 @@ describe('FileBrowserPane — server-rendered markup', () => {
 
   it('paints the level and its tiles at full opacity before any JavaScript runs', () => {
     const html = renderToStaticMarkup(<Harness folderNav={folderNav} />)
-    // No navigation has happened, so nothing may be mid-transition.
     expect(html).not.toMatch(/opacity:\s*0(?![.\d])/)
-    // And the content really is in there, so the assertion above is not passing
-    // on an empty render.
     expect(html).toContain('site-plan.pdf')
     expect(html).toContain('Brandschutz')
   })
 })
 
 describe('FileBrowserPane — older Fassungen in search', () => {
-  // `current.pdf` replaces `plan_v1.pdf`; the older one is a document of its own
-  // in the corpus, and the current one knows the name it was stored under.
   const older: FileItem = {
     ...files[0],
     id: 'old',

@@ -1,39 +1,6 @@
-/**
- * Collection-name authorization for the backend proxy routes.
- *
- * The `/api/v1/[...path]` proxy forwards collection-scoped requests (uploads,
- * document listings, deletions) to the backend. Before forwarding, the
- * collection named in the path must be authorized against the caller:
- *
- * - the base corpus is never writable through the proxy;
- * - `proj_*` collections must belong to a project in the caller's org AND the
- *   caller needs `project:edit` on that project;
- * - a restricted folder's collection (`<project collection>_r<12 hex>`,
- *   ADR-0087) is authorized as its project's, AND the session must be cleared
- *   for it (`folder-access.ts`); otherwise it is absent (404), as the folder is;
- * - `s_*` (session) collections may be READ when they match the active
- *   conversation id, and are never written: a chat's attachments are uploaded
- *   and deleted through `/api/session/documents`, and its whole collection is
- *   erased by the conversation delete (ADR-0047 Phase 2);
- * - a whole collection is never deleted through the proxy, and neither are a
- *   collection's files: the proxy's file delete removes chunks by filename and
- *   nothing else, so the row, the object and the audit entry stayed. Each shelf
- *   deletes through its own route (`/api/documents/[id]`,
- *   `/api/office-shelf/documents/[id]`, `/api/session/documents/[id]`);
- * - a proxied upload into any shelf is refused: each shelf has a first-party
- *   route that writes the document row and runs the file-type and
- *   storage-quota admission, and the raw ingest path runs neither;
- * - `GET /v1/collections` (every collection of every tenant) is refused;
- * - anything else is rejected.
- *
- * Session/DB/WorkOS lookups are injectable (`CollectionAuthzDeps`) so the
- * decision logic is unit-testable without a database.
- */
-
 import { findProjectIdByCollectionName } from '@/lib/projects/repository'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
 
-/** Writes into a project's corpus, accepting the pre-split umbrella too. */
 const PROJECT_UPLOAD: readonly ProjectPermission[] = ['project:documents:write', 'project:edit']
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { officeShelfCollectionNames } from '@/lib/office-shelf/collection'
@@ -44,15 +11,12 @@ import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { errorEnvelope, handleAuthzError } from '@/lib/backend-proxy'
 
-/** The projectId/conversationId context a proxy request was made in. */
 export interface ProxyRequestContext {
   projectId?: string
   conversationId?: string
-  /** `POST /v1/collections` names the collection it creates in its body. */
   collectionName?: string
 }
 
-/** Extract the request context from query parameters. */
 export function parseQueryContext(searchParams: URLSearchParams): ProxyRequestContext {
   return {
     projectId: searchParams.get('projectId') || undefined,
@@ -60,10 +24,6 @@ export function parseQueryContext(searchParams: URLSearchParams): ProxyRequestCo
   }
 }
 
-/**
- * Extract the request context from a parsed JSON body. Accepts the backend's
- * `session_id` alias for the conversation id.
- */
 export function parseBodyContext(
   parsedBody: Record<string, unknown> | undefined
 ): ProxyRequestContext {
@@ -79,7 +39,6 @@ export function parseBodyContext(
   }
 }
 
-/** Resolve the request context, preferring body fields over query parameters. */
 export function resolveRequestContext(
   searchParams: URLSearchParams,
   parsedBody?: Record<string, unknown>
@@ -98,25 +57,15 @@ export function resolveRequestContext(
   }
 }
 
-/**
- * Re-exported under the name this module's callers already use. The rule itself
- * lives in `@/lib/retrieval-scope/collection-scope` — one definition, because a disagreement
- * between the name a request is authorized against and the name it is written
- * to is a cross-conversation read.
- */
 export { sessionCollectionName as normalizeSessionCollectionName }
 
-/** Injectable data/authz lookups so the decision logic is unit-testable. */
 export interface CollectionAuthzDeps {
-  /** Find the project id owning `collectionName` inside `organizationId`, or null. */
   findProjectIdByCollection(collectionName: string, organizationId: string): Promise<string | null>
-  /** Throws (NotFoundError) when the session lacks the permission on the project. */
   requireProjectAccess(
     session: AuthorizedSession,
     projectId: string,
     permission: readonly ProjectPermission[]
   ): Promise<unknown>
-  /** The restricted collections of the project this session is cleared for (ADR-0087). */
   clearedRestrictedCollections(
     session: AuthorizedSession,
     projectId: string,
@@ -136,12 +85,10 @@ const defaultDeps: CollectionAuthzDeps = {
 }
 
 export interface ValidateCollectionOptions {
-  /** The HTTP method; reads and writes are authorized differently. Default GET. */
   method?: string
   deps?: CollectionAuthzDeps
 }
 
-/** Where a shelf's uploads go instead of the raw ingest path. */
 const FIRST_PARTY_UPLOAD: Record<'proj_' | 'office_shelf' | 's_', string> = {
   proj_: '/api/documents/upload',
   office_shelf: '/api/documents/upload (scope=office_shelf)',
@@ -160,12 +107,6 @@ function refuseRawUpload(prefix: 'proj_' | 'office_shelf' | 's_'): Response {
   return errorEnvelope(403, 'FORBIDDEN', `Upload through ${FIRST_PARTY_UPLOAD[prefix]}`)
 }
 
-/**
- * Authorize the collection named in a `/v1/collections/<name>/...` proxy path.
- * Returns an error `Response` (proxy error envelope) to short-circuit with,
- * or null when the request may proceed. Paths that are not collection-scoped
- * always pass (`./v1-allowlist` decides whether they are forwarded at all).
- */
 export async function validateCollectionName(
   path: string[],
   session: UserSession | null,
@@ -179,10 +120,7 @@ export async function validateCollectionName(
   const deps = options.deps ?? defaultDeps
 
   if (path.length === 1) {
-    // `GET /v1/collections` lists every collection in the vector store, every
-    // tenant's project and chat ids among them.
     if (method !== 'POST') return errorEnvelope(404, 'NOT_FOUND', 'Not found')
-    // Creating one is a write INTO the named collection, authorized as such.
     const created = context.collectionName
     if (!created) return errorEnvelope(400, 'INVALID_COLLECTION', 'Collection name is required')
     return authorizeCollection(created, [], method, session, context, deps)
@@ -209,17 +147,12 @@ async function authorizeCollection(
   }
 
   if (collectionName.startsWith('proj_')) {
-    // A project collection is erased by the project purge, never from a browser.
     if (wholeCollectionDelete) return refuseWholeCollectionDelete()
-    // No document row, no file-type gate, no quota: `/api/documents/upload` is
-    // the one way bytes enter a project (and nothing in the product posts here).
     if (upload) return refuseRawUpload('proj_')
     if (fileDelete) return refuseChunkOnlyDelete('/api/documents/[id]')
     if (!session?.organizationId) {
       return handleAuthzError(new ForbiddenError())
     }
-    // A restricted folder's collection belongs to the project whose collection
-    // name it extends; nothing in the projects table names it directly.
     const restrictedBase = restrictedCollectionBase(collectionName)
     const projectCollection = restrictedBase ?? collectionName
     try {
@@ -229,14 +162,8 @@ async function authorizeCollection(
         return handleAuthzError(new NotFoundError())
       }
 
-      // Proxy collection routes cover writes (upload/delete) into the project
-      // corpus, so the permission is the document one; the umbrella stays
-      // accepted for roles provisioned before the ADR-0038 split.
       await deps.requireProjectAccess(session as AuthorizedSession, projectId, PROJECT_UPLOAD)
 
-      // Project access is not enough for a restricted folder's collection: the
-      // session must be cleared for it, by the same answer that hides the
-      // folder. Not cleared reads as absent, never as forbidden.
       if (restrictedBase) {
         const cleared = await deps.clearedRestrictedCollections(
           session as AuthorizedSession,
@@ -252,10 +179,6 @@ async function authorizeCollection(
   }
 
   if (isOfficeShelfCollectionName(collectionName)) {
-    // The org-wide Archiv collection (ADR-0024). It must be THIS org's Archiv,
-    // and — because proxy collection routes cover writes (upload/delete) — the
-    // caller needs the manage permission. Reads of the Archiv corpus go through
-    // `/api/documents?scope=office_shelf`, not this proxy.
     if (wholeCollectionDelete) return refuseWholeCollectionDelete()
     if (upload) return refuseRawUpload('office_shelf')
     if (fileDelete) return refuseChunkOnlyDelete('/api/documents/[id]')
@@ -272,18 +195,11 @@ async function authorizeCollection(
   }
 
   if (collectionName.startsWith('s_')) {
-    // A chat's attachments are rows (ADR-0047 Phase 2): uploaded through
-    // `/api/session/documents/upload`, deleted through
-    // `/api/session/documents/[id]`, and the collection itself erased by the
-    // conversation delete. A write here would skip the file-type gate and the
-    // quota, or remove chunks while the row that names them stays.
     if (method !== 'GET') {
       if (upload) return refuseRawUpload('s_')
       if (wholeCollectionDelete) return refuseWholeCollectionDelete()
       return errorEnvelope(403, 'FORBIDDEN', 'Change chat attachments through /api/session/documents')
     }
-    // Reads are authorized by the scope builder (`viewer` on an existing
-    // conversation), on the collection's own conversation.
     if (
       !context.conversationId ||
       sessionCollectionName(context.conversationId) !== collectionName

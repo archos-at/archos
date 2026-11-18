@@ -1,5 +1,3 @@
-"""Tests for common module __init__.py utilities."""
-
 import os
 import tempfile
 from unittest.mock import AsyncMock
@@ -19,93 +17,73 @@ from agent.common import parse_data_sources
 
 
 class TestIsVerbose:
-    """Tests for the is_verbose function."""
-
     def test_verbose_env_true_overrides_config_false(self):
-        """Test that env var 'true' overrides config False."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "true"}):
             assert is_verbose(config_verbose=False) is True
 
     def test_verbose_env_1_overrides_config_false(self):
-        """Test that env var '1' overrides config False."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "1"}):
             assert is_verbose(config_verbose=False) is True
 
     def test_verbose_env_yes_overrides_config_false(self):
-        """Test that env var 'yes' overrides config False."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "yes"}):
             assert is_verbose(config_verbose=False) is True
 
     def test_verbose_env_false_overrides_config_true(self):
-        """Test that env var 'false' overrides config True."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "false"}):
             assert is_verbose(config_verbose=True) is False
 
     def test_verbose_env_0_overrides_config_true(self):
-        """Test that env var '0' overrides config True."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "0"}):
             assert is_verbose(config_verbose=True) is False
 
     def test_verbose_env_no_overrides_config_true(self):
-        """Test that env var 'no' overrides config True."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "no"}):
             assert is_verbose(config_verbose=True) is False
 
     def test_verbose_env_empty_uses_config_true(self):
-        """Test that empty env var falls back to config."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": ""}):
             assert is_verbose(config_verbose=True) is True
 
     def test_verbose_env_empty_uses_config_false(self):
-        """Test that empty env var falls back to config False."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": ""}):
             assert is_verbose(config_verbose=False) is False
 
     def test_verbose_env_unset_uses_config_true(self):
-        """Test that unset env var falls back to config True."""
         with patch.dict(os.environ, clear=True):
             os.environ.pop("AGENT_VERBOSE", None)
             assert is_verbose(config_verbose=True) is True
 
     def test_verbose_env_unset_uses_config_false(self):
-        """Test that unset env var falls back to config False."""
         with patch.dict(os.environ, clear=True):
             os.environ.pop("AGENT_VERBOSE", None)
             assert is_verbose(config_verbose=False) is False
 
     def test_verbose_env_uppercase_true(self):
-        """Test that uppercase 'TRUE' is recognized."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "TRUE"}):
             assert is_verbose(config_verbose=False) is True
 
     def test_verbose_env_random_value_uses_config(self):
-        """Test that random env value falls back to config."""
         with patch.dict(os.environ, {"AGENT_VERBOSE": "maybe"}):
             assert is_verbose(config_verbose=True) is True
             assert is_verbose(config_verbose=False) is False
 
 
 class TestDataSourcesExports:
-    """Tests to verify data sources utilities are properly exported."""
-
     def test_default_data_sources_exported(self):
-        """Test DEFAULT_DATA_SOURCES is exported."""
         assert DEFAULT_DATA_SOURCES is not None
         assert isinstance(DEFAULT_DATA_SOURCES, list)
         assert "web_search" in DEFAULT_DATA_SOURCES
 
     def test_parse_data_sources_exported(self):
-        """Test parse_data_sources is exported and functional."""
         result = parse_data_sources(["web_search"])
         assert result == ["web_search"]
 
     def test_filter_tools_by_sources_exported(self):
-        """Test filter_tools_by_sources is exported and functional."""
         result = filter_tools_by_sources([], None)
         assert result == []
 
     def test_extract_messages_and_sources_exported(self):
-        """Test extract_messages_and_sources is exported and functional."""
         from langchain_core.messages import HumanMessage
 
         messages = [HumanMessage(content="Test")]
@@ -114,66 +92,50 @@ class TestDataSourcesExports:
         assert result_sources is None
 
     def test_format_data_source_tools_exported(self):
-        """Test format_data_source_tools is exported and functional."""
         result = format_data_source_tools(["web_search"])
         assert len(result) == 1
-        # Falls back to title-cased ID when registry is empty
         assert result[0]["name"] == "Web Search"
 
     def test_get_all_tool_refs_exported(self):
-        """Test get_all_tool_refs is exported."""
         from agent.common import get_all_tool_refs
 
         assert callable(get_all_tool_refs)
 
     def test_get_source_id_for_tool_exported(self):
-        """Test get_source_id_for_tool is exported."""
         from agent.common import get_source_id_for_tool
 
         assert callable(get_source_id_for_tool)
 
 
 class TestIsPostgresDsn:
-    """Tests for the is_postgres_dsn function."""
-
     def test_postgresql_scheme(self):
-        """Test that postgresql:// scheme is recognized."""
         assert is_postgres_dsn("postgresql://user:pass@localhost:5432/db") is True
 
     def test_postgres_scheme(self):
-        """Test that postgres:// scheme is recognized."""
         assert is_postgres_dsn("postgres://user:pass@localhost:5432/db") is True
 
     def test_sqlite_path_not_postgres(self):
-        """Test that SQLite paths are not recognized as Postgres."""
         assert is_postgres_dsn("./checkpoints.db") is False
         assert is_postgres_dsn("/tmp/checkpoints.db") is False
 
     def test_empty_string(self):
-        """Test that empty string is not Postgres."""
         assert is_postgres_dsn("") is False
 
     def test_http_url_not_postgres(self):
-        """Test that HTTP URLs are not recognized as Postgres."""
         assert is_postgres_dsn("http://localhost:5432") is False
         assert is_postgres_dsn("https://example.com") is False
 
     def test_postgres_with_options(self):
-        """Test Postgres DSN with connection options."""
         dsn = "postgresql://user:pass@localhost:5432/db?sslmode=require"
         assert is_postgres_dsn(dsn) is True
 
     def test_postgres_without_port(self):
-        """Test Postgres DSN without explicit port."""
         assert is_postgres_dsn("postgresql://user:pass@localhost/db") is True
 
 
 class TestGetCheckpointer:
-    """Tests for the get_checkpointer function."""
-
     @pytest.fixture(autouse=True)
     def clear_checkpointer_cache(self):
-        """Clear the checkpointer cache before each test."""
         import agent.common as common_module
 
         common_module._checkpointers.clear()
@@ -184,7 +146,6 @@ class TestGetCheckpointer:
 
     @staticmethod
     async def _close_sqlite_checkpointers():
-        """Close cached SQLite connections so temp files can be deleted on Windows."""
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
         import agent.common as common_module
@@ -195,7 +156,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_sqlite_checkpointer_creation(self):
-        """Test that SQLite checkpointer is created for file paths."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
 
@@ -211,7 +171,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_checkpointer_caching(self):
-        """Test that checkpointers are cached and reused."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
 
@@ -226,7 +185,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_different_paths_different_checkpointers(self):
-        """Test that different paths create different checkpointers."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f1:
             db_path1 = f1.name
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f2:
@@ -244,7 +202,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_postgres_checkpointer_creation(self):
-        """Test that Postgres checkpointer is created for Postgres DSNs."""
         postgres_dsn = "postgresql://user:pass@localhost:5432/testdb"
 
         mock_pool = MagicMock()
@@ -262,7 +219,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_postgres_pool_default_sizing(self, monkeypatch):
-        """Pool defaults to min_size=1, max_size=10 (raised from the old hard-coded 3)."""
         monkeypatch.delenv("CHECKPOINT_POOL_MIN_SIZE", raising=False)
         monkeypatch.delenv("CHECKPOINT_POOL_MAX_SIZE", raising=False)
         mock_checkpointer = MagicMock()
@@ -278,7 +234,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_postgres_pool_sizing_env_override(self, monkeypatch):
-        """Env vars override pool sizing; max is floored to min."""
         monkeypatch.setenv("CHECKPOINT_POOL_MIN_SIZE", "4")
         monkeypatch.setenv("CHECKPOINT_POOL_MAX_SIZE", "2")  # < min -> floored to min
         mock_checkpointer = MagicMock()
@@ -294,7 +249,6 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_postgres_pool_caching(self):
-        """Test that Postgres pools are cached and reused."""
         postgres_dsn = "postgresql://user:pass@localhost:5432/testdb"
 
         mock_pool = MagicMock()
@@ -317,20 +271,14 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_sqlite_serde_round_trips_all_state_types(self):
-        """A fully-populated ConversationState survives an AsyncSqliteSaver round-trip.
-
-        Exercises the explicit msgpack allow-list serde: the one custom
-        pydantic state type left (AvailableDocument) plus messages must
-        deserialize back equal.
-        """
         import aiosqlite
         from langchain_core.messages import AIMessage
         from langchain_core.messages import HumanMessage
         from langgraph.checkpoint.base import empty_checkpoint
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-        from agent.agents.piloti.models import ConversationState
         from agent.common import _build_checkpointer_serde
+        from agent.core.models import ConversationState
         from agent.knowledge.schema import AvailableDocument
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
@@ -377,22 +325,14 @@ class TestGetCheckpointer:
 
     @pytest.mark.asyncio
     async def test_a_checkpoint_holding_a_retired_state_type_still_restores(self):
-        """A conversation mid-flight when a state type is retired keeps working.
-
-        ``ShallowResult`` used to be a channel value and an allow-list entry;
-        its one escalation bit is a plain field now. Checkpoints written before
-        that still carry the old object, so this pins what the serde does with
-        a type it no longer allows: hand back the kwargs dict, never raise —
-        and the graph drops the channel it no longer declares.
-        """
         import aiosqlite
         from langchain_core.messages import HumanMessage
         from langgraph.checkpoint.base import empty_checkpoint
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
         from pydantic import BaseModel
 
-        from agent.agents.piloti.models import ConversationState
         from agent.common import _build_checkpointer_serde
+        from agent.core.models import ConversationState
 
         class RetiredStateType(BaseModel):
             answer: str
@@ -418,7 +358,6 @@ class TestGetCheckpointer:
 
             assert restored["shallow_result"] == {"answer": "a", "escalate_to_deep": True}
             assert [m.content for m in restored["messages"]] == ["hi"]
-            # And the retired channel is not a field the state would accept back.
             assert "shallow_result" not in ConversationState.model_fields
         finally:
             await conn.close()

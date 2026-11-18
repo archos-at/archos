@@ -1,10 +1,3 @@
-/**
- * The by-name resolve (`@/lib/documents/by-name-types`): the listing rows of
- * the documents with these file names on one shelf (`projectId`, or
- * `scope: office_shelf`), so a citation or a card resolves a document past the
- * listing's first page. Thin handler.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { resolveProjectDocumentsByName } from '@/lib/documents/document-listing'
 import { toDocumentWireRows } from '@/lib/documents/list-projection'
@@ -20,8 +13,6 @@ export const POST = apiRoute(
       shelf.kind === 'project'
         ? await resolveProjectDocumentsByName(session, shelf.projectId, names)
         : await resolveOfficeShelfDocumentsByName(session, names)
-    // The same row the listing serves, version summary included, so a
-    // resolved document and a listed one cannot render differently.
     return { documents: await toDocumentWireRows(session.organizationId, documents) }
   },
   {

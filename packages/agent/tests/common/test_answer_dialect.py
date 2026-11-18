@@ -1,10 +1,3 @@
-"""The server's hold on the answer's Markdown dialect (``common/answer_dialect.py``).
-
-What matters is what the reader can lose, so every repair test also checks
-the one invariant the validator promises: it unwraps and strips markers, and
-every line of content it was handed is still there.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -33,7 +26,6 @@ PROCEDURE = (
 
 
 def _content(text: str) -> list[str]:
-    """The lines a reader reads: everything but the fences and blank lines."""
     return [
         line.strip()
         for line in text.split("\n")
@@ -197,15 +189,12 @@ def test_it_never_deletes_content(kind):
     )
     result = validate_dialect(text, kind)
     assert _kept(text, result.text)
-    # Idempotent: what it returns needs no repair beyond the logged ones.
     again = validate_dialect(result.text, kind)
     assert again.text == result.text
     assert all(repair["repair"] == "current_unverified" for repair in again.repairs)
 
 
 class TestTheScannerReadsWhatTheRendererReads:
-    """The fence and opener rules of ``lib/text/answer-directives.ts`` and ``code-fence.ts``."""
-
     def test_a_backtick_line_with_a_backtick_after_it_is_inline_code_not_a_fence(self):
         result = validate_dialect("```a``` inline\n\n:::sonstwas\nInhalt\n:::", "walkthrough")
         assert ":::" not in result.text

@@ -1,5 +1,3 @@
-"""Builtin skill discovery — the shipped SKILL.md files, strictly parsed."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -40,7 +38,6 @@ def test_discovery_finds_every_builtin_skill() -> None:
     skills = discover_builtin_skills()
     assert {(s.collection, s.name) for s in skills} == EXPECTED
     assert len(skills) == len(EXPECTED)
-    # Deterministic order: (collection, name) sorted.
     assert [s.name for s in skills if s.collection == "research"] == [
         "data-table-analysis",
         "forecast-analysis",
@@ -58,14 +55,6 @@ def test_discovery_parses_metadata_and_body() -> None:
 
 
 def test_builtin_frontmatter_declares_only_its_audience() -> None:
-    """Every builtin says WHO may use it, and nothing about when or how it runs.
-
-    ``grid-agents: deep_researcher`` is the single reason these stay out of a
-    chat turn — their instructions call ``execute`` and write ``/shared/``, which
-    only exist inside a deep-research job. The scheduling keys that used to sit
-    beside it (``grid-execution``, ``grid-schedulable``) are gone from the model,
-    so a builtin file must not reintroduce them.
-    """
     for skill in discover_builtin_skills():
         assert set(skill.metadata) <= {
             "grid-agents",
@@ -77,22 +66,12 @@ def test_builtin_frontmatter_declares_only_its_audience() -> None:
         }, skill.name
         assert skill.metadata.get("grid-agents"), skill.name
 
-    # The research and synthesis builtins are deep-research-only for a concrete
-    # reason: their instructions call `execute` and write `/shared/`, which exist
-    # nowhere else. `grid-agents` is the single gate that keeps them out of a
-    # chat turn, so it must stay exact for them.
     by_name = {s.name: s for s in discover_builtin_skills()}
     assert by_name["long-form-report-writer"].metadata == {"grid-agents": "deep_researcher"}
 
-    # `ifc-spatial-reasoning` is the exception that made this assertion general:
-    # it teaches how to READ a tool's answers, needs none of that machinery, and
-    # is worth nothing if the chat agent cannot carry it — which is where the
-    # questions it is about get asked.
     spatial = by_name["ifc-spatial-reasoning"]
     assert "researcher" in spatial.metadata["grid-agents"]
 
-    # Job playbooks are offers: on the Skills tab, chat-usable files start ON.
-    # Genre methods stay machinery so a fire question still auto-loads.
     for name in ("submission-check", "existing-building"):
         assert by_name[name].metadata.get("grid-catalog") == "curated", name
     for name in (
@@ -124,10 +103,8 @@ def test_discovery_missing_dir() -> None:
 
 
 def test_a_renamed_builtin_still_answers_to_the_name_it_had():
-    """Migration 0169 renamed eight builtins; a stored schedule, a typed slash and an old
-    message still say the old name, so `canonical_skill_name` maps it and nothing ships under it."""
-    from agent.skills.builtin import LEGACY_SKILL_NAMES
-    from agent.skills.builtin import canonical_skill_name
+    from agent.skills.legacy_names import LEGACY_SKILL_NAMES
+    from agent.skills.legacy_names import canonical_skill_name
 
     shipped = {skill.name for skill in discover_builtin_skills()}
     for legacy, current in LEGACY_SKILL_NAMES.items():
@@ -136,3 +113,14 @@ def test_a_renamed_builtin_still_answers_to_the_name_it_had():
         assert canonical_skill_name(legacy) == current
     assert canonical_skill_name("hygiene") == "hygiene"
     assert canonical_skill_name("an-org-skill") == "an-org-skill"
+
+
+def test_a_stored_house_skill_is_found_under_either_name():
+    from agent.skills.legacy_names import LEGACY_PLATFORM_SKILL_NAMES
+    from agent.skills.legacy_names import find_skill
+
+    for legacy, current in LEGACY_PLATFORM_SKILL_NAMES.items():
+        assert find_skill({legacy: "row"}, current) == "row"
+        assert find_skill({legacy: "row"}, legacy) == "row"
+        assert find_skill({current: "row"}, legacy) == "row"
+    assert find_skill({"answer-cards": "row"}, "hygiene") is None

@@ -280,7 +280,7 @@ questions:
     expect:
       lookup: forbidden
 
-  # --- held out, an office with no other project in Piloti ---
+  # --- held out, an office with no other project in the workspace ---
   - id: leer-traufe
     group: none
     holdout: true

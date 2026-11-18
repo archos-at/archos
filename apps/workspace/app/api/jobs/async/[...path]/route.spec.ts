@@ -3,16 +3,12 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Break the authkit-nextjs import chain (pulls in next/cache) at load time.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue(null),
 }))
 
-// Anonymous mode: no session/db lookups for collection scoping.
 vi.mock('@/lib/proxy/collection-authz', () => ({
   parseQueryContext: vi.fn(() => ({})),
-  // Body first, then the query, like the real one; enough to see a cancel's
-  // `?projectId=` reach the scope builder.
   resolveRequestContext: vi.fn((searchParams: URLSearchParams, body?: Record<string, unknown>) => ({
     projectId:
       (typeof body?.projectId === 'string' ? body.projectId : undefined) ??
@@ -31,28 +27,18 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
   }),
 }))
 
-// Org model overrides lookup used by the POST handler to build
-// X-Model-Overrides — controlled per-test below.
 vi.mock('@/lib/model-config/service', () => ({
   getEffectiveModelOverrides: vi.fn(),
 }))
 
-// Structured federalState fact lookup (backlog T3-9 follow-up, 2026-07-16,
-// user-mandated) — avoids pulling in the real @/lib/db chain; controlled
-// per-test below like getEffectiveModelOverrides.
 vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectFederalState: vi.fn().mockResolvedValue(null),
 }))
 
-// The commissioned-report filing, mocked at its own module so this suite
-// asserts the WIRING — is it called, with what, and does its outcome reach the
-// user's answer — and not the filing's own behaviour, which
-// `lib/documents/commissioned-report.spec.ts` owns.
 vi.mock('@/lib/documents/commissioned-report', () => ({
   fileCommissionedReport: vi.fn(),
 }))
 vi.mock('@/lib/projects/repository', () => ({
-  // An active project: a closed one refuses the submit (ADR-0090).
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org_1', deletedAt: null, status: 'active' })),
 }))
 
@@ -80,7 +66,6 @@ const postRequest = (url: string, body?: unknown): Request =>
 const streamParams = (path: string[]) => ({ params: Promise.resolve({ path }) })
 const postParams = (path: string[]) => ({ params: Promise.resolve({ path }) })
 
-/** Decodes the base64url JSON payload the way the Python backend does. */
 const decodeModelOverridesHeader = (value: string): unknown =>
   JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
 
@@ -88,8 +73,7 @@ describe('/api/jobs/async/[...path] proxy — SSE reconnection resume', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    // Anonymous mode so the proxy never resolves a WorkOS session / DB.
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('data: {}\n\n', {
         status: 200,
@@ -102,9 +86,9 @@ describe('/api/jobs/async/[...path] proxy — SSE reconnection resume', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 
@@ -188,10 +172,7 @@ describe('/api/jobs/async/[...path] proxy — POST org model overrides', () => {
   }
 
   beforeEach(() => {
-    // These tests need a resolved org, so run with auth required and a
-    // session that carries organizationId — unlike the anonymous-mode
-    // suites above.
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(loadProjectFederalState).mockResolvedValue(null)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -207,9 +188,9 @@ describe('/api/jobs/async/[...path] proxy — POST org model overrides', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 
@@ -277,7 +258,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   }
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
       headerValue: 'scope',
@@ -303,19 +284,19 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   afterEach(() => {
     vi.restoreAllMocks()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
     if (originalInternalToken === undefined) {
-      delete process.env.INTERNAL_API_TOKEN
+      vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     } else {
-      process.env.INTERNAL_API_TOKEN = originalInternalToken
+      vi.stubEnv('INTERNAL_API_TOKEN', originalInternalToken)
     }
   })
 
   it('attaches an unsigned envelope carrying org/user/project/scope when no internal token is configured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 
     const res = await POST(
       postRequest('https://grid.example/api/jobs/async/submit', { agent_type: 'deep_research' }),
@@ -331,10 +312,6 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
     const decoded = JSON.parse(
       Buffer.from(headers['X-Request-Context'], 'base64url').toString('utf8')
     )
-    // `collectionScope` carries the SHELF-BEARING entries, not bare names.
-    // `scoping.py` prefers this signed envelope and reads the raw header only
-    // when no valid envelope is present, so a shelf that rode the header alone
-    // would never reach an authenticated turn (ADR-0047).
     expect(decoded).toEqual({
       organizationId: 'org-1',
       userId: 'user-1',
@@ -343,15 +320,13 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
         { collection: 'oib_knowledge', shelf: 'base' },
         { collection: 'proj_abc', shelf: 'project' },
       ],
-      // The backend refuses an envelope without one as a grant (ADR-0084).
       issuedAt: expect.any(Number),
-      // Who the job is for, by name: what the agent's prompt calls the person.
       requester: { name: 'Test User', email: 'user@app.example', organizationName: null },
     })
   })
 
   it('signs the envelope when INTERNAL_API_TOKEN is configured', async () => {
-    process.env.INTERNAL_API_TOKEN = 'test-secret'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-secret')
 
     const res = await POST(
       postRequest('https://grid.example/api/jobs/async/submit', { agent_type: 'deep_research' }),
@@ -432,14 +407,6 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   })
 })
 
-/**
- * A finished run's report used to be read once, rendered into a chat message
- * and discarded with the run's whole file system. This is the point at which
- * the BFF observes that completion. The filing itself is
- * `fileCommissionedReport` (`lib/documents/commissioned-report.spec.ts` owns its
- * behaviour); this suite asserts the WIRING: which path calls it, with what,
- * and how each outcome reaches the answer.
- */
 describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
@@ -475,7 +442,7 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
     )
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(fileCommissionedReport).mockResolvedValue({ outcome: 'queued' })
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(reportResponse(REPORT_BODY))
@@ -488,9 +455,9 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
     vi.restoreAllMocks()
     vi.mocked(fileCommissionedReport).mockReset()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 
@@ -558,7 +525,7 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
   })
 
   it('hands no session to the filing in anonymous mode', async () => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
 
     await GET(getRequest('https://grid.example/api/jobs/async/job/job-1/report'), streamParams(['job', 'job-1', 'report']))
 
@@ -567,9 +534,6 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
 })
 
 describe('/api/jobs/async/[...path] proxy — every method carries the signed envelope (ADR-0084)', () => {
-  // The backend lets a job's owner through on the bearer alone and anyone else
-  // only inside the project or conversation this envelope signs, so a teammate's
-  // stream, status, report and cancel are refused without it.
   const SECRET = 'test-secret' // pragma: allowlist secret
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
@@ -588,7 +552,6 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
   const sentHeaders = (call = 0): Record<string, string> =>
     (fetchSpy.mock.calls[call][1] as RequestInit).headers as Record<string, string>
 
-  /** The envelope as the BFF's own verifier reads it: signed, in its window, naming the checked scope. */
   const verifiedEnvelope = (call = 0) => {
     const headers = sentHeaders(call)
     return verifyRequestContextEnvelope(
@@ -599,8 +562,8 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
   }
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
-    process.env.INTERNAL_API_TOKEN = SECRET
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
       headerValue: 'scope',
@@ -627,10 +590,10 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalRequireAuth === undefined) delete process.env.REQUIRE_AUTH
-    else process.env.REQUIRE_AUTH = originalRequireAuth
-    if (originalInternalToken === undefined) delete process.env.INTERNAL_API_TOKEN
-    else process.env.INTERNAL_API_TOKEN = originalInternalToken
+    if (originalRequireAuth === undefined) vi.stubEnv('REQUIRE_AUTH', undefined)
+    else vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
+    if (originalInternalToken === undefined) vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+    else vi.stubEnv('INTERNAL_API_TOKEN', originalInternalToken)
   })
 
   it.each([
@@ -714,17 +677,14 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
 })
 
 describe('/api/jobs/async/[...path] proxy — a cancel the backend refuses because the run ended (#632)', () => {
-  // The Sessions panel's stop goes out as POST /job/{id}/cancel. The first
-  // fix for #632 guarded GET and DELETE only, so this path kept filing an
-  // ERROR per refused cancel. Both terminal statuses the backend names.
   beforeEach(() => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalRequireAuth !== undefined) process.env.REQUIRE_AUTH = originalRequireAuth
+    if (originalRequireAuth !== undefined) vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
   })
 
   it.each(['success', 'failure'])('warns, never errors, for a job already at %s', async (terminal) => {
@@ -752,20 +712,17 @@ describe('/api/jobs/async/[...path] proxy — a cancel the backend refuses becau
 })
 
 describe('/api/jobs/async/[...path] proxy — a run’s documents have one door (ADR-0055, ADR-0087)', () => {
-  // `addRunDocument` checks a document against the project's restricted
-  // folders before the backend hears of it; the proxy would forward the same
-  // control with a signed project and no such check, so it does not serve it.
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }))
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalRequireAuth !== undefined) process.env.REQUIRE_AUTH = originalRequireAuth
+    if (originalRequireAuth !== undefined) vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
   })
 
   it.each([
