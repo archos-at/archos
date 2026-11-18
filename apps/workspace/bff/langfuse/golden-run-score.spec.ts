@@ -1,4 +1,3 @@
-// @disk-inputs: ../../packages/agent/src/agent/observability/golden_scores.py, ../../packages/agent/src/agent/observability/law_source_scores.py, ../../packages/agent/src/agent/observability/langfuse_scores.py
 /**
  * @vitest-environment node
  *
@@ -9,7 +8,7 @@
  * ids a repeated step upserts.
  */
 
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -18,15 +17,35 @@ vi.mock('server-only', () => ({}))
 import { GOLDEN_SCORE_NAMES, type GoldenCaseResult } from '@/lib/base-knowledge/wire/golden-case'
 import { goldenDatasetItemId, toGoldenScores } from './golden-run-score'
 
-const catalogue = (file: string) => readFileSync(join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'observability', file), 'utf8')
-const DECLARED = catalogue('golden_scores.py')
-const AGENT_CITATION = catalogue('law_source_scores.py') + catalogue('langfuse_scores.py')
+const ROOT = join(process.cwd(), '..', '..')
 
-const declared = [...DECLARED.matchAll(/ScoreDefinition\(\s*name="([a-z-]+)",\s*data_type="([A-Z]+)",[\s\S]*?\n {4}\),/g)].map((match) => ({
-  name: match[1] as string,
-  dataType: match[2] as string,
-  writer: /writer="bff"/.test(match[0]) ? 'bff' : 'agent',
+type Declared = { name: string; dataType: string; writer: string }
+
+const CATALOGUE_DUMP = `
+import json
+from agent.observability.golden_scores import GOLDEN_SCORE_DEFINITIONS
+from agent.observability.langfuse_scores import SCORE_DEFINITIONS
+
+def row(definition):
+    return {"name": definition.name, "dataType": definition.data_type, "writer": definition.writer}
+
+print(json.dumps({
+    "golden": [row(d) for d in GOLDEN_SCORE_DEFINITIONS],
+    "runtime": [row(d) for d in SCORE_DEFINITIONS],
 }))
+`
+
+function declaredByPython(): { golden: Declared[]; runtime: Declared[] } {
+  const child = spawnSync('python3', ['-c', CATALOGUE_DUMP], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH ?? '', PYTHONPATH: join(ROOT, 'packages', 'agent', 'src'), PYTHONDONTWRITEBYTECODE: '1' },
+  })
+  if (child.status !== 0) throw new Error(`the Python catalogue did not import: ${child.stderr}`)
+  return JSON.parse(child.stdout)
+}
+
+const { golden, runtime } = declaredByPython()
 
 const result: GoldenCaseResult = {
   checks: [
@@ -42,20 +61,25 @@ const result: GoldenCaseResult = {
   traceId: '0af7651916cd43dd8448eb211c80319c',
 }
 
+const CITATION_SCORES = ['claim-citation-resolves', 'edition-agrees', 'edition-named', 'citation-role-resolved', 'law-cited-from-web', 'binding-claim-without-records']
+
 describe('the golden run’s score names', () => {
   it('are each declared in the Python catalogue as the BFF’s', () => {
-    expect(declared.length).toBeGreaterThanOrEqual(GOLDEN_SCORE_NAMES.length)
-    const written = declared.filter((definition) => definition.writer === 'bff').map((definition) => definition.name)
+    expect(golden.length).toBeGreaterThanOrEqual(GOLDEN_SCORE_NAMES.length)
+    const written = golden.filter((definition) => definition.writer === 'bff').map((definition) => definition.name)
     expect([...written].sort()).toEqual([...GOLDEN_SCORE_NAMES].sort())
   })
 
   it('declare the six citation scores once each: two here (one with no writer yet), four where the agent writes them', () => {
-    const names = declared.map((definition) => definition.name)
+    const names = golden.map((definition) => definition.name)
     expect(names).toEqual(expect.arrayContaining(['claim-citation-resolves', 'edition-agrees']))
-    expect(declared.filter((definition) => definition.writer === 'agent').map((definition) => definition.name)).toEqual(['edition-agrees'])
+    expect(golden.filter((definition) => definition.writer === 'agent').map((definition) => definition.name)).toEqual(['edition-agrees'])
+    for (const name of CITATION_SCORES) {
+      expect(runtime.filter((definition) => definition.name === name), name).toHaveLength(1)
+    }
     for (const name of ['edition-named', 'citation-role-resolved', 'law-cited-from-web', 'binding-claim-without-records']) {
       expect(names, name).not.toContain(name)
-      expect(AGENT_CITATION, name).toMatch(new RegExp(`(name=)?"${name}"`))
+      expect(runtime.find((definition) => definition.name === name)?.writer, name).toBe('agent')
     }
   })
 })
@@ -67,7 +91,7 @@ describe('toGoldenScores', () => {
     expect(scores.map((score) => score.name).sort()).toEqual(Object.keys(result.scores).sort())
     for (const score of scores) {
       expect(score.traceId).toBe(result.traceId)
-      expect(score.dataType, score.name).toBe(declared.find((definition) => definition.name === score.name)?.dataType)
+      expect(score.dataType, score.name).toBe(golden.find((definition) => definition.name === score.name)?.dataType)
       expect(score.metadata).toEqual({ golden_run_id: 'run-1', golden_case: 'xa-stair', country_id: 'XA' })
     }
     expect(scores.find((score) => score.name === 'claim-citation-resolves')?.value).toBe(0)
