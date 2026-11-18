@@ -20,6 +20,12 @@ tasks:
       - task: runner:build
       - node --test --test-concurrency=1 'test/*.test.mjs'
 
+  runner:e2e:
+    desc: 'apps/code-runner: build, then the agent''s execute and file_draft tools against the real runner (needs the venv)'
+    cmds:
+      - task: runner:build
+      - '{{.PY}} -m pytest -p no:cacheprovider packages/agent/tests/tools/execute/test_execute_with_the_runner.py -m code_runner -rs --durations=5'
+
   runner:serve:
     desc: 'apps/code-runner: run the service on :8080 (CODE_RUNNER_STORAGE_DIR, CODE_RUNNER_SLOTS)'
     dir: apps/code-runner

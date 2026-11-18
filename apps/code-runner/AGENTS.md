@@ -14,4 +14,4 @@ limits, measurements and the reasons behind each rule: [`README.md`](README.md).
 - A run imports only what `libraries.json` admits, each library with a case in
   `test/libraries.test.mjs` that uses it inside the isolate. Pin exact versions and commit `bun.lock`.
 - The HTTP contract in `README.md` is what other services are built against; change it only with them.
-- Run `task runner:test` before you push a change here.
+- Run `task runner:test` before you push a change here, and `task runner:e2e` for the agent's side.
