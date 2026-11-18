@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: a reworked Postfach panel for the personal-area concept (ticket 81).
 
 import type { JSX } from 'react'
-import { ArrowRight, AtSign, Bell, CheckCheck, ChevronDown, CircleHelp, ClipboardCheck, FolderInput, X, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowRight, AtSign, Bell, CheckCheck, ChevronDown, CircleHelp, ClipboardCheck, FolderInput, X, type LucideIcon } from 'lucide-react'
 
 interface Entry {
   kind: 'task' | 'question' | 'mention' | 'proposal' | 'news'
@@ -41,7 +41,7 @@ const ENTRIES: Entry[] = [
 ]
 
 const TONE = { late: 'bg-[rgb(193_74_56_/_0.12)] text-destructive', soon: 'bg-[#f6ecd6] text-[#8a5a00]', plain: 'bg-desk text-muted-foreground' }
-const NO_PROJECT = 'Ohne Projekt'
+const NO_PROJECT = 'Projektübergreifend'
 
 const ORDER = ['Min.', 'Std.', 'gestern']
 const age = (entry: Entry): number => ORDER.findIndex((unit) => entry.ago.includes(unit)) * 1000 + (Number.parseInt(entry.ago.replace(/\D/g, ''), 10) || 0)
@@ -177,7 +177,7 @@ export function InboxPage(): JSX.Element {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="border-hairline flex items-end justify-between gap-4 border-b px-8 pb-4 pt-3">
         <div>
-          <span className="text-muted-foreground text-meta">Anna Berger</span>
+          <span className="text-muted-foreground text-meta inline-flex items-center gap-1"><ArrowLeft className="size-3" aria-hidden />Fluchtweglänge im Erdgeschoss</span>
           <h1 className="text-page-title">Postfach</h1>
         </div>
         <div className="flex items-center gap-2">
