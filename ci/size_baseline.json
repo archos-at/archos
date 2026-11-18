@@ -1,6 +1,5 @@
 {
   "files": {
-    "apps/agent-host/src/agent_host/models/requests.py": 724,
     "packages/agent/src/agent/cards/surface_documents.py": 650,
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/wire_v2.py": 979,
