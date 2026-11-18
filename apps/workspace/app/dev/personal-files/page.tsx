@@ -5,7 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Bell, Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Bell, Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, MessageCirclePlus, MessageSquare, MessageSquarePlus, Paperclip, PenLine, Plus, SquarePen, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -31,6 +31,7 @@ import { FolderPath, ReadStatus, SearchHits, ShelfHeader, TrashWindow, UnreadHin
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
+const NEW_CHAT_ICONS: Record<string, typeof Plus> = { a: SquarePen, b: MessageSquarePlus, c: MessageCirclePlus, d: PenLine, e: MessageSquare }
 const OWN = { id: 'none', name: 'Alle Projekte' }
 const OWN_ACROSS = { id: 'none', name: 'Projektübergreifend' }
 
@@ -79,7 +80,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           <SidebarMenu className="mb-1 gap-0.5">
-            <NavRow icon={Plus} label="Neuer Chat" active={newChat} />
+            <NavRow icon={NEW_CHAT_ICONS[useSearchParams()?.get('nc') ?? ''] ?? Plus} label="Neuer Chat" active={newChat} />
             <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
             {shelfRows && (
               <ul className="flex flex-col gap-0.5 pt-0.5">
