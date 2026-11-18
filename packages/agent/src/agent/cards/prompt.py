@@ -1,6 +1,6 @@
+from agent.cards.card_doctrine import render_card_doctrine
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import render_card_catalog
-from agent.cards.catalog import render_card_doctrine
 
 _POST_HOC_GROUNDING = """\
 WHAT A CARD MAY BE BUILT OUT OF. You did not write this report and you cannot change it. Every

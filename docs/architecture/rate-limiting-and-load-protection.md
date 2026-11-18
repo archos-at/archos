@@ -579,7 +579,7 @@ that chat, research, ingestion and embeddings all draw from
   key-wide pool. One that cannot be classified (an in-stream `error` event has no
   body; so has a reply that is not JSON) counts against the model. The classifier
   reads the OpenAI SDK's `RateLimitError.body` on the chat seam and the response
-  body in the transport (`provider_limiter.scope_of_error`). A waiter held back by
+  body in the transport (`rate_limit_errors.scope_of_error`). A waiter held back by
   its own model's limit does not hold back the other models queued behind it.
 - **The class comes from the task, not the call site.** A ContextVar
   (`provider_class`): a chat turn sets `chat` (`turn/admission.answer_turn`),
