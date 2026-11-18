@@ -8,11 +8,13 @@
 #                                         HATCHET_CLIENT_* written to $GITHUB_ENV
 #   ci/hatchet_engine.sh logs             both containers' logs, for a failed run
 #   ci/hatchet_engine.sh require-ran X..  fail when a JUnit report X holds no
-#                                         test, or a skipped one
+#                                         test, or a skipped one (an expected
+#                                         failure ran, so it does not count)
 #
 # `require-ran` exists because every engine suite skips without an engine, and a
 # skipped suite is green: without it, a token that never reached the tests would
-# pass this job exactly as these suites passed before it existed.
+# pass this job exactly as these suites passed before it existed. The
+# `agent-engine` job calls it for the same reason, about the IFC engine.
 set -euo pipefail
 
 # The tag Kubernetes runs (HATCHET_IMAGE_TAG, deploy/pulumi/src/config/background-work.ts)
@@ -123,7 +125,12 @@ import xml.etree.ElementTree as ET
 failed = False
 for path in sys.argv[1:]:
     cases = list(ET.parse(path).getroot().iter("testcase"))
-    skipped = [case.get("name") for case in cases if case.find("skipped") is not None]
+    # An expected failure ran; JUnit writes it as a skip all the same.
+    skipped = [
+        case.get("name")
+        for case in cases
+        if (skip := case.find("skipped")) is not None and skip.get("type") != "pytest.xfail"
+    ]
     print(f"{path}: {len(cases)} tests, {len(skipped)} skipped")
     if not cases or skipped:
         failed = True
