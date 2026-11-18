@@ -15,7 +15,11 @@ _LIST_FILES_DESCRIPTION = (
     "Index/Datum, upload date and what changed against the one before; every other filter is ignored. With "
     '`compare_to=` another Fassung of the chain (its file name, or "previous"), it returns what changed, page by '
     "page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand "
-    "(„was hat sich zwischen Index B und C geändert“).\n"
+    "(„was hat sich zwischen Index B und C geändert“). `compare_to=` may also name any other file of the reader "
+    "that is no Fassung of it („vergleiche die Raumliste mit dem Raumprogramm“): the two are then compared as "
+    "two different documents, first → second. Either way, tables and lists (xlsx, csv, tables in a PDF) are "
+    "compared row by row, matched by the column that identifies a row, and each deviating row names its place "
+    "in both files.\n"
     "Returns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page "
     "count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person "
     "confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, "

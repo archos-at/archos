@@ -1,5 +1,6 @@
 import 'server-only'
 import * as repository from './repository'
+import { EMPTY_SPEND_WINDOW } from './repository'
 import type { MemberSpend, OrganizationSpend, SpendSummary, SpendTotals, SpendWindow } from './repository'
 
 export async function getSpendTotals(
@@ -44,15 +45,7 @@ export async function getDailySpendTrend(options: {
   for (let i = 0; i < days; i += 1) {
     const key = cursor.toISOString().slice(0, 10)
     const row = byDay.get(key)
-    series.push({
-      day: key,
-      costUsd: row?.costUsd ?? 0,
-      ownKeyCostUsd: row?.ownKeyCostUsd ?? 0,
-      priceUsd: row?.priceUsd ?? 0,
-      credits: row?.credits ?? 0,
-      tokens: row?.tokens ?? 0,
-      events: row?.events ?? 0,
-    })
+    series.push({ ...EMPTY_SPEND_WINDOW, ...row, day: key })
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
   return series

@@ -51,6 +51,14 @@
           "section": "features",
           "area": "documents",
           "text": {
+            "en": "Ask the assistant to compare any two files you pick with # in the chat, not only two versions of one document. Two lists, such as room lists in Excel, CSV or a table in a PDF, are compared row by row: which rows differ and in which column, which rows only one file has, and where each stands in both files.",
+            "de": "Lassen Sie den Assistenten beliebige zwei Dateien Ihrer Wahl mit # im Chat vergleichen, nicht nur zwei Versionen desselben Dokuments. Zwei Listen, etwa Raumlisten in Excel, CSV oder als Tabelle in einem PDF, werden zeilenweise verglichen: Welche Zeilen sich unterscheiden und in welcher Spalte, welche Zeilen nur in einer Datei vorkommen und an welcher Stelle sie in beiden Dateien stehen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
             "en": "A Word, Excel, PowerPoint, PDF or image file the agent makes in a chat now arrives as a file card with its first page, to open, download or file into the project as a draft for review. You see what you got before you keep it, and a rewrite shows the new version instead of a second card.",
             "de": "Eine Word-, Excel-, PowerPoint-, PDF- oder Bilddatei, die der Agent in einem Chat erstellt, wird jetzt als Dateikarte mit der ersten Seite angezeigt – zum Öffnen, Herunterladen oder Ablegen im Projekt als Entwurf zur Prüfung. Sie sehen, was Sie erhalten, bevor Sie die Datei übernehmen, und bei einer Überarbeitung wird die neue Version statt einer zweiten Karte angezeigt."
           }
@@ -61,6 +69,14 @@
           "text": {
             "en": "A CSV file from the agent says why it cannot be filed into the project and offers to ask for an Excel workbook instead.",
             "de": "Die CSV-Datei des Agenten erklärt, warum sie nicht im Projekt abgelegt werden kann, und bietet an, stattdessen eine Excel-Arbeitsmappe anzufordern."
+          }
+        },
+        {
+          "section": "features",
+          "area": "administration",
+          "text": {
+            "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
+            "de": "Das Lesen hochgeladener Dokumente belastet Ihr Tages- und Monatslimit nicht mehr: Dafür steht Ihnen monatlich ein eigenes Kontingent in dreifacher Höhe Ihres Monatslimits zur Verfügung, das unter Verbrauch & Budgets separat angezeigt wird. Ein großer Upload zu Projektbeginn lässt Ihr Tageslimit nun für Ihre Fragen unangetastet."
           }
         },
         {

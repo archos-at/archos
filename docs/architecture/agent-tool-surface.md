@@ -423,6 +423,15 @@ been uploaded and read).
   only when it was written against exactly that older file. Reading both files is
   reported to the restricted-use admission (ADR-0088). Same-name uploads are not in
   the index yet, so they compare once every Fassung stays indexed.
+- **`compare_to=` also compares two files that are not Fassungen of one document,
+  and tables row by row.** A name that is not in the chain is looked up among the
+  turn's other rows on the same shelves; the report then calls the files first and
+  second instead of older and newer. Tables and lists are compared by
+  `knowledge/table_diff.py`: rows matched by the column that identifies a row in
+  both files, each deviation with its column, both values and the place in both
+  files, so the answer can read that place and cite it. A licensed copy is refused,
+  because its text leaves only as a cited passage (ADR-0164). Two files, not a
+  folder or a Richtlinie: [`revisions.md`](revisions.md#two-different-documents).
 - **`read_passage` reads an older Fassung on request and says it is one.** The read
   is not refused (a question about Index B needs B); the first line of the result,
   in the grounding block's notice slot like the search's „Ältere Fassungen
