@@ -77,7 +77,7 @@ describe("memory per run", { skip: !LINUX && "the memory watch reads /proc" }, (
     const { body } = await runner.run({ source, files });
     assert.equal(body.status, "ok", body.stderr);
     assert.deepEqual(body.files.map((file) => file.size), [24 * MiB, 24 * MiB]);
-    await until(() => runner.slots.every((slot) => slot.ready && slot.memoryBytes() < 128 * MiB), 10_000, "every slot back under the recycle line");
+    await until(() => runner.slots.every((slot) => slot.ready && slot.memoryBytes() < slot.baselineBytes + 128 * MiB), 10_000, "every slot back under the recycle line");
   });
 });
 

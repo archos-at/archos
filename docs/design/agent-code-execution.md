@@ -148,7 +148,7 @@ sandbox is configured, which production never does.
 | Forme PDF with table and chart | 1.2 to 1.6 s |
 | Plain module, warm | 13 ms (16 ms as TypeScript) |
 | Endless loop, `timeoutMs` 2000 | `timeout` after 5 s, other slots serving |
-| workerd per slot | 134 MB idle, about 190 MB after a run; a slot ending a run above 128 MiB is restarted; a run above `CODE_RUNNER_SLOT_MEMORY_MIB` (768 MiB) is stopped |
+| workerd per slot | 134 MB idle, about 190 MB after a run; a slot ending a run 128 MiB above its idle memory is restarted; a run above `CODE_RUNNER_SLOT_MEMORY_MIB` (768 MiB) is stopped |
 
 In production a run is visible as the `execute` tool span of its `chat-turn` trace in Langfuse: its
 output starts `status: ok`, `error` or `timeout` with the duration, and names the files kept.

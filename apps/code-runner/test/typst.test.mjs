@@ -16,7 +16,7 @@ const timings = {};
 
 async function typst(markup) {
   const started = Date.now();
-  const { http, body } = await runner.run({
+  const { http, body } = await runner.runWhenFree({
     source: `import { compile } from "typst";
       import { writeFile } from "node:fs/promises";
       export default async (markup) => {
@@ -104,7 +104,7 @@ test("a sequence diagram with chronos", async () => {
 });
 
 test("a chart from Vega-Lite and an image the script hands in", async () => {
-  const { http, body } = await runner.run({
+  const { http, body } = await runner.runWhenFree({
     source: `import { compile } from "typst";
       import { writeFile } from "node:fs/promises";
       import * as vega from "vega";

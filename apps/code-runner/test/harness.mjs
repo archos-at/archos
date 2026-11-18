@@ -15,6 +15,14 @@ export async function startRunner({ slots = 8, ...options } = {}) {
       const response = await fetch(`${url}/run`, { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) });
       return { http: response.status, body: await response.json() };
     },
+    async runWhenFree(body, timeoutMs = 30_000) {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const result = await this.run(body);
+        if (result.http !== 503 || Date.now() > deadline) return result;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    },
     async stop() {
       await server.close();
       await rm(storage, { recursive: true, force: true });

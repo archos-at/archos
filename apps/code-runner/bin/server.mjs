@@ -182,7 +182,7 @@ export async function startServer({
       const outcome = await runOn(slot, body, request.timeoutMs + watchdogGraceMs, limitBytes);
       if (outcome.failed) await restart(slot);
       send(res, outcome.answer.status, outcome.answer.body);
-      if (!outcome.failed && (slot.memoryBytes() ?? 0) > recycleBytes) await restart(slot);
+      if (!outcome.failed && (slot.memoryBytes() ?? 0) > (slot.baselineBytes ?? 0) + recycleBytes) await restart(slot);
     } finally {
       slot.busy = false;
     }

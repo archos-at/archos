@@ -122,6 +122,7 @@ export class Slot {
     while (Date.now() < deadline && this.#child === child) {
       const health = await call(this.socket, "GET", "/health").catch(() => null);
       if (health?.status === 200) {
+        this.baselineBytes = this.memoryBytes() ?? 0;
         this.#ready = true;
         return;
       }

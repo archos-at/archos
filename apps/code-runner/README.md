@@ -115,8 +115,9 @@ process of a container that passes its memory limit, so the other offices' runs 
   message.
 - **Anonymous memory, not RSS**: the workerd binary's pages (about 47 MiB) are file-backed and shared
   by every slot, so counting them per slot would count them four times.
-- **A slot that ends a run holding more than 128 MiB is restarted** (`RECYCLE_ABOVE_MIB`; idle is
-  84) after the answer has left and before it takes another run. workerd does not hand a finished
+- **A slot that ends a run holding more than 128 MiB above its own idle memory is restarted**
+  (`RECYCLE_ABOVE_MIB`, measured from the slot's `RssAnon` once it is ready: 84 MiB without the Typst
+  files, about 230 MiB with them) after the answer has left and before it takes another run. workerd does not hand a finished
   run's memory back: a 24 MB file copy left the slot at 289 MiB and a second at 468 MiB, so without
   this the cap would stop the third ordinary run instead of a bad one. It is also what holds a
   library that leaves a large module behind. A plain run (86 MiB) and a Word file (105 to 113 MiB)
@@ -273,7 +274,7 @@ markup as `sys.inputs`. A compile error throws with Typst's diagnostics (`main.t
   anonymous memory unchanged). A run that compiles: 3 to 6 s cold, 1.3 to 2.5 s with the slot warm;
   the Typst work itself is 50 to 800 ms per document once the compiler is up. Memory: the first Typst
   run in a slot takes it from about 230 to about 390 MiB (anonymous), and each further run adds about
-  100 MiB until V8 collects the finished isolates. A slot that ends a run above 128 MiB is restarted
+  100 MiB until V8 collects the finished isolates. A slot that ends a run 128 MiB above its idle memory is restarted
   before its next run, so it never carries a finished Typst run ([Memory per run](#memory-per-run)).
 
 An isolate forbids `eval` and `new Function`, so a Vega view takes the interpreter:
