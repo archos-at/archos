@@ -67,6 +67,7 @@ export function cnpgClusterSpec(spec: CnpgClusterSpec) {
     inheritedMetadata: { annotations: scrapeAnnotations(PORT.postgresMetrics) },
     imageName: "ghcr.io/cloudnative-pg/postgresql:17",
     primaryUpdateStrategy: spec.primaryUpdateStrategy,
+    primaryUpdateMethod: "switchover",
     affinity: {
       enablePodAntiAffinity: true,
       topologyKey: "kubernetes.io/hostname",
