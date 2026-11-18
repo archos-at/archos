@@ -184,7 +184,7 @@ also skips a turn that only commissioned a run (`not run_id`) and requires a
 `project_id` (`reflection.py:420-422`).
 
 Deep-research jobs are covered separately on the worker
-(`jobs/runner.py:1330-1398`), **awaited** rather than fire-and-forget, because
+(`jobs/report_passes.py`, `_run_deep_research_reflection`), **awaited** rather than fire-and-forget, because
 the report exists only when the job finishes.
 
 ### 1.4 Does it survive a truncated turn?

@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 
 from agent.cards.registry import get_card_registry
+from agent_host.jobs.agent_run import _run_agent
+from agent_host.jobs.report_passes import _bound_card_registry
+from agent_host.jobs.report_passes import _merge_job_cards
 from agent_host.jobs.run_result import build_job_output
-from agent_host.jobs.runner import _bound_card_registry
-from agent_host.jobs.runner import _merge_job_cards
-from agent_host.jobs.runner import _run_agent
 
 DOCUMENT_GRID = {"type": "document_grid", "title": "Brandschutzplan.pdf", "query": "Brandschutzplan", "documents": []}
 SUMMARY = {"type": "summary", "title": "Kurzfassung"}

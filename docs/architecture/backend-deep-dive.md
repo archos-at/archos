@@ -1899,7 +1899,7 @@ is what that framework costs.
   (the skill resolver was one) fails healthy jobs with a timeout that names
   nothing, so it is wrapped in `asyncio.to_thread`, as `agent.py` does for
   `_resolve_skills_blocking`. The runner heartbeats only once
-  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/runner.py`) is
+  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/job_cancellation.py`) is
   entered, so slow pre-run work belongs inside it. The symptom is in
   [`gotchas.md`](../contributing/gotchas.md) ("no heartbeat received from worker").
 - **Nothing request-scoped is read from context.** There is no request in a

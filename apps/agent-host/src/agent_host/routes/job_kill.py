@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from ..jobs.job_status import _update_status_if_not_terminal
 from ..jobs.outcome_notify import notify_job_outcome_from_access
-from ..jobs.runner import _update_status_if_not_terminal
 
 logger = logging.getLogger(__name__)
 

@@ -13,16 +13,16 @@ from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import compose_project_context
 
 from ..legacy_headers import with_legacy_header_names
+from .agent_construction import _create_llm_provider
+from .agent_construction import _resolve_worker_tool_refs
 from .run_envelope import envelope_headers_for_run
 from .run_result import TEMPORARY_CONVERSATION_KEY
 from .run_result import extract_result
 from .run_result import is_temporary_conversation
 from .runner import _b64url_encode_text
-from .runner import _create_llm_provider
 from .runner import _identity_values
 from .runner import _inject_worker_headers
 from .runner import _normalize_trace_id
-from .runner import _resolve_worker_tool_refs
 from .runner import _run_user_info
 
 if TYPE_CHECKING:

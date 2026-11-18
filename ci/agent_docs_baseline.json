@@ -4,6 +4,8 @@
   "apps/code-runner/AGENTS.md": 17,
   "apps/website/AGENTS.md": 22,
   "apps/workspace/AGENTS.md": 32,
+  "apps/workspace/backfills/AGENTS.md": 14,
+  "deploy/pulumi/AGENTS.md": 16,
   "packages/AGENTS.md": 38,
   "packages/agent/src/agent/AGENTS.md": 41,
   "packages/agent/src/agent/core/AGENTS.md": 26,
