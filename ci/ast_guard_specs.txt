@@ -22,3 +22,4 @@ deploy/pulumi/index-helm-pins.spec.ts
 deploy/pulumi/src/app/bff-jobs.spec.ts
 deploy/pulumi/stack-files.spec.ts
 apps/workspace/app/api/authz-coverage.spec.ts
+apps/workspace/app/manifest.spec.ts
