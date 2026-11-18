@@ -38,10 +38,14 @@ psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
 
 | Step | Environment | Dry run before | Backfill run | Dry run after |
 |---|---|---|---|---|
-| 1 (SQL) | dev | not run | not run | not run |
+| 1 (SQL) | dev | actor kind 21 / 2 / 21; inbox 44, twins 0; mention id 0 / 2 / 0 / 0; lane 36 / 6 | 2026-11-18 ~13:45 UTC, after #1761 was live on every dev workload: all four scripts; `inbox-types.sql` renamed 44, a second run 0 | every count 0 |
 | 1 (SQL) | prod | not run | not run | not run |
-| 2a (Qdrant) | dev | not run | not run | not run |
+| 2a (Qdrant) | dev | office collections 192 with only the old key, 0 disagree; base corpus 0 | 2026-11-18 13:35 UTC: 192 written | 0 left, 0 disagree; a second dry run 0 |
 | 2a (Qdrant) | prod | not run | not run | not run |
+
+The step-1 counts follow `dry-run.sql`'s rows: actor kind is annotations /
+replies / proposals, mention id is annotations / replies / inbox payloads /
+messages, and lane is messages / citation events.
 
 ## 1. Session settings `grid.organization_id`, `grid.user_id` → `app.*`
 
