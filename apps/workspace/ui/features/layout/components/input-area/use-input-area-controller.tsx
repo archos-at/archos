@@ -15,6 +15,7 @@ import {
 } from '@/components/motion'
 import { useWebSocketChat, useIsCurrentSessionBusy } from '@/features/chat'
 import { useChatStore } from '@/features/chat/store'
+import { excerptFor } from '@/features/chat/answer-excerpt'
 import { useRestrictingOtherProjects } from '@/features/chat/hooks/use-restricting-other-projects'
 import { useChatScreening } from '@/features/chat/hooks/use-chat-screening'
 import { composerCapabilities } from '@/features/collaboration/lib/composer-capabilities'
@@ -110,6 +111,12 @@ export function useInputAreaController({
   const consumeComposerPrefill = useChatStore((state) => state.consumeComposerPrefill)
   const composerSubject = useChatStore((state) => state.composerSubject)
   const setComposerSubject = useChatStore((state) => state.setComposerSubject)
+  const composerExcerpt = useChatStore((state) => excerptFor(state.composerExcerpt, state.currentConversation?.id))
+  const setComposerExcerpt = useChatStore((state) => state.setComposerExcerpt)
+  const clearComposerExcerpt = useCallback(() => setComposerExcerpt(null), [setComposerExcerpt])
+  useEffect(() => {
+    if (composerExcerpt) textareaRef.current?.focus()
+  }, [composerExcerpt])
   const previewFileId = useFilePreviewStore((state) => state.file?.id ?? null)
   const previewExpanded = useFilePreviewStore((state) => state.mode === 'expanded' && !state.hidden)
   const peekBesideChat = useFilePeekBesideChat()
@@ -545,6 +552,8 @@ export function useInputAreaController({
     currentConversationId,
     composerSubject,
     setComposerSubject,
+    composerExcerpt,
+    clearComposerExcerpt,
     fileDockVisible,
     otherProjects,
     sessionFiles,

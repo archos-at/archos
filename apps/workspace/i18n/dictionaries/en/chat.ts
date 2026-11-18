@@ -1723,6 +1723,12 @@ export const chat = {
     action: 'Answer again, more thoroughly',
     aria: 'Answer the same question again with more reasoning effort',
   },
+  answerExcerpt: {
+    ask: 'Ask about this',
+    askingAbout: 'Asking about this part of the answer:',
+    clear: 'Remove the selected part',
+    inMessage: 'About:',
+  },
   copyMessage: {
     copy: 'Copy message',
     copied: 'Copied',

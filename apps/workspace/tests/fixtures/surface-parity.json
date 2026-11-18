@@ -285,6 +285,22 @@
     "step": null
    }
   },
+  "askAboutAnswerPart": {
+   "summary": "Select part of an answer and ask about it; ARCHOS answers about exactly that part",
+   "tool": null,
+   "annotationOp": null,
+   "operations": [],
+   "canvas": {
+    "kind": "exempt",
+    "reason": "The canvas shows a document, not an answer; its form of this is the box drawn on a page (askAboutBox)"
+   },
+   "chat": {
+    "kind": "rendering",
+    "component": "features/chat/components/AnswerExcerptAsk.tsx",
+    "card": null,
+    "step": null
+   }
+  },
   "readSelectedRegion": {
    "summary": "ARCHOS reads what the person selected or points at when the question says \"here\"",
    "tool": "canvas__room",

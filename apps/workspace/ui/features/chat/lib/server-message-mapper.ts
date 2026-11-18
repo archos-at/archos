@@ -19,6 +19,7 @@ import { sanitizeRunLedger, sanitizeRunTitle } from '@/lib/runs/run-ledger'
 
 import type { AnswerConfidenceCappedReason } from '@/lib/conversations/message-provenance'
 import type { ChatMessage, ErrorCardData, FileCardData, MessageType } from '../types'
+import { readStoredExcerpt } from './answer-excerpt'
 import { validateAnswerCards } from '@/shared/cards/schemas'
 import { sanitizeCardInteractions } from '@/features/cards/card-decision'
 import { decodeCitations } from './citations'
@@ -125,6 +126,10 @@ export const mapServerMessageToChatMessage = (message: ServerMessageInput): Chat
     ...(Array.isArray(metadata.messageFiles)
       ? { messageFiles: metadata.messageFiles as Array<{ id: string; fileName: string }> }
       : {}),
+    ...(() => {
+      const answerExcerpt = readStoredExcerpt(metadata.answerExcerpt)
+      return answerExcerpt ? { answerExcerpt } : {}
+    })(),
     ...(() => {
       const stages = sanitizeStages(metadata.stages)
       return stages ? { stages } : {}

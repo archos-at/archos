@@ -35,7 +35,7 @@ ws://<host>/websocket?v=2&projectId=<uuid>&conversationId=<session_id>
   is said to it in its own dialect.
 - **The server speaks first: `hello`.** Once the version and the caller have
   passed, the first frame on every socket is
-  `{"v":2,"type":"CUSTOM","name":"hello","ts":…,"value":{"build":"<sha>","accepts":["cancel_turn.shown","user_message.posthog_session_id","user_message.focus_region","user_message.reply_in_thread","user_message.trigger","user_message.if_idle","steer"]}}`
+  `{"v":2,"type":"CUSTOM","name":"hello","ts":…,"value":{"build":"<sha>","accepts":["cancel_turn.shown","user_message.posthog_session_id","user_message.focus_region","user_message.reply_in_thread","user_message.trigger","user_message.if_idle","user_message.client_tools","user_message.answer_excerpt","steer"]}}`
   (`build` is `GIT_SHA`, or `unknown`, as `/health` has it). `accepts`
   names the optional client fields this server reads, as `<type>.<field>`, and
   the one optional message type, `steer`, by its bare name; the
@@ -346,7 +346,7 @@ refuse the whole message.
 
 | `type` | Fields | Notes |
 |---|---|---|
-| `user_message` | `message_id` (becomes `turn_id`), `text`, `data_sources[]`, `context_only?`, `author_name?`, `focus_file_name?`, `focus_shelf?`, `source_preset?`, `focus_document_id?`, `focus_version_id?`, `focus_version_state?`, `reasoning_effort?`, `posthog_session_id?`, `focus_region?`, `reply_in_thread?`, `trigger?`, `if_idle?` | A question. With `if_idle` (a turn an event woke, [below](#a-turn-an-event-woke-trigger--if_idle)) it never supersedes: a conversation with a running turn refuses it as `rejected{busy}`, before its id is claimed, so it may be sent again under the same id. The type name is what the gateway's turn limiter (`lib/limits/ws-frames.js`) counts. A second `user_message` for a turn already running or run, on any replica, is `rejected{duplicate_turn}` (the turn id is claimed on the bus for as long as the stream keeps it); a new one supersedes and cancels a stale turn, on whichever replica runs it, and starts only once the stale turn has stopped: the conversation's running marker (`conv:<id>:running`, ADR-0080) is held by the turn that runs, so two turns of one conversation never run at once. If the stale turn has not stopped within `CHAT_SUPERSEDE_WAIT_SECONDS`, the new question ends with a refused `RUN_FINISHED` ("still finishing the previous answer", with a retry hint) and nothing runs. With `CHAT_AFFINITY` off, a turn that can no longer renew its marker (Dragonfly unreachable from its replica for most of `CHAT_RUNNING_TTL_SECONDS`, or the marker gone) stops itself before a newer turn could take the marker and ends with a `cancelled` `RUN_FINISHED`; the partial answer is not persisted. |
+| `user_message` | `message_id` (becomes `turn_id`), `text`, `data_sources[]`, `context_only?`, `author_name?`, `focus_file_name?`, `focus_shelf?`, `source_preset?`, `focus_document_id?`, `focus_version_id?`, `focus_version_state?`, `reasoning_effort?`, `posthog_session_id?`, `focus_region?`, `reply_in_thread?`, `trigger?`, `if_idle?`, `client_tools?`, `answer_excerpt?` | A question. With `if_idle` (a turn an event woke, [below](#a-turn-an-event-woke-trigger--if_idle)) it never supersedes: a conversation with a running turn refuses it as `rejected{busy}`, before its id is claimed, so it may be sent again under the same id. The type name is what the gateway's turn limiter (`lib/limits/ws-frames.js`) counts. A second `user_message` for a turn already running or run, on any replica, is `rejected{duplicate_turn}` (the turn id is claimed on the bus for as long as the stream keeps it); a new one supersedes and cancels a stale turn, on whichever replica runs it, and starts only once the stale turn has stopped: the conversation's running marker (`conv:<id>:running`, ADR-0080) is held by the turn that runs, so two turns of one conversation never run at once. If the stale turn has not stopped within `CHAT_SUPERSEDE_WAIT_SECONDS`, the new question ends with a refused `RUN_FINISHED` ("still finishing the previous answer", with a retry hint) and nothing runs. With `CHAT_AFFINITY` off, a turn that can no longer renew its marker (Dragonfly unreachable from its replica for most of `CHAT_RUNNING_TTL_SECONDS`, or the marker gone) stops itself before a newer turn could take the marker and ends with a `cancelled` `RUN_FINISHED`; the partial answer is not persisted. |
 | `interaction_response` | `turn_id`, `interaction_id`, `answer: {text} \| {option_id}` | Exactly one answer, structurally. Only the person the prompt addressed may answer; anyone else gets `rejected{not_asker}`, and an answer with no prompt waiting `rejected{no_pending_interaction}`. |
 | `cancel_turn` | `turn_id`, `shown?: {seq, chars}` | Stop. Only the asker's verified subject (or an internal caller) may cancel; anyone else gets `rejected{not_asker}`. The server cancels the graph run, not just the socket. `shown` says how much was on screen (the first `chars` code points of the answer as folded through `seq`), and the stopped answer is cut to it; sent only when the hello accepts `cancel_turn.shown`. |
 | `attach` | `turn_id`, `after_seq` | Replay the turn from `after_seq + 1`, then continue live. Sent for every open turn after a reconnect, and with `after_seq: 0` after a reload. `rejected{turn_not_found}` when the stream holds nothing for the turn: ask for the persisted answer instead. |
@@ -596,6 +596,25 @@ frames). On a terminal status the client disconnects; on unmount it disconnects.
 Each block holds its own subscription, keyed by run id — several live runs in one
 thread are the normal case. A refused read or a stream that never opens leaves the
 stored ledger on screen; a reload shows the same block either way.
+
+### A question about part of an answer (`answer_excerpt`)
+
+A person selects text in a settled answer, the composer shows that part above
+the field, and the next question carries it as `answer_excerpt`: a string of 1
+to 2000 characters (`MAX_ANSWER_EXCERPT_CHARS`), the selected text itself. The
+page sends it only to a server whose hello lists `user_message.answer_excerpt`.
+For an older server `forServer` (`turn-socket.ts`) writes the part into `text`
+as a Markdown quote above the question, so the question never loses what it
+refers to.
+
+The socket masks it as it masks `text` (`chat_socket.on_user_message`). The turn
+lifts it onto `ConversationState.answer_excerpt` (`turn/payload.py`) and the
+turn context gains „Selected part of an earlier answer“ with the text inside
+`<answer_excerpt>` (`core/prompt.py` `answer_excerpt_block`), which tells the
+model to answer about exactly that part. It holds for that turn only: the
+history keeps the question's own text. The page keeps the part on the stored
+user message as `metadata.answerExcerpt` (`{messageId, text}`), which is what
+the bubble quotes after a reload.
 
 ### The review canvas (`focus_region` / `reply_in_thread`)
 

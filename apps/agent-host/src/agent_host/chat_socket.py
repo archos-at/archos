@@ -1244,9 +1244,8 @@ class ChatSocket:
             await self.socket.send_json(to_frame(event))
 
     async def on_user_message(self, message: UserMessage) -> None:
-        update = {"text": await self._masked(message.text, message)}
-        if message.focus_file_name:
-            update["focus_file_name"] = await self._masked(message.focus_file_name, message)
+        fields = ("text", "focus_file_name", "answer_excerpt")
+        update = {name: await self._masked(value, message) for name in fields if (value := getattr(message, name))}
         if any(getattr(message, field) != value for field, value in update.items()):
             message = message.model_copy(update=update)
         if message.context_only:

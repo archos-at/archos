@@ -1,6 +1,6 @@
 {
   "files": {
-    "apps/agent-host/src/agent_host/chat_socket.py": 1264,
+    "apps/agent-host/src/agent_host/chat_socket.py": 1263,
     "apps/agent-host/src/agent_host/jobs/callbacks.py": 842,
     "apps/agent-host/src/agent_host/jobs/runner.py": 837,
     "apps/agent-host/src/agent_host/models/requests.py": 736,
@@ -12,7 +12,7 @@
     "packages/agent/src/agent/common/cost_tracking.py": 618,
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/provider_limiter.py": 621,
-    "packages/agent/src/agent/common/wire_v2.py": 1001,
+    "packages/agent/src/agent/common/wire_v2.py": 979,
     "packages/agent/src/agent/core/agent.py": 844,
     "packages/agent/src/agent/core/answer_pipeline.py": 670,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 760,

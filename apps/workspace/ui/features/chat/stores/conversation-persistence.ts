@@ -95,6 +95,7 @@ export const createConversationPersistenceSlice: StateCreator<
           ...(message.cardInteractions && { cardInteractions: message.cardInteractions }),
           ...(message.enabledDataSources && { enabledDataSources: message.enabledDataSources }),
           ...(message.messageFiles && { messageFiles: message.messageFiles }),
+          ...(message.answerExcerpt && { answerExcerpt: message.answerExcerpt }),
           ...(message.messageType === 'prompt'
             ? {
                 prompt: {
