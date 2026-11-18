@@ -20,8 +20,9 @@ describe('agentDocumentFilename', () => {
 })
 
 describe('isNamespacedAgentDocument', () => {
-  it('is the agent_document producer, and only that producer', () => {
+  it('is the agent_document and agent_file producers, and only those', () => {
     expect(isNamespacedAgentDocument({ authoredByProducer: 'agent_document' })).toBe(true)
+    expect(isNamespacedAgentDocument({ authoredByProducer: 'agent_file' })).toBe(true)
     for (const authoredByProducer of ['deep_research', 'diagram_svg', 'diagram_pdf', null]) {
       expect(isNamespacedAgentDocument({ authoredByProducer }), String(authoredByProducer)).toBe(false)
     }

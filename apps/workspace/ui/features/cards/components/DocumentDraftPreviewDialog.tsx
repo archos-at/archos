@@ -19,6 +19,7 @@ interface DocumentDraftPreviewDialogProps {
   loading: boolean
   failed: boolean
   onRetry: () => void
+  contentType?: string
 }
 
 export const DocumentDraftPreviewDialog: FC<DocumentDraftPreviewDialogProps> = ({
@@ -32,6 +33,7 @@ export const DocumentDraftPreviewDialog: FC<DocumentDraftPreviewDialogProps> = (
   loading,
   failed,
   onRetry,
+  contentType = 'text/markdown',
 }) => {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
@@ -92,7 +94,7 @@ export const DocumentDraftPreviewDialog: FC<DocumentDraftPreviewDialogProps> = (
               <FileTextPage
                 text={content}
                 truncated={false}
-                contentType="text/markdown"
+                contentType={contentType}
                 truncatedLabel=""
                 className="max-w-none"
               />

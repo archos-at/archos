@@ -87,6 +87,7 @@ jobs:
       migrations: ${{ steps.filter.outputs.migrations || 'false' }}
       sast: ${{ steps.filter.outputs.sast || 'false' }}
       hatchet: ${{ steps.filter.outputs.hatchet || 'false' }}
+      runner_e2e: ${{ steps.filter.outputs.runner_e2e || 'false' }}
       skills: ${{ steps.filter.outputs.skills || 'false' }}
       # The images this run builds (a matrix), and all three with their hashes.
       build: ${{ steps.images.outputs.build }}
@@ -942,6 +943,47 @@ jobs:
         run: task pkg:install
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - name: Install the code runner's own toolchain
+        run: task runner:install
+      - name: Let Chromium's sandbox create user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: browser-renderer (allowlist and hardened container suites)
+        run: task browser:test
+      - name: code-runner (workerd isolate suite)
+        run: task runner:test
+
+  # The agent's `execute` tool against the real code runner, end to end: the
+  # office skills' scripts run in workerd, their files land in an in-memory
+  # draft store, a second run rewrites one, `file_draft` builds the payloads,
+  # and a thrown error and an endless loop come back as reports. Its own job
+  # because it needs the root venv and the runner's Node toolchain, which no
+  # other job holds together; about 20 s once both are installed.
+  runner-e2e:
+    name: Code runner end to end (execute tool)
+    needs: changes
+    if: needs.changes.outputs.runner_e2e == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - name: Install the code runner's own toolchain
+        run: task runner:install
+      - name: execute and file_draft against the real runner
+        run: task runner:e2e
 
   # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
   # folder card tasks, the research run and the BFF's `bff-job`, each end to end, with its retries,
@@ -1122,7 +1164,7 @@ jobs:
   # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, runner-e2e, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -1168,7 +1210,7 @@ jobs:
     # checkout can hold a corpus to measure, and a job that can only pass
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:

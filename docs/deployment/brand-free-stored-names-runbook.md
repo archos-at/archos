@@ -112,8 +112,10 @@ the producer, so the prefix means nothing, and then renames it.
   `agent_document`, and every `agent_document` is under `piloti/`. Prod: 6 rows,
   none published, longest name 118. Dev: 8 rows, 2 published, longest name 107.
   No row under `generated/`. `document_metadata`, `document_revision_retained`
-  (in the `jobs` database) and Qdrant hold no `piloti/` name on either.
-- **Switch (step 3):** "may be indexed" is `authored_by_producer = 'agent_document'`
+  (in the `jobs` database) and Qdrant hold no `piloti/` name on either. The
+  `agent_file` producer (#1782, after the check) files under the namespace too.
+- **Switch (step 3):** "may be indexed" is `authored_by_producer` in
+  `NAMESPACED_AGENT_PRODUCERS` (`agent_document`, `agent_file`)
   (`isNamespacedAgentDocument`, `bff/documents/agent-namespace.ts`) in
   `collectionFileRef`, publishing, re-dispatch and the permits lookup. Migration
   0246 moves the live-name index to the same test; its down file restores 0243.
@@ -121,7 +123,7 @@ the producer, so the prefix means nothing, and then renames it.
   either prefix until the contract.
 - **Backfill A** runs itself: the deploy's `app-backfill-after` Job, once every
   workload runs the switch. `apps/workspace/backfills/agent-document-namespace/`
-  renames on the app database (`documents` of an `agent_document`,
+  renames on the app database (`documents` of those two producers,
   `permit_records`, `document_quarantine_decisions`), and
   `agent-document-namespace-metadata/` (`"database": "jobs"`, run as the
   backend's direct connection, which owns those tables) renames the key,

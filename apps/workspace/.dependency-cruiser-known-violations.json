@@ -807,57 +807,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/cards/components/DocumentDraftCard.tsx",
-    "to": "ui/features/documents/components/authorship-line.tsx",
-    "unresolvedTo": "@/features/documents/components/authorship-line",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/cards/components/DocumentDraftCard.tsx",
-    "to": "ui/features/documents/lib/document-question.ts",
-    "unresolvedTo": "@/features/documents/lib/document-question",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/cards/components/DocumentDraftCard.tsx",
-    "to": "ui/features/documents/lib/open-filed-document.ts",
-    "unresolvedTo": "@/features/documents/lib/open-filed-document",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/cards/components/DocumentDraftPreviewDialog.tsx",
     "to": "ui/features/documents/components/file-text-page.tsx",
     "unresolvedTo": "@/features/documents/components/file-text-page",

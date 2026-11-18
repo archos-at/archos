@@ -104,7 +104,7 @@ export const documents = pgTable('documents', {
   ),
   liveNamePerCollectionUidx: uniqueIndex('uniq_documents_live_name_per_collection')
     .on(table.organizationId, table.collectionName, table.filename)
-    .where(sql`${table.authoredBy} = 'user' OR ${table.authoredByProducer} = 'agent_document'`),
+    .where(sql`${table.authoredBy} = 'user' OR ${table.authoredByProducer} IN ('agent_document', 'agent_file')`),
   folderProjectFk: foreignKey({
     name: 'documents_folder_id_project_id_fkey',
     columns: [table.folderId, table.projectId],

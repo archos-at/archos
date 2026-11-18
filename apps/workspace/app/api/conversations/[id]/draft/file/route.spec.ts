@@ -109,6 +109,7 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       versionId: VERSION,
       state: 'draft',
       alreadyFiled: false,
+      folderName: 'Berichte',
     })
     expect(requireResourceAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user_1', organizationId: 'org_1' }),
@@ -145,6 +146,7 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       versionId: VERSION,
       state: 'draft',
       alreadyFiled: true,
+      folderName: 'Berichte',
     })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })

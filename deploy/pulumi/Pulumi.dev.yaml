@@ -162,6 +162,8 @@ config:
   # Drain budget for in-flight research jobs on shutdown (see Pulumi.prod.yaml).
   # Shorter on staging: faster deploys matter more than saving a staging job.
   grid-oib:agentWorkerDrainSeconds: "180"
+  grid-oib:codeRunnerMinReplicas: "1"
+  grid-oib:codeRunnerMaxReplicas: "3"
   # ── Ingestion tier (ADR-0076) ── never below one pod: the base corpus hands its jobs to
   # Hatchet only (`ingest_dispatch.enqueue_only`, no fallback), and Hatchet takes them only
   # once a worker has registered `ingest-document`. At zero no worker ever registered it,

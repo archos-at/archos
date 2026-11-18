@@ -6,7 +6,7 @@ BEGIN;
 
 UPDATE documents
    SET filename = 'generated/' || substr(filename, 8)
- WHERE filename LIKE 'piloti/%' AND authored_by_producer = 'agent_document';
+ WHERE filename LIKE 'piloti/%' AND authored_by_producer IN ('agent_document', 'agent_file');
 
 UPDATE permit_records
    SET file_name = 'generated/' || substr(file_name, 8)

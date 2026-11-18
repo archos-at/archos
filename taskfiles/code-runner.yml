@@ -1,0 +1,55 @@
+version: '3'
+
+tasks:
+  runner:install:
+    desc: 'apps/code-runner: install its own toolchain (workerd, the libraries, esbuild)'
+    dir: apps/code-runner
+    cmds:
+      - bun install --frozen-lockfile
+      - task: browser:install
+
+  runner:build:
+    desc: 'apps/code-runner: bundle the approved libraries and the worker into dist/'
+    dir: apps/code-runner
+    cmds:
+      - node build/build.mjs
+
+  runner:test:
+    desc: 'apps/code-runner: build, then the contract, isolation, library and browser suites against a real workerd'
+    dir: apps/code-runner
+    cmds:
+      - task: runner:build
+      - task: browser:image
+      - node --test --test-concurrency=1 'test/*.test.mjs'
+
+  runner:e2e:
+    desc: 'apps/code-runner: build, then the agent''s execute and file_draft tools against the real runner (needs the venv)'
+    cmds:
+      - task: runner:build
+      - '{{.PY}} -m pytest -p no:cacheprovider packages/agent/tests/tools/execute/test_execute_with_the_runner.py -m code_runner -rs --durations=5'
+
+  runner:serve:
+    desc: 'apps/code-runner: run the service on :8080 (CODE_RUNNER_STORAGE_DIR, CODE_RUNNER_SLOTS)'
+    dir: apps/code-runner
+    cmds:
+      - task: runner:build
+      - node bin/server.mjs
+
+  browser:install:
+    desc: 'apps/browser-renderer: install its front''s dependencies (ws, Mermaid, the house fonts)'
+    dir: apps/browser-renderer
+    cmds:
+      - bun install --frozen-lockfile
+
+  browser:image:
+    desc: 'apps/browser-renderer: build the image the tests run, as browser-renderer:test'
+    dir: apps/browser-renderer
+    cmds:
+      - docker build -q -t {{.BROWSER_RENDERER_IMAGE | default "browser-renderer:test"}} .
+
+  browser:test:
+    desc: 'apps/browser-renderer: build the image, then the allowlist and the hardened container suites (needs Docker)'
+    dir: apps/browser-renderer
+    cmds:
+      - task: browser:image
+      - node --test --test-concurrency=1 'test/*.test.mjs'

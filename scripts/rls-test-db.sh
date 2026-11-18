@@ -4561,7 +4561,9 @@ VALUES ('d2d2d2d2-0000-4000-8000-000000000001', 'org_n1', 'user_n1', 'piloti/d2d
        ('d2d2d2d2-0000-4000-8000-000000000002', 'org_n1', 'user_n1', 'Bericht.pdf',
         'k/0246/2', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'deep_research', 'run_1', 'agent_run'),
        ('d2d2d2d2-0000-4000-8000-000000000003', 'org_n1', 'user_n1', 'plan.pdf',
-        'k/0246/3', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'user', NULL, NULL, NULL);
+        'k/0246/3', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'user', NULL, NULL, NULL),
+       ('d2d2d2d2-0000-4000-8000-000000000004', 'org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000004/flaechen.csv',
+        'k/0246/6', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_file', 'conv_1-b', 'answer_artifact');
 SQL
 apply_in ns_0246 0246_documents_live_name_by_producer.sql
 apply_in ns_0246 0246_documents_live_name_by_producer.sql   # up twice: idempotent
@@ -4578,7 +4580,7 @@ apply_in ns_0246 0246_documents_live_name_by_producer.down.sql
 check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%generated/%'" "1" "0246 down: the prefix arms of 0243 are back"
 apply_in ns_0246 0246_documents_live_name_by_producer.sql
 run_backfill_twice ns_0246 agent-document-namespace
-check_in ns_0246 "SELECT string_agg(filename, ',' ORDER BY filename) FROM documents WHERE project_id = 'aaaaaaaa-0000-4000-8000-000000000246'" "Bericht.pdf,Bericht.pdf,generated/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md,plan.pdf" "backfill: the agent document moves to generated/, every other name stays"
+check_in ns_0246 "SELECT string_agg(filename, ',' ORDER BY filename) FROM documents WHERE project_id = 'aaaaaaaa-0000-4000-8000-000000000246'" "Bericht.pdf,Bericht.pdf,generated/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md,generated/d2d2d2d2-0000-4000-8000-000000000004/flaechen.csv,plan.pdf" "backfill: the agent document and the agent file move to generated/, every other name stays"
 
 echo "==> running the step-3 metadata rename against the backend's tables on bf_jobs"
 $PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE bf_jobs OWNER $OWNER;"

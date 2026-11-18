@@ -8,9 +8,9 @@ prod    ──(promotion PR, reviewers)──▶ deploy.yml ──▶ pulumi up 
 ```
 
 CI builds each image only when GHCR has no image with the same inputs, and tags
-all three images `sha-<commit>` once every check on the commit has passed
+every image (backend, frontend, web, cms, code-runner) `sha-<commit>` once every check on the commit has passed
 ([ci.md](../contributing/ci.md#images-and-deploys)). So every commit CI passed
-has all three images, every deploy pins all three to the commit it deploys, and
+has every image, every deploy pins every service to the commit it deploys, and
 a commit CI failed cannot be deployed by accident.
 
 - **State + secrets**: [Pulumi Cloud](https://app.pulumi.com). Stack state lives
@@ -177,7 +177,8 @@ sets it and checks `git diff origin/prod -- deploy/pulumi/Pulumi.prod.yaml`.
 `deploy.yml` pins one ref per service
 ([`resolve-image-refs.sh`](../../deploy/pulumi/scripts/resolve-image-refs.sh)):
 
-- after a green CI run, all three are the commit's `sha-<40-hex>` tag, which
+- after a green CI run, every service (the CMS's `cmsImage` and the code runner's
+  `grid-oib:codeRunnerImage` included) is the commit's `sha-<40-hex>` tag, which
   the workflow verifies GHCR has before it pins anything;
 - an operator rollback (dispatch with `imageTag`) pins all three to that tag,
   verified the same way;

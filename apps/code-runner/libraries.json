@@ -1,0 +1,207 @@
+{
+  "libraries": [
+    {
+      "name": "docx",
+      "version": "9.15.3",
+      "license": "MIT",
+      "purpose": "Word (.docx) documents: paragraphs, headings, tables, sections."
+    },
+    {
+      "name": "exceljs",
+      "version": "4.4.0",
+      "license": "MIT",
+      "purpose": "Excel (.xlsx) workbooks: sheets, styles, formulas such as SUM; reading and writing."
+    },
+    {
+      "name": "pdf-lib",
+      "version": "1.17.1",
+      "license": "MIT",
+      "purpose": "Create and modify PDF files: pages, text, merge, split, form fields."
+    },
+    {
+      "name": "unpdf",
+      "version": "2.1.0",
+      "license": "MIT",
+      "purpose": "Extract text from PDF files (a serverless build of PDF.js)."
+    },
+    {
+      "name": "mathjs",
+      "version": "15.2.0",
+      "license": "Apache-2.0",
+      "purpose": "Math with units, matrices, fractions and big numbers; expression evaluation without eval."
+    },
+    {
+      "name": "papaparse",
+      "version": "5.7.1",
+      "license": "MIT",
+      "purpose": "Parse and write CSV."
+    },
+    {
+      "name": "date-fns",
+      "version": "4.4.0",
+      "license": "MIT",
+      "purpose": "Date arithmetic and formatting."
+    },
+    {
+      "name": "jszip",
+      "version": "3.10.2",
+      "license": "MIT",
+      "license_note": "Dual-licensed MIT OR GPL-3.0-or-later; taken under MIT.",
+      "purpose": "Read and write ZIP archives (and the parts of an Office file)."
+    },
+    {
+      "name": "vega",
+      "version": "6.4.0",
+      "license": "BSD-3-Clause",
+      "purpose": "Chart rendering to SVG. In an isolate: vega.parse(spec, null, { ast: true }) and new vega.View(..., { expr: expressionInterpreter, renderer: 'none' })."
+    },
+    {
+      "name": "vega-lite",
+      "version": "6.5.0",
+      "license": "BSD-3-Clause",
+      "purpose": "Concise chart specifications, compiled to a Vega spec."
+    },
+    {
+      "name": "vega-interpreter",
+      "version": "2.3.2",
+      "license": "BSD-3-Clause",
+      "purpose": "Evaluates Vega expressions without eval or new Function, which the isolate forbids."
+    },
+    {
+      "name": "pptxgenjs",
+      "version": "4.0.1",
+      "license": "MIT",
+      "purpose": "PowerPoint (.pptx) presentations: slides, text, tables, shapes."
+    },
+    {
+      "name": "marked",
+      "version": "18.1.3",
+      "license": "MIT",
+      "purpose": "Markdown to HTML."
+    },
+    {
+      "name": "decimal.js",
+      "version": "10.6.0",
+      "license": "MIT",
+      "purpose": "Exact decimal arithmetic for areas and money."
+    },
+    {
+      "name": "forme",
+      "package": "@formepdf/core",
+      "entry": "src/forme.js",
+      "wasm": {
+        "from": "node_modules/@formepdf/core/pkg-web/forme_bg.wasm",
+        "module": "forme.wasm"
+      },
+      "version": "0.31.0",
+      "license": "MIT",
+      "license_note": "With @formepdf/react 0.31.0 (MIT) and react 19.2.0 (MIT) bundled into the same module.",
+      "purpose": "PDF from components: Document, Page, View, Text, Table, Row, Cell, Fixed header and footer, Svg, charts. h(Component, props, ...children) builds the tree; await renderDocument(tree) returns the PDF bytes."
+    },
+    {
+      "name": "cloudflare-puppeteer",
+      "package": "@cloudflare/puppeteer",
+      "import": "@cloudflare/puppeteer",
+      "entry": "src/browser/puppeteer.js",
+      "version": "2.0.1",
+      "license": "Apache-2.0",
+      "purpose": "Puppeteer: HTML and CSS to PDF, screenshots, Mermaid diagrams, in a fresh headless Chromium with no network. puppeteer.launch(env.BROWSER)."
+    }
+  ],
+  "typst": {
+    "module": "typst",
+    "purpose": "Typeset PDF documents from Typst markup: compile(source, { files, inputs }) returns the PDF bytes. Diagrams with the bundled Typst packages.",
+    "compiler": {
+      "name": "@myriaddreamin/typst-ts-web-compiler",
+      "version": "0.7.0",
+      "license": "Apache-2.0",
+      "typst": "0.14.2"
+    },
+    "fonts": [
+      {
+        "package": "source-sans",
+        "version": "3.52.0",
+        "license": "OFL-1.1",
+        "files": [
+          "OTF/SourceSans3-Regular.otf",
+          "OTF/SourceSans3-It.otf",
+          "OTF/SourceSans3-Semibold.otf",
+          "OTF/SourceSans3-SemiboldIt.otf",
+          "OTF/SourceSans3-Bold.otf",
+          "OTF/SourceSans3-BoldIt.otf",
+          "OTF/SourceSans3-Light.otf"
+        ]
+      },
+      {
+        "package": "source-code-pro",
+        "version": "2.42.0",
+        "license": "OFL-1.1",
+        "files": [
+          "OTF/SourceCodePro-Regular.otf",
+          "OTF/SourceCodePro-Bold.otf"
+        ]
+      }
+    ],
+    "packages": [
+      {
+        "name": "fletcher",
+        "version": "0.5.8",
+        "license": "MIT",
+        "sha256": "a61883a4af4ca923a37c597900e674f40dad3f7bde3f2a3d8fe8042e6ca8a66b",
+        "purpose": "Flowcharts and node-edge diagrams."
+      },
+      {
+        "name": "timeliney",
+        "version": "0.4.0",
+        "license": "MIT",
+        "sha256": "e48c5bfc4027b77ae76e9157dcacb9795b35d3fea8b3410d5d392bac1562163c",
+        "purpose": "Gantt charts for project schedules."
+      },
+      {
+        "name": "chronos",
+        "version": "0.3.0",
+        "license": "Apache-2.0",
+        "sha256": "542100f787c0b61735f7a6981dfaa3f5621971a1717dcdc5c2358f29a1cab125",
+        "purpose": "Sequence diagrams."
+      },
+      {
+        "name": "cetz",
+        "version": "0.4.2",
+        "license": "LGPL-3.0-or-later",
+        "license_note": "Shipped unmodified as Typst source the compiler interprets; the drawing layer under fletcher, timeliney and chronos.",
+        "sha256": "e1d2f121b166f1520fc529cad834e2ca5e0b6bcab6816e1d0e07d70836aa0b59",
+        "purpose": "Drawing and plots; the layer the diagram packages draw with."
+      },
+      {
+        "name": "cetz",
+        "version": "0.4.1",
+        "license": "LGPL-3.0-or-later",
+        "license_note": "Required by timeliney 0.4.0, shipped unmodified.",
+        "sha256": "195549e2e42035320572dddf06ba0702ed3eb31ac6969a4a5aa6d7785c8a9b83",
+        "purpose": "Required by timeliney."
+      },
+      {
+        "name": "cetz",
+        "version": "0.3.4",
+        "license": "LGPL-3.0-or-later",
+        "license_note": "Required by fletcher 0.5.8, shipped unmodified.",
+        "sha256": "4f4b5a8d311d519e749940a766fe50521e40c041129e1c91af0c42e61f307514",
+        "purpose": "Required by fletcher."
+      },
+      {
+        "name": "oxifmt",
+        "version": "1.0.0",
+        "license": "MIT OR Apache-2.0",
+        "sha256": "7d17a1fc8ad01740ec3cb2b03c7360a4225ff9318e5710765fa98ea6fd59594f",
+        "purpose": "Required by cetz 0.4."
+      },
+      {
+        "name": "oxifmt",
+        "version": "0.2.1",
+        "license": "MIT-0",
+        "sha256": "16fac2923032c59727de01e84d42cac45e8790da28df56effca49f4de41b09d9",
+        "purpose": "Required by cetz 0.3."
+      }
+    ]
+  }
+}

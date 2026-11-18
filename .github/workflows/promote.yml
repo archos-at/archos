@@ -150,7 +150,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cms="$(sed -n 's/^  [a-z-]*:cmsEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
-          CMS_ENABLED="$cms" deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
+          runner="$(sed -n 's/^  [a-z-]*:codeRunnerEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          browser="$(sed -n 's/^  [a-z-]*:browserRendererEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          CMS_ENABLED="$cms" CODE_RUNNER_ENABLED="$runner" BROWSER_RENDERER_ENABLED="$browser" \
+            deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
 
       - name: Push
         run: git push -q origin "HEAD:refs/heads/$BRANCH"
