@@ -1,9 +1,8 @@
 ---
 name: office-powerpoint
 description: >
-  Use when the person wants a PowerPoint deck (.pptx): a Bauherrenbesprechung, a
-  project status, options compared with a table or a chart; or wants the text of
-  a deck read. Read `office-files` first for the run contract.
+  Making a PowerPoint deck? The mistakes that break a .pptx, and code that
+  works.
 metadata:
   agents: researcher
   title: Präsentation erstellen
@@ -11,7 +10,7 @@ metadata:
 
 # A PowerPoint deck
 
-`pptxgenjs` builds new decks. Read `office-files` first if you have not this
+`pptxgenjs` builds new decks. Read `execute` first if you have not this
 conversation.
 
 ## The deck
