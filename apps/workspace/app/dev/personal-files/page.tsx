@@ -27,7 +27,7 @@ import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPanel } from './inbox-panel'
 import { AcrossTrigger, ProjectMenu, ProjectOverview } from './project-menu'
-import { FolderPath, ShelfHeader, TrashWindow } from './shelf-header'
+import { FolderPath, ReadStatus, ShelfHeader, TrashWindow } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatButton, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
@@ -462,10 +462,10 @@ function ShelfPage({ own, form, moreOpen, trashOpen, folder }: { own: boolean; f
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={own ? 'Projektunabhängig' : PROJECTS[0]!.name} />
-        <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
-          {!own && <FolderPath trail={folder ? folderTrail(folder) : []} name={folder ? (REAL_FOLDERS.find((item) => item.id === folder)?.name ?? '') : 'Projektablage'} read={folder ? 'Alle 2 Dokumente gelesen' : '284 von 286 Dokumenten gelesen'} />}
-          {own && <FolderPath trail={[]} name="Meine Ablage" read="Alle 6 Dokumente gelesen" />}
+        <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
+          {!own && folder && <FolderPath trail={folderTrail(folder)} name={REAL_FOLDERS.find((item) => item.id === folder)?.name ?? ''} />}
           {own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} toolsInHead /> : <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} openFolder={folder} toolsInHead />}
+          {own ? <ReadStatus text="Alle 6 Dokumente gelesen" /> : folder ? <ReadStatus text="Alle 2 Dokumente gelesen" /> : <ReadStatus text="284 von 286 Dokumenten gelesen ·" open="2 ansehen" />}
         </div>
       </div>
     </>

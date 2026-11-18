@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: a calmer head for the Ablage page (concept for ticket 81).
 
 import type { JSX } from 'react'
-import { ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
 function Side({ icon: Icon, label, who, picked }: { icon: LucideIcon; label: string; who: string; picked: boolean }): JSX.Element {
   return (
@@ -157,7 +157,7 @@ export function TrashWindow(): JSX.Element {
   )
 }
 
-export function FolderPath({ trail, name, read }: { trail: string[]; name: string; read: string }): JSX.Element {
+export function FolderPath({ trail, name }: { trail: string[]; name: string }): JSX.Element {
   const shown = trail.length > 3 ? [trail[0]!, '…', trail[trail.length - 1]!] : trail
   return (
     <div className="border-hairline mx-8 flex h-11 items-center gap-2 border-b">
@@ -175,11 +175,16 @@ export function FolderPath({ trail, name, read }: { trail: string[]; name: strin
         ))}
         <span className="text-foreground min-w-0 truncate font-medium">{name}</span>
       </nav>
-      <span className="text-muted-foreground text-meta ml-auto inline-flex shrink-0 items-center gap-1.5">
-        <Sparkles className="size-3.5" aria-hidden />
-        {read}
-        <ChevronDown className="size-3" aria-hidden />
-      </span>
     </div>
+  )
+}
+
+export function ReadStatus({ text, open }: { text: string; open?: string }): JSX.Element {
+  return (
+    <p className="text-muted-foreground text-meta flex items-center gap-1.5 px-8 pb-8 pt-2">
+      <Sparkles className="size-3.5" aria-hidden />
+      {text}
+      {open && <span className="text-foreground font-medium underline underline-offset-2">{open}</span>}
+    </p>
   )
 }
