@@ -17,12 +17,12 @@ from agent.common import turn_status
 from agent.common.cost_tracking import CostTracker
 from agent.common.cost_tracking import UsageEvent
 from agent.common.cost_tracking import cost_tracker_var
-from agent.core.agent import _DEFAULT_MAX_CALLS_PER_ROUND
 from agent.core.agent import _SYNTHESIS_ANCHOR
-from agent.core.agent import _WIDTH_CAP_MESSAGE
 from agent.core.agent import ChatAgent
-from agent.core.agent import _recursion_limit
 from agent.core.models import ResearchAgentState
+from agent.core.round_split import _WIDTH_CAP_MESSAGE
+from agent.core.turn_binding import _DEFAULT_MAX_CALLS_PER_ROUND
+from agent.core.turn_binding import _recursion_limit
 
 _PROMPT = "Du bist der Agent."
 

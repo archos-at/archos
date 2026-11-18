@@ -304,22 +304,6 @@ describe('SessionsPanel', () => {
     ).toBeInTheDocument()
   })
 
-  test('says why every row is dimmed while a turn is in flight', () => {
-    setupChatStoreMock({ isStreaming: true })
-
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    expect(
-      screen.getByText(/Starting or switching chats is paused until it finishes/i)
-    ).toBeInTheDocument()
-  })
-
-  test('says nothing about the block when nothing is in flight', () => {
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    expect(screen.queryByText(/switching chats is paused/i)).not.toBeInTheDocument()
-  })
-
   test('drops a stale query when the panel closes', async () => {
     const user = userEvent.setup()
     const { rerender } = render(<SessionsPanel sessions={mockSessions} />)
@@ -392,12 +376,11 @@ describe('SessionsPanel', () => {
   })
 
   test('a chat the agent is working on says so in its name', () => {
-    setupChatStoreMock({
-      isSessionBusy: (sessionId: string) => sessionId === 'session-1',
-      hasAnyBusySession: () => true,
-    })
+    setupChatStoreMock({ hasAnyBusySession: () => true })
 
-    render(<SessionsPanel sessions={mockSessions} />)
+    render(
+      <SessionsPanel sessions={[{ ...mockSessions[0]!, activity: 'working' as const }, mockSessions[1]!]} />
+    )
 
     expect(
       screen.getByRole('button', { name: 'Chat: First Session — Working on this chat' })

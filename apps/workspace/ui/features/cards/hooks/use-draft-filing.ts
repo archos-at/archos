@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { documentFilesHref } from '@/features/documents/chat-card-parts'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { filesCopy } from '@/i18n/namespaces/files'
 import { documentLifecycleClient } from '@/lib/documents/lifecycle-client'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { useCardDecision } from './use-card-decision'
-import { DraftFileError, fileConversationDraft } from '../lib/document-draft-filing'
+import { DraftFileError, fileConversationDraft, type DraftDestination } from '../lib/document-draft-filing'
+
+export type DraftFileOutcome = 'filed' | 'conflict' | 'failed'
 
 export interface DraftFilingInput {
   title: string
@@ -75,6 +78,7 @@ export function useDraftFiling({
   decisionsMustPersist,
 }: DraftFilingInput) {
   const t = useTranslations(chatCopy)
+  const tFiles = useTranslations(filesCopy)
   const projectId = useChatStore((s) => s.projectId)
   const conversationId = useChatStore((s) => s.currentConversation?.id ?? null)
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
@@ -83,9 +87,13 @@ export function useDraftFiling({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isFiling, setIsFiling] = useState(false)
-  const [filedDoc, setFiledDoc] = useState<{ documentId: string; versionId: string; folderName?: string } | null>(
-    null,
-  )
+  const [filedDoc, setFiledDoc] = useState<{
+    documentId: string
+    versionId: string
+    folderId?: string | null
+    folderName?: string | null
+  } | null>(null)
+  const destination = useRef<DraftDestination | undefined>(undefined)
   const [restoreFailed, setRestoreFailed] = useState(false)
   const [conflict, setConflict] = useState<DraftConflict | null>(null)
 
@@ -145,32 +153,47 @@ export function useDraftFiling({
     }
   }
 
-  const file = async (force: boolean) => {
-    if (!conversationId || isFiling) return
+  const file = async (force: boolean, chosen?: DraftDestination): Promise<DraftFileOutcome> => {
+    if (!conversationId || isFiling) return 'failed'
+    if (chosen) destination.current = chosen
     setError(null)
     if (!force) setConflict(null)
     setIsFiling(true)
     try {
-      const result = await fileConversationDraft(conversationId, { path, title, force })
+      const result = await fileConversationDraft(conversationId, {
+        path,
+        title,
+        force,
+        destination: destination.current,
+      })
       setFiledDoc(result)
       setConflict(null)
       decide('filed')
+      return 'filed'
     } catch (fileError) {
       const row = conflictRow(fileError)
-      if (row && !force) setConflict(row)
-      else setError(failureMessage(fileError))
+      if (row && !force) {
+        setConflict(row)
+        return 'conflict'
+      }
+      setError(failureMessage(fileError))
+      return 'failed'
     } finally {
       setIsFiling(false)
     }
   }
 
   const stateKey = versionState ? STATE_LABEL[versionState] : undefined
+  const folderName =
+    filedDoc && filedDoc.folderName !== undefined ? (filedDoc.folderName ?? tFiles('folders.allFiles')) : null
   const stateLabel =
     filed && submitted && stateKey
       ? t(`cards.documentDraft.${stateKey}` as 'cards.documentDraft.inReview')
-      : filedKnown
-        ? t('cards.documentDraft.filed')
-        : t('cards.documentDraft.draftState')
+      : folderName && !filed
+        ? t('cards.fileDraft.filedIn', { folder: folderName })
+        : filedKnown
+          ? t('cards.documentDraft.filed')
+          : t('cards.documentDraft.draftState')
 
   return {
     projectId,
@@ -180,7 +203,7 @@ export function useDraftFiling({
     filedKnown,
     shownFiled,
     shownDocumentId,
-    folderName: filedDoc?.folderName ?? null,
+    folderName,
     href,
     submitted,
     canFile: !shownFiled && canDecide && Boolean(conversationId) && (!filedDecision || restoreFailed),

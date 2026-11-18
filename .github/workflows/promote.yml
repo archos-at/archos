@@ -1,37 +1,5 @@
 name: Promote to prod
 
-# Opens the promotion pull request from a develop commit to `prod`, the steps
-# docs/deployment/cd.md ("Promoting to prod") used to give as hand git:
-#
-#   1. pick the commit: the input, or the newest commit on develop's
-#      first-parent line whose `CI OK` passed and that staging ran (the commit
-#      status `deploy/staging`, which deploy.yml sets after its smoke check);
-#   2. refuse it while it carries a switch whose expand prod does not run
-#      (ci/expand_switch.py), and check GHCR has its images (verify-image-tag.sh), the CMS's too when
-#      prod runs the CMS;
-#   3. branch `release/promote-<short>` from it and merge `origin/prod` into it
-#      with `-s ours`: the tree is develop's, the history joins prod's;
-#   4. write deploy/pulumi/Pulumi.prod.yaml: develop's, with what prod changed
-#      on its own branch since the last promotion, and the `imageTag` line
-#      pinned to `sha-<commit>` (promote-stack-file.sh, which says why it is a
-#      three-way merge);
-#   5. push, and open the pull request to `prod`, listing the migrations and
-#      release notes it brings.
-#
-# Merging that pull request is the deploy: the push to `prod` runs deploy.yml's
-# `deploy-prod`, behind the `production` reviewers and the downgrade guard.
-#
-# CI on the promotion branch. `prod` is no pull_request target of ci.yml; the
-# branch gets `CI OK` from its push run (ci.yml runs on `release/**`), which
-# branch protection on `prod` requires. A push made with GITHUB_TOKEN starts no
-# workflow, so the push uses the repository secret `RELEASE_PAT` (the one
-# release-notes.yml pushes with) when it is set. It needs Contents: write and
-# Workflows: write (the merge commit carries develop's `.github/workflows/`
-# next to prod's), and Pull requests: write to open the pull request; without
-# the last, the pull request is opened with GITHUB_TOKEN. Without the secret,
-# everything here still runs, and the summary says the one step left: push one
-# commit to the branch by hand so CI runs.
-
 on:
   workflow_dispatch:
     inputs:
@@ -59,8 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # The workflow file of the branch it is dispatched from runs, with the
-      # repository's secrets: only develop's.
       - name: Guard dispatch to develop
         if: ${{ github.ref != 'refs/heads/develop' }}
         run: |

@@ -7,7 +7,7 @@ import { shownTextOf } from './answer-reveal-store'
 import type { ShownAnswer } from '@/adapters/api/wire-v2'
 import type { ChatMessage } from '../types'
 import { groupByTurn } from '../lib/events-by-turn'
-import { runningTurnIn, turnStateFor } from '../lib/turn-selectors'
+import { runningTurnIn, turnStateFor, withUnseenAnswer } from '../lib/turn-selectors'
 import { withConversation } from '../lib/conversation-records'
 import type { MessagesGet, MessagesSet, MessagesSlice } from './messages-slice-types'
 
@@ -35,14 +35,13 @@ export const createTurnActions = (
   | 'keepStoppedAnswer'
 > => {
   const persistSettled = (conversationId: string, answer: ChatMessage, view: TurnView): void => {
-    if (get().currentConversation?.id !== conversationId) return
-    const appended = Promise.resolve(get()._appendMessage(answer))
+    const appended = Promise.resolve(get()._appendMessage(answer, conversationId))
     const shown = view.shownAtStop
     const cut =
       view.stoppedLate && shown !== undefined
         ? appended.then(() => get()._cutStoppedAnswer(conversationId, answer.id, view.turnId, shown))
         : undefined
-    void get()._persistTurnProvenance(cut)
+    void get()._persistTurnProvenance(cut, { conversationId, turnId: view.turnId })
     get().maybeGenerateConversationName(conversationId)
   }
 
@@ -52,9 +51,13 @@ export const createTurnActions = (
     if (state.currentConversation) conversations.set(state.currentConversation.id, state.currentConversation)
     const effects: (() => void)[] = []
     let settled = false
+    let unseenAnswers = state.unseenAnswers
     for (const [view, previous] of moved) {
       const conversation = conversations.get(view.conversationId)
       if (!conversation) continue
+      if (view.phase !== 'running' && previous?.phase === 'running') {
+        unseenAnswers = withUnseenAnswer({ ...state, unseenAnswers }, conversation.id, view.phase === 'failed' ? 'failed' : 'answered')
+      }
       const answerDurationMs =
         state.currentUserMessageId === view.turnId && state.currentTurnStartedAt !== null
           ? Math.max(1, Date.now() - state.currentTurnStartedAt)
@@ -84,7 +87,7 @@ export const createTurnActions = (
         settled = true
         effects.push(() => persistSettled(conversation.id, answer, view))
       }
-      if (prompt) effects.push(() => void get()._appendMessage(prompt))
+      if (prompt) effects.push(() => void get()._appendMessage(prompt, conversation.id))
       const answerId = view.messageId
       if (answerId) for (const stages of stageWrites) effects.push(() => void get()._persistStageOutput(conversation.id, answerId, stages))
     }
@@ -93,6 +96,7 @@ export const createTurnActions = (
       set(
         {
           turns,
+          unseenAnswers,
           conversations: state.conversations.map((c) => conversations.get(c.id) ?? c),
           currentConversation: current,
           ...turnStateFor(turns, current?.id),
@@ -147,6 +151,7 @@ export const createTurnActions = (
       set(
         {
           turns: rest,
+          ...(view.phase === 'running' && { unseenAnswers: withUnseenAnswer(get(), view.conversationId) }),
           ...(owner && fragment && withConversation(get(), { ...owner, messages: owner.messages.filter((m) => m !== fragment) })),
           ...turnStateFor(rest, currentConversation?.id),
         },
@@ -170,7 +175,14 @@ export const createTurnActions = (
                 currentTurnStartedAt === null ? undefined : Math.max(1, Date.now() - currentTurnStartedAt)
               )
             : null
-        set({ turns: { ...get().turns, [turnId]: failed } }, false, 'failTurn:mark')
+        set(
+          {
+            turns: { ...get().turns, [turnId]: failed },
+            ...(marked.phase === 'running' && { unseenAnswers: withUnseenAnswer(get(), marked.conversationId, 'failed') }),
+          },
+          false,
+          'failTurn:mark'
+        )
         if (completion) reportAnswerCompleted(completion)
       }
       const { turns, currentConversation, conversations } = get()

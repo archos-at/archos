@@ -75,6 +75,7 @@ const client = vi.hoisted(() => ({
   list: vi.fn().mockResolvedValue([]),
   get: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue(undefined),
+  delete: vi.fn().mockResolvedValue(undefined),
   listMessages: vi.fn().mockResolvedValue([]),
   createMessage: vi.fn().mockResolvedValue(undefined),
   updateMessageProvenance: vi.fn().mockResolvedValue(undefined),
@@ -88,6 +89,7 @@ vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: cli
 
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { useChatStore } from '../store'
+import { runningTurnIn } from '../lib/turn-selectors'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import { ACK_TIMEOUT_MS, DELTA_FLUSH_MS, useWebSocketChat } from './use-websocket-chat'
@@ -127,6 +129,8 @@ const deliver = (events: WireEvent[]) =>
 const sentOf = (type: ClientMessage['type']) =>
   socket().sent.filter((message) => (message as { type: string }).type === type) as Record<string, unknown>[]
 const messages = () => useChatStore.getState().currentConversation!.messages
+const answering = (conversationId: string): boolean =>
+  runningTurnIn(useChatStore.getState().turns, conversationId) !== undefined
 
 const open = (conversation: Conversation) => {
   useChatStore.setState({ conversations: [conversation], currentConversation: conversation })
@@ -158,6 +162,7 @@ beforeEach(() => {
     conversations: [],
     currentConversation: null,
     turns: {},
+    unseenAnswers: {},
     resumableTurn: null,
     isStreaming: false,
     isLoading: false,
@@ -371,24 +376,195 @@ describe('reload mid-answer', () => {
 describe('switching conversations mid-turn', () => {
   const TURN = answered[0]!.turn_id
 
-  it('closes the socket with the conversation and re-attaches the turn from its last seq on return', () => {
+  const leave = () => {
+    const b = conversationOf('conv-b')
+    useChatStore.setState({ conversations: [useChatStore.getState().currentConversation!, b] })
+    act(() => useChatStore.getState().selectConversation(b.id))
+  }
+  const left = () => useChatStore.getState().conversations.find((conversation) => conversation.id === CONVERSATION)!
+
+  it('keeps the left conversation’s socket open, so its answer is whole on return without a replay', async () => {
     const { rerender } = openTurn(answered)
     deliver(answered.filter((event) => event.seq <= 9))
     const first = socket()
-    const b = conversationOf('conv-b')
-    useChatStore.setState({ conversations: [useChatStore.getState().currentConversation!, b] })
 
-    act(() => useChatStore.getState().selectConversation(b.id))
+    leave()
     rerender()
-    expect(first.close).toHaveBeenCalled()
+    expect(first.close).not.toHaveBeenCalled()
     expect(socket().options.conversationId).toBe('conv-b')
-    expect(useChatStore.getState().isStreaming).toBe(false)
+    expect(useChatStore.getState()).toMatchObject({ isStreaming: false, unseenAnswers: {} })
+    expect(answering(CONVERSATION)).toBe(true)
+
+    act(() => {
+      for (const event of answered.filter((event) => event.seq > 9)) first.options.onEvent(event)
+    })
+    expect(answering(CONVERSATION)).toBe(false)
+    expect(useChatStore.getState().unseenAnswers).toEqual({ [CONVERSATION]: 'answered' })
+    const answer = left().messages.find((message) => message.messageType === 'agent_response')!
+    expect(answer.content.length).toBeGreaterThan(0)
+    expect(answer.isStreaming).toBeFalsy()
+    expect(useChatStore.getState().currentConversation!.messages).toEqual([])
+    await vi.waitFor(() => expect(client.createMessage).toHaveBeenCalledWith(CONVERSATION, expect.objectContaining({ role: 'assistant' })))
+    expect(client.createMessage).not.toHaveBeenCalledWith('conv-b', expect.anything())
 
     act(() => useChatStore.getState().selectConversation(CONVERSATION))
     rerender()
-    expect(socket().options.conversationId).toBe(CONVERSATION)
-    expect(socket().options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 9 }])
-    expect(useChatStore.getState().isStreaming).toBe(true)
+    expect(useChatStore.getState()).toMatchObject({ unseenAnswers: {}, isStreaming: false })
+    expect(messages()).toContain(answer)
+  })
+
+  it('closes the left conversation’s socket when nothing runs in it', () => {
+    const answer: ChatMessage = { ...questionOf('answer-1'), role: 'assistant', messageType: 'agent_response', content: '40 m.' }
+    const { rerender } = open(conversationOf(CONVERSATION, [questionOf('question-1'), answer]))
+    const first = socket()
+    leave()
+    rerender()
+    expect(first.close).toHaveBeenCalled()
+  })
+
+  it('opens a socket again for a turn still running when the chat page is mounted anew', () => {
+    const { unmount } = openTurn(answered)
+    deliver(answered.filter((event) => event.seq <= 9))
+    leave()
+    unmount()
+    for (const each of sockets) expect(each.close).toHaveBeenCalled()
+
+    const count = sockets.length
+    renderHook(() => useWebSocketChat())
+    const reopened = sockets.slice(count).find((each) => each.options.conversationId === CONVERSATION)!
+    expect(reopened.options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 9 }])
+  })
+
+  it('stops the turn of a conversation that is deleted while it answers in the background', () => {
+    const { rerender } = openTurn(answered)
+    deliver(answered.filter((event) => event.seq <= 9))
+    const first = socket()
+    leave()
+    rerender()
+
+    act(() => useChatStore.getState().deleteConversation(CONVERSATION))
+    expect(useChatStore.getState().hasAnyBusySession()).toBe(false)
+    expect(first.sent).toContainEqual(expect.objectContaining({ type: 'cancel_turn', turn_id: TURN }))
+    expect(first.close).toHaveBeenCalled()
+  })
+
+  describe('when a socket gives up', () => {
+    const ANSWER_ID = answered[0]!.type === 'RUN_STARTED' ? answered[0]!.message_id : ''
+    const STORED = 'Die ganze Antwort, wie der Server sie gespeichert hat.'
+    const serverRow = (id: string, role: 'user' | 'assistant', content: string) => ({
+      id,
+      conversationId: CONVERSATION,
+      role,
+      content,
+      metadata: { messageType: role === 'user' ? 'user' : 'agent_response' },
+      createdAt: '2026-09-25T09:01:00.000Z',
+    })
+    const giveUp = (given: ReturnType<typeof socket>) =>
+      act(() => {
+        given.open = false
+        given.options.onStatus?.('failed')
+      })
+
+    afterEach(() => {
+      client.listMessages.mockReset()
+      client.listMessages.mockResolvedValue([])
+    })
+
+    it('settles a left conversation’s turn from the server, in place of a spinner nobody ends', async () => {
+      client.listMessages.mockImplementation(async (conversationId: string) =>
+        conversationId === CONVERSATION ? [serverRow(TURN, 'user', 'Frage'), serverRow(ANSWER_ID, 'assistant', STORED)] : []
+      )
+      const { rerender } = openTurn(answered)
+      deliver(answered.filter((event) => event.seq <= 15))
+      const first = socket()
+      leave()
+      rerender()
+
+      giveUp(first)
+
+      await vi.waitFor(() => expect(useChatStore.getState().turns[TURN]).toBeUndefined())
+      expect(left().messages.find((message) => message.id === ANSWER_ID)?.content).toBe(STORED)
+      expect(answering(CONVERSATION)).toBe(false)
+      expect(useChatStore.getState().currentConversation!.messages).toEqual([])
+      expect(first.close).toHaveBeenCalled()
+    })
+
+    it('dials again when the reader comes back to a conversation whose turn the server could not settle', async () => {
+      client.listMessages.mockRejectedValue(new Error('offline'))
+      const { rerender } = openTurn(answered)
+      deliver(answered.filter((event) => event.seq <= 15))
+      const first = socket()
+      leave()
+      rerender()
+
+      giveUp(first)
+      await act(async () => {})
+      expect(useChatStore.getState().turns[TURN]?.phase).toBe('running')
+      const dials = first.connect.mock.calls.length
+
+      act(() => useChatStore.getState().selectConversation(CONVERSATION))
+      rerender()
+
+      expect(first.connect.mock.calls.length).toBe(dials + 1)
+    })
+
+    it('dials once more for a conversation the reader leaves after its socket gave up on screen', async () => {
+      const { rerender } = openTurn(answered)
+      deliver(answered.filter((event) => event.seq <= 15))
+      const first = socket()
+      giveUp(first)
+      await vi.waitFor(() =>
+        expect(messages().some((message) => message.errorData?.errorCode === 'connection.failed')).toBe(true)
+      )
+      const dials = first.connect.mock.calls.length
+
+      leave()
+      rerender()
+
+      expect(first.connect.mock.calls.length).toBe(dials + 1)
+      expect(first.close).not.toHaveBeenCalled()
+    })
+  })
+
+  it('leaves the open chat’s connection card alone when a left conversation’s socket opens', async () => {
+    const { rerender } = openTurn(answered)
+    deliver(answered.filter((event) => event.seq <= 9))
+    const first = socket()
+    leave()
+    rerender()
+    status('failed')
+    const card = () => messages().find((message) => message.errorData?.errorCode === 'connection.failed')
+    await vi.waitFor(() => expect(card()).toBeDefined())
+
+    act(() => {
+      first.open = true
+      first.options.onStatus?.('open')
+    })
+    expect(card()).toBeDefined()
+
+    status('open')
+    expect(card()).toBeUndefined()
+  })
+
+  it('puts the card for a refused question in the chat it was asked in, not the one on screen', async () => {
+    const { result, rerender } = open(conversationOf(CONVERSATION))
+    act(() => void result.current.sendMessage('Wie lang darf der Fluchtweg sein?'))
+    const id = messages()[0]!.id
+    const first = socket()
+    leave()
+    rerender()
+
+    act(() =>
+      first.options.onEvent(
+        eventOf({ v: 2, type: 'CUSTOM', name: 'rejected', conversation_id: CONVERSATION, turn_id: id, seq: 0, ts: 1, value: { of: 'user_message', code: 'invalid_message' } })
+      )
+    )
+
+    await vi.waitFor(() =>
+      expect(left().messages.at(-1)).toMatchObject({ errorData: { errorCode: 'agent.response_failed' } })
+    )
+    expect(useChatStore.getState().currentConversation!.messages).toEqual([])
+    expect(useChatStore.getState().unseenAnswers).toEqual({ [CONVERSATION]: 'failed' })
   })
 })
 

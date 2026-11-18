@@ -64,11 +64,27 @@
           }
         },
         {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+            "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
+          }
+        },
+        {
           "section": "improvements",
           "area": "agents",
           "text": {
             "en": "When you connect your own AI assistant to the workspace, the setup steps now suggest the server name „workspace“. Assistants you have already connected keep the name you gave them and need no change.",
             "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbinden, schlagen die Einrichtungsschritte jetzt den Servernamen „workspace“ vor. Bereits verbundene Assistenten behalten den von Ihnen vergebenen Namen und müssen nicht geändert werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+            "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
           }
         },
         {

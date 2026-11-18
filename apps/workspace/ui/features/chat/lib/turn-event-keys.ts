@@ -1,5 +1,6 @@
 import { modernizeTurnEventKey } from '@/lib/conversations/legacy-turn-event'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
+import { fileFormatNoun } from './file-format'
 
 export const TURN_EVENT_KEYS: Record<string, string> = {
   'status.documents.officeShelf': 'thinking.turnStatus.',
@@ -21,6 +22,12 @@ export const TURN_EVENT_KEYS: Record<string, string> = {
   'status.action.fileProposal': 'thinking.turnStatus.',
   'status.action.draftFiled': 'thinking.turnStatus.',
   'status.action.codeRun': 'thinking.turnStatus.',
+  'status.action.fileMake': 'thinking.turnStatus.',
+  'status.action.filesMake': 'thinking.turnStatus.',
+  'status.action.fileEdit': 'thinking.turnStatus.',
+  'status.action.fileCheck': 'thinking.turnStatus.',
+  'status.action.fileRetry': 'thinking.turnStatus.',
+  'status.action.calculation': 'thinking.turnStatus.',
   'status.action.draftSubmitted': 'thinking.turnStatus.',
   'status.action.taskCreated': 'thinking.turnStatus.',
   'status.action.annotationsRead': 'thinking.turnStatus.',
@@ -42,6 +49,8 @@ export const FOLD_EVENT_KEYS: Record<string, string> = {
   'status.steer.received': 'thinking.turnStatus.',
   'status.steer.applied': 'thinking.turnStatus.',
 }
+
+const FORMAT_KEYS = new Set(['status.action.fileMake', 'status.action.fileRetry'])
 
 const CORPUS_KEYS = new Set(['status.retrieval.withQuery', 'status.retrieval.plain'])
 
@@ -77,6 +86,7 @@ export const renderTurnEventKey = (
     if (!phrase) return null
     vars.corpus = phrase
   }
+  if (FORMAT_KEYS.has(key)) vars.format = fileFormatNoun(vars.format ?? '', t)
 
   const rendered = t(`${prefix}${key}`, vars).trim()
   return rendered && rendered !== `${prefix}${key}` ? rendered : null

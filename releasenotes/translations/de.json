@@ -3556,6 +3556,10 @@
     "de": "Mehrere Anmerkungen, die Sie gleichzeitig erreichen, etwa die morgendlichen Fälligkeitserinnerungen oder ein an Sie übergebener Stapel, werden auf Ihren Geräten nun in einer einzigen Benachrichtigung zusammengefasst, die angibt, wie viele fällig und wie viele überfällig sind."
   },
   {
+    "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+    "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
+  },
+  {
     "en": "Sheets that show several drawings at once, such as two floor plans side by side, are now read drawing by drawing instead of as one merged description. The detail view also says which drawing on the sheet each entry describes.",
     "de": "Zeichnungsblätter, auf denen mehrere Zeichnungen gleichzeitig zu sehen sind, etwa zwei Grundrisse nebeneinander, werden jetzt Zeichnung für Zeichnung gelesen statt als eine zusammengeführte Beschreibung. Die Detailansicht zeigt außerdem, welche Zeichnung des Blatts jeder Eintrag beschreibt."
   },
@@ -5170,6 +5174,10 @@
   {
     "en": "When you draw a box and ask Piloti about it, Piloti answers about that box again, and an @Piloti question in an Anmerkung is answered in its thread. Everyone sees in the thread when Piloti is working on it, also after reloading, and the thread says why when Piloti could not answer.",
     "de": "Wenn Sie ein Rechteck zeichnen und Piloti dazu befragen, antwortet Piloti wieder zu diesem Rechteck. Eine Frage mit @Piloti in einer Anmerkung wird im zugehörigen Thread beantwortet. Alle sehen im Thread, wenn Piloti daran arbeitet – auch nach dem Neuladen. Kann Piloti nicht antworten, steht im Thread, warum."
+  },
+  {
+    "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+    "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
   },
   {
     "en": "When you mention Piloti in an annotation's thread, or hand an open annotation to Piloti, your inbox tells you when it is done or when it has a question for you. Taking an annotation back from Piloti stops the work.",

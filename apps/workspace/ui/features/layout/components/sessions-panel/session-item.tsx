@@ -24,8 +24,6 @@ import { SessionStatusIcon } from './session-status-icon'
 interface SessionItemProps {
   session: Session
   isSelected: boolean
-  isBusy?: boolean
-  isSessionActive?: boolean
   showRelativeTime?: boolean
   onSelect?: (sessionId: string) => void
   onDelete?: (sessionId: string) => void
@@ -36,8 +34,6 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
   {
     session,
     isSelected,
-    isBusy = false,
-    isSessionActive = false,
     showRelativeTime = false,
     onSelect,
     onDelete,
@@ -70,10 +66,10 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
   }, [isEditing])
 
   const handleClick = useCallback(() => {
-    if (!isEditing && !isBusy) {
+    if (!isEditing) {
       onSelect?.(session.id)
     }
-  }, [isEditing, isBusy, onSelect, session.id])
+  }, [isEditing, onSelect, session.id])
 
   const startRename = useCallback(() => {
     setEditValue(session.title)
@@ -142,12 +138,11 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
 
   const showActions = (isHovered || isFocused) && !isEditing
 
-  const statusKey = statusKeyFor(session, isSessionActive)
-  const stateLabel = isBusy
-    ? t('sessionsPanel.sessionLabelBusy', { title: displayTitle })
-    : statusKey
-      ? t('sessionsPanel.sessionLabelWithStatus', { title: displayTitle, status: t(statusKey) })
-      : t('sessionsPanel.sessionLabel', { title: displayTitle })
+  const isSessionActive = session.activity === 'working' || session.activity === 'waiting'
+  const statusKey = statusKeyFor(session)
+  const stateLabel = statusKey
+    ? t('sessionsPanel.sessionLabelWithStatus', { title: displayTitle, status: t(statusKey) })
+    : t('sessionsPanel.sessionLabel', { title: displayTitle })
   const rowLabel = session.temporary ? t(TEMPORARY_LABEL, { label: stateLabel }) : stateLabel
 
   return (
@@ -156,7 +151,7 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
       className={cn(
         'relative min-h-11 gap-3',
         showResearchChip ? 'items-start' : 'items-center',
-        isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+        'cursor-pointer',
         isSelected
           ? 'bg-selected ring-border ring-1 ring-inset hover:bg-selected'
           : 'hover:bg-hover focus-within:bg-hover'
@@ -202,13 +197,12 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
                 showResearchChip && 'mt-0.5'
               )}
             >
-              <SessionStatusIcon session={session} isSessionActive={isSessionActive} />
+              <SessionStatusIcon session={session} />
             </ItemMedia>
 
             <button
               type="button"
               onClick={handleClick}
-              disabled={isBusy}
               aria-current={isSelected ? 'true' : undefined}
               aria-label={rowLabel}
               className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-control text-left outline-none pointer-coarse:mr-9 after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
@@ -219,7 +213,10 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
                 {/* Two lines on a phone: a chat is found by its name, and "Rettungswege
                     Bürogeb…" names nothing. One truncated line on a pointer device. */}
                 <span
-                  className="min-w-0 flex-1 text-sm max-sm:line-clamp-2 max-sm:break-words sm:truncate"
+                  className={cn(
+                    'min-w-0 flex-1 text-sm max-sm:line-clamp-2 max-sm:break-words sm:truncate',
+                    (session.activity === 'answered' || session.activity === 'failed') && 'font-medium'
+                  )}
                   title={displayTitle}
                 >
                   {displayTitle}
@@ -275,25 +272,25 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
             >
               {!session.contentLocked && (
                 <DropdownMenuItem
-                  disabled={isBusy || isSessionActive}
+                  disabled={isSessionActive}
                   onSelect={() => {
                     renameFromMenuRef.current = true
                     startRename()
                   }}
                 >
                   <Pencil className="size-4" aria-hidden="true" />
-                  {isBusy || isSessionActive
+                  {isSessionActive
                     ? t('sessionsPanel.cannotRenameBusy')
                     : t('sessionsPanel.rename')}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
                 variant="destructive"
-                disabled={isBusy || isSessionActive}
+                disabled={isSessionActive}
                 onSelect={() => onDelete?.(session.id)}
               >
                 <Trash2 className="size-4" aria-hidden="true" />
-                {isBusy || isSessionActive
+                {isSessionActive
                   ? t('sessionsPanel.cannotDeleteBusy')
                   : t('sessionsPanel.deleteSession')}
               </DropdownMenuItem>
@@ -318,14 +315,14 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
                   size="icon"
                   className="size-7"
                   onClick={handleEditClick}
-                  disabled={isBusy || isSessionActive}
+                  disabled={isSessionActive}
                   aria-label={
-                    isBusy || isSessionActive
+                    isSessionActive
                       ? t('sessionsPanel.renameDisabled')
                       : t('sessionsPanel.rename')
                   }
                   title={
-                    isBusy || isSessionActive
+                    isSessionActive
                       ? t('sessionsPanel.cannotRenameBusy')
                       : t('sessionsPanel.rename')
                   }
@@ -338,14 +335,14 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
                 size="icon"
                 className="text-destructive hover:text-destructive size-7"
                 onClick={handleDeleteClick}
-                disabled={isBusy || isSessionActive}
+                disabled={isSessionActive}
                 aria-label={
-                  isBusy || isSessionActive
+                  isSessionActive
                     ? t('sessionsPanel.deleteDisabled')
                     : t('sessionsPanel.deleteSession')
                 }
                 title={
-                  isBusy || isSessionActive
+                  isSessionActive
                     ? t('sessionsPanel.cannotDeleteBusy')
                     : t('sessionsPanel.deleteSession')
                 }

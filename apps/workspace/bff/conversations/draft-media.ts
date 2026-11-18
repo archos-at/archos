@@ -55,6 +55,10 @@ const UNKNOWN: DraftFileType = {
   filing: 'refused',
 }
 
+export function filedExtension(type: DraftFileType): string {
+  return type.filing === 'markdown' ? 'md' : type.extension
+}
+
 export function draftFileName(path: string): string {
   const trimmed = path.trim().replace(/\/+$/, '')
   return trimmed.slice(trimmed.lastIndexOf('/') + 1)

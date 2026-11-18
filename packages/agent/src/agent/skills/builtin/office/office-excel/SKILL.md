@@ -76,7 +76,7 @@ export default async function () {
   header.getCell(3).alignment = { horizontal: "right" };
 
   const last = rooms.length + 1;
-  const sum = sheet.addRow(["", "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
+  const sum = sheet.addRow([null, "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
   sum.font = { bold: true };
   sum.getCell(3).border = { top: { style: "thin" } };
 
@@ -91,18 +91,26 @@ export default async function () {
 ## Check it
 
 Load the file in a second run and look at every row, the formats and the
-formulas:
+formulas. A row's `values` has holes for empty cells, `Date`s and formula
+objects, and a run returns only plain JSON: map every cell through `cell`, as
+here, also when you read a workbook the person sent.
 
 ```js
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+
+const cell = (v) =>
+  v instanceof Date ? v.toISOString().slice(0, 10)
+    : v?.formula ? `=${v.formula}`
+    : v?.richText ? v.richText.map((part) => part.text).join("")
+    : v ?? null;
 
 export default async function () {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await readFile("/workspace/Flaechenaufstellung.xlsx"));
   const sheet = workbook.getWorksheet("Flächen");
   const rows = [];
-  sheet.eachRow((row, number) => rows.push([number, ...row.values.slice(1).map((v) => v?.formula ? `=${v.formula}` : v)]));
+  sheet.eachRow((row, number) => rows.push([number, ...Array.from(row.values.slice(1), cell)]));
   const sumCell = sheet.getCell(`C${sheet.rowCount}`);
   return {
     sheets: workbook.worksheets.map((s) => s.name),
