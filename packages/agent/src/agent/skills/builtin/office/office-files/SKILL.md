@@ -30,7 +30,10 @@ on with it, and every figure in it is one a run computed.
   `/drafts/<Name>.<ext>` outside the run. Files from earlier runs of this
   conversation are there again.
 - A document named in `documents` is at `/workspace/in/<file name>`, read-only;
-  anything written under `/workspace/in/` is dropped.
+  a second document of the same name is at `<name> (2).<ext>`, and the report's
+  `documents read:` line names every path. Anything written under
+  `/workspace/in/` is dropped, and the report says so: write a changed copy to
+  `/workspace/<Name>.<ext>`.
 - No network, no `fetch`, no npm, no shell, no Python, no LibreOffice: only the
   libraries below. TypeScript types are stripped, so plain JavaScript and
   TypeScript both run.
@@ -49,7 +52,9 @@ each lists the mistakes that make a file Office refuses or repairs.
 | `jszip` 3.10 | the XML parts inside an Office file: fill a Word template, read a .docx or .pptx | `office-word` |
 | `exceljs` 4.4 | Excel: write, read back, fill a template | `office-excel` |
 | `pptxgenjs` 4.0 | PowerPoint: slides, tables, native charts | `office-powerpoint` |
-| `pdf-lib` 1.17 | PDF: make, merge, split, fill form fields | `office-pdf-charts` |
+| `typst` 0.14 | PDF that reads like a document: tables, header and footer, flowcharts, Gantt, sequence diagrams | `office-pdf` |
+| `forme` 0.31 | a one-page PDF table or list from data | `office-pdf` |
+| `pdf-lib` 1.17 | PDF: merge, split, fill form fields | `office-pdf-charts` |
 | `unpdf` 2.1 | the text of a PDF | `office-pdf-charts` |
 | `vega` 6.4, `vega-lite` 6.5, `vega-interpreter` 2.3 | charts as SVG | `office-pdf-charts` |
 | `@cloudflare/puppeteer` 2.0 | HTML and CSS to a designed PDF, Mermaid diagrams, PNG screenshots | `office-html-pdf` |

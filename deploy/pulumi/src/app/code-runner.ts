@@ -22,7 +22,7 @@ export const CODE_RUNNER = {
   tmpSizeLimit: "64Mi",
   resources: {
     requests: { cpu: "1", memory: "1Gi" },
-    limits: { cpu: "2", memory: "2Gi" },
+    limits: { cpu: "2", memory: "4Gi" },
   },
 } as const;
 

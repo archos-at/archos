@@ -20,13 +20,13 @@ Read `office-files` first if you have not this conversation.
 | The person wants | Take |
 |---|---|
 | A designed PDF: a report, an exposé, a cover, colour, a free layout | HTML and CSS here |
-| A diagram: flowchart, Gantt, sequence, organisation | Mermaid here |
+| A diagram in Mermaid, or one for Word or a slide as SVG or PNG | Mermaid here |
 | A PNG of HTML, a chart or a diagram | `page.screenshot()` here |
-| A structured document: long text, numbered headings, tables across pages, a Gutachten | Typst (`office-pdf-charts`) |
+| A PDF that reads like a document: long text, tables across pages, a Gantt or flowchart inside it | Typst (`office-pdf`) |
 | A form filled in, PDFs merged or split, an existing PDF edited | `pdf-lib` (`office-pdf-charts`) |
 
 If `puppeteer.launch` fails with "no browser" or "busy" after the run was
-retried, make the PDF with Typst instead and say so in one sentence.
+retried, make the PDF with Typst (`office-pdf`) instead and say so in one sentence.
 
 ## The browser
 

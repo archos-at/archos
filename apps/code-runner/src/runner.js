@@ -3,8 +3,10 @@ import { DurableObject } from "cloudflare:workers";
 import { Workspace } from "@cloudflare/computer";
 import { CodemodeBackend } from "@cloudflare/computer/backends/codemode";
 import { transform } from "sucrase";
-import { LIBRARY_MODULES, LIBRARY_SPECIFIERS } from "#libraries";
+import { LIBRARY_MODULES, LIBRARY_SPECIFIERS, TYPST, WASM_MODULES } from "#libraries";
 import { browserHost } from "./browser/host.js";
+import TYPST_COMPILER from "./typst-compiler.wasm";
+import TYPST_FILES from "./typst-files.bin";
 import { LIMITS, WORKSPACE_ROOT } from "./limits.js";
 import { BadRequest, parseRunRequest } from "./request.js";
 
@@ -17,9 +19,11 @@ const quoted = (text, name) => text.includes(`"${name}"`) || text.includes(`'${n
 
 export function librariesFor(source, files) {
   const texts = [source, ...files.filter((file) => SCRIPT_FILE.test(file.path)).map((file) => decoder.decode(file.bytes))];
+  const aliases = Object.entries(LIBRARY_SPECIFIERS);
   const modules = {};
-  for (const [specifier, name] of Object.entries(LIBRARY_SPECIFIERS)) {
-    if (texts.some((text) => quoted(text, specifier) || quoted(text, name))) modules[name] = LIBRARY_MODULES[name];
+  for (const [name, code] of Object.entries(LIBRARY_MODULES)) {
+    const names = [name, ...aliases.filter(([, module]) => module === name).map(([specifier]) => specifier)];
+    if (texts.some((text) => names.some((candidate) => quoted(text, candidate)))) modules[name] = code;
   }
   return modules;
 }
@@ -34,9 +38,43 @@ export function renameSpecifiers(source) {
   return renamed;
 }
 
+const BINARY_MODULE = "export default null;";
+
+export function withBinaryModules(loader, binaries) {
+  if (Object.keys(binaries).length === 0) return loader;
+  return {
+    load(config) {
+      const modules = { ...config.modules };
+      for (const [name, module] of Object.entries(binaries)) {
+        const stored = Object.keys(modules).find((key) => key === name || key.endsWith(`/${name}`));
+        if (stored !== undefined) modules[stored] = module;
+      }
+      return loader.load({ ...config, modules });
+    },
+  };
+}
+
+const BINARIES = {
+  ...WASM_MODULES,
+  [TYPST.module]: { [TYPST.compiler]: { wasm: TYPST_COMPILER }, [TYPST.files]: { data: TYPST_FILES } },
+};
+
+function binariesFor(modules) {
+  const binaries = {};
+  for (const [library, files] of Object.entries(BINARIES)) {
+    if (!Object.hasOwn(modules, library)) continue;
+    for (const [name, module] of Object.entries(files)) {
+      modules[name] = BINARY_MODULE;
+      binaries[name] = module;
+    }
+  }
+  return binaries;
+}
+
 function backend(env, modules, browser) {
+  const binaries = binariesFor(modules);
   return new CodemodeBackend({
-    loader: env.LOADER,
+    loader: withBinaryModules(env.LOADER, binaries),
     globalOutbound: null,
     modules: modules[BROWSER_MODULE] ? { ...modules, "codemode:browser": browser.module } : modules,
     defaultTimeoutMs: LIMITS.defaultTimeoutMs,

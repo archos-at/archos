@@ -34,13 +34,31 @@ processed in code, so only the findings reach the model.
 3. It sends every file of the working directory (`/drafts/x` becomes `/workspace/x`) and the bytes of
    each named document (at most 10) under `/workspace/in/<file name>`. A document is resolved against
    the turn's inventory and read as the person, through the signed envelope; a base-corpus document is
-   refused (read it with `read_file`). Together at most 50 MB.
+   refused (read it with `read_file`). Together at most 50 MB. The file name is one path segment: a
+   folder part is cut, an empty, `.` or `..` name becomes `document`, and a name already taken (by
+   another document, or a working file under `/drafts/in/`) gets ` (2)`, ` (3)` before its extension
+   (`unique_input_path` in `run.py`). A document named twice is sent once. The report's
+   `documents read:` line names each document's path.
 4. The runner gives the run a free slot, a fresh Durable Object and a fresh isolate, runs the module
    with a 60 s limit (180 s maximum), and returns the module's value, stdout, stderr and only the files
    it created or changed under `/workspace/`.
 5. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
    that would take the conversation's files past 25 MB, and answers with the status, value, output and
-   the files kept. The agent may fix and run again, at most three times per file.
+   the files kept. An input the script changed, or a file it wrote under `/workspace/in/`, is dropped,
+   and the report says so on a `not kept:` line. The agent may fix and run again, at most three times
+   per file.
+
+**What a document read leaves behind.** A named document is located through
+`GET /api/internal/document-file` (`common/stored_file.py`), which checks the envelope's collection
+scope and restricted-use clearance and answers only where the object is; the agent reads the bytes
+from the object store itself. That read is **not** in the download log: the route is exempt in
+`download-log/coverage-routes.spec.ts`, as every read the agent makes while answering is
+([`download-log.md`](../user-guides/download-log.md), "Not recorded"). What it leaves is the
+restricted-use record (`note_collections_read`, the collection only) and the `execute.run` step
+(`documents_named`, `input_bytes`, never a name). A run differs from other agent reads in one way:
+the script can copy an input's bytes into a working file, and that copy leaves through
+`/draft/download` or `file_draft` without a row naming the original. The follow-up is in
+[Decisions](#decisions).
 
 A `503 busy` is retried three times with backoff; a runner that cannot be reached answers "nothing
 was run", and the agent may try once more.
@@ -56,14 +74,16 @@ was run", and the agent may try once more.
   a memory-backed `emptyDir`.
 - **No network**: `globalOutbound: null` for the run, and the front worker's outbound allows nothing.
   The pod has no egress, no secrets and no service-account token; a NetworkPolicy admits only the chat
-  tier and `agent-worker`.
+  tiers and `agent-worker`, and no other policy selects it (`code-runner.spec.ts` evaluates every
+  selector against its labels).
 - **The libraries** are a fixed manifest (`libraries.json`): docx, exceljs, pdf-lib, unpdf, pptxgenjs,
-  vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked.
+  vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked,
+  Forme, and Typst 0.14.2 as WebAssembly with its fonts and diagram packages (fletcher, timeliney,
+  chronos, cetz under LGPL-3.0, shipped unmodified as source).
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
 - **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 1 CPU
-  and 1 GiB requested, 2 GiB limit: 4 × (190 MB per process + 128 MB isolate + 50 MB of files)
-  ≈ 1.5 GB.
+  and 1 GiB requested, 4 GiB limit: 4 slots at their 768 MiB memory cap and the front ([the budget](../../apps/code-runner/README.md#memory-per-run)).
 
 ## The browser
 
@@ -118,6 +138,17 @@ has a text suffix and is at most 64 KB, otherwise as base64; together a conversa
 most 25 MB (Markdown drafts keep their own 256 KB cap). A binary file cannot be edited with
 `edit_file`. The directory is deleted with its conversation (the agent host's drafts route).
 
+**A run's file is kept unchecked.** The output check (`agent-file-check.ts`) runs at filing only, so
+the working directory may hold an HTML page, an SVG with a script, or an Office file with a macro. The
+file card reaches those bytes through two routes, and neither serves them as active content:
+`/draft/download` answers an attachment with the type from the extension (HTML and XML as
+`text/plain`, anything unknown as `application/octet-stream`), `nosniff` and
+`default-src 'none'; …; sandbox` (`bff/conversations/draft-file.ts`); `/draft/rendition` answers only
+a PDF draft or an Office draft converted to PDF, as `application/pdf` with `nosniff`, and refuses
+every other type with 422 (`draft-rendition.ts`). Both specs pin it per type. A check at keep time
+would add a BFF round trip per kept file and refuse what the agent may still be building toward
+(an HTML report it renders to PDF next); the delivery headers are the boundary instead.
+
 `/drafts/` stays the model's name for it; inside a run it is `/workspace/`, and the tool maps the two.
 The rename to `/workspace/` everywhere is not done.
 
@@ -139,9 +170,10 @@ before) with the bytes. The BFF:
 
 The builtin collection `office` holds `office-files` (the entry point: the run contract, libraries,
 the office's number and date formats, exact calculation, reading the file back, filing) and
-`office-word`, `office-excel`, `office-powerpoint`, `office-pdf-charts` and `office-html-pdf` (HTML
-and CSS to PDF, Mermaid, screenshots; when to take Typst or `pdf-lib` instead), one per file type
-with its pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
+`office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst),
+`office-pdf-charts` and `office-html-pdf` (HTML and CSS to PDF, Mermaid, screenshots, through the
+browser), one per file type with its
+pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
 file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
 `apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's
 Apache-2.0 document skills were source material, rewritten for this runtime (`NOTICE`).
@@ -159,9 +191,11 @@ sandbox is configured, which production never does.
 | Excel with a `SUM` formula, first use | 376 ms |
 | PDF made and read back, first use | 1004 ms |
 | Bar chart to SVG, first use | 360 to 430 ms |
+| Typst PDF with table and diagrams, fresh slot / warm slot | 3 to 6 s / 1 to 2.5 s |
+| Forme PDF with table and chart | 1.2 to 1.6 s |
 | Plain module, warm | 13 ms (16 ms as TypeScript) |
 | Endless loop, `timeoutMs` 2000 | `timeout` after 5 s, other slots serving |
-| workerd per slot | 134 MB idle, about 190 MB after a run |
+| workerd per slot | 134 MB idle, about 190 MB after a run; a slot ending a run 128 MiB above its idle memory is restarted; a run above `CODE_RUNNER_SLOT_MEMORY_MIB` (768 MiB) is stopped |
 | HTML report to PDF through the browser | 390 to 930 ms, renderer pod peak 108 MiB |
 | Mermaid diagram to SVG, PNG and .docx | 1.1 to 1.7 s, peak 191 MiB (two at once: 2.4 s, 329 MiB) |
 
@@ -176,10 +210,12 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | Where working files live: the draft store, 25 MB per conversation, base64 | Taken |
 | Limits: 60 s / 180 s, 4 runs per pod, 50 MB in, 50 MB out | Taken |
 | CSV not fileable; HTML kept in the working directory but not fileable | Taken |
+| Run files are checked at filing, not when kept; until then they are served only as a sandboxed attachment or a PDF rendition ([Storage](#storage)) | Taken |
 | Shared runner pods across offices. An escaped script could read another run in the same pod (the other run's inputs) and copy it into its own files; it needs a bug in the isolate engine, and the output check sees types, not contents | Accepted for now; open: one runner deployment per organization |
-| Memory per run: self-hosted workerd enforces none; the pod limit bounds it | Open |
+| Memory per run: self-hosted workerd enforces none, so the runner's front watches each slot's anonymous resident memory and stops a run above 768 MiB (`status: error`), restarting the slot; set by the largest run the 50 MB in / 50 MB out limits allow (up to 628 MiB measured). A smaller cap needs smaller input and output limits first | Taken 2026-11-18 |
 | A cap on concurrent runs per organization | Open, not built |
 | Whether runs count toward an office's credits (ADR-0053) | Open |
+| An `execute` input read as a download-log row. Today no row is written (see [One run](#one-run)). The change: a kind `agent_run` in `download-log/kinds.ts`, recorded always like `download`; a migration widening `document_access_log_kind_check` and `document_access_log_open_needs_own_list` (the table is append-only, so its down migration refuses once a row exists); `GET /api/internal/document-file?handOver=execute` calling `recordDocumentAccess` as the envelope's person, refusing with 503 under an own access list when the row cannot be written; `stored_file.locate_stored_file` passing it for `execute` only; the kind's label in the download-log view and the user guide. `dxf_measure` and the canvas keep no row: their bytes stay in the agent and only a measurement or a rendering leaves | Open, not built |
 | A run as a row of the Herleitung (script, inputs with citation keys, outputs) | Open, not built |
 | A dedicated Langfuse step per run (`execute.run`: status, timings, input and kept files, never contents) and the scores `execute-status`, `execute-runs-to-file`, `execute-files-made`, `execute-files-filed` ([`langfuse.md`](../observability/langfuse.md)) | Taken. Alerts (failure rate, replicas at maximum) are open |
 | Renaming `/drafts/` to `/workspace/` | Open |

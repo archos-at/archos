@@ -20,6 +20,7 @@ OFFICE_SKILLS = {
     "office-word",
     "office-excel",
     "office-powerpoint",
+    "office-pdf",
     "office-pdf-charts",
     "office-html-pdf",
 }
