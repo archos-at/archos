@@ -200,8 +200,10 @@ task db:test:rls          # throwaway cluster, full migration chain, then the su
 
 The same cluster also runs the other suites whose claims are about SQL rather
 than the boundary — the BIM query suites and the memory service's
-consolidation suite (`memory-service.integration.spec.ts`). The list is fixed
-in `scripts/rls-test-db.sh`; a new database-backed spec is added there.
+consolidation suite (`memory-service.integration.spec.ts`). The list is
+`scripts/rls-test-db-suites.txt`, one step and one spec per line, in the order
+the script runs them; a new database-backed spec is added there, under the step
+it belongs to (`integration-suite-coverage.spec.ts` fails one that is missing).
 
 After the suites, the script checks single migrations, each with its down, on a
 database of its own. A new section gets that database from `migrate_until <db>
