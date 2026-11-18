@@ -4,7 +4,6 @@ apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/app/manifest.spec.ts
 apps/workspace/bff/agent-asks/ask-wire.spec.ts
 apps/workspace/bff/api/wire-modules.spec.ts
-apps/workspace/bff/audit/schemas.spec.ts
 apps/workspace/bff/authz/feature-refusal.spec.ts
 apps/workspace/bff/base-knowledge/wire/vocab.spec.ts
 apps/workspace/bff/db/integration-suite-coverage.spec.ts
