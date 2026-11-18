@@ -1096,7 +1096,7 @@ instead. Next phases: a 3D massing card
 
 - The post-hoc generation path (`cards/generate.py` / `cards/prompt.py`) is
   deliberately kept next to the `emit_card` tool: async deep-research jobs use
-  it (`jobs/runner.py::_generate_answer_cards`) for the cards derived from the
+  it (`jobs/report_passes.py::_generate_answer_cards`) for the cards derived from the
   finished report. The job runner ALSO binds a fresh `CardRegistry` around the
   run (`_bound_card_registry`), so `emit_card` and `surface_documents` called
   by a researcher worker during the run deliver — a deep answer can show a
