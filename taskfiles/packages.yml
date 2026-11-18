@@ -1,41 +1,14 @@
-# Standalone packages (packages/).
-#
-# Included by the root Taskfile.yml with `flatten: true`: task names stay literal
-# (`pkg:test`). Shared vars (UI, SITE, PY, ...) and env live in the root file.
-
 version: '3'
 
 tasks:
-  # ── standalone packages (packages/) ─────────────────────────────────────────
-  #
-  # The IFC engine (ADR-0045), OUTSIDE the workspace it sits next to:
-  # `ifc-spatial-py` has its own uv.lock and is not in the root uv workspace.
-  # That is why it gets its own tasks instead of riding `be:*`. (A TypeScript
-  # twin, `packages/ifc-spatial`, was deleted 2026-11-04: one engine, one
-  # definition.)
-  #
-  # Until now nothing ran either suite: no Taskfile target, no CI job, no
-  # pre-commit hook. 830 tests behind a default-ON feature that renders OIB
-  # compliance verdicts, and the only thing standing between a broken assertion
-  # and a customer was somebody remembering to run pytest by hand.
-
   pkg:install:
     desc: Install the standalone packages' own toolchains (own lockfiles, outside every workspace)
     cmds:
-      # The Python package builds its env on first `uv run`; syncing here means
-      # `pkg:test:py` measures the suite rather than the download.
       - uv sync --project packages/ifc-spatial-py --all-extras
 
   pkg:test:py:
     desc: 'packages/ifc-spatial-py: pytest against its own uv.lock (636 tests, ~2 min on four workers)'
     cmds:
-      # `--all-extras`, NOT `--extra dev`: pytest is the `dev` extra, and the
-      # suite also collects test_ids_export.py, which needs `ifctester` from the
-      # `ids` extra. Plain `uv run pytest` installs neither and collection dies.
-      # `--project` rather than a `dir:`, so the path in the failure output is
-      # the one you can paste back.
-      # Whole files per worker (loadfile): the modules build their IFC models
-      # in module-scoped fixtures, so a file stays on the worker that built them.
       - uv run --project packages/ifc-spatial-py --all-extras pytest packages/ifc-spatial-py/tests -q -n logical --dist loadfile
 
   pkg:test:

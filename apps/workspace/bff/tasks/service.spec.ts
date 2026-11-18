@@ -438,6 +438,7 @@ describe('completeRunForOutcome, by kind', () => {
       documentId: 'doc-7',
       version: { id: 'ver-1' } as never,
       alreadyFiled: false,
+      folderId: null,
     })
     vi.mocked(findDocumentInOrg).mockResolvedValue({ filename: 'aktenvermerk-2026-09-10.md' } as never)
 
@@ -461,6 +462,7 @@ describe('completeRunForOutcome, by kind', () => {
       documentId: 'doc-7',
       version: { id: 'ver-1' } as never,
       alreadyFiled: true,
+      folderId: null,
     })
     vi.mocked(findDocumentInOrg).mockResolvedValue({ filename: 'aktenvermerk-2026-09-10.md' } as never)
 
@@ -531,6 +533,7 @@ describe('recordRunOutcome', () => {
       documentId: 'doc-7',
       version: { id: 'ver-1' } as never,
       alreadyFiled: false,
+      folderId: null,
     })
     vi.mocked(findDocumentInOrg).mockResolvedValue({ filename: 'aktenvermerk.md' } as never)
 

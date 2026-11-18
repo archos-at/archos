@@ -27,7 +27,7 @@ export default async function () {
   header.getCell(3).alignment = { horizontal: "right" };
 
   const last = rooms.length + 1;
-  const sum = sheet.addRow(["", "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
+  const sum = sheet.addRow([null, "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
   sum.font = { bold: true };
   sum.getCell(3).border = { top: { style: "thin" } };
 

@@ -152,6 +152,17 @@ export const fileDraftBodySchema = z
     path: z.string().min(1).max(500),
     title: z.string().max(500).optional(),
     force: z.boolean().optional().default(false),
+    folderId: z
+      .guid()
+      .nullable()
+      .optional()
+      .describe('The folder to file into, from project-folder-list; null files at the project root; omit for the default folder.'),
+    name: z
+      .string()
+      .min(1)
+      .max(500)
+      .optional()
+      .describe('The file name in the project; its extension is set to the draft’s own type. Omit to keep the title.'),
   })
   .strict()
 

@@ -28,10 +28,12 @@ import { deriveTraceLanes } from '../lib/trace-lanes'
 import { buildCitationModel } from '../lib/citations'
 import { liveLine } from '../lib/turn-events'
 import { deriveExecutedSteps } from '../lib/executed-steps'
+import { fileWork } from '../lib/file-work'
 import { useElapsedSeconds, formatElapsed, type ElapsedSince } from '../hooks/use-elapsed-seconds'
 import { useThrottledText } from '../hooks/use-throttled-text'
 import { ReasoningFlow } from './reasoning/ReasoningFlow'
 import { SubagentGroups } from './reasoning/SubagentGroups'
+import { FileWorkList } from './reasoning/FileWorkList'
 import { derivationOverview, documentLocation } from '../lib/derivation-basis'
 import { hasActions } from '../lib/work-list'
 import { settledHead, workParts } from '../lib/work-sentence'
@@ -175,6 +177,10 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     return derivedSteps.filter((s) => !s.skill)
   }, [steps, t, isThinking])
 
+  const works = useMemo(() => fileWork(steps, isThinking), [steps, isThinking])
+  const filesMade = works.filter((work) => work.file && work.outcome === 'made').length
+  const filesOnly = works.length > 0 && overview.steps === 0 && sourceCards.length === 0
+
   const hasSignal =
     steps.length > 0 ||
     messageFiles.length > 0 ||
@@ -189,9 +195,10 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
 
   const summaryLabel =
     [
-      citedCount > 0 || overview.steps > 0 ? t('thinking.derivationSummary') : null,
+      citedCount > 0 || overview.steps > 0 || filesMade > 0 ? t('thinking.derivationSummary') : null,
       overview.steps > 0 ? t('thinking.derivationSteps', { count: overview.steps }) : null,
       citedCount > 0 ? t('thinking.derivationCited', { count: citedCount }) : null,
+      filesMade > 0 ? t('thinking.files.summary', { count: filesMade }) : null,
     ]
       .filter(Boolean)
       .join(JOIN) ||
@@ -231,7 +238,10 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     : countParts
       ? `summary:${countParts.before}#${countParts.after}`
       : `summary:${label}`
-  const pill = headerWarning(status, worst, overview)
+  const pill = headerWarning(status, worst, {
+    ...overview,
+    files: works.filter((work) => work.file && work.outcome === 'failed').length,
+  })
   const warning = pill && {
     ...pill,
     text: t(`thinking.derivationWarning.${pill.kind}`, { count: pill.count }),
@@ -259,7 +269,13 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   }
 
   const researched = overview.researched || (retrievalLedger?.length ?? 0) > 0
-  if (isSettledAnswer(status) && !researched && !escalationReason?.trim() && !showTechnicalSteps) {
+  if (
+    isSettledAnswer(status) &&
+    !researched &&
+    works.length === 0 &&
+    !escalationReason?.trim() &&
+    !showTechnicalSteps
+  ) {
     const askedBack = status === 'askedBack'
     const Glyph = askedBack ? CircleHelp : status === 'flagged' ? TriangleAlert : CircleMinus
     const tone = askedBack ? 'text-brand' : status === 'flagged' ? 'text-warning' : 'text-muted-foreground'
@@ -279,7 +295,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
       </div>
     )
   }
-  if (status === 'done' && !worst && overview.single && !showTechnicalSteps) {
+  if (status === 'done' && !worst && overview.single && works.length === 0 && !showTechnicalSteps) {
     const call = overview.single
     const parts = workParts(t, call.action)
     const card = sourceCards[0]
@@ -470,18 +486,22 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
               className="overflow-hidden [overflow-anchor:none]"
             >
               <div>
-                  <div className="border-base border-t px-2 pb-3 pt-3 sm:px-4">
-                    <ReasoningFlow
-                      steps={steps}
-                      userQuestion={userQuestion}
-                      answerConfidence={answerConfidence}
-                      citations={citations}
-                      escalationReason={escalationReason}
-                      retrievalLedger={retrievalLedger}
-                      live={isThinking}
-                      sourceCards={sourceCards}
-                    />
-                  </div>
+                  {(!filesOnly || showTechnicalSteps) && (
+                    <div className="border-base border-t px-2 pb-3 pt-3 sm:px-4">
+                      <ReasoningFlow
+                        steps={steps}
+                        userQuestion={userQuestion}
+                        answerConfidence={answerConfidence}
+                        citations={citations}
+                        escalationReason={escalationReason}
+                        retrievalLedger={retrievalLedger}
+                        live={isThinking}
+                        sourceCards={sourceCards}
+                      />
+                    </div>
+                  )}
+
+                  <FileWorkList works={works} className="border-base border-t px-4 pb-3 pt-3" />
 
                   {/* The subagents the turn ran (AG-UI 1.0 SUBAGENT_*), nested; nothing without one. */}
                   <SubagentGroups steps={steps} className="border-base border-t px-4 pb-3 pt-3" />

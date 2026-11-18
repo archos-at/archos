@@ -10,7 +10,7 @@ from agent_host.jobs import research_workflow
 from agent_host.jobs import run_ownership
 from agent_host.jobs import worker
 from agent_host.jobs.event_store import EventStore
-from agent_host.jobs.runner import _update_status_if_not_terminal
+from agent_host.jobs.job_status import _update_status_if_not_terminal
 
 
 async def _record(events: EventStore, event: dict) -> None:

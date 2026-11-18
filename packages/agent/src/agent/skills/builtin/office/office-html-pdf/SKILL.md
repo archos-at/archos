@@ -25,8 +25,12 @@ Read `office-files` first if you have not this conversation.
 | A PDF that reads like a document: long text, tables across pages, a Gantt or flowchart inside it | Typst (`office-pdf`) |
 | A form filled in, PDFs merged or split, an existing PDF edited | `pdf-lib` (`office-pdf-charts`) |
 
-If `puppeteer.launch` fails with "no browser" or "busy" after the run was
-retried, make the PDF with Typst (`office-pdf`) instead and say so in one sentence.
+If `puppeteer.launch` fails with "no browser", this deployment has none and a
+retry gets the same answer. Keep the format the person asked for: a PDF with
+Typst (`office-pdf`) in the same look; a diagram as SVG drawn in code, or with
+Typst's `fletcher` or `timeliney`; a Word file with that SVG in it. A PNG of
+HTML cannot be made without the browser: offer the SVG or PDF instead and say
+so in one sentence, without naming the engine. On "busy", run once more first.
 
 ## The browser
 

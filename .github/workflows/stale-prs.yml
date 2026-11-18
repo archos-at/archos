@@ -1,15 +1,5 @@
 name: Close idle pull requests
 
-# A pull request nobody has touched for 7 days gets the `stale` label and a
-# comment; 3 days later, still untouched, it is closed. Any push, comment,
-# review or label change counts as a touch and takes the label off again.
-# Closing is reversible: reopen it, or give it `keep-open` to exempt it.
-#
-# Only pull requests opened on or after start-date are judged, so the backlog
-# that existed when this landed is left for a person to sort. Dependabot's
-# pull requests (label `dependencies`) are left alone: Dependabot supersedes and
-# closes its own, and a closed one tells it to skip that version. Issues are
-# never touched.
 on:
   schedule:
     - cron: "41 4 * * *" # daily 04:41 UTC

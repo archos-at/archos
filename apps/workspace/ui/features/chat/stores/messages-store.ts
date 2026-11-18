@@ -1,4 +1,5 @@
 import type { TurnView } from '@/lib/turns/turn-fold'
+import type { UnseenEnd } from '@/lib/turns/conversation-activity'
 import type { ComposerExcerpt, ComposerPrefill } from '../types'
 import type { ChatSendFn, MessagesStateCreator } from './messages-slice-types'
 import { createTurnActions } from './turn-actions'
@@ -8,7 +9,7 @@ import { createComposerActions } from './composer-actions'
 export type { ChatSendFn, MessagesSlice } from './messages-slice-types'
 export { registerStopStreamingHandler } from './turn-actions'
 export { mergeRemoteMessages } from '../lib/remote-message-merge'
-export { runningTurnIn, turnStateFor } from '../lib/turn-selectors'
+export { conversationActivity, runningTurnIn, turnStateFor } from '../lib/turn-selectors'
 
 export const initialMessagesState = {
   isStreaming: false,
@@ -16,6 +17,7 @@ export const initialMessagesState = {
   currentUserMessageId: null as string | null,
   currentTurnStartedAt: null as number | null,
   turns: {} as Record<string, TurnView>,
+  unseenAnswers: {} as Record<string, UnseenEnd>,
   projectId: null as string | null,
   composerPrefill: null as ComposerPrefill | null,
   composerSubject: null,

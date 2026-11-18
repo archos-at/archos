@@ -106,7 +106,7 @@ Uses `useSessionUrl` hook to sync the current conversation ID with URL query par
 - `handleDeleteSession` — deletes conversation + clears URL if it was the current.
 - `handleDeleteAllSessions` — deletes all + clears URL.
 
-Navigation is blocked (`isNavigationBlocked`) when streaming or waiting for a human interaction.
+Navigation is never blocked: the reader can open another chat or start a new one while a turn runs or waits for them, and that turn carries on in its own conversation ([chat flow](chat-flow.md)).
 
 ---
 

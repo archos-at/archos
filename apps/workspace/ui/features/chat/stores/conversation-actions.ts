@@ -5,6 +5,7 @@ import { useLayoutStore } from '@/features/layout/store'
 import { withErrorMessage } from './connection-errors'
 import { errorConcernsTheThread, getErrorMeta } from '../lib/error-registry'
 import { mergeRemoteMessages } from '../lib/remote-message-merge'
+import { withUnseenAnswer } from '../lib/turn-selectors'
 import {
   createNewConversation,
   generateTitle,
@@ -234,9 +235,13 @@ export const createConversationActions = (
       void get()._persistCardInteractions(targetConversation.id, messageId, cardInteractions)
     },
 
-    addErrorCard: (code: ErrorCode, message?: string, details?: string) => {
+    addErrorCard: (code: ErrorCode, message?: string, details?: string, conversationId?: string) => {
       const { currentConversation, conversations } = get()
-      if (!currentConversation) return
+      const owner =
+        conversationId === undefined || conversationId === currentConversation?.id
+          ? currentConversation
+          : conversations.find((conversation) => conversation.id === conversationId)
+      if (!owner) return
 
       const errorMeta = getErrorMeta(code)
 
@@ -253,25 +258,21 @@ export const createConversationActions = (
         },
       }
 
-      const updatedConversation: Conversation = {
-        ...currentConversation,
-        messages: withErrorMessage(currentConversation.messages, errorMessage),
-        updatedAt: new Date(),
-      }
-
-      const updatedConversations = updateConversationInList(conversations, updatedConversation)
-
       set(
         {
-          currentConversation: updatedConversation,
-          conversations: updatedConversations,
+          ...withConversation(get(), {
+            ...owner,
+            messages: withErrorMessage(owner.messages, errorMessage),
+            updatedAt: new Date(),
+          }),
+          unseenAnswers: withUnseenAnswer(get(), owner.id, 'failed'),
         },
         false,
         'addErrorCard'
       )
 
       if (errorConcernsTheThread(code)) {
-        void get()._appendMessage(errorMessage)
+        void get()._appendMessage(errorMessage, owner.id)
       }
     },
 
@@ -299,30 +300,23 @@ export const createConversationActions = (
       )
     },
 
-    dismissConnectionErrors: () => {
+    dismissConnectionErrors: (conversationId?: string) => {
       const { currentConversation, conversations } = get()
-      if (!currentConversation) return
+      const owner =
+        conversationId === undefined || conversationId === currentConversation?.id
+          ? currentConversation
+          : conversations.find((conversation) => conversation.id === conversationId)
+      if (!owner) return
 
-      const updatedMessages = currentConversation.messages.filter(
+      const updatedMessages = owner.messages.filter(
         (msg) =>
           !(msg.messageType === 'error' && msg.errorData?.errorCode?.startsWith('connection.'))
       )
 
-      if (updatedMessages.length === currentConversation.messages.length) return
-
-      const updatedConversation: Conversation = {
-        ...currentConversation,
-        messages: updatedMessages,
-        updatedAt: new Date(),
-      }
-
-      const updatedConversations = updateConversationInList(conversations, updatedConversation)
+      if (updatedMessages.length === owner.messages.length) return
 
       set(
-        {
-          currentConversation: updatedConversation,
-          conversations: updatedConversations,
-        },
+        withConversation(get(), { ...owner, messages: updatedMessages, updatedAt: new Date() }),
         false,
         'dismissConnectionErrors'
       )

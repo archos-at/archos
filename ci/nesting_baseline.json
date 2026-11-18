@@ -11,7 +11,6 @@
   "apps/agent-host/src/agent_host/jobs/event_store.py": 12,
   "apps/agent-host/src/agent_host/jobs/run_ownership.py": 1,
   "apps/agent-host/src/agent_host/jobs/run_result.py": 1,
-  "apps/agent-host/src/agent_host/jobs/runner.py": 10,
   "apps/agent-host/src/agent_host/jobs/submit.py": 1,
   "apps/agent-host/src/agent_host/routes/_llm_json.py": 3,
   "apps/agent-host/src/agent_host/routes/document_search.py": 2,
