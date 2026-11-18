@@ -29,6 +29,7 @@ from pydantic import BaseModel
 from agent.common import bff_http
 from agent.common import orchestrator_client
 from agent.common import task_failures
+from agent.common.boot_retry import retry_connection
 from agent.observability import direct_trace
 from agent.observability import orchestrator_tracing
 
@@ -406,13 +407,20 @@ def serve(
                 _runtime.ingestor = None
 
     orchestrator_tracing.instrument(getattr(client, "config", None))
-    client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
+    retry_connection(
+        lambda: client.rate_limits.put(
+            credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND
+        ),
+        what="Hatchet credit rate limit",
+    )
+    workflows = [ingest_workflow(heavy), *also]
+    orchestrator_client.register_workflows(workflows)
     worker = client.worker(
         f"{WORKER_NAME}-heavy" if heavy else WORKER_NAME,
         slots=heavy_worker_slots() if heavy else max(1, slots),
         labels={POOL_LABEL: pool},
         durable_slots=durable_slots,
-        workflows=[ingest_workflow(heavy), *also],
+        workflows=workflows,
         lifespan=worker_lifespan,
     )
     worker.start()
