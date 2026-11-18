@@ -9,7 +9,6 @@
     "packages/agent/src/agent/cards/surface_documents.py": 650,
     "packages/agent/src/agent/common/answer_envelope.py": 878,
     "packages/agent/src/agent/common/content_screen.py": 640,
-    "packages/agent/src/agent/common/cost_tracking.py": 618,
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/provider_limiter.py": 621,
     "packages/agent/src/agent/common/wire_v2.py": 1001,
