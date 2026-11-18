@@ -2,7 +2,7 @@
 # Resolve the image each service deploys to staging, and refuse a downgrade.
 #
 # Usage: resolve-image-refs.sh   (run inside the checkout, stack selected)
-# Prints BACKEND_IMAGE_REF=, FRONTEND_IMAGE_REF=, WEB_IMAGE_REF= and CMS_IMAGE_REF=
+# Prints BACKEND_IMAGE_REF=, FRONTEND_IMAGE_REF=, WEB_IMAGE_REF=, CMS_IMAGE_REF= and CODE_RUNNER_IMAGE_REF=
 # lines on stdout, for $GITHUB_ENV. Everything else, including one
 # `<service>: <deployed ref> -> <resolved ref>` line per service, goes to stderr.
 #
@@ -58,9 +58,34 @@ log() { printf '%s\n' "$*" >&2; }
 # alone (`cms`, ci/image_inputs.py); the older three keep their prefixed names.
 repository_of() {
   case "$1" in
-    cms) printf 'cms' ;;
+    cms|code-runner) printf '%s' "$1" ;;
     *) printf 'grid-oib-%s' "$1" ;;
   esac
+}
+
+optional() {
+  case "$1" in
+    cms|code-runner) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+label_of() {
+  case "$1" in
+    cms) printf 'CMS' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+config_key() {
+  case "$1" in
+    cms) printf 'cms%s' "$2" ;;
+    code-runner) printf 'codeRunner%s' "$2" ;;
+  esac
+}
+
+enabled() {
+  [ "$(pulumi config get "$(config_key "$1" Enabled)" 2>/dev/null || true)" = "true" ]
 }
 
 # The commit a ref was built at, when its tag is sha-<40 hex>; empty otherwise.
@@ -107,28 +132,35 @@ resolve_ref() {
     # The CMS image exists only from the commit that added it, so a rollback to
     # an older tag keeps the CMS it runs rather than pull a tag GHCR never had.
     # verify-image-tag.sh checks the other three before this runs.
-    if [ "$service" = cms ]; then
-      REPOSITORY=cms "$find_published_tag" "$owner" cms "$tag" >/dev/null || rc=$?
+    if optional "$service"; then
+      local label repository
+      label="$(label_of "$service")"
+      repository="$(repository_of "$service")"
+      REPOSITORY="$repository" "$find_published_tag" "$owner" "$service" "$tag" >/dev/null || rc=$?
       if [ "$rc" -eq 1 ] && [ -n "$deployed" ]; then
-        log "::warning::cms: ${tag} has no CMS image; keeping the deployed ${deployed}"
+        log "::warning::${service}: ${tag} has no ${label} image; keeping the deployed ${deployed}"
         printf '%s' "$deployed"
         return 0
       fi
       if [ "$rc" -eq 1 ]; then
         # Nothing to keep. With the CMS on, its Deployment would pull a tag GHCR
         # never had and `pulumi up` would wait out its timeout on it: fail now.
-        if [ "$(pulumi config get cmsEnabled 2>/dev/null || true)" = "true" ]; then
-          log "::error::cms: ${tag} has no CMS image and none is deployed. Set cmsImage to a published CMS image (ghcr.io/${owner}/cms:sha-<commit>), or cmsEnabled=false, and dispatch again."
+        if enabled "$service"; then
+          log "::error::${service}: ${tag} has no ${label} image and none is deployed. Set $(config_key "$service" Image) to a published ${label} image (ghcr.io/${owner}/${repository}:sha-<commit>), or $(config_key "$service" Enabled)=false, and dispatch again."
           return 1
         fi
-        log "::warning::cms: ${tag} has no CMS image and none is deployed; the CMS is off, so CMS_IMAGE_REF stays empty"
+        log "::warning::${service}: ${tag} has no ${label} image and none is deployed; the ${label} is off, so its image ref stays empty"
         return 0
       fi
-      [ "$rc" -eq 0 ] || { log "::error::cms: the registry lookup failed; refusing to guess."; return 1; }
+      [ "$rc" -eq 0 ] || { log "::error::${service}: the registry lookup failed; refusing to guess."; return 1; }
     fi
   else
     tag="$(newest_published_tag "$service")" || rc=$?
     if [ "$rc" -eq 1 ]; then
+      if [ -z "$deployed" ] && optional "$service" && ! enabled "$service"; then
+        log "::warning::${service}: no image in the last ${depth} develop commits and none is deployed; it is off, so its image ref stays empty"
+        return 0
+      fi
       [ -n "$deployed" ] || {
         log "::error::${service}: no image in the last ${depth} develop commits and no deployed ref to keep."
         return 1
@@ -167,12 +199,12 @@ guard() {
 
 failed=0
 out=""
-for service in backend frontend web cms; do
+for service in backend frontend web cms code-runner; do
   deployed="$(deployed_ref "$service")"
   new="$(resolve_ref "$service" "$deployed")" || { failed=1; continue; }
   log "${service}: ${deployed:-unknown} -> ${new:-none}"
   [ -z "$new" ] || guard "$service" "$deployed" "$new" || failed=1
-  out+="$(printf '%s' "$service" | tr '[:lower:]' '[:upper:]')_IMAGE_REF=${new}"$'\n'
+  out+="$(printf '%s' "$service" | tr '[:lower:]-' '[:upper:]_')_IMAGE_REF=${new}"$'\n'
 done
 
 [ "$failed" -eq 0 ] || exit 1

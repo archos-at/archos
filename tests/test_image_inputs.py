@@ -59,6 +59,16 @@ def test_the_backend_image_watches_what_its_dockerfile_copies(mod):
     assert "tests" not in inputs and "docs" not in inputs
 
 
+def test_every_image_names_only_inputs_this_commit_tracks(mod):
+    assert set(mod.hashes("HEAD", week=WEEK)) == {image.name for image in mod.IMAGES}
+
+
+def test_the_code_runner_image_is_published_where_the_stack_pulls_it(mod):
+    runner = next(image for image in mod.IMAGES if image.name == "code-runner")
+    assert runner.repository == "code-runner"
+    assert {"apps/code-runner/build", "apps/code-runner/src", "apps/code-runner/bin"} <= set(mod.inputs(runner))
+
+
 def test_a_copy_that_leaves_the_context_is_refused(mod):
     with pytest.raises(ValueError, match="leaves the build context"):
         mod._normalise("apps/workspace", "../../etc/passwd")
@@ -99,6 +109,8 @@ def repo(mod, tmp_path, monkeypatch):
             "apps/website/index.astro": "<p/>\n",
             "apps/cms/Dockerfile": "FROM node\nCOPY . .\n",
             "apps/cms/src/payload.config.ts": "export {}\n",
+            "apps/code-runner/Dockerfile": "FROM node\nCOPY src ./src\n",
+            "apps/code-runner/src/worker.js": "export {}\n",
             "docs/readme.md": "hi\n",
             "deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: live.example.org\n  proj:replicas: 2\n",
         },
@@ -115,7 +127,8 @@ def test_only_an_input_change_renames_the_image(mod, repo):
     write(repo, {"src/app.py": "print(2)\n"})
     after = mod.hashes("HEAD", week=WEEK)
     assert after["backend"] != before["backend"]
-    assert {k: after[k] for k in ("frontend", "web", "cms")} == {k: before[k] for k in ("frontend", "web", "cms")}
+    unchanged = ("frontend", "web", "cms", "code-runner")
+    assert {k: after[k] for k in unchanged} == {k: before[k] for k in unchanged}
 
 
 def test_the_website_is_built_for_the_domain_prod_serves(mod, repo):
@@ -160,9 +173,10 @@ def test_a_pull_request_builds_the_images_it_changes(mod, repo):
     build, images = mod.plan_pull_request(moved, week=WEEK)
 
     assert [entry["name"] for entry in build] == ["frontend"]
-    assert [entry["name"] for entry in images] == ["backend", "frontend", "web", "cms"]
+    assert [entry["name"] for entry in images] == ["backend", "frontend", "web", "cms", "code-runner"]
     assert build[0]["repository"] == "grid-oib-frontend" and build[0]["context"] == "apps/workspace"
     assert next(entry for entry in images if entry["name"] == "cms")["repository"] == "cms"
+    assert next(entry for entry in images if entry["name"] == "code-runner")["repository"] == "code-runner"
     assert mod.plan_pull_request(base, week=WEEK)[0] == build
 
 
@@ -182,10 +196,11 @@ def test_a_pull_request_that_moves_an_image_builds_it(mod, repo):
 @pytest.mark.parametrize(
     ("answers", "expected"),
     [
-        ({"backend": True, "frontend": True, "web": True, "cms": True}, []),
-        ({"backend": True, "frontend": False, "web": True, "cms": True}, ["frontend"]),
-        ({"backend": None, "frontend": True, "web": True, "cms": True}, ["backend"]),
-        ({"backend": True, "frontend": True, "web": True, "cms": False}, ["cms"]),
+        ({"backend": True, "frontend": True, "web": True, "cms": True, "code-runner": True}, []),
+        ({"backend": True, "frontend": False, "web": True, "cms": True, "code-runner": True}, ["frontend"]),
+        ({"backend": None, "frontend": True, "web": True, "cms": True, "code-runner": True}, ["backend"]),
+        ({"backend": True, "frontend": True, "web": True, "cms": False, "code-runner": True}, ["cms"]),
+        ({"backend": True, "frontend": True, "web": True, "cms": True, "code-runner": None}, ["code-runner"]),
     ],
 )
 def test_a_push_builds_what_the_registry_does_not_have(mod, repo, answers, expected):
@@ -199,4 +214,4 @@ def test_a_push_builds_what_the_registry_does_not_have(mod, repo, answers, expec
 
     assert [entry["name"] for entry in build] == expected
     hashes = mod.hashes("HEAD", week=WEEK)
-    assert asked == [(name, f"inputs-{hashes[name]}") for name in ("backend", "frontend", "web", "cms")]
+    assert asked == [(name, f"inputs-{hashes[name]}") for name in ("backend", "frontend", "web", "cms", "code-runner")]

@@ -224,7 +224,8 @@ jobs:
           program="$(pulumi stack tag get deployed-commit 2>/dev/null || true)"
           if [ "$program" = "$DEPLOY_SHA" ] && same backend "$BACKEND_IMAGE_REF" \
              && same frontend "$FRONTEND_IMAGE_REF" && same web "$WEB_IMAGE_REF" \
-             && { [ -z "$CMS_IMAGE_REF" ] || same cms "$CMS_IMAGE_REF"; }; then
+             && { [ -z "$CMS_IMAGE_REF" ] || same cms "$CMS_IMAGE_REF"; } \
+             && { [ -z "$CODE_RUNNER_IMAGE_REF" ] || same code-runner "$CODE_RUNNER_IMAGE_REF"; }; then
             echo "::notice::staging already runs ${IMAGE_TAG} on every service; nothing to apply"
             echo "ALREADY_DEPLOYED=true" >> "$GITHUB_ENV"
           fi
@@ -261,6 +262,7 @@ jobs:
           pulumi config set grid-oib:frontendImage "$FRONTEND_IMAGE_REF"
           pulumi config set grid-oib:webImage "$WEB_IMAGE_REF"
           [ -z "$CMS_IMAGE_REF" ] || pulumi config set cmsImage "$CMS_IMAGE_REF"
+          [ -z "$CODE_RUNNER_IMAGE_REF" ] || pulumi config set grid-oib:codeRunnerImage "$CODE_RUNNER_IMAGE_REF"
           [ -z "$POSTHOG_RELEASE_ID" ] || pulumi config set grid-oib:posthogReleaseId "$POSTHOG_RELEASE_ID"
           # `--json` puts the plan on stdout, but policy-pack violations are NOT
           # part of it — a mandatory CrossGuard failure shows up as a bare
@@ -309,6 +311,7 @@ jobs:
           pulumi config set grid-oib:frontendImage "$FRONTEND_IMAGE_REF"
           pulumi config set grid-oib:webImage "$WEB_IMAGE_REF"
           [ -z "$CMS_IMAGE_REF" ] || pulumi config set cmsImage "$CMS_IMAGE_REF"
+          [ -z "$CODE_RUNNER_IMAGE_REF" ] || pulumi config set grid-oib:codeRunnerImage "$CODE_RUNNER_IMAGE_REF"
           [ -z "$POSTHOG_RELEASE_ID" ] || pulumi config set grid-oib:posthogReleaseId "$POSTHOG_RELEASE_ID"
           # The plan step above previewed this exact config a minute ago, under
           # the same concurrency group; `up` would preview it again (~10 s).
@@ -398,6 +401,7 @@ jobs:
             echo "| Frontend | \`$FRONTEND_IMAGE_REF\` |"
             echo "| Web | \`$WEB_IMAGE_REF\` |"
             echo "| CMS | \`${CMS_IMAGE_REF:-not pinned}\` |"
+            echo "| Code runner | \`${CODE_RUNNER_IMAGE_REF:-not pinned}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -502,7 +506,9 @@ jobs:
           fi
           # The CMS pulls the same tag when the stack runs it.
           cms_enabled="$(sed -n 's/^  grid-oib:cmsEnabled: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
-          CMS_ENABLED="$cms_enabled" ./scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "$tag"
+          code_runner_enabled="$(sed -n 's/^  grid-oib:codeRunnerEnabled: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
+          CMS_ENABLED="$cms_enabled" CODE_RUNNER_ENABLED="$code_runner_enabled" \
+            ./scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "$tag"
           echo "PROD_IMAGE_TAG=$tag" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ github.token }}

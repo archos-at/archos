@@ -29,7 +29,7 @@ their own namespaces.
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
-| `code-runner` (the agent's `execute` tool: one fresh isolate per run, no network, nothing kept; [`agent-code-execution.md`](../design/agent-code-execution.md); `codeRunnerEnabled`, default off until its image is published) | Deployment + KEDA ScaledObject + PDB | `codeRunnerMinReplicas`→`codeRunnerMaxReplicas` (default 2→10; dev 1→3) | memory-backed emptyDir `/run/code-runner/do` (1 Gi, a run's files while it runs) and an emptyDir `/tmp`; nothing durable | Horizontally, on CPU and memory utilisation through metrics-server (`codeRunnerCpuTargetPercent` 70, `codeRunnerMemoryTargetPercent` 80). A rollout waits up to 200 s, so a run of the 180 s maximum finishes |
+| `code-runner` (the agent's `execute` tool: one fresh isolate per run, no network, nothing kept; [`agent-code-execution.md`](../design/agent-code-execution.md); `codeRunnerEnabled`, default off; CI publishes its image `code-runner` with the others) | Deployment + KEDA ScaledObject + PDB | `codeRunnerMinReplicas`→`codeRunnerMaxReplicas` (default 2→10; dev 1→3) | memory-backed emptyDir `/run/code-runner/do` (1 Gi, a run's files while it runs) and an emptyDir `/tmp`; nothing durable | Horizontally, on CPU and memory utilisation through metrics-server (`codeRunnerCpuTargetPercent` 70, `codeRunnerMemoryTargetPercent` 80). A rollout waits up to 200 s, so a run of the 180 s maximum finishes |
 | `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
@@ -111,8 +111,8 @@ Runbook: [row-level security](../database/row-level-security.md).
 - The provider's **StorageClass** name for block volumes — this is your
   **Lightbits** (NVMe/TCP) class. Find it: `kubectl get storageclass`.
 - Container images in a registry. CI ([`ci.yml`](../../.github/workflows/ci.yml))
-  builds `grid-oib-backend`, `grid-oib-frontend` and `grid-oib-web`, pushes
-  them to GHCR, and tags all three `sha-<commit>` for every `develop` commit
+  builds `grid-oib-backend`, `grid-oib-frontend`, `grid-oib-web`, `cms` and
+  `code-runner`, pushes them to GHCR, and tags each `sha-<commit>` for every `develop` commit
   whose checks passed; an image whose inputs did not change is re-tagged, not
   rebuilt. Deploys pin all three to that tag
   ([cd.md](cd.md#image-pinning)). The kubelet pulls **anonymously**: if the GHCR packages are *private*, set
