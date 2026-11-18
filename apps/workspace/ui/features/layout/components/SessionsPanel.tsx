@@ -9,7 +9,6 @@ import {
   useRef,
   useEffect,
 } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 import { MessageSquare, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
@@ -17,7 +16,6 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ItemList } from '@/components/ui/item'
 import { SearchField } from '@/components/ui/search-field'
 import { SectionLabel } from '@/components/ui/section-label'
-import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PageSheet } from '@/components/ui/page-sheet'
 import { AnimatePresence } from '@/components/motion'
@@ -66,15 +64,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const isSessionsPanelOpen = useLayoutStore((s) => s.isSessionsPanelOpen)
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
 
-  const isSessionBusy = useChatStore((s) => s.isSessionBusy)
   const anySessionBusy = useChatStore((s) => s.hasAnyBusySession())
-  const { isStreaming, hasPendingInteraction } = useChatStore(
-    useShallow((s) => ({
-      isStreaming: s.isStreaming,
-      hasPendingInteraction: s.pendingInteraction !== null,
-    }))
-  )
-  const isNavigationBlocked = isStreaming || hasPendingInteraction
   const [searchQuery, setSearchQuery] = useState('')
   const [scopeFilter, setScopeFilter] = useState<HistoryScope>('all')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -246,39 +236,12 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           the footer's border can still run edge to edge. */}
       <div className="shrink-0 px-4 pb-3 pt-4 md:px-8">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          {/* New chat is disabled and every row is dimmed while a turn is in
-              flight. Say why, ABOVE the controls it explains, rather than leaving
-              the user to test them one by one. The spinner carries "temporary"
-              without spending a word on it. */}
-          {isNavigationBlocked && (
-            <p
-              className="border-border bg-muted text-muted-foreground flex min-h-11 items-start gap-2 rounded-surface border px-3 py-2 text-xs"
-              role="status"
-            >
-              {/* Spinner injects its own role=status; hide it so this region
-                  announces the message once rather than "Loading" + the copy. */}
-              <span aria-hidden="true">
-                <Spinner size="sm" className="mt-0.5 shrink-0" />
-              </span>
-              <span>{t('sessionsPanel.navigationBlocked')}</span>
-            </p>
-          )}
-
           <Button
             variant="secondary"
             className="h-9 w-full justify-start gap-2 pointer-coarse:h-11"
             onClick={handleNewSession}
-            disabled={isNavigationBlocked}
-            aria-label={
-              isNavigationBlocked
-                ? t('sessionsPanel.newSessionDisabled')
-                : t('sessionsPanel.startNewSession')
-            }
-            title={
-              isNavigationBlocked
-                ? t('sessionsPanel.cannotCreateActive')
-                : t('sessionsPanel.startNewSession')
-            }
+            aria-label={t('sessionsPanel.startNewSession')}
+            title={t('sessionsPanel.startNewSession')}
           >
             <Plus className="size-4" aria-hidden="true" />
             <span className="text-sm font-medium">{t('sessionsPanel.newSessionButton')}</span>
@@ -393,8 +356,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                         key={session.id}
                         session={session}
                         isSelected={selectedSessionId === session.id}
-                        isBusy={isNavigationBlocked}
-                        isSessionActive={isSessionBusy(session.id)}
                         showRelativeTime={dateLabel === todayLabel}
                         onSelect={handleSessionClick}
                         onDelete={handleDeleteClick}

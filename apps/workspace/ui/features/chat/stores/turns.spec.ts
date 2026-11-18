@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { wireEvents } from '@/test-utils/wire-v2-fixtures'
 
@@ -14,6 +14,7 @@ const client = vi.hoisted(() => ({
   list: vi.fn().mockResolvedValue([]),
   get: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue(undefined),
+  delete: vi.fn().mockResolvedValue(undefined),
   listMessages: vi.fn().mockResolvedValue([]),
   createMessage: vi.fn().mockResolvedValue(undefined),
   updateMessageProvenance: vi.fn().mockResolvedValue(undefined),
@@ -26,7 +27,8 @@ vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { useChatStore } from '../store'
-import { registerStopStreamingHandler } from './messages-store'
+import { conversationActivity, registerStopStreamingHandler } from './messages-store'
+import { endFailedTurn } from '../lib/turn-endings'
 import { registerShownText } from './answer-reveal-store'
 import type { ChatMessage, Conversation } from '../types'
 
@@ -73,6 +75,7 @@ beforeEach(() => {
     conversations: [],
     currentConversation: null,
     turns: {},
+    unseenAnswers: {},
     isStreaming: false,
     isLoading: false,
     pendingInteraction: null,
@@ -445,6 +448,123 @@ describe('a question for the asker, then a run', () => {
     expect(responses[0]!.runLedger).toBeDefined()
     expect(responses[0]!.content).toBe('')
     expect(useChatStore.getState().isStreaming).toBe(false)
+  })
+})
+
+describe('a turn in a chat the reader left', () => {
+  const hitl = wireEvents('turn-hitl-handoff.jsonl')
+  const OTHER = 'conv-other'
+
+  const leave = () => {
+    const other: Conversation = {
+      id: OTHER,
+      userId: 'user-1',
+      title: 'Stellplätze',
+      messages: [],
+      createdAt: new Date('2026-09-25T09:05:00.000Z'),
+      updatedAt: new Date('2026-09-25T09:05:00.000Z'),
+    }
+    useChatStore.setState((state) => ({ conversations: [...state.conversations, other] }))
+    useChatStore.getState().selectConversation(OTHER)
+  }
+  const left = (conversationId: string) =>
+    useChatStore.getState().conversations.find((conversation) => conversation.id === conversationId)!
+  const activity = (conversationId: string) => {
+    const { turns, unseenAnswers } = useChatStore.getState()
+    return conversationActivity(turns, unseenAnswers, conversationId)
+  }
+
+  it('keeps folding into its own thread, settles there whole, and is stored under its own conversation', async () => {
+    ask(answered)
+    useChatStore.getState().applyTurnEvents(upTo(answered, 9))
+    leave()
+    expect(useChatStore.getState().isStreaming).toBe(false)
+    expect(activity(CONVERSATION)).toBe('working')
+
+    useChatStore.getState().applyTurnEvents(from(answered, 10))
+
+    const answer = left(CONVERSATION).messages.find((message) => message.id === RESULT.message_id)!
+    expect(answer).toMatchObject({ messageType: 'agent_response', content: RESULT.text })
+    expect(answer.isStreaming).toBeFalsy()
+    expect(messages()).toEqual([])
+    expect(useChatStore.getState().isStreaming).toBe(false)
+    await vi.waitFor(() =>
+      expect(client.createMessage).toHaveBeenCalledWith(CONVERSATION, expect.objectContaining({ id: RESULT.message_id }))
+    )
+    for (const call of [...client.createMessage.mock.calls, ...client.updateMessageProvenance.mock.calls]) {
+      expect(call[0]).toBe(CONVERSATION)
+    }
+  })
+
+  it('is marked as answered until the reader opens that chat, and never for the chat that is open', () => {
+    ask(answered)
+    leave()
+    useChatStore.getState().applyTurnEvents(answered)
+    expect(activity(CONVERSATION)).toBe('answered')
+    expect(activity(OTHER)).toBeNull()
+
+    useChatStore.getState().selectConversation(CONVERSATION)
+    expect(activity(CONVERSATION)).toBeNull()
+
+    useChatStore.setState({ turns: {} })
+    ask(answered)
+    useChatStore.getState().applyTurnEvents(answered)
+    expect(activity(CONVERSATION)).toBeNull()
+  })
+
+  it('files a question for the asker in its own thread and reads as waiting, not working', async () => {
+    const { turnId, conversationId } = ask(hitl)
+    leave()
+    useChatStore.getState().applyTurnEvents(upTo(hitl, 4))
+
+    const prompt = left(conversationId).messages.find((message) => message.messageType === 'prompt')!
+    expect(prompt).toMatchObject({ promptParentId: turnId })
+    expect(messages()).toEqual([])
+    expect(useChatStore.getState().pendingInteraction).toBeNull()
+    expect(activity(conversationId)).toBe('waiting')
+    await vi.waitFor(() =>
+      expect(client.createMessage).toHaveBeenCalledWith(conversationId, expect.objectContaining({ id: prompt.id }))
+    )
+
+    useChatStore.getState().selectConversation(conversationId)
+    expect(useChatStore.getState().pendingInteraction).toMatchObject({ turnId })
+  })
+
+  it('is marked as failed, not as answered, when it fails, and its error card lands in its own thread', async () => {
+    ask(answered)
+    useChatStore.getState().applyTurnEvents(upTo(answered, 9))
+    leave()
+
+    endFailedTurn(useChatStore.getState().turns[TURN]!, { code: 'agent.no_response' })
+
+    expect(activity(CONVERSATION)).toBe('failed')
+    await vi.waitFor(() =>
+      expect(left(CONVERSATION).messages.at(-1)).toMatchObject({ errorData: { errorCode: 'agent.no_response' } })
+    )
+    expect(messages()).toEqual([])
+  })
+
+  it('is marked as answered after all when the server holds the answer of a turn that failed here', async () => {
+    const stored = {
+      id: 'stored-answer',
+      conversationId: CONVERSATION,
+      role: 'assistant',
+      content: 'Höchstens 40 m.',
+      metadata: { messageType: 'agent_response' },
+      createdAt: '2026-09-25T09:01:00.000Z',
+    }
+    client.listMessages.mockImplementation(async (conversationId: string) => (conversationId === CONVERSATION ? [stored] : []))
+    onTestFinished(() => void client.listMessages.mockReset().mockResolvedValue([]))
+    ask(answered)
+    useChatStore.getState().applyTurnEvents(upTo(answered, 9))
+    leave()
+
+    endFailedTurn(useChatStore.getState().turns[TURN]!, { code: 'agent.no_response' })
+    expect(activity(CONVERSATION)).toBe('failed')
+
+    await vi.waitFor(() => expect(activity(CONVERSATION)).toBe('answered'))
+    expect(left(CONVERSATION).messages.at(-1)).toMatchObject({ id: 'stored-answer' })
+    expect(left(CONVERSATION).messages.some((message) => message.messageType === 'error')).toBe(false)
   })
 })
 
