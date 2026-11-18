@@ -171,6 +171,53 @@ def test_config_lines_a_tool_reads_do_not_count(checker, repo):
     assert checker.measure(repo, ["t.yaml"]) == {"t.yaml": 0}
 
 
-def test_unparsable_yaml_still_counts_comment_lines(checker, repo):
-    _add(repo, "tmpl.yaml", "# one\nkey: {{ .Values.x }\n# two\n")
-    assert checker.measure(repo, ["tmpl.yaml"]) == {"tmpl.yaml": 2}
+def test_unparsable_yaml_counts_comment_lines_outside_a_block_scalar(checker, repo):
+    _add(repo, "bad.yaml", "# one\nkey: @invalid\nrun: |\n  # shell\n\n  echo\n# two\n")
+    assert checker.measure(repo, ["bad.yaml"]) == {"bad.yaml": 2}
+
+
+def test_a_separation_tab_the_scanner_rejects_is_read_as_a_space(checker, repo):
+    _add(repo, "tab.yaml", "key:\tvalue\nrun: |\n  # shell\n# counted\n")
+    assert checker.measure(repo, ["tab.yaml"]) == {"tab.yaml": 1}
+
+
+def test_a_comment_that_names_a_tool_is_still_prose(checker, repo):
+    text = (
+        "# Run actionlint before merging.\n# yamllint is strict here.\n# shellcheck runs in CI.\n"
+        "# zizmor: ignore[x]\nk: 1\n"
+    )
+    _add(repo, "w.yml", text)
+    assert checker.measure(repo, ["w.yml"]) == {"w.yml": 3}
+
+
+def test_the_area_line_is_free_only_in_a_release_note(checker, repo):
+    text = "---\n# area: projects\nfeatures:\n  - x\n"
+    _add(repo, "releasenotes/notes/a-0123456789abcdef.yaml", text)
+    _add(repo, "other/a.yaml", text)
+    assert checker.measure(repo, ["releasenotes/notes/a-0123456789abcdef.yaml", "other/a.yaml"]) == {
+        "releasenotes/notes/a-0123456789abcdef.yaml": 0,
+        "other/a.yaml": 1,
+    }
+
+
+def test_a_byte_order_mark_does_not_hide_the_first_comment(checker, repo):
+    _add(repo, "bom.yaml", "\ufeff# one\nrun: |\n  # shell\nk: 1\n")
+    assert checker.measure(repo, ["bom.yaml"]) == {"bom.yaml": 1}
+
+
+def test_lines_break_where_the_yaml_scanner_breaks_them(checker, repo):
+    _add(repo, "ls.yaml", "a: 1\u2028b: 2\u2028c: |\n  # shell\n# counted\u2028# also\n")
+    assert checker.measure(repo, ["ls.yaml"]) == {"ls.yaml": 2}
+
+
+def test_toml_quotes_in_a_comment_or_a_one_line_string_open_nothing(checker, repo):
+    text = (
+        '# a """ in a comment\n'
+        'literal = \'a """ b\'\n'
+        'basic = "say \\"\\"\\" here"\n'
+        "# counted\n"
+        'script = """\n# content \\"""\n"""\n'
+        "# counted too\n"
+    )
+    _add(repo, "q.toml", text)
+    assert checker.measure(repo, ["q.toml"]) == {"q.toml": 3}

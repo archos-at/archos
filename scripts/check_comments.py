@@ -17,6 +17,7 @@ import tree_sitter_javascript  # noqa: E402
 import tree_sitter_typescript  # noqa: E402
 import yaml  # noqa: E402
 from check_file_size import comment_lines  # noqa: E402
+from release_notes_areas import AREA_LINE  # noqa: E402
 from tree_sitter import Language  # noqa: E402
 from tree_sitter import Node  # noqa: E402
 from tree_sitter import Parser  # noqa: E402
@@ -45,8 +46,17 @@ DIRECTIVE = re.compile(
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
     r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|drop after release|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
-    r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve|"
-    r"yaml-language-server:|yamllint |zizmor:|shellcheck |actionlint|gitleaks:allow|trivy:ignore|checkov:skip"
+    r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve|gitleaks:allow"
+)
+CONFIG_DIRECTIVE = re.compile(
+    r"\s*#\s*(yaml-language-server:\s*\$schema=|yamllint (disable|enable)(-line)?\b|zizmor:\s*ignore\[|"
+    r"shellcheck (disable|enable|source|shell)=|checkov:skip=|trivy:ignore:)"
+)
+RELEASE_NOTES = "releasenotes/notes/"
+YAML_BREAK = re.compile(r"\r\n|[\r\n\x85\u2028\u2029]")
+YAML_BLOCK_START = re.compile(r"(^|\s)[|>][-+0-9]*\s*(#.*)?$")
+TOML_TOKEN = re.compile(
+    r'"""(?:\\.|[^\\])*?""""{0,2}|\'\'\'.*?\'\'\'\'{0,2}|"(?:\\.|[^"\\\n])*"|\'[^\'\n]*\'|#[^\n]*', re.S
 )
 MESSAGE = (
     "Fix the code instead of explaining it: a clearer name, a smaller function, a check whose "
@@ -121,36 +131,67 @@ def script_prose_lines(path: str, source: bytes) -> int:
     return len(lines)
 
 
-def _yaml_string_lines(source: str) -> set[int]:
-    rows = source.split("\n")
-    try:
-        tokens = [token for token in yaml.scan(source, Loader=yaml.SafeLoader) if isinstance(token, yaml.ScalarToken)]
-    except yaml.YAMLError:
-        return set()
+def _yaml_scalar_tokens(source: str) -> list[yaml.ScalarToken] | None:
+    for text in (source, source.replace("\t", " ")):
+        try:
+            return [token for token in yaml.scan(text, Loader=yaml.SafeLoader) if isinstance(token, yaml.ScalarToken)]
+        except yaml.YAMLError:
+            continue
+    return None
+
+
+def _yaml_block_scalar_lines(rows: list[str]) -> set[int]:
+    lines: set[int] = set()
+    parent = None
+    for number, row in enumerate(rows, start=1):
+        indent = len(row) - len(row.lstrip())
+        if parent is not None and (not row.strip() or indent > parent):
+            lines.add(number)
+            continue
+        opens = not row.lstrip().startswith("#") and YAML_BLOCK_START.search(row)
+        parent = indent if opens else None
+    return lines
+
+
+def _yaml_string_lines(rows: list[str], source: str) -> set[int]:
+    tokens = _yaml_scalar_tokens(source)
+    if tokens is None:
+        return _yaml_block_scalar_lines(rows)
     lines: set[int] = set()
     for token in tokens:
         start, end = token.start_mark, token.end_mark
-        last = end.line + 1 if rows[end.line][: end.column].strip() else end.line
+        closing = rows[end.line][: end.column] if end.line < len(rows) else ""
+        last = end.line + 1 if closing.strip() else end.line
         lines.update(range(start.line + 2, last + 1))
     return lines
 
 
 def _toml_string_lines(source: str) -> set[int]:
-    lines, quote = set(), None
-    for number, row in enumerate(source.split("\n"), start=1):
-        if quote:
-            lines.add(number)
-        for found in re.findall(r'"""|\'\'\'', row):
-            quote = None if quote == found else quote or found
+    lines: set[int] = set()
+    for match in TOML_TOKEN.finditer(source):
+        if match.group().startswith(('"""', "'''")):
+            first = source.count("\n", 0, match.start()) + 1
+            lines.update(range(first + 1, first + match.group().count("\n") + 1))
     return lines
 
 
+def _tool_reads(path: str, row: str) -> bool:
+    if DIRECTIVE.search(row) or CONFIG_DIRECTIVE.match(row):
+        return True
+    return path.startswith(RELEASE_NOTES) and bool(AREA_LINE.match(row))
+
+
 def config_prose_lines(path: str, source: str) -> int:
-    inside = _toml_string_lines(source) if path.endswith(".toml") else _yaml_string_lines(source)
+    source = source.removeprefix("\ufeff")
+    if path.endswith(".toml"):
+        rows, inside = source.split("\n"), _toml_string_lines(source)
+    else:
+        rows = YAML_BREAK.split(source)
+        inside = _yaml_string_lines(rows, source)
     return sum(
         1
-        for number, row in enumerate(source.split("\n"), start=1)
-        if row.lstrip().startswith("#") and number not in inside and not DIRECTIVE.search(row)
+        for number, row in enumerate(rows, start=1)
+        if row.lstrip().startswith("#") and number not in inside and not _tool_reads(path, row)
     )
 
 

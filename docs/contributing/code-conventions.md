@@ -150,7 +150,7 @@ The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
 run by the `comments` pre-commit hook on the files you commit and by CI's
 **Repo checks** job on all of them. It counts what
 `scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
-comment, and Python docstrings. It reads YAML and TOML too: a line that starts with `#` outside a string counts, a tool directive (`yaml-language-server:`, `nosemgrep`, `pragma`) does not. On 2026-11-16, when it arrived, the tree held
+comment, and Python docstrings. It reads YAML and TOML too: a line that starts with `#` outside a string counts. A tool directive does not, in the syntax the tool reads at the start of the comment (`# yaml-language-server: $schema=`, `# yamllint disable`, `# zizmor: ignore[...]`, `# checkov:skip=`), and neither does a release note's `# area:` line, which `scripts/release_notes_areas.py` reads; a comment that only mentions a tool by name counts. Strings are found with PyYAML's scanner, so lines break where PyYAML breaks them (U+2028 included); a file it rejects for a tab is scanned again with the tabs as spaces, and one it still rejects counts every `#` line outside an indented block scalar. On 2026-11-16, when it arrived, the tree held
 323,379 such lines in 7,452 files over the allowance; the audit that removes
 them is planned in the brand-free sweep.
 
