@@ -74,7 +74,7 @@ function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX
     <>
       {activity === 'working' && <Loader2 className={cn(mark, 'text-accent-primary animate-spin motion-reduce:animate-none')} aria-hidden data-testid="rail-chat-working" />}
       {activity === 'waiting' && <MessageCircleQuestion className={cn(mark, 'text-accent-primary')} aria-hidden data-testid="rail-chat-waiting" />}
-      {activity === 'answered' && <span className="bg-accent-primary relative ml-auto size-2 shrink-0 rounded-full" aria-hidden data-testid="rail-chat-answered" />}
+      {activity === 'answered' && <span className="bg-primary relative ml-auto size-2 shrink-0 rounded-full" aria-hidden data-testid="rail-chat-answered" />}
       <span className="sr-only">{t(ACTIVITY_LABEL[activity])}</span>
     </>
   )
