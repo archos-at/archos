@@ -11,6 +11,7 @@ import { type DragonflyConfig, type RateLimitConfig, loadDragonfly } from "./con
 import { type ImagesConfig, loadImages } from "./config/images";
 import { type BrowserRendererConfig, loadBrowserRenderer } from "./config/browser-renderer";
 import { type CodeRunnerConfig, loadCodeRunner } from "./config/code-runner";
+import { type CiRunnersConfig, loadCiRunners } from "./config/ci-runners";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { LOG_SHIPPER, type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
@@ -120,6 +121,8 @@ export interface DeployConfig {
   bffJobs: BffJobsConfig;
 
   keda: KedaConfig;
+
+  ciRunners: CiRunnersConfig;
 
   providerLimits: ProviderLimitsConfig;
 
@@ -309,6 +312,7 @@ export function loadConfig(): DeployConfig {
     ...loadWorkers(cfg),
 
     codeRunner,
+    ciRunners: loadCiRunners(cfg),
     browserRenderer: loadBrowserRenderer(cfg, images, codeRunner.enabled),
 
     geocoderUrl: loadGeocoderUrl(cfg),

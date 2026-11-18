@@ -88,6 +88,7 @@ Reach for the narrow task rather than the whole gate:
 | UI lint (oxlint; why not ESLint or Biome: [lint-evaluation.md](lint-evaluation.md)), and the module seams (dependency-cruiser: [module-seams.md](module-seams.md)) | `task workspace:lint` |
 | Backend lint (ruff), and the package seams (import-linter: [module-seams.md](module-seams.md)) | `task be:lint` |
 | Backend tests | `task be:test`, or `task be:test:api` for the plugin suite |
+| A suite that needs Qdrant (the store, ranking, grouped search) | `bash scripts/qdrant-test-server.sh --exec task be:test:sources`: production's Qdrant from its checksummed binary, no Docker; without a server those tests skip locally and fail on CI |
 | Pulumi and the policy pack | `task infra:types` |
 | The public website (`apps/website`) and the riso kit | `task website:verify` |
 | A page behind a session, in the real app (click through, capture, Playwright) | `task local:up`, then `task local:session -- anna` ([local-stack.md](local-stack.md)) |
@@ -149,6 +150,9 @@ specs). Each listed file carries a `RLS_SUITE_REQUIRED` guard so the CI job
 fails if the database goes missing instead of skipping green; CI sets that
 variable (`.github/workflows/ci.yml`), the script does not, so a local run can
 still skip green.
+The script takes the newest server binaries under `/usr/lib/postgresql` (or
+`PGBIN`): production runs 17, Ubuntu and `ubuntu-latest` ship 16, and the dev
+cluster's CI runners carry 17 (`deploy/ci-runner/Dockerfile`).
 
 The per-migration sections at the end of that script prove a backfill, a data
 rewrite or a down migration on a clone of the chain. Once the migration has
