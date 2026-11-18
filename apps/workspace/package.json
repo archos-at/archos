@@ -181,6 +181,7 @@
     "axe-core": "4.14.0",
     "concurrently": "^10.0.6",
     "dependency-cruiser": "18.7.0",
+    "dockerfile-ast": "0.7.1",
     "fast-check": "4.10.2",
     "fontkit": "2.0.4",
     "happy-dom": "^20.11.15",
