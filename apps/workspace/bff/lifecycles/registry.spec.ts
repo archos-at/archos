@@ -3,7 +3,6 @@
  * @vitest-environment node
  */
 import { readFileSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createMachine, transition } from 'xstate'
 import { lifecycleDiagram } from '@/shared/lifecycle/lifecycle-diagram'
