@@ -30,7 +30,7 @@ async def _resolve_deep_research_checkpointer(fn_config: Any) -> Any | None:
 
 def _load_agent_class(agent_class_path: str) -> type:
     module_path, class_name = agent_class_path.rsplit(".", 1)
-    # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
+    # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import -- a registry class path
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
