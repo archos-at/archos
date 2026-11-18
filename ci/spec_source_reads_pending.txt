@@ -1,7 +1,6 @@
 # drop after release 2026-W49: specs Wave B1 has not yet rewritten to test behaviour; each still reads source text. docs/contributing/code-conventions.md#specs-test-behaviour
 apps/website/src/lib/rich-text.test.ts
 apps/website/src/lib/unlisted-routes.test.ts
-apps/workspace/app/api/platform/platform-permission-coverage.spec.ts
 apps/workspace/app/manifest.spec.ts
 apps/workspace/bff/agent-api/acting-session.spec.ts
 apps/workspace/bff/agent-asks/ask-wire.spec.ts

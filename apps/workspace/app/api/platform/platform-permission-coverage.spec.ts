@@ -2,12 +2,46 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join, relative } from 'node:path'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 
-const PLATFORM_DIR = dirname(fileURLToPath(import.meta.url))
+vi.mock('server-only', () => ({}))
+
+const GATE = vi.hoisted(() => ({ asked: [] as string[], handlerReached: [] as string[] }))
+
+const SESSION = vi.hoisted(() => ({
+  userId: 'user_1',
+  organizationId: 'org_1',
+  email: 'owner@example.test',
+  permissions: [] as string[],
+}))
+
+vi.mock('@/lib/auth/session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/session')>()),
+  getUserSession: async () => SESSION,
+}))
+
+vi.mock('@/lib/authz/platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/authz/platform')>()
+  return {
+    ...actual,
+    requirePlatformPermission: async (_session: unknown, permission: string) => {
+      GATE.asked.push(permission)
+      throw new actual.PlatformAccessDeniedError(`Platform permission required: ${permission}`)
+    },
+  }
+})
+
+vi.mock('@/lib/db/tenant-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/db/tenant-context')>()
+  return {
+    ...actual,
+    withPlatformAccess: async (reason: string) => {
+      GATE.handlerReached.push(reason)
+      throw new Error(`handler ran without a platform gate: ${reason}`)
+    },
+  }
+})
 
 const EXPECTED: Record<string, string> = {
   'audit-portal/route.ts POST': 'organizationsView',
@@ -98,70 +132,80 @@ const EXPECTED: Record<string, string> = {
   'storage/route.ts GET': 'organizationsView',
 }
 
-const SERVICE_ENFORCED = new Set([
-  'answer-feedback/route.ts',
-  'answer-feedback/digest/route.ts',
-  'answer-feedback/export/route.ts',
-  'answer-feedback/options/route.ts',
-])
-
 const DOORS = new Set(['mcp/route.ts'])
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
+type HttpMethod = (typeof HTTP_METHODS)[number]
+const MUTATING: readonly HttpMethod[] = ['POST', 'PUT', 'PATCH', 'DELETE']
 
-function findRouteFiles(dir: string): string[] {
-  const found: string[] = []
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) found.push(...findRouteFiles(path))
-    else if (entry.name === 'route.ts') found.push(path)
-  }
-  return found
-}
+const ROUTE_MODULES = import.meta.glob<Record<string, unknown>>([
+  './**/route.ts',
+  '!./answer-feedback/**',
+])
+
+const PERMISSION_NAME = new Map(
+  Object.entries(PLATFORM_PERMISSIONS).map(([name, value]) => [value, name])
+)
+
+type Handler = (request: Request) => Promise<Response>
 
 interface Declaration {
   key: string
   file: string
-  permission: string | null
+  method: HttpMethod
+  handler: Handler
 }
 
-function collect(): Declaration[] {
+async function collect(): Promise<Declaration[]> {
   const declarations: Declaration[] = []
-  for (const absolute of findRouteFiles(PLATFORM_DIR)) {
-    const file = relative(PLATFORM_DIR, absolute).replace(/\\/g, '/')
+  for (const [specifier, load] of Object.entries(ROUTE_MODULES)) {
+    const file = specifier.slice(2)
     if (DOORS.has(file)) continue
-    const source = readFileSync(absolute, 'utf8')
+    const route = await load()
     for (const method of HTTP_METHODS) {
-      const start = source.indexOf(`export const ${method} =`)
-      if (start < 0) continue
-      const rest = source.slice(start + 1)
-      const next = rest.search(/\nexport const [A-Z]+\s*=/)
-      const segment = next >= 0 ? rest.slice(0, next) : rest
-      const matched = /permission:\s*PLATFORM_PERMISSIONS\.(\w+)/.exec(segment)
-      declarations.push({
-        key: `${file} ${method}`,
-        file,
-        permission: matched?.[1] ?? null,
-      })
+      const handler = route[method]
+      if (typeof handler === 'function') {
+        declarations.push({ key: `${file} ${method}`, file, method, handler: handler as Handler })
+      }
     }
   }
   return declarations
 }
 
-const DECLARATIONS = collect()
+async function probe(declaration: Declaration): Promise<string | null> {
+  GATE.asked.length = 0
+  GATE.handlerReached.length = 0
+  await declaration.handler(
+    new Request(`http://localhost/api/platform/${declaration.file}`, { method: declaration.method })
+  )
+  return GATE.asked.at(-1) ?? null
+}
+
+let DECLARATIONS: Declaration[] = []
+const ASKED = new Map<string, string | null>()
+
+beforeAll(async () => {
+  DECLARATIONS = await collect()
+  for (const declaration of DECLARATIONS) {
+    ASKED.set(declaration.key, await probe(declaration))
+  }
+}, 120_000)
+
+function askedName(key: string): string {
+  const permission = ASKED.get(key)
+  if (!permission) return 'NOTHING'
+  return PERMISSION_NAME.get(permission) ?? permission
+}
 
 describe('platform route permissions', () => {
   it('finds the platform route surface (a broken walk must not pass vacuously)', () => {
     expect(DECLARATIONS.length).toBeGreaterThan(25)
   })
 
-  it('every factory-gated platform handler declares the permission this table names', () => {
-    const wrong = DECLARATIONS.filter((d) => !SERVICE_ENFORCED.has(d.file))
-      .filter((d) => d.permission !== EXPECTED[d.key])
-      .map(
-        (d) =>
-          `${d.key}: declares ${d.permission ?? 'NOTHING'}, table says ${EXPECTED[d.key] ?? 'UNLISTED'}`
-      )
+  it('every factory-gated platform handler asks the gate for the permission this table names', () => {
+    const wrong = DECLARATIONS.filter((d) => askedName(d.key) !== EXPECTED[d.key]).map(
+      (d) => `${d.key}: gated on ${askedName(d.key)}, table says ${EXPECTED[d.key] ?? 'UNLISTED'}`
+    )
 
     expect(
       wrong,
@@ -176,11 +220,8 @@ describe('platform route permissions', () => {
   })
 
   it('no route that WRITES is gated on a view permission', () => {
-    const mutating = DECLARATIONS.filter(
-      (d) => !SERVICE_ENFORCED.has(d.file) && /(POST|PUT|PATCH|DELETE)$/.test(d.key)
-    )
-    const readGated = mutating
-      .filter((d) => d.permission?.endsWith('View'))
+    const readGated = DECLARATIONS.filter((d) => MUTATING.includes(d.method))
+      .filter((d) => ASKED.get(d.key)?.endsWith(':view'))
       .filter((d) => !['audit-portal/route.ts POST', 'norms/verify/route.ts POST'].includes(d.key))
       .map((d) => d.key)
 
