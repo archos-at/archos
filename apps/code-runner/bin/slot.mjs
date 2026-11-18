@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { request } from "node:http";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import workerdPackage from "workerd";
 
@@ -24,6 +24,7 @@ function call(socketPath, method, path, body) {
 export class Slot {
   #child = null;
   #ready = null;
+  #stopped = false;
 
   constructor({ index, root, config, storageRoot }) {
     this.index = index;
@@ -38,6 +39,7 @@ export class Slot {
   }
 
   async start() {
+    if (this.#stopped) return;
     await rm(this.socket, { force: true });
     await mkdir(this.storage, { recursive: true });
     const child = spawn(WORKERD, ["serve", "--experimental", this.config, `--socket-addr=http=unix:${this.socket}`, `--directory-path=run-storage=${this.storage}`], { stdio: ["ignore", "inherit", "inherit"] });
@@ -55,6 +57,7 @@ export class Slot {
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+    if (this.#stopped) return;
     throw new Error(`workerd slot ${this.index} did not become ready`);
   }
 
@@ -70,11 +73,20 @@ export class Slot {
     await this.start();
   }
 
+  async memoryMiB() {
+    const pid = this.#child?.pid;
+    if (!pid) return null;
+    const status = await readFile(`/proc/${pid}/status`, "utf8").catch(() => "");
+    const kib = /^RssAnon:\s+(\d+) kB$/m.exec(status);
+    return kib ? Number(kib[1]) / 1024 : null;
+  }
+
   run(body) {
     return call(this.socket, "POST", "/run", body);
   }
 
   stop() {
+    this.#stopped = true;
     this.#child?.kill("SIGTERM");
   }
 }

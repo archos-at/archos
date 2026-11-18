@@ -14,6 +14,13 @@ const MAX_TIMEOUT_MS = 180_000;
 const SWEEP_EVERY_MS = 60_000;
 
 const WATCHDOG_GRACE_MS = 10_000;
+const SLOT_MEMORY_MIB = 512;
+
+async function overMemory(slot, limitMiB) {
+  if (!limitMiB) return false;
+  const used = await slot.memoryMiB();
+  return used !== null && used > limitMiB;
+}
 
 function send(res, status, body, type = "application/json") {
   const payload = Buffer.isBuffer(body) ? body : Buffer.from(typeof body === "string" ? body : JSON.stringify(body));
@@ -71,7 +78,7 @@ async function runOn(slot, body, grace) {
   }
 }
 
-export async function startServer({ port, host, slots: count, storage, watchdogGraceMs = WATCHDOG_GRACE_MS }) {
+export async function startServer({ port, host, slots: count, storage, watchdogGraceMs = WATCHDOG_GRACE_MS, slotMemoryMiB = SLOT_MEMORY_MIB }) {
   await mkdir(storage, { recursive: true });
   const sockets = await mkdtemp(join(tmpdir(), "code-runner-"));
   const config = join(ROOT, "config.capnp");
@@ -87,7 +94,7 @@ export async function startServer({ port, host, slots: count, storage, watchdogG
       const body = await readBody(req).catch(() => null);
       if (body === null) return send(res, 400, { error: `The request body exceeds ${MAX_BODY_BYTES} bytes.` });
       const outcome = await runOn(slot, body, watchdogGraceMs);
-      restart = outcome.restart;
+      restart = outcome.restart || (await overMemory(slot, slotMemoryMiB));
       return send(res, outcome.answer.status, outcome.answer.body);
     } finally {
       if (restart) await slot.restart().catch((error) => console.error(JSON.stringify({ message: "slot restart failed", slot: slot.index, error: String(error) })));
@@ -130,6 +137,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     host: process.env.HOST ?? "0.0.0.0",
     slots: Number(process.env.CODE_RUNNER_SLOTS ?? 4),
     storage: process.env.CODE_RUNNER_STORAGE_DIR ?? "/run/code-runner/do",
+    slotMemoryMiB: Number(process.env.CODE_RUNNER_SLOT_MEMORY_MIB ?? SLOT_MEMORY_MIB),
   });
   console.log(JSON.stringify({ message: "code runner listening", port: server.port }));
   for (const signal of ["SIGTERM", "SIGINT"]) {

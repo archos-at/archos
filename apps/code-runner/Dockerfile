@@ -27,7 +27,7 @@ RUN groupadd --system --gid 1001 runner \
     && chown -R runner:runner /run/code-runner \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 COPY --from=prod-deps --chown=runner:runner /app/node_modules ./node_modules
-COPY --from=builder --chown=runner:runner /app/dist/worker.js ./dist/worker.js
+COPY --from=builder --chown=runner:runner /app/dist/worker.js /app/dist/typst-compiler.wasm /app/dist/typst-files.bin /app/dist/forme.wasm ./dist/
 COPY --chown=runner:runner package.json config.capnp ./
 COPY --chown=runner:runner bin ./bin
 USER runner

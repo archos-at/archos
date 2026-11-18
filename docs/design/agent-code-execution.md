@@ -57,7 +57,9 @@ was run", and the agent may try once more.
   The pod has no egress, no secrets and no service-account token; a NetworkPolicy admits only the chat
   tier and `agent-worker`.
 - **The libraries** are a fixed manifest (`libraries.json`): docx, exceljs, pdf-lib, unpdf, pptxgenjs,
-  vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked.
+  vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked,
+  Forme, and Typst 0.14.2 as WebAssembly with its fonts and diagram packages (fletcher, timeliney,
+  chronos, cetz under LGPL-3.0, shipped unmodified as source).
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
 - **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 1 CPU
@@ -93,7 +95,8 @@ before) with the bytes. The BFF:
 
 The builtin collection `office` holds `office-files` (the entry point: the run contract, libraries,
 the office's number and date formats, exact calculation, reading the file back, filing) and
-`office-word`, `office-excel`, `office-powerpoint` and `office-pdf-charts`, one per file type with its
+`office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst)
+and `office-pdf-charts`, one per file type with its
 pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
 file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
 `apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's
@@ -112,9 +115,11 @@ sandbox is configured, which production never does.
 | Excel with a `SUM` formula, first use | 376 ms |
 | PDF made and read back, first use | 1004 ms |
 | Bar chart to SVG, first use | 360 to 430 ms |
+| Typst PDF with table and diagrams, fresh slot / warm slot | 3 to 6 s / 1 to 2.5 s |
+| Forme PDF with table and chart | 1.2 to 1.6 s |
 | Plain module, warm | 13 ms (16 ms as TypeScript) |
 | Endless loop, `timeoutMs` 2000 | `timeout` after 5 s, other slots serving |
-| workerd per slot | 134 MB idle, about 190 MB after a run |
+| workerd per slot | 134 MB idle, about 190 MB after a run; about +100 MB per Typst run, restarted over `CODE_RUNNER_SLOT_MEMORY_MIB` (512) |
 
 In production a run is visible as the `execute` tool span of its `chat-turn` trace in Langfuse: its
 output starts `status: ok`, `error` or `timeout` with the duration, and names the files kept.

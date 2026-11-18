@@ -15,7 +15,7 @@ OFFICE = BUILTIN_SKILLS_DIR / "office"
 
 ENTRY = "office-files"
 
-OFFICE_SKILLS = {"office-files", "office-word", "office-excel", "office-powerpoint", "office-pdf-charts"}
+OFFICE_SKILLS = {"office-files", "office-word", "office-excel", "office-powerpoint", "office-pdf", "office-pdf-charts"}
 
 JS_FENCE = re.compile(r"^```js\n(.*?)\n```$", re.DOTALL | re.MULTILINE)
 

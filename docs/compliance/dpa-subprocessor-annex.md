@@ -102,7 +102,7 @@ None receives a prompt, a document or account data of an office.
 - GitHub (USA) — source-code hosting, CI pipelines, security scanning.
 - Pulumi Cloud (Pulumi Corporation, USA) — the infrastructure's state and the operator's secrets (Pulumi ESC), among them the cluster credentials; no content from the product.
 - Anthropic (USA) — AI assistant in development (Claude Code on issues and pull requests); receives source code, issue text and CI logs, no data from the product.
-- Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
+- Package registries, Helm charts and base images (PyPI, npm, Typst, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
 - Let’s Encrypt (USA) — TLS certificates for the product domains; receives only the domain names.
 - ClamAV signatures (Cisco Talos) — malware signatures are downloaded; nothing is uploaded.
 - Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using the product.
