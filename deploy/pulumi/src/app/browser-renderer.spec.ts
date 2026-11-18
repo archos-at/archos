@@ -91,7 +91,7 @@ describe("browser-renderer", () => {
       privileged: false,
       capabilities: { drop: ["ALL"] },
       readOnlyRootFilesystem: true,
-      seccompProfile: { type: "Unconfined" },
+      seccompProfile: { type: "RuntimeDefault" },
     });
     expect(c.envFrom).toBeUndefined();
     expect(c.env.map((e: { name: string }) => e.name).sort()).toEqual(["BROWSER_RENDERER_SESSIONS", "BROWSER_RENDERER_WORK_DIR", "PORT"]);

@@ -791,8 +791,9 @@ The CMS's scripts read `DATABASE_URL` and `PAYLOAD_SECRET` (the import, through 
 
 The runner behind the agent's `execute` tool ([`apps/code-runner/README.md`](../../apps/code-runner/README.md))
 reads these in `bin/server.mjs`. Its image sets each to its default; the deployment
-(`deploy/pulumi/src/app/code-runner.ts`, only when `grid-oib:codeRunnerEnabled`) sets none of them and
-mounts a memory-backed `emptyDir` at `CODE_RUNNER_STORAGE_DIR`. It reads no platform variable and no secret.
+(`deploy/pulumi/src/app/code-runner.ts`, only when `grid-oib:codeRunnerEnabled`) sets only
+`BROWSER_RENDERER_ADDR`, when `grid-oib:browserRendererEnabled`, and mounts a memory-backed `emptyDir`
+at `CODE_RUNNER_STORAGE_DIR`. It reads no platform variable and no secret.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -801,6 +802,21 @@ mounts a memory-backed `emptyDir` at `CODE_RUNNER_STORAGE_DIR`. It reads no plat
 | `CODE_RUNNER_SLOTS` | No | `4` | workerd processes, one run each, so the runs in flight per pod; a fifth concurrent run answers `503 busy`. Each slot holds about 84 MiB of its own memory idle and at most `CODE_RUNNER_SLOT_MEMORY_MIB` during a run, so size the pod's memory limit for the slots, or lower this and add replicas. |
 | `CODE_RUNNER_SLOT_MEMORY_MIB` | No | `768` | Anonymous resident memory (`RssAnon`) one slot may hold during a run. Above it the run ends in `status: error` and the slot's workerd is restarted; a slot that ends any run above 128 MiB is restarted too. The pod's 4 GiB limit is sized for four slots at this cap ([the budget](../../apps/code-runner/README.md#memory-per-run)); raising it means raising that limit. |
 | `CODE_RUNNER_STORAGE_DIR` | No | `/run/code-runner/do` | The Durable Object storage, one subdirectory per slot. Mount memory here (`emptyDir`, `medium: Memory`): a run's input and output files pass through it. |
+| `BROWSER_RENDERER_ADDR` | No | _(unset)_; the `browser-renderer` Service's `clusterIP:9222` when `grid-oib:browserRendererEnabled` | Where a run's Puppeteer reaches the browser renderer (`bin/slot.mjs` hands it to workerd as `--external-addr`). Unset, `puppeteer.launch` answers "This runner has no browser" and the agent makes the PDF with Typst. |
+
+## The browser renderer (`apps/browser-renderer`, Kubernetes/Pulumi-deployed)
+
+The headless Chromium a code-runner run drives ([`apps/browser-renderer/README.md`](../../apps/browser-renderer/README.md))
+reads these in `src/server.mjs`. The deployment (`deploy/pulumi/src/app/browser-renderer.ts`, only when
+`grid-oib:browserRendererEnabled`) sets `PORT`, `BROWSER_RENDERER_SESSIONS` and `BROWSER_RENDERER_WORK_DIR`;
+the image sets the others. It reads no platform variable and no secret.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT`, `HOST` | No | `9222`, `0.0.0.0` | Where the front listens for `/health` and the DevTools session routes. |
+| `BROWSER_RENDERER_CHROME` | No | `/app/chrome-headless-shell` (linked at build) | The `chrome-headless-shell` binary. |
+| `BROWSER_RENDERER_SESSIONS` | No | `2`; Pulumi sets `grid-oib:browserRendererSessionsPerPod` | Browsers per pod at once; one more answers `503 busy`, and the run answers `busy`. |
+| `BROWSER_RENDERER_WORK_DIR` | No | `/tmp/browser-renderer`, on the memory `emptyDir` at `/tmp` | Each browser's profile and the fontconfig cache, deleted with the session. |
 
 ## Renamed variables
 

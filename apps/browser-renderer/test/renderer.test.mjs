@@ -77,15 +77,16 @@ describe("the browser renderer container", () => {
     assert.equal((await fetch(`${renderer.url}/health`)).status, 200);
   });
 
-  test("Chromium runs with its own sandbox, reached over a pipe, with no debugging port", async () => {
+  test("Chromium runs as 10042 with no capabilities under the container's seccomp filter, reached over a pipe", async () => {
     const browser = await open();
     let report;
     try {
       await page(browser);
       report = await renderer.shell(`
         for p in /proc/[0-9]*; do
-          case "$(readlink $p/exe 2>/dev/null)" in *chrome-headless-shell) echo "PROC userns=$(readlink $p/ns/user) netns=$(readlink $p/ns/net) $(grep -E '^(Seccomp|NoNewPrivs):' $p/status | tr '\\n' ' ') $(tr '\\0' ' ' < $p/cmdline)";; esac
+          case "$(readlink $p/exe 2>/dev/null)" in *chrome-headless-shell) echo "PROC $(grep -E '^(Uid|Gid|Seccomp|NoNewPrivs|CapEff|CapPrm|CapBnd):' $p/status | tr -s '\\t\\n' '  ') $(tr '\\0' ' ' < $p/cmdline)";; esac
         done
+        echo ROOT $(awk '$5=="/" {print $6}' /proc/self/mountinfo)
         echo LISTEN; cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | awk '$4=="0A" {print $2}'`);
     } finally {
       await browser.close();
@@ -93,17 +94,19 @@ describe("the browser renderer container", () => {
     const processes = report.split("\n").filter((line) => line.startsWith("PROC"));
     const main = processes.find((line) => line.includes("--user-data-dir=") && line.includes("--remote-debugging-pipe"));
     assert.ok(main, report);
-    assert.doesNotMatch(report, /--no-sandbox\b|--disable-setuid-sandbox|--remote-debugging-port|--no-zygote\s/);
-    const renderers = processes.filter((line) => line.includes("--type=renderer"));
-    assert.ok(renderers.length > 0, report);
-    const NAMESPACE = { userns: /userns=(\S+)/, netns: /netns=(\S+)/ };
-    const ns = (kind, line) => NAMESPACE[kind].exec(line)[1];
-    for (const line of renderers) {
-      assert.match(line, /Seccomp:\s+2/, `a renderer runs under Chromium's seccomp-bpf sandbox: ${line}`);
-      assert.notEqual(ns("userns", line), ns("userns", main), "a renderer runs in its own user namespace");
-      assert.notEqual(ns("netns", line), ns("netns", main), "a renderer has its own, empty network namespace");
+    assert.match(main, /--no-sandbox\b/);
+    assert.doesNotMatch(report, /--remote-debugging-port/);
+    assert.ok(processes.some((line) => line.includes("--type=renderer")), report);
+    for (const line of processes) {
+      assert.match(line, /Uid:\s+10042\s+10042\s+10042\s+10042\b/, line);
+      assert.match(line, /Gid:\s+10042\s+10042\s+10042\s+10042\b/, line);
+      assert.match(line, /NoNewPrivs:\s+1\b/, line);
+      assert.match(line, /Seccomp:\s+2\b/, `the container's seccomp filter applies to every Chromium process: ${line}`);
+      assert.match(line, /CapEff:\s+0+\s/, line);
+      assert.match(line, /CapPrm:\s+0+\s/, line);
+      assert.match(line, /CapBnd:\s+0+\s/, line);
     }
-    for (const line of processes) assert.match(line, /NoNewPrivs:\s+1/);
+    assert.match(report, /^ROOT ro\b/m, report);
     const listening = report.split("LISTEN")[1].trim().split(/\s+/).filter(Boolean);
     const ports = new Set(listening.map((address) => Number.parseInt(address.split(":").pop(), 16)));
     assert.ok(ports.has(9222), report);
