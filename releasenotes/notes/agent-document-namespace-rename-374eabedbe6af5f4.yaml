@@ -2,8 +2,8 @@
 # area: documents
 operators:
   - >
-    Documents the agent writes are now filed under a new name prefix. Once this
-    release is live on an environment, rename the earlier ones with the two
-    namespace backfill scripts (the app database, then the jobs database), then
-    re-index any published agent document the search index still holds under
-    the old name. The runbook for the brand-free stored names has the steps.
+    Documents the agent writes are now filed under a new name prefix, and the
+    deploy renames the earlier ones itself once every workload runs the new
+    release. If the search index still holds a published agent document under
+    the old name afterwards, re-index that document. The runbook for the
+    brand-free stored names has the check.
