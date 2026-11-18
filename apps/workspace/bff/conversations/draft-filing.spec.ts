@@ -37,6 +37,14 @@ vi.mock('@/lib/documents/agent-document', () => ({
   fileAgentDocumentDraft: vi.fn(),
 }))
 
+vi.mock('@/lib/documents/agent-file', () => ({
+  fileAgentFileDraft: vi.fn(),
+}))
+
+vi.mock('@/lib/conversations/draft-file', () => ({
+  readConversationDraftBytes: vi.fn(),
+}))
+
 import { findConversationInOrg } from '@/lib/conversations/repository'
 import { readConversationDraft } from '@/lib/conversations/draft-preview'
 import {
@@ -45,6 +53,9 @@ import {
   normalizeDraftPath,
 } from '@/lib/conversations/draft-filing'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
+import { fileAgentFileDraft } from '@/lib/documents/agent-file'
+import { readConversationDraftBytes } from '@/lib/conversations/draft-file'
+import { draftFileType } from '@/lib/conversations/draft-media'
 import {
   DOCUMENT_LIST_LIMIT,
   findDocumentAuthoredByRef,
@@ -77,9 +88,11 @@ beforeEach(() => {
   vi.mocked(findConversationInOrg).mockResolvedValue(conversation())
   vi.mocked(readConversationDraft).mockResolvedValue({
     path: 'entwuerfe/aktenvermerk.md',
+    encoding: 'utf-8',
     content: '# Aktenvermerk\n',
     version: 2,
     bytes: 16,
+    mediaType: 'text/markdown',
   })
   vi.mocked(findDocumentAuthoredByRef).mockResolvedValue(null)
   vi.mocked(listProjectDocuments).mockResolvedValue([])
@@ -180,5 +193,69 @@ describe('fileConversationDraft — the same-name veto scans every page', () => 
 
     expect(listProjectDocuments).toHaveBeenCalledTimes(1)
     expect(fileAgentDocumentDraft).toHaveBeenCalled()
+  })
+})
+
+describe('fileConversationDraft — a file a script made', () => {
+  const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+  beforeEach(() => {
+    vi.mocked(readConversationDraftBytes).mockResolvedValue({
+      path: 'drafts/flaechen.xlsx',
+      filename: 'flaechen.xlsx',
+      type: draftFileType('drafts/flaechen.xlsx'),
+      bytes: new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
+      etag: '"abc"',
+    })
+    vi.mocked(fileAgentFileDraft).mockResolvedValue({
+      documentId: DOC,
+      version: { id: VERSION, state: 'draft' } as DocumentVersion,
+      alreadyFiled: false,
+    })
+  })
+
+  it('files the bytes as an agent file in the reader’s session, never as Markdown', async () => {
+    const filed = await fileConversationDraft(session, 'conv-1', {
+      path: '/drafts/flaechen.xlsx',
+      title: 'Flächenaufstellung',
+    })
+
+    expect(filed).toMatchObject({ documentId: DOC, versionId: VERSION, folderName: 'Berichte' })
+    expect(readConversationDraftBytes).toHaveBeenCalledWith(session, 'conv-1', 'drafts/flaechen.xlsx')
+    expect(readConversationDraft).not.toHaveBeenCalled()
+    expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
+    const call = vi.mocked(fileAgentFileDraft).mock.calls[0][0]
+    expect(call).toMatchObject({
+      contentType: XLSX,
+      filename: 'flaechen.xlsx',
+      title: 'Flächenaufstellung',
+      originConversationId: 'conv-1',
+      ref: filingReference('conv-1', '/drafts/flaechen.xlsx'),
+    })
+    expect(call).not.toHaveProperty('actingHuman', false)
+  })
+
+  it('files an SVG the store kept as text through the file path too', async () => {
+    vi.mocked(readConversationDraftBytes).mockResolvedValue({
+      path: 'drafts/schnitt.svg',
+      filename: 'schnitt.svg',
+      type: draftFileType('drafts/schnitt.svg'),
+      bytes: new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+      etag: '"svg"',
+    })
+
+    await fileConversationDraft(session, 'conv-1', { path: '/drafts/schnitt.svg' })
+
+    expect(vi.mocked(fileAgentFileDraft).mock.calls[0][0]).toMatchObject({ contentType: 'image/svg+xml' })
+  })
+
+  it('refuses a CSV before reading anything, and says why', async () => {
+    const failure = await fileConversationDraft(session, 'conv-1', { path: '/drafts/tabelle.csv' }).catch(
+      (error: unknown) => error,
+    )
+
+    expect(failure).toMatchObject({ status: 422, details: { reason: 'not-fileable', format: 'csv' } })
+    expect(readConversationDraftBytes).not.toHaveBeenCalled()
+    expect(fileAgentFileDraft).not.toHaveBeenCalled()
   })
 })

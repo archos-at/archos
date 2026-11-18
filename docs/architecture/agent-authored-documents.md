@@ -680,6 +680,16 @@ anything else or with a different content type.
 - **No new dependency.** pdf-lib was the obvious tool for the PDF and is not in the
   workspace; the incremental writer the diagram PDF already used was extended to
   cross-reference streams instead, with pdf.js as the oracle in the specs.
+- **A person files one from the chat** with the card's „Ins Projekt ablegen“
+  (`POST /api/conversations/{id}/draft/file`). `fileConversationDraft`
+  (`apps/workspace/bff/conversations/draft-filing.ts`) picks the path by the
+  file's extension (`draft-media.ts`): a file type goes through
+  `fileAgentFileDraft`, the function behind `create_file`, in the person's
+  session; Markdown keeps `fileAgentDocumentDraft`; CSV and other text are refused
+  with `422` and `details.reason: not-fileable` before anything is read. An SVG the
+  working directory kept as text is filed as a file too. The card, its preview
+  (`/draft/rendition`, Gotenberg for Office) and its download (`/draft/download`):
+  [agent-made-files-ux.md](../design/agent-made-files-ux.md).
 
 ## Open questions
 
