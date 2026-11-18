@@ -30,6 +30,8 @@ import { LEGACY_API_TIER, LEGACY_CHAT_TIER } from "./src/app/tier-names";
 import { installFrontend } from "./src/app/frontend";
 import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
+import { installBrowserRenderer, installBrowserRendererScaling } from "./src/app/browser-renderer";
+import { installCodeRunner, installCodeRunnerScaling } from "./src/app/code-runner";
 import { installPublicSourceFetcher } from "./src/app/public-source-fetcher";
 import { installClamAV } from "./src/app/clamav";
 import { installWorkers, syncBaseCorpusAfterRollout } from "./src/app/workers";
@@ -150,6 +152,12 @@ const clamav = cfg.malwareScan.enabled
   : undefined;
 const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
 const publicSourceFetcher = installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
+const browserRenderer = cfg.browserRenderer.enabled
+  ? installBrowserRenderer(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : [])
+  : undefined;
+const codeRunner = cfg.codeRunner.enabled
+  ? installCodeRunner(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : [], browserRenderer?.addr)
+  : undefined;
 const wiring: AppWiring = {
   cfg,
   namespace,
@@ -159,6 +167,7 @@ const wiring: AppWiring = {
   seaweedPublicEndpoint: seaweed.publicEndpoint,
   gotenbergUrl: gotenberg?.url,
   malwareScanUrl: clamav?.url,
+  codeRunnerUrl: codeRunner?.url,
   qdrantUrl: qdrant.url,
   dsn: postgres.dsn,
   imagePullSecrets: pullSecret ? [{ name: PULL_SECRET_NAME }] : [],
@@ -238,6 +247,13 @@ const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
 ]);
 
 const keda = cfg.keda.install ? installKeda(provider) : undefined;
+
+if (codeRunner) {
+  installCodeRunnerScaling(cfg, provider, namespace, codeRunner, keda ? [keda] : []);
+}
+if (browserRenderer) {
+  installBrowserRendererScaling(cfg, provider, namespace, browserRenderer, keda ? [keda] : []);
+}
 
 const hatchetQueueAuth = installHatchetQueueAuth(wiring, backgroundWorkPg.scalerDsn, [
   ...(keda ? [keda] : []),
@@ -430,6 +446,8 @@ export const deployedImages = {
   frontend: frontendImage(cfg),
   web: webImage(cfg),
   cms: cmsImage(cfg.images, cfg.cms.imageOverride),
+  "code-runner": cfg.codeRunner.image,
+  "browser-renderer": cfg.browserRenderer.image,
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
 export const bffJobsDeployment = bffJobs.deployment.metadata.name;

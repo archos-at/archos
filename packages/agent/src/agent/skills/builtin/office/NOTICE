@@ -1,0 +1,23 @@
+The office skills (office-files, office-word, office-excel, office-powerpoint,
+office-pdf-charts) and their examples are our own text and code.
+
+They learned from these sources, read on 2026-11-18; no text or code was copied:
+
+- Anthropic's document skills docx, xlsx, pptx and pdf,
+  https://github.com/anthropics/skills (skills/docx, skills/xlsx, skills/pptx,
+  skills/pdf), Apache License 2.0. Taken as ideas and rewritten for a
+  JavaScript sandbox without Python, LibreOffice, a shell or a network: the
+  library pitfalls of docx and pptxgenjs (dual table widths, clear shading,
+  numbering instead of typed bullets, styled heading levels, hex colours
+  without a hash, fresh option objects, native charts and the stacked-label
+  position), filling a template by editing word/document.xml with placeholders
+  split across runs, spreadsheet rules (formulas over typed results, inputs in
+  their own cells, functions every Excel has, a format on every formula cell,
+  the template's conventions first), deck rules (one message per slide, type
+  sizes, no text overflow), the content check for leftover placeholders, and
+  filling PDF form fields after listing them. Where they recalculate or render
+  with LibreOffice, these skills compute every result in the run and read the
+  file back instead.
+- pstack by Lauren Tan, https://github.com/cursor/plugins/tree/main/pstack/skills,
+  MIT License. Taken as structure only: a description that says when to use the
+  skill, and short, focused skills instead of one long one.

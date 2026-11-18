@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { dump } from "js-yaml";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LOG_SHIPPER } from "../config/observability";
+import { BACKFILL_POD } from "../constants";
 import { podLogs } from "./log-shipper";
 import { containerLogs, kubernetesEvents, posthogLogs, SHIPPER_RECEIVER, WITHHELD } from "./otel-collector";
 
@@ -122,6 +123,11 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
       ...Array.from({ length: 400 }, (_, i) => cri("stdout", `GET /page/${i} 200`)),
       ...Array.from({ length: 50 }, (_, i) => cri("stdout", `WARN cache miss ${i}`)),
     ]);
+    podLog(root, "app", `${BACKFILL_POD}-after-f11c384a-4q5jw`, "lanes", [
+      ...Array.from({ length: 40 }, (_, i) =>
+        cri("stdout", `{"event":"backfill.count","backfill":"lanes","store":"s${i}","before":0,"written":0,"after":0}`),
+      ),
+    ]);
     podLog(root, "app", "api-5c-xyz", "api", [cri("stderr", "Traceback: office text from the API")]);
     podLog(root, "app", "otel-collector-1-xyz", "collector", [cri("stderr", "ERROR exporting failed")]);
     podLog(root, "app", "main-pg-1", "postgres", [cri("stderr", "ERROR duplicate key value")]);
@@ -151,7 +157,10 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
     );
     shipped = await waitFor(
       out,
-      (got) => got.some((r) => String(r.body).includes("slow query")) && got.some((r) => String(r.body).includes("cache miss 49")),
+      (got) =>
+        got.some((r) => String(r.body).includes("slow query")) &&
+        got.some((r) => String(r.body).includes("cache miss 49")) &&
+        got.filter((r) => String(r.body).includes('"backfill":"lanes"')).length === 40,
     );
   }, 20_000);
 
@@ -202,6 +211,13 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
     expect(LOG_SHIPPER.infoSamplePercent).toBe(10);
     expect(info).toBeGreaterThan(10);
     expect(info).toBeLessThan(100);
+  });
+
+  it("keeps every info line of a backfill pod, which carries the deploy's counts", () => {
+    const backfill = shipped.filter((r) => String(r.resource["k8s.pod.name"]).startsWith(`${BACKFILL_POD}-`));
+    expect(backfill).toHaveLength(40);
+    expect(backfill.every((r) => r.severityText === "info")).toBe(true);
+    expect(backfill.every((r) => !("sampling.priority" in r.attributes))).toBe(true);
   });
 
   it("reads nothing from an instrumented service, the collector, a noisy store or another namespace", () => {

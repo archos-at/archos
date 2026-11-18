@@ -40,8 +40,10 @@ describe('document lifecycle JSON Schema', () => {
     const options = node.oneOf as Array<{ properties: { op: { const: string } } }>
     expect(options.map((option) => option.properties.op.const).sort()).toEqual([
       'create',
+      'create_file',
       'submit',
       'update',
+      'update_file',
     ])
   })
 

@@ -65,6 +65,26 @@ describe('GET /api/conversations/[id]/draft', () => {
     expect(init.headers['x-internal-token']).toBe('test-token')
   })
 
+  it('answers a binary file’s facts without its bytes', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ path: '/drafts/flaechen.xlsx', encoding: 'base64', bytes: 9120, version: 2 }),
+    })
+
+    const res = await get('?path=%2Fdrafts%2Fflaechen.xlsx')
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({
+      path: '/drafts/flaechen.xlsx',
+      encoding: 'base64',
+      bytes: 9120,
+      version: 2,
+      mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+  })
+
   it('answers 404 without addressing the backend when the reader may not see the conversation', async () => {
     requireResourceAccessMock.mockRejectedValue(new NotFoundError())
 

@@ -6,7 +6,8 @@ name: Promote to prod
 #   1. pick the commit: the input, or the newest commit on develop's
 #      first-parent line whose `CI OK` passed and that staging ran (the commit
 #      status `deploy/staging`, which deploy.yml sets after its smoke check);
-#   2. check GHCR has its images (verify-image-tag.sh), the CMS's too when
+#   2. refuse it while it carries a switch whose expand prod does not run
+#      (ci/expand_switch.py), and check GHCR has its images (verify-image-tag.sh), the CMS's too when
 #      prod runs the CMS;
 #   3. branch `release/promote-<short>` from it and merge `origin/prod` into it
 #      with `-s ours`: the tree is develop's, the history joins prod's;
@@ -106,6 +107,12 @@ jobs:
           echo "BRANCH=release/promote-${sha:0:9}" >> "$GITHUB_ENV"
           echo "promoting $(git log -1 --format='%h %s' "$sha")"
 
+      # A switch (deploy/rollout/switches/) ships only after prod runs its
+      # expand: a promotion carrying both would switch the writers while the
+      # old pods still roll. ci/expand_switch.py; docs/deployment/expand-and-switch.md.
+      - name: Refuse a switch whose expand prod does not run yet
+        run: python3 ci/expand_switch.py promotion "$SHA" origin/prod
+
       - name: Refuse a branch that exists
         run: |
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
@@ -143,7 +150,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cms="$(sed -n 's/^  [a-z-]*:cmsEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
-          CMS_ENABLED="$cms" deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
+          runner="$(sed -n 's/^  [a-z-]*:codeRunnerEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          browser="$(sed -n 's/^  [a-z-]*:browserRendererEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          CMS_ENABLED="$cms" CODE_RUNNER_ENABLED="$runner" BROWSER_RENDERER_ENABLED="$browser" \
+            deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
 
       - name: Push
         run: git push -q origin "HEAD:refs/heads/$BRANCH"

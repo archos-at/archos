@@ -1,31 +1,27 @@
 import 'server-only'
 import { z } from 'zod'
-import { getBackendUrl } from '@/lib/backend-proxy'
-import { InternalServiceUnavailableError, internalServiceHeaders } from '@/lib/internal-auth'
-import {
-  BadRequestError,
-  NotFoundError,
-  PayloadTooLargeError,
-  ServiceUnavailableError,
-  UpstreamError,
-} from '@/lib/api/errors'
+import { UpstreamError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireResourceAccess } from '@/lib/sharing/access'
+import { fetchDraftFromBackend } from './draft-backend'
+import { draftFileType } from './draft-media'
 
-const DRAFT_READ_TIMEOUT_MS = 10_000
-
-const backendDraftSchema = z.object({
+const textDraftSchema = z.object({
   path: z.string(),
   content: z.string(),
   version: z.number().int().nonnegative(),
 })
 
-export interface ConversationDraftPreview {
-  path: string
-  content: string
-  version: number
-  bytes: number
-}
+const binaryDraftSchema = z.object({
+  path: z.string(),
+  encoding: z.literal('base64'),
+  bytes: z.number().int().nonnegative(),
+  version: z.number().int().nonnegative(),
+})
+
+export type ConversationDraftPreview =
+  | { path: string; encoding: 'utf-8'; content: string; version: number; bytes: number; mediaType: string }
+  | { path: string; encoding: 'base64'; version: number; bytes: number; mediaType: string }
 
 export async function readConversationDraft(
   session: AuthorizedSession,
@@ -33,57 +29,22 @@ export async function readConversationDraft(
   path: string,
 ): Promise<ConversationDraftPreview> {
   await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
+  const response = await fetchDraftFromBackend(conversationId, path, { raw: false })
+  const body: unknown = await response.json().catch(() => null)
 
-  const trimmed = path.trim()
-  if (!trimmed || trimmed.length > 500) {
-    throw new BadRequestError('Invalid draft path')
+  const binary = binaryDraftSchema.safeParse(body)
+  if (binary.success) {
+    const { path: shownPath, bytes, version } = binary.data
+    return { path: shownPath, encoding: 'base64', bytes, version, mediaType: draftFileType(shownPath).contentType }
   }
-  const stripped = trimmed.replace(/^\/+/, '')
-  if (!stripped) {
-    throw new BadRequestError('Invalid draft path')
-  }
-  const encodedPath = stripped
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/')
-
-  let tokenHeaders: Record<string, string>
-  try {
-    tokenHeaders = internalServiceHeaders(getBackendUrl())
-  } catch (error) {
-    if (error instanceof InternalServiceUnavailableError) throw new ServiceUnavailableError('Draft preview is unavailable')
-    throw error
-  }
-
-  let response: Response
-  try {
-    response = await fetch(
-      `${getBackendUrl()}/v1/drafts/${encodeURIComponent(conversationId)}/${encodedPath}`,
-      {
-        method: 'GET',
-        headers: tokenHeaders,
-        signal: AbortSignal.timeout(DRAFT_READ_TIMEOUT_MS),
-      },
-    )
-  } catch {
-    throw new UpstreamError('Draft preview is unavailable')
-  }
-
-  if (!response.ok) {
-    if (response.status === 404) throw new NotFoundError()
-    if (response.status === 400) throw new BadRequestError('Invalid draft path')
-    if (response.status === 413) throw new PayloadTooLargeError()
-    throw new UpstreamError(`Draft preview failed with ${response.status}`)
-  }
-
-  const parsed = backendDraftSchema.safeParse(await response.json().catch(() => null))
-  if (!parsed.success) {
-    throw new UpstreamError('Draft preview answered unexpectedly')
-  }
+  const text = textDraftSchema.safeParse(body)
+  if (!text.success) throw new UpstreamError('Draft preview answered unexpectedly')
   return {
-    path: parsed.data.path,
-    content: parsed.data.content,
-    version: parsed.data.version,
-    bytes: Buffer.byteLength(parsed.data.content, 'utf8'),
+    path: text.data.path,
+    encoding: 'utf-8',
+    content: text.data.content,
+    version: text.data.version,
+    bytes: Buffer.byteLength(text.data.content, 'utf8'),
+    mediaType: draftFileType(text.data.path).contentType,
   }
 }
