@@ -12,6 +12,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
+import { DockerfileParser } from 'dockerfile-ast'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const UI_ROOT = path.resolve(import.meta.dirname, '..')
@@ -70,9 +71,19 @@ describe('the bff-jobs slice bundle', () => {
   })
 
   it('is built into the image and copied to where the runner imports it from', () => {
-    const dockerfile = readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
+    const instructions = DockerfileParser.parse(
+      readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
+    ).getInstructions()
+    const runs = instructions.filter((i) => i.getKeyword() === 'RUN').map((i) => i.getArgumentsContent())
+    const copies = instructions
+      .filter((i) => i.getKeyword() === 'COPY')
+      .map((i) => ({
+        flags: i.getFlags().map((flag) => flag.getName()),
+        from: i.getFlags().find((flag) => flag.getName() === 'from')?.getValue(),
+        paths: i.getArguments().map((a) => a.getValue()),
+      }))
 
-    expect(dockerfile).toMatch(/^RUN bun scripts\/build-jobs-bundle\.ts$/m)
-    expect(dockerfile).toMatch(/^COPY --from=builder \S+ \/app\/dist-jobs \.\/dist-jobs$/m)
+    expect(runs).toContain('bun scripts/build-jobs-bundle.ts')
+    expect(copies).toContainEqual({ flags: ['from', expect.any(String)], from: 'builder', paths: ['/app/dist-jobs', './dist-jobs'] })
   })
 })

@@ -4,7 +4,6 @@ apps/workspace/bff/db/integration-suite-coverage.spec.ts
 apps/workspace/bff/proxy/server-js-runtime-copies.spec.ts
 apps/workspace/bff/proxy/ws-teardown.spec.ts
 apps/workspace/bff/utils.spec.ts
-apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
 apps/workspace/tests/brand-literals.spec.ts
 apps/workspace/tests/hover-fill.spec.ts
