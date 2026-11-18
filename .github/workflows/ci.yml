@@ -36,6 +36,7 @@ jobs:
       migrations: ${{ steps.filter.outputs.migrations || 'false' }}
       sast: ${{ steps.filter.outputs.sast || 'false' }}
       hatchet: ${{ steps.filter.outputs.hatchet || 'false' }}
+      runner_e2e: ${{ steps.filter.outputs.runner_e2e || 'false' }}
       skills: ${{ steps.filter.outputs.skills || 'false' }}
       build: ${{ steps.images.outputs.build }}
       images: ${{ steps.images.outputs.images }}
@@ -257,6 +258,21 @@ jobs:
             exit 0
           fi
           python3 ci/migration_contract.py "$BASE_SHA" "$HEAD_SHA"
+      - name: A switch merges only once prod runs its expand
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA...$HEAD_SHA" -- deploy/rollout/switches/; then
+            echo "This pull request declares no switch."
+            exit 0
+          fi
+          . ci/git_auth.sh
+          ci/unshallow.sh --filter=blob:none
+          git fetch -q --filter=blob:none origin prod:refs/remotes/origin/prod
+          python3 ci/expand_switch.py pr "$BASE_SHA" "$HEAD_SHA" origin/prod
 
   semgrep:
     name: SAST (Semgrep, new findings)
@@ -612,6 +628,41 @@ jobs:
         run: task pkg:install
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - name: Install the code runner's own toolchain
+        run: task runner:install
+      - name: Let Chromium's sandbox create user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: browser-renderer (allowlist and hardened container suites)
+        run: task browser:test
+      - name: code-runner (workerd isolate suite)
+        run: task runner:test
+
+  runner-e2e:
+    name: Code runner end to end (execute tool)
+    needs: changes
+    if: needs.changes.outputs.runner_e2e == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - name: Install the code runner's own toolchain
+        run: task runner:install
+      - name: execute and file_draft against the real runner
+        run: task runner:e2e
 
   hatchet:
     name: Hatchet engine tests
@@ -758,7 +809,7 @@ jobs:
 
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, runner-e2e, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -798,7 +849,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:

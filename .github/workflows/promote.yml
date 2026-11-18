@@ -73,6 +73,12 @@ jobs:
           echo "BRANCH=release/promote-${sha:0:9}" >> "$GITHUB_ENV"
           echo "promoting $(git log -1 --format='%h %s' "$sha")"
 
+      # A switch (deploy/rollout/switches/) ships only after prod runs its
+      # expand: a promotion carrying both would switch the writers while the
+      # old pods still roll. ci/expand_switch.py; docs/deployment/expand-and-switch.md.
+      - name: Refuse a switch whose expand prod does not run yet
+        run: python3 ci/expand_switch.py promotion "$SHA" origin/prod
+
       - name: Refuse a branch that exists
         run: |
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
@@ -110,7 +116,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cms="$(sed -n 's/^  [a-z-]*:cmsEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
-          CMS_ENABLED="$cms" deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
+          runner="$(sed -n 's/^  [a-z-]*:codeRunnerEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          browser="$(sed -n 's/^  [a-z-]*:browserRendererEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          CMS_ENABLED="$cms" CODE_RUNNER_ENABLED="$runner" BROWSER_RENDERER_ENABLED="$browser" \
+            deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
 
       - name: Push
         run: git push -q origin "HEAD:refs/heads/$BRANCH"

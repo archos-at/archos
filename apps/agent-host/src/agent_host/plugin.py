@@ -33,10 +33,10 @@ from nat.front_ends.fastapi.fastapi_front_end_plugin_worker import FastApiFrontE
 from nat.front_ends.fastapi.fastapi_front_end_plugin_worker import FastApiFrontEndPluginWorkerBase
 from nat.runtime.session import SessionManager
 
+from .chat_auth import configure_websocket_auth
+from .chat_registry import drain_chat_turns
+from .chat_registry import send_stage
 from .chat_socket import chat_socket_endpoint
-from .chat_socket import configure_websocket_auth
-from .chat_socket import drain_chat_turns
-from .chat_socket import send_stage
 from .health import install_health_route
 from .inflight import InFlightMiddleware
 from .jobs.connection_manager import get_connection_manager

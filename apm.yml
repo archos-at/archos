@@ -10,6 +10,7 @@ dependencies:
   apm:
     - ./skills/verify-on-dev
     - ./skills/querying-product-analytics
+    - ./skills/updating-tickets
 
     - mattpocock/skills/skills/productivity/writing-for-agents#5863806dd4e15c63174bee4e7515a4256792ecfa
 

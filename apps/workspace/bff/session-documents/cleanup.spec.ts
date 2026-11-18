@@ -142,6 +142,7 @@ describe('purgeCollectionChunks', () => {
       collectionName: CONVERSATION_ID,
       filename,
       authoredBy: 'user',
+      authoredByProducer: null,
       publishedVersionId: null,
     })
     if (!value) throw new Error('fixture is not a user-authored row')
@@ -174,6 +175,7 @@ describe('purgeCollectionChunks', () => {
         collectionName: CONVERSATION_ID,
         filename: 'a.pdf',
         authoredBy: 'agent',
+        authoredByProducer: null,
         publishedVersionId: null,
       })
     ).toBeNull()

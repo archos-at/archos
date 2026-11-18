@@ -8,12 +8,13 @@ testpaths = [
     "packages/ris-adapter/tests",
     "packages/tavily-web-search/tests",
 ]
-addopts = "--import-mode=importlib -m 'not live'"
+addopts = "--import-mode=importlib -m 'not live and not code_runner'"
 pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/public-sources/testing", "packages/agent/tests/testing"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
   "live: needs a real model behind OPENROUTER_API_KEY; deselected unless -m live",
+  "code_runner: starts the real code runner; deselected unless -m code_runner",
 ]
 
 

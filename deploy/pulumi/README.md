@@ -29,7 +29,7 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 - The provider's **StorageClass** name — `premium` (default, 3 replicas),
   `standard` (2), or `single-replica` (1). Confirm with `kubectl get storageclass`.
   (`lightbits` is the VolumeSnapshotClass, not a StorageClass.)
-- Images published to a registry (CI pushes them to GHCR and tags all three
+- Images published to a registry (CI pushes them to GHCR and tags every one
   `sha-<commit>` for every `develop` commit whose checks passed).
 
 ## Quick start
@@ -446,6 +446,16 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `cmsPgInstances` / `cmsPgStorageSize` | `1` / `5Gi` | `cms-pg`'s instances and volume |
 | 🔒 `cmsSecret` / `cmsAdminPassword` / `cmsPgPassword` / `cmsS3SecretKey` / `cmsWebsiteApiKey` / `cmsSocialHandoffApiKey` / `cmsRevalidateToken` / `cmsPreviewSecret` | HMACs of `pgAppPassword` | Each defaults to its own one-way HMAC, so the CMS needs no new secret; set one to rotate it alone. `cmsAdminEmail` defaults to `letsEncryptEmail` |
 | `cmsPgBackupsEnabled` / `cmsPgBackupEndpoint` / `cmsPgBackupAccessKey` / 🔒 `cmsPgBackupSecretKey` / `cmsPgBackupBucket` / `cmsPgBackupRetention` / `cmsPgBackupSchedule` / `cmsPgBackupEncryption` | `false` / — / — / — / `cms-pg-backups` / `30d` / `0 15 2 * * *` / unset | `cms-pg`'s PITR archive, to object storage outside the cluster, as the `backgroundWorkPg*` keys. Turn it on before the first post is written there |
+| **The code runner** (`apps/code-runner`): the `code-runner` Deployment, Service, PDB and KEDA ScaledObject behind the agent's `execute` tool, and the `code-runner-agent-only` NetworkPolicy. Image `code-runner`, built by CI from `apps/code-runner`. Off by default | | |
+| `codeRunnerEnabled` | `false` | Deploy the runner and set `CODE_RUNNER_URL` on the chat tier and `agent-worker` |
+| `codeRunnerImage` | `<imageRegistry>/code-runner:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
+| `codeRunnerMinReplicas` / `codeRunnerMaxReplicas` | `2` / `10` | The ScaledObject's bounds |
+| `codeRunnerCpuTargetPercent` / `codeRunnerMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| `browserRendererEnabled` | `false` | Needs `codeRunnerEnabled`. Deploy the `browser-renderer` Deployment (headless Chromium, `apps/browser-renderer`), Service, KEDA ScaledObject and the `browser-renderer-code-runner-only` NetworkPolicy (ingress from `code-runner` only, no egress), open the runner's egress to it, and set `BROWSER_RENDERER_ADDR` on the runner. No PDB. The container runs `seccompProfile: Unconfined` so Chromium's sandbox can create user namespaces ([runbook](../../docs/deployment/code-runner-runbook.md#the-browser-puppeteer-in-a-run)) |
+| `browserRendererImage` | `<imageRegistry>/browser-renderer:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
+| `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
+| `browserRendererSessionsPerPod` | `2` | Browsers one pod runs at once; the next run is answered `busy` |
+| `browserRendererCpuTargetPercent` / `browserRendererMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
 | **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
 | `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
 | `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |

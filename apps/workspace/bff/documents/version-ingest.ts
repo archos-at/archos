@@ -4,7 +4,7 @@ import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { resolvePeople } from '@/lib/sharing/directory'
-import { isAgentDocumentFilename } from './agent-namespace'
+import { isNamespacedAgentDocument } from './agent-namespace'
 import { collectionFileRef, purgeIngestedChunks } from './collection-file-ref'
 import type { DispatchDocumentResult } from './document-dispatch'
 import { resolveDocumentFolderPath } from './folder-path'
@@ -60,7 +60,7 @@ export async function redispatchPublishedVersion(
 ): Promise<DispatchDocumentResult> {
   const { dispatchDocument, AgentAuthoredDocumentNotIndexableError } = await import('./document-dispatch')
   const version = await findPublishedVersion(document.id, organizationId)
-  if (!version || !isAgentDocumentFilename(document.filename)) {
+  if (!version || !isNamespacedAgentDocument(document)) {
     throw new AgentAuthoredDocumentNotIndexableError(document.id)
   }
   return dispatchDocument({

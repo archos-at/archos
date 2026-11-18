@@ -6,7 +6,7 @@ import { getOrganizationDisplayName } from '@/lib/organizations/service'
 import { AGENT_DOCUMENT_MEDIA_TYPE, renderAgentDocumentMarkdown } from './agent-document-markdown'
 import { resolveDocumentBranding } from './branding'
 import { contentDigest } from './content-digest'
-import { fileGeneratedDocument } from './generated'
+import { fileGeneratedDocument, type FiledGeneratedDocument } from './generated'
 import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import { createDocumentVersion } from './lifecycle'
@@ -57,6 +57,21 @@ export async function fileAgentDocumentDraft(
     },
   })
 
+  return recordGeneratedDraft(input, filed, contentDigest(new TextEncoder().encode(input.content)))
+}
+
+export interface GeneratedDraftContext {
+  session: AuthorizedSession
+  request?: Request
+  actingHuman?: boolean
+  originConversationId?: string | null
+}
+
+export async function recordGeneratedDraft(
+  input: GeneratedDraftContext,
+  filed: FiledGeneratedDocument,
+  fallbackHash: string,
+): Promise<FiledAgentDocumentDraft> {
   const document = await findDocumentInOrg(filed.documentId, input.session.organizationId, internalRead('just-written'))
   if (!document) throw new NotFoundError('Document not found')
 
@@ -72,7 +87,7 @@ export async function fileAgentDocumentDraft(
     storageBucket: document.storageBucket,
     contentType: document.contentType,
     fileSize: document.fileSize,
-    contentHash: document.contentHash ?? contentDigest(new TextEncoder().encode(input.content)),
+    contentHash: document.contentHash ?? fallbackHash,
     request: input.request,
     actingHuman: input.actingHuman,
     originConversationId: input.originConversationId,

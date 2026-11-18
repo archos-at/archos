@@ -1,7 +1,6 @@
 {
   "apps/agent-host/src/agent_host/auth/jwt_validator.py": 4,
   "apps/agent-host/src/agent_host/auth/middleware.py": 6,
-  "apps/agent-host/src/agent_host/chat_socket.py": 7,
   "apps/agent-host/src/agent_host/conversation_bus.py": 3,
   "apps/agent-host/src/agent_host/drawings/dxf_pdf.py": 1,
   "apps/agent-host/src/agent_host/drawings/sheet.py": 1,
@@ -84,7 +83,7 @@
   "packages/agent/src/agent/drawings/site.py": 1,
   "packages/agent/src/agent/drawings/site_reading.py": 1,
   "packages/agent/src/agent/knowledge/already_read.py": 3,
-  "packages/agent/src/agent/knowledge/base.py": 5,
+  "packages/agent/src/agent/knowledge/base.py": 4,
   "packages/agent/src/agent/knowledge/document_metadata_engines.py": 8,
   "packages/agent/src/agent/knowledge/document_metadata_fields.py": 2,
   "packages/agent/src/agent/knowledge/document_metadata_records.py": 1,

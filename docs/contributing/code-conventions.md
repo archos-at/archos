@@ -241,6 +241,9 @@ finding:
 - a string holding a submodule's path: a patch target, an
   `importlib.import_module` path, a logger name. A docstring is prose and is
   not counted.
+- `from knowledge_layer.vector_store import name` where `_LAZY` lacks `name`:
+  it passes a local run that never reaches the import, then raises
+  `ImportError` in the pod. Add the name to `_LAZY` and `__all__`.
 
 When the surface exports the name, the finding names the import to write, as
 in `from knowledge_layer.search import RankedSearch`; when it does not, the

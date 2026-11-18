@@ -8,9 +8,9 @@ prod    ──(promotion PR, reviewers)──▶ deploy.yml ──▶ pulumi up 
 ```
 
 CI builds each image only when GHCR has no image with the same inputs, and tags
-all three images `sha-<commit>` once every check on the commit has passed
+every image (backend, frontend, web, cms, code-runner) `sha-<commit>` once every check on the commit has passed
 ([ci.md](../contributing/ci.md#images-and-deploys)). So every commit CI passed
-has all three images, every deploy pins all three to the commit it deploys, and
+has every image, every deploy pins every service to the commit it deploys, and
 a commit CI failed cannot be deployed by accident.
 
 - **State + secrets**: [Pulumi Cloud](https://app.pulumi.com). Stack state lives
@@ -177,7 +177,8 @@ sets it and checks `git diff origin/prod -- deploy/pulumi/Pulumi.prod.yaml`.
 `deploy.yml` pins one ref per service
 ([`resolve-image-refs.sh`](../../deploy/pulumi/scripts/resolve-image-refs.sh)):
 
-- after a green CI run, all three are the commit's `sha-<40-hex>` tag, which
+- after a green CI run, every service (the CMS's `cmsImage` and the code runner's
+  `grid-oib:codeRunnerImage` included) is the commit's `sha-<40-hex>` tag, which
   the workflow verifies GHCR has before it pins anything;
 - an operator rollback (dispatch with `imageTag`) pins all three to that tag,
   verified the same way;
@@ -233,7 +234,8 @@ Without `sha` it takes the newest commit on develop's first-parent line (of the
 last 60) with a green `CI OK` check run and the commit status `deploy/staging`,
 which the staging job sets on a CI-triggered deploy once the smoke check
 passed. The status exists from the first staging deploy after it was added; for
-older commits pass `sha`. Then it checks GHCR has the commit's images, branches
+older commits pass `sha`. It refuses a commit that carries a switch whose expand
+prod does not run yet ([expand-and-switch.md](expand-and-switch.md)). Then it checks GHCR has the commit's images, branches
 `release/promote-<short>`, merges `origin/prod` with `-s ours`, writes
 `Pulumi.prod.yaml`, pushes and opens `chore(release): promote develop <short> to
 prod` with the migrations and release notes the commit brings over prod. A

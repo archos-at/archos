@@ -104,8 +104,15 @@ class DocumentDraftCard(CardModel):
     type: Literal["document_draft"] = "document_draft"
     title: str = Field(min_length=1, description="The document's first heading, or its file name when it has none")
     path: str = Field(min_length=1, description="Path in the working directory, e.g. '/drafts/aktenvermerk.md'")
-    bytes: int = Field(ge=0, description="Size of the draft as stored, in UTF-8 bytes")
+    bytes: int = Field(ge=0, description="Size in bytes: UTF-8 for text, the file's own size for a binary file")
     version: int = Field(ge=1, description="How often this path has been written or edited in this conversation")
+    media_type: str | None = Field(
+        default=None,
+        description=(
+            "The file's media type when a script wrote it (Word, Excel, PowerPoint, PDF, CSV, SVG, PNG); "
+            "absent for a Markdown draft"
+        ),
+    )
     document_id: str | None = Field(
         default=None, description="The project document this draft was filed as; absent while it is unfiled"
     )

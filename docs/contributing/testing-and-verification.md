@@ -296,6 +296,11 @@ Selected without the key, it skips itself. Locally:
 OPENROUTER_API_KEY=… task be:eval:turn-shapes
 ```
 
+The `code_runner` marker is the same arrangement for the tests that start the
+real code runner (`apps/code-runner`) and drive the agent's `execute` tool
+against it: deselected by `addopts`, selected by `task runner:e2e`, run in CI's
+`runner-e2e` job. What it covers: [the runner's README](../../apps/code-runner/README.md#running-and-testing).
+
 `DEFAULT_MODEL` moves the model under test, the same way it moves the
 config's boot floor. In CI,
 [`turn-shapes-live.yml`](../../.github/workflows/turn-shapes-live.yml) runs

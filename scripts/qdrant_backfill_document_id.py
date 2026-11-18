@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 
@@ -23,7 +24,9 @@ def main(argv: list[str] | None = None) -> int:
         description="Give every Qdrant point that has only grid_document_id the key document_id."
     )
     parser.add_argument("physical", choices=["all", *(p.value for p in Physical)], help="Which physical collection.")
-    parser.add_argument("--apply", action="store_true", help="Write. Without it nothing is changed.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--apply", action="store_true", help="Write. Without it nothing is changed.")
+    mode.add_argument("--check", action="store_true", help="A dry run that exits 1 while any point is left.")
     parser.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE)
     args = parser.parse_args(argv)
     physicals = list(Physical) if args.physical == "all" else [Physical(args.physical)]
@@ -37,18 +40,23 @@ def main(argv: list[str] | None = None) -> int:
     for physical, collection in collections.items():
         count = backfill_document_ids(client, collection, apply=args.apply, page_size=args.page_size)
         disagree = document_id_mismatches(client, collection, page_size=args.page_size)
-        logger.info(
-            "%s (%s): %d with only the old key before, %d written, %d left, %d with two different values",
-            physical.value,
-            collection,
-            count.before,
-            count.written,
-            count.after,
-            disagree,
+        print(
+            json.dumps(
+                {
+                    "event": "backfill.count",
+                    "backfill": "qdrant-document-id",
+                    "mode": "apply" if args.apply else "check" if args.check else "dry-run",
+                    "store": f"{physical.value} ({collection})",
+                    "before": count.before,
+                    "written": count.written,
+                    "after": count.after,
+                    "disagree": disagree,
+                },
+                separators=(",", ":"),
+            ),
+            flush=True,
         )
-        failing += disagree + (count.after if args.apply else 0)
-    if not args.apply:
-        logger.info("Dry run: nothing was written. Re-run with --apply to write.")
+        failing += disagree + (count.after if args.apply or args.check else 0)
     return 1 if failing else 0
 
 

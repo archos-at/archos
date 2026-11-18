@@ -1335,6 +1335,15 @@
    "describe": "{\"name\":\"conversation-delete\",\"domain\":\"conversations\",\"summary\":\"Delete a conversation\",\"description\":\"Deletes a conversation and its messages for everyone in it, permanently. The answer is the same whether or not the id was real.\",\"annotations\":{\"title\":\"Delete a conversation\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "conversation-draft-download",
+   "domain": "conversations",
+   "summary": "Get the bytes of a file in a conversation’s working directory",
+   "description": "The raw bytes of one file in the conversation’s working directory (a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made, or a Markdown draft), as an attached resource (base64 `blob`) up to 5 MiB; `path` is the one the answer’s card names.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"conversation-draft-download\",\"domain\":\"conversations\",\"summary\":\"Get the bytes of a file in a conversation’s working directory\",\"description\":\"The raw bytes of one file in the conversation’s working directory (a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made, or a Markdown draft), as an attached resource (base64 `blob`) up to 5 MiB; `path` is the one the answer’s card names.\",\"annotations\":{\"title\":\"Get the bytes of a file in a conversation’s working directory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
+  },
+  {
    "name": "conversation-draft-file",
    "domain": "conversations",
    "summary": "File an unfiled draft into the project",
@@ -1351,6 +1360,15 @@
    "readOnly": true,
    "destructive": false,
    "describe": "{\"name\":\"conversation-draft-get\",\"domain\":\"conversations\",\"summary\":\"Read an unfiled draft ARCHOS wrote\",\"description\":\"One draft in the conversation’s working directory, to read before filing; `path` is the one the answer’s card names. To keep it: conversation-draft-file.\",\"annotations\":{\"title\":\"Read an unfiled draft ARCHOS wrote\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
+  },
+  {
+   "name": "conversation-draft-rendition-get",
+   "domain": "conversations",
+   "summary": "Read a Word, Excel or PowerPoint draft as a PDF",
+   "description": "The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"conversation-draft-rendition-get\",\"domain\":\"conversations\",\"summary\":\"Read a Word, Excel or PowerPoint draft as a PDF\",\"description\":\"The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.\",\"annotations\":{\"title\":\"Read a Word, Excel or PowerPoint draft as a PDF\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
   },
   {
    "name": "conversation-get",
@@ -2518,25 +2536,25 @@
    "conversation-create",
    "conversation-list",
    "conversation-delete",
-   "conversation-get",
-   "conversation-message-add",
-   "conversation-message-list",
-   "conversation-update",
-   "conversation-awaiting-get",
-   "conversation-mention-candidate-list",
-   "saved-search-update"
-  ],
-  "Unterhaltung teilen": [
-   "conversation-list",
-   "sharing-get",
-   "conversation-create",
-   "conversation-delete",
+   "conversation-draft-download",
    "conversation-get",
    "conversation-message-add",
    "conversation-message-list",
    "conversation-update",
    "conversation-awaiting-get",
    "conversation-mention-candidate-list"
+  ],
+  "Unterhaltung teilen": [
+   "conversation-list",
+   "sharing-get",
+   "conversation-create",
+   "conversation-delete",
+   "conversation-draft-download",
+   "conversation-get",
+   "conversation-message-add",
+   "conversation-message-list",
+   "conversation-update",
+   "conversation-awaiting-get"
   ],
   "": [
    "classification-evaluate",

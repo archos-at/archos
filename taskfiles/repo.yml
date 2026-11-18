@@ -57,7 +57,7 @@ tasks:
     desc: Check the release notes against the house rules, then reno's own lint (CI runs this on every PR)
     cmds:
       - task: release:lint:house
-      - if [ "$(git rev-parse --is-shallow-repository)" = true ]; then git fetch --unshallow --quiet; fi
+      - ci/unshallow.sh
       - '{{.RENO}} lint .'
 
   release:lint:house:

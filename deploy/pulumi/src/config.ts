@@ -9,6 +9,8 @@ import {
 import { type DnsConfig, loadDns } from "./config/dns";
 import { type DragonflyConfig, type RateLimitConfig, loadDragonfly } from "./config/dragonfly";
 import { type ImagesConfig, loadImages } from "./config/images";
+import { type BrowserRendererConfig, loadBrowserRenderer } from "./config/browser-renderer";
+import { type CodeRunnerConfig, loadCodeRunner } from "./config/code-runner";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { LOG_SHIPPER, type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
@@ -83,6 +85,10 @@ export interface DeployConfig {
   };
 
   gotenberg: GotenbergConfig;
+
+  codeRunner: CodeRunnerConfig;
+
+  browserRenderer: BrowserRendererConfig;
 
   geocoderUrl: string;
 
@@ -254,6 +260,7 @@ export function loadConfig(): DeployConfig {
     },
   );
 
+  const codeRunner = loadCodeRunner(cfg, images);
   const namespace = cfg.get("namespace") ?? objectName("namespace");
   if (namespace === LOG_SHIPPER.namespace) {
     throw new Error(
@@ -298,6 +305,9 @@ export function loadConfig(): DeployConfig {
     publicSourceFetcher: publicSourceFetcherConfig(cfg),
 
     ...loadWorkers(cfg),
+
+    codeRunner,
+    browserRenderer: loadBrowserRenderer(cfg, images, codeRunner.enabled),
 
     geocoderUrl: loadGeocoderUrl(cfg),
 

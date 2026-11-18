@@ -47,7 +47,7 @@ CI = load("ci.yml")
 JOBS = CI["jobs"]
 PLAN = JOBS["changes"]
 STEPS = {step["id"]: step for step in PLAN["steps"] if "id" in step}
-TIERS = ["backend", "workspace", "site", "cms", "infra", "packages", "sast", "hatchet", "skills"]
+TIERS = ["backend", "workspace", "site", "cms", "infra", "packages", "sast", "hatchet", "skills", "runner_e2e"]
 BUILD = json.dumps([{"name": "backend"}])
 
 
@@ -368,6 +368,29 @@ def test_the_skill_lockfile_is_audited_only_when_something_it_hashes_changed():
     assert audit["if"] == "needs.changes.outputs.skills == 'true'"
     assert {"skills/**", "apm.yml", "apm.lock.yaml", "Taskfile.yml"} <= set(filters["skills"])
     assert evaluate(PLAN["outputs"]["skills"], steps={"filter": {"outputs": {"skills": "true"}}}) == "true"
+
+
+def test_only_the_helper_unshallows_a_clone():
+    root = WORKFLOWS.parents[1]
+    sources = [
+        *WORKFLOWS.glob("*.yml"),
+        *(root / ".github" / "actions").rglob("*.yml"),
+        *(root / "ci").glob("*"),
+        *(root / "taskfiles").glob("*.yml"),
+        root / "Taskfile.yml",
+    ]
+    bare = [
+        f"{path.relative_to(root)}:{number}"
+        for path in sources
+        if path.is_file() and path.name != "unshallow.sh"
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if "--unshallow" in line
+    ]
+
+    assert bare == [], (
+        f"{bare} run `git fetch --unshallow`, which aborts on a clone an earlier step completed: "
+        "call ci/unshallow.sh instead"
+    )
 
 
 def test_semgrep_finds_its_own_merge_base_from_a_shallow_clone():

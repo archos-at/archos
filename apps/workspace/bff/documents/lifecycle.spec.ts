@@ -456,9 +456,9 @@ describe('ingestPublished — what publishing an agent document does to the inde
     expect(dispatchDocument).toHaveBeenCalled()
   })
 
-  it('refuses to index a row outside the piloti/ namespace, and still publishes it', async () => {
+  it('refuses to index a row of a producer that is never indexed, and still publishes it', async () => {
     vi.mocked(getAccessibleDocument).mockResolvedValue(
-      makeDocument({ ...agentDocument, filename: 'aktenvermerk-2026-09-01.md' }),
+      makeDocument({ ...agentDocument, authoredByProducer: 'deep_research', authoredByRefKind: 'agent_run' }),
     )
     vi.mocked(promoteVersionToPublished).mockResolvedValue({
       version: publishedVersion(),

@@ -488,6 +488,25 @@ apply_in() {
     exit 1
   }
 }
+# One registered SQL backfill through the runner the deploy Job uses, twice: the
+# first run must write (unless "any" is passed) and the second must find 0.
+run_backfill() {
+  local manifest="backfills/$2/backfill.json"
+  PATH="$PGBIN:$PATH" APP_MIGRATION_DATABASE_URL="postgresql://$OWNER@127.0.0.1:$PORT/$1" sh backfills/run-sql.sh "$2" test \
+    "backfills/$2/$(node -p "require('./$manifest').dryRun")" "backfills/$2/$(node -p "require('./$manifest').apply")"
+}
+run_backfill_twice() {
+  local first second
+  first="$(run_backfill "$1" "$2")" || { echo "$first" >&2; echo "FAIL: backfill $2 left rows on $1" >&2; exit 1; }
+  second="$(run_backfill "$1" "$2")" || { echo "$second" >&2; echo "FAIL: backfill $2 left rows on its second run on $1" >&2; exit 1; }
+  echo "$first" | grep '"event":"backfill.done"'
+  if [ "${3:-}" != any ] && echo "$first" | grep -q '"event":"backfill.done".*"written":0,'; then
+    echo "FAIL: backfill $2 wrote nothing on its seeded rows on $1" >&2; exit 1
+  fi
+  echo "$second" | grep -q '"event":"backfill.done".*"before":0,"written":0,"after":0' || {
+    echo "$second" >&2; echo "FAIL: backfill $2 is not idempotent on $1" >&2; exit 1
+  }
+}
 sql_in() { $PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d "$1" -v ON_ERROR_STOP=1 -q >/dev/null; }
 check_in() {
   local got
@@ -4474,9 +4493,9 @@ check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt
 echo "==> 0244 model folded once and its down migration verified"
 # Migration 0245 and the step-1 backfills of deploy 2 (ADR-0182 phase 4).
 # 0245: current_org() and current_user_id() read app.* only; its down restores
-# 0241. The backfill scripts in scripts/brand-free-backfill/ run against the
-# full schema; inbox_items and citation_events carry seeded rows, and the
-# mention and lane rewrites are checked on literal values.
+# 0241. The step-1 backfills of apps/workspace/backfills/ run through the
+# deploy Job's runner against seeded rows, twice each, and the mention and lane
+# rewrites are checked on literal values.
 # ---------------------------------------------------------------------------
 echo "==> verifying migration 0245 and the step-1 backfills on sn_0245"
 migrate_before sn_0245 0245_app_session_settings_only
@@ -4515,22 +4534,84 @@ INSERT INTO messages (id, conversation_id, organization_id, role, content, metad
 VALUES ('e1e1e1e1-0000-4000-8000-000000000245', 'conv_0245', 'org_b1', 'user', '@agent:piloti office_piloti',
         '{"mentions": [{"targetId": "agent:piloti", "display": "agent:piloti"}], "lane": "office_piloti", "lanes": ["office_piloti", "project"], "counts": {"office_piloti": 1}}');
 SQL
-apply_in sn_0245 ../scripts/brand-free-backfill/dry-run.sql
-apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql
-apply_in sn_0245 ../scripts/brand-free-backfill/inbox-types.sql
-apply_in sn_0245 ../scripts/brand-free-backfill/inbox-types.sql   # twice: idempotent
+run_backfill_twice sn_0245 actor-kind
+run_backfill_twice sn_0245 inbox-types
 check_in sn_0245 "SELECT string_agg(type || '=' || count || '@' || created_at::date, ',' ORDER BY type) FROM inbox_items WHERE recipient_user_id = 'user_b1'" "agent.asks_you=3@2026-11-01,agent.work_done=1@2026-11-02,mention.requested=1@2026-11-03" "backfill: an old inbox row folds into its twin or takes the new type, and others stay"
 check_in sn_0245 "SELECT count(*) FROM inbox_items WHERE group_key LIKE 'piloti.%'" "0" "backfill: no group key keeps the old type"
-apply_in sn_0245 ../scripts/brand-free-backfill/mention-ids.sql
-apply_in sn_0245 ../scripts/brand-free-backfill/mention-ids.sql   # twice: idempotent
-apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql    # twice: idempotent
+run_backfill_twice sn_0245 mention-ids
 check_in sn_0245 "SELECT author_kind || ' ' || status FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" "agent proposed" "backfill: the agent's proposal is the agent's, still proposed"
 check_in sn_0245 "SELECT mentions::text FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" '[{"display": "agent:piloti", "targetId": "agent:core"}, {"display": "Ben", "targetId": "user_b2"}]' "backfill: a mark's agent mention takes the new id, a person's and the display text stay"
 check_in sn_0245 "SELECT payload::text FROM inbox_items WHERE anchor_id = 'ann_9'" '{"note": "agent:piloti", "mentions": [{"display": "Agent", "targetId": "agent:core"}]}' "backfill: an inbox payload's mention takes the new id, free text stays"
-apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql
-apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql   # twice: idempotent
+run_backfill_twice sn_0245 lanes
 check_in sn_0245 "SELECT string_agg(detail -> 'lanes' ->> 'office_agent', ',' ORDER BY detail::text) FROM citation_events WHERE detail -> 'lanes' ? 'office_agent'" "4,5" "backfill: a lane count moves to the new key and adds to one already there"
 check_in sn_0245 "SELECT count(*) FROM citation_events WHERE detail -> 'lanes' ? 'office_piloti'" "0" "backfill: no lane count keeps the old key"
 check_in sn_0245 "SELECT metadata::text FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}, "mentions": [{"display": "agent:piloti", "targetId": "agent:core"}]}' "backfill: a message's agent mention and lane values take the new names, its keys and display text stay"
 check_in sn_0245 "SELECT content FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '@agent:piloti office_piloti' "backfill: a message's text stays as written"
 echo "==> migration 0245 and the step-1 backfills verified"
+
+echo "==> verifying migration 0246 and the step-3 rename on ns_0246"
+migrate_before ns_0246 0246_documents_live_name_by_producer
+sql_in ns_0246 <<'SQL'
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000246', 'org_n1', 'Namespace 0246', 'user_n1', 'proj_0246');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                       authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
+VALUES ('d2d2d2d2-0000-4000-8000-000000000001', 'org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md',
+        'k/0246/1', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_document', 'conv_1-a', 'answer_artifact'),
+       ('d2d2d2d2-0000-4000-8000-000000000002', 'org_n1', 'user_n1', 'Bericht.pdf',
+        'k/0246/2', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'deep_research', 'run_1', 'agent_run'),
+       ('d2d2d2d2-0000-4000-8000-000000000003', 'org_n1', 'user_n1', 'plan.pdf',
+        'k/0246/3', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'user', NULL, NULL, NULL),
+       ('d2d2d2d2-0000-4000-8000-000000000004', 'org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000004/flaechen.csv',
+        'k/0246/6', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_file', 'conv_1-b', 'answer_artifact');
+SQL
+apply_in ns_0246 0246_documents_live_name_by_producer.sql
+apply_in ns_0246 0246_documents_live_name_by_producer.sql   # up twice: idempotent
+check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%authored_by_producer%' AND indexdef NOT LIKE '%piloti/%' AND indexdef NOT LIKE '%generated/%'" "1" "0246: the live-name rule names the producer, not a prefix"
+refused_in ns_0246 "INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind) VALUES ('org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md', 'k/0246/4', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_document', 'conv_2-a', 'answer_artifact')" "uniq_documents_live_name_per_collection" "0246: a second live agent document under one name is refused"
+sql_in ns_0246 <<'SQL'
+INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                       authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
+VALUES ('org_n1', 'user_n1', 'Bericht.pdf', 'k/0246/5', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246',
+        'agent', 'deep_research', 'run_2', 'agent_run');
+SQL
+check_in ns_0246 "SELECT count(*) FROM documents WHERE filename = 'Bericht.pdf'" "2" "0246: a producer that is never indexed stays outside the rule, as before"
+apply_in ns_0246 0246_documents_live_name_by_producer.down.sql
+check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%generated/%'" "1" "0246 down: the prefix arms of 0243 are back"
+apply_in ns_0246 0246_documents_live_name_by_producer.sql
+run_backfill_twice ns_0246 agent-document-namespace
+check_in ns_0246 "SELECT string_agg(filename, ',' ORDER BY filename) FROM documents WHERE project_id = 'aaaaaaaa-0000-4000-8000-000000000246'" "Bericht.pdf,Bericht.pdf,generated/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md,generated/d2d2d2d2-0000-4000-8000-000000000004/flaechen.csv,plan.pdf" "backfill: the agent document and the agent file move to generated/, every other name stays"
+
+echo "==> running the step-3 metadata rename against the backend's tables on bf_jobs"
+$PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE bf_jobs OWNER $OWNER;"
+sql_in bf_jobs <<'SQL'
+CREATE TABLE document_metadata (collection VARCHAR(256) NOT NULL, filename VARCHAR(512) NOT NULL, summary TEXT NOT NULL,
+                                superseded_by TEXT, revision_suggestion TEXT, PRIMARY KEY (collection, filename));
+CREATE TABLE document_revision_retained (collection VARCHAR(256) NOT NULL, filename VARCHAR(512) NOT NULL, superseded_by TEXT,
+                                         revision_suggestion TEXT, change_summary TEXT, change_basis TEXT, PRIMARY KEY (collection, filename));
+INSERT INTO document_metadata VALUES
+  ('c', 'piloti/d1/a.md', 's', 'piloti/d2/b.md', '[{"file_name": "piloti/d0/z.md", "basis": "name"}]'),
+  ('c', 'plan.pdf', 's', NULL, '[{"file_name": "plan-piloti/x.pdf"}]');
+INSERT INTO document_revision_retained VALUES ('c', 'piloti/d1/a.md', 'piloti/d2/b.md', NULL, NULL, NULL);
+SQL
+run_backfill_twice bf_jobs agent-document-namespace-metadata
+check_in bf_jobs "SELECT string_agg(filename || '>' || coalesce(superseded_by, '-') || '>' || coalesce(revision_suggestion, '-'), ' ' ORDER BY filename) FROM document_metadata" 'generated/d1/a.md>generated/d2/b.md>[{"file_name": "generated/d0/z.md", "basis": "name"}] plan.pdf>->[{"file_name": "plan-piloti/x.pdf"}]' "backfill: a metadata row's key, successor and suggested names move, a name that only contains the old prefix stays"
+check_in bf_jobs "SELECT filename || '>' || superseded_by FROM document_revision_retained" "generated/d1/a.md>generated/d2/b.md" "backfill: a retained revision row moves with it"
+echo "==> migration 0246 and the step-3 renames verified"
+
+# ---------------------------------------------------------------------------
+# Every registered SQL backfill (apps/workspace/backfills/), run twice through
+# the deploy Job's runner against the full schema with every suite's rows in
+# it: each ends at 0, and the second run finds nothing to write.
+# ---------------------------------------------------------------------------
+echo "==> running every registered SQL backfill twice on bf_registry"
+$PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE bf_registry TEMPLATE grid_app OWNER $OWNER;"
+for name in $(node -e '
+  const fs = require("fs");
+  for (const d of fs.readdirSync("backfills", { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()) {
+    if (JSON.parse(fs.readFileSync(`backfills/${d}/backfill.json`, "utf8")).kind === "sql") console.log(d);
+  }
+'); do
+  run_backfill_twice bf_registry "$name" any
+done
+echo "==> every registered SQL backfill verified"

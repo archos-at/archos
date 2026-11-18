@@ -183,6 +183,8 @@ export const GOTENBERG = {
 export const KEDA_SCALER_ROLE = "keda_scaler";
 
 export const KEDA_SCALER_CONNECTION_LIMIT = 8;
+export const BACKFILL_POD = "app-backfill";
+
 export const JOB_DEFAULTS = {
   backoffLimit: 10,
   ttlSecondsAfterFinished: 300,

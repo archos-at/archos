@@ -99,6 +99,8 @@ env:
   NEXTAUTH_URL: Langfuse's own address (its sign-in callback)
   AUTH_TRUST_HOST: Langfuse's sign-in setting, not an address
   GOTENBERG_URL: the document converter in the cluster, with egress denied
+  CODE_RUNNER_URL: the code runner of the agent's execute tool in the cluster, with egress denied (deploy/pulumi/src/app/code-runner.ts)
+  BROWSER_RENDERER_ADDR: the code runner's headless Chromium in the cluster, with egress denied (deploy/pulumi/src/app/browser-renderer.ts)
   MALWARE_SCAN_URL: ClamAV in the cluster
   OTEL_EXPORTER_OTLP_ENDPOINT: the OTel collector in the cluster; what it exports is in posthog.yaml
   BACKEND_URL: our own agent tier

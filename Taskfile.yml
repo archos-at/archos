@@ -49,6 +49,10 @@ includes:
     taskfile: taskfiles/packages.yml
     flatten: true
     dir: .
+  code-runner:
+    taskfile: taskfiles/code-runner.yml
+    flatten: true
+    dir: .
 
 tasks:
   default:
