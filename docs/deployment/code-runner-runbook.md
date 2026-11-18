@@ -50,7 +50,10 @@ image fails its deploy (`resolve-image-refs.sh`: "no image in the last 200 devel
    - Health from a chat pod (the only pods the NetworkPolicy admits):
      `kubectl -n grid exec chat-0 -- python -c "import urllib.request; print(urllib.request.urlopen('http://code-runner:8080/health').read())"`
      answers `b'ok'` (`chat` is a StatefulSet).
-   - `kubectl -n grid logs deploy/code-runner`: four slots started, no restarts.
+   - `kubectl -n grid logs deploy/code-runner`: four slots started, no restarts. A JSON line
+     `run stopped` with `reason: memory` is a run that passed the 768 MiB slot cap and was answered
+     `status: error`; `slot exited while idle` is a workerd that died on its own and was restarted.
+     A pod that keeps failing `/health` has fewer than half its slots ready.
 4. A first run from the app: in a project chat, ask "Erstelle eine Excel-Tabelle mit drei Räumen und
    ihrer Summe und leg sie ins Projekt". Expect a kept `/drafts/….xlsx`, then a filed draft that opens
    in the viewer. In Langfuse the turn's `chat-turn` trace carries the tag `feature:execute`, an
@@ -125,8 +128,8 @@ browser" and the `office-html-pdf` skill sends the agent to Typst.
 **Chrome security fixes.** The base image `ghcr.io/puppeteer/puppeteer` is pinned by digest in
 `apps/browser-renderer/Dockerfile`. Dependabot opens a pull request for a new digest every Monday
 (two days' cooldown). Merge it within the week, and the same day when the Chrome release notes name a
-security fix rated High or Critical; update `BROWSER_RENDERER_CHROME` in the Dockerfile when the
-Chrome version in the path moves, and run `task browser:test`. Between Puppeteer releases, check
+security fix rated High or Critical, after `task browser:test` passes. The build finds the new
+Chrome by itself; the `node` and `oven/bun` build stages come in the same weekly pull requests. Between Puppeteer releases, check
 monthly that the pinned Chrome is no more than one stable release behind.
 
 **Off at once:** `kubectl -n grid annotate scaledobject browser-renderer autoscaling.keda.sh/paused-replicas="0"`;

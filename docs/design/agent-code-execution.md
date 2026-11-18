@@ -128,7 +128,13 @@ applies its own, stricter filter to every renderer. Nodes must allow unprivilege
 Chromium refuses to start and the pod never becomes ready. Residual risks: a Chromium bug that
 escapes the sandbox lands in a pod with no egress and no secrets, but shares the pod with one other
 run's browser; the image's Chrome is only as current as its pinned digest, which Dependabot proposes
-weekly.
+weekly. The allowlist is the 42 CDP methods Puppeteer sends for the documented uses (input without
+drag and drop, which can carry a file into the page); everything a run receives from the browser
+counts against 50 MiB, and the runner's host module holds at most 56 MiB unread. Known follow-ups:
+the renderer container's `seccompProfile: Unconfined` should become a `Localhost` profile (the
+runtime default plus the namespace calls Chromium's sandbox needs) once the provider lets us place
+one on the nodes; and the 1.5 GiB memory limit for two browsers is set from four measured documents,
+to be revisited with production peaks.
 
 ## Storage
 

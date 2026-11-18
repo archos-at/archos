@@ -1,5 +1,6 @@
 const ORIGIN = "http://browser-renderer";
 const RECEIVE_WAIT_MS = 15_000;
+export const MAX_QUEUED_BYTES = 56 * 1024 * 1024;
 export const BROWSERS_PER_RUN = 2;
 
 export class BrowserUnavailable extends Error {}
@@ -33,13 +34,29 @@ export function browserHost(env) {
     const ws = upgraded.webSocket;
     if (!ws) throw new BrowserUnavailable(`The browser did not accept the connection (${upgraded.status}).`);
     ws.accept();
-    const entry = { ws, queue: [], wake: null, done: false };
+    const entry = { ws, queue: [], queuedBytes: 0, wake: null, done: false, error: null };
     const wake = () => {
       entry.wake?.();
       entry.wake = null;
     };
     ws.addEventListener("message", (event) => {
-      entry.queue.push(String(event.data));
+      if (entry.done) return;
+      const message = String(event.data);
+      entry.queuedBytes += message.length;
+      if (entry.queuedBytes > MAX_QUEUED_BYTES) {
+        entry.error = `The browser sent more than ${MAX_QUEUED_BYTES} bytes the run has not read.`;
+        entry.queue = [];
+        entry.queuedBytes = 0;
+        entry.done = true;
+        wake();
+        try {
+          ws.close(1009, "too much unread output");
+        } catch {
+          return;
+        }
+        return;
+      }
+      entry.queue.push(message);
       wake();
     });
     for (const type of ["close", "error"]) {
@@ -67,8 +84,10 @@ export function browserHost(env) {
         setTimeout(resolve, RECEIVE_WAIT_MS);
       });
     }
+    if (entry.error) throw new Error(entry.error);
     const messages = entry.queue;
     entry.queue = [];
+    entry.queuedBytes = 0;
     return { messages, done: entry.done };
   }
 

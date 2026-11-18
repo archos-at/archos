@@ -11,25 +11,27 @@ const REASONS = new Map([
   ["Page.setDownloadBehavior", "Downloads are off: page.pdf() and page.screenshot() return the bytes; write them under /workspace/."],
   ["Fetch", "Request interception is fixed here: every request except data: and blob: URLs is refused."],
   ["DOM.setFileInputFiles", "File uploads are off: the browser has no files."],
+  ["Input.dispatchDragEvent", "Drag and drop is off: it can carry files into the page."],
+  ["Input.setInterceptDrags", "Drag and drop is off: it can carry files into the page."],
   ["IO", "Only the stream of a PDF this run printed can be read."],
 ]);
 
-const OUTPUT_METHODS = new Set(["Page.printToPDF", "Page.captureScreenshot", "IO.read", "Page.captureSnapshot"]);
-const FILE_URL = /file:\/\//i;
+const FILE_URL = /(^|[^a-z0-9+.-])file:/i;
+const GUARD_IDS = 1_000_000_000;
 
 function reasonFor(method) {
   return REASONS.get(method) ?? REASONS.get(method.slice(0, method.indexOf("."))) ?? "This DevTools method is not on the renderer's allowlist.";
 }
-const GUARD_IDS = 1_000_000_000;
 
 export function navigable(url) {
   return typeof url === "string" && (url === "about:blank" || url.startsWith("data:"));
 }
 
-function base64Bytes(data) {
-  if (typeof data !== "string") return 0;
-  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
-  return Math.floor((data.length * 3) / 4) - padding;
+export function namesFileUrl(value) {
+  if (typeof value === "string") return FILE_URL.test(value);
+  if (Array.isArray(value)) return value.some(namesFileUrl);
+  if (value !== null && typeof value === "object") return Object.entries(value).some(([key, item]) => namesFileUrl(key) || namesFileUrl(item));
+  return false;
 }
 
 function assetPath(url) {
@@ -42,24 +44,25 @@ function assetPath(url) {
 }
 
 export class Guard {
-  #pending = new Map();
+  #pdfCalls = new Set();
   #streams = new Set();
   #own = new Map();
   #nextId = GUARD_IDS;
   #pages = 0;
-  #outputBytes = 0;
+  #clientBytes = 0;
   #browserSession = null;
   refused = [];
 
-  constructor(limits, { toBrowser, assets = new Map() }) {
+  constructor(limits, { toBrowser, assets = new Map(), onOverflow = () => {} }) {
     this.limits = limits;
     this.toBrowser = toBrowser;
     this.assets = assets;
+    this.onOverflow = onOverflow;
     this.toClient = () => {};
   }
 
-  get outputBytes() {
-    return this.#outputBytes;
+  get clientBytes() {
+    return this.#clientBytes;
   }
 
   #call(method, params = {}, sessionId) {
@@ -96,7 +99,8 @@ export class Guard {
     if (!Number.isInteger(message?.id) || message.id < 0 || message.id >= GUARD_IDS || typeof message.method !== "string") {
       return { close: "The message is not a DevTools command." };
     }
-    const { method, params = {} } = message;
+    const { method } = message;
+    const params = message.params ?? {};
     if (message.sessionId !== undefined && message.sessionId === this.#browserSession) return { close: "That session is not yours." };
     if (params.sessionId !== undefined && params.sessionId === this.#browserSession) {
       return { reply: this.refusal(message, "That session is not available here.") };
@@ -105,8 +109,8 @@ export class Guard {
     if (method === "Page.navigate" && !navigable(params.url)) {
       return { reply: this.refusal(message, `page.goto(${JSON.stringify(String(params.url).slice(0, 200))}) is refused. ${NO_NETWORK}`) };
     }
-    if (FILE_URL.test(text)) {
-      return { reply: this.refusal(message, `${method} is refused: nothing here may name a file:// URL. ${NO_NETWORK}`) };
+    if (namesFileUrl(params)) {
+      return { reply: this.refusal(message, `${method} is refused: nothing here may name a file: URL. ${NO_NETWORK}`) };
     }
     if (method === "Browser.close") {
       return { reply: JSON.stringify({ id: message.id, result: {} }), close: "the client closed the browser" };
@@ -124,11 +128,8 @@ export class Guard {
       }
       this.#pages += 1;
     }
-    if (method === "Target.createBrowserContext" && (params.proxyServer !== undefined || params.proxyBypassList !== undefined)) {
-      return { reply: this.refusal(message, `A browser context with its own proxy is refused. ${NO_NETWORK}`) };
-    }
-    if (OUTPUT_METHODS.has(method)) this.#pending.set(`${message.sessionId ?? ""}:${message.id}`, method);
-    return { forward: text };
+    if (method === "Page.printToPDF") this.#pdfCalls.add(`${message.sessionId ?? ""}:${message.id}`);
+    return { forward: JSON.stringify(message) };
   }
 
   fromBrowser(text) {
@@ -146,7 +147,16 @@ export class Guard {
       return;
     }
     if (this.#browserSession && message.sessionId === this.#browserSession) return this.#guardEvent(message);
-    this.toClient(this.#checkOutput(message, text));
+    if (message.id !== undefined) {
+      const key = `${message.sessionId ?? ""}:${message.id}`;
+      if (this.#pdfCalls.delete(key) && typeof message.result?.stream === "string") this.#streams.add(message.result.stream);
+    }
+    this.#clientBytes += Buffer.byteLength(text);
+    if (this.#clientBytes > this.limits.outputBytes) {
+      this.onOverflow(`the run received more than ${this.limits.outputBytes} bytes from the browser`);
+      return;
+    }
+    this.toClient(text);
   }
 
   #guardEvent(message) {
@@ -181,18 +191,5 @@ export class Guard {
     }
     this.refused.push(request.url.slice(0, 200));
     this.#call("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" }, this.#browserSession).catch(() => undefined);
-  }
-
-  #checkOutput(message, text) {
-    if (this.#pending.size === 0 || message.id === undefined) return text;
-    const key = `${message.sessionId ?? ""}:${message.id}`;
-    if (!this.#pending.has(key)) return text;
-    this.#pending.delete(key);
-    if (typeof message.result?.stream === "string") this.#streams.add(message.result.stream);
-    this.#outputBytes += base64Bytes(message.result?.data);
-    if (this.#outputBytes > this.limits.outputBytes) {
-      return this.refusal(message, `The rendered output of this run exceeds ${this.limits.outputBytes} bytes. Render fewer or smaller pages, or lower the screenshot size.`);
-    }
-    return text;
   }
 }

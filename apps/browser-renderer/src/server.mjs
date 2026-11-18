@@ -69,7 +69,7 @@ export async function startRenderer({ port, host, chrome, sessions: maxSessions 
       message: "browser session ended",
       reason,
       ms: Date.now() - session.started,
-      outputBytes: session.guard.outputBytes,
+      clientBytes: session.guard.clientBytes,
       refused: session.guard.refused.length,
       sessions: sessions.size,
     });
@@ -77,7 +77,11 @@ export async function startRenderer({ port, host, chrome, sessions: maxSessions 
 
   async function launch() {
     const session = new Session({ id: randomUUID(), chrome, proxyPort: proxy.port, fontConfig, workRoot: root });
-    session.guard = new Guard(limits, { toBrowser: (text) => session.send(text), assets });
+    session.guard = new Guard(limits, {
+      toBrowser: (text) => session.send(text),
+      assets,
+      onOverflow: (reason) => void end(session, reason),
+    });
     session.onmessage = (text) => session.guard.fromBrowser(text);
     sessions.set(session.id, session);
     const exited = new Promise((_, reject) => {

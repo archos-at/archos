@@ -243,12 +243,15 @@ updates:
       timezone: Europe/Vienna
     cooldown:
       default-days: 2
-    open-pull-requests-limit: 2
-    allow:
-      - dependency-name: "ghcr.io/puppeteer/puppeteer"
+    open-pull-requests-limit: 3
     groups:
       chromium:
         patterns: ["ghcr.io/puppeteer/puppeteer"]
+      browser-renderer-build:
+        patterns: ["node", "oven/bun"]
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: bun
     directory: "/apps/browser-renderer"

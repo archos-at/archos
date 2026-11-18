@@ -166,7 +166,7 @@ describe("the browser renderer container", () => {
     const navigate = await browser.call("Page.navigate", { url: "file:///etc/passwd" }, sessionId);
     assert.match(navigate.error.message, /is refused/);
     const named = await browser.call("Runtime.evaluate", { expression: "fetch('file:///etc/passwd')" }, sessionId);
-    assert.match(named.error.message, /file:\/\/ URL/);
+    assert.match(named.error.message, /may name a file: URL/);
     const built = await evaluate(
       browser,
       sessionId,
@@ -201,6 +201,33 @@ describe("the browser renderer container", () => {
     const asked = await browser.call("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: "/tmp" });
     assert.match(asked.error.message, /Downloads are off/);
     await browser.close();
+  });
+
+  test("drag and drop cannot carry a file of the renderer into the page", async () => {
+    const browser = await open();
+    const sessionId = await page(browser);
+    const drop = await browser.call(
+      "Input.dispatchDragEvent",
+      { type: "drop", x: 10, y: 10, data: { items: [], files: ["/etc/passwd"], dragOperationsMask: 1 } },
+      sessionId,
+    );
+    assert.match(drop.error.message, /Drag and drop is off/);
+    const intercept = await browser.call("Input.setInterceptDrags", { enabled: true }, sessionId);
+    assert.match(intercept.error.message, /Drag and drop is off/);
+    await browser.close();
+  });
+
+  test("Chromium's orphaned processes are reaped: no zombies after several sessions", async () => {
+    for (let i = 0; i < 4; i += 1) {
+      const browser = await open();
+      await page(browser);
+      await browser.close();
+    }
+    await settle(1000);
+    const zombies = await renderer.shell("grep -l '^State:[[:space:]]*Z' /proc/[0-9]*/status 2>/dev/null | wc -l");
+    assert.equal(Number(zombies), 0);
+    const init = await renderer.shell("tr '\\0' ' ' < /proc/1/cmdline");
+    assert.match(init, /tini/);
   });
 
   test("a closed session leaves no browser process and no profile behind", async () => {

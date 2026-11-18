@@ -32,22 +32,27 @@ runner's binding (`apps/code-runner/src/browser/`) only forwards them.
   `seccompProfile: Unconfined` and every capability dropped (see the design doc). If the sandbox
   cannot start, Chromium refuses to run and the service exits at its self-test: it fails closed.
 - **Limits:** 2 sessions per pod (`BROWSER_RENDERER_SESSIONS`), 10 pages per session, 190 s per
-  session, 50 MB of PDF and screenshot output per session, 72 MiB per CDP message.
+  session, 50 MiB of messages from the browser to the client per session (every byte counts, so with
+  base64 a run's PDFs and screenshots stay under about 37 MB; past it the session ends), 72 MiB per
+  CDP message.
+- **Orphans are reaped.** The front runs under `tini` as PID 1, so the processes a killed Chromium
+  leaves behind do not pile up as zombies (the container suite counts them).
 
 ## The guard (`src/cdp-guard.mjs`, `src/cdp-allowlist.mjs`)
 
 Every command the client sends is checked before it reaches Chromium:
 
-- **An allowlist of CDP methods**: `Page`, `Runtime`, `DOM`, `CSS`, `Emulation`, `Input`, `Log`,
-  `Performance`, `Accessibility`, `Animation`, and named methods of `Target`, `Network`, `Browser`
-  (`getVersion`, and `close`, which the guard answers by ending the session), `IO` (only the stream of a
-  PDF this session printed), `Security`, `Audits`, `Inspector`, `Debugger`, `Profiler`. Everything else
-  is refused with a reason: `Fetch.*`, `Storage.*`, `SystemInfo.*`, `Tracing.*`, the rest of `Browser.*`,
-  `Network.loadNetworkResource`, `DOM.setFileInputFiles`, `Page.setDownloadBehavior`, screencasts,
-  extensions.
+- **An allowlist of 42 CDP methods** (`src/cdp-allowlist.mjs`): exactly what `@cloudflare/puppeteer`
+  sends for `setContent`, `pdf`, `screenshot`, `evaluate`, `waitForSelector`, the viewport and fonts,
+  recorded from real runs, plus `Input.dispatchKeyEvent`, `dispatchMouseEvent`, `dispatchTouchEvent`
+  and `insertText` for clicks and typing. `Browser.close` is answered by ending the session; `IO.read`
+  and `IO.close` work only on the stream of a PDF this session printed. Every other method of the
+  protocol is refused with a reason; the guard suite walks the whole protocol (`devtools-protocol`) to
+  prove it. Drag and drop is refused in particular: `Input.dispatchDragEvent` can carry a file of the
+  renderer into the page.
 - **Navigation:** `Page.navigate` only to `about:blank` or a `data:` URL, `Target.createTarget` only
-  to `about:blank`. Any command that names a `file://` URL is refused. A browser context with its own
-  proxy is refused.
+  to `about:blank`. A command whose parsed parameters name a `file:` URL anywhere, in any spelling, is
+  refused, and what is forwarded is the parsed command serialised again, never the raw text.
 - **Request interception** is the guard's own: at session start it attaches to the browser target and
   enables `Fetch` for every URL, so every request of every page, frame and worker pauses there. It
   fulfils `http://assets.local/mermaid.min.js` from the image and fails everything else
@@ -66,15 +71,17 @@ their licences ship in the image) and are the fontconfig defaults for `sans-seri
 ## Image
 
 `Dockerfile` starts from the Puppeteer team's image `ghcr.io/puppeteer/puppeteer:25.16.0`, pinned by
-digest, which holds Node and Chrome for Testing's `chrome-headless-shell` 156.0.8078.47, and adds the
-front (`src/`), `ws` and the assets. It runs as `pptruser` (10042). About 3.0 GB, nearly all of it the
-base. Dependabot proposes a new base digest weekly (`.github/dependabot.yml`, `docker` for this
-directory); bump `BROWSER_RENDERER_CHROME` in the Dockerfile with it when the Chrome version moves.
+digest, which holds Node and Chrome for Testing's `chrome-headless-shell` (156.0.8078.47 at this
+digest), and adds the front (`src/`), `ws`, the assets and `tini`. The build links the one
+`chrome-headless-shell` the base holds to `/app/chrome-headless-shell` and fails if it finds none or
+two, so a new base needs no path change. The `node` and `oven/bun` build stages are pinned by digest
+too. It runs as `pptruser` (10042). About 3.0 GB, nearly all of it the base. Dependabot proposes new
+digests for all three weekly (`.github/dependabot.yml`, `docker` for this directory).
 
 | Environment variable | Default | Meaning |
 |---|---|---|
 | `PORT`, `HOST` | `9222`, `0.0.0.0` | where the front listens |
-| `BROWSER_RENDERER_CHROME` | set by the Dockerfile | the `chrome-headless-shell` binary |
+| `BROWSER_RENDERER_CHROME` | `/app/chrome-headless-shell`, linked at build | the `chrome-headless-shell` binary |
 | `BROWSER_RENDERER_SESSIONS` | `2` | sessions per pod |
 | `BROWSER_RENDERER_WORK_DIR` | `/tmp/browser-renderer` | profiles and the fontconfig cache; a memory `emptyDir` |
 
