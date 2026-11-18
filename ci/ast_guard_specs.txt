@@ -44,3 +44,4 @@ apps/workspace/tests/mono-plain-zero.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
 deploy/pulumi/index-online-index-adoption.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
+deploy/pulumi/src/app/image-dockerfiles.spec.ts
