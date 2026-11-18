@@ -253,7 +253,6 @@ updates:
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
 
-  # GitHub stops accepting old runner versions; the other pins follow ci.yml (tests/test_ci_toolchain_pins.py).
   - package-ecosystem: docker
     directory: "/deploy/ci-runner"
     schedule:
