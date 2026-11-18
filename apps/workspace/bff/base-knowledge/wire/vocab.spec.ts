@@ -12,7 +12,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { constraintClauses, listedValues, readSql, type SqlStatement } from '@/test-utils/sql-statements'
+import { constraintClauses, listedValues, parseSql, readSql, type SqlStatement } from '@/test-utils/sql-statements'
 import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
 const MIGRATION_FILES = readdirSync(join(process.cwd(), 'migrations'))
@@ -31,6 +31,15 @@ function checkedValues(table: string, column: string): string[] {
     }
   }
   return []
+}
+
+function latest(constraint: string, newestFirst: SqlStatement[][] = NEWEST_FIRST): 'added' | 'dropped' | undefined {
+  for (const statements of newestFirst) {
+    const clauses = constraintClauses(statements).filter((clause) => clause.name === constraint)
+    const last = clauses.findLast((clause) => clause.action === 'DROP' || clause.check)
+    if (last) return last.action === 'DROP' ? 'dropped' : 'added'
+  }
+  return undefined
 }
 
 function vocabularySchema() {
@@ -52,17 +61,16 @@ describe('the base knowledge vocabularies', () => {
   })
 
   it('holds no CHECK on a source\'s protocol or format: the Python registry is their one list', () => {
-    const latest = (constraint: string): 'added' | 'dropped' | undefined => {
-      for (const statements of NEWEST_FIRST) {
-        const clauses = constraintClauses(statements).filter((clause) => clause.name === constraint)
-        if (clauses.some((clause) => clause.action === 'DROP')) return 'dropped'
-        if (clauses.some((clause) => clause.check)) return 'added'
-      }
-      return undefined
-    }
     expect(latest('knowledge_source_revisions_protocol_known')).toBe('dropped')
     expect(latest('knowledge_source_revisions_format_known')).toBe('dropped')
     expect(Object.keys(KNOWLEDGE_VOCABULARIES)).not.toContain('knowledge_source_revisions.format')
+  })
+
+  it('reads a constraint by its last action within a migration', () => {
+    const only = (sql: string) => latest('t_known', [parseSql(sql)])
+    expect(only('ALTER TABLE t DROP CONSTRAINT t_known;')).toBe('dropped')
+    expect(only('ALTER TABLE t DROP CONSTRAINT t_known; ALTER TABLE t ADD CONSTRAINT t_known CHECK ("c" IN (\'a\'));')).toBe('added')
+    expect(only('ALTER TABLE t ADD CONSTRAINT t_known CHECK ("c" IN (\'a\')); ALTER TABLE t DROP CONSTRAINT t_known;')).toBe('dropped')
   })
 
   it('allows a decision table only for the purposes the wire gives one', () => {

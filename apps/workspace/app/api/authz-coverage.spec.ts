@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, relative } from 'node:path'
-import { calleeName, parseSource, ts } from '@/test-utils/source-ast'
+import { calleeName, nodesOf, parseSource, parseSourceText, ts } from '@/test-utils/source-ast'
 
 const API_DIR = dirname(fileURLToPath(import.meta.url))
 
@@ -59,18 +59,57 @@ interface RouteFacts {
   declaresAuthz: boolean
 }
 
+function localInitializers(source: ts.SourceFile): Map<string, ts.Expression | undefined> {
+  const locals = new Map<string, ts.Expression | undefined>()
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name)) locals.set(declaration.name.text, declaration.initializer)
+    }
+  }
+  return locals
+}
+
+function resolveLocal(locals: Map<string, ts.Expression | undefined>, name: string): ts.Expression | undefined {
+  const seen = new Set<string>()
+  let initializer = locals.get(name)
+  while (initializer && ts.isIdentifier(initializer) && !seen.has(initializer.text)) {
+    seen.add(initializer.text)
+    initializer = locals.get(initializer.text)
+  }
+  return initializer
+}
+
 function exportedHandlers(source: ts.SourceFile): Handler[] {
+  const locals = localInitializers(source)
   return source.statements.flatMap((statement): Handler[] => {
+    if (ts.isExportDeclaration(statement)) {
+      if (!statement.exportClause) return [{ method: '*', initializer: undefined }]
+      if (!ts.isNamedExports(statement.exportClause)) return []
+      return statement.exportClause.elements.flatMap((element): Handler[] => {
+        if (!HTTP_METHODS.includes(element.name.text)) return []
+        const local = (element.propertyName ?? element.name).text
+        const initializer = statement.moduleSpecifier ? undefined : resolveLocal(locals, local)
+        return [{ method: element.name.text, initializer }]
+      })
+    }
     const exported = ts.canHaveModifiers(statement)
       ? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
       : false
     if (!exported) return []
     if (ts.isVariableStatement(statement)) {
-      return statement.declarationList.declarations.flatMap((declaration): Handler[] =>
-        ts.isIdentifier(declaration.name) && HTTP_METHODS.includes(declaration.name.text)
-          ? [{ method: declaration.name.text, initializer: declaration.initializer }]
-          : []
-      )
+      return statement.declarationList.declarations.flatMap((declaration): Handler[] => {
+        if (ts.isIdentifier(declaration.name)) {
+          return HTTP_METHODS.includes(declaration.name.text)
+            ? [{ method: declaration.name.text, initializer: resolveLocal(locals, declaration.name.text) }]
+            : []
+        }
+        return nodesOf(declaration.name, ts.isBindingElement).flatMap((element): Handler[] =>
+          ts.isIdentifier(element.name) && HTTP_METHODS.includes(element.name.text)
+            ? [{ method: element.name.text, initializer: undefined }]
+            : []
+        )
+      })
     }
     if (ts.isFunctionDeclaration(statement) && statement.name && HTTP_METHODS.includes(statement.name.text)) {
       return [{ method: statement.name.text, initializer: undefined }]
@@ -89,9 +128,8 @@ function hasProperty(object: ts.ObjectLiteralExpression, key: string): boolean {
   )
 }
 
-function routesIn(absolute: string): RouteFacts[] {
-  const file = relative(API_DIR, absolute).replace(/\\/g, '/')
-  return exportedHandlers(parseSource(absolute)).map(({ method, initializer }) => {
+function routeFacts(file: string, source: ts.SourceFile): RouteFacts[] {
+  return exportedHandlers(source).map(({ method, initializer }) => {
     const call = initializer && ts.isCallExpression(initializer) ? initializer : undefined
     const name = call ? calleeName(call) : undefined
     const factory = name !== undefined && FACTORIES.includes(name) ? name : null
@@ -107,11 +145,29 @@ function routesIn(absolute: string): RouteFacts[] {
   })
 }
 
+function routesIn(absolute: string): RouteFacts[] {
+  return routeFacts(relative(API_DIR, absolute).replace(/\\/g, '/'), parseSource(absolute))
+}
+
 const ROUTES: RouteFacts[] = findRouteFiles(API_DIR).flatMap(routesIn)
 
 describe('API authorization coverage', () => {
   it('finds the route surface (guards against a broken glob silently passing)', () => {
     expect(ROUTES.length).toBeGreaterThan(100)
+  })
+
+  it('resolves a handler exported through an export list, and fails one it cannot resolve', () => {
+    const facts = (text: string) => routeFacts('fixture/route.ts', parseSourceText(text, 'route.ts'))
+    const declared = "const handler = apiRoute(run, { authz: 'project:read' })\nconst GET = handler\nexport { GET }"
+    expect(facts(declared)).toEqual([{ file: 'fixture/route.ts', method: 'GET', factory: 'apiRoute', declaresAuthz: true }])
+    expect(facts("const handler = apiRoute(run, { authz: 'project:read' })\nexport { handler as POST }")[0]?.factory).toBe('apiRoute')
+    const unapproved = [
+      'const GET = async () => Response.json({})\nexport { GET }',
+      "export { GET } from './elsewhere'",
+      "export * from './elsewhere'",
+      'export const { GET } = handlers',
+    ]
+    expect(unapproved.map((text) => facts(text).map((route) => route.factory))).toEqual([[null], [null], [null], [null]])
   })
 
   it('every exported handler comes from a factory or is a recorded exception', () => {

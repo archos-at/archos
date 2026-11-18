@@ -16,7 +16,7 @@ const WRITERS: Readonly<Record<string, string>> = {
 
 const WRITER_CALLS = ['renderToBuffer', 'renderToStream', 'renderToFile', 'renderDocx']
 
-const MARKING_MODULE = /(^|\/)(ai-provenance|xmp-metadata|docx)$/
+const MARKING_MODULE = /^(\.{1,2}|@\/lib)\/(.+\/)?(ai-provenance|xmp-metadata|docx)$/
 
 function callers(): string[] {
   return productionSources(ROOT)
@@ -31,6 +31,12 @@ function callers(): string[] {
 describe('every PDF and .docx the product writes', () => {
   it('is listed with how it is marked', () => {
     expect(callers()).toEqual(Object.keys(WRITERS).sort())
+  })
+
+  it('counts only the repository\'s marking modules, never the bare docx package', () => {
+    const marking = ['@/lib/ai-provenance', './xmp-metadata', '@/lib/pdf/xmp-metadata', './docx', '@/lib/answer-export/docx']
+    expect(marking.filter((specifier) => !MARKING_MODULE.test(specifier))).toEqual([])
+    expect(['docx', 'docx/lib/docx', 'ai-provenance'].filter((specifier) => MARKING_MODULE.test(specifier))).toEqual([])
   })
 
   it('imports the marking module it applies', () => {
