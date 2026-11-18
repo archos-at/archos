@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: a calmer head for the Ablage page (concept for ticket 81).
 
 import type { JSX } from 'react'
-import { X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { UsersRound, LockKeyhole, X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
 function Side({ icon: Icon, label, who, picked, faded = false }: { icon: LucideIcon; label: string; who: string; picked: boolean; faded?: boolean }): JSX.Element {
   return (
@@ -52,7 +52,17 @@ function MoreMenu(): JSX.Element {
   )
 }
 
-export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean }): JSX.Element {
+export function Who({ own }: { own: boolean }): JSX.Element {
+  const Icon = own ? LockKeyhole : UsersRound
+  return (
+    <span className="text-muted-foreground text-name mb-1 inline-flex items-center gap-1.5">
+      <Icon className="size-3.5" aria-hidden />
+      {own ? 'Nur Sie' : 'Projektteam'}
+    </span>
+  )
+}
+
+export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false, alone = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean; alone?: boolean }): JSX.Element {
   const search = (
     <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />
@@ -92,11 +102,14 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
   )
   return (
     <header className="border-hairline flex flex-col gap-4 border-b px-8 pb-0 pt-3">
-      <div>
-        <span className="text-muted-foreground text-meta">{crumb}</span>
-        <h1 className="text-page-title">{office ?? 'Ablage'}</h1>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <span className="text-muted-foreground text-meta">{crumb}</span>
+          <h1 className="text-page-title">{office ?? (alone && own ? 'Meine Ablage' : 'Ablage')}</h1>
+        </div>
+        {alone && <Who own={own} />}
       </div>
-      {!office && (
+      {!office && !alone && (
         <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
           <Side icon={Folder} label="Projektablage" who={noProject ? 'Kein Projekt' : 'Team'} picked={!own} faded={noProject} />
           <Side icon={FolderLock} label="Meine Ablage" who="Nur Sie" picked={own} />

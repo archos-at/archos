@@ -27,7 +27,7 @@ import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, ProjectMenu, ProjectOverview } from './project-menu'
-import { FolderPath, ReadStatus, SearchHits, ShelfHeader, TrashWindow, UnreadHint } from './shelf-header'
+import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
@@ -61,7 +61,7 @@ const OFFICE_FILES: FileItem[] = [
   makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
 ]
 
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'bell', inboxOpen = false, officeName, newChat = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean; officeName?: string; newChat?: boolean }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'bell', inboxOpen = false, officeName, newChat = false, mine = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean; officeName?: string; newChat?: boolean; mine?: boolean }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -80,7 +80,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           <SidebarMenu className="mb-1 gap-0.5">
             <NavRow icon={SquarePen} label="Neuer Chat" active={newChat} />
-            <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+            <NavRow icon={Folder} label={mine ? 'Meine Ablage' : 'Ablage'} badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
             {shelfRows && (
               <ul className="flex flex-col gap-0.5 pt-0.5">
                 {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
@@ -88,7 +88,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
               </ul>
             )}
             {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-            <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+            <NavRow icon={Zap} label={mine ? 'Meine Automatisierungen' : 'Automatisierung'} active={section === 'automation'} />
           </SidebarMenu>
           {inbox === 'top' && (
             <SidebarMenu className="mt-1 gap-0.5">
@@ -188,6 +188,11 @@ const ALL_RUNS: TaskRunView[] = [
   run({ id: 'a2', title: 'Amtshaus Favoriten · Planstand der Statik prüfen', requesterName: 'Maria Huber' }),
   run({ id: 'a3', title: 'Lände 3 · Jour fixe vorbereiten', requesterName: 'Jonas Weber', createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() }),
 ]
+const PROJECT_RUNS: TaskRunView[] = [
+  run({ id: 'p1', kind: 'deep-research', title: 'Wöchentlicher Brandschutz-Abgleich', status: 'running', runSummary: { status: 'running', rounds: 2, docs: 7 } }),
+  run({ id: 'p2', title: 'Planstand der Statik prüfen', requesterName: 'Maria Huber' }),
+  run({ id: 'p3', title: 'Neue Pläne im E-Mail-Eingang ablegen', requesterName: 'Jonas Weber', createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() }),
+]
 const OWN_RUNS: TaskRunView[] = [
   run({ id: 'o1', title: 'Agenda vor jedem Jour fixe vorbereiten' }),
   run({ id: 'o2', kind: 'deep-research', title: 'Montags: neue Fassungen der Richtlinien zusammenfassen', createdAt: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString() }),
@@ -214,6 +219,27 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
               <TaskList projectId="preview" tasks={own ? OWN_RUNS : ALL_RUNS} filter={filter} onFilterChange={setFilter} onSelectTask={() => {}} />
             </div>
           )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function AutomationPage({ own }: { own: boolean }): JSX.Element {
+  const [filter, setFilter] = useState<TaskFilter>('all')
+  return (
+    <>
+      <Rail own={own} section="automation" gear="none" mine={own} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex items-end justify-between gap-4 px-8 pb-4 pt-3">
+          <div>
+            <span className="text-muted-foreground text-meta">{own ? 'Projektübergreifend' : PROJECTS[0]!.name}</span>
+            <h1 className="text-page-title">{own ? 'Meine Automatisierungen' : 'Automatisierung'}</h1>
+          </div>
+          <Who own={own} />
+        </header>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-8">
+          <TaskList projectId="preview" tasks={own ? OWN_RUNS : PROJECT_RUNS} filter={filter} onFilterChange={setFilter} onSelectTask={() => {}} />
         </div>
       </div>
     </>
@@ -472,13 +498,13 @@ function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JS
   )
 }
 
-function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across }: { own: boolean; form: string; moreOpen: boolean; trashOpen: boolean; folder: string | null; query: string | null; across: boolean }): JSX.Element {
+function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across, alone = false }: { own: boolean; form: string; moreOpen: boolean; trashOpen: boolean; folder: string | null; query: string | null; across: boolean; alone?: boolean }): JSX.Element {
   return (
     <>
-      <Rail own={across} section="files" gear="none" />
+      <Rail own={across} section="files" gear="none" mine={alone && own} />
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} />
+        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? 'Projektübergreifend' : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} />
         <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
           {query ? <SearchHits query={query} /> : null}
           {!own && !folder && !query && <UnreadHint count={2} />}
@@ -510,7 +536,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
