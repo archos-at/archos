@@ -79,7 +79,7 @@ Tags, the trace list's fast filter: `outcome:<…>`, `route:<…>`,
 `confidence:<…>`, `capped:<…>`, `citations-removed`, `quote-not-found`,
 `research-truncated`, `handed-off`, `error:<code>`, `feature:ifc`,
 `feature:cross-project` (a `project_lookup` ran), `feature:canvas` (a canvas
-tool ran), `surface:review-canvas` (the question was asked from a document's
+tool ran), `feature:execute` (a script ran in the code runner), `surface:review-canvas` (the question was asked from a document's
 review canvas or one of its threads), `steered` (the asker typed a note the
 turn read mid-run), `trigger:<kind>` (an event woke the turn),
 `reference-prefetch`, `kind:work` (an operations turn's work report),
@@ -148,6 +148,30 @@ the document would see, refused because the conversation drew on a restricted
 folder or another project: `tools/canvas/policy.py`). The harness's one call,
 taking the agent's cursor off a document when the turn ends, is a `canvas.leave`
 step.
+
+Each `execute` run (a script in the code runner, `tools/execute/`) is a
+`execute.run` step under the tool's observation (`tools/execute/trace.py`),
+with its real start and end, and the turn gets the tag `feature:execute`. Its
+input: the run's ordinal in the turn (`run`), the script's `code_chars` and
+`code_sha256` (16 hex characters: the same script twice is the same hash),
+whether named documents were passed (`documents`) and how many
+(`documents_named`), the `input_files` and `input_bytes` sent (the working
+directory plus those documents) and `timeout_s`. Its output: `status` (`ok`,
+`error`, `timeout`, `unavailable`, `refused`), `reason` on an unavailable or
+refused run (`no_runner`, `unreachable`, `busy`, `http_error`;
+`no_conversation`, `no_envelope`, `unresolved`, `base_corpus`, `too_large`,
+`unreadable`), the runner's own `runner_ms` beside the tool's `wall_ms` (the
+difference is reading the documents, the busy retries and keeping the files),
+`files_kept`, `files_new` (not in the working directory before), `kept_bytes`,
+`file_types` (the extensions), `files_refused` (over the conversation's cap)
+and, on `error` or `timeout`, `stderr_first_line` (200 characters). Never the
+script, its value, its stdout, the rest of stderr or a file's bytes: the
+script holds the office's data. Per run the scores `execute-status`,
+`execute-files-made` and `execute-runs-to-file`, and when `file_draft` first
+files a file a run made, `execute-files-filed` ([Scores](#scores)); a run's
+scores carry the item `run:<n>`, so the turn's runs are told apart. A kept file
+is stamped `made_by: execute` in the working directory, which is how
+`file_draft` knows it.
 
 Each steering note the turn reads (`common/steering.py`) is a `turn.steer`
 step under the decision that read it: its input the `round` it was read in,
@@ -335,6 +359,10 @@ a name is written but not declared, or declared but not listed here.
 | `work-report-matches` | boolean | agent, at the terminal | on a work turn (`kind: work`, ADR-0123) only: true when the report's `proposed` list is as long as the proposal cards the turn showed. The comment says both counts (`reported N, filed M`). Counted after the unfiled lines below are dropped, so false is mostly a turn that filed a proposal it did not report |
 | `work-proposals-unfiled` | numeric | agent | on a work turn only: the report's `proposed` lines whose `ref` named no proposal this turn's workspace writes filed, dropped before the person saw them (`answer_envelope.drop_unfiled_proposals`). Above zero is a turn that claimed a proposal it did not make |
 | `thread-answered-in-place` | boolean | agent, when the turn leaves the canvas | on a turn asked to answer in an Anmerkung's thread: true when the model replied there itself (`canvas__reply`), false when it did not and the socket posts the answer for it. No score when the turn may not post there (`thread_reply` = `skipped_withheld`). The false rate is how often the prompt is ignored, which the fallback otherwise hides |
+| `execute-status` | categorical | agent, the `execute` tool | per run (item `run:<n>`): `ok`, `error` (the script threw, or the runner refused the request), `timeout`, `unavailable` (no runner configured, unreachable, busy past its retries, another HTTP answer), `refused` (nothing sent: no conversation, a named document that could not be resolved or read, over 50 MB). The comment is the `reason` of an unavailable or refused run. The share `error` is the run error rate; the step `execute.run` holds the first stderr line |
+| `execute-runs-to-file` | numeric ≥ 1 | agent, the `execute` tool | on a run that kept at least one file: the runs the turn made since its last run that kept one, this run included. 1 is a file on the first try; its mean is the tries until a file, the signal for the `office-files` skill and the runner's libraries |
+| `execute-files-made` | numeric ≥ 0 | agent, the `execute` tool | on every run that reached the runner: the files it kept that were new to the working directory (a rewritten file is not counted again). Zero is a measurement |
+| `execute-files-filed` | numeric 0–1 | agent, `file_draft` | 1 when `file_draft` files a run's file into the project for the first time (item: the path's hash), on the filing turn's trace, which may be later than the turn that made it. Summed over a period against the sum of `execute-files-made`, the share of made files that reached the project |
 | `review-correctness` | categorical | reviewer, in the queue | `correct`, `partly_correct`, `incorrect` |
 | `review-sources` | categorical | reviewer, in the queue | `right_sources`, `missing_sources`, `wrong_sources` |
 | `judge-answers-question` | numeric 0–1 | LLM judge | how directly the answer addresses the question |

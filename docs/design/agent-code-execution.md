@@ -132,7 +132,7 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | A cap on concurrent runs per organization | Open, not built |
 | Whether runs count toward an office's credits (ADR-0053) | Open |
 | A run as a row of the Herleitung (script, inputs with citation keys, outputs) | Open, not built |
-| A dedicated Langfuse span (module size, inputs, files and sizes) and metrics and alerts (failure rate, replicas at maximum) | Open, not built: only the tool span exists |
+| A dedicated Langfuse step per run (`execute.run`: status, timings, input and kept files, never contents) and the scores `execute-status`, `execute-runs-to-file`, `execute-files-made`, `execute-files-filed` ([`langfuse.md`](../observability/langfuse.md)) | Taken. Alerts (failure rate, replicas at maximum) are open |
 | Renaming `/drafts/` to `/workspace/` | Open |
 | Background runs (Hatchet fan-out, a KEDA trigger on its backlog) | Open, not built |
 | Showing an HTML output beside the chat (MCP Apps, ADR-0142), sandboxed on its own origin | Open |

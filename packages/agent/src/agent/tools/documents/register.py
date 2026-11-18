@@ -9,11 +9,13 @@ from typing import Any
 
 from agent import project_context
 from agent.common.bff_http import SignedEnvelope
+from agent.observability.langfuse_scores import emit_scores
 from nat.plugin_api import Builder
 from nat.plugin_api import FunctionBaseConfig
 from nat.plugin_api import FunctionInfo
 from nat.plugin_api import register_function
 
+from ..execute.trace import filed_scores
 from .cards import draft_title
 from .cards import emit_draft_card
 from .draft_store import DRAFT_ROOT
@@ -21,6 +23,7 @@ from .draft_store import FILED_DOCUMENT_KEY
 from .draft_store import FILED_HASH_KEY
 from .draft_store import FILED_STATE_KEY
 from .draft_store import FILED_VERSION_KEY
+from .draft_store import MADE_BY_RUN
 from .draft_store import DraftBackend
 from .draft_store import DraftUsage
 from .draft_store import filing_record
@@ -328,11 +331,10 @@ async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
         return await _submit_unchanged(backend, path, usage, named, envelope)
 
     chosen = " ".join((title or "").split())[:MAX_TITLE_CHARS] or draft_title(path, usage.content or "")
-    filing = (
-        await _refile(path, usage, envelope)
-        if usage.filing.get(FILED_DOCUMENT_KEY)
-        else await _create(path, usage, chosen, envelope)
-    )
+    first = not usage.filing.get(FILED_DOCUMENT_KEY)
+    filing = await _create(path, usage, chosen, envelope) if first else await _refile(path, usage, envelope)
+    if first and usage.made_by == MADE_BY_RUN:
+        emit_scores(filed_scores(path), writer="file-draft")
     await backend.arecord_filing(path, filing, draft_version=usage.version)
 
     def _card(record: dict[str, str]) -> None:

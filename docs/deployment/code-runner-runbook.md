@@ -53,12 +53,11 @@ image fails its deploy (`resolve-image-refs.sh`: "no image in the last 200 devel
    - `kubectl -n grid logs deploy/code-runner`: four slots started, no restarts.
 4. A first run from the app: in a project chat, ask "Erstelle eine Excel-Tabelle mit drei Räumen und
    ihrer Summe und leg sie ins Projekt". Expect a kept `/drafts/….xlsx`, then a filed draft that opens
-   in the viewer. In Langfuse the turn's `chat-turn` trace has an `execute` tool span whose output
-   starts `status: ok`.
-5. Watch for a day: `execute` spans with `status: error` from the runner rather than the script
-   (`The runner refused`, `could not be reached`, `busy`), runner pod restarts or OOM kills, and
-   replicas sitting at the maximum. The dedicated span and the metrics and alerts the design names are
-   not built yet; until they are, these are the signals.
+   in the viewer. In Langfuse the turn's `chat-turn` trace carries the tag `feature:execute`, an
+   `execute.run` step with `status: ok`, and the `execute-status` and `execute-files-made` scores.
+5. Watch for a day: `execute-status` scores of `unavailable` (their comment names `unreachable`,
+   `busy` or `http_error`), runner pod restarts or OOM kills, and replicas sitting at the maximum.
+   Alerts on these are not built yet.
 
 ## 3. Prod
 

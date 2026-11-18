@@ -30,7 +30,10 @@ class RunResult:
     duration_ms: int = 0
 
 
-class RunnerUnavailable(Exception): ...
+class RunnerUnavailable(Exception):
+    def __init__(self, message: str, code: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def _payload(source: str, language: str, files: dict[str, bytes], timeout_ms: int) -> dict[str, Any]:
@@ -68,7 +71,7 @@ async def _post(client: httpx.AsyncClient, url: str, payload: dict[str, Any]) ->
     try:
         return await client.post(url, json=payload)
     except httpx.HTTPError as exc:
-        raise RunnerUnavailable("the code runner could not be reached") from exc
+        raise RunnerUnavailable("the code runner could not be reached", "unreachable") from exc
 
 
 def _answer(response: httpx.Response) -> RunResult:
@@ -76,7 +79,7 @@ def _answer(response: httpx.Response) -> RunResult:
         return _refusal(response)
     if response.status_code != 200:
         logger.warning("Code runner answered %s", response.status_code)
-        raise RunnerUnavailable(f"the code runner answered {response.status_code}")
+        raise RunnerUnavailable(f"the code runner answered {response.status_code}", "http_error")
     return _result(response.json())
 
 
@@ -97,5 +100,5 @@ async def run_code(
     async with httpx.AsyncClient(timeout=timeout_ms / 1000 + 30) as client:
         response = await _post_until_free(client, f"{runner_url.rstrip('/')}{RUN_PATH}", payload)
     if response.status_code == 503:
-        raise RunnerUnavailable("the code runner is busy")
+        raise RunnerUnavailable("the code runner is busy", "busy")
     return _answer(response)

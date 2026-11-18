@@ -21,6 +21,9 @@ from .runner_client import WORKSPACE
 from .runner_client import RunnerUnavailable
 from .runner_client import RunResult
 from .runner_client import run_code
+from .trace import KeptFile
+from .trace import RunFacts
+from .trace import record_run
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +49,10 @@ NO_RUNNER = "Code execution is not available in this deployment. Answer without 
 NO_ENVELOPE = "This run carries no signed request context, so no project file can be read for the script."
 
 
-class _Refusal(Exception): ...
+class _Refusal(Exception):
+    def __init__(self, message: str, code: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def _lock(conversation_id: str) -> asyncio.Lock:
@@ -70,7 +76,7 @@ def _to_drafts(path: str) -> str:
 def _headers() -> dict[str, str]:
     header, signature = project_context.get_request_envelope_from_context()
     if not (header and signature):
-        raise _Refusal(NO_ENVELOPE)
+        raise _Refusal(NO_ENVELOPE, "no_envelope")
     return bff_http.SignedEnvelope(header=header, signature=signature).headers()
 
 
@@ -78,19 +84,25 @@ async def _document_bytes(name: str, budget: int) -> tuple[str, bytes]:
     try:
         resolved = await resolve_document(name)
     except Refused as refused:
-        raise _Refusal(str(refused)) from refused
+        raise _Refusal(str(refused), "unresolved") from refused
     if isinstance(resolved, str):
-        raise _Refusal(resolved)
+        raise _Refusal(resolved, "unresolved")
     if not resolved.collection:
-        raise _Refusal(f"'{resolved.file_name}' is a base-corpus document; read it with read_file instead.")
+        raise _Refusal(
+            f"'{resolved.file_name}' is a base-corpus document; read it with read_file instead.", "base_corpus"
+        )
     headers = _headers()
     try:
         bucket, key = await asyncio.to_thread(locate_stored_file, resolved.collection, resolved.file_name, headers)
         data = await asyncio.to_thread(read_stored_file, bucket, key, budget)
     except StoredFileUnavailable as exc:
         if exc.reason == "too_large":
-            raise _Refusal(f"'{resolved.file_name}' is too large: a run takes at most 50 MB of files.") from exc
-        raise _Refusal(f"'{resolved.file_name}' could not be read for the script ({exc.reason}).") from exc
+            raise _Refusal(
+                f"'{resolved.file_name}' is too large: a run takes at most 50 MB of files.", "too_large"
+            ) from exc
+        raise _Refusal(
+            f"'{resolved.file_name}' could not be read for the script ({exc.reason}).", "unreadable"
+        ) from exc
     note_collections_read([resolved.collection])
     return resolved.file_name, data
 
@@ -103,12 +115,12 @@ async def _inputs(backend: DraftBackend, documents: list[str]) -> dict[str, byte
         files[f"{INPUT_DIR}{file_name.rsplit('/', 1)[-1]}"] = data
         used += len(data)
     if used > MAX_INPUT_BYTES:
-        raise _Refusal("The files for this run exceed 50 MB. Name fewer documents.")
+        raise _Refusal("The files for this run exceed 50 MB. Name fewer documents.", "too_large")
     return files
 
 
-async def _keep(backend: DraftBackend, sent: dict[str, bytes], result: RunResult) -> tuple[list[str], list[str]]:
-    kept: list[str] = []
+async def _keep(backend: DraftBackend, sent: dict[str, bytes], result: RunResult) -> tuple[list[KeptFile], list[str]]:
+    kept: list[KeptFile] = []
     refused: list[str] = []
     for path, data in sorted(result.files.items()):
         if path.startswith(INPUT_DIR):
@@ -116,7 +128,7 @@ async def _keep(backend: DraftBackend, sent: dict[str, bytes], result: RunResult
         draft_path = _to_drafts(path)
         refusal = await backend.awrite_run_file(draft_path, data, previous_size=len(sent.get(path, b"")))
         if refusal is None:
-            kept.append(f"{draft_path} ({_size(len(data))})")
+            kept.append(KeptFile(draft_path, len(data), new=path not in sent))
         else:
             refused.append(refusal)
     return kept, refused
@@ -130,7 +142,7 @@ def _clip(text: str) -> str:
     return text if len(text) <= MAX_TEXT_BACK else text[:MAX_TEXT_BACK] + "\n… (cut)"
 
 
-def _report(result: RunResult, kept: list[str], refused: list[str]) -> str:
+def _report(result: RunResult, kept: list[KeptFile], refused: list[str]) -> str:
     lines = [f"status: {result.status} ({result.duration_ms} ms)"]
     if result.value is not None:
         lines.append("value: " + _clip(json.dumps(result.value, ensure_ascii=False, default=str)))
@@ -138,7 +150,8 @@ def _report(result: RunResult, kept: list[str], refused: list[str]) -> str:
         lines.append("stdout:\n" + _clip(result.stdout))
     if result.stderr:
         lines.append("stderr:\n" + _clip(result.stderr))
-    lines.append("files written: " + (", ".join(kept) if kept else "none"))
+    written = ", ".join(f"{file.path} ({_size(file.size)})" for file in kept)
+    lines.append("files written: " + (written or "none"))
     lines.extend(f"not kept: {reason}" for reason in refused)
     if kept:
         lines.append("A written file stays in the working directory; file_draft puts it into the project when asked.")
@@ -146,22 +159,37 @@ def _report(result: RunResult, kept: list[str], refused: list[str]) -> str:
 
 
 async def execute(runner_url: str, code: str, *, documents: list[str] | None = None, timeout_seconds: int = 0) -> str:
+    facts = RunFacts.of(code, documents)
+    try:
+        return await _execute(facts, runner_url, code, list(documents or []), timeout_seconds)
+    finally:
+        record_run(facts)
+
+
+async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[str], timeout_seconds: int) -> str:
     if not runner_url:
+        facts.stop("unavailable", "no_runner")
         return NO_RUNNER
     conversation_id = project_context.get_conversation_id_from_context()
     if not conversation_id:
+        facts.stop("refused", "no_conversation")
         return NO_CONVERSATION
     timeout_s = min(max(timeout_seconds or DEFAULT_TIMEOUT_S, 1), MAX_TIMEOUT_S)
     async with _lock(conversation_id):
         backend = await get_draft_backend(conversation_id)
         try:
-            sent = await _inputs(backend, list(documents or []))
+            sent = await _inputs(backend, documents)
         except _Refusal as refusal:
+            facts.stop("refused", refusal.code)
             return f"Nothing was run. {refusal}"
+        facts.sent(sent, timeout_s)
         try:
             result = await run_code(runner_url, code, language="ts", files=sent, timeout_ms=timeout_s * 1000)
         except RunnerUnavailable as exc:
             logger.warning("execute: %s", exc)
+            facts.stop("unavailable", exc.code)
             return f"Nothing was run: {exc}. Try once more; if it fails again, answer without running code."
+        facts.ran(result.status, result.duration_ms, result.stderr)
         kept, refused = await _keep(backend, sent, result)
+        facts.kept, facts.files_refused = kept, len(refused)
     return _report(result, kept, refused)

@@ -43,6 +43,10 @@ FILING_KEYS = (FILED_DOCUMENT_KEY, FILED_VERSION_KEY, FILED_HASH_KEY, FILED_STAT
 
 FILED_AT_DRAFT_VERSION_KEY = "grid_filed_at_draft_version"
 
+MADE_BY_KEY = "made_by"
+
+MADE_BY_RUN = "execute"
+
 _DRAFT_ROOT_BARE = DRAFT_ROOT.rstrip("/")
 
 _PAGE_SIZE = 100
@@ -86,6 +90,7 @@ class DraftUsage:
     filed_at_version: int = 0
     encoding: str = "utf-8"
     file_bytes: int = 0
+    made_by: str = ""
 
     @property
     def is_binary(self) -> bool:
@@ -127,6 +132,7 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
     encoding = "utf-8"
     filing: dict[str, str] = {}
     filed_at_version = 0
+    made_by = ""
     for item in items:
         raw = item.value.get("content")
         text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
@@ -140,6 +146,7 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
             version = int(item.value.get(VERSION_KEY) or 0)
             filing = filing_from_value(item.value)
             filed_at_version = int(item.value.get(FILED_AT_DRAFT_VERSION_KEY) or 0)
+            made_by = str(item.value.get(MADE_BY_KEY) or "")
     return DraftUsage(
         total_bytes=total,
         content=content,
@@ -148,6 +155,7 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
         filed_at_version=filed_at_version,
         encoding=encoding,
         file_bytes=file_bytes,
+        made_by=made_by,
     )
 
 
@@ -414,6 +422,7 @@ class DraftBackend(StoreBackend):
             "created_at": kept.get("created_at", now),
             "modified_at": now,
             VERSION_KEY: usage.version + 1,
+            MADE_BY_KEY: MADE_BY_RUN,
         }
         await store.aput(namespace, file_path, value)
         emit_draft_card(path=file_path, content="", version=usage.version + 1, filing=usage.filing, size=len(data))
