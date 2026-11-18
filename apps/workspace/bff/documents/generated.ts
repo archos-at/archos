@@ -125,6 +125,13 @@ export function generatedFilename(title: string, contentType: string, now: Date)
   return `${slug || 'document'}-${day}.${extension}`
 }
 
+export function storageName(name: string): string {
+  const dot = name.lastIndexOf('.')
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+  const stem = fileSlug(dot > 0 ? name.slice(0, dot) : name, { lowercase: false, maxLength: 120 })
+  return `${stem || 'document'}${extension ? `.${extension}` : ''}`
+}
+
 type ChosenFolder = Pick<FolderRow, 'id' | 'path'> | null
 
 async function chosenFolder(session: AuthorizedSession, projectId: string, folderId: string | null): Promise<ChosenFolder> {
@@ -211,7 +218,7 @@ export async function fileGeneratedDocument(
   const filename = isNamespacedAgentDocument({ authoredByProducer: producer })
     ? agentDocumentFilename(documentId, storedName)
     : storedName
-  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storedName, folder?.path)
+  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storageName(storedName), folder?.path)
 
   const storageBucket = await ensureTenantBucketChecked(bucketAdminS3Client, session.organizationId)
 
