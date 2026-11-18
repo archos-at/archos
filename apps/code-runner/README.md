@@ -42,7 +42,8 @@ and answers `200` with
   under `/workspace/` or with an empty, `.` or `..` segment, a path sent twice, base64 that is not
   standard, `timeoutMs` not a positive number or over 180000, more than 50 MB of source, `input`
   and decoded files together, or a body that is not JSON.
-- `503 {error: "busy"}`: every slot is running a run. The caller retries.
+- `503 {error: "busy"}`: every slot is running a run, or the run failed because every browser of
+  the renderer was in use. The caller retries; the run left nothing behind.
 
 ## Limits
 
@@ -57,6 +58,7 @@ and answers `200` with
 | Returned `value` | 8 MiB of JSON | `maxResultBytes` |
 | Entries under `/workspace/` after a run | 10000 | `src/limits.js` |
 | Network | none: `globalOutbound: null` for the run, and the front worker's outbound is a network service that allows nothing | `src/runner.js`, `config.capnp` |
+| Browsers per run | 2, each with 10 pages and 190 s; 2 per renderer pod, then `503 busy` | `src/browser/host.js`, `apps/browser-renderer` |
 | Memory per run | not enforced by self-hosted workerd | see below |
 
 ## How a run is held
@@ -94,7 +96,7 @@ caller ── HTTP :8080 ──> bin/server.mjs ──unix socket──> workerd
 
 ```bash
 task runner:install   # bun install --frozen-lockfile in apps/code-runner
-task runner:test      # build, then node --test against a real workerd
+task runner:test      # build, then node --test against a real workerd (and the browser image, Docker)
 task runner:e2e       # build, then the agent's execute and file_draft tools against this server
 task runner:serve     # build, then node bin/server.mjs on :8080
 ```
@@ -124,6 +126,7 @@ then bundles `src/worker.js` with those modules inlined as text into `dist/worke
 | `PORT`, `HOST` | `8080`, `0.0.0.0` | where the front listens |
 | `CODE_RUNNER_SLOTS` | `4` | workerd processes, so runs in flight |
 | `CODE_RUNNER_STORAGE_DIR` | `/run/code-runner/do` | Durable Object storage; mount memory here |
+| `BROWSER_RENDERER_ADDR` | unset | `host:port` of the browser renderer, set by Pulumi; unset, a launch answers "This runner has no browser" |
 
 ## Measured
 
@@ -141,10 +144,38 @@ then bundles `src/worker.js` with those modules inlined as text into `dist/worke
 | papaparse, date-fns, decimal.js, marked | 30 to 63 ms |
 | Infinite loop with `timeoutMs: 2000`, test grace 3 s | `timeout` after 5.0 s, the other slots serving meanwhile |
 | workerd resident memory per slot | 134 MB idle, about 190 MB after a run |
+| HTML report to PDF through the browser renderer | 390 to 930 ms |
+| Mermaid diagram to SVG and PNG (and a .docx) | 1.1 to 1.7 s |
+| Screenshot of HTML, 640 × 360 | 450 to 740 ms |
 
 Four slots hold about 540 MB before any run. The worst case, 4 × (190 MB per process + 128 MB in
 the isolate + 50 MB of files) ≈ 1.5 GB, fits the pod's 2 GiB limit; for more runs add replicas, not
 slots.
+
+## The browser
+
+A run reaches headless Chromium only through Puppeteer, as Cloudflare documents it for Workers:
+
+```js
+import puppeteer from "@cloudflare/puppeteer";
+const browser = await puppeteer.launch(env.BROWSER);
+```
+
+The isolate stays `globalOutbound: null`. A loader isolate gets no bindings from `CodemodeBackend`,
+so `env.BROWSER` is built inside the isolate by the library's entry (`src/browser/puppeteer.js`): its
+`fetch` answers the two calls `@cloudflare/puppeteer` makes (`POST /v1/devtools/browser` for a
+session, a WebSocket upgrade to `/v1/devtools/browser/<id>`) with a `WebSocketPair` whose far end is
+pumped through the host module `codemode:browser` (`open`, `send`, `receive`, `close`;
+`src/browser/host.js`). The host module runs in the run's Durable Object, which holds the one real
+WebSocket, through the `BROWSER_RENDERER` service binding to the external service `browser-renderer`
+(`config.capnp`; `bin/slot.mjs` passes `--external-addr` from `BROWSER_RENDERER_ADDR`). It is
+configured only for a run whose source names the library, a run may open 2 browsers, and every socket
+is closed in the run's `finally`. The backend refuses a scoped specifier, so the manifest entry has
+`module: cloudflare-puppeteer` and the runner rewrites the import specifier before the run.
+
+When the renderer answers `503` and the run then fails, the runner answers `503 busy` for the whole
+run, like a full slot. What the browser may do is the renderer's business:
+[`apps/browser-renderer/README.md`](../browser-renderer/README.md).
 
 ## The libraries
 
@@ -166,6 +197,7 @@ with both a default and named exports (`import docx from "docx"`, `import { Docu
 | pptxgenjs | 4.0.1 | MIT | PowerPoint |
 | marked | 18.1.3 | MIT | Markdown to HTML |
 | decimal.js | 10.6.0 | MIT | exact decimals |
+| @cloudflare/puppeteer | 2.0.1 | Apache-2.0 | HTML to PDF, screenshots, Mermaid, through the browser below |
 
 An isolate forbids `eval` and `new Function`, so a Vega view takes the interpreter:
 `new vega.View(vega.parse(spec, null, { ast: true }), { expr: expressionInterpreter, renderer: "none" })`.
@@ -184,5 +216,6 @@ A library is admitted only when it passes all five checks of the design doc, eac
    prints each size), and the repository's vulnerability scan passes.
 
 Then: pin the exact version in `package.json` (`bun add -d <name>@<version> --exact`), add its entry
-to `libraries.json` with the same version, commit `bun.lock`, and run `task runner:test`. Its name
-must not contain `/` (the backend refuses a scoped specifier).
+to `libraries.json` with the same version, commit `bun.lock`, and run `task runner:test`. The backend
+refuses a scoped specifier, so a scoped package also gets a `module` name without `/`; the runner
+rewrites the import. `entry` names a local module to bundle instead of the package itself.

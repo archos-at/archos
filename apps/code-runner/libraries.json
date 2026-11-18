@@ -84,6 +84,14 @@
       "version": "10.6.0",
       "license": "MIT",
       "purpose": "Exact decimal arithmetic for areas and money."
+    },
+    {
+      "name": "@cloudflare/puppeteer",
+      "module": "cloudflare-puppeteer",
+      "entry": "src/browser/puppeteer.js",
+      "version": "2.0.1",
+      "license": "Apache-2.0",
+      "purpose": "Puppeteer: HTML and CSS to PDF, screenshots, Mermaid diagrams, in a fresh headless Chromium with no network. puppeteer.launch(env.BROWSER)."
     }
   ]
 }

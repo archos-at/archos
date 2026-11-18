@@ -71,11 +71,11 @@ async function runOn(slot, body, grace) {
   }
 }
 
-export async function startServer({ port, host, slots: count, storage, watchdogGraceMs = WATCHDOG_GRACE_MS }) {
+export async function startServer({ port, host, slots: count, storage, watchdogGraceMs = WATCHDOG_GRACE_MS, browserAddr }) {
   await mkdir(storage, { recursive: true });
   const sockets = await mkdtemp(join(tmpdir(), "code-runner-"));
   const config = join(ROOT, "config.capnp");
-  const slots = Array.from({ length: count }, (_, index) => new Slot({ index, root: sockets, config, storageRoot: storage }));
+  const slots = Array.from({ length: count }, (_, index) => new Slot({ index, root: sockets, config, storageRoot: storage, browserAddr }));
   await Promise.all(slots.map((slot) => slot.start()));
 
   async function handleRun(req, res) {
@@ -130,6 +130,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     host: process.env.HOST ?? "0.0.0.0",
     slots: Number(process.env.CODE_RUNNER_SLOTS ?? 4),
     storage: process.env.CODE_RUNNER_STORAGE_DIR ?? "/run/code-runner/do",
+    browserAddr: process.env.BROWSER_RENDERER_ADDR,
   });
   console.log(JSON.stringify({ message: "code runner listening", port: server.port }));
   for (const signal of ["SIGTERM", "SIGINT"]) {

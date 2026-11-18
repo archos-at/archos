@@ -3,20 +3,24 @@ import { readdir, readFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
+import { startBrowserRenderer } from "./browser-harness.mjs";
 import { startRunner } from "./harness.mjs";
 
 const OFFICE =
   process.env.OFFICE_SKILLS_DIR ??
   join(dirname(fileURLToPath(import.meta.url)), "../../../packages/agent/src/agent/skills/builtin/office");
 
-const MAGIC = { ".docx": "PK", ".xlsx": "PK", ".pptx": "PK", ".pdf": "%PDF-", ".svg": "<svg" };
+const MAGIC = { ".docx": "PK", ".xlsx": "PK", ".pptx": "PK", ".pdf": "%PDF-", ".svg": "<svg", ".png": "\x89PNG" };
 
+let renderer;
 let runner;
 before(async () => {
-  runner = await startRunner({ slots: 2 });
+  renderer = await startBrowserRenderer({ sessions: 2 });
+  runner = await startRunner({ slots: 2, browserAddr: renderer.addr });
 });
 after(async () => {
   await runner?.stop();
+  await renderer?.stop();
 });
 
 async function scripts(dir) {

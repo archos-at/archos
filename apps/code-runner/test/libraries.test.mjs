@@ -24,6 +24,18 @@ async function ok(body) {
 const timings = {};
 
 const CASES = {
+  async "@cloudflare/puppeteer"() {
+    const result = await ok({
+      source: `import puppeteer, { connect, launch } from "@cloudflare/puppeteer";
+        export default async () => ({
+          shape: [typeof puppeteer.launch, typeof connect, typeof launch, typeof env.BROWSER.fetch],
+          launched: await puppeteer.launch(env.BROWSER).then(() => "launched", (error) => error.message),
+        });`,
+    });
+    assert.deepEqual(result.value.shape, ["function", "function", "function", "function"]);
+    assert.match(result.value.launched, /no browser/, "this suite's runner has none; test/browser.test.mjs drives a real one");
+    return result;
+  },
   async docx() {
     const result = await ok({
       source: `import { Document, Packer, Paragraph, Table, TableRow, TableCell } from "docx";

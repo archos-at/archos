@@ -82,24 +82,27 @@ const LIBRARY_OPTIONS = {
   logLevel: "error",
 };
 
+export const moduleOf = (lib) => lib.module ?? lib.name;
+
 async function buildLibrary(lib) {
-  const result = await esbuild.build({
-    stdin: { contents: await entrySource(lib.name), resolveDir: ROOT, sourcefile: `${lib.name}-entry.mjs` },
-    ...LIBRARY_OPTIONS,
-  });
+  const input = lib.entry
+    ? { entryPoints: [join(ROOT, lib.entry)], external: ["codemode:*"] }
+    : { stdin: { contents: await entrySource(lib.name), resolveDir: ROOT, sourcefile: `${lib.name}-entry.mjs` } };
+  const result = await esbuild.build({ ...input, ...LIBRARY_OPTIONS });
   const code = result.outputFiles[0].text;
   const bytes = Buffer.byteLength(code);
   if (bytes > SIZE_BUDGET_BYTES) throw new Error(`${lib.name}: ${bytes} bytes is over the ${SIZE_BUDGET_BYTES} budget.`);
-  await writeFile(join(DIST, "libs", `${lib.name}.mjs.txt`), code);
+  await writeFile(join(DIST, "libs", `${moduleOf(lib)}.mjs.txt`), code);
   return bytes;
 }
 
 async function buildWorker(libraries) {
-  const imports = libraries.map((lib, i) => `import l${i} from "./libs/${lib.name}.mjs.txt";`);
-  const map = libraries.map((lib, i) => `  ${JSON.stringify(lib.name)}: l${i},`);
+  const imports = libraries.map((lib, i) => `import l${i} from "./libs/${moduleOf(lib)}.mjs.txt";`);
+  const map = libraries.map((lib, i) => `  ${JSON.stringify(moduleOf(lib))}: l${i},`);
+  const specifiers = libraries.map((lib) => `  ${JSON.stringify(lib.name)}: ${JSON.stringify(moduleOf(lib))},`);
   await writeFile(
     join(DIST, "libraries.gen.js"),
-    `${imports.join("\n")}\nexport const LIBRARY_MODULES = {\n${map.join("\n")}\n};\n`,
+    `${imports.join("\n")}\nexport const LIBRARY_MODULES = {\n${map.join("\n")}\n};\nexport const LIBRARY_SPECIFIERS = {\n${specifiers.join("\n")}\n};\n`,
   );
   await esbuild.build({
     entryPoints: [join(ROOT, "src", "worker.js")],
@@ -121,7 +124,7 @@ await checkManifest(manifest, await readJson(join(ROOT, "package.json")));
 await rm(DIST, { recursive: true, force: true });
 await mkdir(join(DIST, "libs"), { recursive: true });
 const sizes = {};
-for (const lib of manifest.libraries) sizes[lib.name] = await buildLibrary(lib);
+for (const lib of manifest.libraries) sizes[moduleOf(lib)] = await buildLibrary(lib);
 await buildWorker(manifest.libraries);
 await writeFile(join(DIST, "sizes.json"), `${JSON.stringify(sizes, null, 2)}\n`);
-for (const [name, bytes] of Object.entries(sizes)) console.log(`${name.padEnd(18)} ${(bytes / 1024).toFixed(0).padStart(6)} KiB`);
+for (const [name, bytes] of Object.entries(sizes)) console.log(`${name.padEnd(22)} ${(bytes / 1024).toFixed(0).padStart(6)} KiB`);

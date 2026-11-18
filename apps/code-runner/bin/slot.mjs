@@ -25,7 +25,8 @@ export class Slot {
   #child = null;
   #ready = null;
 
-  constructor({ index, root, config, storageRoot }) {
+  constructor({ index, root, config, storageRoot, browserAddr }) {
+    this.browserAddr = browserAddr || null;
     this.index = index;
     this.socket = join(root, `slot-${index}.sock`);
     this.storage = join(storageRoot, `slot-${index}`);
@@ -40,7 +41,10 @@ export class Slot {
   async start() {
     await rm(this.socket, { force: true });
     await mkdir(this.storage, { recursive: true });
-    const child = spawn(WORKERD, ["serve", "--experimental", this.config, `--socket-addr=http=unix:${this.socket}`, `--directory-path=run-storage=${this.storage}`], { stdio: ["ignore", "inherit", "inherit"] });
+    const browser = this.browserAddr ? [`--external-addr=browser-renderer=${this.browserAddr}`] : [];
+    const args = ["serve", "--experimental", this.config, `--socket-addr=http=unix:${this.socket}`, `--directory-path=run-storage=${this.storage}`, ...browser];
+    const env = { ...process.env, BROWSER_RENDERER_ADDR: this.browserAddr ?? "" };
+    const child = spawn(WORKERD, args, { stdio: ["ignore", "inherit", "inherit"], env });
     this.#child = child;
     this.#ready = null;
     child.on("exit", () => {

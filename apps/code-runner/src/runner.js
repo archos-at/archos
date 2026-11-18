@@ -3,30 +3,42 @@ import { DurableObject } from "cloudflare:workers";
 import { Workspace } from "@cloudflare/computer";
 import { CodemodeBackend } from "@cloudflare/computer/backends/codemode";
 import { transform } from "sucrase";
-import { LIBRARY_MODULES } from "#libraries";
+import { LIBRARY_MODULES, LIBRARY_SPECIFIERS } from "#libraries";
+import { browserHost } from "./browser/host.js";
 import { LIMITS, WORKSPACE_ROOT } from "./limits.js";
 import { BadRequest, parseRunRequest } from "./request.js";
 
 const MiB = 1024 * 1024;
 const SCRIPT_FILE = /\.(c|m)?(j|t)sx?$/;
+const BROWSER_MODULE = "cloudflare-puppeteer";
 const decoder = new TextDecoder();
+
+const quoted = (text, name) => text.includes(`"${name}"`) || text.includes(`'${name}'`) || text.includes(`\`${name}\``);
 
 export function librariesFor(source, files) {
   const texts = [source, ...files.filter((file) => SCRIPT_FILE.test(file.path)).map((file) => decoder.decode(file.bytes))];
   const modules = {};
-  for (const [name, code] of Object.entries(LIBRARY_MODULES)) {
-    if (texts.some((text) => text.includes(`"${name}"`) || text.includes(`'${name}'`) || text.includes(`\`${name}\``))) {
-      modules[name] = code;
-    }
+  for (const [specifier, name] of Object.entries(LIBRARY_SPECIFIERS)) {
+    if (texts.some((text) => quoted(text, specifier) || quoted(text, name))) modules[name] = LIBRARY_MODULES[name];
   }
   return modules;
 }
 
-function backend(env, modules) {
+export function renameSpecifiers(source) {
+  let renamed = source;
+  for (const [specifier, name] of Object.entries(LIBRARY_SPECIFIERS)) {
+    if (specifier === name) continue;
+    const escaped = specifier.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+    renamed = renamed.replace(new RegExp(`(\\bfrom\\s*|\\bimport\\s*\\(\\s*|\\bimport\\s+)(["'\`])${escaped}\\2`, "g"), `$1$2${name}$2`);
+  }
+  return renamed;
+}
+
+function backend(env, modules, browser) {
   return new CodemodeBackend({
     loader: env.LOADER,
     globalOutbound: null,
-    modules,
+    modules: modules[BROWSER_MODULE] ? { ...modules, "codemode:browser": browser.module } : modules,
     defaultTimeoutMs: LIMITS.defaultTimeoutMs,
     maxTimeoutMs: LIMITS.maxTimeoutMs,
     maxCpuMs: LIMITS.maxTimeoutMs,
@@ -78,12 +90,15 @@ export class Runner extends DurableObject {
       throw error;
     }
     const started = Date.now();
-    const ws = new Workspace({ storage: this.ctx.storage, backends: [backend(this.env, librariesFor(run.source, run.files))] });
+    const browser = browserHost(this.env);
+    const ws = new Workspace({ storage: this.ctx.storage, backends: [backend(this.env, librariesFor(run.source, run.files), browser)] });
     try {
       await ws.ready();
       const result = await runIn(ws.stub(), run);
+      if (browser.state.busy && result.status === "error") return json(503, { error: "busy" });
       return json(200, { ...result, durationMs: Date.now() - started });
     } finally {
+      browser.closeAll();
       await ws.close().catch(() => undefined);
       await this.ctx.storage.deleteAll();
     }
@@ -110,7 +125,7 @@ async function execute(ws, run) {
   const failed = { status: "error", value: null, stdout: "" };
   let source;
   try {
-    source = run.language === "ts" ? stripTypes(run.source) : run.source;
+    source = renameSpecifiers(run.language === "ts" ? stripTypes(run.source) : run.source);
   } catch (error) {
     return { ...failed, stderr: truncate(`TypeScript: ${error.message}`) };
   }
