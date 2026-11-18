@@ -108,6 +108,15 @@ async function sha256(bytes) {
   return Buffer.from(await crypto.subtle.digest("SHA-256", bytes)).toString("hex");
 }
 
+const VALUE_NOT_JSON = /Workspace code inputs and results (must be JSON-compatible values|must use plain objects)/;
+const VALUE_HINT =
+  "The returned value must be plain JSON: no undefined in an array (exceljs row.values and getSheetValues leave holes for empty cells), no Date, Decimal or other class instance. Return JSON.parse(JSON.stringify(value)), or map holes to null and dates to strings.";
+
+function explained(stderr) {
+  const text = stderr ?? "";
+  return VALUE_NOT_JSON.test(text) && !text.includes(VALUE_HINT) ? `${text.trimEnd()}\n${VALUE_HINT}\n` : text;
+}
+
 function stripTypes(source) {
   return transform(source, { transforms: ["typescript"], disableESTransforms: true }).code;
 }
@@ -179,10 +188,10 @@ async function execute(ws, run) {
       status: statusOf(result),
       value: result.value === undefined ? null : result.value,
       stdout: truncate(result.stdout),
-      stderr: truncate(result.stderr),
+      stderr: truncate(explained(result.stderr)),
     };
   } catch (error) {
-    return { ...failed, stderr: truncate(error instanceof Error ? error.message : String(error)) };
+    return { ...failed, stderr: truncate(explained(error instanceof Error ? error.message : String(error))) };
   }
 }
 
