@@ -151,12 +151,13 @@ def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
         table = tables.setdefault(
             (chunk.page, tuple(_fold(name) for name in header)), _Table(label=_label(chunk), header=header)
         )
-        place = _place(chunk)
-        for row in rows[2:]:
-            cells = [*row, *[""] * (width - len(row))][:width]
-            if any(cells):
-                table.rows.append(_Row(cells=cells, place=place))
+        table.rows.extend(_filled_rows(rows[2:], width, _place(chunk)))
     return [table for table in tables.values() if table.rows]
+
+
+def _filled_rows(rows: list[list[str]], width: int, place: str) -> list[_Row]:
+    padded = ([*row, *[""] * (width - len(row))][:width] for row in rows)
+    return [_Row(cells=cells, place=place) for cells in padded if any(cells)]
 
 
 def _header_share(first: _Table, second: _Table) -> float:
@@ -305,12 +306,12 @@ def _in_order(first: _Table, second: _Table, shared: list[tuple[str, int, int]])
             continue
         old_block, new_block = first.rows[i1:i2], second.rows[j1:j2]
         paired = min(len(old_block), len(new_block)) if tag == "replace" else 0
-        for old_row, new_row in zip(old_block[:paired], new_block[:paired], strict=True):
-            change = _row_change(old_row, new_row, shared, None)
-            if change is None:
-                equal += 1
-            else:
-                changed.append(change)
+        changes = [
+            _row_change(old_row, new_row, shared, None)
+            for old_row, new_row in zip(old_block[:paired], new_block[:paired], strict=True)
+        ]
+        changed.extend(change for change in changes if change is not None)
+        equal += changes.count(None)
         only_first.extend(_only(row, None) for row in old_block[paired:])
         only_second.extend(_only(row, None) for row in new_block[paired:])
     return _table_diff(first, second, shared, None, equal, changed, only_first, only_second)

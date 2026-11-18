@@ -43,11 +43,11 @@ def _other_document(
         if (row.shelf in shelves or (not shelf and row.shelf is None)) and (row.collection, row.file_name) not in chain
     ]
     candidates = _chain_candidates(scoped, target)
-    fassungen = ", ".join(row.file_name for row in members[:MAX_CHAIN_CANDIDATES])
+    chain_names = ", ".join(row.file_name for row in members[:MAX_CHAIN_CANDIDATES])
     if not candidates:
         return None, (
             f'"{target}" is neither a Fassung of this document nor another file on {where}. Its Fassungen: '
-            f"{fassungen}. Find the exact name of the other file with `list_files(name_contains=…)`."
+            f"{chain_names}. Find the exact name of the other file with `list_files(name_contains=…)`."
         )
     if len(candidates) > 1:
         names = ", ".join(row.file_name for row in candidates[:MAX_CHAIN_CANDIDATES])
@@ -90,9 +90,7 @@ def resolve_compare(
             return None, f'"{target}" matches several Fassungen; name one exactly: {names}.'
         if not candidates:
             outside, refusal = _other_document(rows, members, target, shelf=shelf, default_shelves=default_shelves)
-            if outside is None:
-                return None, refusal
-            return ComparePair(first=anchor, second=outside, related=False), ""
+            return (ComparePair(first=anchor, second=outside, related=False) if outside else None), refusal
         other = candidates[0]
     if other is anchor:
         return None, "That is the same file twice. Name a different file in `compare_to`."
