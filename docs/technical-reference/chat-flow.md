@@ -62,7 +62,7 @@ their union.
 `isStreaming`, `isLoading` and `pendingInteraction` are derived from the
 running turn's view (`turnStateFor`), never set by hand, and speak of the
 conversation on screen only. What any conversation is doing, for the chat list
-and the rail, is `conversationActivity` (`lib/turn-selectors.ts`): `working`,
+and the rail, is `conversationActivity` (`bff/turns/conversation-activity.ts`): `working`,
 `waiting` (the agent asked the reader), or `answered` (its turn ended while
 another chat was open; `unseenAnswers`, cleared by `selectConversation`).
 

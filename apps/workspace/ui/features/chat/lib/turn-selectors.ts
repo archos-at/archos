@@ -9,17 +9,7 @@ export const runningTurnIn = (
     ? Object.values(turns).find((view) => view.conversationId === conversationId && view.phase === 'running')
     : undefined
 
-export type ConversationActivity = 'working' | 'waiting' | 'answered'
-
-export const conversationActivity = (
-  turns: Record<string, TurnView>,
-  unseenAnswers: Record<string, true>,
-  conversationId: string
-): ConversationActivity | null => {
-  const view = runningTurnIn(turns, conversationId)
-  if (view) return view.interaction ? 'waiting' : 'working'
-  return unseenAnswers[conversationId] ? 'answered' : null
-}
+export { conversationActivity, type ConversationActivity } from '@/lib/turns/conversation-activity'
 
 export const withUnseenAnswer = (
   state: { unseenAnswers: Record<string, true>; currentConversation: { id: string } | null },

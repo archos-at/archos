@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { hasFinishedRun, hasLiveRun } from '@/features/chat/lib/session-activity'
-import { conversationActivity, type ConversationActivity } from '@/features/chat/lib/turn-selectors'
+import { conversationActivity, type ConversationActivity } from '@/lib/turns/conversation-activity'
 import { conversationMatchesProject, isHiddenJobConversation } from '@/features/chat/lib/project-scope'
 
 export interface SessionRow {
