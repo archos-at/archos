@@ -1,13 +1,10 @@
 {
   "files": {
     "apps/agent-host/src/agent_host/models/requests.py": 724,
-    "packages/agent/src/agent/agents/intake/tools.py": 634,
     "packages/agent/src/agent/cards/surface_documents.py": 650,
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/wire_v2.py": 979,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 760,
-    "packages/agent/src/agent/tools/bim/register.py": 684,
-    "packages/agent/src/agent/tools/cross_project/register.py": 804,
     "packages/ifc-spatial-py/src/ifc_spatial/circulation.py": 601,
     "packages/ifc-spatial-py/src/ifc_spatial/daylight.py": 861,
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py": 669,

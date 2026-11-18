@@ -25,7 +25,6 @@
   "apps/agent-host/src/agent_host/routes/revision_compare.py": 1,
   "packages/agent/src/agent/agents/deep_researcher/custom_middleware.py": 1,
   "packages/agent/src/agent/agents/intake/reading.py": 1,
-  "packages/agent/src/agent/agents/intake/tools.py": 1,
   "packages/agent/src/agent/auth/utils.py": 3,
   "packages/agent/src/agent/cards/calculation_card.py": 1,
   "packages/agent/src/agent/cards/envelope.py": 1,
