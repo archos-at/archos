@@ -25,7 +25,6 @@ import {
   MoreHorizontal,
   PencilLine,
   Trash2,
-  MessageSquare,
   Plus,
   Search,
   Share2,
@@ -57,7 +56,6 @@ import type { ResourceAccessEntry } from '@/lib/sharing/types'
 import identity from '@/shared/brand/identity.json'
 import { cn } from '@/lib/utils'
 
-const ME = { id: 'me', name: 'Mein Bereich' }
 export const PROJECTS = [
   { id: 'p-1', name: 'Wohnbau Seestadt Baufeld D12', short: 'Seestadt D12' },
   { id: 'p-2', name: 'Sanierung Amtshaus Favoriten', short: 'Amtshaus' },
@@ -79,12 +77,6 @@ const MY_CHATS: Chat[] = [
   { title: 'Agenda Jour fixe Donnerstag' },
   { title: 'Stellplatzverpflichtung Wien', project: 'p-2' },
   { title: 'Brandabschnitte Tiefgarage', project: 'p-1' },
-]
-const PROJECT_CHATS: Chat[] = [
-  { title: 'Fluchtweglänge im Erdgeschoss' },
-  { title: 'Abgleich Statik, Planstand Oktober', shared: true },
-  { title: 'Brandabschnitte Tiefgarage' },
-  { title: 'Barrierefreiheit Sanitärräume' },
 ]
 
 if (typeof window !== 'undefined') {
@@ -174,41 +166,6 @@ export function GroupLabel({ children }: { children: ReactNode }): JSX.Element {
   return <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 pt-4 font-medium">{children}</div>
 }
 
-function ProjectSections({ open, currentChat }: { open: boolean; currentChat: number | null }): JSX.Element {
-  return (
-    <SidebarMenu className="gap-0.5">
-      <NavRow icon={MessageSquare} label="Chat" within={open && currentChat !== null} />
-      {open && (
-        <ul className="flex flex-col gap-0.5 pt-0.5">
-          {PROJECT_CHATS.map((chat, index) => (
-            <ChatRow key={chat.title} chat={chat} current={index === currentChat} />
-          ))}
-          <MoreRow label="Alle Chats" />
-        </ul>
-      )}
-      <NavRow icon={Folder} label="Dateien" />
-      <NavRow icon={LayoutGrid} label="Übersicht" />
-      <NavRow icon={Zap} label="Automatisierung" />
-    </SidebarMenu>
-  )
-}
-
-function PersonalSections({ currentChat }: { currentChat: number | null }): JSX.Element {
-  return (
-    <SidebarMenu className="gap-0.5">
-      <NavRow icon={MessageSquare} label="Chats" within={currentChat !== null} />
-      <ul className="flex flex-col gap-0.5 pt-0.5">
-        {MY_CHATS.map((chat, index) => (
-          <ChatRow key={chat.title} chat={chat} current={index === currentChat} showProject />
-        ))}
-        <MoreRow label="Alle Chats" />
-      </ul>
-      <NavRow icon={BookMarked} label="Gedächtnis" />
-      <NavRow icon={Zap} label="Abläufe" hint="später" />
-    </SidebarMenu>
-  )
-}
-
 export const ALL_CHATS: Chat[] = [MY_CHATS[0]!, MY_CHATS[1]!, { title: 'Abgleich Statik, Planstand Oktober', project: 'p-1', shared: true }, MY_CHATS[2]!, MY_CHATS[3]!]
 
 function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sticky?: boolean; current?: number | null; noneLabel?: string }): JSX.Element {
@@ -264,6 +221,19 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, 
           <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
         </SidebarMenu>
       )}
+      {inbox === 'line' && (
+        <a href="#" className={cn('border-hairline text-meta mb-1 flex items-center gap-2 border-t px-3 pb-1 pt-3', inboxOpen ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+          <Bell className="size-3.5" aria-hidden />
+          8 Einträge warten auf Sie
+        </a>
+      )}
+      <div className="relative">
+        {inbox === 'bell' && (
+          <span title="Postfach" className={cn('absolute right-9 top-1/2 z-10 flex h-7 -translate-y-1/2 items-center gap-1 rounded-control px-1.5', inboxOpen ? 'bg-sheet shadow-xs' : '')}>
+            <Bell className="size-4" aria-label="Postfach" />
+            <span className="bg-foreground text-background text-meta flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-medium">8</span>
+          </span>
+        )}
       {ownShelf && (
         <SidebarMenu className="mb-2 gap-0.5">
           <NavRow icon={FolderLock} label="Meine Ablage" active={ownShelf === 'open'} />
@@ -275,6 +245,7 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, 
         </SidebarMenu>
       )}
       <SidebarUserMenu user={USER} organizationName={OFFICE} authRequired={false} compact={false} avatarSizeClass="size-6" menuSide="top" menuAlign="end" menuSideOffset={6} menuMatchTrigger canViewOrganization canManageOrganization={false} canManagePlatform={false} />
+      </div>
     </SidebarFooter>
   )
 }
@@ -446,7 +417,7 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'subline', acro
   )
 }
 
-export function Page({ me, shared = false, menuOpen = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; shared?: boolean; menuOpen?: boolean; noneLabel?: string }): JSX.Element {
+export function Page({ me, shared = false, menuOpen = false }: { me: boolean; shared?: boolean; menuOpen?: boolean }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ChatHeader title={shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} menuOpen={menuOpen} />
@@ -484,7 +455,7 @@ export function PersonalAreaRailPreview(): JSX.Element {
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
       </SidebarProvider>
-      <Page me={me} fresh={fresh} noneLabel={variant === 'g' && noneLabel === 'Projekte' ? 'Ohne Projekt' : noneLabel} />
+      <Page me={me} />
     </div>
   )
 }
