@@ -10,6 +10,7 @@ const WORKERD = workerdPackage.default;
 const READY_TIMEOUT_MS = 30_000;
 const RESTART_BACKOFF_MS = { first: 250, max: 30_000 };
 const CRASH_LOOP_MS = 10_000;
+const STOP_GRACE_MS = 5_000;
 const STDERR_TAIL_BYTES = 8192;
 const OUT_OF_MEMORY = /out of memory|heap limit|allocation failed|bad_alloc/i;
 
@@ -189,9 +190,16 @@ export class Slot {
     return call(this.socket, "POST", "/run", body);
   }
 
-  stop() {
+  async stop() {
     this.#stopped = true;
     clearTimeout(this.#timer);
-    this.#child?.kill("SIGTERM");
+    await this.#pending?.catch(() => undefined);
+    const child = this.#child;
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise((resolve) => child.once("exit", resolve));
+    child.kill("SIGTERM");
+    const killer = setTimeout(() => child.kill("SIGKILL"), STOP_GRACE_MS);
+    await exited;
+    clearTimeout(killer);
   }
 }
