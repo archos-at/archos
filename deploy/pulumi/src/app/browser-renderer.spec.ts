@@ -58,10 +58,10 @@ describe("browser-renderer", () => {
     defaults = cfg;
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
     const renderer = installBrowserRenderer(cfg, provider, "grid", [], [{ name: "pull" }]);
-    installBrowserRendererScaling(cfg, provider, "grid", renderer, []);
+    const scaling = installBrowserRendererScaling(cfg, provider, "grid", renderer, []);
     const runner = installCodeRunner(cfg, provider, "grid", [], [{ name: "pull" }], renderer.addr);
     installNetworkPolicies(cfg, provider, "grid");
-    await new Promise((done) => runner.service.id.apply(done));
+    await Promise.all([runner.deployment, runner.service, scaling].map((r) => new Promise((done) => r.id.apply(done))));
   });
 
   it("is off by default, needs the code runner, and comes from the registry the app images come from", async () => {
