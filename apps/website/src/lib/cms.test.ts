@@ -1,10 +1,21 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { blogEntries } from './blog-sitemap';
 import { assetUrl, authorization, cmsSettings, fetchCmsPosts, postsUrl, swrCache } from './cms';
 import { previewRequestUrl } from './cms-preview';
 import { fromCms, type CmsPost, type Post } from './post-model';
+
+const HOOK = join(import.meta.dir, '../../../cms/src/hooks/revalidate-website.ts');
+const ROUTE = join(import.meta.dir, '../pages/api/cms/revalidate.ts');
+const REVALIDATE_CHAIN = `
+const hook = await import(${JSON.stringify(HOOK)});
+const route = await import(${JSON.stringify(ROUTE)});
+const settings = hook.revalidateSettings(process.env);
+const notified = settings
+  ? await hook.notifyWebsite(settings, (url, init) => route.POST({ request: new Request(url, init) }))
+  : false;
+console.log(JSON.stringify({ configured: settings !== undefined, notified }));
+`;
 
 const text = (value: string, format = 0) => ({ type: 'text', version: 1, detail: 0, format, mode: 'normal', style: '', text: value });
 const body = (...children: unknown[]) => ({ root: { type: 'root', version: 1, direction: null, format: '', indent: 0, children } });
@@ -96,10 +107,18 @@ describe('the CMS client', () => {
     expect(previewRequestUrl({ url: 'http://cms:3000' }, search)).toBeUndefined();
   });
 
-  test('the CMS sends the bearer the revalidate route checks, from the same variable names', () => {
-    const hook = readFileSync(join(import.meta.dir, '../../../cms/src/hooks/revalidate-website.ts'), 'utf8');
-    expect(hook).toContain('WEBSITE_REVALIDATE_TOKEN');
-    expect(hook).toContain('Authorization: `Bearer ${settings.token}`');
+  test('the CMS hook sends the bearer the revalidate route accepts, and nothing else', () => {
+    const run = (routeToken: string, hookToken: string) => {
+      const child = Bun.spawnSync([process.execPath, '-e', REVALIDATE_CHAIN], {
+        env: { WEBSITE_REVALIDATE_URL: 'http://web/api/cms/revalidate', WEBSITE_REVALIDATE_TOKEN: hookToken, CMS_REVALIDATE_TOKEN: routeToken },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+      expect(child.exitCode, child.stderr.toString()).toBe(0);
+      return JSON.parse(child.stdout.toString()) as { configured: boolean; notified: boolean };
+    };
+    expect(run('secret', 'secret')).toEqual({ configured: true, notified: true });
+    expect(run('secret', 'other')).toEqual({ configured: true, notified: false });
   });
 });
 
