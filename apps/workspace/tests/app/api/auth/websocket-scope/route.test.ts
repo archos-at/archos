@@ -39,12 +39,12 @@ const mockLoadProjectPromptView = vi.mocked(loadProjectPromptView)
 describe('/api/auth/websocket-scope', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     mockLoadProjectPromptView.mockResolvedValue(null)
   })
 
   it('returns scope and header when auth is disabled', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
     mockGetUserSession.mockResolvedValue(null)
     mockBuildCollectionScopeFromRequest.mockResolvedValue({
       scope: ['oib_knowledge'],
@@ -80,7 +80,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('returns 401 when auth is required and there is no session', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     mockGetUserSession.mockResolvedValue(null)
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope')
@@ -92,7 +92,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('authorizes project access when auth is required and projectId is provided', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     const session = {
       userId: 'user_1',
       email: 'a@b.com',
@@ -128,7 +128,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('returns 403 on authorization failure', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     const session = {
       userId: 'user_1',
       email: 'a@b.com',
@@ -152,7 +152,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('returns 500 for unexpected errors', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
     mockGetUserSession.mockRejectedValue(new Error('database unavailable'))
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope')

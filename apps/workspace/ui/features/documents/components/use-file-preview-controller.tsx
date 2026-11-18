@@ -24,23 +24,21 @@ import { PHONE_ON_ITS_SIDE_QUERY, PHONE_QUERY } from '@/hooks/use-is-mobile'
 import { useDocumentActions, useMoveInSheet } from './document-actions'
 import { isCitable, isCitableStatus, isNeverIndexed, isSettlingStatus } from './document-status'
 
-import type { VisualDetail } from './page-readings'
 import { useFileFacts } from '../hooks/use-file-facts'
 
 import { showsRevisionsSection } from '@/lib/documents/revision-timeline'
 
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { backLandsOn } from '@/lib/navigation/history-step'
-
 import { useFilePreviewStore } from '../stores/file-preview-store'
 import { useDocumentReview } from '../hooks/use-document-review'
+import { usePreviewLoader } from '../hooks/use-preview-loader'
+import { useReviewLink } from '../hooks/use-review-link'
+import { useVisualDetails } from '../hooks/use-visual-details'
 
 import { useRoomCompany } from './review/document-review'
 import { tabCounts } from './review/review-panel'
 
-import { clearReviewParams, hrefWithParams, readReviewParams, reviewFilesHref, setReviewParams, type ReviewLinkTool } from '../lib/open-review'
-import { readDocumentLocus } from '../lib/document-locus'
+import { reviewFilesHref } from '../lib/open-review'
 import { isLive, type MarkTally } from '@/lib/annotations/types'
 
 import { ToolbarTextButton } from '@/components/ui/floating-toolbar'
@@ -120,17 +118,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   useEffect(() => {
     setDetailsOpen(false)
   }, [file.id])
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
-  const [renditionType, setRenditionType] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [previewFailed, setPreviewFailed] = useState(false)
-  const [previewGone, setPreviewGone] = useState(false)
-  const [previewText, setPreviewText] = useState<{ text: string; truncated: boolean } | null>(null)
   const [isLargePreviewOpen, setIsLargePreviewOpen] = useState(false)
-  const [details, setDetails] = useState<VisualDetail[] | null>(null)
-  const [detailsLoading, setDetailsLoading] = useState(false)
-  const [detailsFailed, setDetailsFailed] = useState(false)
   const [shownPage, setShownPage] = useState<number | 'turning' | null>(null)
   const turnFrame = useRef<number | null>(null)
   const kind = inferDocumentKind({
@@ -142,6 +130,27 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   const isOfficeRendition = isRenditionSource(file)
   const canPreview = PREVIEW_TYPES.includes(file.contentType ?? '') || isOfficeRendition
   const isTextual = isTextPageType(file.contentType)
+
+  const {
+    previewUrl,
+    previewImageUrl,
+    renditionType,
+    isLoading,
+    previewFailed,
+    previewGone,
+    previewText,
+    setPreviewUrl,
+    setPreviewImageUrl,
+    setRenditionType,
+    setIsLoading,
+    setPreviewFailed,
+    setPreviewGone,
+    setPreviewText,
+    previewRequest,
+    loadPreview,
+    handlePdfFailed,
+  } = usePreviewLoader({ file, canPreview, isTextual, isOfficeRendition })
+
   const isImage = !isOfficeRendition && (file.contentType ?? '').startsWith('image/')
   const shownType = isOfficeRendition ? renditionType : file.contentType
   const canExpandPreview = shownType === 'application/pdf' || isImage
@@ -164,99 +173,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   const hasOwnershipBlock =
     file.authoredBy === 'agent' || canCollaborate || Boolean(projectId && !inChat)
 
-  const previewRequest = useRef<AbortController | null>(null)
-  const loadPreview = useCallback(() => {
-    previewRequest.current?.abort()
-    const request = new AbortController()
-    previewRequest.current = request
-    const { signal } = request
-    setPreviewFailed(false)
-    setPreviewGone(false)
-    setPreviewUrl(null)
-    setPreviewImageUrl(null)
-
-    if (isTextual) {
-      setPreviewText(null)
-      setIsLoading(true)
-      let gone = false
-      fetch(`/api/documents/${file.id}/text`, { signal })
-        .then(async (r) => {
-          if (r.status === 404) {
-            gone = true
-            return null
-          }
-          return r.ok ? await r.json() : null
-        })
-        .then((data) => {
-          if (signal.aborted) return
-          if (typeof data?.text === 'string') {
-            setPreviewText({ text: data.text, truncated: data.truncated === true })
-          } else if (gone) {
-            setPreviewGone(true)
-          } else {
-            setPreviewFailed(true)
-          }
-        })
-        .catch(() => {
-          if (signal.aborted) return
-          setPreviewText(null)
-          setPreviewFailed(true)
-        })
-        .finally(() => {
-          if (!signal.aborted) setIsLoading(false)
-        })
-      return
-    }
-
-    setPreviewText(null)
-    if (!canPreview) return
-
-    setIsLoading(true)
-    setRenditionType(null)
-    let gone = false
-    let noRendition = false
-    fetch(`/api/documents/${file.id}/preview`, { signal })
-      .then(async (r) => {
-        if (isOfficeRendition && (r.status === 415 || r.status === 502)) {
-          noRendition = true
-          return null
-        }
-        if (r.status === 404) {
-          gone = true
-          return null
-        }
-        return r.ok ? await r.json() : null
-      })
-      .then((data) => {
-        if (signal.aborted) return
-        if (isOfficeRendition && data?.url && data.contentType !== 'application/pdf') {
-          noRendition = true
-        }
-        if (noRendition) return
-        if (data?.url) {
-          if (isOfficeRendition) setRenditionType(data.contentType)
-          setPreviewUrl(data.url)
-          setPreviewImageUrl(typeof data.imageUrl === 'string' ? data.imageUrl : null)
-        } else if (gone) {
-          setPreviewGone(true)
-        } else {
-          setPreviewFailed(true)
-        }
-      })
-      .catch(() => {
-        if (signal.aborted) return
-        setPreviewFailed(true)
-      })
-      .finally(() => {
-        if (!signal.aborted) setIsLoading(false)
-      })
-  }, [file.id, canPreview, isTextual, isOfficeRendition])
-
-  const handlePdfFailed = useCallback(() => {
-    setPreviewUrl(null)
-    setPreviewImageUrl(null)
-    setPreviewFailed(true)
-  }, [])
   const [wellRef, wellSeen] = useSeenOnce<HTMLDivElement>()
   const showInlinePdf = wellSeen && !isLargePreviewOpen
   const pdfInWell = canPreview && Boolean(previewUrl) && shownType === 'application/pdf'
@@ -314,63 +230,30 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     reviewPage.current = null
     if (was && page !== null) setShownPage(page)
   }, [reviewOpen])
-  const [reviewFocus, setReviewFocus] = useState<{ annotationId: string; key: number } | null>(null)
-  const [reviewTool, setReviewTool] = useState<ReviewLinkTool | null>(null)
-  const { setTool: setReviewToolInHand } = review
-  const showReview = useCallback(
-    (annotationId?: string | null, tool?: ReviewLinkTool | null) => {
-      setReviewFocus(annotationId ? { annotationId, key: Date.now() } : null)
-      setReviewTool(tool ?? null)
-      if (tool) setReviewToolInHand(tool)
-      setReviewOpen(true)
-    },
-    [setReviewToolInHand]
-  )
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-  const reviewLink = readReviewParams(searchParams)
-  const linkedLocus = readDocumentLocus(searchParams, file.id)
-  const addressed = reviewLink.documentId === file.id || (reviewLink.documentId === null && inChat)
-  const urlOpen = reviewLink.open && addressed && pdfInWell
-  const pushedReview = useRef(false)
-  const urlWasOpen = useRef(false)
-  const reviewOpenRef = useRef(reviewOpen)
-  useEffect(() => {
-    reviewOpenRef.current = reviewOpen
-  }, [reviewOpen])
-  const replaceParams = useCallback(
-    (params: URLSearchParams, how: 'push' | 'replace' = 'replace') => {
-      const href = hrefWithParams(pathname ?? '', params)
-      if (how === 'push') router.push(href, { scroll: false })
-      else router.replace(href, { scroll: false })
-    },
-    [pathname, router]
-  )
-  useEffect(() => {
-    const was = urlWasOpen.current
-    urlWasOpen.current = urlOpen
-    if (urlOpen && !was && !reviewOpenRef.current) showReview(reviewLink.annotationId, reviewLink.tool)
-    if (!urlOpen && was && reviewOpenRef.current) {
-      pushedReview.current = false
-      setReviewOpen(false)
-      setReviewToolInHand('select')
-    }
-  }, [urlOpen, reviewLink.annotationId, reviewLink.tool, showReview, setReviewToolInHand])
-  const openReview = useCallback(
-    (annotationId?: string, tool?: ReviewLinkTool) => {
-      showReview(annotationId, tool)
-      if (urlOpen || !addressed) return
-      const params = setReviewParams(
-        new URLSearchParams(searchParams?.toString() ?? ''),
-        { documentId: file.id, annotationId, tool },
-        { withDocument: false }
-      )
-      pushedReview.current = true
-      replaceParams(params, 'push')
-    },
-    [showReview, urlOpen, addressed, searchParams, file.id, replaceParams]
-  )
+
+  const {
+    reviewFocus,
+    reviewTool,
+    setReviewFocus,
+    setReviewTool,
+    setReviewToolInHand,
+    showReview,
+    router,
+    searchParams,
+    pathname,
+    reviewLink,
+    linkedLocus,
+    addressed,
+    urlOpen,
+    pushedReview,
+    urlWasOpen,
+    reviewOpenRef,
+    replaceParams,
+    openReview,
+    linkTool,
+    onReviewOpenChange,
+  } = useReviewLink({ file, inChat, pdfInWell, reviewOpen, setReviewOpen, review })
+
   const { peekView, setPeekView } = usePeekState(peeking, file.id, reviewEnabled ? openReview : null)
   const mailRail = useMailThreadRail({ projectId, file, peeking, reader, setPeekView, setDetailsOpen })
   const openMarks = useMemo((): OpenMarksAtApproval | null => {
@@ -381,38 +264,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     }
     return review.load === 'loading' ? { status: 'loading' } : { status: 'unavailable', onOpen }
   }, [reviewEnabled, review.load, review.counts.open, review.counts.proposed, openReview])
-  const linkTool: ReviewLinkTool | null = review.tool === 'point' || review.tool === 'region' ? review.tool : null
-  useEffect(() => {
-    if (!reviewOpen || !urlOpen) return
-    if (reviewLink.annotationId === review.selectedId && reviewLink.tool === linkTool) return
-    if (review.load !== 'ready' && reviewLink.annotationId && !review.selectedId) return
-    replaceParams(
-      setReviewParams(
-        new URLSearchParams(searchParams?.toString() ?? ''),
-        { documentId: file.id, annotationId: review.selectedId, tool: linkTool },
-        { withDocument: false }
-      )
-    )
-  }, [reviewOpen, urlOpen, reviewLink.annotationId, reviewLink.tool, review.selectedId, review.load, linkTool, searchParams, file.id, replaceParams])
-  const onReviewOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) return openReview()
-      setReviewOpen(false)
-      if (!urlOpen) return
-      if (pushedReview.current) {
-        pushedReview.current = false
-        router.back()
-        return
-      }
-      if (reviewLink.back) {
-        if (backLandsOn(reviewLink.back)) router.back()
-        else router.replace(reviewLink.back, { scroll: false })
-        return
-      }
-      replaceParams(clearReviewParams(new URLSearchParams(searchParams?.toString() ?? '')))
-    },
-    [openReview, urlOpen, router, replaceParams, searchParams, reviewLink.back]
-  )
   const popoutHref =
     projectId && scope !== 'officeShelf' && typeof window !== 'undefined'
       ? new URL(reviewFilesHref(projectId, { documentId: file.id }), window.location.origin).toString()
@@ -458,51 +309,16 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     return () => previewRequest.current?.abort()
   }, [loadPreview])
 
-  useEffect(() => {
-    setDetails(null)
-    setDetailsFailed(false)
-    if (turnFrame.current !== null) cancelAnimationFrame(turnFrame.current)
-    turnFrame.current = null
-    setShownPage(null)
-  }, [file.id])
-  useEffect(
-    () => () => {
-      if (turnFrame.current !== null) cancelAnimationFrame(turnFrame.current)
-    },
-    [],
-  )
-
-  const detailsBasis = `${file.status ?? ''}|${(file.contentTypes ?? []).join(',')}`
-  useEffect(() => {
-    setDetails(null)
-    setDetailsFailed(false)
-  }, [detailsBasis])
-
-  useEffect(() => {
-    if (!showMetadataPanel || !hasVisualContent || details !== null) return
-    let cancelled = false
-    setDetailsLoading(true)
-    fetch(`/api/documents/${file.id}/visual-details`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`visual-details ${r.status}`)
-        return r.json()
-      })
-      .then((data) => {
-        if (!cancelled) setDetails(Array.isArray(data?.details) ? data.details : [])
-      })
-      .catch(() => {
-        if (cancelled) return
-        setDetails([])
-        setDetailsFailed(true)
-      })
-      .finally(() => {
-        if (!cancelled) setDetailsLoading(false)
-      })
-    return () => {
-      cancelled = true
-      setDetailsLoading(false)
-    }
-  }, [showMetadataPanel, hasVisualContent, details, file.id, detailsBasis])
+  const {
+    details,
+    detailsBasis,
+    detailsFailed,
+    detailsLoading,
+    retryDetails,
+    setDetails,
+    setDetailsFailed,
+    setDetailsLoading,
+  } = useVisualDetails({ file, showMetadataPanel, hasVisualContent, setShownPage, turnFrame })
 
   const showPage = useCallback((page: number) => {
     setPeekView('document')
@@ -519,10 +335,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   useEffect(() => {
     if (viewerTargetKey !== null && viewerTargetPage !== null) showPage(viewerTargetPage)
   }, [viewerTargetKey, viewerTargetPage, showPage])
-  const retryDetails = useCallback(() => {
-    setDetailsFailed(false)
-    setDetails(null)
-  }, [])
 
   const handleDeleted = useCallback(
     (fileId: string) => {

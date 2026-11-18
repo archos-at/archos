@@ -274,7 +274,7 @@ Three states:
 - **streaming** — only the fence still being written is streaming, and it
   holds a skeleton (`DrawingSkeleton`), not its source. Which one that is comes
   from the parsed code block, not from counting backticks (`isOpenFence` in
-  `MarkdownRenderer.tsx`): a block that ends on the text's last line without a
+  `MarkdownRenderer/streaming-markdown.ts`): a block that ends on the text's last line without a
   closing fence. That covers `~~~` fences and fences indented in a list item.
   CommonMark runs an unclosed fence to the end of its container, so a
   half-arrived diagram *looks* complete on every token; drawing it would flash

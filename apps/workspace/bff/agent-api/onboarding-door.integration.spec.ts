@@ -135,7 +135,7 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
 
   beforeAll(async () => {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubEnv('INTERNAL_API_TOKEN', 'a-real-internal-token-for-the-onboarding-spec')
     vi.stubEnv('BACKEND_URL', BACKEND)
     db = (await import('@/lib/db')).getDb()

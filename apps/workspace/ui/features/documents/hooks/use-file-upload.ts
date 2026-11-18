@@ -5,17 +5,13 @@ import { v4 as uuidv4 } from 'uuid'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { createDocumentsClient } from '@/adapters/api'
-import { deleteSessionDocument } from '@/adapters/api/session-documents-client'
-import { xhrUpload, XhrUploadError } from '@/lib/http/xhr-upload'
 import { formatBytes } from '@/lib/format'
 import { useDocumentsStore } from '../store'
 import { useAuth } from '@/adapters/auth'
 import { useAppConfig } from '@/shared/context'
 import { mayRetryUpload, type TrackedFile, type UploadIntent } from '../types'
-import { mapUploadResponseStatus } from '../utils'
-import { shouldEmitProgress } from '../lib/upload-progress'
 import { isJoblessIngesting, trackedPatchFromStatus } from '../lib/document-status-reads'
-import { runWithConcurrency, sendWaitingOutRateLimit, UPLOAD_CONCURRENCY } from '../lib/upload-queue'
+import { runWithConcurrency, UPLOAD_CONCURRENCY } from '../lib/upload-queue'
 import { validateFileUpload, type ValidationContext } from '../validation'
 import { summarizeValidation } from '../lib/validation-messages'
 import { UploadOrchestrator } from '../orchestrator'
@@ -24,78 +20,26 @@ import type { PendingJob } from '../orchestrator'
 import { markSessionHasCollection } from '../persistence'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import { loadUploadScreeningPolicy } from '@/adapters/api/upload-screening-policy'
-import type { NameMatch } from '@/lib/upload-screening/name-screen'
+import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { screenFileNames, uploadAnywayOffer } from '../lib/name-screened-files'
 import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
-import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '../lib/upload-batch'
 import { captureUploadBatch } from './upload-batch-event'
-import { fileExtensionLabel } from '../document-kind'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
 import { stopReadingRow } from '../lib/stop-reading'
-import { mayRetryRefusal, uploadRefusalOf } from '../lib/upload-refusal'
-import { uploadFailureSentence, UploadFailureSentence, type UploadFailureCopy } from '../lib/upload-failure'
+import { uploadFailureSentence, type UploadFailureCopy } from '../lib/upload-failure'
 import { toast } from 'sonner'
+import { deleteShelfDocument } from '../lib/delete-shelf-document'
+import {
+  isAbort,
+  uploadTrackedFile,
+  type UploadOutcome,
+  type UploadTrackedFileContext,
+} from '../lib/upload-tracked-file'
+import type { UploadFilesOptions, UseFileUploadOptions, UseFileUploadReturn } from './file-upload-types'
 
-interface UploadDocumentResponse {
-  documentId?: string
-  jobId?: string | null
-  status?: string
-  unchanged?: boolean
-}
-
-const DELETE_ROUTE: Record<'project' | 'office_shelf', (id: string) => string> = {
-  project: (id) => `/api/documents/${encodeURIComponent(id)}`,
-  office_shelf: (id) => `/api/documents/${encodeURIComponent(id)}`,
-}
-
-async function deleteShelfDocument(shelf: 'project' | 'office_shelf' | 'session', documentId: string): Promise<void> {
-  if (shelf === 'session') return deleteSessionDocument(documentId)
-  const response = await fetch(DELETE_ROUTE[shelf](documentId), { method: 'DELETE' })
-  if (response.ok || response.status === 404) return
-  const body: unknown = await response.json().catch(() => null)
-  const message = (body as { error?: { message?: unknown } } | null)?.error?.message
-  throw new Error(typeof message === 'string' && message ? message : `Delete failed: ${response.status}`)
-}
-
-const isAbort = (error: unknown): boolean => error instanceof Error && error.name === 'AbortError'
-
-interface UseFileUploadOptions {
-  collectionName?: string
-  projectId?: string
-  folderId?: string
-  officeShelf?: boolean
-  conversationProjectId?: string | null
-  onComplete?: () => void
-  onError?: (error: Error) => void
-}
-
-export interface UploadFilesOptions {
-  collectionOverride?: string
-  folderIdFor?: (file: File) => string | null | undefined
-  folderPathFor?: (file: File) => string | null | undefined
-  screeningReleased?: (file: File) => boolean
-  revisionOf?: (file: File) => string | null | undefined
-  excludedByScreening?: ReadonlyArray<readonly NameMatch[]>
-  screeningPolicy?: UploadScreeningPolicy
-}
-
-interface UseFileUploadReturn {
-  uploadFiles: (files: File[], options?: UploadFilesOptions) => Promise<number>
-  cancelUpload: () => void
-  cancelFile: (fileId: string) => void
-  dismissFiles: (fileIds: string[]) => void
-  deleteFile: (fileId: string) => Promise<void>
-  retryFile: (fileId: string) => Promise<void>
-  trackedFiles: TrackedFile[]
-  sessionFiles: TrackedFile[]
-  validationContext: ValidationContext
-  isUploading: boolean
-  isPolling: boolean
-  error: string | null
-  clearError: () => void
-}
+export type { UploadFilesOptions } from './file-upload-types'
 
 export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUploadReturn => {
   const { collectionName, projectId, folderId, officeShelf, conversationProjectId, onComplete, onError } =
@@ -304,101 +248,30 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
             ...named.stopped.map(({ matches }) => matches),
           ]),
         })
-        let unchangedCount = 0
-        const uploadedTypes: string[] = []
-        const serverStopped: Array<{ file: File; matches: NameMatch[] }> = []
-        const heldReplaced: string[] = []
-
+        const outcome: UploadOutcome = { unchangedCount: 0, uploadedTypes: [], serverStopped: [], heldReplaced: [] }
         const uploadUrl = shelf === 'session' ? '/api/session/documents/upload' : '/api/documents/upload'
-        const results = await runWithConcurrency(entries, UPLOAD_CONCURRENCY, async ({ file, tracked }) => {
-          const controller = new AbortController()
-          abortControllersRef.current.set(tracked.id, controller)
-          updateTrackedFile(tracked.id, { uploadStartedAt: Date.now() })
-
-          const formData = new FormData()
-          if (shelf === 'session') {
-            formData.append('conversationId', targetCollection)
-            if (conversationProjectId) formData.append('projectId', conversationProjectId)
-          }
-          if (projectId) formData.append('projectId', projectId)
-          if (shelf === 'office_shelf') formData.append('scope', 'office_shelf')
-          if (shelf !== 'session') {
-            const resolved = resolvedFolderId(file)
-            if (resolved) formData.append('folderId', resolved)
-          }
-          formData.append('file', file)
-          if (options?.screeningReleased?.(file)) formData.append('screeningRelease', 'name')
-          const revisionOf = shelf === 'session' ? null : revisionOfFile(file)
-          if (revisionOf) formData.append('revisionOf', revisionOf)
-          if (batchId) formData.append('uploadBatchId', batchId)
-          if (file.webkitRelativePath) {
-            formData.append('originPath', file.webkitRelativePath)
-          }
-
-          let lastEmitted = 0
-          try {
-            const responseText = await sendWaitingOutRateLimit(
-              () =>
-                xhrUpload({
-                  url: uploadUrl,
-                  body: formData,
-                  signal: controller.signal,
-                  onProgress: (loaded, total) => {
-                    const bytes = total > 0 ? Math.min(file.size, Math.round((loaded / total) * file.size)) : 0
-                    if (!shouldEmitProgress(lastEmitted, bytes, file.size)) return
-                    lastEmitted = bytes
-                    setUploadProgress(tracked.id, bytes)
-                  },
-                }),
-              (error) => (error instanceof XhrUploadError && error.status === 429 ? error.retryAfterSeconds ?? 1 : null),
-              controller.signal
-            )
-
-            const result = JSON.parse(responseText) as UploadDocumentResponse
-            if (result.unchanged) unchangedCount += 1
-            if (result.documentId) removeRecentlyDeletedIds([result.documentId])
-            updateTrackedFile(tracked.id, {
-              status: mapUploadResponseStatus(result.status, result.unchanged === true),
-              serverFileId: result.documentId,
-              jobId: result.jobId ?? undefined,
-              ...(result.unchanged ? { unchanged: true } : {}),
-              bytesUploaded: file.size,
-            })
-            uploadedTypes.push(fileExtensionLabel(file.name).toLowerCase() || 'unknown')
-          } catch (err) {
-            if (isAbort(err)) {
-              updateTrackedFile(tracked.id, { status: 'canceled' })
-              return
-            }
-            const refusal = uploadRefusalOf(err)
-            if (refusal?.kind === 'held-replace') {
-              const sentence = failureCopy.heldReplace(file.name)
-              updateTrackedFile(tracked.id, {
-                status: 'held',
-                errorMessage: sentence,
-                retryable: false,
-                replacesHeld: { documentId: refusal.documentId, ownUpload: refusal.ownUpload },
-              })
-              heldReplaced.push(sentence)
-              return
-            }
-            if (refusal?.kind === 'name-stop') {
-              dismissTrackedFiles([tracked.id])
-              serverStopped.push({ file, matches: refusal.matches })
-              return
-            }
-            const message = uploadFailureSentence(err, failureCopy, file.name)
-            updateTrackedFile(tracked.id, {
-              status: 'failed',
-              errorMessage: message,
-              ...(mayRetryRefusal(refusal) ? {} : { retryable: false as const }),
-            })
-            console.warn('[upload] %s was not uploaded:', file.name, err)
-            throw new UploadFailureSentence(message, { cause: err })
-          } finally {
-            abortControllersRef.current.delete(tracked.id)
-          }
-        })
+        const uploadContext: UploadTrackedFileContext = {
+          shelf,
+          uploadUrl,
+          targetCollection,
+          projectId,
+          conversationProjectId,
+          batchId,
+          resolvedFolderId,
+          revisionOfFile,
+          screeningReleased: (file) => options?.screeningReleased?.(file),
+          abortControllers: abortControllersRef.current,
+          failureCopy,
+          outcome,
+          updateTrackedFile,
+          setUploadProgress,
+          removeRecentlyDeletedIds,
+          dismissTrackedFiles,
+        }
+        const results = await runWithConcurrency(entries, UPLOAD_CONCURRENCY, (entry) =>
+          uploadTrackedFile(entry, uploadContext)
+        )
+        const { unchangedCount, uploadedTypes, serverStopped, heldReplaced } = outcome
 
         notifyDocumentsChanged()
 

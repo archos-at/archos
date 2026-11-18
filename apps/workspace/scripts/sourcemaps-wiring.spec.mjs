@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import config, { nextConfig, withSourceMaps } from '../next.config.ts'
 
@@ -42,13 +42,13 @@ describe('withSourceMaps', () => {
 
   it('is what Next loads, with no map flags outside the image build', () => {
     const saved = process.env.EMIT_SOURCE_MAPS
-    delete process.env.EMIT_SOURCE_MAPS
+    vi.stubEnv('EMIT_SOURCE_MAPS', undefined)
     try {
       const loaded = config()
       expect(loaded.productionBrowserSourceMaps).toBeUndefined()
       expect(loaded.experimental?.serverSourceMaps).toBeUndefined()
     } finally {
-      if (saved !== undefined) process.env.EMIT_SOURCE_MAPS = saved
+      if (saved !== undefined) vi.stubEnv('EMIT_SOURCE_MAPS', saved)
     }
   })
 })

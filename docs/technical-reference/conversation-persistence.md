@@ -139,7 +139,7 @@ Messages are persisted to the BFF as they are created, not batched:
 | `completeAssistantMessage()` | `_appendMessage()` → `POST /api/conversations/[id]/messages` (completed message) |
 | `addAgentResponse()` | `_appendMessage()` → `POST /api/conversations/[id]/messages` |
 
-The `_appendMessage()` method (`features/chat/stores/sessions-store.ts`):
+The `_appendMessage()` method (`features/chat/stores/conversation-persistence.ts`):
 1. Creates the conversation via `POST /api/conversations`, once per conversation per page life (`ensureServerConversation`; `_ensureConversationExists()` calls the same). The create is idempotent: an id that already exists is answered with the existing row when the caller may contribute to it, so there is no existence check first
 2. Appends the message via `POST /api/conversations/[id]/messages`
 

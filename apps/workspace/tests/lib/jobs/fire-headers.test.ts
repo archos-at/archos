@@ -97,11 +97,11 @@ async function capturedFireHeaders(
 
 describe('the headers the BFF puts on a job fire', () => {
   beforeEach(() => {
-    process.env.INTERNAL_API_TOKEN = INTERNAL_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', INTERNAL_TOKEN)
   })
   afterEach(() => {
     vi.unstubAllGlobals()
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   })
 
   it('sends every header the shared fixture names', async () => {
@@ -152,7 +152,7 @@ describe('the headers the BFF puts on a job fire', () => {
   })
 
   it('refuses to fire at all rather than sending an unauthenticated submit', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
 

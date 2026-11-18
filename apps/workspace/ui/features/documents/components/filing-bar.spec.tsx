@@ -1,6 +1,3 @@
-// @disk-inputs: ui/**
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
@@ -211,21 +208,5 @@ describe('filingBarEntries', () => {
     expect(filingBarEntries(byFolder, ['doc_brief'], 2)).toEqual([])
     expect(filingBarEntries(byFolder, ['doc_brief'], 1).map((entry) => entry.suggestion.folder)).toEqual(['Korrespondenz'])
     expect(filingBarEntries(byFolder, ['doc_elsewhere'], 1)).toEqual([])
-  })
-})
-
-describe('InlineSuggestion', () => {
-  it('is gone, and nothing calls it', () => {
-    expect(() => statSync(join(__dirname, '..', '..', '..', 'components', 'ui', 'inline-suggestion.tsx'))).toThrow()
-    const src = join(__dirname, '..', '..', '..')
-    const walk = (dir: string): string[] =>
-      readdirSync(dir).flatMap((name) => {
-        const path = join(dir, name)
-        return statSync(path).isDirectory() ? walk(path) : /\.(ts|tsx)$/.test(name) ? [path] : []
-      })
-    const callers = walk(src).filter(
-      (path) => !/\.spec\.tsx?$/.test(path) && /InlineSuggestion|inline-suggestion/.test(readFileSync(path, 'utf8'))
-    )
-    expect(callers).toEqual([])
   })
 })

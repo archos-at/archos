@@ -1,5 +1,4 @@
-// @disk-inputs: ui/features/bim/components/**
-
+// @disk-inputs: ui/features/bim/components/**, ui/features/bim/hooks/use-ifc-viewer-input.ts
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,7 +10,7 @@ const code = (...segments: string[]): string =>
   blankComments(readFileSync(join(COMPONENTS, ...segments), 'utf8')) as string
 
 const canvasCode = (): string =>
-  ['ifc-viewer-canvas.tsx', 'ifc-viewer-canvas-view.tsx', 'use-ifc-viewer-canvas-controller.tsx']
+  ['ifc-viewer-canvas.tsx', 'ifc-viewer-canvas-view.tsx', 'use-ifc-viewer-canvas-controller.tsx', join('..', 'hooks', 'use-ifc-viewer-input.ts')]
     .map((file) => code(file))
     .join('\n');
 

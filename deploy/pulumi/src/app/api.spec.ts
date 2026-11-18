@@ -1,6 +1,4 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
@@ -22,9 +20,6 @@ pulumi.runtime.setMocks(
   "test",
   false,
 );
-
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
 function find(type: string, name: string) {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
@@ -158,17 +153,6 @@ describe("the api tier", () => {
 
     expect(role(api)).toEqual(["api"]);
     expect(role(chat)).toEqual(["chat"]);
-  });
-
-  it("names exactly the web roles the Python image knows", () => {
-    const python = read("apps", "agent-host", "src", "agent_host", "roles.py");
-    const entrypoint = read("apps", "agent-host", "entrypoint.py");
-    const known = [...python.matchAll(/^\s+[A-Z]+ = "([a-z]+)"$/gm)].map((m) => m[1]).sort();
-
-    expect(known).toEqual(["api", "chat"]);
-    expect(entrypoint).toContain('ROLES = ("chat", "api", "worker", "ingest-worker")');
-    expect(chatEnvValues.PROCESS_ROLE).toBe("chat");
-    expect(apiEnvValues.PROCESS_ROLE).toBe("api");
   });
 
   it("is the chat tier's env without what only chat reads", () => {

@@ -168,8 +168,8 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
-    process.env.AUTHZ_CACHE_TTL_MS = '0'
+    vi.stubEnv('APP_DATABASE_URL', url)
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess

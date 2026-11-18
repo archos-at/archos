@@ -1,19 +1,19 @@
 import { renderToString } from 'react-dom/server'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { TimeAgo } from './time-ago'
 
 const ORIGINAL_TZ = process.env.TZ
 
 const renderIn = (zone: string): string => {
-  process.env.TZ = zone
+  vi.stubEnv('TZ', zone)
   return renderToString(<TimeAgo date="2026-10-27T22:30:00.000Z" locale="de" />)
 }
 
 describe('TimeAgo', () => {
   afterEach(() => {
-    if (ORIGINAL_TZ === undefined) delete process.env.TZ
-    else process.env.TZ = ORIGINAL_TZ
+    if (ORIGINAL_TZ === undefined) vi.stubEnv('TZ', undefined)
+    else vi.stubEnv('TZ', ORIGINAL_TZ)
   })
 
   test('first paint does not depend on the zone of the machine that renders it (React #418)', () => {

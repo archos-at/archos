@@ -50,8 +50,8 @@ function shelfOf(payload: ScopedCollection[], collection: string): string | unde
 }
 
 beforeEach(() => {
-  process.env.REQUIRE_AUTH = 'true'
-  process.env.BASE_COLLECTION_NAME = 'oib_knowledge'
+  vi.stubEnv('REQUIRE_AUTH', 'true')
+  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(findProjectCollectionName).mockResolvedValue(null)
@@ -108,7 +108,7 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
   })
 
   it('emits shelf `base` for the base knowledge corpus under any configured name', async () => {
-    process.env.BASE_COLLECTION_NAME = 'grid_base_corpus'
+    vi.stubEnv('BASE_COLLECTION_NAME', 'grid_base_corpus')
 
     const { headerValue } = await buildCollectionScopeFromRequest(session, {})
 

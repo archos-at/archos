@@ -96,7 +96,7 @@ async function refusalOf(response: Response) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(findRunById).mockResolvedValue(run)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)

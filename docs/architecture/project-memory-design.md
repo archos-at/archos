@@ -868,7 +868,7 @@ agent reuses a topic the shelf already shows, the client drops one longer than
 topics, so a spelling in another case lands in the existing topic.
 
 **A supersede must quote one COMPLETE entry of the digest the model was
-shown.** The BFF resolves supersedes fuzzily (≥0.7 Jaccard, `SUPERSEDE_MATCH_THRESHOLD` in `bff/projects/memory-service.ts`), so a
+shown.** The BFF resolves supersedes fuzzily (≥0.7 Jaccard, `SUPERSEDE_MATCH_THRESHOLD` in `bff/projects/memory-matching.ts`), so a
 truncated or paraphrased quote would retire an entry nobody named. Reflection
 drops the quote and keeps the finding.
 

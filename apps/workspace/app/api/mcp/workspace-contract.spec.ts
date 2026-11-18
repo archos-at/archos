@@ -149,8 +149,8 @@ const audienceOf = (solo: boolean) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.MCP_RESOURCE_URL = 'https://app.example.test/api/mcp'
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('MCP_RESOURCE_URL', 'https://app.example.test/api/mcp')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(callOperation).mockResolvedValue({
     ok: true,

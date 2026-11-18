@@ -107,7 +107,7 @@ describe.skipIf(!url)('one operator alone on a deployment that says so (migratio
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withPlatformAccess = (await import('@/lib/db/tenant-context')).withPlatformAccess
     db = (await import('@/lib/db')).getDb()
     service = await import('./service')

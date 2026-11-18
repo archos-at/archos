@@ -686,23 +686,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/cards/components/CanvasActivityCard.tsx",
-    "to": "ui/features/documents/lib/open-review.ts",
-    "unresolvedTo": "@/features/documents/lib/open-review",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/cards/components/document-surface.tsx",
     "to": "ui/features/documents/components/project-file-workspace.tsx",
     "unresolvedTo": "@/features/documents/components/project-file-workspace",
@@ -892,7 +875,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/cards/components/IfcDataCards.tsx",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-compliance-card.tsx",
     "to": "ui/features/bim/hooks/use-bim-model.ts",
     "unresolvedTo": "@/features/bim/hooks/use-bim-model",
     "dependencyTypes": [
@@ -909,9 +892,9 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/cards/components/IfcDataCards.tsx",
-    "to": "ui/features/bim/lib/format-value.ts",
-    "unresolvedTo": "@/features/bim/lib/format-value",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-compliance-card.tsx",
+    "to": "ui/features/bim/lib/model-link.ts",
+    "unresolvedTo": "@/features/bim/lib/model-link",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -926,7 +909,24 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/cards/components/IfcDataCards.tsx",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-diff-card.tsx",
+    "to": "ui/features/bim/hooks/use-bim-model.ts",
+    "unresolvedTo": "@/features/bim/hooks/use-bim-model",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-diff-card.tsx",
     "to": "ui/features/bim/lib/model-index.ts",
     "unresolvedTo": "@/features/bim/lib/model-index",
     "dependencyTypes": [
@@ -943,7 +943,93 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/cards/components/IfcDataCards.tsx",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-diff-card.tsx",
+    "to": "ui/features/bim/lib/model-link.ts",
+    "unresolvedTo": "@/features/bim/lib/model-link",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-element-card.tsx",
+    "to": "ui/features/bim/hooks/use-bim-model.ts",
+    "unresolvedTo": "@/features/bim/hooks/use-bim-model",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-element-card.tsx",
+    "to": "ui/features/bim/lib/format-value.ts",
+    "unresolvedTo": "@/features/bim/lib/format-value",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-element-card.tsx",
+    "to": "ui/features/bim/lib/model-index.ts",
+    "unresolvedTo": "@/features/bim/lib/model-index",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-element-card.tsx",
+    "to": "ui/features/bim/lib/model-link.ts",
+    "unresolvedTo": "@/features/bim/lib/model-link",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/components/ifc-data-cards/ifc-schedule-card.tsx",
     "to": "ui/features/bim/lib/model-link.ts",
     "unresolvedTo": "@/features/bim/lib/model-link",
     "dependencyTypes": [
@@ -1204,6 +1290,40 @@
     "from": "ui/features/cards/hooks/use-canvas-document.ts",
     "to": "ui/features/documents/hooks/use-document-room.ts",
     "unresolvedTo": "@/features/documents/hooks/use-document-room",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/hooks/use-resolved-model.ts",
+    "to": "ui/features/bim/hooks/use-bim-model.ts",
+    "unresolvedTo": "@/features/bim/hooks/use-bim-model",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/cards/hooks/use-show-in-document.ts",
+    "to": "ui/features/documents/lib/open-review.ts",
+    "unresolvedTo": "@/features/documents/lib/open-review",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -2793,23 +2913,6 @@
   {
     "type": "dependency",
     "from": "ui/features/documents/components/review/document-review.tsx",
-    "to": "ui/features/chat/lib/turn-events.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-events",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/documents/components/review/document-review.tsx",
     "to": "ui/features/knowledge/components/pdf-document-view.tsx",
     "unresolvedTo": "@/features/knowledge/components/pdf-document-view",
     "dependencyTypes": [
@@ -2843,7 +2946,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/documents/components/review/thread-card.tsx",
+    "from": "ui/features/documents/components/review/thread-card/agent-rows.tsx",
     "to": "ui/features/chat/lib/turn-events.ts",
     "unresolvedTo": "@/features/chat/lib/turn-events",
     "dependencyTypes": [
@@ -3014,8 +3117,8 @@
   {
     "type": "dependency",
     "from": "ui/features/documents/hooks/use-document-review.ts",
-    "to": "ui/features/collaboration/hooks/use-live-events.ts",
-    "unresolvedTo": "@/features/collaboration/hooks/use-live-events",
+    "to": "ui/features/collaboration/hooks/use-undoable-archive.ts",
+    "unresolvedTo": "@/features/collaboration/hooks/use-undoable-archive",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -3030,9 +3133,9 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/documents/hooks/use-document-review.ts",
-    "to": "ui/features/collaboration/hooks/use-undoable-archive.ts",
-    "unresolvedTo": "@/features/collaboration/hooks/use-undoable-archive",
+    "from": "ui/features/documents/hooks/use-unread-review-marks.ts",
+    "to": "ui/features/collaboration/hooks/use-live-events.ts",
+    "unresolvedTo": "@/features/collaboration/hooks/use-live-events",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -3418,24 +3521,6 @@
       "aliased-tsconfig",
       "aliased-tsconfig-paths",
       "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/layout/components/chat-area/use-chat-area-controller.tsx",
-    "to": "ui/features/chat/components/UserMessage.tsx",
-    "unresolvedTo": "@/features/chat/components/UserMessage",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
       "import"
     ],
     "rule": {
@@ -4025,24 +4110,6 @@
   {
     "type": "dependency",
     "from": "ui/features/layout/components/input-area/use-input-area-controller.tsx",
-    "to": "ui/features/collaboration/components/MentionPicker.tsx",
-    "unresolvedTo": "@/features/collaboration/components/MentionPicker",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/layout/components/input-area/use-input-area-controller.tsx",
     "to": "ui/features/collaboration/hooks/use-sharing.ts",
     "unresolvedTo": "@/features/collaboration/hooks/use-sharing",
     "dependencyTypes": [
@@ -4111,43 +4178,8 @@
   {
     "type": "dependency",
     "from": "ui/features/layout/components/input-area/use-input-area-controller.tsx",
-    "to": "ui/features/documents/components/composer-subject-bar.tsx",
-    "unresolvedTo": "@/features/documents/components/composer-subject-bar",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/layout/components/input-area/use-input-area-controller.tsx",
     "to": "ui/features/documents/components/file-preview-host.tsx",
     "unresolvedTo": "@/features/documents/components/file-preview-host",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/layout/components/input-area/use-input-area-controller.tsx",
-    "to": "ui/features/documents/lib/site-photo.ts",
-    "unresolvedTo": "@/features/documents/lib/site-photo",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -4272,6 +4304,183 @@
       "aliased-tsconfig",
       "aliased-tsconfig-paths",
       "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-attachments.ts",
+    "to": "ui/features/documents/lib/site-photo.ts",
+    "unresolvedTo": "@/features/documents/lib/site-photo",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-keyboard.ts",
+    "to": "ui/features/collaboration/components/MentionPicker.tsx",
+    "unresolvedTo": "@/features/collaboration/components/MentionPicker",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-keyboard.ts",
+    "to": "ui/features/skills/hooks/use-slash-command.ts",
+    "unresolvedTo": "@/features/skills/hooks/use-slash-command",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-mentions.ts",
+    "to": "ui/features/collaboration/components/MentionPicker.tsx",
+    "unresolvedTo": "@/features/collaboration/components/MentionPicker",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-mentions.ts",
+    "to": "ui/features/collaboration/hooks/use-sharing.ts",
+    "unresolvedTo": "@/features/collaboration/hooks/use-sharing",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-subject.ts",
+    "to": "ui/features/documents/components/composer-subject-bar.tsx",
+    "unresolvedTo": "@/features/documents/components/composer-subject-bar",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-composer-submit.ts",
+    "to": "ui/features/collaboration/lib/composer-routing.ts",
+    "unresolvedTo": "@/features/collaboration/lib/composer-routing",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-handback.ts",
+    "to": "ui/features/collaboration/hooks/use-shared-thread.ts",
+    "unresolvedTo": "@/features/collaboration/hooks/use-shared-thread",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-message-authorship.ts",
+    "to": "ui/features/chat/components/UserMessage.tsx",
+    "unresolvedTo": "@/features/chat/components/UserMessage",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/layout/hooks/use-message-authorship.ts",
+    "to": "ui/features/collaboration/hooks/use-shared-thread.ts",
+    "unresolvedTo": "@/features/collaboration/hooks/use-shared-thread",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
       "import"
     ],
     "rule": {
@@ -4537,7 +4746,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/product-feedback/components/feedback-threads.tsx",
+    "from": "ui/features/product-feedback/components/feedback-threads/thread-messages.tsx",
     "to": "ui/features/chat/components/UserMessage.tsx",
     "unresolvedTo": "@/features/chat/components/UserMessage",
     "dependencyTypes": [
@@ -4554,7 +4763,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/product-feedback/components/feedback-threads.tsx",
+    "from": "ui/features/product-feedback/components/feedback-threads/thread-messages.tsx",
     "to": "ui/features/documents/components/review/composer.tsx",
     "unresolvedTo": "@/features/documents/components/review/composer",
     "dependencyTypes": [
@@ -5498,7 +5707,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/runs/components/RunBlock.tsx",
+    "from": "ui/features/runs/components/run-block/run-doc-chip.tsx",
     "to": "ui/features/chat/components/AuthorityTag.tsx",
     "unresolvedTo": "@/features/chat/components/AuthorityTag",
     "dependencyTypes": [
@@ -5515,7 +5724,24 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/runs/components/RunBlock.tsx",
+    "from": "ui/features/runs/components/run-block/run-doc-chip.tsx",
+    "to": "ui/features/layout/components/SourceSignalChip.tsx",
+    "unresolvedTo": "@/features/layout/components/SourceSignalChip",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "feature-deep-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "ui/features/runs/components/run-block/run-elapsed.tsx",
     "to": "ui/features/chat/hooks/use-elapsed-seconds.ts",
     "unresolvedTo": "@/features/chat/hooks/use-elapsed-seconds",
     "dependencyTypes": [

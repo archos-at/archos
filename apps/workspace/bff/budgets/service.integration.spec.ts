@@ -11,7 +11,7 @@ describe.skipIf(!url)('budgets service against live Postgres', () => {
   }
 
   beforeAll(() => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
   })
 
   afterAll(async () => {

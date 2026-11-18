@@ -82,7 +82,7 @@ describe('agentCardResponse', () => {
   })
 
   it('answers 503 while the agent door is not configured', () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     expect(agentCardResponse().status).toBe(503)
   })
 })

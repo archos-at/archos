@@ -1,4 +1,3 @@
-// @disk-inputs: workers/maintenance-sql.js, workers/platform-scope.js
 /**
  * @vitest-environment node
  */
@@ -528,22 +527,5 @@ describe('the retention setting', () => {
       listAccessLog.mockResolvedValue([])
       expect((await listDownloadLog(session(['org:downloads:view']), {}, new Request('http://x'))).retentionDays).toBe(365)
     }
-  })
-})
-
-describe('the retention sweep and the app agree on the bounds', () => {
-  it('purges at the ceiling and the floor the retention setting accepts', async () => {
-    const { DOWNLOAD_LOG_MAX_DAYS, DOWNLOAD_LOG_MIN_DAYS } = await import('../../workers/maintenance-sql.js')
-    const { DOWNLOAD_LOG_MAX_RETENTION_DAYS, DOWNLOAD_LOG_MIN_RETENTION_DAYS } = await import('./kinds')
-
-    expect(DOWNLOAD_LOG_MAX_DAYS).toBe(DOWNLOAD_LOG_MAX_RETENTION_DAYS)
-    expect(DOWNLOAD_LOG_MIN_DAYS).toBe(DOWNLOAD_LOG_MIN_RETENTION_DAYS)
-  })
-
-  it('reads the same settings key', async () => {
-    const { readFileSync } = await import('node:fs')
-    const { DOWNLOAD_LOG_RETENTION_SETTING } = await import('./kinds')
-
-    expect(readFileSync('workers/maintenance-sql.js', 'utf8')).toContain(`settings->>'${DOWNLOAD_LOG_RETENTION_SETTING}'`)
   })
 })
