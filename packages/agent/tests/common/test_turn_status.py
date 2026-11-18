@@ -525,7 +525,7 @@ class TestChannels:
 
 _ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:[._,][A-Za-z0-9]+)*$")
 
-_ECHOED_BACK = {"query", "skill", "document", "clause", "page"}
+_ECHOED_BACK = {"query", "skill", "document", "clause", "page", "file", "count"}
 
 _GERMAN_WORDS = (
     "wird",
@@ -599,6 +599,7 @@ def _every_live_payload(steps) -> list:
         [{"name": "create_task", "args": {"title": "Fluchtwege prüfen"}}],
         round_index=11,
     )
+    _every_file_run()
     canvas = (("marks", {}), ("mark", {}), ("mark", {"open": True}), ("update", {}), ("delete", {}), ("reply", {}))
     for index, (tool, args) in enumerate(canvas):
         retrieval_status.emit_retrieval([{"name": f"canvas__{tool}", "args": args}], round_index=12 + index)
@@ -610,6 +611,26 @@ def _every_live_payload(steps) -> list:
     retrieval_status.emit_escalation("Shallow agent emitted insufficiency marker")
     retrieval_status.emit_synthesis()
     return [*setup, *_live(steps)]
+
+
+def _every_file_run() -> None:
+    from agent.cards.registry import CardRegistry
+    from agent.cards.registry import reset_card_registry
+    from agent.cards.registry import set_card_registry
+    from agent.tools.execute.progress import FileRunProgress
+
+    token = set_card_registry(CardRegistry())
+    try:
+        write = 'await writeFile("/workspace/Raumbuch.xlsx", b)'
+        existing = {"/workspace/Raumbuch.xlsx"}
+        FileRunProgress.begin(write, existing, [])
+        FileRunProgress.begin(write, set(), []).finish("error", kept=[], elapsed_ms=0)
+        FileRunProgress.begin(write, set(), [])
+        FileRunProgress.begin('await readFile("/workspace/Raumbuch.xlsx")', existing, [])
+        FileRunProgress.begin('writeFile("/workspace/a.docx", x); writeFile("/workspace/b.pdf", y)', set(), [])
+        FileRunProgress.begin("export default () => 1", set(), [])
+    finally:
+        reset_card_registry(token)
 
 
 class TestNothingEmittedIsLanguageSpecific:
