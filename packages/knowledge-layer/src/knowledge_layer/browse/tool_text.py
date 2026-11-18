@@ -13,9 +13,9 @@ _LIST_FILES_DESCRIPTION = (
     + TREE_PARAGRAPH
     + "`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with "
     "Index/Datum, upload date and what changed against the one before; other filters are ignored. Add "
-    '`compare_to=` another Fassung\'s file name, "previous", or any other file of the reader („vergleiche die '
-    "Raumliste mit dem Raumprogramm“) for what changed, first → second: page by page in the printed text and "
-    "the drawing reading, tables and lists row by row.\n"
+    '`compare_to=` another Fassung\'s file name or "previous" („was hat sich zwischen Index B und C geändert“), '
+    "or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → "
+    "second: page by page in the printed text and the drawing reading, tables and lists row by row.\n"
     "Returns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page "
     "count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person "
     "confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, "
