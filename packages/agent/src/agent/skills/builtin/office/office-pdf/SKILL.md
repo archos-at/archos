@@ -26,8 +26,9 @@ to `/workspace/<Name>.pdf`. `files` maps a name the markup uses (`"chart.svg"`,
 | A one-page table or list built from data, or Typst failed twice | Forme, at the end |
 | A form filled, PDFs merged or split, text read | `pdf-lib` and `unpdf`, see `office-pdf-charts` |
 
-There is no Mermaid and no browser here: draw diagrams with the Typst packages
-below, charts with Vega-Lite as SVG handed in through `files`.
+Typst needs no browser: draw diagrams with the Typst packages below, charts
+with Vega-Lite as SVG handed in through `files`. Mermaid and free HTML layouts
+are `office-html-pdf`.
 
 ## Rules
 
