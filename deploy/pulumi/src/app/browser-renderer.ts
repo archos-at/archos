@@ -92,10 +92,7 @@ export function installBrowserRenderer(
                   { name: "BROWSER_RENDERER_SESSIONS", value: String(cfg.browserRenderer.sessionsPerPod) },
                   { name: "BROWSER_RENDERER_WORK_DIR", value: `${BROWSER_RENDERER.workDir}/browser-renderer` },
                 ],
-                resources: {
-                  requests: { ...BROWSER_RENDERER.resources.requests, cpu: cfg.browserRenderer.cpuRequest },
-                  limits: BROWSER_RENDERER.resources.limits,
-                },
+                resources: BROWSER_RENDERER.resources,
                 readinessProbe: { httpGet: { path: "/health", port }, periodSeconds: 10 },
                 livenessProbe: {
                   httpGet: { path: "/health", port },

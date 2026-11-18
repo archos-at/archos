@@ -166,7 +166,6 @@ config:
   grid-oib:codeRunnerMinReplicas: "1"
   grid-oib:codeRunnerMaxReplicas: "3"
   grid-oib:browserRendererEnabled: "true"
-  grid-oib:browserRendererCpuRequest: "200m"
   # ── Ingestion tier (ADR-0076) ── never below one pod: the base corpus hands its jobs to
   # Hatchet only (`ingest_dispatch.enqueue_only`, no fallback), and Hatchet takes them only
   # once a worker has registered `ingest-document`. At zero no worker ever registered it,

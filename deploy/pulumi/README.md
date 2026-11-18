@@ -387,7 +387,6 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `browserRendererImage` | `<imageRegistry>/browser-renderer:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
 | `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
 | `browserRendererSessionsPerPod` | `2` | Browsers one pod runs at once; the next run is answered `busy` |
-| `browserRendererCpuRequest` | `500m` | The renderer pod's CPU request, in millicores; the limit stays 2. Dev sets `200m`, where no node has 500m free |
 | `browserRendererCpuTargetPercent` / `browserRendererMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
 | **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
 | `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
