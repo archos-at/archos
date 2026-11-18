@@ -1,4 +1,5 @@
 import { ChatThinking } from '@/features/chat'
+import { AnswerExcerptAsk } from '@/features/chat/answer-excerpt'
 import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
 import { offersFileNote } from '@/features/chat/lib/file-note-chip'
 import { previousRunFindings } from '@/features/runs/lib/carry-forward'
@@ -32,6 +33,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
 
   return (
     <>
+      <AnswerExcerptAsk conversationId={controller.currentConversation?.id} />
       {!controller.showSkeleton && (
         <>
           {/* The greeting LEAVES rather than disappearing. Sending the first

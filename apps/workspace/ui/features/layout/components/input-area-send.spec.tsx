@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
-import type { ComposerPrefill, ComposerSubject } from '@/features/chat/types'
+import type { ComposerExcerpt, ComposerPrefill, ComposerSubject } from '@/features/chat/types'
 import { InputArea } from './InputArea'
 import { ChatDropZone } from './chat-drop-zone'
 import { bumpThreadRevision, publishThreadSharing, resetThreadSharing } from '@/shared/collaboration/thread-sharing'
@@ -26,6 +26,10 @@ let mockComposerPrefill: ComposerPrefill | null = null
 let mockComposerSubject: ComposerSubject | null = null
 const mockSetComposerSubject = vi.fn((next: ComposerSubject | null) => {
   mockComposerSubject = next
+})
+let mockComposerExcerpt: ComposerExcerpt | null = null
+const mockSetComposerExcerpt = vi.fn((next: ComposerExcerpt | null) => {
+  mockComposerExcerpt = next
 })
 let mockDrafts: Record<string, string> = {}
 let mockIsStreaming = false
@@ -63,6 +67,8 @@ function mockChatState() {
     }),
     composerSubject: mockComposerSubject,
     setComposerSubject: mockSetComposerSubject,
+    composerExcerpt: mockComposerExcerpt,
+    setComposerExcerpt: mockSetComposerExcerpt,
     composerDrafts: mockDrafts,
     getComposerDraft: (id: string) => mockDrafts[id] ?? '',
     setComposerDraft: (id: string, text: string) => {
@@ -217,6 +223,7 @@ describe('InputArea', () => {
     mockCurrentSessionId = 'session-1'
     mockComposerPrefill = null
     mockComposerSubject = null
+    mockComposerExcerpt = null
     mockDrafts = {}
     mockActiveSourcePreset = null
     mockIsStreaming = false
@@ -289,6 +296,30 @@ describe('InputArea', () => {
 
     test('a plain message in the normal state stays the one-argument fast path', async () => {
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
+
+      await send('Wie breit muss der Fluchtweg sein?')
+
+      expect(mockSendMessage).toHaveBeenCalledWith('Wie breit muss der Fluchtweg sein?')
+    })
+
+    test('a message about a selected part of an answer sends that part and takes it out of the composer', async () => {
+      mockComposerExcerpt = { conversationId: 'session-1', messageId: 'a1', text: 'höchstens 40 m' }
+      mockSendMessage.mockReturnValue(true)
+      render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
+      expect(screen.getByTestId('composer-answer-excerpt')).toHaveTextContent('höchstens 40 m')
+
+      await send('Woher kommt das?')
+
+      expect(mockSendMessage).toHaveBeenCalledWith('Woher kommt das?', {
+        answerExcerpt: { messageId: 'a1', text: 'höchstens 40 m' },
+      })
+      await waitFor(() => expect(mockSetComposerExcerpt).toHaveBeenCalledWith(null))
+    })
+
+    test('a part selected in another conversation is neither shown nor sent', async () => {
+      mockComposerExcerpt = { conversationId: 'session-2', messageId: 'a1', text: 'höchstens 40 m' }
+      render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
+      expect(screen.queryByTestId('composer-answer-excerpt')).not.toBeInTheDocument()
 
       await send('Wie breit muss der Fluchtweg sein?')
 

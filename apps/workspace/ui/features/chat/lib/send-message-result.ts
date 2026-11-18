@@ -1,5 +1,6 @@
 import type { AddresseeSet } from '@/lib/mentions/types'
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'
+import type { AnswerExcerpt } from '../composer-types'
 import type { CanvasFocus } from './canvas-bridge'
 
 export interface SendMessageMention {
@@ -13,6 +14,7 @@ export interface SendMessageOptions {
   awaitingHuman?: boolean
   reasoningEffort?: ChatEffort
   canvas?: CanvasFocus
+  answerExcerpt?: AnswerExcerpt
 }
 
 export interface SendMessageFailure {

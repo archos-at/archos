@@ -1840,6 +1840,12 @@ export const chat: typeof en.chat = {
     action: 'Gründlicher neu beantworten',
     aria: 'Dieselbe Frage mit höherem Aufwand erneut beantworten lassen',
   },
+  answerExcerpt: {
+    ask: 'Dazu fragen',
+    askingAbout: 'Frage bezieht sich auf diesen Teil der Antwort:',
+    clear: 'Markierten Teil entfernen',
+    inMessage: 'Bezogen auf:',
+  },
   copyMessage: {
     copy: 'Nachricht kopieren',
     copied: 'Kopiert',

@@ -3969,6 +3969,21 @@
     "UserMessage": {
       "additionalProperties": false,
       "properties": {
+        "answer_excerpt": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The part of an earlier answer in this conversation that the person selected and asks this question about. Rendered for the model as what the question refers to. Sent only to a server whose hello accepts 'user_message.answer_excerpt'.",
+          "title": "Answer Excerpt"
+        },
         "author_name": {
           "anyOf": [
             {

@@ -1,6 +1,6 @@
 import type { TurnView } from '@/lib/turns/turn-fold'
 import type { UnseenEnd } from '@/lib/turns/conversation-activity'
-import type { ComposerPrefill } from '../types'
+import type { ComposerExcerpt, ComposerPrefill } from '../types'
 import type { ChatSendFn, MessagesStateCreator } from './messages-slice-types'
 import { createTurnActions } from './turn-actions'
 import { createConversationActions } from './conversation-actions'
@@ -21,6 +21,7 @@ export const initialMessagesState = {
   projectId: null as string | null,
   composerPrefill: null as ComposerPrefill | null,
   composerSubject: null,
+  composerExcerpt: null as ComposerExcerpt | null,
   composerDrafts: {} as Record<string, string>,
   chatSendFn: null as ChatSendFn | null,
 }

@@ -329,6 +329,7 @@ class ConversationGraph:
             focus_region=state.focus_region,
             reply_in_thread=state.reply_in_thread,
             trigger=state.trigger,
+            answer_excerpt=state.answer_excerpt,
             deep_research_allowed=state.deep_research_allowed,
             tasks_allowed=state.tasks_allowed,
             licensed_text_allowed=state.licensed_text_allowed,

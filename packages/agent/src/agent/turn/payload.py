@@ -51,6 +51,7 @@ class TurnInputs(NamedTuple):
     reply_in_thread: bool = False
     trigger: TurnTrigger | None = None
     author_name: str | None = None
+    answer_excerpt: str | None = None
 
     @property
     def surface(self) -> TurnSurface:
@@ -84,4 +85,5 @@ def extract_turn_inputs(request: UserMessage | str) -> TurnInputs:
         thread_reply_requested(request),
         request.trigger,
         (request.author_name or "").strip() or None,
+        (request.answer_excerpt or "").strip() or None,
     )

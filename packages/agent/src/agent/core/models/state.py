@@ -54,6 +54,7 @@ class ResearchAgentState(BaseModel):
     focus_region: FocusRegion | None = None
     reply_in_thread: bool = False
     trigger: TurnTrigger | None = None
+    answer_excerpt: str | None = None
     steering: list[AppliedSteer] = []
     source_lookup_attempted: bool = False
     answer_citation_grounded: bool = False
