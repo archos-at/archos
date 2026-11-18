@@ -7,9 +7,7 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-BUDGET_HEADER = "x-grid-budget"
-
-USAGE_ACTIVITY_INGEST = "ingest"
+INGEST_ACTIVITY = "ingest"
 
 
 class BudgetExceededError(RuntimeError):
@@ -44,7 +42,7 @@ class BudgetSnapshot:
             padded = raw + "=" * (-len(raw) % 4)
             data = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
         except Exception:
-            logger.warning("Ignoring malformed %s header", BUDGET_HEADER, exc_info=True)
+            logger.warning("Ignoring a malformed budget header", exc_info=True)
             return None
         if not isinstance(data, dict):
             return None
@@ -60,7 +58,7 @@ class BudgetSnapshot:
             remaining_org_tokens=_num("remainingOrgTokens"),
             remaining_user_tokens=_num("remainingUserTokens"),
             remaining_project_tokens=_num("remainingProjectTokens"),
-            activity=USAGE_ACTIVITY_INGEST if data.get("activity") == USAGE_ACTIVITY_INGEST else None,
+            activity=INGEST_ACTIVITY if data.get("activity") == INGEST_ACTIVITY else None,
         )
 
     def exhausted_scope(self, pending_cost_usd: float, pending_tokens: int = 0) -> str | None:

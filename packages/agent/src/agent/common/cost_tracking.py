@@ -18,8 +18,7 @@ from typing import Any
 from langchain_core.callbacks import BaseCallbackHandler
 
 from agent.common import bff_http
-from agent.common.budget_snapshot import BUDGET_HEADER
-from agent.common.budget_snapshot import USAGE_ACTIVITY_INGEST as USAGE_ACTIVITY_INGEST
+from agent.common.budget_snapshot import INGEST_ACTIVITY
 from agent.common.budget_snapshot import BudgetExceededError
 from agent.common.budget_snapshot import BudgetSnapshot
 from agent.common.provider_usage import ACCOUNTING_FIELDS
@@ -31,6 +30,7 @@ from agent.common.provider_usage import usage_from_langchain_metadata as _usage_
 
 logger = logging.getLogger(__name__)
 
+BUDGET_HEADER = "x-grid-budget"
 USER_ID_HEADER = "x-grid-user-id"
 
 RESPONSES_ACCOUNTING_KEY = "grid_usage_accounting"
@@ -51,6 +51,7 @@ USAGE_ROLE_LOOK_READING = "look_reading"
 USAGE_ROLE_REVISION_COMPARE = "revision_compare"
 
 
+USAGE_ACTIVITY_INGEST = INGEST_ACTIVITY
 USAGE_ROLE_DICTATION = "dictation"
 USAGE_ACTIVITY_DICTATION = "dictation"
 
