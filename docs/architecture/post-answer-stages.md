@@ -145,7 +145,7 @@ per-turn chip … **polls** conversation-scoped memory after each answer"
 **Consequence for this design:** there is *no existing streamed post-answer
 channel on the chat path* to copy. The nearest thing is the deep-research job
 runner, which does re-emit its artifact after the answer
-(`agent_host/jobs/runner.py:939-947` → `jobs/callbacks.py:355-373`). The chat path
+(`agent_host/jobs/job_outcome.py` → `jobs/callbacks.py`, `emit_final_report`). The chat path
 needs the channel built. Section 4 builds it out of parts that already exist.
 
 ### 1.2 How it is scheduled and forced
