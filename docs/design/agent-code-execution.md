@@ -73,7 +73,8 @@ was run", and the agent may try once more.
   a memory-backed `emptyDir`.
 - **No network**: `globalOutbound: null` for the run, and the front worker's outbound allows nothing.
   The pod has no egress, no secrets and no service-account token; a NetworkPolicy admits only the chat
-  tier and `agent-worker`.
+  tiers and `agent-worker`, and no other policy selects it (`code-runner.spec.ts` evaluates every
+  selector against its labels).
 - **The libraries** are a fixed manifest (`libraries.json`): docx, exceljs, pdf-lib, unpdf, pptxgenjs,
   vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked.
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be

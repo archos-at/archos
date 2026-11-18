@@ -20,6 +20,10 @@ const CLICKHOUSE = LANGFUSE.clickhouse;
 const OTEL_COLLECTOR = "otel-collector";
 const OTEL_AGENT_POD = { podSelector: { matchLabels: { "app.kubernetes.io/name": "otel-agent" } } };
 
+export const CNPG_INSTANCE_LABEL = "cnpg.io/cluster";
+
+export const CNPG_POOLER_LABEL = "cnpg.io/poolerName";
+
 export const LANGFUSE_BACKEND_CALLERS = [...CHAT_TIERS, ...API_TIERS, "agent-worker"] as const;
 
 export const QDRANT_CALLERS = [
@@ -77,10 +81,14 @@ export function installNetworkPolicies(
     ingress: [{ from: [{ podSelector: {} }] }],
   });
 
+  const cnpgManaged = (label: string) => ({ matchExpressions: [{ key: label, operator: "Exists" }] });
   const cnpg = mk("allow-cnpg-operator", {
-    podSelector: cfg.posthog.logsEnabled
-      ? { matchExpressions: [{ key: "app.kubernetes.io/name", operator: "NotIn", values: [OTEL_COLLECTOR] }] }
-      : {},
+    podSelector: cnpgManaged(CNPG_INSTANCE_LABEL),
+    policyTypes: ["Ingress"],
+    ingress: [{ from: [nsLabel("cnpg-system")] }],
+  });
+  const cnpgPooler = mk("allow-cnpg-operator-to-pooler", {
+    podSelector: cnpgManaged(CNPG_POOLER_LABEL),
     policyTypes: ["Ingress"],
     ingress: [{ from: [nsLabel("cnpg-system")] }],
   });
@@ -392,6 +400,7 @@ export function installNetworkPolicies(
     deny,
     intra,
     cnpg,
+    cnpgPooler,
     ...(kedaToBackend ? [kedaToBackend] : []),
     edgeFrontend,
     edgeS3,
