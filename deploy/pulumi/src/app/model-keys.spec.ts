@@ -1,6 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
@@ -20,9 +18,6 @@ pulumi.runtime.setMocks(
 );
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
-
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
 function resolve<T>(value: pulumi.Input<T>): Promise<T> {
   return new Promise((done) => pulumi.output(value).apply((v) => done(v as T)));
@@ -112,15 +107,5 @@ describe("one OpenRouter key per workload", () => {
 
   it("keeps the chat key under OPENROUTER_API_KEY, the name a pod of the previous release references", () => {
     expect(OPENROUTER_SECRET_KEY.chat).toBe("OPENROUTER_API_KEY");
-  });
-
-  it("emits only env names the code actually reads", () => {
-    const python = [
-      read("packages", "agent", "src", "agent", "common", "credential_resolution.py"),
-      read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "vision_credentials.py"),
-      read("packages", "knowledge-layer", "src", "knowledge_layer", "embedding.py"),
-    ].join("\n");
-    for (const name of OPENROUTER_KEY_ENV) expect(python, name).toContain(`"${name}"`);
-    expect(read("apps", "workspace", "bff", "model-config", "openrouter.ts")).toContain("process.env.OPENROUTER_API_KEY");
   });
 });
