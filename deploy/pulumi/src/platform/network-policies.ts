@@ -8,6 +8,7 @@ import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
+import { BROWSER_RENDERER } from "../app/browser-renderer";
 import { CODE_RUNNER } from "../app/code-runner";
 import { LOG_SHIPPER } from "../config/observability";
 import { HEALTH_PORT, OTLP_GRPC_PORT, OTLP_HTTP_PORT, SHIPPER_OTLP_PORT } from "./collector-config";
@@ -64,6 +65,7 @@ export function installNetworkPolicies(
             ...langfuseWithheld,
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
             ...(cfg.codeRunner.enabled ? [CODE_RUNNER.name] : []),
+            ...(cfg.browserRenderer.enabled ? [BROWSER_RENDERER.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
             PUBLIC_SOURCE_FETCHER.name,
             QDRANT.name,
@@ -248,6 +250,29 @@ export function installNetworkPolicies(
             ports: [{ protocol: "TCP", port: CODE_RUNNER.port }],
           },
         ],
+        egress: cfg.browserRenderer.enabled
+          ? [
+              {
+                to: [{ podSelector: { matchLabels: { "app.kubernetes.io/name": BROWSER_RENDERER.name } } }],
+                ports: [{ protocol: "TCP", port: BROWSER_RENDERER.port }],
+              },
+            ]
+          : [],
+      })
+    : undefined;
+
+  const browserRenderer = cfg.browserRenderer.enabled
+    ? mk("browser-renderer-code-runner-only", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": BROWSER_RENDERER.name } },
+        policyTypes: ["Ingress", "Egress"],
+        ingress: [
+          {
+            from: BROWSER_RENDERER.callers.map((name) => ({
+              podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
+            })),
+            ports: [{ protocol: "TCP", port: BROWSER_RENDERER.port }],
+          },
+        ],
         egress: [],
       })
     : undefined;
@@ -406,6 +431,7 @@ export function installNetworkPolicies(
     ...(langfuseToClickhouse ? [langfuseToClickhouse] : []),
     ...(gotenberg ? [gotenberg] : []),
     ...(codeRunner ? [codeRunner] : []),
+    ...(browserRenderer ? [browserRenderer] : []),
     ...(clamav ? [clamav] : []),
     appToQdrant,
     qdrantPeers,

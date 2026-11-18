@@ -144,7 +144,8 @@ jobs:
         run: |
           cms="$(sed -n 's/^  [a-z-]*:cmsEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
           runner="$(sed -n 's/^  [a-z-]*:codeRunnerEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
-          CMS_ENABLED="$cms" CODE_RUNNER_ENABLED="$runner" \
+          browser="$(sed -n 's/^  [a-z-]*:browserRendererEnabled: *//p' deploy/pulumi/Pulumi.prod.yaml | tr -d "\"'")"
+          CMS_ENABLED="$cms" CODE_RUNNER_ENABLED="$runner" BROWSER_RENDERER_ENABLED="$browser" \
             deploy/pulumi/scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "sha-$SHA"
 
       - name: Push

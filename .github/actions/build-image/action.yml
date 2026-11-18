@@ -1,7 +1,7 @@
 name: Build image
 description: >-
   Build one of the images ci/image_inputs.py lists (backend, frontend, web, cms,
-  code-runner) from an entry of the
+  code-runner, browser-renderer) from an entry of the
   plan `ci/image_inputs.py` writes, and push it under its content tag
   `inputs-<hash>` when asked to. The commit's own tags (`sha-<commit>`,
   `latest`) are never set here: CI's publish job adds them once every check on
@@ -9,7 +9,7 @@ description: >-
 
 inputs:
   name:
-    description: backend, frontend, web, cms or code-runner
+    description: backend, frontend, web, cms, code-runner or browser-renderer
     required: true
   context:
     required: true

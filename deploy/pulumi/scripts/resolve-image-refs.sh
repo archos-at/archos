@@ -2,7 +2,7 @@
 # Resolve the image each service deploys to staging, and refuse a downgrade.
 #
 # Usage: resolve-image-refs.sh   (run inside the checkout, stack selected)
-# Prints BACKEND_IMAGE_REF=, FRONTEND_IMAGE_REF=, WEB_IMAGE_REF=, CMS_IMAGE_REF= and CODE_RUNNER_IMAGE_REF=
+# Prints BACKEND_IMAGE_REF=, FRONTEND_IMAGE_REF=, WEB_IMAGE_REF=, CMS_IMAGE_REF=, CODE_RUNNER_IMAGE_REF= and BROWSER_RENDERER_IMAGE_REF=
 # lines on stdout, for $GITHUB_ENV. Everything else, including one
 # `<service>: <deployed ref> -> <resolved ref>` line per service, goes to stderr.
 #
@@ -58,14 +58,14 @@ log() { printf '%s\n' "$*" >&2; }
 # alone (`cms`, ci/image_inputs.py); the older three keep their prefixed names.
 repository_of() {
   case "$1" in
-    cms|code-runner) printf '%s' "$1" ;;
+    cms|code-runner|browser-renderer) printf '%s' "$1" ;;
     *) printf 'grid-oib-%s' "$1" ;;
   esac
 }
 
 optional() {
   case "$1" in
-    cms|code-runner) return 0 ;;
+    cms|code-runner|browser-renderer) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -81,6 +81,7 @@ config_key() {
   case "$1" in
     cms) printf 'cms%s' "$2" ;;
     code-runner) printf 'codeRunner%s' "$2" ;;
+    browser-renderer) printf 'browserRenderer%s' "$2" ;;
   esac
 }
 
@@ -199,7 +200,7 @@ guard() {
 
 failed=0
 out=""
-for service in backend frontend web cms code-runner; do
+for service in backend frontend web cms code-runner browser-renderer; do
   deployed="$(deployed_ref "$service")"
   new="$(resolve_ref "$service" "$deployed")" || { failed=1; continue; }
   log "${service}: ${deployed:-unknown} -> ${new:-none}"

@@ -6,6 +6,7 @@ tasks:
     dir: apps/code-runner
     cmds:
       - bun install --frozen-lockfile
+      - task: browser:install
 
   runner:build:
     desc: 'apps/code-runner: bundle the approved libraries and the worker into dist/'
@@ -14,10 +15,11 @@ tasks:
       - node build/build.mjs
 
   runner:test:
-    desc: 'apps/code-runner: build, then the contract, isolation and library suites against a real workerd'
+    desc: 'apps/code-runner: build, then the contract, isolation, library and browser suites against a real workerd'
     dir: apps/code-runner
     cmds:
       - task: runner:build
+      - task: browser:image
       - node --test --test-concurrency=1 'test/*.test.mjs'
 
   runner:e2e:
@@ -32,3 +34,22 @@ tasks:
     cmds:
       - task: runner:build
       - node bin/server.mjs
+
+  browser:install:
+    desc: 'apps/browser-renderer: install its front''s dependencies (ws, Mermaid, the house fonts)'
+    dir: apps/browser-renderer
+    cmds:
+      - bun install --frozen-lockfile
+
+  browser:image:
+    desc: 'apps/browser-renderer: build the image the tests run, as browser-renderer:test'
+    dir: apps/browser-renderer
+    cmds:
+      - docker build -q -t {{.BROWSER_RENDERER_IMAGE | default "browser-renderer:test"}} .
+
+  browser:test:
+    desc: 'apps/browser-renderer: build the image, then the allowlist and the hardened container suites (needs Docker)'
+    dir: apps/browser-renderer
+    cmds:
+      - task: browser:image
+      - node --test --test-concurrency=1 'test/*.test.mjs'

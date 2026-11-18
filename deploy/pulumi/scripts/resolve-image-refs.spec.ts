@@ -54,6 +54,7 @@ beforeAll(() => {
     "pulumi",
     [
       'if [ "$1 $2 $3" = "config get cmsEnabled" ]; then [ -n "${STUB_CMS_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CMS_ENABLED"; exit 0; fi',
+      'if [ "$1 $2 $3" = "config get browserRendererEnabled" ]; then [ -n "${STUB_BROWSER_RENDERER_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_BROWSER_RENDERER_ENABLED"; exit 0; fi',
       'if [ "$1 $2 $3" = "config get codeRunnerEnabled" ]; then [ -n "${STUB_CODE_RUNNER_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CODE_RUNNER_ENABLED"; exit 0; fi',
       '[ "$1 $2" = "stack output" ] || exit 64',
       '[ -z "${STUB_PULUMI_FAIL:-}" ] || exit 1',
@@ -113,14 +114,14 @@ function run(script: string, env: Record<string, string>, args: string[] = []): 
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-const repository = (service: string) => (["cms", "code-runner"].includes(service) ? service : `grid-oib-${service}`);
+const repository = (service: string) => (["cms", "code-runner", "browser-renderer"].includes(service) ? service : `grid-oib-${service}`);
 
 const ref = (service: string, commitName: string) =>
   `ghcr.io/archos-at/${repository(service)}:sha-${C[commitName]}`;
 
 const publishedAt = (...commitNames: string[]) =>
   commitNames
-    .flatMap((n) => ["backend", "frontend", "web", "cms", "code-runner"].map((s) => `${s} sha-${C[n]}`))
+    .flatMap((n) => ["backend", "frontend", "web", "cms", "code-runner", "browser-renderer"].map((s) => `${s} sha-${C[n]}`))
     .join("\n");
 
 const deployed = (refs: Record<string, string>) => JSON.stringify({ deployedImages: refs });
@@ -148,6 +149,7 @@ describe("resolve-image-refs.sh", () => {
       WEB_IMAGE_REF: ref("web", "c5"),
       CMS_IMAGE_REF: ref("cms", "c5"),
       CODE_RUNNER_IMAGE_REF: ref("code-runner", "c5"),
+      BROWSER_RENDERER_IMAGE_REF: ref("browser-renderer", "c5"),
     });
   });
 
@@ -172,6 +174,7 @@ describe("resolve-image-refs.sh", () => {
       WEB_IMAGE_REF: ref("web", "c5"),
       CMS_IMAGE_REF: ref("cms", "c5"),
       CODE_RUNNER_IMAGE_REF: ref("code-runner", "c5"),
+      BROWSER_RENDERER_IMAGE_REF: ref("browser-renderer", "c5"),
     });
   });
 

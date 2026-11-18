@@ -7,6 +7,7 @@ import { type RolloutProfile, gracefulShutdown, surgeRollout } from "../platform
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { SCALER_COOLDOWN_SECONDS, SCALER_POLLING_SECONDS } from "./keda-scaling";
+import { browserRendererEnv } from "./browser-renderer";
 import { CHAT_TIERS } from "./tier-names";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
@@ -60,6 +61,7 @@ export function installCodeRunner(
   namespace: pulumi.Input<string>,
   dependsOn: pulumi.Resource[],
   imagePullSecrets: { name: string }[],
+  browserAddr?: pulumi.Input<string>,
 ): CodeRunner {
   const { name, port, uid } = CODE_RUNNER;
   const labels = commonLabels(name);
@@ -92,6 +94,7 @@ export function installCodeRunner(
                 securityContext: { ...hardenedContainerSecurityContext(), readOnlyRootFilesystem: true },
                 lifecycle: { preStop: { sleep: { seconds: CODE_RUNNER_ROLLOUT.endpointDrainSeconds } } },
                 ports: [{ containerPort: port, name: "http" }],
+                ...(browserAddr ? { env: browserRendererEnv(browserAddr) } : {}),
                 resources: CODE_RUNNER.resources,
                 readinessProbe: { httpGet: { path: "/health", port }, periodSeconds: 10 },
                 livenessProbe: {

@@ -41,6 +41,12 @@ IMAGES = (
     Image("web", context="apps/website", dockerfile="apps/website/Dockerfile"),
     Image("cms", context="apps/cms", dockerfile="apps/cms/Dockerfile", repo="cms"),
     Image("code-runner", context="apps/code-runner", dockerfile="apps/code-runner/Dockerfile", repo="code-runner"),
+    Image(
+        "browser-renderer",
+        context="apps/browser-renderer",
+        dockerfile="apps/browser-renderer/Dockerfile",
+        repo="browser-renderer",
+    ),
 )
 
 _INSTRUCTION = re.compile(r"^\s*(COPY|ADD)\s+(.*)$", re.IGNORECASE)
