@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from typing import Any
@@ -82,6 +83,44 @@ def _ok(files: dict[str, bytes], **extra: Any) -> dict:
         "durationMs": 42,
         "deleted": extra.get("deleted", []),
     }
+
+
+class TestOneRunAtATimePerConversation:
+    async def test_runs_of_one_conversation_never_overlap_and_no_lock_is_left(self, store, monkeypatch) -> None:
+        running = 0
+        most = 0
+
+        async def run_code(*args: Any, **kwargs: Any) -> runner_client.RunResult:
+            nonlocal running, most
+            running += 1
+            most = max(most, running)
+            await asyncio.sleep(0.01)
+            running -= 1
+            return runner_client.RunResult(status="ok")
+
+        monkeypatch.setattr(run, "run_code", run_code)
+
+        await asyncio.gather(*(run.execute(RUNNER, "export default () => 1") for _ in range(6)))
+
+        assert most == 1
+        assert run._locks == {}
+
+    async def test_a_held_lock_is_never_dropped_while_many_other_conversations_come_and_go(self) -> None:
+        async with run._lock("held"):
+            for index in range(1000):
+                async with run._lock(f"other-{index}"):
+                    pass
+            assert list(run._locks) == ["held"]
+            waiting = asyncio.ensure_future(_enter(run._lock("held")))
+            await asyncio.sleep(0)
+            assert not waiting.done()
+        await waiting
+        assert run._locks == {}
+
+
+async def _enter(lock: Any) -> None:
+    async with lock:
+        pass
 
 
 class TestARun:

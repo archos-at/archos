@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections import OrderedDict
+from collections.abc import AsyncIterator
 from collections.abc import Container
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from dataclasses import field
 
@@ -51,8 +52,14 @@ DEFAULT_TIMEOUT_S = 60
 
 MAX_TIMEOUT_S = 180
 
-_MAX_LOCKS = 512
-_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+
+@dataclass
+class _ConversationLock:
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    users: int = 0
+
+
+_locks: dict[str, _ConversationLock] = {}
 
 NO_CONVERSATION = "execute runs only inside a conversation: there is no working directory to read from or write to."
 
@@ -67,14 +74,17 @@ class _Refusal(Exception):
         self.code = code
 
 
-def _lock(conversation_id: str) -> asyncio.Lock:
-    lock = _locks.get(conversation_id)
-    if lock is None:
-        lock = _locks[conversation_id] = asyncio.Lock()
-        while len(_locks) > _MAX_LOCKS:
-            _locks.popitem(last=False)
-    _locks.move_to_end(conversation_id)
-    return lock
+@asynccontextmanager
+async def _lock(conversation_id: str) -> AsyncIterator[None]:
+    entry = _locks.setdefault(conversation_id, _ConversationLock())
+    entry.users += 1
+    try:
+        async with entry.lock:
+            yield
+    finally:
+        entry.users -= 1
+        if entry.users == 0 and _locks.get(conversation_id) is entry:
+            del _locks[conversation_id]
 
 
 def _to_runner(path: str) -> str:
