@@ -161,7 +161,7 @@
   "packages/agent/src/agent/agents/deep_researcher/prompts/writer.j2": 8,
   "packages/agent/src/agent/agents/intake/prompts/system.j2": 3,
   "packages/agent/src/agent/cards/calculation_card.py": 1,
-  "packages/agent/src/agent/cards/catalog.py": 5,
+  "packages/agent/src/agent/cards/card_examples.py": 5,
   "packages/agent/src/agent/cards/envelope.py": 1,
   "packages/agent/src/agent/cards/formula_card.py": 5,
   "packages/agent/src/agent/cards/ifc_cards.py": 2,

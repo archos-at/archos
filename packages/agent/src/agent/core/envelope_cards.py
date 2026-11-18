@@ -112,7 +112,7 @@ async def _register_envelope_cards(
 
 
 def _lay_out_retired(payload: Any, index: int, fallbacks: dict[int, str]) -> None:
-    from agent.cards.catalog import retired_card_markdown
+    from agent.cards.retired_cards import retired_card_markdown
 
     markdown = retired_card_markdown(payload)
     if markdown:

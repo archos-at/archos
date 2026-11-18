@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from agent.cards.catalog import CARD_EXAMPLES
+from agent.cards.card_examples import CARD_EXAMPLES
 from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
 from agent.cards.formula_card import formula_inputs
 from agent.cards.formula_card import stated_result_fields

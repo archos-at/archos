@@ -449,7 +449,7 @@ drift `test_seeded_answer_cards_survive_the_read_path` exists to catch.
 A card type is retired by **deleting** it: the pydantic model leaves the
 `AnswerCard` union, the generated schemas are regenerated, and the frontend drops
 its renderer. The name moves into `RETIRED_CARD_REPLACEMENTS` in
-`cards/catalog.py` with one line saying what carries its content now. That map
+`cards/retired_cards.py` with one line saying what carries its content now. That map
 is the whole of what survives, and it exists for the model, not for stored
 data: `validate_model_card` (the envelope's `cards` and `emit_card`) refuses a
 retired name by its declared type, before the shape check could send it to the
@@ -499,9 +499,9 @@ they would have made. A match is a reason, not an obligation.
 
 ### Where the doctrine lives, and which surface gets which half
 
-The text is assembled by `render_card_doctrine()` in `cards/catalog.py` — the
-framing-free module that already owns `render_card_index` / `render_card_details`
-— because there are TWO surfaces that produce cards and only one of them used to
+The text is assembled by `render_card_doctrine()` in `cards/card_doctrine.py`,
+beside `cards/catalog.py`, the framing-free module that owns `render_card_index` /
+`render_card_details`, because there are TWO surfaces that produce cards and only one of them used to
 be taught how to choose.
 
 `register.py` composes `render_card_doctrine()` with the envelope redirect note
@@ -986,7 +986,7 @@ without re-plumbing generation or transport.
 5. Add a fixture to the `/dev/cards` gallery, then capture it and attach the
    capture to the PR (`docs/ux/visual-screenshots.md`).
 6. **Give it a trigger in the doctrine** (`render_card_doctrine` in
-   `cards/catalog.py`) — which question calls for it, in the same
+   `cards/card_doctrine.py`) — which question calls for it, in the same
    "trigger → card" form as the rest. A type that is only listed in the index is
    a renderer nobody is asked for, which is a renderer nobody sees; that is
    exactly how the schematic cards once sat behind a disclaimer. The trigger row
