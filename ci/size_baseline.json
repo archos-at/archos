@@ -3,9 +3,7 @@
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/wire_v2.py": 979,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 760,
-    "packages/ris-adapter/src/ris_adapter/register.py": 636,
-    "scripts/loop_eval.py": 677,
-    "scripts/turn_census/suite.py": 1111
+    "packages/ris-adapter/src/ris_adapter/register.py": 636
   },
   "functions": {
     "apps/agent-host/src/agent_host/internal_api.py::post_internal_conversation_message": 63,
@@ -34,7 +32,6 @@
     "apps/agent-host/start_web.py::main": 74,
     "evals/oib-retrieval/src/oib_retrieval/overview.py::load_golden": 62,
     "evals/oib-retrieval/src/oib_retrieval/overview.py::run": 67,
-    "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/runner.py::render_markdown": 94,
     "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/variants.py::measure": 99,
     "evals/oib-retrieval/src/oib_retrieval/runner.py::main": 140,
     "evals/oib-retrieval/src/oib_retrieval/runner.py::run_arm": 64,
@@ -102,9 +99,6 @@
     "scripts/decision_eval.py::_evaluate": 61,
     "scripts/decision_eval_office.py::evaluate_fit": 74,
     "scripts/decision_eval_office.py::evaluate_hits": 62,
-    "scripts/decision_eval_office.py::evaluate_precedent": 62,
-    "scripts/turn_census/suite.py::main": 85,
-    "scripts/turn_census/suite.py::observe": 84,
-    "scripts/turn_census/suite.py::render": 61
+    "scripts/decision_eval_office.py::evaluate_precedent": 62
   }
 }
