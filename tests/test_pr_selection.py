@@ -154,6 +154,39 @@ def test_python_in_a_support_package_is_python_testmon_sees(mod):
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "select"
 
 
+SPAWNING = {
+    "packages/agent/tests/testing/agent_testing/tool_payloads.py": "subprocess.run([sys.executable, '-c', BUILD])",
+    "packages/agent/tests/core/test_static_prefix_size.py": "from agent_testing.tool_payloads import built_tools",
+    "tests/test_import_weight.py": "subprocess.run([sys.executable, '-c', CODE])",
+    "packages/agent/tests/test_other.py": "from agent_testing.langfuse import trace",
+}
+
+
+def test_package_python_adds_every_test_that_runs_it_in_a_subprocess(mod):
+    changed = ["packages/knowledge-layer/src/knowledge_layer/browse/tool_text.py"]
+
+    mode, extra, reason = mod.decide_python(changed, SPAWNING, recorded=True)
+
+    assert (mode, extra) == (
+        "select",
+        ["packages/agent/tests/core/test_static_prefix_size.py", "tests/test_import_weight.py"],
+    )
+    assert "2 that run package code in a subprocess" in reason
+
+
+def test_a_change_to_a_test_adds_no_subprocess_test(mod):
+    assert mod.decide_python(["packages/agent/tests/test_other.py"], SPAWNING, recorded=True)[:2] == ("select", [])
+
+
+def test_the_prompt_size_test_runs_when_a_tool_text_changes(mod):
+    changed = ["packages/knowledge-layer/src/knowledge_layer/browse/tool_text.py"]
+
+    extra = mod.decide_python(changed, mod._python_test_files(), recorded=True)[1]
+
+    assert "packages/agent/tests/core/test_static_prefix_size.py" in extra
+    assert "packages/agent/tests/common/test_backend_tools_schema.py" in extra
+
+
 def test_a_document_a_helper_only_cites_selects_nothing_extra(mod):
     assert mod.decide_python(["packages/AGENTS.md"], TESTS, recorded=True)[:2] == ("select", [])
 

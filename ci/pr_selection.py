@@ -163,6 +163,21 @@ def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
     return {file for file, text in test_files.items() if Path(file).name.startswith("test_") and imports.search(text)}
 
 
+SPAWNS_PYTHON = re.compile(r"\bsys\.executable\b")
+
+
+def _spawners(test_files: dict[str, str]) -> set[str]:
+    spawners: set[str] = set()
+    for file, text in test_files.items():
+        if not SPAWNS_PYTHON.search(text):
+            continue
+        if Path(file).name.startswith("test_"):
+            spawners.add(file)
+        else:
+            spawners |= _importers(file, test_files) or set()
+    return spawners
+
+
 def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool) -> tuple[str, list[str], str]:
     if not recorded:
         return "full", [], "no recorded testmon database to select from"
@@ -188,6 +203,10 @@ def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool
             return "full", [], f"{path} is package data no test names"
         extra |= named
     reason = f"{len(changed)} changed files; testmon selects, plus {len(extra)} test files naming a non-Python change"
+    if any(path.endswith(".py") and _matches(path, PY_PACKAGE_SRC) for path in changed):
+        spawners = _spawners(test_files)
+        extra |= spawners
+        reason += f" and {len(spawners)} that run package code in a subprocess"
     return "select", sorted(extra), reason
 
 
