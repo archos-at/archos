@@ -67,12 +67,14 @@ async function start(config: object, dir: string, probe?: number): Promise<Child
   let stderr = "";
   const collector = spawn(OTELCOL_BIN!, [`--config=${file}`], { stdio: ["ignore", "ignore", "pipe"] });
   collector.stderr?.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+  const exited = new Promise((r) => collector.once("exit", r));
   await new Promise<void>((resolve, reject) => {
     collector.once("spawn", resolve);
     collector.once("error", reject);
   });
   if (probe === undefined) return collector;
-  for (let i = 0; i < 100; i += 1) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline && collector.exitCode === null) {
     const up = await fetch(`http://127.0.0.1:${probe}/v1/logs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -85,7 +87,7 @@ async function start(config: object, dir: string, probe?: number): Promise<Child
     await new Promise((r) => setTimeout(r, 100));
   }
   collector.kill();
-  await new Promise((r) => collector.once("exit", r));
+  await exited;
   throw new Error(`the collector did not start:\n${stderr.slice(-2000)}`);
 }
 
@@ -133,7 +135,7 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
       {
         receivers: { "filelog/pods": { ...receiver, start_at: "beginning" } },
         processors,
-        exporters: { file: { path: out } },
+        exporters: { file: { path: out, flush_interval: "100ms" } },
         service: {
           telemetry: { metrics: { level: "none" } },
           pipelines: {
@@ -235,7 +237,7 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
       {
         receivers: { otlp: otlpOn(port.sdk), [SHIPPER_RECEIVER]: otlpOn(port.shipper), "otlp/events": otlpOn(port.events) },
         processors: { ...sdk.processors, ...containers.processors, ...events.processors },
-        exporters: { file: { path: out } },
+        exporters: { file: { path: out, flush_interval: "100ms" } },
         service: {
           telemetry: { metrics: { level: "none" } },
           pipelines: {
@@ -254,8 +256,8 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
     collector?.kill();
   });
 
-  const send = (to: keyof typeof port, resource: Record<string, string>, body: unknown, severityNumber = 17) =>
-    fetch(`http://127.0.0.1:${port[to]}/v1/logs`, {
+  const send = async (to: keyof typeof port, resource: Record<string, string>, body: unknown, severityNumber = 17) => {
+    const response = await fetch(`http://127.0.0.1:${port[to]}/v1/logs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -267,6 +269,8 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
         ],
       }),
     });
+    expect(response.status).toBe(200);
+  };
 
   const kv = (o: Record<string, unknown>): unknown => ({
     kvlistValue: {
@@ -282,7 +286,7 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
     await send("sdk", { "service.name": "bff" }, { stringValue: "office text in an SDK log" });
     await send("sdk", { "service.name": "bff-spoof", "collector.log.source": "container" }, { stringValue: "office text, claiming" });
     await waitFor(out, (r) => r.length >= 3);
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1000));
     const got = rows(out);
     const by = (service: string) => got.filter((r) => r.resource["service.name"] === service);
     expect(by("cms").map((r) => r.body)).toEqual(["Error: migrate failed"]);
