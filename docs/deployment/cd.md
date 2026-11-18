@@ -233,7 +233,8 @@ Without `sha` it takes the newest commit on develop's first-parent line (of the
 last 60) with a green `CI OK` check run and the commit status `deploy/staging`,
 which the staging job sets on a CI-triggered deploy once the smoke check
 passed. The status exists from the first staging deploy after it was added; for
-older commits pass `sha`. Then it checks GHCR has the commit's images, branches
+older commits pass `sha`. It refuses a commit that carries a switch whose expand
+prod does not run yet ([expand-and-switch.md](expand-and-switch.md)). Then it checks GHCR has the commit's images, branches
 `release/promote-<short>`, merges `origin/prod` with `-s ours`, writes
 `Pulumi.prod.yaml`, pushes and opens `chore(release): promote develop <short> to
 prod` with the migrations and release notes the commit brings over prod. A
