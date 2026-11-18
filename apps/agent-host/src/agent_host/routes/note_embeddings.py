@@ -3,8 +3,8 @@ import logging
 from fastapi import APIRouter
 from fastapi import Request
 
-from ..models.requests import NoteEmbeddingRequest
-from ..models.requests import NoteEmbeddingResponse
+from ..models.writing_requests import NoteEmbeddingRequest
+from ..models.writing_requests import NoteEmbeddingResponse
 from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)

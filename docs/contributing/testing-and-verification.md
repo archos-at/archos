@@ -505,7 +505,7 @@ and broken in production:
 
 | Writer | Reader | What the reader got |
 |---|---|---|
-| `visual_analysis.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
+| `visual_rendering.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
 | The wake and the document check sent the display name | Retrieval matches `focus_file_name` against the stored filename | No focus on any renamed document (#1492) |
 | `references.norm_key` keeps the document's spacing | The `refers_to` filter used the asker's spelling | No match for `B1600` against `B 1600` (#1493) |
 | Only the plain-text reader stamps chunk dates | The file listing read only those | No ingest date a day after upload (#1494) |

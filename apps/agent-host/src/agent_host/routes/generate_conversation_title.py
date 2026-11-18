@@ -9,8 +9,8 @@ from agent.common import provider_limiter
 from agent.common.openrouter import limited_async_http_client
 from agent.observability.direct_trace import observed_generation
 
-from ..models.requests import GenerateConversationTitleRequest
-from ..models.requests import GenerateConversationTitleResponse
+from ..models.writing_requests import GenerateConversationTitleRequest
+from ..models.writing_requests import GenerateConversationTitleResponse
 from ._llm_json import extract_json_object
 from ._llm_json import message_content
 from .generate_summary import _llm_settings

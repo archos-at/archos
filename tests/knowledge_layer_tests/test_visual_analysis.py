@@ -7,6 +7,9 @@ from knowledge_layer.ingest import caption_documents
 from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
+from knowledge_layer.ingest import visual_prompt
+from knowledge_layer.ingest import visual_rendering
+from knowledge_layer.ingest import visual_schema
 
 
 @pytest.fixture
@@ -120,7 +123,7 @@ class TestDomainRegistry:
 
         assert "old_term" not in one.category_keys()
         assert "old_term" in retired.category_keys
-        assert "old_term" not in va.build_prompt(one)
+        assert "old_term" not in visual_prompt.build_prompt(one)
 
     def test_a_segment_types_role_decides_the_content_type(self, registry):
         assert registry.content_type_for([{"domain": "architecture", "segment_type": "floor_plan"}]) == "drawing"
@@ -139,7 +142,7 @@ class TestDomainRegistry:
 
 class TestJsonSchema:
     def test_conforms_to_the_strict_structured_output_subset(self, registry):
-        schema = va.json_schema(registry)
+        schema = visual_schema.json_schema(registry)
 
         def check(node):
             if node.get("type") == "object" or "properties" in node:
@@ -153,26 +156,26 @@ class TestJsonSchema:
         check(schema)
 
     def test_declares_the_enabled_vocabulary_as_enums(self, registry):
-        segment = va.json_schema(registry)["properties"]["segments"]["items"]
+        segment = visual_schema.json_schema(registry)["properties"]["segments"]["items"]
         assert set(segment["properties"]["domain"]["enum"]) == {"architecture", "general"}
         assert "floor_plan" in segment["properties"]["segment_type"]["enum"]
         assert "space" in segment["properties"]["entities"]["items"]["properties"]["category"]["enum"]
 
     def test_does_not_attempt_conditional_validation(self, registry):
-        rendered = json.dumps(va.json_schema(registry))
+        rendered = json.dumps(visual_schema.json_schema(registry))
         for unsupported in ('"if"', '"then"', '"allOf"', '"oneOf"', '"$ref"'):
             assert unsupported not in rendered
 
     def test_the_prompt_shape_is_derived_from_the_schema(self, registry):
-        schema = va.json_schema(registry)
+        schema = visual_schema.json_schema(registry)
         schema["properties"]["segments"]["items"]["properties"]["invented_field"] = {
             "type": "string",
             "description": "only in this copy",
         }
-        assert "invented_field" in va._sketch(schema)
+        assert "invented_field" in visual_prompt._sketch(schema)
 
     def test_the_prompt_states_the_rules_the_parser_depends_on(self, registry):
-        prompt = va.build_prompt(registry)
+        prompt = visual_prompt.build_prompt(registry)
         for token in ("segments", "quantities", "relations", "compositions", "bbox", "confidence", "watermark"):
             assert token in prompt
         assert "architecture" in prompt and "floor_plan" in prompt and "space" in prompt
@@ -180,7 +183,7 @@ class TestJsonSchema:
         assert len(prompt) < 12000
 
     def test_the_prompt_names_side_by_side_repeats_as_separate_segments(self, registry):
-        prompt = va.build_prompt(registry)
+        prompt = visual_prompt.build_prompt(registry)
         assert "side by side" in prompt
         assert "Two floor plans" in prompt
         assert "never merge them" in prompt
@@ -188,21 +191,21 @@ class TestJsonSchema:
 
 class TestPromptContext:
     def test_the_context_is_in_the_prompt_when_given(self, registry):
-        prompt = va.build_prompt(registry, context="Aufgenommen am 14.09.2026 um 10:32 Uhr.")
+        prompt = visual_prompt.build_prompt(registry, context="Aufgenommen am 14.09.2026 um 10:32 Uhr.")
         assert "Aufgenommen am 14.09.2026 um 10:32 Uhr." in prompt
 
     def test_the_context_is_absent_when_none(self, registry):
-        assert "SENTINEL-CONTEXT" not in va.build_prompt(registry, context=None)
+        assert "SENTINEL-CONTEXT" not in visual_prompt.build_prompt(registry, context=None)
 
     def test_no_context_is_the_same_prompt_as_no_argument(self, registry):
-        assert va.build_prompt(registry, context=None) == va.build_prompt(registry)
+        assert visual_prompt.build_prompt(registry, context=None) == visual_prompt.build_prompt(registry)
 
     def test_an_empty_context_adds_nothing(self, registry):
-        assert va.build_prompt(registry, context="") == va.build_prompt(registry)
+        assert visual_prompt.build_prompt(registry, context="") == visual_prompt.build_prompt(registry)
 
     def test_a_given_context_only_adds_to_the_prompt(self, registry):
-        base = va.build_prompt(registry)
-        prompt = va.build_prompt(registry, context="SENTINEL-CONTEXT")
+        base = visual_prompt.build_prompt(registry)
+        prompt = visual_prompt.build_prompt(registry, context="SENTINEL-CONTEXT")
         assert prompt.startswith(base)
         assert "SENTINEL-CONTEXT" in prompt[len(base) :]
 
@@ -319,7 +322,7 @@ class TestParsing:
 class TestRendering:
     def test_states_every_populated_category_under_its_domains_label(self, registry):
         analysis = va.parse_visual_analysis(_MIXED_SHEET, registry)
-        text = va.render_segment_text(analysis["segments"][0], registry)
+        text = visual_rendering.render_segment_text(analysis["segments"][0], registry)
 
         assert text.startswith("Floor plan — EG (scale 1:100)")
         for expected in (
@@ -336,12 +339,12 @@ class TestRendering:
 
     def test_labels_are_english_but_values_keep_the_documents_language(self, registry):
         analysis = va.parse_visual_analysis(_MIXED_SHEET, registry)
-        text = va.render_segment_text(analysis["segments"][0], registry)
+        text = visual_rendering.render_segment_text(analysis["segments"][0], registry)
         assert "Wärmepumpe" in text and "Regelgeschoss" in text
 
     def test_a_general_domain_segment_reads_in_its_own_words(self, registry):
         analysis = va.parse_visual_analysis(_MIXED_SHEET, registry)
-        text = va.render_segment_text(analysis["segments"][3], registry)
+        text = visual_rendering.render_segment_text(analysis["segments"][3], registry)
         assert text.startswith("Photo")
         assert "Objects: Kran" in text
 
@@ -353,12 +356,12 @@ class TestRendering:
             ),
             registry,
         )
-        assert "VECTORWORKS" not in va.render_analysis_text(analysis, registry).upper()
+        assert "VECTORWORKS" not in visual_rendering.render_analysis_text(analysis, registry).upper()
 
 
 class TestSegmentPayloads:
     def test_one_chunk_per_segment_each_with_its_own_type_and_scale(self, registry):
-        payloads = va.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
+        payloads = visual_rendering.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
 
         assert [p["drawing_type"] for p in payloads] == ["floor_plan", "section", "diagram", "photo"]
         assert [p["drawing_scale"] for p in payloads] == ["1:100", "1:50", "", ""]
@@ -366,12 +369,12 @@ class TestSegmentPayloads:
         assert all(p["segment_count"] == 4 for p in payloads)
 
     def test_document_facts_ride_on_the_first_chunk_only(self, registry):
-        payloads = va.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
+        payloads = visual_rendering.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
         assert "Wohnbau Nord" in payloads[0]["text"]
         assert not any("Wohnbau Nord" in p["text"] for p in payloads[1:])
 
     def test_the_full_structure_round_trips_on_the_chunk(self, registry):
-        payloads = va.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
+        payloads = visual_rendering.segment_payloads(va.parse_visual_analysis(_MIXED_SHEET, registry), registry)
         data = json.loads(payloads[3]["drawing_data"])
         assert data["schema_version"] == va.SCHEMA_VERSION
         assert data["registry"] == registry.fingerprint
@@ -399,7 +402,7 @@ class TestSegmentPayloads:
                 }
             ]
         )
-        payloads = va.segment_payloads(va.parse_visual_analysis(reply, registry), registry)
+        payloads = visual_rendering.segment_payloads(va.parse_visual_analysis(reply, registry), registry)
         facts = lifted_drawing_facts([(1, json.loads(payload["drawing_data"])) for payload in payloads])
         assert [(fact["key"], fact["value"]) for fact in facts] == [("room_height", "2,60")]
 
@@ -416,7 +419,9 @@ def _two_floor_plans_reply() -> str:
 
 class TestRepeatedSegmentOrdinals:
     def test_repeated_types_carry_per_type_ordinals(self, registry):
-        payloads = va.segment_payloads(va.parse_visual_analysis(_two_floor_plans_reply(), registry), registry)
+        payloads = visual_rendering.segment_payloads(
+            va.parse_visual_analysis(_two_floor_plans_reply(), registry), registry
+        )
 
         assert [p["drawing_type"] for p in payloads] == ["floor_plan", "floor_plan", "section"]
         assert payloads[0]["text"].splitlines()[0] == "Floor plan 1 of 2 — EG"
@@ -432,7 +437,7 @@ class TestRepeatedSegmentOrdinals:
                 {"domain": "architecture", "segment_type": "floor_plan", "title": "Grundriss", "summary": "Rechts."},
             ]
         )
-        payloads = va.segment_payloads(va.parse_visual_analysis(reply, registry), registry)
+        payloads = visual_rendering.segment_payloads(va.parse_visual_analysis(reply, registry), registry)
 
         headers = [p["text"].splitlines()[0] for p in payloads]
         assert headers == ["Floor plan 1 of 2 — Grundriss", "Floor plan 2 of 2 — Grundriss"]
@@ -440,12 +445,14 @@ class TestRepeatedSegmentOrdinals:
     def test_render_without_position_is_unchanged(self, registry):
         analysis = va.parse_visual_analysis(_two_floor_plans_reply(), registry)
 
-        assert va.render_segment_text(analysis["segments"][0], registry).splitlines()[0] == "Floor plan — EG"
+        assert (
+            visual_rendering.render_segment_text(analysis["segments"][0], registry).splitlines()[0] == "Floor plan — EG"
+        )
 
 
 class TestLegacyFields:
     def test_flattens_onto_the_shape_pre_schema_consumers_read(self, registry):
-        fields = va.legacy_fields(va.parse_visual_analysis(_MIXED_SHEET, registry))
+        fields = visual_rendering.legacy_fields(va.parse_visual_analysis(_MIXED_SHEET, registry))
 
         assert fields["drawing_type"] == "floor_plan, section, diagram, photo"
         assert fields["scale"] == "1:100, 1:50"
@@ -455,7 +462,7 @@ class TestLegacyFields:
         assert fields["summary"] == "Plansatz."
 
     def test_still_feeds_the_deterministic_summary_synthesiser(self, registry):
-        fields = va.legacy_fields(va.parse_visual_analysis(_MIXED_SHEET, registry))
+        fields = visual_rendering.legacy_fields(va.parse_visual_analysis(_MIXED_SHEET, registry))
         summary = caption_documents._summary_from_drawing_fields([{"fields": fields}])
         assert summary.startswith("Plansatz.")
 
@@ -495,7 +502,7 @@ def _write_image(tmp_path, name="plan.webp", fmt="WEBP"):
 class TestOneAnalysisForEverySource:
     def _fields(self, registry):
         analysis = va.parse_visual_analysis(_MIXED_SHEET, registry)
-        return {**va.legacy_fields(analysis), "analysis": analysis}
+        return {**visual_rendering.legacy_fields(analysis), "analysis": analysis}
 
     def test_the_vlm_call_returns_a_typed_analysis(self):
         import openai
