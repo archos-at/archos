@@ -49,7 +49,6 @@ apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
 deploy/pulumi/index-deploy-jobs.spec.ts
 deploy/pulumi/index-policy.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
-deploy/pulumi/src/app/agent-worker.spec.ts
 deploy/pulumi/src/app/backend-scaling.spec.ts
 deploy/pulumi/src/app/compose-roles.spec.ts
 deploy/pulumi/src/app/config.spec.ts
