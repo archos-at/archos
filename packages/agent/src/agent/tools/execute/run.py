@@ -29,6 +29,7 @@ from .trace import KeptFile
 from .trace import RunFacts
 from .trace import record_run
 from .workspace_files import MAX_FILE_BYTES
+from .workspace_files import derived_origin
 from .workspace_files import not_loaded_message
 from .workspace_files import oversize_file_message
 from .workspace_files import referenced
@@ -184,21 +185,25 @@ def dropped_inputs(sent: dict[str, bytes], result: RunResult) -> list[str]:
     ]
 
 
-async def _keep(
-    backend: DraftBackend, existing: dict[str, int], result: RunResult
-) -> tuple[list[KeptFile], dict[str, str]]:
+async def _keep(backend: DraftBackend, sent: _Sent, result: RunResult) -> tuple[list[KeptFile], dict[str, str]]:
     kept: list[KeptFile] = []
     refused: dict[str, str] = {}
     for path, data in sorted(result.files.items()):
         if path.startswith(INPUT_DIR):
             continue
         draft_path = _to_drafts(path)
-        refusal = await backend.awrite_run_file(draft_path, data, previous_size=existing.get(path, 0))
+        origin = derived_origin(path, sent.inputs, sent.documents)
+        refusal = await backend.awrite_run_file(draft_path, data, derived_from=origin)
         if refusal is None:
-            kept.append(KeptFile(draft_path, len(data), new=path not in existing))
+            kept.append(KeptFile(draft_path, len(data), new=path not in sent.existing))
         else:
             refused[draft_path] = refusal
     return kept, refused
+
+
+async def _remove(backend: DraftBackend, sent: _Sent, result: RunResult) -> list[str]:
+    gone = [path for path in result.deleted if path in sent.files and not path.startswith(INPUT_DIR)]
+    return [_to_drafts(path) for path in gone if await backend.aremove(_to_drafts(path))]
 
 
 def _dropped_input(path: str, was_input: bool) -> str:
@@ -279,9 +284,12 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
             progress.finish("unavailable", kept=[], elapsed_ms=0)
             return f"Nothing was run: {exc}. Try once more; if it fails again, answer without running code."
         facts.ran(result.status, result.duration_ms, result.stderr)
-        kept, refused = await _keep(backend, sent.existing, result)
+        kept, refused = await _keep(backend, sent, result)
+        removed = await _remove(backend, sent, result) if result.status == "ok" else []
         facts.kept, facts.files_refused = kept, len(refused)
         progress.finish(
             result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value, refused=tuple(refused)
         )
-    return _report(result, sent, kept, refused)
+    return _report(result, sent, kept, refused) + "".join(
+        f"\nremoved from the working directory: {path}" for path in removed
+    )

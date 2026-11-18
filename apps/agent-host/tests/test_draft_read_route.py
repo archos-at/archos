@@ -256,7 +256,7 @@ class TestABinaryFile:
     async def _write_binary(self, store: InMemoryStore) -> str:
         backend = DraftBackend(store=store, conversation_id=CONVERSATION)
         path = f"{DRAFT_ROOT}flaechen.xlsx"
-        assert await backend.awrite_run_file(path, self.XLSX, previous_size=0) is None
+        assert await backend.awrite_run_file(path, self.XLSX) is None
         return path
 
     async def test_its_preview_carries_size_and_encoding_but_no_content(self, client, prod_token, store) -> None:
@@ -277,3 +277,66 @@ class TestABinaryFile:
         path = await self._write_binary(store)
         listing = _list(client).json()["drafts"]
         assert listing == [{"path": path, "bytes": len(self.XLSX), "version": 1, "encoding": "base64"}]
+
+
+class TestOneDraftsLife:
+    XLSX_1 = b"PK-version-1"
+    XLSX_2 = b"PK-version-2"
+
+    async def _two_versions(self, store: InMemoryStore) -> str:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        path = f"{DRAFT_ROOT}raumbuch.xlsx"
+        assert await backend.awrite_run_file(path, self.XLSX_1) is None
+        assert await backend.awrite_run_file(path, self.XLSX_2) is None
+        return path
+
+    def _raw(self, client: TestClient, path: str, version: int) -> object:
+        return client.get(
+            f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}",
+            params={"raw": "true", "version": version},
+            headers=_headers(),
+        )
+
+    async def test_an_old_card_gets_the_bytes_of_its_own_version(self, client, prod_token, store) -> None:
+        path = await self._two_versions(store)
+        assert self._raw(client, path, 1).content == self.XLSX_1
+        assert self._raw(client, path, 2).content == self.XLSX_2
+        assert _read_suffix(client, path).json()["previous_version"] == 1
+
+    async def test_a_version_no_longer_kept_answers_410(self, client, prod_token, store) -> None:
+        path = await self._two_versions(store)
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert await backend.awrite_run_file(path, b"PK-3") is None
+        assert self._raw(client, path, 1).status_code == 410
+
+    async def test_restoring_the_earlier_version_makes_it_the_next(self, client, prod_token, store) -> None:
+        path = await self._two_versions(store)
+        response = client.post(f"/v1/drafts/{CONVERSATION}/restore", params={"path": path}, headers=_headers())
+        assert response.status_code == 200
+        assert response.json() == {"path": path, "version": 3}
+        assert self._raw(client, path, 3).content == self.XLSX_1
+
+    async def test_deleting_one_draft_leaves_the_others(self, client, prod_token, store) -> None:
+        path = await self._two_versions(store)
+        await _write(store, CONVERSATION, "befund")
+        response = client.delete(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}", headers=_headers())
+        assert response.status_code == 204
+        assert _read_suffix(client, path).status_code == 404
+        assert _read_suffix(client, PATH).status_code == 200
+        again = client.delete(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}", headers=_headers())
+        assert again.status_code == 404
+
+    async def test_a_filing_from_the_person_is_recorded_on_the_draft(self, client, prod_token, store) -> None:
+        path = await self._two_versions(store)
+        body = {"documentId": "doc-1", "versionId": "ver-1", "contentHash": "abc", "state": "draft", "draftVersion": 2}
+        response = client.put(f"/v1/drafts/{CONVERSATION}/filing", params={"path": path}, json=body, headers=_headers())
+        assert response.status_code == 200
+        read = _read_suffix(client, path).json()
+        assert read["filing"][FILED_DOCUMENT_KEY] == "doc-1"
+        assert read["filing"][FILED_HASH_KEY] == "abc"
+        assert read["filed_at_version"] == 2
+
+    async def test_the_new_routes_need_the_internal_token(self, client, prod_token, store) -> None:
+        path = await self._two_versions(store)
+        assert client.post(f"/v1/drafts/{CONVERSATION}/restore", params={"path": path}).status_code == 403
+        assert client.delete(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}").status_code == 403

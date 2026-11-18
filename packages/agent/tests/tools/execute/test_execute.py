@@ -11,6 +11,7 @@ from langgraph.store.memory import InMemoryStore
 from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
+from agent.tools.documents.draft_store import DERIVED_FROM_KEY
 from agent.tools.documents.draft_store import DRAFT_ROOT
 from agent.tools.documents.draft_store import DraftBackend
 from agent.tools.documents.draft_store import draft_namespace
@@ -79,6 +80,7 @@ def _ok(files: dict[str, bytes], **extra: Any) -> dict:
         "stderr": "",
         "files": [{"path": path, "base64": _b64(data), "size": len(data)} for path, data in files.items()],
         "durationMs": 42,
+        "deleted": extra.get("deleted", []),
     }
 
 
@@ -297,6 +299,64 @@ class TestInputPaths:
         assert "not kept" not in answer
 
 
+class TestDeletingAndDeriving:
+    async def test_a_working_file_the_run_deletes_is_removed_and_its_card_says_so(
+        self, store, monkeypatch, registry
+    ) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert await backend.awrite_run_file(f"{DRAFT_ROOT}alt.xlsx", b"PK-alt") is None
+        _runner(
+            monkeypatch,
+            _ok({"/workspace/neu.xlsx": b"PK-alt"}, deleted=["/workspace/alt.xlsx"]),
+            [],
+        )
+
+        answer = await run.execute(RUNNER, 'await rename("/workspace/alt.xlsx", "/workspace/neu.xlsx")')
+
+        assert store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}alt.xlsx") is None
+        assert store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}neu.xlsx") is not None
+        assert f"removed from the working directory: {DRAFT_ROOT}alt.xlsx" in answer
+        removed = [card for card in registry.snapshot() if card.get("removed")]
+        assert [card["path"] for card in removed] == [f"{DRAFT_ROOT}alt.xlsx"]
+
+    async def test_a_file_the_run_was_not_sent_is_never_removed(self, store, monkeypatch) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert await backend.awrite_run_file(f"{DRAFT_ROOT}bleibt.xlsx", b"PK") is None
+        _runner(monkeypatch, _ok({}, deleted=["/workspace/bleibt.xlsx"]), [])
+
+        await run.execute(RUNNER, "export default () => 1")
+
+        assert store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}bleibt.xlsx") is not None
+
+    async def test_a_changed_copy_of_a_project_document_records_where_it_came_from(
+        self, store, monkeypatch, registry
+    ) -> None:
+        async def document(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
+            return "proj_p1", "Ordner/Raumbuch.xlsx", b"PK-original", "doc-raumbuch"
+
+        monkeypatch.setattr(run, "_document_bytes", document)
+        _runner(monkeypatch, _ok({"/workspace/Raumbuch.xlsx": b"PK-changed"}), [])
+
+        await run.execute(RUNNER, 'writeFile("/workspace/Raumbuch.xlsx", b)', documents=["Raumbuch.xlsx"])
+
+        item = store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}Raumbuch.xlsx")
+        assert item.value[DERIVED_FROM_KEY] == {"document_id": "doc-raumbuch", "name": "Raumbuch.xlsx"}
+        card = next(card for card in registry.snapshot() if card["type"] == "document_draft")
+        assert (card["derived_from_document_id"], card["derived_from_name"]) == ("doc-raumbuch", "Raumbuch.xlsx")
+
+    async def test_a_new_file_of_another_type_is_not_a_copy_of_the_input(self, store, monkeypatch) -> None:
+        async def document(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
+            return "proj_p1", "Raumbuch.xlsx", b"PK", "doc-raumbuch"
+
+        monkeypatch.setattr(run, "_document_bytes", document)
+        _runner(monkeypatch, _ok({"/workspace/Bericht.pdf": b"%PDF"}), [])
+
+        await run.execute(RUNNER, 'writeFile("/workspace/Bericht.pdf", b)', documents=["Raumbuch.xlsx"])
+
+        item = store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}Bericht.pdf")
+        assert DERIVED_FROM_KEY not in item.value
+
+
 class TestLargeInputs:
     async def test_documents_past_the_limit_are_named_as_not_loaded(self, store, monkeypatch) -> None:
         names = [f"d{index}" for index in range(run.MAX_DOCUMENTS + 2)]
@@ -325,7 +385,7 @@ class TestLargeInputs:
     async def test_only_the_working_files_the_code_names_are_sent(self, store, monkeypatch) -> None:
         backend = DraftBackend(store=store, conversation_id=CONVERSATION)
         for name in ("alt.xlsx", "neu.xlsx"):
-            assert await backend.awrite_run_file(f"{DRAFT_ROOT}{name}", b"PK" + name.encode(), previous_size=0) is None
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}{name}", b"PK" + name.encode()) is None
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 
@@ -337,7 +397,7 @@ class TestLargeInputs:
     async def test_a_run_that_lists_the_directory_gets_every_working_file(self, store, monkeypatch) -> None:
         backend = DraftBackend(store=store, conversation_id=CONVERSATION)
         for name in ("a.xlsx", "b.xlsx"):
-            assert await backend.awrite_run_file(f"{DRAFT_ROOT}{name}", b"PK", previous_size=0) is None
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}{name}", b"PK") is None
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 
@@ -348,7 +408,7 @@ class TestLargeInputs:
     async def test_the_size_limit_names_the_working_files_when_no_document_was_named(self, store, monkeypatch) -> None:
         monkeypatch.setattr(run, "MAX_INPUT_BYTES", 10)
         backend = DraftBackend(store=store, conversation_id=CONVERSATION)
-        assert await backend.awrite_run_file(f"{DRAFT_ROOT}gross.xlsx", b"x" * 20, previous_size=0) is None
+        assert await backend.awrite_run_file(f"{DRAFT_ROOT}gross.xlsx", b"x" * 20) is None
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 

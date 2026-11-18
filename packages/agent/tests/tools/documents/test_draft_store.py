@@ -238,7 +238,7 @@ class TestTheAsyncHalf:
         table = ("Raum;Fläche\n" + "EG;32,4\n" * 7000).encode()
         assert len(table) <= draft_store.MAX_RUN_TEXT_BYTES
         for index in range(5):
-            assert await backend.awrite_run_file(f"{DRAFT_ROOT}tabelle-{index}.csv", table, previous_size=0) is None
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}tabelle-{index}.csv", table) is None
         assert stored(backend, f"{DRAFT_ROOT}tabelle-0.csv")["encoding"] == "utf-8"
         assert (await backend.awrite(DRAFT, "# Aktenvermerk\n\n" + "x" * (MAX_DRAFT_BYTES - 1024))).error is None
 
@@ -464,3 +464,53 @@ class TestTheGermanRootStillReads:
         assert "prefix LIKE 'conversation.%%.drafts'" in statement
         assert "NOT EXISTS" in statement
         assert params == {"new": "/drafts/", "cut": len("/entwuerfe/") + 1, "like": "/entwuerfe/%"}
+
+
+class TestTheEarlierVersion:
+    @pytest.mark.asyncio
+    async def test_an_overwrite_keeps_the_version_before_it(self, backend: DraftBackend) -> None:
+        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
+        assert await backend.awrite_run_file(path, b"PK-1") is None
+        assert await backend.awrite_run_file(path, b"PK-2") is None
+        assert await backend.awrite_run_file(path, b"PK-3") is None
+
+        assert await backend.aread_version(path, 3) == b"PK-3"
+        assert await backend.aread_version(path, 2) == b"PK-2"
+        assert await backend.aread_version(path, 1) is None
+        usage = await backend.ausage(path)
+        assert (usage.version, usage.previous_version) == (3, 2)
+        assert usage.file_bytes == len(b"PK-3") + len(b"PK-2")
+
+    @pytest.mark.asyncio
+    async def test_restoring_makes_the_earlier_bytes_the_next_version(self, backend: DraftBackend) -> None:
+        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
+        await backend.awrite_run_file(path, b"PK-1")
+        await backend.awrite_run_file(path, b"PK-2")
+
+        assert await backend.arestore_previous(path) == 3
+        assert await backend.aread_version(path, 3) == b"PK-1"
+        assert await backend.aread_version(path, 2) == b"PK-2"
+
+    @pytest.mark.asyncio
+    async def test_a_first_version_has_nothing_to_restore(self, backend: DraftBackend) -> None:
+        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
+        await backend.awrite_run_file(path, b"PK-1")
+        assert await backend.arestore_previous(path) is None
+
+    @pytest.mark.asyncio
+    async def test_the_earlier_version_is_dropped_rather_than_the_new_one_refused(
+        self, backend: DraftBackend, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(draft_store, "MAX_RUN_FILE_BYTES", 10)
+        path = f"{DRAFT_ROOT}a.bin"
+        assert await backend.awrite_run_file(path, b"123456") is None
+        assert await backend.awrite_run_file(path, b"abcdefg") is None
+        assert (await backend.ausage(path)).previous_version == 0
+
+    @pytest.mark.asyncio
+    async def test_removing_a_draft_deletes_it(self, backend: DraftBackend) -> None:
+        path = f"{DRAFT_ROOT}a.xlsx"
+        await backend.awrite_run_file(path, b"PK")
+        assert await backend.aremove(path) is True
+        assert (await backend.ausage(path)).content is None
+        assert await backend.aremove(path) is False

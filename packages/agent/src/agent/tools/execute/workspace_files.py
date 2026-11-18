@@ -67,3 +67,29 @@ def not_loaded_message(names: list[str], limit: int) -> str:
         f"not loaded: {listed([f'{name!r}' for name in names])} — a run takes at most {limit} documents. "
         "Run again with those documents if they are needed."
     )
+
+
+def _base(path: str) -> str:
+    return path.rsplit("/", 1)[-1].casefold()
+
+
+def _extension(path: str) -> str:
+    base = _base(path)
+    return base.rsplit(".", 1)[-1] if "." in base else ""
+
+
+def derived_origin(
+    output: str, inputs: list[tuple[str, str]], documents: list[tuple[str, str | None]]
+) -> dict[str, str] | None:
+    known = [
+        (path, name, document_id)
+        for (name, path), (_, document_id) in zip(inputs, documents, strict=False)
+        if document_id
+    ]
+    same_name = [entry for entry in known if _base(entry[0]) == _base(output) or _base(entry[1]) == _base(output)]
+    same_type = [entry for entry in known if _extension(entry[0]) == _extension(output)]
+    match = same_name[:1] or (same_type if len(same_type) == 1 else [])
+    if not match:
+        return None
+    _, name, document_id = match[0]
+    return {"document_id": str(document_id), "name": name.replace("\\", "/").rsplit("/", 1)[-1]}

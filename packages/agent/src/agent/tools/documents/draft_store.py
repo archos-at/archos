@@ -19,6 +19,19 @@ from langgraph.store.base import Item
 from agent.common import is_postgres_dsn
 
 from .cards import emit_draft_card
+from .draft_values import BASE64
+from .draft_values import DERIVED_FROM_KEY
+from .draft_values import PREVIOUS_CONTENT_KEY
+from .draft_values import PREVIOUS_ENCODING_KEY
+from .draft_values import PREVIOUS_KEYS
+from .draft_values import PREVIOUS_VERSION_KEY
+from .draft_values import derived_from_value
+from .draft_values import draft_bytes
+from .draft_values import history_of
+from .draft_values import previous_bytes
+from .draft_values import previous_size
+from .draft_values import stored_bytes
+from .draft_values import stored_size
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +43,6 @@ MAX_DRAFT_BYTES = 256 * 1024
 
 MAX_RUN_FILE_BYTES = 25 * 1024 * 1024
 
-BASE64 = "base64"
 
 VERSION_KEY = "grid_draft_version"
 
@@ -77,10 +89,6 @@ def normalize_draft_text(text: str) -> str:
     return unicodedata.normalize("NFC", text)
 
 
-def draft_bytes(text: str) -> int:
-    return len(text.encode("utf-8"))
-
-
 @dataclass(frozen=True)
 class DraftUsage:
     total_bytes: int
@@ -91,6 +99,8 @@ class DraftUsage:
     encoding: str = "utf-8"
     file_bytes: int = 0
     made_by: str = ""
+    previous_version: int = 0
+    derived_from: dict[str, str] = field(default_factory=dict)
 
     @property
     def is_binary(self) -> bool:
@@ -116,14 +126,6 @@ def filing_record(body: dict) -> dict[str, str]:
     }
 
 
-def stored_size(value: dict) -> int:
-    raw = value.get("content")
-    text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
-    if value.get("encoding") == BASE64:
-        return len(base64.b64decode(text)) if text else 0
-    return draft_bytes(text)
-
-
 def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
     total = 0
     file_bytes = 0
@@ -133,11 +135,13 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
     filing: dict[str, str] = {}
     filed_at_version = 0
     made_by = ""
+    previous_version = 0
+    derived_from: dict[str, str] = {}
     for item in items:
         raw = item.value.get("content")
         text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
         size = stored_size(item.value)
-        file_bytes += size
+        file_bytes += size + previous_size(item.value)
         if item.value.get("encoding") != BASE64 and item.value.get(MADE_BY_KEY) != MADE_BY_RUN:
             total += size
         if str(item.key) == file_path:
@@ -147,6 +151,8 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
             filing = filing_from_value(item.value)
             filed_at_version = int(item.value.get(FILED_AT_DRAFT_VERSION_KEY) or 0)
             made_by = str(item.value.get(MADE_BY_KEY) or "")
+            previous_version = int(item.value.get(PREVIOUS_VERSION_KEY) or 0)
+            derived_from = derived_from_value(item.value)
     return DraftUsage(
         total_bytes=total,
         content=content,
@@ -156,18 +162,14 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
         encoding=encoding,
         file_bytes=file_bytes,
         made_by=made_by,
+        previous_version=previous_version,
+        derived_from=derived_from,
     )
 
 
 RUN_TEXT_SUFFIXES = (".md", ".txt", ".csv", ".json", ".svg", ".html", ".xml", ".js", ".mjs", ".ts")
 
 MAX_RUN_TEXT_BYTES = 64 * 1024
-
-
-def stored_bytes(value: dict) -> bytes:
-    raw = value.get("content")
-    text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
-    return base64.b64decode(text) if value.get("encoding") == BASE64 else text.encode("utf-8")
 
 
 def run_file_value(file_path: str, data: bytes) -> dict:
@@ -290,6 +292,7 @@ class DraftBackend(StoreBackend):
             content=str(value.get("content") or ""),
             version=version,
             filing=filing,
+            filed_at_version=int(value.get(FILED_AT_DRAFT_VERSION_KEY) or 0),
         )
 
     async def _arecord(self, file_path: str, version: int, filing: dict[str, str]) -> None:
@@ -305,6 +308,7 @@ class DraftBackend(StoreBackend):
             content=str(value.get("content") or ""),
             version=version,
             filing=filing,
+            filed_at_version=int(value.get(FILED_AT_DRAFT_VERSION_KEY) or 0),
         )
 
     async def arecord_filing(
@@ -400,32 +404,98 @@ class DraftBackend(StoreBackend):
         data = base64.b64decode(usage.content) if usage.is_binary else usage.content.encode("utf-8")
         return data, usage
 
-    async def awrite_run_file(self, file_path: str, data: bytes, *, previous_size: int) -> str | None:
+    async def awrite_run_file(
+        self, file_path: str, data: bytes, *, derived_from: dict[str, str] | None = None
+    ) -> str | None:
         refusal = path_refusal(file_path) or _root_write_refusal(file_path)
         if refusal is not None:
             return refusal
         usage = await self.ausage(file_path)
-        projected = usage.file_bytes - previous_size + len(data)
-        if projected > MAX_RUN_FILE_BYTES:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        existing = await store.aget(namespace, file_path)
+        kept = {key: value for key, value in (existing.value if existing is not None else {}).items()}
+        held = stored_size(kept) + previous_size(kept) if existing is not None else 0
+        without_history = usage.file_bytes - held + len(data)
+        if without_history > MAX_RUN_FILE_BYTES:
             return (
                 f"Cannot keep {file_path} because this conversation's files would exceed "
                 f"{MAX_RUN_FILE_BYTES // (1024 * 1024)} MB. Write fewer or smaller files."
             )
-        store = self._get_store()
-        namespace = self._get_namespace()
-        existing = await store.aget(namespace, file_path)
-        kept = dict(existing.value) if existing is not None else {}
+        history = history_of(kept, usage.version) if existing is not None else {}
+        if history and without_history + stored_size(kept) > MAX_RUN_FILE_BYTES:
+            history = {}
+        for key in PREVIOUS_KEYS:
+            kept.pop(key, None)
         now = datetime.now(UTC).isoformat()
+        origin = derived_from or derived_from_value(kept)
         value = {
             **kept,
             **run_file_value(file_path, data),
+            **history,
+            **({DERIVED_FROM_KEY: origin} if origin else {}),
             "created_at": kept.get("created_at", now),
             "modified_at": now,
             VERSION_KEY: usage.version + 1,
             MADE_BY_KEY: MADE_BY_RUN,
         }
         await store.aput(namespace, file_path, value)
-        emit_draft_card(path=file_path, content="", version=usage.version + 1, filing=usage.filing, size=len(data))
+        self._card(file_path, value, size=len(data))
+        return None
+
+    def _card(self, file_path: str, value: dict, *, size: int, removed: bool = False) -> None:
+        emit_draft_card(
+            path=file_path,
+            content="",
+            version=int(value.get(VERSION_KEY) or 1),
+            filing=filing_from_value(value),
+            size=size,
+            filed_at_version=int(value.get(FILED_AT_DRAFT_VERSION_KEY) or 0),
+            previous_version=int(value.get(PREVIOUS_VERSION_KEY) or 0),
+            derived_from=derived_from_value(value),
+            removed=removed,
+        )
+
+    async def aremove(self, file_path: str) -> bool:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        existing = await store.aget(namespace, file_path)
+        if existing is None:
+            return False
+        await store.adelete(namespace, file_path)
+        self._card(file_path, existing.value, size=stored_size(existing.value), removed=True)
+        return True
+
+    async def arestore_previous(self, file_path: str) -> int | None:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        existing = await store.aget(namespace, file_path)
+        if existing is None or not existing.value.get(PREVIOUS_VERSION_KEY):
+            return None
+        value = dict(existing.value)
+        version = int(value.get(VERSION_KEY) or 0) + 1
+        restored = {"content": value[PREVIOUS_CONTENT_KEY], "encoding": value.get(PREVIOUS_ENCODING_KEY) or "utf-8"}
+        value.update(
+            {
+                **restored,
+                **history_of(existing.value, int(existing.value.get(VERSION_KEY) or 0)),
+                VERSION_KEY: version,
+                "modified_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        await store.aput(namespace, file_path, value)
+        self._card(file_path, value, size=stored_size(value))
+        return version
+
+    async def aread_version(self, file_path: str, version: int) -> bytes | None:
+        store = self._get_store()
+        existing = await store.aget(self._get_namespace(), file_path)
+        if existing is None:
+            return None
+        if int(existing.value.get(VERSION_KEY) or 0) == version:
+            return stored_bytes(existing.value)
+        if int(existing.value.get(PREVIOUS_VERSION_KEY) or 0) == version:
+            return previous_bytes(existing.value)
         return None
 
 

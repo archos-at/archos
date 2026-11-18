@@ -611,7 +611,7 @@
     }
   },
   "backend_tool:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“). `compare_to=` may also name any other file of the reader that is no Fassung of it („vergleiche die Raumliste mit dem Raumprogramm“): the two are then compared as two different documents, first → second. Either way, tables and lists (xlsx, csv, tables in a PDF) are compared row by row, matched by the column that identifies a row, and each deviating row names its place in both files.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -2532,6 +2532,32 @@
           "title": "Bytes",
           "type": "integer"
         },
+        "derived_from_document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The project document the run read this file from, when it is a changed copy of one",
+          "title": "Derived From Document Id"
+        },
+        "derived_from_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "That document's name, as the person knows it",
+          "title": "Derived From Name"
+        },
         "document_id": {
           "anyOf": [
             {
@@ -2544,6 +2570,20 @@
           "default": null,
           "description": "The project document this draft was filed as; absent while it is unfiled",
           "title": "Document Id"
+        },
+        "filed_draft_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+          "title": "Filed Draft Version"
         },
         "media_type": {
           "anyOf": [
@@ -2563,6 +2603,33 @@
           "minLength": 1,
           "title": "Path",
           "type": "string"
+        },
+        "previous_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The earlier version of this path that is still kept and can be restored",
+          "title": "Previous Version"
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True once the draft was deleted from the conversation",
+          "title": "Removed"
         },
         "title": {
           "description": "The document's first heading, or its file name when it has none",
@@ -8602,6 +8669,45 @@
               "name": "version_state",
               "required": false,
               "type": "\"draft\" | \"in_review\" | \"changes_requested\" | \"approved\" | \"published\" | \"superseded\" | \"rejected\""
+            },
+            {
+              "constraints": [
+                ">= 1"
+              ],
+              "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+              "name": "filed_draft_version",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "constraints": [
+                ">= 1"
+              ],
+              "description": "The earlier version of this path that is still kept and can be restored",
+              "name": "previous_version",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "constraints": [],
+              "description": "The project document the run read this file from, when it is a changed copy of one",
+              "name": "derived_from_document_id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "constraints": [],
+              "description": "That document's name, as the person knows it",
+              "name": "derived_from_name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "constraints": [],
+              "description": "True once the draft was deleted from the conversation",
+              "name": "removed",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "interaction": "interactive",
@@ -14016,7 +14122,7 @@
     }
   },
   "tool:chat:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“). `compare_to=` may also name any other file of the reader that is no Fassung of it („vergleiche die Raumliste mit dem Raumprogramm“): the two are then compared as two different documents, first → second. Either way, tables and lists (xlsx, csv, tables in a PDF) are compared row by row, matched by the column that identifies a row, and each deviating row names its place in both files.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -14860,7 +14966,7 @@
     }
   },
   "tool:clarifier:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“). `compare_to=` may also name any other file of the reader that is no Fassung of it („vergleiche die Raumliste mit dem Raumprogramm“): the two are then compared as two different documents, first → second. Either way, tables and lists (xlsx, csv, tables in a PDF) are compared row by row, matched by the column that identifies a row, and each deviating row names its place in both files.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -16085,7 +16191,7 @@
     }
   },
   "tool:deep_research.researcher:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“). `compare_to=` may also name any other file of the reader that is no Fassung of it („vergleiche die Raumliste mit dem Raumprogramm“): the two are then compared as two different documents, first → second. Either way, tables and lists (xlsx, csv, tables in a PDF) are compared row by row, matched by the column that identifies a row, and each deviating row names its place in both files.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -16799,7 +16905,7 @@
     }
   },
   "tool:intake:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“). `compare_to=` may also name any other file of the reader that is no Fassung of it („vergleiche die Raumliste mit dem Raumprogramm“): the two are then compared as two different documents, first → second. Either way, tables and lists (xlsx, csv, tables in a PDF) are compared row by row, matched by the column that identifies a row, and each deviating row names its place in both files.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {

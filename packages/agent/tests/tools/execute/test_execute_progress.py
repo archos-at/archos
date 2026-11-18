@@ -152,7 +152,7 @@ class TestTheStepTheChatShows:
 
     async def test_an_existing_file_rewritten_is_an_edit(self, store, monkeypatch, registry, emitted) -> None:
         backend = DraftBackend(store=store, conversation_id=CONVERSATION)
-        await backend.awrite_run_file(f"{DRAFT_ROOT}Raumbuch.xlsx", b"PK1", previous_size=0)
+        await backend.awrite_run_file(f"{DRAFT_ROOT}Raumbuch.xlsx", b"PK1")
         _runner(monkeypatch, [_answer(files={"/workspace/Raumbuch.xlsx": b"PK2"})])
 
         await run.execute(RUNNER, WRITE_XLSX)
