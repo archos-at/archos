@@ -86,7 +86,7 @@
         "memory": "2560Mi"
       },
       "requests": {
-        "cpu": "100m",
+        "cpu": "1000m",
         "memory": "1Gi"
       }
     },
@@ -146,7 +146,7 @@
         "memory": "4Gi"
       },
       "requests": {
-        "cpu": "250m",
+        "cpu": "2",
         "memory": "1Gi"
       }
     },
@@ -156,7 +156,7 @@
         "memory": "512Mi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "270m",
         "memory": "512Mi"
       }
     },
@@ -166,7 +166,7 @@
         "memory": "4Gi"
       },
       "requests": {
-        "cpu": "250m",
+        "cpu": "850m",
         "memory": "2Gi"
       }
     },
@@ -202,11 +202,11 @@
     },
     "763293b31aa4316c": {
       "limits": {
-        "cpu": "1",
+        "cpu": "3",
         "memory": "4Gi"
       },
       "requests": {
-        "cpu": "100m",
+        "cpu": "1500m",
         "memory": "1Gi"
       }
     },
@@ -236,7 +236,7 @@
         "memory": "4Gi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "1750m",
         "memory": "1Gi"
       }
     },
@@ -296,7 +296,7 @@
         "memory": "2Gi"
       },
       "requests": {
-        "cpu": "200m",
+        "cpu": "1",
         "memory": "1Gi"
       }
     },
@@ -306,7 +306,7 @@
         "memory": "512Mi"
       },
       "requests": {
-        "cpu": "250m",
+        "cpu": "50m",
         "memory": "512Mi"
       }
     },
@@ -316,7 +316,7 @@
         "memory": "512Mi"
       },
       "requests": {
-        "cpu": "250m",
+        "cpu": "50m",
         "memory": "512Mi"
       }
     },
@@ -336,7 +336,7 @@
         "memory": "1Gi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "75m",
         "memory": "1Gi"
       }
     },
@@ -346,7 +346,7 @@
         "memory": "1Gi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "75m",
         "memory": "1Gi"
       }
     },
@@ -526,7 +526,7 @@
         "memory": "6Gi"
       },
       "requests": {
-        "cpu": "1",
+        "cpu": "1200m",
         "memory": "6Gi"
       }
     },
@@ -546,7 +546,7 @@
         "memory": "8Gi"
       },
       "requests": {
-        "cpu": "1",
+        "cpu": "375m",
         "memory": "2Gi"
       }
     },
@@ -556,7 +556,7 @@
         "memory": "6Gi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "875m",
         "memory": "1536Mi"
       }
     },
@@ -566,7 +566,7 @@
         "memory": "6Gi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "875m",
         "memory": "1536Mi"
       }
     },
@@ -613,10 +613,10 @@
     "34f8d76c0dfdef9c": {
       "limits": {
         "cpu": "1",
-        "memory": "1Gi"
+        "memory": "1536Mi"
       },
       "requests": {
-        "cpu": "500m",
+        "cpu": "925m",
         "memory": "512Mi"
       }
     },
@@ -737,15 +737,15 @@
       "type": "Utilization"
     },
     "1c643d34ba6cc3c4": {
-      "averageUtilization": 70,
+      "averageUtilization": 40,
       "type": "Utilization"
     },
     "1c575ddbd648f8c8": {
-      "averageUtilization": 70,
+      "averageUtilization": 40,
       "type": "Utilization"
     },
     "8dca89197712ea61": {
-      "averageUtilization": 70,
+      "averageUtilization": 38,
       "type": "Utilization"
     }
   }

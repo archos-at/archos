@@ -83,19 +83,19 @@ export function loadChatTier(
     },
     api: {
       resources: {
-        requestsCpu: cfg.get("apiRequestsCpu") ?? "500m",
+        requestsCpu: cfg.get("apiRequestsCpu") ?? "875m",
         requestsMemory: cfg.get("apiRequestsMemory") ?? "1536Mi",
         limitsCpu: cfg.get("apiLimitsCpu") ?? "2",
         limitsMemory: cfg.get("apiLimitsMemory") ?? "6Gi",
       },
       minReplicas: apiMinReplicas,
       maxReplicas: apiMaxReplicas,
-      hpaCpuTargetPercent: num(cfg, "apiHpaCpuTargetPercent", 70),
+      hpaCpuTargetPercent: num(cfg, "apiHpaCpuTargetPercent", 40),
     },
     conversationBus,
     agentWorker: {
       resources: {
-        requestsCpu: cfg.get("agentWorkerRequestsCpu") ?? "1",
+        requestsCpu: cfg.get("agentWorkerRequestsCpu") ?? "375m",
         requestsMemory: cfg.get("agentWorkerRequestsMemory") ?? "2Gi",
         limitsCpu: cfg.get("agentWorkerLimitsCpu") ?? "4",
         limitsMemory: cfg.get("agentWorkerLimitsMemory") ?? "8Gi",

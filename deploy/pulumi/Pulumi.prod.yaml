@@ -402,7 +402,7 @@ config:
   # node (nodeGroupBatch, 8 vCPU / 64 GB, autoscale 2-4).
   # Two files a pod, because pdfplumber parses on one core (the GIL): a third
   # thread adds no parse speed, another pod does, and one OOM kill then costs
-  # two jobs an attempt, not three. 1 CPU requested for that core.
+  # two jobs an attempt, not three. 1200m requested: a pod peaks just above one core.
   # Seven, not eight, since the high-memory pool (`ingest-worker-heavy`, one
   # 12Gi pod, one file of 40 MiB or more at a time, defaults in
   # config/workers.ts) took the eighth pod's place: 7 x 6 + 12 = 54 GB still fits
@@ -415,7 +415,7 @@ config:
   # raise the memory before the ceiling if a pod nears 6Gi.
   grid-oib:ingestWorkerMinReplicas: "1"
   grid-oib:ingestWorkerMaxReplicas: "7"
-  grid-oib:ingestWorkerRequestsCpu: "1"
+  grid-oib:ingestWorkerRequestsCpu: "1200m"
   grid-oib:ingestWorkerRequestsMemory: 6Gi
   grid-oib:ingestWorkerLimitsCpu: "2"
   grid-oib:ingestWorkerLimitsMemory: 6Gi

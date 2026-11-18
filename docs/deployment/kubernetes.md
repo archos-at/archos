@@ -2090,7 +2090,9 @@ same number also told the scheduler each pod was tiny, so all six could land on
 one node — and `topologySpreadConstraints` is `ScheduleAnyway` (soft), so it
 would not have stopped that, defeating what the PDB and spread policy assume.
 
-Requests are now `500m` (trigger ≈ 350m, ~35% of the limit).
+Requests are now `925m` at a 38% target: the same 350m trigger (~35% of the
+limit), with the request at 1.5× the measured peak. `index-cpu-requests.spec.ts`
+pins each tier's trigger in millicores, so a request changes with its target.
 `assertHpaTargetIsProportional` in `deploy/pulumi/src/config/resources.ts` fails the
 preview if this ratio regresses. Tune from `kubectl top pods` — the invariant is
 `requests ≈ steady state`, `limits ≈ 2× requests`.

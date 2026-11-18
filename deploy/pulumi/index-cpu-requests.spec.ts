@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import {
@@ -44,10 +44,42 @@ const TOPOLOGIES = ["split", "single"];
 // dev's app group, sized in the IPAX console (not in this repo): four 4 vCPU nodes, group `Node`, max 4.
 const DEV_APP_NODES = 4;
 const DEV_APP_NODE_MILLICORES = 4000;
+// Free for unsized pods: IPAX's system pods took about 350m in all (measured 2026-11-18), plus HPA scale-out.
+const DEV_APP_RESERVE_MILLICORES = DEV_APP_NODES * 1000;
 
 const blocks = (renders: Rendered[]) =>
   Object.fromEntries(Object.entries(resourceBlocks(renders)).map(([path, block]) => [path.replace(/knowledge-carry-[0-9a-f]+/, "knowledge-carry"), block]));
 const allBlocks = (renders: Rendered[][]) => Object.assign({}, ...renders.map(blocks)) as ReturnType<typeof blocks>;
+
+const CPU_TRIGGER_MILLICORES: Record<string, number> = {
+  frontend: 350,
+  api: 350,
+  "aiq-api": 350,
+  web: 70,
+  "code-runner": 175,
+  "browser-renderer": 350,
+};
+
+function cpuTriggers(renders: Rendered[]): Record<string, number> {
+  const podCpu = (name: string): number => {
+    const workload = renders.find(
+      (r) => /:apps\/v1:(Deployment|StatefulSet)$/.test(r.type) && (r.inputs.metadata as { name?: string })?.name === name,
+    );
+    const containers = ((workload?.inputs.spec as any)?.template?.spec?.containers ?? []) as Array<{ resources: { requests: { cpu: string } } }>;
+    return containers.reduce((total, c) => total + millicores(c.resources.requests.cpu), 0);
+  };
+  const triggers: Record<string, number> = {};
+  for (const r of renders) {
+    const spec = (r.inputs.spec ?? {}) as Record<string, any>;
+    const target = spec.scaleTargetRef?.name as string | undefined;
+    if (!target) continue;
+    const hpa = (spec.metrics ?? []).find((m: any) => m?.resource?.name === "cpu")?.resource?.target?.averageUtilization;
+    const keda = (spec.triggers ?? []).find((t: any) => t?.type === "cpu")?.metadata?.value;
+    const percent = hpa ?? (keda === undefined ? undefined : Number(keda));
+    if (percent !== undefined) triggers[target] = (podCpu(target) * percent) / 100;
+  }
+  return triggers;
+}
 
 const millicores = (q: string): number => (q.endsWith("m") ? Number(q.slice(0, -1)) : Number(q) * 1000);
 
@@ -67,16 +99,16 @@ describe("CPU requests", () => {
     }
   }, 240_000);
 
-  it("leave prod's rendered resources and CPU scaling targets byte-identical to before the knob", () => {
-    // Keyed by a hash of each path: the paths carry the live resource names, which may not be committed anew.
-    const snapshot = readFileSync(SNAPSHOT, "utf8");
+  it("render prod's resources and CPU scaling targets as the snapshot pins them", () => {
     const live = cpuRequestRender(prod);
     const keyed = { resources: keyedByPathHash(live.resources), cpuScalingTargets: keyedByPathHash(live.cpuScalingTargets) };
+    if (process.env.CPU_REQUESTS_SNAPSHOT === "write") writeFileSync(SNAPSHOT, JSON.stringify(keyed, null, 2) + "\n");
+    const snapshot = readFileSync(SNAPSHOT, "utf8");
     const pinned = JSON.parse(snapshot) as typeof keyed;
     const differs = Object.entries({ ...live.resources, ...live.cpuScalingTargets })
       .filter(([path, value]) => JSON.stringify(value) !== JSON.stringify(pinned.resources[pathKey(path)] ?? pinned.cpuScalingTargets[pathKey(path)]))
       .map(([path]) => path);
-    expect(differs, "prod must render as before: grid-oib:cpuRequestScale unset is scale 1").toEqual([]);
+    expect(differs, "prod renders other resources than the snapshot; for a deliberate prod change: CPU_REQUESTS_SNAPSHOT=write npx vitest run index-cpu-requests.spec.ts").toEqual([]);
     expect(JSON.stringify(keyed, null, 2) + "\n").toBe(snapshot);
   });
 
@@ -119,8 +151,9 @@ describe("CPU requests", () => {
     const surge = sum(pods.filter((p) => p.kind === "steady"), (p) => p.millicores);
     const jobs = sum(pods.filter((p) => p.kind === "transient"), (p) => p.millicores);
     const capacity = DEV_APP_NODES * DEV_APP_NODE_MILLICORES;
-    // Half the group stays free for the provider's system pods, chart-default pods and HPA scale-out.
-    expect(steady + daemons + surge + jobs, `steady ${steady}m, daemons ${daemons}m, surge ${surge}m, jobs ${jobs}m`).toBeLessThanOrEqual(capacity / 2);
+    expect(steady + daemons + surge + jobs, `steady ${steady}m, daemons ${daemons}m, surge ${surge}m, jobs ${jobs}m`).toBeLessThanOrEqual(
+      capacity - DEV_APP_RESERVE_MILLICORES,
+    );
   });
 
   it("keep the absolute CPU at which dev's autoscalers scale out", () => {
@@ -131,6 +164,14 @@ describe("CPU requests", () => {
       const percent = target.averageUtilization ?? Number(target.value);
       const base = prodTargets[path] ? (prodTargets[path].averageUtilization ?? Number(prodTargets[path].value)) : 70;
       expect(percent, path).toBe(Math.round(base / scale));
+    }
+  });
+
+  it("hold every autoscaler's CPU trigger at the same millicores on prod and dev", () => {
+    for (const [stack, renders] of [["prod", prod], ["dev", dev]] as const) {
+      for (const [name, millis] of Object.entries(cpuTriggers(renders))) {
+        expect(Math.abs(millis - CPU_TRIGGER_MILLICORES[name]) / CPU_TRIGGER_MILLICORES[name], `${stack} ${name} scales out at ${millis}m a pod: move its CPU target percentage with its request`).toBeLessThanOrEqual(0.02);
+      }
     }
   });
 });
