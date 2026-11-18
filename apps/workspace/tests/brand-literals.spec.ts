@@ -1,9 +1,9 @@
-// @disk-inputs: app/**, ui/**, shared/**, i18n/dictionaries/**
+// @disk-inputs: app/**, ui/**, shared/**
 import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import postcss, { type Declaration, type Root, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
-import { dictionaries } from '@/i18n/dictionaries'
+import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { calleeName, exportedNames, nodesOf, parseSource, productionSources, ts, walk } from '@/test-utils/source-ast'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
 
@@ -875,7 +875,7 @@ describe('one separator', () => {
         if (typeof value === 'string') copy.push(value)
         else if (value && typeof value === 'object') Object.values(value).forEach(visit)
       }
-      visit(dictionaries[locale].inboundMail)
+      visit(inboundMailCopy.messages[locale])
       return copy.filter((text) => text.includes(UNBOUND)).map((text) => `${locale}: ${text.trim()}`)
     })
     expect(offenders).toEqual([])

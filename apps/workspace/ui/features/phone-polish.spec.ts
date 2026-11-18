@@ -16,7 +16,7 @@ import { InboxSheet } from '../../app/app/(shell)/inbox/inbox-sheet'
 const classesOf = (text: string): string[] => text.split(/\s+/).filter(Boolean)
 
 const INBOX_PAD = 'pb-[max(1.5rem,env(safe-area-inset-bottom))]'
-const ARCHIV_PAD = 'pb-[env(safe-area-inset-bottom)]'
+const ARCHIVE_PAD = 'pb-[env(safe-area-inset-bottom)]'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
@@ -110,7 +110,7 @@ describe('a sheet that reaches the screen edge ends its list above the home indi
       render(createElement(OfficeShelfWorkspace, { canManage: true }))
       await screen.findByTestId('office-shelf-header')
       const scrollers = [...document.querySelectorAll<HTMLElement>('.scroll-fade-bottom')]
-      expect(scrollers.some((el) => classesOf(el.className).includes(ARCHIV_PAD))).toBe(true)
+      expect(scrollers.some((el) => classesOf(el.className).includes(ARCHIVE_PAD))).toBe(true)
     })
   })
 })
