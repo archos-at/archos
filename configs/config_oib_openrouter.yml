@@ -866,7 +866,7 @@ functions:
     # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of
     # the longest chain this surface documents, plus one repair.
     #
-    # The accounting is one unit per ROUND in `core/agent.py`: a round is one
+    # The accounting is one unit per ROUND in `core/round_charge.py`: a round is one
     # LLM decision that emitted tool calls, charged when the model emits it and
     # never refunded. Three consequences that are not obvious from the name:
     #   * a round that comes back with 0 hits costs what one that answers costs;
