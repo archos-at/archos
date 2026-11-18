@@ -37,4 +37,5 @@ apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/bff/proxy/server-js-runtime-copies.spec.ts
 apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
+apps/workspace/tests/brand-literals.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
