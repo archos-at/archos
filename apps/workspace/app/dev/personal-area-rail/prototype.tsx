@@ -475,6 +475,17 @@ function OnlyYouBadge({ quiet = false }: { quiet?: boolean }): JSX.Element {
   )
 }
 
+function OnlyYouInfo(): JSX.Element {
+  return (
+    <div className="bg-sheet shadow-md absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 rounded-[16px] p-4 text-left">
+      <p className="text-name">Nur Sie sehen diesen Chat.</p>
+      <p className="text-muted-foreground mt-1.5 text-xs leading-5">Weder Kolleg:innen noch die Administrator:innen Ihres Büros können ihn lesen. Ihr Büro sieht, wie viele Punkte Sie verbrauchen, nie wofür. Andere sehen den Chat erst, wenn Sie ihn teilen.</p>
+    </div>
+  )
+}
+
+const AI_NOTE = `${PRODUCT} ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.`
+
 function MailHint({ chip = false }: { chip?: boolean }): JSX.Element {
   return (
     <span className={cn('inline-flex items-center gap-2 text-xs', chip ? 'bg-sheet shadow-press h-8 rounded-full px-3' : 'text-muted-foreground')}>
@@ -485,7 +496,7 @@ function MailHint({ chip = false }: { chip?: boolean }): JSX.Element {
   )
 }
 
-export function NewChatPage({ temporary, infoOpen = false, lay = 'greeting' }: { temporary: boolean; infoOpen?: boolean; lay?: string }): JSX.Element {
+export function NewChatPage({ temporary, infoOpen = false, lay = 'subline' }: { temporary: boolean; infoOpen?: boolean; lay?: string }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-end gap-3 px-8 pb-2 pt-2">
@@ -503,21 +514,19 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'greeting' }: {
             <>
               <h1 className="text-page-title">Guten Morgen, Anna.</h1>
               {lay === 'subline' && (
-                <p className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
-                  <LockKeyhole className="size-3.5" aria-hidden />
-                  Nur Sie sehen diesen Chat.
-                </p>
+                <div className="relative">
+                  <p className={cn('text-muted-foreground inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-sm', infoOpen && 'bg-desk text-foreground')}>
+                    <LockKeyhole className="size-3.5" aria-hidden />
+                    Nur Sie sehen diesen Chat.
+                  </p>
+                  {infoOpen && <OnlyYouInfo />}
+                </div>
               )}
               {lay === 'greeting' && (
                 <>
                   <div className="relative">
                     <OnlyYouBadge />
-                    {infoOpen && (
-                      <div className="bg-sheet shadow-md absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 rounded-[16px] p-4 text-left">
-                        <p className="text-name">Nur Sie sehen diesen Chat.</p>
-                        <p className="text-muted-foreground mt-1.5 text-xs leading-5">Weder Kolleg:innen noch die Administrator:innen Ihres Büros können ihn lesen. Ihr Büro sieht, wie viele Punkte Sie verbrauchen, nie wofür. Andere sehen den Chat erst, wenn Sie ihn teilen.</p>
-                      </div>
-                    )}
+                    {infoOpen && <OnlyYouInfo />}
                   </div>
                   <MailHint chip />
                 </>
@@ -558,25 +567,29 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'greeting' }: {
               <MailHint chip />
             </div>
           )}
-          <p className="text-muted-foreground text-meta pt-2 text-center">{PRODUCT} ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.</p>
         </div>
       </div>
     </main>
   )
 }
 
-export function Page({ me, fresh = false, shared = false, menuOpen = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; shared?: boolean; menuOpen?: boolean; noneLabel?: string }): JSX.Element {
-  const across = me && noneLabel === 'Alle Projekte'
+export function Page({ me, shared = false, menuOpen = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; shared?: boolean; menuOpen?: boolean; noneLabel?: string }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <ChatHeader title={fresh ? 'Neuer Chat' : shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} menuOpen={menuOpen} />
-      <div className="flex flex-1 items-center justify-center px-8">
-        {across && <p className="text-muted-foreground max-w-md text-center text-sm">An kein Projekt gebunden. {PRODUCT} kann in allen Ihren Projekten nachsehen, auch in abgeschlossenen.</p>}
+      <ChatHeader title={shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} menuOpen={menuOpen} />
+      <div className="mx-auto mt-6 flex w-full max-w-2xl flex-1 flex-col gap-5 px-8">
+        <div className="bg-desk text-name max-w-[80%] self-end rounded-[16px] px-3 py-2 font-normal">{me ? 'Wie steil darf die Rampe einer Tiefgarage sein?' : 'Wie lang darf der Fluchtweg im Erdgeschoss sein?'}</div>
+        <div className="flex max-w-[90%] flex-col gap-2.5">
+          <div className="bg-selected h-2 w-[96%] rounded" />
+          <div className="bg-selected h-2 w-[88%] rounded" />
+          <div className="bg-selected h-2 w-[61%] rounded" />
+        </div>
       </div>
-      <div className="mx-auto mb-8 w-full max-w-2xl px-8">
+      <div className="mx-auto mb-6 w-full max-w-2xl px-8">
         <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">
           <span className="text-muted-foreground text-sm">Frage stellen …</span>
         </div>
+        <p className="text-muted-foreground text-meta pt-2 text-center">{AI_NOTE}</p>
       </div>
     </main>
   )
