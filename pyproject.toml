@@ -133,7 +133,7 @@ ignore_imports = [
   "agent.knowledge.scoping -> knowledge_layer.search",
   "agent.oib_sync -> knowledge_layer.ingest",
   "agent.tools.cross_project.hit_judge -> knowledge_layer.search",
-  "agent.tools.cross_project.register -> knowledge_layer.search",
+  "agent.tools.cross_project.lookup_rendering -> knowledge_layer.search",
   "agent.tools.look.reading -> knowledge_layer.ingest",
   "agent.tools.look.register -> knowledge_layer.view_image",
   "agent.tools.look.resolve -> knowledge_layer.view_image",
