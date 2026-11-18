@@ -7,7 +7,8 @@ import { ensureTenantBucketChecked } from '@/lib/storage/bucket'
 import { admitOrDiscard } from '@/lib/storage/admission'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { placementCollectionFor, requireFolderWrite } from '@/lib/authz/folder-access'
-import { aiProvenanceMarking, markingIsInBytes, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import { aiProvenanceMarking, markingIsInBytes, type AiProvenance, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import { AGENT_FILE_TYPES } from './agent-file-types'
 import { fileSlug } from '@/lib/text/latinize'
 import { FEATURE_FLAGS, isAgentAuthoredDocumentsEnabled } from '@/lib/authz/feature-flags'
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
@@ -26,6 +27,7 @@ export const GENERATED_DOCUMENT_PRODUCER_REF_KINDS = {
   diagram_svg: 'answer_artifact',
   diagram_pdf: 'answer_artifact',
   agent_document: 'answer_artifact',
+  agent_file: 'answer_artifact',
 } as const satisfies Record<string, AuthoredRefKind>
 
 export type GeneratedDocumentProducer = keyof typeof GENERATED_DOCUMENT_PRODUCER_REF_KINDS
@@ -44,14 +46,19 @@ const PRODUCER_FILES_UNDER_NAMESPACE: Record<GeneratedDocumentProducer, boolean>
   diagram_svg: false,
   diagram_pdf: false,
   agent_document: true,
+  agent_file: true,
+}
+
+export function generatedDocumentProvenance(producer: GeneratedDocumentProducer, ref: string): AiProvenance {
+  const refKind = GENERATED_DOCUMENT_PRODUCER_REF_KINDS[producer]
+  return REF_KIND_IS_A_RUN[refKind] ? { runId: ref } : {}
 }
 
 export function generatedDocumentMarking(
   producer: GeneratedDocumentProducer,
   ref: string,
 ): AiProvenanceMarking {
-  const refKind = GENERATED_DOCUMENT_PRODUCER_REF_KINDS[producer]
-  return aiProvenanceMarking(REF_KIND_IS_A_RUN[refKind] ? { runId: ref } : {})
+  return aiProvenanceMarking(generatedDocumentProvenance(producer, ref))
 }
 
 export class UnmarkedRenderingError extends Error {
@@ -82,6 +89,7 @@ export interface FileGeneratedDocumentInput {
   ref: string
   title: string
   render: (context: GeneratedRenderContext) => Promise<GeneratedRendering> | GeneratedRendering
+  filename?: string
   request?: Request
   origin?: ConversationOrigin
 }
@@ -106,11 +114,9 @@ export function resolveGeneratedDocumentDestination(
 }
 
 const EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/pdf': 'pdf',
+  ...Object.fromEntries(Object.entries(AGENT_FILE_TYPES).map(([type, { extension }]) => [type, extension])),
   'text/markdown': 'md',
   'application/json': 'json',
-  'image/svg+xml': 'svg',
 }
 
 export function generatedFilename(title: string, contentType: string, now: Date): string {
@@ -182,7 +188,7 @@ export async function fileGeneratedDocument(
   if (folder.id !== existingDestination?.id) await requireFolderWrite(session, projectId, [folder.id])
 
   const documentId = crypto.randomUUID()
-  const storedName = generatedFilename(title, rendered.contentType, new Date())
+  const storedName = input.filename ?? generatedFilename(title, rendered.contentType, new Date())
   const filename = PRODUCER_FILES_UNDER_NAMESPACE[producer]
     ? agentDocumentFilename(documentId, storedName)
     : storedName
