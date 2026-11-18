@@ -39,8 +39,11 @@ Staging (`dev`) and `prod` keep every secret in their Pulumi ESC environment
 the committed `Pulumi.<stack>.yaml` holds only non-secret config. Stack config
 wins over ESC on a conflict, so never run `pulumi config set --secret` on these
 two stacks: it writes ciphertext into the committed file and shadows the ESC
-value. Set each secret with `esc env set`, or edit them together with
+value. Set each secret with `pulumi env set`, or edit them together with
 `pulumi env edit grid-oib/<stack>` (under `values.pulumiConfig`, as `fn::secret`).
+One exception today: `Pulumi.dev.yaml` still holds `pgRuntimePassword` and
+`seaweedfsBackendReadSecretKey` as `secure:` values, and those win over ESC
+until they are moved ("Moving a stack's secrets into ESC" below).
 
 ```bash
 task infra:install   # the program and its policy pack, each from its own lockfile
@@ -53,24 +56,25 @@ Edit the non-secret placeholders in `Pulumi.prod.yaml` (`storageClass`,
 
 ```bash
 ESC=matthiasbigl/grid-oib/prod
-esc env set $ESC pulumiConfig.grid-oib:kubeconfig             "$(cat ~/.kube/grid-config)" --secret
-esc env set $ESC pulumiConfig.grid-oib:pgAppPassword          "$(openssl rand -base64 24)" --secret
-esc env set $ESC pulumiConfig.grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)" --secret
-esc env set $ESC pulumiConfig.grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:gridAdminToken         "$(openssl rand -hex 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:openrouterApiKey       "sk-or-..." --secret
-esc env set $ESC pulumiConfig.grid-oib:tavilyApiKey           "tvly-..." --secret
-esc env set $ESC pulumiConfig.grid-oib:workosApiKey           "sk_live_..." --secret
-esc env set $ESC pulumiConfig.grid-oib:workosCookiePassword   "$(openssl rand -hex 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:jobPayloadKek          "$(openssl rand -base64 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:dragonflyPassword      "$(openssl rand -base64 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:rateLimitStorePassword "$(openssl rand -base64 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:seaweedfsFilerDbPassword "$(openssl rand -base64 24)" --secret
-esc env set $ESC pulumiConfig.grid-oib:seaweedfsTenantAdminSecretKey "$(openssl rand -base64 24)" --secret
-esc env set $ESC pulumiConfig.grid-oib:qdrantApiKey           "$(openssl rand -base64 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:qdrantReadOnlyApiKey   "$(openssl rand -base64 32)" --secret
-esc env set $ESC pulumiConfig.grid-oib:qdrantS3SecretKey      "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:kubeconfig             "$(cat ~/.kube/grid-config)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:pgAppPassword          "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsBackendReadSecretKey "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:gridAdminToken         "$(openssl rand -hex 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:openrouterApiKey       "sk-or-..." --secret
+pulumi env set $ESC pulumiConfig.grid-oib:tavilyApiKey           "tvly-..." --secret
+pulumi env set $ESC pulumiConfig.grid-oib:workosApiKey           "sk_live_..." --secret
+pulumi env set $ESC pulumiConfig.grid-oib:workosCookiePassword   "$(openssl rand -hex 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:jobPayloadKek          "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:dragonflyPassword      "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:rateLimitStorePassword "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsFilerDbPassword "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsTenantAdminSecretKey "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:qdrantApiKey           "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:qdrantReadOnlyApiKey   "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:qdrantS3SecretKey      "$(openssl rand -base64 32)" --secret
 pulumi preview
 pulumi up
 ```
@@ -101,14 +105,28 @@ What each secret is for, and which are required:
 
 ### Moving a stack's secrets into ESC
 
-A stack whose secrets still sit in its stack file moves them in three steps.
-The second is not optional: `--keep-config` leaves the values in both places,
-and stack config wins over ESC, so skipping it means the secrets never move.
+A secret left in a stack file wins over ESC, so it must leave the file once it
+is in ESC, and `pulumi preview` must then show no change.
 
-1. `pulumi config env init --stack dev --keep-config` copies them into ESC.
-2. Delete every `secure:` block from `Pulumi.dev.yaml`.
-3. `pulumi preview --stack dev` must be a no-op: a non-empty diff means a key
-   did not make it across (restore the file from git and retry).
+- **A stack that already imports an environment** (`dev` imports `grid-oib/dev`):
+  copy each remaining `secure:` value into that environment, delete the
+  `secure:` blocks from the stack file, then preview.
+
+  ```bash
+  ESC=matthiasbigl/grid-oib/dev
+  for key in pgRuntimePassword seaweedfsBackendReadSecretKey; do
+    pulumi env set $ESC "pulumiConfig.grid-oib:$key" "$(pulumi config get "grid-oib:$key" --stack dev)" --secret
+  done
+  pulumi preview --stack dev
+  ```
+
+- **A stack with no environment yet**: `pulumi config env init --stack <stack>
+  --keep-config` creates one and copies the values; then delete the `secure:`
+  blocks and preview. `--keep-config` leaves the values in both places, so
+  the deletion is not optional.
+
+A non-empty preview means a key did not make it across: restore the stack file
+from git and retry.
 
 ### A scratch stack without ESC
 
@@ -122,6 +140,7 @@ pulumi config set --secret grid-oib:kubeconfig             "$(cat ~/.kube/grid-c
 pulumi config set --secret grid-oib:pgAppPassword          "$(openssl rand -base64 24)"
 pulumi config set --secret grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)"
 pulumi config set --secret grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)"
+pulumi config set --secret grid-oib:seaweedfsBackendReadSecretKey "$(openssl rand -base64 24)"
 pulumi config set --secret grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)"
 pulumi config set --secret grid-oib:gridAdminToken         "$(openssl rand -hex 32)"
 pulumi config set --secret grid-oib:openrouterApiKey       "sk-or-..."

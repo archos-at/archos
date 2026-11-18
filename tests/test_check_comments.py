@@ -190,6 +190,12 @@ def test_a_comment_that_names_a_tool_is_still_prose(checker, repo):
     assert checker.measure(repo, ["w.yml"]) == {"w.yml": 3}
 
 
+def test_a_tool_directive_is_free_in_code_and_prose_naming_the_tool_is_not(checker, repo):
+    _add(repo, "a.py", "# shellcheck disable=SC2086\n# zizmor: ignore[x]\n# Run actionlint before merging.\nx = 1\n")
+    _add(repo, "b.ts", "// shellcheck disable=SC2086\n// Run shellcheck in CI.\nexport const x = 1\n")
+    assert checker.measure(repo, ["a.py", "b.ts"]) == {"a.py": 1, "b.ts": 1}
+
+
 def test_the_area_line_is_free_only_in_a_release_note(checker, repo):
     text = "---\n# area: projects\nfeatures:\n  - x\n"
     _add(repo, "releasenotes/notes/a-0123456789abcdef.yaml", text)

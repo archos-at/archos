@@ -90,7 +90,7 @@ environment (a scratch stack without one takes `pulumi config set --secret`
 instead, as in [the Pulumi README](../../deploy/pulumi/README.md#a-scratch-stack-without-esc)):
 
 ```bash
-esc env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:pgRuntimePassword "$(openssl rand -base64 32)" --secret
+pulumi env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:pgRuntimePassword "$(openssl rand -base64 32)" --secret
 ```
 
 A fourth login, `keda_scaler`, is declared the same way and is not an
@@ -739,7 +739,7 @@ lock times out at Envoy after its route timeout.
 2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
    `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
    `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`; on dev and prod in the
-   stack's ESC environment with `esc env set … --secret --string`, never
+   stack's ESC environment with `pulumi env set … --secret --string`, never
    `pulumi config set --secret`, the runbook's §5), `inboundMailLocalPart`
    only to change the default `project`, `inboundMailZoneId` only for a domain on
    a zone of its own, `inboundMailOperatorAddress`, and `inboundMailDmarc` for a
@@ -1486,7 +1486,7 @@ Two refusals hold the move in place:
    # The secret, in the ESC environment Pulumi.prod.yaml imports:
    NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
    ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
    ```
 
    The commented block under `pgBackupSchedule` in `Pulumi.prod.yaml` is the same
@@ -1927,9 +1927,9 @@ backoff (`common/credit_retry.py`) runs on whichever key the call carries.
    cd deploy/pulumi
    NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
    ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
    ```
 
    On a stack without ESC: `pulumi config set --secret openrouterChatKey "sk-or-..."`,

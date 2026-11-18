@@ -63,7 +63,7 @@ add_release_date: true
 template: |
   ---
   # area: choose one of projects, documents, answers, search, building-law, bim, collaboration, tasks, office-knowledge, administration, agents, general
-  # For the architect, in English, at most two sentences; the house rules: docs/contributing/release-notes.md
+  # For the architect, in English, at most two sentences, by the house rules for release notes.
   # Delete every section you do not need: an empty one fails the lint.
   features:
     - >
