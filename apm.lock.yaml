@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-11-18T14:32:29.649276+00:00'
+generated_at: '2026-11-18T14:35:58.147809+00:00'
 apm_version: 0.28.0
 dependencies:
 - repo_url: _local/querying-product-analytics
@@ -26,8 +26,8 @@ dependencies:
   - .claude/skills/updating-tickets
   - .claude/skills/updating-tickets/SKILL.md
   deployed_file_hashes:
-    .agents/skills/updating-tickets/SKILL.md: sha256:983e92725fafceb6c98e9e83533c746432347e6bdf5f48062bc91ceffc90d48c
-    .claude/skills/updating-tickets/SKILL.md: sha256:983e92725fafceb6c98e9e83533c746432347e6bdf5f48062bc91ceffc90d48c
+    .agents/skills/updating-tickets/SKILL.md: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
+    .claude/skills/updating-tickets/SKILL.md: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
   source: local
   local_path: ./skills/updating-tickets
 - repo_url: _local/verify-on-dev
@@ -3507,7 +3507,7 @@ deployments:
   owners:
   - ./skills/updating-tickets
   active_owner: ./skills/updating-tickets
-  content_hash: sha256:983e92725fafceb6c98e9e83533c746432347e6bdf5f48062bc91ceffc90d48c
+  content_hash: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
 - kind: project-relative
   target: agent-skills
   value: .agents/skills/verify-on-dev
@@ -5847,7 +5847,7 @@ deployments:
   owners:
   - ./skills/updating-tickets
   active_owner: ./skills/updating-tickets
-  content_hash: sha256:983e92725fafceb6c98e9e83533c746432347e6bdf5f48062bc91ceffc90d48c
+  content_hash: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
 - kind: project-relative
   target: claude
   value: .claude/skills/verify-on-dev
