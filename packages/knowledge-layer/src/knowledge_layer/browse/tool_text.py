@@ -6,8 +6,8 @@ _LIST_FILES_DESCRIPTION = (
     "It says which files exist, not what they say: reading or searching the documents does.\n"
     "Inputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by "
     "folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything "
-    "below it. `name_contains=` words that must all appear in the file name or title (case and umlauts "
-    "ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema "
+    "below it. `name_contains=` words that must all appear in the file name or title (case and umlaut "
+    "spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema "
     "recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the "
     "platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n"
     + TREE_PARAGRAPH
