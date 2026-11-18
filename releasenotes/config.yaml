@@ -59,40 +59,12 @@ default_branch: develop
 unreleased_version_title: Unreleased
 add_release_date: true
 
-# The template `reno new` starts an author off with. It carries the house rules
-# because that is the only moment anyone reads them.
+# The template `reno new` starts an author off with; it points at the house rules.
 template: |
   ---
-  # area: choose one of projects, documents, answers, search, building-law, bim,
-  #   collaboration, tasks, office-knowledge, administration, agents, general
-  #
-  # Keep the line above with one area: where in the product the reader meets
-  # this change. The app's "What's new" filters by it.
-  #
-  # Who reads what you write below:
-  #   - every member of every office, in the app's "What's new", in English and
-  #     in German translation: every entry in a customer section (features to
-  #     other). Write it for the architect, not for the reviewer of your diff.
-  #   - nobody outside the repository: `security`, `incident`, `operators`.
-  #   - the public website shows none of it; it shows the week's summary,
-  #     written later from the notes (releasenotes/summaries.yaml).
-  #
-  #   - English. The German is generated from it; a German note fails the lint.
-  #   - At most two sentences and 400 characters: what the reader can now do,
-  #     or what stopped going wrong for them. The mechanism goes in the PR.
-  #   - No RST, backticks, issue numbers, file paths or internal names.
-  #   - Only the people running the platform can act on it (the Platform area,
-  #     model defaults, a deployment step)? Put it under `operators`.
-  #   - A security fix goes under `security`; a severe fix (data lost or kept
-  #     after deletion, a permission or legal hold that did not hold) under
-  #     `incident`. A note in them still satisfies the PR check.
-  #
-  # Good: Uploading a corrected plan under the same name now replaces the old
-  #       one instead of adding a second copy.
-  # Bad:  Fixed dedup in the ingest path so re-uploads no longer create a
-  #       duplicate row.  (mechanism, not effect)
-  #
-  # Delete every section you do not need — an empty one fails the lint.
+  # area: choose one of projects, documents, answers, search, building-law, bim, collaboration, tasks, office-knowledge, administration, agents, general
+  # For the architect, in English, at most two sentences; the house rules: docs/contributing/release-notes.md
+  # Delete every section you do not need: an empty one fails the lint.
   features:
     - >
       Say what is new, from the reader's side.

@@ -53,7 +53,14 @@ reno picks the filename, a slug plus a random suffix, which is why two
 branches never collide on the same note file even when they both add one.
 
 Set the area line the template starts with, then keep exactly the sections you
-need and delete the rest:
+need and delete the rest; an empty section fails the lint. The template
+(`template:` in [`releasenotes/config.yaml`](../../releasenotes/config.yaml))
+carries the area line and two comment lines that point here, and no more: a
+note is a YAML file under the comment ratchet
+([`code-conventions.md`](code-conventions.md#comments)), which leaves the
+`# area:` line out and allows three other comment lines. What the template used
+to spell out is here: who reads a note in the tier table above, how to write it
+in [the house rules](#the-house-rules) below.
 
 ```yaml
 ---
