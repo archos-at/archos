@@ -48,9 +48,10 @@ like a file, not like a chat message:
 - **Honest refusals.** A CSV cannot carry the AI marking in its bytes, so it
   cannot be filed. The card says so in one sentence and offers the way that
   works: „Als Excel anfordern“ puts the request into the composer.
-- **How it was made.** An architect is liable for what leaves the office. A
-  quiet „Mit Code berechnet“ under the file, opening the script and its output,
-  answers „where does 92,87 m² come from“ without leaving the card.
+- **How it was made** (not built yet, [below](#deliberately-later)). An
+  architect is liable for what leaves the office. A quiet „Mit Code berechnet“
+  under the file, opening the script and its output, answers „where does
+  92,87 m² come from“ without leaving the card.
 
 Colour stays a verdict (design language, principle 7): the format is told by
 its glyph and code, never by a Word blue or an Excel green.
@@ -65,7 +66,7 @@ nothing in them says that code ran.
 
 | Phase | Live status line | Herleitung row, expanded |
 |---|---|---|
-| Preparing (the agent reads the `office-*` skill for the format; the turn before the run starts) | „Bereitet die Arbeit vor …“ (`status.action.codeRun`) | „Vorbereitet“ |
+| Preparing (the turn before the run starts, while the agent may read an `office-*` skill) | „Bereitet die Arbeit vor …“ (`status.action.codeRun`) | „Vorbereitet“ |
 | Making a new file | „Excel-Tabelle wird erstellt: Raumbuch.xlsx …“ (`fileMake`) | „Erstellt“ |
 | A retry after a failed attempt | „Excel-Tabelle wird erstellt: Raumbuch.xlsx – noch ein Versuch …“ (`fileRetry`) | the same „Wird erstellt …“, with „wird noch einmal versucht“ while it runs |
 | Revising a file that was already there | „Raumbuch.xlsx wird überarbeitet …“ (`fileEdit`) | „Überarbeitet“ |
@@ -162,6 +163,12 @@ card in the answer.
   Examples on `/dev/save-to-project`.
 - **One card per path per turn.** `emit_draft_card` replaces the turn's earlier
   card for the same path.
+- **A link in the answer.** The agent links a file it made by its path
+  (a Markdown link to `/drafts/Raumbuch.xlsx`; `/workspace/…` is read the
+  same way). The answer draws it as the file reference every other file gets, and a
+  press downloads the draft through the download route (`draftDownloadHref` in
+  `ui/features/chat/lib/draft-links.ts`, `DraftFileReference` in
+  `FileReference.tsx`). Outside a conversation such a link is plain text.
 - Both routes are operations (`conversation-draft-download`,
   `conversation-draft-rendition-get`), offered to outside agents.
 - Examples on `/dev/document-draft-card`.
