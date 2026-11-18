@@ -1,14 +1,22 @@
 /**
  * @vitest-environment node
  */
+import React from 'react'
+import { Document, Page, Text, renderToBuffer } from '@react-pdf/renderer'
+import { PDFDocument, PDFName, PDFString, StandardFonts } from 'pdf-lib'
 import { describe, expect, it } from 'vitest'
+import { aiProvenanceMarking } from '@/lib/ai-provenance'
 import { FileTooLargeError } from '@/lib/api/errors'
+import { withAiProvenancePdf } from '@/lib/pdf/xmp-metadata'
+import { readPdf } from '@/test-utils/read-pdf'
 import { AgentFileRefusedError, checkAgentFile, decodeAgentFileBase64, type AgentFileRefusal } from './agent-file-check'
 import { AGENT_FILE_MAX_BYTES } from './agent-file-types'
 import {
   classicPdf,
   DOCX,
   latin1,
+  libreOfficeLikePdf,
+  objectInsideStreamPdf,
   objectStreamPdf,
   ooxml,
   png,
@@ -276,6 +284,99 @@ describe('PDF: nothing that runs or reaches out', () => {
       Buffer.from(classicPdf()).toString('latin1').replace('/Info 4 0 R >>', '/Info 4 0 R /Encrypt 4 0 R >>'),
     )
     expect(refusalOf(() => checkAgentFile(encrypted, 'application/pdf'))).toBe('malformed')
+  })
+})
+
+describe('PDF: the check walks the objects the cross-reference names, not the text', () => {
+  const JS_ACTION = ' /OpenAction << /S /JavaScript /JS (app.alert\\(1\\)) >>'
+  const asText = (bytes: Uint8Array) => Buffer.from(bytes).toString('latin1')
+
+  it('sees an action between a "stream" and an "endstream" that are only strings', () => {
+    const exploit = ` /Lang (stream\n)${JS_ACTION} /PieceInfo (endstream)`
+    expect(refusalOf(() => checkAgentFile(classicPdf(exploit), 'application/pdf'))).toBe('active-content')
+    expect(refusalOf(() => checkAgentFile(objectStreamPdf(exploit), 'application/pdf'))).toBe('active-content')
+  })
+
+  it('sees an action between a "stream" and an "endstream" in comments', () => {
+    const exploit = ` % stream\n${JS_ACTION} % endstream\n`
+    expect(refusalOf(() => checkAgentFile(classicPdf(exploit), 'application/pdf'))).toBe('active-content')
+  })
+
+  it('refuses an object the cross-reference places inside another object’s stream data', () => {
+    const bytes = objectInsideStreamPdf()
+    expect(asText(bytes)).toContain('/JavaScript')
+    expect(refusalOf(() => checkAgentFile(bytes, 'application/pdf'))).toBe('malformed')
+  })
+
+  it('refuses a stream whose /Length does not end at endstream, rather than guessing', () => {
+    const text = asText(objectInsideStreamPdf())
+    const longer = text.replace(/<< \/Length (\d+) >>/, (_m, length: string) => `<< /Length ${Number(length) + 3} >>`)
+    expect(longer).not.toBe(text)
+    expect(refusalOf(() => checkAgentFile(latin1(longer), 'application/pdf'))).toBe('malformed')
+  })
+
+  it('refuses a cross-reference offset that misses its object instead of falling back to a text scan', () => {
+    const text = asText(classicPdf())
+    const shifted = text.replace(/\n(\d{10}) 00000 n \n/, (_m, offset: string) => `\n${String(Number(offset) + 1).padStart(10, '0')} 00000 n \n`)
+    expect(shifted).not.toBe(text)
+    expect(refusalOf(() => checkAgentFile(latin1(shifted), 'application/pdf'))).toBe('malformed')
+  })
+})
+
+describe('PDF: what real producers write still passes, before and after the marking', () => {
+  const marking = aiProvenanceMarking({ runId: 'run-1' })
+
+  async function pdfLib(useObjectStreams: boolean): Promise<Uint8Array> {
+    const doc = await PDFDocument.create()
+    const page = doc.addPage([200, 200])
+    page.drawText('Baubeschreibung', { x: 10, y: 100, font: await doc.embedFont(StandardFonts.Helvetica) })
+    doc.getForm().createTextField('name').addToPage(page, { x: 10, y: 10, width: 100, height: 20 })
+    doc.setTitle('Bericht (Entwurf)')
+    return doc.save({ useObjectStreams })
+  }
+
+  async function savedByPdfJs(): Promise<Uint8Array> {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const task = pdfjs.getDocument({ data: await pdfLib(true), verbosity: 0 })
+    try {
+      const document = await task.promise
+      const [field] = await (await document.getPage(1)).getAnnotations()
+      document.annotationStorage.setValue(field.id, { value: 'Hallo' })
+      return await document.saveDocument()
+    } finally {
+      await task.destroy()
+    }
+  }
+
+  const reactPdf = async (): Promise<Uint8Array> =>
+    new Uint8Array(
+      await renderToBuffer(
+        React.createElement(Document, { title: 'Bericht' }, React.createElement(Page, { size: 'A4' }, React.createElement(Text, null, 'Baubeschreibung'))),
+      ),
+    )
+
+  it.each([
+    ['pdf-lib with object streams', () => pdfLib(true)],
+    ['pdf-lib with a classic table', () => pdfLib(false)],
+    ['pdf.js saving a form field as an incremental update', savedByPdfJs],
+    ['@react-pdf/renderer', reactPdf],
+    ['a LibreOffice-like export with indirect stream lengths', async () => libreOfficeLikePdf()],
+  ])('accepts %s', async (_case, make) => {
+    const bytes = await make()
+    expect(refusalOf(() => checkAgentFile(bytes, 'application/pdf'))).toBe('accepted')
+    expect(refusalOf(() => checkAgentFile(withAiProvenancePdf(bytes, marking), 'application/pdf'))).toBe('accepted')
+  })
+
+  it('the LibreOffice-like fixture is a PDF pdf.js reads', async () => {
+    expect((await readPdf(libreOfficeLikePdf())).text).toContain('Baubeschreibung')
+  })
+
+  it.each([true, false])('refuses a JavaScript open action pdf-lib wrote (object streams: %s)', async (useObjectStreams) => {
+    const doc = await PDFDocument.create()
+    doc.addPage()
+    doc.catalog.set(PDFName.of('OpenAction'), doc.context.obj({ S: 'JavaScript', JS: PDFString.of('app.alert(1)') }))
+    const bytes = await doc.save({ useObjectStreams })
+    expect(refusalOf(() => checkAgentFile(bytes, 'application/pdf'))).toBe('active-content')
   })
 })
 

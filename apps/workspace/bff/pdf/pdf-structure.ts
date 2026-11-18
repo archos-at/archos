@@ -12,12 +12,18 @@ export interface ObjectRef {
   generation: number
 }
 
-type XrefEntry =
+export type XrefEntry =
   | { kind: 'free' }
   | { kind: 'offset'; offset: number; generation: number }
   | { kind: 'compressed'; stream: number; index: number }
 
 export type XrefKind = 'table' | 'stream'
+
+export interface XrefSection {
+  readonly at: number
+  readonly kind: XrefKind
+  readonly entries: ReadonlyMap<number, XrefEntry>
+}
 
 export interface PdfStructure {
   readonly text: string
@@ -27,13 +33,14 @@ export interface PdfStructure {
   readonly size: number
   readonly info: ObjectRef | null
   readonly id: string
+  readonly xrefSections: readonly XrefSection[]
   dictionaryOf(ref: ObjectRef): string
 }
 
 const MAX_SECTIONS = 64
 
 const REF_ENTRY = /\/(\w+)\s+(\d+)\s+(\d+)\s+R/g
-const INTEGER_ENTRY = /\/(\w+)\s+(\d+)(?!\s+\d+\s+R)/g
+const INTEGER_ENTRY = /\/(\w+)\s+(\d+)(?![\d.]|\s+\d+\s+R\b)/g
 const ARRAY_ENTRY = /\/(\w+)\s*\[([^\]]*)\]/g
 
 const entryIn = (dictionary: string, pattern: RegExp, key: string): RegExpMatchArray | undefined =>
@@ -44,7 +51,7 @@ export const refIn = (dictionary: string, key: string): ObjectRef | null => {
   return match ? { number: Number(match[2]), generation: Number(match[3]) } : null
 }
 
-const integerIn = (dictionary: string, key: string): number | null => {
+export const integerIn = (dictionary: string, key: string): number | null => {
   const match = entryIn(dictionary, INTEGER_ENTRY, key)
   return match ? Number(match[2]) : null
 }
@@ -300,18 +307,23 @@ export function readPdfStructure(pdf: Uint8Array): PdfStructure {
   const xrefKind: XrefKind = text.startsWith('xref', newest) ? 'table' : 'stream'
 
   let trailer = ''
+  const sections: XrefSection[] = []
   const visited = new Set<number>()
   let next: number | null = newest
   while (next !== null) {
     if (visited.has(next) || visited.size >= MAX_SECTIONS) throw new PdfMetadataError('the cross-reference chain loops')
     visited.add(next)
-    const section = text.startsWith('xref', next) ? tableSection(text, next) : streamSection(reader, next)
+    const kind: XrefKind = text.startsWith('xref', next) ? 'table' : 'stream'
+    const section = kind === 'table' ? tableSection(text, next) : streamSection(reader, next)
     reader.addSection(section.entries)
+    sections.push({ at: next, kind, entries: section.entries })
     if (!trailer) trailer = section.trailer
     const hybrid = integerIn(section.trailer, 'XRefStm')
     if (hybrid !== null && !visited.has(hybrid)) {
       visited.add(hybrid)
-      reader.addSection(streamSection(reader, hybrid).entries)
+      const { entries } = streamSection(reader, hybrid)
+      reader.addSection(entries)
+      sections.push({ at: hybrid, kind: 'stream', entries })
     }
     next = integerIn(section.trailer, 'Prev')
   }
@@ -328,6 +340,7 @@ export function readPdfStructure(pdf: Uint8Array): PdfStructure {
     size,
     info: refIn(trailer, 'Info'),
     id: /\/ID\s*\[[^\]]*\]/.exec(trailer)?.[0] ?? '',
+    xrefSections: sections,
     dictionaryOf: (ref) => reader.dictionaryOf(ref),
   }
 }

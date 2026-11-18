@@ -658,10 +658,28 @@ anything else or with a different content type.
   (`vbaProject.bin`, macro-enabled or macro-sheet content types), OLE or ActiveX
   parts, external relationships, external workbook links, DDE fields or formulas;
   PDF with JavaScript, launch, embedded files, XFA, submit or remote go-to actions,
-  looked for in the object syntax and inside decoded object streams, with `#`
-  escapes in names undone; SVG by the diagram parser (`apps/workspace/bff/diagrams/svg.ts`), whose
+  with `#` escapes in names undone; SVG by the diagram parser (`apps/workspace/bff/diagrams/svg.ts`), whose
   allow-list is stricter than an agent chart needs and is kept on purpose, since a
   stored SVG is served back to browsers.
+- **A PDF is checked by its structure, never by a text scan.**
+  `apps/workspace/bff/pdf/pdf-objects.ts` (`readPdfObjects`) walks every object any
+  cross-reference section names (tables, streams, hybrid `/XRefStm`, every
+  `/Prev` revision), tokenizes each object's body with strings and comments as
+  tokens, and finds its stream data by `/Length` (direct or indirect), which must
+  end at `endstream` and `endobj`. Only that verified stream data is blanked
+  before the names are looked for; object streams are inflated and scanned
+  whole, and every compressed entry must be a member of its object stream. A
+  file is `malformed` when an offset misses its object, two objects or an object
+  and a cross-reference table overlap (an object hidden inside another's stream
+  data), or anything does not parse: there is no fallback to a text scan. The
+  earlier regex that blanked every `stream`…`endstream` let a catalog hide an
+  action between a `(stream` and an `(endstream)` string. Not pdf.js: its public
+  API does not enumerate objects and it repairs a broken cross-reference, which
+  is the opposite of a check. Not re-serialising (no PDF writer is a runtime
+  dependency, and the filed bytes must stay the agent's, with the marking an
+  incremental update). The specs hold it against pdf-lib 1.17.1 (the version
+  the code runner ships), pdf.js's own incremental save, `@react-pdf/renderer`
+  and a LibreOffice-shaped export.
 - **Two exceptions.** An external relationship of type hyperlink to http(s) or
   mailto passes: Office does not fetch it, and a report without links to its
   sources is worse. A workbook a PowerPoint chart embeds under embeddings passes
@@ -677,9 +695,11 @@ anything else or with a different content type.
   because pdf-lib writes those by default. SVG: the XMP in a root `<metadata>`,
   after the diagram parser re-serialised the file. PNG: an `iTXt` chunk
   `XML:com.adobe.xmp` after IHDR. Re-stamping replaces the earlier marking.
-- **No new dependency.** pdf-lib was the obvious tool for the PDF and is not in the
-  workspace; the incremental writer the diagram PDF already used was extended to
-  cross-reference streams instead, with pdf.js as the oracle in the specs.
+- **No new runtime dependency.** pdf-lib was the obvious tool for the PDF and is not
+  a runtime dependency of the workspace; the incremental writer the diagram PDF
+  already used was extended to cross-reference streams instead, with pdf.js as the
+  oracle in the specs. pdf-lib is a dev dependency, pinned to the code runner's
+  version, only so the specs check files the agent's own library writes.
 - **A person files one from the chat** with the card's „Ins Projekt ablegen“
   (`POST /api/conversations/{id}/draft/file`). `fileConversationDraft`
   (`apps/workspace/bff/conversations/draft-filing.ts`) picks the path by the
