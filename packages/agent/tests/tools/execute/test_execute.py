@@ -98,7 +98,7 @@ class TestARun:
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 
-        await run.execute(RUNNER, "export default () => 1", timeout_seconds=999)
+        await run.execute(RUNNER, 'export default () => fs.readFile("/workspace/raeume.md")', timeout_seconds=999)
 
         body = seen[0]
         assert body["language"] == "ts"
@@ -273,7 +273,7 @@ class TestInputPaths:
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 
-        await run.execute(RUNNER, "export default () => 1", documents=["a"])
+        await run.execute(RUNNER, "export default () => readdir('/workspace')", documents=["a"])
 
         sent = {f["path"]: base64.b64decode(f["base64"]) for f in seen[0]["files"]}
         assert sent[f"{run.INPUT_DIR}Plan.md"] == b"# alt\n"
@@ -295,6 +295,68 @@ class TestInputPaths:
         answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
 
         assert "not kept" not in answer
+
+
+class TestLargeInputs:
+    async def test_documents_past_the_limit_are_named_as_not_loaded(self, store, monkeypatch) -> None:
+        names = [f"d{index}" for index in range(run.MAX_DOCUMENTS + 2)]
+        _documents(monkeypatch, {name: ("proj_a", f"{name}.pdf", b"%PDF") for name in names})
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=names)
+
+        assert len(seen[0]["files"]) == run.MAX_DOCUMENTS
+        assert f"not loaded: 'd{run.MAX_DOCUMENTS}', 'd{run.MAX_DOCUMENTS + 1}'" in answer
+
+    async def test_one_file_past_the_runner_limit_is_refused_by_name_and_nothing_runs(self, store, monkeypatch) -> None:
+        from agent.tools.execute.workspace_files import MAX_FILE_BYTES
+
+        _documents(monkeypatch, {"a": ("proj_a", "Bestand.ifc", b"x" * (MAX_FILE_BYTES + 1))})
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
+
+        assert seen == []
+        assert answer.startswith("Nothing was run.")
+        assert "'Bestand.ifc' is 32.0 MB" in answer
+
+    async def test_only_the_working_files_the_code_names_are_sent(self, store, monkeypatch) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        for name in ("alt.xlsx", "neu.xlsx"):
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}{name}", b"PK" + name.encode(), previous_size=0) is None
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, 'export default () => fs.readFile("/workspace/neu.xlsx")')
+
+        assert [f["path"] for f in seen[0]["files"]] == ["/workspace/neu.xlsx"]
+        assert f"working files not sent, because the code does not name them: {DRAFT_ROOT}alt.xlsx" in answer
+
+    async def test_a_run_that_lists_the_directory_gets_every_working_file(self, store, monkeypatch) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        for name in ("a.xlsx", "b.xlsx"):
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}{name}", b"PK", previous_size=0) is None
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        await run.execute(RUNNER, 'export default async () => (await fs.readdir("/workspace")).length')
+
+        assert sorted(f["path"] for f in seen[0]["files"]) == ["/workspace/a.xlsx", "/workspace/b.xlsx"]
+
+    async def test_the_size_limit_names_the_working_files_when_no_document_was_named(self, store, monkeypatch) -> None:
+        monkeypatch.setattr(run, "MAX_INPUT_BYTES", 10)
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert await backend.awrite_run_file(f"{DRAFT_ROOT}gross.xlsx", b"x" * 20, previous_size=0) is None
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, 'export default () => fs.readFile("/workspace/gross.xlsx")')
+
+        assert seen == []
+        assert "Working files the code names: /workspace/gross.xlsx" in answer
+        assert "Name fewer documents." not in answer
 
 
 @pytest.mark.parametrize(

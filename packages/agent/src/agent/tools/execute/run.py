@@ -28,6 +28,11 @@ from .runner_client import run_code
 from .trace import KeptFile
 from .trace import RunFacts
 from .trace import record_run
+from .workspace_files import MAX_FILE_BYTES
+from .workspace_files import not_loaded_message
+from .workspace_files import oversize_file_message
+from .workspace_files import referenced
+from .workspace_files import too_large_message
 
 logger = logging.getLogger(__name__)
 
@@ -100,15 +105,19 @@ async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes, str 
     headers = _headers()
     try:
         bucket, key = await asyncio.to_thread(locate_stored_file, resolved.collection, resolved.file_name, headers)
-        data = await asyncio.to_thread(read_stored_file, bucket, key, budget)
+        data = await asyncio.to_thread(read_stored_file, bucket, key, min(budget, MAX_FILE_BYTES + 1))
     except StoredFileUnavailable as exc:
         if exc.reason == "too_large":
             raise _Refusal(
-                f"'{resolved.file_name}' is too large: a run takes at most 50 MB of files.", "too_large"
+                f"'{resolved.file_name}' is too large: one file in a run may be at most "
+                f"{MAX_FILE_BYTES // (1024 * 1024)} MB and a run takes at most 50 MB of files.",
+                "too_large",
             ) from exc
         raise _Refusal(
             f"'{resolved.file_name}' could not be read for the script ({exc.reason}).", "unreadable"
         ) from exc
+    if len(data) > MAX_FILE_BYTES:
+        raise _Refusal(oversize_file_message(resolved.file_name, len(data)), "too_large")
     note_collections_read([resolved.collection])
     document_id = resolved.target.document_id if resolved.target else None
     return resolved.collection, resolved.file_name, data, document_id
@@ -137,24 +146,33 @@ class _Sent:
     files: dict[str, bytes] = field(default_factory=dict)
     inputs: list[tuple[str, str]] = field(default_factory=list)
     documents: list[tuple[str, str | None]] = field(default_factory=list)
+    existing: dict[str, int] = field(default_factory=dict)
+    left_out: list[str] = field(default_factory=list)
+    not_loaded: list[str] = field(default_factory=list)
 
 
-async def _inputs(backend: DraftBackend, documents: list[str]) -> _Sent:
-    sent = _Sent({_to_runner(path): data for path, data in await backend.afiles()})
+async def _inputs(backend: DraftBackend, documents: list[str], code: str) -> _Sent:
+    drafts = [(_to_runner(path), data) for path, data in await backend.afiles()]
+    files, left_out = referenced(code, drafts)
+    sent = _Sent(files, existing={path: len(data) for path, data in drafts}, left_out=left_out)
     used = sum(len(data) for data in sent.files.values())
+    drafts_sent = dict(sent.files)
     read: set[tuple[str, str]] = set()
+    sizes: list[tuple[str, int]] = []
+    sent.not_loaded = list(dict.fromkeys(documents[MAX_DOCUMENTS:]))
     for name in documents[:MAX_DOCUMENTS]:
         collection, file_name, data, document_id = await _document_bytes(name, MAX_INPUT_BYTES - used)
         if (collection, file_name) in read:
             continue
         read.add((collection, file_name))
-        path = unique_input_path(file_name, sent.files)
+        path = unique_input_path(file_name, {**sent.existing, **sent.files})
         sent.files[path] = data
         sent.inputs.append((file_name, path))
         sent.documents.append((file_name, document_id))
+        sizes.append((file_name, len(data)))
         used += len(data)
     if used > MAX_INPUT_BYTES:
-        raise _Refusal("The files for this run exceed 50 MB. Name fewer documents.", "too_large")
+        raise _Refusal(too_large_message(MAX_INPUT_BYTES, drafts_sent, sizes), "too_large")
     return sent
 
 
@@ -166,16 +184,16 @@ def dropped_inputs(sent: dict[str, bytes], result: RunResult) -> list[str]:
     ]
 
 
-async def _keep(backend: DraftBackend, sent: dict[str, bytes], result: RunResult) -> tuple[list[KeptFile], list[str]]:
+async def _keep(backend: DraftBackend, existing: dict[str, int], result: RunResult) -> tuple[list[KeptFile], list[str]]:
     kept: list[KeptFile] = []
     refused: list[str] = []
     for path, data in sorted(result.files.items()):
         if path.startswith(INPUT_DIR):
             continue
         draft_path = _to_drafts(path)
-        refusal = await backend.awrite_run_file(draft_path, data, previous_size=len(sent.get(path, b"")))
+        refusal = await backend.awrite_run_file(draft_path, data, previous_size=existing.get(path, 0))
         if refusal is None:
-            kept.append(KeptFile(draft_path, len(data), new=path not in sent))
+            kept.append(KeptFile(draft_path, len(data), new=path not in existing))
         else:
             refused.append(refusal)
     return kept, refused
@@ -202,6 +220,14 @@ def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: list[
     lines = [f"status: {result.status} ({result.duration_ms} ms)"]
     if sent.inputs:
         lines.append("documents read: " + ", ".join(f"'{name}' at {path}" for name, path in sent.inputs))
+    if sent.not_loaded:
+        lines.append(not_loaded_message(sent.not_loaded, MAX_DOCUMENTS))
+    if sent.left_out:
+        lines.append(
+            "working files not sent, because the code does not name them: "
+            + ", ".join(_to_drafts(path) for path in sent.left_out[:8])
+            + (" …" if len(sent.left_out) > 8 else "")
+        )
     if result.value is not None:
         lines.append("value: " + _clip(json.dumps(result.value, ensure_ascii=False, default=str)))
     if result.stdout:
@@ -237,12 +263,12 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
     async with _lock(conversation_id):
         backend = await get_draft_backend(conversation_id)
         try:
-            sent = await _inputs(backend, documents)
+            sent = await _inputs(backend, documents, code)
         except _Refusal as refusal:
             facts.stop("refused", refusal.code)
             return f"Nothing was run. {refusal}"
         facts.sent(sent.files, timeout_s)
-        progress = FileRunProgress.begin(code, sent.files, sent.documents)
+        progress = FileRunProgress.begin(code, sent.existing, sent.documents)
         try:
             result = await run_code(runner_url, code, language="ts", files=sent.files, timeout_ms=timeout_s * 1000)
         except RunnerUnavailable as exc:
@@ -251,7 +277,7 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
             progress.finish("unavailable", kept=[], elapsed_ms=0)
             return f"Nothing was run: {exc}. Try once more; if it fails again, answer without running code."
         facts.ran(result.status, result.duration_ms, result.stderr)
-        kept, refused = await _keep(backend, sent.files, result)
+        kept, refused = await _keep(backend, sent.existing, result)
         facts.kept, facts.files_refused = kept, len(refused)
         progress.finish(result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value)
     return _report(result, sent, kept, refused)
