@@ -5,7 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, ChevronDown, ChevronRight, FileText, Layers, Search, X, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Bell, Check, ChevronDown, ChevronRight, FileText, Layers, Search, X, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -25,6 +25,7 @@ import { projectSearchScope } from '@/features/documents/lib/file-shelf'
 import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
+import { InboxPanel } from './inbox-panel'
 import { AcrossTrigger, ProjectMenu, ProjectOverview } from './project-menu'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, GroupLabel, MoreRow, NavRow, NewChatButton, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
@@ -59,7 +60,7 @@ const OFFICE_FILES: FileItem[] = [
   makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
 ]
 
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0 }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'org', inboxOpen = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -88,6 +89,11 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
           </SidebarMenu>
           <NewChatButton />
+          {inbox === 'top' && (
+            <SidebarMenu className="mt-1 gap-0.5">
+              <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
+            </SidebarMenu>
+          )}
           <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
             Letzte Chats
             <ChevronDown className="size-3.5 shrink-0" aria-hidden />
@@ -99,7 +105,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <MoreRow label="Alle Chats" indent={false} />
           </ul>
         </SidebarContent>
-        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} />
+        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} />
         <SidebarRail aria-label="Breite ändern" />
       </Sidebar>
     </SidebarProvider>
@@ -435,11 +441,12 @@ function InOfficeShelf(): JSX.Element {
   )
 }
 
-function Talk({ place, settingsOpen, menu, menuForm, lay }: { place: string; settingsOpen: boolean; menu: string | null; menuForm: string; lay: string }): JSX.Element {
+function Talk({ place, settingsOpen, menu, menuForm, lay, inbox, group }: { place: string; settingsOpen: boolean; menu: string | null; menuForm: string; lay: string; inbox: string; group: string }): JSX.Element {
   const own = place === 'me' || place === 'newme'
   return (
     <>
-      <Rail own={own} openChat={place === 'newme' ? null : own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} />
+      <Rail own={own} openChat={place === 'newme' ? null : own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} inbox={inbox} inboxOpen={menu === 'inbox'} />
+      {menu === 'inbox' && <InboxPanel group={group} />}
       {menu === 'overview' && <ProjectOverview />}
       {place === 'new' || place === 'temp' || place === 'newme' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} lay={lay} across={place === 'newme'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
@@ -451,7 +458,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'org'} group={params?.get('group') ?? 'due'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }

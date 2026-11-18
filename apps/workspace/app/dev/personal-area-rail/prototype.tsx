@@ -209,139 +209,7 @@ function PersonalSections({ currentChat }: { currentChat: number | null }): JSX.
   )
 }
 
-function VariantA({ me }: { me: boolean }): JSX.Element {
-  return (
-    <>
-      <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-        <SidebarBrand iconRail={false} />
-        <div className="mt-1 flex items-center">
-          <ProjectSwitcher projects={[ME, ...PROJECTS]} activeProjectId={me ? 'me' : 'p-1'} />
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">{me ? <PersonalSections currentChat={0} /> : <ProjectSections open currentChat={0} />}</SidebarContent>
-    </>
-  )
-}
-
-function VariantB({ me }: { me: boolean }): JSX.Element {
-  return (
-    <>
-      <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-        <SidebarBrand iconRail={false} />
-      </SidebarHeader>
-      <SidebarContent className="mt-1 flex-1 gap-0 overflow-y-auto px-3 py-px">
-        <SidebarMenu className="gap-0.5">
-          <NavRow icon={LockKeyhole} label="Mein Bereich" within={me} />
-          {me && (
-            <ul className="flex flex-col gap-0.5 pt-0.5">
-              {MY_CHATS.slice(0, 4).map((chat, index) => (
-                <ChatRow key={chat.title} chat={chat} current={index === 0} showProject />
-              ))}
-              <MoreRow label="Alle Chats" />
-              <li className="list-none">
-                <a href="#" className={cn(SUB_ROW, 'text-muted-foreground')}>
-                  Gedächtnis
-                </a>
-              </li>
-            </ul>
-          )}
-        </SidebarMenu>
-        <GroupLabel>Projekt</GroupLabel>
-        <div className="mb-3 flex items-center">
-          <ProjectSwitcher projects={PROJECTS} activeProjectId="p-1" />
-        </div>
-        <ProjectSections open={!me} currentChat={me ? null : 0} />
-      </SidebarContent>
-    </>
-  )
-}
-
-function VariantC({ me }: { me: boolean }): JSX.Element {
-  return (
-    <>
-      <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-        <SidebarBrand iconRail={false} />
-        <a href="#" className="bg-primary text-primary-foreground mt-1 flex h-9 items-center justify-center gap-2 rounded-control text-sm font-medium">
-          <Plus className="size-4" aria-hidden />
-          Neuer Chat
-        </a>
-      </SidebarHeader>
-      <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-        <SidebarMenu className="gap-0.5">
-          <NavRow icon={LockKeyhole} label="Mein Bereich" />
-        </SidebarMenu>
-        <GroupLabel>Projekte</GroupLabel>
-        <SidebarMenu className="gap-0.5">
-          <NavRow icon={Folder} label={PROJECTS[0]!.name} within={!me} />
-          {!me && (
-            <ul className="flex flex-col gap-0.5 pt-0.5">
-              {['Dateien', 'Übersicht', 'Automatisierung'].map((label) => (
-                <li key={label} className="list-none">
-                  <a href="#" className={cn(SUB_ROW, 'text-muted-foreground')}>
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-          <NavRow icon={Folder} label={PROJECTS[1]!.name} />
-          <NavRow icon={Folder} label={PROJECTS[2]!.name} />
-          <ul>
-            <MoreRow label="Alle Projekte" />
-          </ul>
-        </SidebarMenu>
-        <GroupLabel>Chats</GroupLabel>
-        <ul className="flex flex-col gap-0.5">
-          {MY_CHATS.map((chat, index) => (
-            <ChatRow key={chat.title} chat={chat} current={index === (me ? 0 : 1)} showProject indent={false} />
-          ))}
-          <MoreRow label="Alle Chats" indent={false} />
-        </ul>
-      </SidebarContent>
-    </>
-  )
-}
-
 export const ALL_CHATS: Chat[] = [MY_CHATS[0]!, MY_CHATS[1]!, { title: 'Abgleich Statik, Planstand Oktober', project: 'p-1', shared: true }, MY_CHATS[2]!, MY_CHATS[3]!]
-
-function VariantD({ me }: { me: boolean }): JSX.Element {
-  return (
-    <>
-      <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-        <SidebarBrand iconRail={false} />
-        <div className="mt-1 flex items-center">
-          <ProjectSwitcher projects={[ME, ...PROJECTS]} activeProjectId={me ? 'me' : 'p-1'} />
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-        <SidebarMenu className="gap-0.5">
-          <NavRow icon={Folder} label="Dateien" />
-          {me ? <NavRow icon={BookMarked} label="Gedächtnis" /> : <NavRow icon={LayoutGrid} label="Übersicht" />}
-          {me ? <NavRow icon={Zap} label="Abläufe" /> : <NavRow icon={Zap} label="Automatisierung" />}
-        </SidebarMenu>
-        <a href="#" className="bg-primary text-primary-foreground mt-6 flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
-          <Plus className="size-4" aria-hidden />
-          Neuer Chat
-        </a>
-        <div className="flex items-end justify-between">
-          <GroupLabel>Chats</GroupLabel>
-          {!me && (
-            <div className="bg-selected text-meta mb-1 flex rounded-control p-0.5 font-medium">
-              <span className="bg-sheet shadow-xs rounded-[4px] px-2 py-0.5">Alle</span>
-              <span className="text-muted-foreground px-2 py-0.5">Dieses Projekt</span>
-            </div>
-          )}
-        </div>
-        <ul className="flex flex-col gap-0.5">
-          {ALL_CHATS.map((chat, index) => (
-            <ChatRow key={chat.title} chat={chat} current={index === (me ? 0 : 1)} showProject indent={false} />
-          ))}
-          <MoreRow label="Alle Chats" indent={false} />
-        </ul>
-      </SidebarContent>
-    </>
-  )
-}
 
 function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sticky?: boolean; current?: number | null; noneLabel?: string }): JSX.Element {
   const none = { id: 'none', name: noneLabel ?? '' }
@@ -379,7 +247,7 @@ function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sti
   )
 }
 
-export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open' }): JSX.Element {
+export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean }): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
       <nav aria-label={OFFICE} className="mb-2 w-full">
@@ -388,9 +256,14 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf }
           <NavRow icon={Archive} label="Büroablage" active={officeShelfOpen} />
           <NavRow icon={Library} label="Grundlagen" />
           <NavRow icon={Search} label="Suche" />
-          <NavRow icon={Bell} label="Postfach" badge={3} />
+          {inbox === 'org' && <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />}
         </SidebarMenu>
       </nav>
+      {inbox === 'person' && (
+        <SidebarMenu className="border-hairline mb-1 gap-0.5 border-t pt-2">
+          <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
+        </SidebarMenu>
+      )}
       {ownShelf && (
         <SidebarMenu className="mb-2 gap-0.5">
           <NavRow icon={FolderLock} label="Meine Ablage" active={ownShelf === 'open'} />
@@ -606,7 +479,7 @@ export function PersonalAreaRailPreview(): JSX.Element {
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
       <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
         <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
-          {variant === 'g' ? <VariantE me={me} noneLabel={noneLabel} current={fresh ? null : undefined} /> : variant === 'f' ? <VariantE me={me} sticky current={fresh ? null : undefined} /> : variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
+          <VariantE me={me} noneLabel={noneLabel} current={fresh ? null : undefined} />
           <Foot personalDoor={['e', 'f'].includes(variant)} />
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
