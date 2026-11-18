@@ -108,11 +108,13 @@ beforeEach(() => {
     documentId: DOC,
     version: { id: VERSION } as never,
     alreadyFiled: false,
+    folderId: null,
   })
   vi.mocked(fileAgentFileDraft).mockResolvedValue({
     documentId: DOC,
     version: { id: VERSION } as never,
     alreadyFiled: false,
+    folderId: null,
   })
   vi.mocked(replaceAgentFileVersion).mockResolvedValue({ id: VERSION } as never)
 })

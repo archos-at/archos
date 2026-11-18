@@ -22,6 +22,7 @@ export interface FileAgentDocumentDraftInput {
   ref: string
   title: string
   content: string
+  folderId?: string | null
   request?: Request
   actingHuman?: boolean
   originConversationId?: string | null
@@ -32,6 +33,7 @@ export interface FiledAgentDocumentDraft {
   documentId: string
   version: DocumentVersion
   alreadyFiled: boolean
+  folderId: string | null
 }
 
 export async function fileAgentDocumentDraft(
@@ -49,6 +51,7 @@ export async function fileAgentDocumentDraft(
     producer: 'agent_document',
     ref: input.ref,
     title: input.title,
+    folderId: input.folderId,
     request: input.request,
     render: ({ marking }) => renderAgentDocumentMarkdown(input.content, marking, branding),
     origin: {
@@ -77,7 +80,7 @@ export async function recordGeneratedDraft(
 
   if (filed.alreadyFiled) {
     const existing = await findOpenVersion(document.id, input.session.organizationId)
-    if (existing) return { documentId: document.id, version: existing, alreadyFiled: true }
+    if (existing) return { documentId: document.id, version: existing, alreadyFiled: true, folderId: document.folderId }
   }
 
   const version = await createDocumentVersion(input.session, {
@@ -92,5 +95,5 @@ export async function recordGeneratedDraft(
     actingHuman: input.actingHuman,
     originConversationId: input.originConversationId,
   })
-  return { documentId: document.id, version, alreadyFiled: false }
+  return { documentId: document.id, version, alreadyFiled: false, folderId: document.folderId }
 }

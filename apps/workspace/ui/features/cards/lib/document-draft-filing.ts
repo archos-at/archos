@@ -5,7 +5,8 @@ export const draftFileResponseSchema = z.object({
   versionId: z.string().min(1),
   state: z.string().min(1),
   alreadyFiled: z.boolean(),
-  folderName: z.string().optional(),
+  folderId: z.string().nullable().optional(),
+  folderName: z.string().nullable().optional(),
 })
 
 export type DraftFileResponse = z.infer<typeof draftFileResponseSchema>
@@ -26,10 +27,16 @@ export class DraftFileError extends Error {
   }
 }
 
+export interface DraftDestination {
+  folderId: string | null
+  name: string
+}
+
 export interface FileDraftInput {
   path: string
   title: string
   force?: boolean
+  destination?: DraftDestination
 }
 
 export async function fileConversationDraft(
@@ -41,7 +48,12 @@ export async function fileConversationDraft(
   const response = await run(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path: input.path, title: input.title, force: input.force ?? false }),
+    body: JSON.stringify({
+      path: input.path,
+      title: input.title,
+      force: input.force ?? false,
+      ...(input.destination ? { folderId: input.destination.folderId, name: input.destination.name } : {}),
+    }),
   })
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {

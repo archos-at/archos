@@ -66,8 +66,15 @@ signed-in user: [`task local:up`](../contributing/local-stack.md) runs it
 locally with a minted session cookie, no WorkOS account needed.
 
 ```bash
-cd apps/workspace && bun run dev        # or: npx next dev --turbopack -p 3311
+task local:previews                     # next dev on :3311; task local:down stops it
 ```
+
+It checks what a bare `next dev` fails on later, and stops with the fix: no
+`node_modules` in a fresh worktree, too little free disk for Turbopack's cache
+(ENOSPC, then every page 500), and the `agentUpgrade: false` that keeps
+`next dev` from exiting under an agent. It sets placeholder AuthKit settings,
+so no `.env.local` is needed. Each failure and its string:
+[gotchas.md](../contributing/gotchas.md#tooling-and-environment).
 
 Ask the agent-browser skill for its own command reference before you improvise —
 it is version-matched to the installed CLI, where these examples are not:
