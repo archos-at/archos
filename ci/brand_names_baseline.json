@@ -288,6 +288,7 @@
   "apps/workspace/scripts/provision-workos-audit-schemas.mjs": 1,
   "apps/workspace/scripts/provision-workos-authz.ts": 2,
   "apps/workspace/scripts/provision-workos-environment.ts": 5,
+  "apps/workspace/shared/vocabularies.generated.ts": 1,
   "apps/workspace/tests/app/api/internal/skills/resolve/route.test.ts": 1,
   "apps/workspace/tests/app/api/internal/stages/route.test.ts": 1,
   "apps/workspace/tests/fixtures/document-annotations.schema.json": 3,

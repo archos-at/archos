@@ -16,6 +16,9 @@ from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASS_LABELS
 from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASSES
 from agent.knowledge.doc_class_vocabulary import LEGACY_DOC_CLASSES
 from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
+from agent.observability.golden_scores import GOLDEN_SCORE_DEFINITIONS
+from agent.observability.langfuse_scores import SCORE_DEFINITIONS
+from agent.observability.score_definition import ScoreDefinition
 from agent.skills.legacy_brand_names import LEGACY_METADATA_KEYS
 from agent.skills.legacy_brand_names import LEGACY_PLATFORM_SKILL_NAMES
 from agent.skills.legacy_names import LEGACY_SKILL_NAMES
@@ -27,8 +30,17 @@ LEGACY_BRAND_RELEASE = "2026-W50"
 
 DOC_CLASS_VOCABULARY = "`packages/agent/src/agent/knowledge/doc_class_vocabulary.py`"
 LEGACY_BRAND_NAMES = "`packages/agent/src/agent/skills/legacy_brand_names.py`"
+OBSERVABILITY = "packages/agent/src/agent/observability"
 
-Vocabularies = tuple[tuple[str, tuple[str, ...] | dict[str, str] | str, str], ...]
+Vocabularies = tuple[tuple[str, tuple[str, ...] | tuple[dict[str, str], ...] | dict[str, str] | str, str], ...]
+
+
+def score_rows(definitions: tuple[ScoreDefinition, ...]) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {"name": definition.name, "dataType": definition.data_type, "writer": definition.writer}
+        for definition in definitions
+    )
+
 
 VOCABULARIES: Vocabularies = (
     (
@@ -95,6 +107,18 @@ VOCABULARIES: Vocabularies = (
         LEGACY_SKILL_NAMES,
         "Each builtin skill's name before the English names, with its current name: `LEGACY_SKILL_NAMES` in "
         "`packages/agent/src/agent/skills/legacy_names.py`.",
+    ),
+    (
+        "GOLDEN_SCORE_DEFINITIONS",
+        score_rows(GOLDEN_SCORE_DEFINITIONS),
+        "The scores a golden run declares, each with its type and writer: "
+        f"`GOLDEN_SCORE_DEFINITIONS` in `{OBSERVABILITY}/golden_scores.py`.",
+    ),
+    (
+        "SCORE_DEFINITIONS",
+        score_rows(SCORE_DEFINITIONS),
+        "Every Langfuse score config, the golden run's included, each with its type and writer: "
+        f"`SCORE_DEFINITIONS` in `{OBSERVABILITY}/langfuse_scores.py`.",
     ),
 )
 

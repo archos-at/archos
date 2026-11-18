@@ -8,44 +8,13 @@
  * ids a repeated step upserts.
  */
 
-import { spawnSync } from 'node:child_process'
-import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
 import { GOLDEN_SCORE_NAMES, type GoldenCaseResult } from '@/lib/base-knowledge/wire/golden-case'
+import { GOLDEN_SCORE_DEFINITIONS as golden, SCORE_DEFINITIONS as runtime } from '@/shared/vocabularies.generated'
 import { goldenDatasetItemId, toGoldenScores } from './golden-run-score'
-
-const ROOT = join(process.cwd(), '..', '..')
-
-type Declared = { name: string; dataType: string; writer: string }
-
-const CATALOGUE_DUMP = `
-import json
-from agent.observability.golden_scores import GOLDEN_SCORE_DEFINITIONS
-from agent.observability.langfuse_scores import SCORE_DEFINITIONS
-
-def row(definition):
-    return {"name": definition.name, "dataType": definition.data_type, "writer": definition.writer}
-
-print(json.dumps({
-    "golden": [row(d) for d in GOLDEN_SCORE_DEFINITIONS],
-    "runtime": [row(d) for d in SCORE_DEFINITIONS],
-}))
-`
-
-function declaredByPython(): { golden: Declared[]; runtime: Declared[] } {
-  const child = spawnSync('python3', ['-c', CATALOGUE_DUMP], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    env: { ...process.env, PYTHONPATH: join(ROOT, 'packages', 'agent', 'src'), PYTHONDONTWRITEBYTECODE: '1' },
-  })
-  if (child.status !== 0) throw new Error(`the Python catalogue did not import: ${child.stderr}`)
-  return JSON.parse(child.stdout)
-}
-
-const { golden, runtime } = declaredByPython()
 
 const result: GoldenCaseResult = {
   checks: [

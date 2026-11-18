@@ -1,6 +1,10 @@
+import ast
 import importlib.util
+import re
 import sys
 from pathlib import Path
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,3 +49,20 @@ def test_the_legacy_brand_module_expires_with_its_python_source() -> None:
     marker = f"drop after release {generator.LEGACY_BRAND_RELEASE}"
     assert source.read_text(encoding="utf-8").splitlines()[0] == f"# {marker}"
     assert generator.render_legacy_brand_names().splitlines()[0] == f"// {marker}"
+
+
+def test_a_change_to_any_source_module_regenerates_the_modules() -> None:
+    config = yaml.safe_load((REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hook = next(hook for repo in config["repos"] for hook in repo["hooks"] if hook["id"] == "vocabularies")
+    files = re.compile(hook["files"])
+    generator = ast.parse((REPO_ROOT / "scripts" / "generate_vocabularies.py").read_text(encoding="utf-8"))
+    _load_generator()
+    sources = {
+        node.module
+        for node in ast.walk(generator)
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith(("agent.", "public_sources."))
+    }
+    assert sources
+    for module in sorted(sources):
+        origin = Path(importlib.util.find_spec(module).origin).resolve().relative_to(REPO_ROOT).as_posix()
+        assert files.search(origin), f"the vocabularies hook does not run when {origin} changes; add it to `files:`"
