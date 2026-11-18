@@ -5,7 +5,8 @@ import { PgDialect, getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 import { parseSql, readSql, type SqlStatement } from '@/test-utils/sql-statements'
 import { documents } from '@/lib/db/schema/documents'
-import { NAMESPACED_AGENT_PRODUCERS } from './agent-namespace'
+import { FILES_UNDER_NAMESPACE, NAMESPACED_AGENT_PRODUCERS } from './agent-namespace'
+import { GENERATED_DOCUMENT_PRODUCERS } from './generated'
 
 const LIVE_NAME_INDEX = 'uniq_documents_live_name_per_collection'
 const FIX = 'NAMESPACED_AGENT_PRODUCERS (bff/documents/agent-namespace.ts) is the list; make this one follow it'
@@ -52,6 +53,13 @@ const LATEST_LIVE_NAME_MIGRATION = readdirSync('migrations')
   .at(-1)!
 
 describe('the producers that file under the agent namespace are listed once', () => {
+  it('says for every generated-document producer whether it files under the namespace', () => {
+    expect(
+      Object.keys(FILES_UNDER_NAMESPACE).sort(),
+      'give each producer of GENERATED_DOCUMENT_PRODUCER_REF_KINDS (bff/documents/generated.ts) an entry in FILES_UNDER_NAMESPACE (bff/documents/agent-namespace.ts)',
+    ).toEqual([...GENERATED_DOCUMENT_PRODUCERS].sort())
+  })
+
   it.each(BACKFILL_SQL)('%s lists them as NAMESPACED_AGENT_PRODUCERS does', (file) => {
     for (const list of producerLists(readSql(file))) {
       expect(sorted(list), `${file}: ${FIX}`).toEqual(sorted(NAMESPACED_AGENT_PRODUCERS))
