@@ -3,6 +3,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { KEDA_CHART_VERSION } from "../src/platform/keda";
+import { CNPG_OPERATOR_VERSION } from "../src/data/postgres";
 
 export type Schema = Record<string, unknown>;
 export type PlannedResource = { urn: string; inputs: Record<string, unknown> };
@@ -11,7 +12,7 @@ export type Plan = { steps: Step[] };
 
 export const ROOT = mkdtempSync(join(__dirname, "..", ".validate-crs-test-"));
 const KEDA_URL = `https://github.com/kedacore/keda/releases/download/v${KEDA_CHART_VERSION}/keda-${KEDA_CHART_VERSION}-crds.yaml`;
-const CNPG_URL = "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.28.0/releases/cnpg-1.28.0.yaml";
+const CNPG_URL = `https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v${CNPG_OPERATOR_VERSION}/releases/cnpg-${CNPG_OPERATOR_VERSION}.yaml`;
 
 const string = { type: "string" };
 const integer = { type: "integer" };
@@ -86,6 +87,8 @@ export function workspace(): string {
   mkdirSync(join(dir, "scripts"));
   copyFileSync(join(__dirname, "validate-crs.mjs"), join(dir, "scripts", "validate-crs.mjs"));
   mkdirSync(join(dir, "src", "platform"), { recursive: true });
+  mkdirSync(join(dir, "src", "data"), { recursive: true });
+  copyFileSync(join(__dirname, "..", "src", "data", "postgres.ts"), join(dir, "src", "data", "postgres.ts"));
   copyFileSync(join(__dirname, "..", "src", "platform", "keda.ts"), join(dir, "src", "platform", "keda.ts"));
   copyFileSync(join(__dirname, "..", "src", "platform", "rabbitmq.ts"), join(dir, "src", "platform", "rabbitmq.ts"));
   writeFileSync(join(dir, "fetch.mjs"), `
