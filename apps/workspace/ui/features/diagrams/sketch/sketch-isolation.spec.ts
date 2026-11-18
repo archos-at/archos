@@ -4,7 +4,8 @@ import { importsOf, parseSource, productionSources, ts } from '@/test-utils/sour
 
 const modules = productionSources().map((file) => ({ file, edges: importsOf(parseSource(file)) }))
 
-const isStatic = (edge: { node: ts.Node }): boolean => !ts.isCallExpression(edge.node)
+const isStatic = (edge: { node: ts.Node }): boolean =>
+  !ts.isCallExpression(edge.node) || edge.node.expression.kind !== ts.SyntaxKind.ImportKeyword
 
 describe('the sketch editor stays out of the chat bundle', () => {
   it('imports @excalidraw/excalidraw from the canvas and the renderer only', () => {

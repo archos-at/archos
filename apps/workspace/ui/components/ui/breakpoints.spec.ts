@@ -94,6 +94,7 @@ describe('Tailwind honours the override', () => {
   it('wraps md: in the phone exclusion, and leaves lg: as Tailwind wrote it', async () => {
     const css = await build(['md:flex', 'lg:grid'])
     const queries = ancestorMediaQueries(ruleWithSelector(css, '.md\\:flex'))
+    expect(queries).toEqual(expect.arrayContaining(['(width >= 48rem)', `not all and ${PHONE_ON_ITS_SIDE_QUERY}`]))
     expect(queries.lastIndexOf(`not all and ${PHONE_ON_ITS_SIDE_QUERY}`)).toBeGreaterThan(
       queries.lastIndexOf('(width >= 48rem)')
     )
@@ -138,7 +139,9 @@ describe('no breakpoint is written by hand into JavaScript', () => {
   const rawMdLiterals = (file: string): string[] => {
     const found: string[] = []
     visit(parseSource(file), (node) => {
-      if (ts.isStringLiteralLike(node) && RAW_MD.test(node.text) && !isSizesValue(node)) found.push(node.text)
+      const literal = ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
+      const text = literal ? node.text : undefined
+      if (text !== undefined && RAW_MD.test(text) && !isSizesValue(node)) found.push(text)
     })
     return found
   }

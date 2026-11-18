@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render } from '@/test-utils'
+import { fireEvent, render, screen, within } from '@/test-utils'
+import { coarseFloorAxes } from '@/test-utils/touch-floor'
 import { buildCitationModel, type CitationRef, type CitedDocument } from '../lib/citations'
 import type { CitationSource } from '../types'
 import { AnswerSourcesRow } from './AnswerSourcesRow'
@@ -11,7 +12,7 @@ import { RisDocumentDialog } from '@/features/knowledge/components/ris-document-
 
 const controlsIn = (root: ParentNode): HTMLElement[] => Array.from(root.querySelectorAll<HTMLElement>('button, a'))
 
-const coarse = (control: HTMLElement): boolean => control.className.includes('pointer-coarse:')
+const coarse = (control: HTMLElement): boolean => coarseFloorAxes(control.classList).height
 
 const plan: PlanShape = {
   title: 'Prüfplan Brandschutz',
@@ -134,8 +135,17 @@ describe('hand-written controls in answer content', () => {
   })
 
   it('the plan checklist removes a point and an Unterlage with a 44px control', () => {
-    const { container } = render(createElement(PlanChecklist, { plan, onChange: () => {} }))
-    const sized = controlsIn(container).filter((control) => control.className.includes('pointer-coarse:size-11'))
-    expect(sized.length).toBeGreaterThanOrEqual(3)
+    const onChange = vi.fn()
+    render(createElement(PlanChecklist, { plan, onChange }))
+    const sectionRemoval = within(screen.getAllByTestId('plan-point')[0]!).getByRole('button')
+    const documentRemoval = within(screen.getByTestId('plan-basis')).getByRole('button')
+    for (const control of [sectionRemoval, documentRemoval]) {
+      expect(coarseFloorAxes(control.classList)).toEqual({ height: true, width: true })
+    }
+
+    fireEvent.click(sectionRemoval)
+    expect(onChange).toHaveBeenLastCalledWith({ ...plan, sections: ['Fluchtweg'] })
+    fireEvent.click(documentRemoval)
+    expect(onChange).toHaveBeenLastCalledWith({ ...plan, basis: [] })
   })
 })

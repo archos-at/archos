@@ -8,6 +8,7 @@ import { createElement } from 'react'
 import { render, screen } from '@/test-utils'
 import { parseSource, ts, walk } from '@/test-utils/source-ast'
 import { SOURCE_DIRS, srcKey, srcJoin } from '@/test-utils/source-tree'
+import { coarseFloorAxes } from '@/test-utils/touch-floor'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Chip } from '@/components/ui/chip'
@@ -93,8 +94,13 @@ const isMdSized = (token: string): boolean => {
   return at !== -1 && MD_SIZED.has((variants[at + 1] ?? '').split(/[!/]/)[0])
 }
 
-const hasCoarseSize = (element: Element): boolean =>
-  Array.from(element.classList).some((token) => token.startsWith('pointer-coarse:') || token === 'touch-target')
+type Floor = 'both axes' | 'height, the row gives the width'
+
+const hasCoarseSize = (element: Element, floor: Floor): boolean => {
+  if (element.classList.contains('touch-target')) return true
+  const axes = coarseFloorAxes(element.classList)
+  return axes.height && (axes.width || floor !== 'both axes')
+}
 
 const classesOf = (element: Element | null | undefined): string[] => Array.from(element?.classList ?? [])
 
@@ -139,13 +145,14 @@ describe('touch sizing uses one axis', () => {
 })
 
 describe('control primitives carry a coarse-pointer touch size', () => {
-  const PRIMITIVES: Array<[string, () => Element]> = [
+  const PRIMITIVES: Array<[string, () => Element, Floor]> = [
     [
       'button.tsx',
       () => {
         render(createElement(Button, null, 'Go'))
         return screen.getByRole('button')
       },
+      'both axes',
     ],
     [
       'input.tsx',
@@ -153,6 +160,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         render(createElement(Input, { 'aria-label': 'Name' }))
         return screen.getByRole('textbox')
       },
+      'height, the row gives the width',
     ],
     [
       'select.tsx',
@@ -166,6 +174,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         )
         return screen.getByRole('combobox')
       },
+      'height, the row gives the width',
     ],
     [
       'tabs.tsx',
@@ -177,8 +186,9 @@ describe('control primitives carry a coarse-pointer touch size', () => {
             createElement(TabsList, null, createElement(TabsTrigger, { value: 'a' }, 'A')),
           ),
         )
-        return screen.getByRole('tablist')
+        return screen.getByRole('tab')
       },
+      'height, the row gives the width',
     ],
     [
       'dropdown-menu.tsx',
@@ -193,6 +203,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         )
         return screen.getByRole('menuitem')
       },
+      'height, the row gives the width',
     ],
     [
       'dialog.tsx',
@@ -206,6 +217,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         )
         return screen.getByRole('button')
       },
+      'both axes',
     ],
     [
       'sheet.tsx',
@@ -219,6 +231,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         )
         return screen.getByRole('button')
       },
+      'both axes',
     ],
     [
       'checkbox.tsx',
@@ -226,6 +239,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         render(createElement(Checkbox, { 'aria-label': 'Agree' }))
         return screen.getByRole('checkbox')
       },
+      'both axes',
     ],
     [
       'switch.tsx',
@@ -233,6 +247,7 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         render(createElement(Switch, { 'aria-label': 'Live' }))
         return screen.getByRole('switch')
       },
+      'both axes',
     ],
     [
       'chip.tsx',
@@ -240,11 +255,12 @@ describe('control primitives carry a coarse-pointer touch size', () => {
         render(createElement(Chip, { interactive: true }, 'Tag'))
         return screen.getByText('Tag')
       },
+      'both axes',
     ],
   ]
 
-  it.each(PRIMITIVES)('%s', (file, mount) => {
-    expect(hasCoarseSize(mount()), file).toBe(true)
+  it.each(PRIMITIVES)('%s', (file, mount, floor) => {
+    expect(hasCoarseSize(mount(), floor), file).toBe(true)
   })
 
   it('gives Button a floor on both axes — height alone leaves icon buttons narrow', () => {

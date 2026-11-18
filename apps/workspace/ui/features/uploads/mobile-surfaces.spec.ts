@@ -84,6 +84,14 @@ describe('Archiv header', () => {
     const title = within(header).getByRole('heading', { level: 1 })
     const controls = within(header).getByTestId('office-shelf-controls')
     expect(title.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const toolRow = controls.parentElement as HTMLElement
+    expect(toolRow.parentElement).toBe(header)
+    expect(toolRow.contains(title)).toBe(false)
+    const utilitiesOf = (element: Element): string[] => [...element.classList].map((name) => name.split(':').at(-1) ?? '')
+    expect(utilitiesOf(header).filter((name) => /^(inline-)?(flex|grid)$|^inline(-block)?$|^contents$/.test(name))).toEqual([])
+    expect(utilitiesOf(toolRow).filter((name) => /^inline(-\w+)?$|^contents$/.test(name))).toEqual([])
+    expect(classesOf(toolRow.className)).toContain('flex')
   })
 })
 

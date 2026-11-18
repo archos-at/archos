@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { productionSources, nodesOf, parseSource, ts } from '@/test-utils/source-ast'
+import { coarseFloorAxes } from '@/test-utils/touch-floor'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
 import { useChatStore } from '@/features/chat/store'
 import { AnswerActions } from './AnswerActions'
@@ -99,12 +100,13 @@ afterEach(() => {
 
 const classesIn = (root: Element): string[] => [root, ...root.querySelectorAll('*')].flatMap((el) => [...el.classList])
 
-const TOUCH_TARGET_CLASS = /^pointer-coarse:(size|h)-11$/
-
 function expectFortyFourOnTouch(root: Element): void {
-  const classes = classesIn(root)
-  expect(classes.some((cls) => TOUCH_TARGET_CLASS.test(cls))).toBe(true)
-  expect(classes.filter((cls) => /\btouch-target\b/.test(cls))).toEqual([])
+  const controls = [...root.querySelectorAll('button, a[href], [role="button"], input, select, textarea')]
+  expect(controls.length).toBeGreaterThan(0)
+  for (const control of controls) {
+    expect(coarseFloorAxes(control.classList), control.outerHTML).toEqual({ height: true, width: true })
+  }
+  expect(classesIn(root).filter((cls) => /\btouch-target\b/.test(cls))).toEqual([])
 }
 
 describe('thread chrome on a phone', () => {
