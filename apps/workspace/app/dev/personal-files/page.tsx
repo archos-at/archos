@@ -5,7 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, FileText, Layers, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -57,7 +57,88 @@ const OFFICE_FILES: FileItem[] = [
   makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
 ]
 
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number }): JSX.Element {
+function ProjectRow({ name, current = false }: { name: string; current?: boolean }): JSX.Element {
+  return (
+    <div className={`text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal ${current ? 'bg-desk' : ''}`}>
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      {current && <Check className="size-4 shrink-0" aria-hidden />}
+    </div>
+  )
+}
+
+function ProjectMenu({ form }: { form: string }): JSX.Element {
+  const settings = (
+    <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal">
+      <Settings className="text-muted-foreground size-4 shrink-0" aria-hidden />
+      Projekteinstellungen
+    </div>
+  )
+  const rule = <div className="bg-desk mx-1 my-1.5 h-px" />
+  const label = (text: string): JSX.Element => <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1 font-medium">{text}</div>
+  const projects = PROJECTS.map((item) => <ProjectRow key={item.id} name={item.name} current={item.id === 'p-1'} />)
+  return (
+    <div className="bg-sheet shadow-md absolute left-0 right-0 top-full z-50 mt-1.5 rounded-[16px] p-1.5">
+      {form === 'top' && (
+        <>
+          <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
+            <Layers className="size-4 shrink-0" aria-hidden />
+            Alle Projekte
+          </div>
+          {rule}
+          {label('Projekte')}
+          {projects}
+          {rule}
+          {settings}
+        </>
+      )}
+      {form === 'card' && (
+        <>
+          <div className="bg-desk mb-1.5 flex items-center gap-3 rounded-[10px] p-2.5">
+            <span className="bg-sheet shadow-xs flex size-8 shrink-0 items-center justify-center rounded-control">
+              <Layers className="size-4" aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="text-name block font-medium">Alle Projekte</span>
+              <span className="text-muted-foreground text-meta block">Ohne Bindung an ein Projekt</span>
+            </span>
+          </div>
+          {label('Projekte')}
+          {projects}
+          {rule}
+          {settings}
+        </>
+      )}
+      {form === 'foot' && (
+        <>
+          {settings}
+          {rule}
+          {label('Projekt wechseln')}
+          {projects}
+          {rule}
+          <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
+            <Layers className="size-4 shrink-0" aria-hidden />
+            <span className="flex-1">Alle Projekte</span>
+            <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </div>
+        </>
+      )}
+      {form === 'mark' && (
+        <>
+          {settings}
+          {rule}
+          {label('Projekt wechseln')}
+          <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
+            <span className="min-w-0 flex-1 truncate">Alle Projekte</span>
+            <span className="bg-desk text-muted-foreground text-meta rounded-full px-2 py-0.5 font-medium">projektübergreifend</span>
+          </div>
+          {projects}
+        </>
+      )}
+    </div>
+  )
+}
+
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'top' }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -65,22 +146,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           <SidebarBrand iconRail={false} />
           <div className="relative mt-1 flex items-center gap-1.5">
             <ProjectSwitcher projects={[OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
-            {gear === 'menu' && (
-              <div className="bg-sheet shadow-md absolute left-0 right-0 top-full z-50 mt-1.5 rounded-[16px] p-1.5">
-                <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
-                  <Settings className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                  Projekteinstellungen
-                </div>
-                <div className="bg-desk mx-1 my-1.5 h-px" />
-                <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1 font-medium">Projekt wechseln</div>
-                {[OWN, ...PROJECTS].map((item) => (
-                  <div key={item.id} className={`text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 ${item.id === 'p-1' ? 'bg-desk' : ''}`}>
-                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    {item.id === 'p-1' && <Check className="size-4 shrink-0" aria-hidden />}
-                  </div>
-                ))}
-              </div>
-            )}
+            {gear === 'menu' && <ProjectMenu form={menuForm} />}
             {gear === true && !own && (
               <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
                 <Settings className="size-4" aria-hidden />
@@ -448,11 +514,11 @@ function InOfficeShelf(): JSX.Element {
   )
 }
 
-function Talk({ place, settingsOpen, menu }: { place: string; settingsOpen: boolean; menu: string | null }): JSX.Element {
+function Talk({ place, settingsOpen, menu, menuForm }: { place: string; settingsOpen: boolean; menu: string | null; menuForm: string }): JSX.Element {
   const own = place === 'me'
   return (
     <>
-      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} />
+      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} />
       {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
   )
@@ -463,7 +529,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'top'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
