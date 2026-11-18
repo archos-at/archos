@@ -21,7 +21,11 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
     CODE_RUNNER_STORAGE_DIR=/run/code-runner/do
-RUN groupadd --system --gid 1001 runner \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && test -s /etc/ssl/certs/ca-certificates.crt \
+    && groupadd --system --gid 1001 runner \
     && useradd --system --uid 1001 --gid runner --no-create-home runner \
     && mkdir -p /run/code-runner/do \
     && chown -R runner:runner /run/code-runner \
