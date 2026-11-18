@@ -3,58 +3,18 @@
  * @vitest-environment node
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { SOURCE_DIRS } from '@/test-utils/source-tree'
+import { callsTo, parseSource, parseSourceText, productionSources, ts } from '@/test-utils/source-ast'
 
-function sourceFiles(): string[] {
-  const found: string[] = []
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name)
-      if (entry.isDirectory()) walk(path)
-      else if (/\.tsx?$/.test(entry.name) && !/\.spec\.tsx?$/.test(entry.name)) found.push(path)
-    }
-  }
-  for (const dir of SOURCE_DIRS) walk(join(process.cwd(), dir))
-  return found
-}
-
-function transactionBodies(source: string): string[] {
-  const bodies: string[] = []
-  const opener = /\.transaction\s*\(/g
-  let match: RegExpExecArray | null
-
-  while ((match = opener.exec(source))) {
-    let depth = 0
-    let index = match.index + match[0].length - 1
-    for (; index < source.length; index += 1) {
-      if (source[index] === '(') depth += 1
-      else if (source[index] === ')') {
-        depth -= 1
-        if (depth === 0) break
-      }
-    }
-    bodies.push(source.slice(match.index, index + 1))
-  }
-  return bodies
+function getDbInsideTransaction(source: ts.SourceFile): ts.CallExpression[] {
+  return callsTo(source, 'transaction').flatMap((transaction) =>
+    transaction.arguments.flatMap((callback) => callsTo(callback, 'getDb')),
+  )
 }
 
 describe('no getDb() inside a transaction body', () => {
   it('finds no call site that would need a second pool slot to finish its first', () => {
-    const offenders: string[] = []
-
-    for (const file of sourceFiles()) {
-      const source = readFileSync(file, 'utf8')
-      if (!source.includes('.transaction(')) continue
-      for (const body of transactionBodies(source)) {
-        if (/\bgetDb\s*\(/.test(body)) {
-          offenders.push(file.replace(`${process.cwd()}/`, ''))
-          break
-        }
-      }
-    }
+    const offenders = productionSources().filter((file) => getDbInsideTransaction(parseSource(file)).length > 0)
 
     expect(
       offenders,
@@ -66,13 +26,19 @@ describe('no getDb() inside a transaction body', () => {
   })
 
   it('actually detects the shape it is looking for', () => {
-    const planted = `
+    const flagged = parseSourceText(`
       await db.transaction(async (tx) => {
         const other = getDb()
         await other.select()
       })
-    `
-    expect(transactionBodies(planted)).toHaveLength(1)
-    expect(/\bgetDb\s*\(/.test(transactionBodies(planted)[0])).toBe(true)
+    `)
+    const clean = parseSourceText(`
+      const other = getDb()
+      await db.transaction(async (tx) => {
+        await tx.select()
+      })
+    `)
+    expect(getDbInsideTransaction(flagged)).toHaveLength(1)
+    expect(getDbInsideTransaction(clean)).toEqual([])
   })
 })
