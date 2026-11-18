@@ -5,7 +5,6 @@ apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/bff/agent-asks/ask-wire.spec.ts
 apps/workspace/bff/api/wire-modules.spec.ts
 apps/workspace/bff/db/integration-suite-coverage.spec.ts
-apps/workspace/bff/db/schema/deletion-queue.spec.ts
 apps/workspace/bff/db/transaction-shape.spec.ts
 apps/workspace/bff/documents/ingest-document-type-contract.spec.ts
 apps/workspace/bff/documents/ingest-mail-contract.spec.ts
