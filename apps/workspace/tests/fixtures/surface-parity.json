@@ -286,7 +286,7 @@
    }
   },
   "askAboutAnswerPart": {
-   "summary": "Select part of an answer and ask about it; ARCHOS answers about exactly that part",
+   "summary": "Select part of an answer and ask about it; the next answer is about exactly that part",
    "tool": null,
    "annotationOp": null,
    "operations": [],

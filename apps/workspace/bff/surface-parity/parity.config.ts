@@ -141,7 +141,7 @@ export const SURFACE_CAPABILITIES = {
     chat: { component: 'features/chat/lib/canvas-bridge.ts' },
   },
   askAboutAnswerPart: {
-    summary: 'Select part of an answer and ask about it; ' + PRODUCT_NAME + ' answers about exactly that part',
+    summary: 'Select part of an answer and ask about it; the next answer is about exactly that part',
     canvas: { exempt: 'The canvas shows a document, not an answer; its form of this is the box drawn on a page (askAboutBox)' },
     chat: { component: 'features/chat/components/AnswerExcerptAsk.tsx' },
   },
