@@ -14,6 +14,7 @@ import {
   renderCollectorConfig,
 } from "./collector-config";
 import { GATEWAY_EXPORTER, toGateway } from "./otel-agent";
+import { cpuRequest } from "../config/cpu-requests";
 
 const COMPONENT = LOG_SHIPPER.name;
 const POD_LOGS = "filelog/pods";
@@ -100,7 +101,7 @@ export function installLogShipper(
                   { name: "pod-logs", mountPath: LOG_SHIPPER.podLogDir, readOnly: true },
                 ],
                 resources: {
-                  requests: { cpu: "50m", memory: "64Mi" },
+                  requests: { cpu: cpuRequest("50m"), memory: "64Mi" },
                   limits: { cpu: "250m", memory: "192Mi" },
                 },
                 readinessProbe: { httpGet: { path: "/", port: HEALTH_PORT }, periodSeconds: 10, timeoutSeconds: 5 },

@@ -9,6 +9,7 @@ import { commonLabels } from "../platform/namespaces";
 import { ROLLOUT, assertStartupFitsRollout, gracefulShutdown, secretChecksum, secretChecksumAnnotations, surgeRollout } from "../platform/rollout";
 import { onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface ClamAV {
   deployment: k8s.apps.v1.Deployment;
@@ -99,7 +100,7 @@ export function installClamAV(
                 securityContext: asClamav,
                 command: ["sh", "-c", `cp ${CLAMAV.databasePath}/* /seed/`],
                 volumeMounts: [{ name: "database", mountPath: "/seed" }],
-                resources: CLAMAV.seedResources,
+                resources: scaledCpuRequest(CLAMAV.seedResources),
               },
             ],
             containers: [
@@ -112,7 +113,7 @@ export function installClamAV(
                 command: ["clamd", "--foreground", `--config-file=${CLAMAV.configPath}/clamd.conf`],
                 ports: [{ containerPort: CLAMAV.port, name: "clamd" }],
                 volumeMounts: mounts,
-                resources: CLAMAV.resources,
+                resources: scaledCpuRequest(CLAMAV.resources),
                 startupProbe: {
                   exec: { command: ["sh", "-c", livenessScript()] },
                   periodSeconds: 10,
@@ -137,7 +138,7 @@ export function installClamAV(
                 securityContext: asClamav,
                 command: ["freshclam", "--daemon", "--foreground", "--stdout", `--config-file=${CLAMAV.configPath}/freshclam.conf`],
                 volumeMounts: mounts,
-                resources: CLAMAV.freshclamResources,
+                resources: scaledCpuRequest(CLAMAV.freshclamResources),
               },
             ],
             volumes: [

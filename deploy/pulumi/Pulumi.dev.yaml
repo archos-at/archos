@@ -147,6 +147,9 @@ config:
   # invalid_redirect_uri (docs/deployment/qdrant-runbook.md, "Dashboard").
   # To keep it off and port-forward instead:
   # grid-oib:qdrantDashboardEnabled: "false"
+  # ── Scheduling ── every container's CPU request x0.25 (limits, memory untouched):
+  # idle staging held its four 4-vCPU app nodes fully requested, so no rolling update's surge pod fit (2026-11-18).
+  grid-oib:cpuRequestScale: "0.25"
   # ── Agent (smaller on staging) ──
   grid-oib:backendRequestsCpu: "500m"
   grid-oib:backendRequestsMemory: 1Gi

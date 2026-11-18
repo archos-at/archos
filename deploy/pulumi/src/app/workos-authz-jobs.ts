@@ -9,6 +9,7 @@ import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
 import { AppSecrets, AppWiring } from "./config";
 import { authzCatalogEnv, folderGrantsCarryOverEnv } from "./job-env";
 import { logicalName } from "../names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -45,7 +46,7 @@ function workosJob(
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["node", `dist-scripts/${script}`, "--apply"],
                 env,
-                resources: LIGHT_WORKER_RESOURCES,
+                resources: scaledCpuRequest(LIGHT_WORKER_RESOURCES),
               },
             ],
           },

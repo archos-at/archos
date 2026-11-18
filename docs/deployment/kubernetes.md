@@ -2095,6 +2095,12 @@ Requests are now `500m` (trigger ≈ 350m, ~35% of the limit).
 preview if this ratio regresses. Tune from `kubectl top pods` — the invariant is
 `requests ≈ steady state`, `limits ≈ 2× requests`.
 
+`grid-oib:cpuRequestScale` (dev: `0.25`) shrinks every CPU request for
+scheduling only. To keep this divisor honest, the same helper
+(`src/config/cpu-requests.ts`) divides each CPU HPA and KEDA target by the
+scale, so 70% of 500m becomes 280% of 125m: the tier scales out at the same
+350m it would at scale 1. Limits and memory do not change.
+
 **2. A rolling update is a self-inflicted reconnect herd.** Every WebSocket on a
 draining pod is severed, and each re-upgrade resolves the session, runs FGA
 checks and reads budgets (ADR-0020). `WS_UPGRADE_RATE_LIMIT` does not cover
