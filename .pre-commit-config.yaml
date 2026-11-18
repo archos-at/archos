@@ -64,7 +64,21 @@ repos:
         entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_vocabularies.py'
         language: system
         pass_filenames: false
-        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/public-sources/src/public_sources/(access|engines)/[^/]+\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
+        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/agent/src/agent/knowledge/(doc_class_vocabulary|document_classification)\.py|packages/agent/src/agent/skills/legacy_(brand_)?names\.py|packages/agent/src/agent/observability/(score_definition|[a-z_]+_scores)\.py|packages/public-sources/src/public_sources/(access|engines)/[^/]+\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts|apps/workspace/bff/skills/legacy-brand-names\.generated\.ts)$
+
+      - id: agent-host-contract
+        name: the agent host limits and request shapes the BFF relies on are generated from their Python sources
+        entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_agent_host_contract.py'
+        language: system
+        pass_filenames: false
+        files: ^(apps/agent-host/src/agent_host/(chat_turn|turn_record|models/[^/]+|routes/documents_jobs)\.py|scripts/generate_agent_host_contract\.py|apps/workspace/bff/agent-host-contract\.generated\.ts)$
+
+      - id: provider-limits
+        name: the provider limits the stack states are generated from the Python modules that read them
+        entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_provider_limits.py'
+        language: system
+        pass_filenames: false
+        files: ^(packages/knowledge-layer/src/knowledge_layer/(env|ingest/(__init__|vision_calls|page_reads))\.py|packages/agent/src/agent/common/provider_limiter\.py|scripts/generate_provider_limits\.py|deploy/pulumi/src/config/provider-limits\.generated\.ts)$
 
       - id: data-flow-register
         name: every outbound flow has a row in the data-flow register, and the pages generated from it are current

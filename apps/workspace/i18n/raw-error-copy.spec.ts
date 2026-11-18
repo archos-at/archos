@@ -24,14 +24,11 @@
  * it is debt off the project path. Shrink the lists; do not grow them.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
+import { lineOf, nodesOf, parseSource, parseSourceText, ts } from '@/test-utils/source-ast'
+import { srcEntries, srcPath } from '@/test-utils/source-tree'
 
-
-const ERROR_MESSAGE_CHILD = /(?<!=)\{\s*[\w.?]+\.errorMessage\s*\}/
-const TOAST_OF_BODY = /toast\.(?:error|warning|info|message)\(\s*\w+\??\.error\b/
+const ROOT = process.cwd()
 
 const ERROR_MESSAGE_CHILD_ALLOWED: Record<string, string> = {
   'features/documents/components/upload-tray.tsx':
@@ -43,52 +40,79 @@ const ERROR_MESSAGE_CHILD_ALLOWED: Record<string, string> = {
 const TOAST_OF_BODY_ALLOWED: Record<string, string> = {
 }
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) return name === 'node_modules' || name === 'dev' ? [] : sourceFiles(path)
-    if (!/\.tsx?$/.test(name) || /\.(spec|test)\.tsx?$/.test(name)) return []
-    return [path]
+const TOAST_METHODS = new Set(['error', 'warning', 'info', 'message'])
+
+function isPlainPath(expression: ts.Expression): boolean {
+  if (ts.isIdentifier(expression) || expression.kind === ts.SyntaxKind.ThisKeyword) return true
+  return ts.isPropertyAccessExpression(expression) && isPlainPath(expression.expression)
+}
+
+function isStoredErrorMessage(expression: ts.Expression): boolean {
+  return ts.isPropertyAccessExpression(expression) && expression.name.text === 'errorMessage' && isPlainPath(expression.expression)
+}
+
+function renderedErrorMessages(source: ts.SourceFile): ts.Node[] {
+  const children = nodesOf(source, ts.isJsxExpression).filter(
+    (child) =>
+      (ts.isJsxElement(child.parent) || ts.isJsxFragment(child.parent)) &&
+      child.expression !== undefined &&
+      isStoredErrorMessage(child.expression),
+  )
+  const spans = nodesOf(source, ts.isTemplateSpan).filter((span) => isStoredErrorMessage(span.expression))
+  return [...children, ...spans]
+}
+
+function toastsBodyError(source: ts.SourceFile): ts.Node[] {
+  return nodesOf(source, ts.isCallExpression).filter((call) => {
+    const callee = call.expression
+    if (!ts.isPropertyAccessExpression(callee) || !ts.isIdentifier(callee.expression)) return false
+    if (callee.expression.text !== 'toast' || !TOAST_METHODS.has(callee.name.text)) return false
+    const [first] = call.arguments
+    if (!first) return false
+    let leading: ts.Expression = first
+    while (ts.isBinaryExpression(leading)) leading = leading.left
+    return ts.isPropertyAccessExpression(leading) && leading.name.text === 'error' && ts.isIdentifier(leading.expression)
   })
 }
 
-const files = SOURCE_DIRS.flatMap((dir) => sourceFiles(join(process.cwd(), dir))).map((path) => ({ path: srcKey(path), text: readFileSync(path, 'utf8') }))
+const sources = srcEntries(ROOT)
+  .filter((key) => /\.tsx?$/.test(key) && !/\.(spec|test)\.tsx?$/.test(key))
+  .filter((key) => !key.split('/').slice(0, -1).includes('dev'))
+  .map((key) => ({ key, source: parseSource(srcPath(key, ROOT)) }))
 
-function offenders(pattern: RegExp, allowed: Record<string, string>): string[] {
-  return files.flatMap(({ path, text }) =>
-    text
-      .split('\n')
-      .map((line, index) => ({ line, index }))
-      .filter(({ line }) => pattern.test(line) && !(path in allowed))
-      .map(({ line, index }) => `${path}:${index + 1}: ${line.trim()}`)
+function offenders(find: (source: ts.SourceFile) => ts.Node[], allowed: Record<string, string>): string[] {
+  return sources.flatMap(({ key, source }) =>
+    key in allowed ? [] : find(source).map((node) => `${key}:${lineOf(node)}: ${node.getText(source)}`),
   )
 }
 
 describe('raw error text on screen', () => {
   it('renders no stored errorMessage as text outside the surfaces that write it from the dictionary', () => {
-    expect(offenders(ERROR_MESSAGE_CHILD, ERROR_MESSAGE_CHILD_ALLOWED)).toEqual([])
+    expect(offenders(renderedErrorMessages, ERROR_MESSAGE_CHILD_ALLOWED)).toEqual([])
   })
 
   it('toasts no response body’s English error', () => {
-    expect(offenders(TOAST_OF_BODY, TOAST_OF_BODY_ALLOWED)).toEqual([])
+    expect(offenders(toastsBodyError, TOAST_OF_BODY_ALLOWED)).toEqual([])
   })
 
   it('keeps every allowance live, so a fixed file leaves the list', () => {
     const stale = [
       ...Object.keys(ERROR_MESSAGE_CHILD_ALLOWED).filter(
-        (path) => !files.some((file) => file.path === path && ERROR_MESSAGE_CHILD.test(file.text))
+        (path) => !sources.some((file) => file.key === path && renderedErrorMessages(file.source).length > 0),
       ),
       ...Object.keys(TOAST_OF_BODY_ALLOWED).filter(
-        (path) => !files.some((file) => file.path === path && TOAST_OF_BODY.test(file.text))
+        (path) => !sources.some((file) => file.key === path && toastsBodyError(file.source).length > 0),
       ),
     ]
     expect(stale).toEqual([])
   })
 
   it('catches the shapes it is meant to catch', () => {
-    expect(ERROR_MESSAGE_CHILD.test('<p className="text-error">{file.errorMessage}</p>')).toBe(true)
-    expect(ERROR_MESSAGE_CHILD.test('<Notice errorMessage={file.errorMessage} />')).toBe(false)
-    expect(TOAST_OF_BODY.test("toast.error(body?.error ?? t('x'))")).toBe(true)
-    expect(TOAST_OF_BODY.test("toast.error(t('x'))")).toBe(false)
+    const renders = (text: string) => renderedErrorMessages(parseSourceText(text)).length > 0
+    const toasts = (text: string) => toastsBodyError(parseSourceText(text)).length > 0
+    expect(renders('<p className="text-error">{file.errorMessage}</p>')).toBe(true)
+    expect(renders('<Notice errorMessage={file.errorMessage} />')).toBe(false)
+    expect(toasts("toast.error(body?.error ?? t('x'))")).toBe(true)
+    expect(toasts("toast.error(t('x'))")).toBe(false)
   })
 })

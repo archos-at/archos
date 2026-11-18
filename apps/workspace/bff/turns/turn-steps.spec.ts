@@ -1,8 +1,6 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WIRE_TURN_FILES, frameOf, wireFixtureLines } from '@/test-utils/wire-v2-fixtures'
 
@@ -19,22 +17,10 @@ import { foldTurnEvents } from './turn-fold'
 import { MAX_THINKING_STEPS_READ } from '@/lib/conversations/message-provenance'
 import { MAX_TURN_STEP_FRAMES, foldedTurnSteps, recordTurnSteps } from './turn-steps'
 import { eventOf } from '@/test-utils/wire-v2-fixtures'
+import * as agentHost from '@/lib/agent-host-contract.generated'
 
-const TURN_RECORD = (): string =>
-  readFileSync(join(process.cwd(), '../agent-host/src/agent_host/turn_record.py'), 'utf8')
-
-const pythonSet = (name: string): Set<string> => {
-  const body = new RegExp(`^${name} = frozenset\\(([\\s\\S]*?)\\)$`, 'm').exec(TURN_RECORD())?.[1]
-  if (!body) throw new Error(`${name} not found in turn_record.py`)
-  return new Set([...body.matchAll(/"([A-Za-z_]+)"/g)].map((match) => match[1]!))
-}
-const pythonInt = (name: string): number => {
-  const value = new RegExp(`^${name} = (\\d+)$`, 'm').exec(TURN_RECORD())?.[1]
-  if (!value) throw new Error(`${name} not found in turn_record.py`)
-  return Number(value)
-}
-const STEP_TYPES = pythonSet('STEP_FRAME_TYPES')
-const STEP_CUSTOM_NAMES = pythonSet('STEP_CUSTOM_NAMES')
+const STEP_TYPES: ReadonlySet<string> = new Set(agentHost.STEP_FRAME_TYPES)
+const STEP_CUSTOM_NAMES: ReadonlySet<string> = new Set(agentHost.STEP_CUSTOM_NAMES)
 
 type Frame = Record<string, unknown>
 const stepOf = (frame: Frame) => frame.step as { id?: string; kind?: string; title?: string } | undefined
@@ -107,9 +93,9 @@ describe('foldedTurnSteps', () => {
   })
 
   it('takes its bounds from the agent tier’s, which take theirs from the stored Herleitung', () => {
-    expect(pythonInt('MAX_STEP_ROWS')).toBe(MAX_THINKING_STEPS_READ)
-    expect(pythonInt('MAX_STEP_FRAMES')).toBe(3 * MAX_THINKING_STEPS_READ)
-    expect(MAX_TURN_STEP_FRAMES).toBe(pythonInt('MAX_STEP_FRAMES'))
+    expect(agentHost.MAX_STEP_ROWS).toBe(MAX_THINKING_STEPS_READ)
+    expect(agentHost.MAX_STEP_FRAMES).toBe(3 * MAX_THINKING_STEPS_READ)
+    expect(MAX_TURN_STEP_FRAMES).toBe(agentHost.MAX_STEP_FRAMES)
   })
 
   it('folds frames whose seq has holes, out of order, once each, and only its own turn’s', () => {

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { UPSTREAM_SOAK_EXEMPT as UPSTREAM_SOAK_EXEMPT_TABLE } from "./policy/exemptions";
 import { type PlannedResource, mockDevStack, planDevStack } from "./src/test-support/dev-stack";
 
 type Resource = PlannedResource;
@@ -11,11 +10,7 @@ type Workload = { kind: string; name: string; spec: Record<string, any> };
 
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
-const UPSTREAM_SOAK_EXEMPT = (() => {
-  const pack = readFileSync(join(__dirname, "policy/index.ts"), "utf8");
-  const table = pack.match(/const UPSTREAM_SOAK_EXEMPT[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
-  return [...table.matchAll(/^\s*"([a-z0-9-]+)":/gm)].map((m) => m[1]);
-})();
+const UPSTREAM_SOAK_EXEMPT = Object.keys(UPSTREAM_SOAK_EXEMPT_TABLE);
 
 const WORKLOAD_TYPES: Record<string, string> = {
   "kubernetes:apps/v1:Deployment": "Deployment",

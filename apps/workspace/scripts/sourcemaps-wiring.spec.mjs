@@ -4,7 +4,9 @@
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { DockerfileParser } from 'dockerfile-ast'
 import { describe, expect, it, vi } from 'vitest'
+import { parse as parseYaml } from 'yaml'
 
 import config, { nextConfig, withSourceMaps } from '../next.config.ts'
 
@@ -53,34 +55,80 @@ describe('withSourceMaps', () => {
   })
 })
 
+function stagesOf(dockerfile) {
+  const stages = []
+  for (const instruction of dockerfile.getInstructions()) {
+    if (instruction.getKeyword() === 'FROM') stages.push({ from: instruction, instructions: [] })
+    else stages.at(-1)?.instructions.push(instruction)
+  }
+  return stages
+}
+
+function copyOf(instruction) {
+  return {
+    from: instruction.getFlags().find((flag) => flag.getName() === 'from')?.getValue(),
+    sources: instruction.getArguments().slice(0, -1).map((a) => a.getValue()),
+    destination: instruction.getArguments().at(-1)?.getValue(),
+  }
+}
+
+function keysAndStrings(value) {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(keysAndStrings)
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([key, inner]) => [key, ...keysAndStrings(inner)])
+  }
+  return []
+}
+
 describe('the image build wiring', () => {
-  const dockerfile = readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
-  const action = readFileSync(
-    path.join(UI_ROOT, '..', '..', '.github', 'actions', 'build-image', 'action.yml'),
-    'utf8'
+  const dockerfile = DockerfileParser.parse(readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8'))
+  const action = parseYaml(
+    readFileSync(path.join(UI_ROOT, '..', '..', '.github', 'actions', 'build-image', 'action.yml'), 'utf8')
   )
-  const builder = dockerfile.slice(
-    dockerfile.indexOf('FROM base AS builder'),
-    dockerfile.indexOf('FROM scratch AS sourcemaps')
+  const steps = action.runs.steps
+  const stages = stagesOf(dockerfile)
+  const stage = (name) => stages.find((s) => s.from.getBuildStage() === name)
+  const builder = stage('builder').instructions
+  const buildIndex = builder.findIndex(
+    (i) => i.getKeyword() === 'RUN' && i.getArgumentsContent().includes('bun run build')
   )
-  const buildRun = builder.slice(builder.lastIndexOf('RUN', builder.indexOf('bun run build')))
-  const buildStep = buildRun.slice(0, buildRun.indexOf('\n\n'))
+  const buildStep = builder[buildIndex].getArgumentsContent()
+  const instructions = dockerfile.getInstructions()
+  const copies = instructions.filter((i) => i.getKeyword() === 'COPY').map(copyOf)
+  const exportIf = "inputs.export-sourcemaps == 'true'"
 
   it('emits maps and injects chunk ids into both served trees, without a release, so offline', () => {
     expect(buildStep).toContain('EMIT_SOURCE_MAPS=1 bun run build')
     expect(buildStep).toContain('posthog-cli sourcemap inject --directory .next/static')
     expect(buildStep).toContain('posthog-cli sourcemap inject --directory .next/server')
-    expect(buildStep).not.toMatch(/--release-(name|version)/)
+    expect(buildStep).not.toContain('--release-name')
+    expect(buildStep).not.toContain('--release-version')
   })
 
   it('holds no PostHog key: no secret mount, no key argument, nothing passed by the action', () => {
-    expect(dockerfile).not.toContain('--mount=type=secret')
-    expect(dockerfile).not.toMatch(/^\s*(ARG|ENV)\s+\w*(API_KEY|KEY)\b/m)
-    expect(action).not.toMatch(/posthog-api-key|POSTHOG_API_KEY|POSTHOG_CLI_API_KEY|secrets:/)
+    const mounts = instructions
+      .flatMap((i) => i.getFlags?.() ?? [])
+      .filter((flag) => flag.getName() === 'mount')
+      .map((flag) => flag.getValue())
+    expect(mounts.filter((mount) => mount?.includes('type=secret'))).toEqual([])
+    const declared = instructions
+      .filter((i) => i.getKeyword() === 'ARG' || i.getKeyword() === 'ENV')
+      .flatMap((i) => i.getProperties().map((property) => property.getName()))
+    expect(declared.length).toBeGreaterThan(0)
+    expect(declared.filter((name) => name.endsWith('KEY'))).toEqual([])
+    const words = keysAndStrings(action)
+    expect(Object.keys(action.inputs)).toContain('export-sourcemaps')
+    expect(words).not.toContain('secrets')
+    for (const key of ['posthog-api-key', 'POSTHOG_API_KEY', 'POSTHOG_CLI_API_KEY']) {
+      expect(words.filter((word) => word.includes(key)), key).toEqual([])
+    }
   })
 
   it('declares the commit before the build, for the deployment id and the release', () => {
-    expect(builder.indexOf('ARG GIT_SHA=""')).toBeLessThan(builder.indexOf('bun run build'))
+    const sha = builder.findIndex((i) => i.getKeyword() === 'ARG' && i.getArgumentsContent() === 'GIT_SHA=""')
+    expect(sha).toBeGreaterThanOrEqual(0)
+    expect(sha).toBeLessThan(buildIndex)
   })
 
   it('fails the build when a map or its chunk cannot be copied aside', () => {
@@ -97,26 +145,33 @@ describe('the image build wiring', () => {
   it('deletes every map and sourceMappingURL in the served trees, and fails if one survives', () => {
     expect(buildStep).toContain("find .next/static .next/server -name '*.map' -type f -delete")
     expect(buildStep).toContain('sourceMappingURL=/d')
-    expect(buildStep).toMatch(
-      /if find \.next\/static \.next\/server -name '\*\.map' \| grep -q \.; then .*exit 1/
-    )
+    const survivor = "if find .next/static .next/server -name '*.map' | grep -q .; then "
+    expect(buildStep).toContain(survivor)
+    const then = buildStep.indexOf(survivor) + survivor.length
+    expect(buildStep.slice(then, buildStep.indexOf('fi', then))).toContain('exit 1')
     expect(buildStep).toContain("[ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .")
   })
 
   it('ships no node_modules from the builder, where the CLI fetched its binary', () => {
-    expect(dockerfile).not.toMatch(/^COPY --from=builder \S* ?\/app\/node_modules /m)
+    expect(copies.filter((copy) => copy.from === 'builder' && copy.sources.includes('/app/node_modules'))).toEqual([])
   })
 
   it('keeps the maps in a stage of their own that is not the default target', () => {
-    const stages = [...dockerfile.matchAll(/^FROM .* AS (\w+)$/gm)].map((match) => match[1])
-    expect(stages.at(-1)).toBe('runner')
-    expect(stages).toContain('sourcemaps')
-    expect(dockerfile).toMatch(/FROM scratch AS sourcemaps\nCOPY --from=builder \/sourcemaps \//)
+    const names = stages.map((s) => s.from.getBuildStage())
+    expect(names.at(-1)).toBe('runner')
+    expect(names).toContain('sourcemaps')
+    const sourcemaps = stage('sourcemaps')
+    expect(sourcemaps.from.getImage()).toBe('scratch')
+    expect(sourcemaps.instructions[0].getKeyword()).toBe('COPY')
+    expect(copyOf(sourcemaps.instructions[0])).toEqual({ from: 'builder', sources: ['/sourcemaps'], destination: '/' })
   })
 
   it('exports that stage from the build-image action only when asked', () => {
-    expect(action).toMatch(/if: inputs\.export-sourcemaps == 'true'\s+uses: docker\/build-push-action/)
-    expect(action).toMatch(/target: sourcemaps/)
-    expect(action).toMatch(/name: sourcemaps-frontend/)
+    const exporting = steps.filter((step) => step.if === exportIf)
+    const build = exporting.find((step) => step.uses?.startsWith('docker/build-push-action@'))
+    expect(build?.with?.target).toBe('sourcemaps')
+    expect(steps.filter((step) => step.with?.target === 'sourcemaps')).toEqual([build])
+    const kept = steps.find((step) => step.with?.name === 'sourcemaps-frontend')
+    expect(kept?.if).toBe(exportIf)
   })
 })
