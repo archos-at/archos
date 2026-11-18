@@ -5,6 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
+  BookMarked,
   Archive,
   ArrowUp,
   AtSign,
@@ -415,7 +416,7 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'subline', acro
   )
 }
 
-export function Page({ me, shared = false, menuOpen = false }: { me: boolean; shared?: boolean; menuOpen?: boolean }): JSX.Element {
+export function Page({ me, shared = false, menuOpen = false, extra = null }: { me: boolean; shared?: boolean; menuOpen?: boolean; extra?: string | null }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ChatHeader title={shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} menuOpen={menuOpen} />
@@ -426,6 +427,29 @@ export function Page({ me, shared = false, menuOpen = false }: { me: boolean; sh
           <div className="bg-selected h-2 w-[88%] rounded" />
           <div className="bg-selected h-2 w-[61%] rounded" />
         </div>
+        {extra === 'assigned' && (
+          <p className="text-muted-foreground text-meta flex items-center gap-2">
+            <FolderInput className="size-3.5" aria-hidden />
+            Dieser Chat gehört jetzt zu „Wohnbau Seestadt Baufeld D12“. Nur Sie sehen ihn weiterhin.
+            <span className="text-foreground font-medium underline underline-offset-2">Rückgängig</span>
+          </p>
+        )}
+        {extra === 'memory' && (
+          <div className="bg-sheet shadow-sm flex max-w-[90%] flex-col gap-3 rounded-[10px] p-4">
+            <div>
+              <p className="text-muted-foreground text-meta">Wichtig für das Projekt?</p>
+              <p className="text-name mt-1 font-normal">Fluchtweg im Erdgeschoss führt über Stiegenhaus 2, höchstens 40 m, mit dem Brandschutzplaner abgestimmt.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-sheet shadow-press text-name inline-flex h-8 items-center gap-2 rounded-control px-3 font-medium">
+                <BookMarked className="size-4" aria-hidden />
+                Im Projektgedächtnis speichern
+              </span>
+              <span className="text-muted-foreground text-name px-2 font-medium">Nicht speichern</span>
+              <span className="text-muted-foreground text-meta ml-auto">Danach sieht es das Team.</span>
+            </div>
+          </div>
+        )}
       </div>
       <div className="mx-auto mb-6 w-full max-w-2xl px-8">
         <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">

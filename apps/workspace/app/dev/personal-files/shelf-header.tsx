@@ -3,11 +3,11 @@
 // PROTOTYPE, not for merge: a calmer head for the Ablage page (concept for ticket 81).
 
 import type { JSX } from 'react'
-import { ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
-function Side({ icon: Icon, label, who, picked }: { icon: LucideIcon; label: string; who: string; picked: boolean }): JSX.Element {
+function Side({ icon: Icon, label, who, picked, faded = false }: { icon: LucideIcon; label: string; who: string; picked: boolean; faded?: boolean }): JSX.Element {
   return (
-    <div className={`flex h-11 items-center gap-2.5 px-4 ${picked ? 'bg-sheet shadow-xs rounded-[8px]' : ''}`}>
+    <div className={`flex h-11 items-center gap-2.5 px-4 ${picked ? 'bg-sheet shadow-xs rounded-[8px]' : ''} ${faded ? 'opacity-50' : ''}`}>
       <Icon className={`size-4 shrink-0 ${picked ? '' : 'text-muted-foreground'}`} aria-hidden />
       <span className={`text-sm ${picked ? 'font-medium' : 'text-muted-foreground font-normal'}`}>{label}</span>
       <span className="text-muted-foreground text-meta ml-auto shrink-0">{who}</span>
@@ -52,11 +52,16 @@ function MoreMenu(): JSX.Element {
   )
 }
 
-export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string }): JSX.Element {
+export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean }): JSX.Element {
   const search = (
-    <div className="border-field-border bg-sheet text-muted-foreground flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm">
+    <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />
-      {office ? `In „${office}“ suchen …` : own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
+      {query ? (
+        <>
+          <span className="flex-1">{query}</span>
+          <X className="text-muted-foreground size-4" aria-label="Suche leeren" />
+        </>
+      ) : office ? `In „${office}“ suchen …` : own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
     </div>
   )
   const tools = (
@@ -95,7 +100,7 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
       </div>
       {!office && (
         <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
-          <Side icon={Folder} label="Projektablage" who="Team" picked={!own} />
+          <Side icon={Folder} label="Projektablage" who={noProject ? 'Kein Projekt' : 'Team'} picked={!own} faded={noProject} />
           <Side icon={FolderLock} label="Meine Ablage" who="Nur Sie" picked={own} />
         </div>
       )}
@@ -200,5 +205,35 @@ export function UnreadHint({ count }: { count: number }): JSX.Element {
       {count} Dokumente konnten nicht gelesen werden.
       <span className="font-medium underline underline-offset-2">Ansehen</span>
     </p>
+  )
+}
+
+const HITS = [
+  { name: 'Brandschutzkonzept_Wohnhausanlage_Index-D.pdf', path: 'Abgabepläne › Fluchtwegnachweise Tiefgarage', why: 'im Namen' },
+  { name: 'Brandschutzkonzept_Index-C.pdf', path: 'Abgabepläne › Archiv', why: 'im Namen' },
+  { name: 'Besprechung_Brandschutzplaner_2026-10-14.pdf', path: 'Berichte', why: 'im Namen' },
+  { name: 'Grundriss_EG_Index-C.pdf', path: 'Abgabepläne', why: 'im Inhalt: „Brandschutztür T30 zum Stiegenhaus“' },
+  { name: 'Baubeschreibung.pdf', path: 'Grundlagen', why: 'im Inhalt: „Brandschutz gemäß OIB-Richtlinie 2“' },
+]
+
+export function SearchHits({ query }: { query: string }): JSX.Element {
+  return (
+    <div className="px-8 py-5">
+      <p className="text-muted-foreground text-meta">
+        {HITS.length} Treffer für „{query}“ in der Projektablage, auch aus Unterordnern
+      </p>
+      <ul className="bg-sheet shadow-sm mt-3 rounded-[10px]">
+        {HITS.map((hit, index) => (
+          <li key={hit.name} className={`flex items-center gap-3 px-4 py-3 ${index > 0 ? 'border-hairline border-t' : ''}`}>
+            <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-name truncate">{hit.name}</p>
+              <p className="text-muted-foreground text-meta truncate">{hit.path}</p>
+            </div>
+            <span className="text-muted-foreground text-meta shrink-0">{hit.why}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
