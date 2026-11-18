@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    In the derivation, a source card read across many pages no longer lists
+    every page one by one. It names the pages as ranges, shows the first
+    three, and counts the rest, so the card stays readable.
