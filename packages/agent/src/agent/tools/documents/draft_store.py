@@ -138,7 +138,7 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
         text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
         size = stored_size(item.value)
         file_bytes += size
-        if item.value.get("encoding") != BASE64:
+        if item.value.get("encoding") != BASE64 and item.value.get(MADE_BY_KEY) != MADE_BY_RUN:
             total += size
         if str(item.key) == file_path:
             content = text

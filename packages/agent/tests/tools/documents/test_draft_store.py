@@ -233,6 +233,15 @@ class TestTheAsyncHalf:
     async def test_the_root_holds_on_the_async_path(self, backend: DraftBackend) -> None:
         assert (await backend.awrite("/etc/passwd", "x")).error is not None
 
+    @pytest.mark.asyncio
+    async def test_small_text_files_of_a_run_do_not_use_up_the_markdown_budget(self, backend: DraftBackend) -> None:
+        table = ("Raum;Fläche\n" + "EG;32,4\n" * 7000).encode()
+        assert len(table) <= draft_store.MAX_RUN_TEXT_BYTES
+        for index in range(5):
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}tabelle-{index}.csv", table, previous_size=0) is None
+        assert stored(backend, f"{DRAFT_ROOT}tabelle-0.csv")["encoding"] == "utf-8"
+        assert (await backend.awrite(DRAFT, "# Aktenvermerk\n\n" + "x" * (MAX_DRAFT_BYTES - 1024))).error is None
+
 
 class TestTheStoreFactory:
     @pytest.fixture(autouse=True)
