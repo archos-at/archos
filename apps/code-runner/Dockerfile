@@ -20,7 +20,6 @@ WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
-    CODE_RUNNER_SLOTS=8 \
     CODE_RUNNER_STORAGE_DIR=/run/code-runner/do
 RUN groupadd --system --gid 1001 runner \
     && useradd --system --uid 1001 --gid runner --no-create-home runner \
