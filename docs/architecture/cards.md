@@ -759,7 +759,8 @@ on the server. `catalog.tsx` is the server-safe half (component APIs,
   source verification removed is dropped, never renumbered onto the source
   that now holds N: sanitize's map lists only survivors. An empty map leaves
   numbers as they are, and each is kept only if it is cited (applied in
-  `answer_pipeline.py` on the settled frame and after sanitisation). Code is
+  `live_answer.py` on the settled frame and in `answer_pipeline.py` after
+  sanitisation). Code is
   left alone: `S[1]` in a mermaid fence or `x[1]` in inline code is not a
   citation. A `Text` left blank is dropped with its tab or child; when the
   surface cannot stand without it, the one card left becomes the card, and

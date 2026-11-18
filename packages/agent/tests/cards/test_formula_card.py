@@ -9,7 +9,7 @@ from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
 from agent.cards.formula_card import formula_inputs
 from agent.cards.formula_card import stated_result_fields
 from agent.cards.models import answer_card_adapter
-from agent.core import answer_pipeline
+from agent.core import envelope_cards
 from agent.observability.langfuse_scores import card_validity_score
 from agent.observability.langfuse_scores import formula_provenance_score
 
@@ -164,8 +164,8 @@ class TestAStatedResultIsCounted:
 
     async def test_the_envelope_records_a_stripped_result(self, monkeypatch):
         written: list = []
-        monkeypatch.setattr(answer_pipeline, "emit_scores", lambda scores, writer: written.extend(scores))
-        validated = await answer_pipeline._checked_envelope_card(_stair(result=63), 0, "", None)
+        monkeypatch.setattr(envelope_cards, "emit_scores", lambda scores, writer: written.extend(scores))
+        validated = await envelope_cards._checked_envelope_card(_stair(result=63), 0, "", None)
         assert validated is not None and "result" not in validated
         assert [(score.name, score.value, score.metadata.get("fields")) for score in written] == [
             ("card-validity", "stripped", 1)
@@ -173,8 +173,8 @@ class TestAStatedResultIsCounted:
 
     async def test_a_clean_card_records_nothing(self, monkeypatch):
         written: list = []
-        monkeypatch.setattr(answer_pipeline, "emit_scores", lambda scores, writer: written.extend(scores))
-        assert await answer_pipeline._checked_envelope_card(_stair(), 0, "", None) is not None
+        monkeypatch.setattr(envelope_cards, "emit_scores", lambda scores, writer: written.extend(scores))
+        assert await envelope_cards._checked_envelope_card(_stair(), 0, "", None) is not None
         assert written == []
 
 

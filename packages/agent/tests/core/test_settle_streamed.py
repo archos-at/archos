@@ -86,10 +86,10 @@ def test_the_settled_label_is_the_terminal_frame_byte_for_byte(monkeypatch):
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import ToolMessage
 
-    from agent.core import answer_pipeline
+    from agent.core import retrieval_attempts
     from agent.core.answer_pipeline import finalize_answer
 
-    monkeypatch.setattr(answer_pipeline, "get_source_id_for_tool", {"knowledge_search": "knowledge_layer"}.get)
+    monkeypatch.setattr(retrieval_attempts, "get_source_id_for_tool", {"knowledge_search": "knowledge_layer"}.get)
 
     prose, sources = "Treppen brauchen 2,10 m [1].", "## Quellen\n- [1] erfunden.pdf, p.9"
     messages = [
