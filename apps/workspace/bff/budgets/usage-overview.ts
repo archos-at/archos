@@ -15,7 +15,7 @@ export interface UsageOverview {
     month: TenantSpendWindow
     perModel: Array<{ model: string; day: TenantSpendWindow; month: TenantSpendWindow }>
   }
-  ingest: { day: TenantSpendWindow; month: TenantSpendWindow; monthlyLimit: number | null }
+  ingest: { month: TenantSpendWindow; monthlyLimit: number | null }
   perMember: Array<{ userId: string; day: TenantSpendWindow; month: TenantSpendWindow }> | null
   dailyTrend: Array<{ day: string } & TenantSpendWindow> | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
@@ -83,7 +83,6 @@ async function assembleUsageOverview(
       })),
     },
     ingest: {
-      day: projectIngest(summary.day),
       month: projectIngest(summary.month),
       monthlyLimit: ingestLimitOf(orgBudget),
     },

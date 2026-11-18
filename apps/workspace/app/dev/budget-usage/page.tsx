@@ -46,7 +46,7 @@ const DAILY_TREND = Array.from({ length: 30 }, (_, index) => {
 const USAGE = {
   unit: 'credit',
   summary: { day: DAY, month: MONTH, perModel: MODELS },
-  ingest: { day: spend(1260, 3410), month: spend(8420, 21730), monthlyLimit: 30000 },
+  ingest: { month: spend(8420, 21730), monthlyLimit: 30000 },
   perMember: [
     { userId: 'user_01', day: spend(420, 52), month: spend(4890, 704) },
     { userId: 'user_02', day: spend(230, 31), month: spend(3910, 610) },

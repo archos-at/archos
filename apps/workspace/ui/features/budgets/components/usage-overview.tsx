@@ -36,7 +36,7 @@ export interface MemberSpend {
 export interface UsageResponse {
   unit: BudgetUnit
   summary: { day: SpendWindow; month: SpendWindow; perModel: ModelSpend[] }
-  ingest?: { day: SpendWindow; month: SpendWindow; monthlyLimit: number | null }
+  ingest?: { month: SpendWindow; monthlyLimit: number | null }
   perMember: MemberSpend[] | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
   status: { blocked: boolean; blockedScope: string | null }
