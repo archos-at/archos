@@ -192,9 +192,18 @@ describe("container logs, with PostHog logs on (the default)", () => {
         ports: [4317, 4318, 13133, 8889].map((port) => ({ protocol: "TCP", port })),
       },
     ]);
+    const gatewayPod = await resolve<any>(find("kubernetes:apps/v1:Deployment", "otel-collector").inputs.spec);
+    const podLabels: Record<string, string> = gatewayPod.template.metadata.labels;
     const selectsCollector = (sel: any) =>
-      Object.entries(sel.matchLabels ?? {}).every(([k, v]) => k === "app.kubernetes.io/name" && v === "otel-collector") &&
-      (sel.matchExpressions ?? []).every((e: any) => e.operator === "NotIn" && !e.values.includes("otel-collector"));
+      Object.entries(sel.matchLabels ?? {}).every(([k, v]) => podLabels[k] === v) &&
+      (sel.matchExpressions ?? []).every((e: any) =>
+        e.operator === "In" ? e.values.includes(podLabels[e.key])
+        : e.operator === "NotIn" ? !e.values.includes(podLabels[e.key])
+        : e.operator === "Exists" ? e.key in podLabels
+        : !(e.key in podLabels),
+      );
+    expect(selectsCollector({ matchExpressions: [{ key: "app.kubernetes.io/name", operator: "In", values: ["otel-collector"] }] })).toBe(true);
+    expect(selectsCollector({ matchExpressions: [{ key: "app.kubernetes.io/name", operator: "NotIn", values: ["otel-collector"] }] })).toBe(false);
     const opensShipperPort = (rule: any) => !rule.ports?.length || rule.ports.some((p: any) => p.port === 4319);
     const reaching: string[] = [];
     for (const r of RESOURCES.filter((r) => r.type === "kubernetes:networking.k8s.io/v1:NetworkPolicy")) {
