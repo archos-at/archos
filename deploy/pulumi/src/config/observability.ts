@@ -1,4 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
+import { BACKFILL_POD } from "../constants";
 
 export interface ObservabilityConfig {
   enabled: boolean;
@@ -54,6 +55,7 @@ export const LOG_SHIPPER = {
   podLogDir: "/var/log/pods",
   maxLineBytes: 16 * 1024,
   infoSamplePercent: 10,
+  unsampledPodPrefixes: [BACKFILL_POD],
   otlpInstrumentedContainers: [
     "agent-worker",
     "aiq-agent",

@@ -36,7 +36,7 @@ for step in 32 128 512 2048; do
 done
 
 echo "no merge base within the deepened history; fetching all of it"
-git fetch --no-tags --quiet --unshallow origin
+ci/unshallow.sh --no-tags
 merge_base="$(git merge-base "$base" "$head")" || {
   echo "::error::$head shares no merge base with $base" >&2
   exit 1

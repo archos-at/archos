@@ -6,7 +6,6 @@ import { commonLabels } from "./namespaces";
 import { ROLLOUT, gracefulShutdown, secretChecksum, secretChecksumAnnotations } from "./rollout";
 import { POD_METADATA_RULES, installCollectorIdentity } from "./collector-identity";
 import { hardenedContainerSecurityContext } from "./security";
-import { BACKFILL_POD } from "../constants";
 import {
   CollectorFragment,
   HEALTH_PORT,
@@ -141,7 +140,7 @@ const bodyMatches = (pattern: string) => `IsString(log.body) and IsMatch(log.bod
 
 const LEVEL_PREFIX = String.raw`^[^a-z]{0,48}?\[?`;
 
-export const UNSAMPLED_POD = String.raw`^${BACKFILL_POD}-`;
+export const UNSAMPLED_POD = `^(${LOG_SHIPPER.unsampledPodPrefixes.join("|")})-`;
 
 export const LEVEL_PATTERNS = {
   debug: String.raw`(?i:level"?[=:]\s*"?(debug|trace)\b)|${LEVEL_PREFIX}(DEBUG|TRACE)\b|"level":\s*(10|20)\b`,

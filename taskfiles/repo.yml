@@ -129,7 +129,7 @@ tasks:
       # lacks that history (KeyError on the sha). A pull request's Repo checks
       # job is shallow, and a container's clone is too, so deepen it here
       # rather than fail on a sha.
-      - if [ "$(git rev-parse --is-shallow-repository)" = true ]; then git fetch --unshallow --quiet; fi
+      - ci/unshallow.sh
       # reno's own lint catches the structural problems ours does not look for
       # (a note on no branch, a malformed section body).
       - '{{.RENO}} lint .'
