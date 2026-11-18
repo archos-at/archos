@@ -2,11 +2,12 @@
 /**
  * @vitest-environment node
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createMachine, transition } from 'xstate'
 import { lifecycleDiagram } from '@/shared/lifecycle/lifecycle-diagram'
+import { callsTo, parseSource, productionSources } from '@/test-utils/source-ast'
 import { LIFECYCLES, type RegisteredLifecycle } from './registry'
 
 const ROOT = process.cwd()
@@ -49,12 +50,14 @@ function render(): string {
   ].join('\n')
 }
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return sourceFiles(path)
-    return /\.tsx?$/.test(entry.name) && !/\.spec\.tsx?$/.test(entry.name) ? [path] : []
-  })
+function declaringFiles(): string[] {
+  return productionSources(ROOT)
+    .filter((file) => file.startsWith('bff/'))
+    .flatMap((file) => {
+      const calls = callsTo(parseSource(file, ROOT), 'defineLifecycle')
+      return calls.map(() => file)
+    })
+    .sort()
 }
 
 describe('the declared lifecycles', () => {
@@ -71,24 +74,18 @@ describe('the declared lifecycles', () => {
     }
   })
 
-  it('have unique names and name a module that declares them', () => {
+  it('have unique names', () => {
     const ids = LIFECYCLES.map((entry) => entry.lifecycle.id)
     expect(new Set(ids).size).toBe(ids.length)
-    for (const entry of LIFECYCLES) {
-      const file = join(ROOT, entry.where)
-      expect(existsSync(file), entry.where).toBe(true)
-      expect(readFileSync(file, 'utf8'), entry.where).toContain(`id: '${entry.lifecycle.id}'`)
-    }
+  })
+
+  it.each(LIFECYCLES.map((entry) => [entry.lifecycle.id, entry] as const))('%s is exported by the module it names', async (_id, entry) => {
+    const exported = await import(join(ROOT, entry.where))
+    expect(Object.values(exported), entry.where).toContain(entry.lifecycle)
   })
 
   it('are all in the registry', () => {
-    const declared = sourceFiles(join(ROOT, 'bff'))
-      .flatMap((file) => {
-        const calls = readFileSync(file, 'utf8').match(/\bdefineLifecycle\s*[<(]/g) ?? []
-        return calls.map(() => relative(ROOT, file))
-      })
-      .sort()
-    expect(declared).toEqual(LIFECYCLES.map((entry) => entry.where).sort())
+    expect(declaringFiles()).toEqual(LIFECYCLES.map((entry) => entry.where).sort())
   })
 
   it('are drawn in the reference as the code declares them', () => {

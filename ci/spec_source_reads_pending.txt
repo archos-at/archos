@@ -16,7 +16,6 @@ apps/workspace/bff/documents/ingest-priority-contract.spec.ts
 apps/workspace/bff/documents/status-batch-contract.spec.ts
 apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/bff/knowledge/doc-class.spec.ts
-apps/workspace/bff/lifecycles/registry.spec.ts
 apps/workspace/bff/office-shelf/collection-prefix.spec.ts
 apps/workspace/bff/pdf/theme.spec.ts
 apps/workspace/bff/projects/people-stay-out-of-the-prompt.spec.ts
