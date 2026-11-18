@@ -16,6 +16,7 @@ from agent.tools.documents.draft_store import DraftBackend
 from agent.tools.documents.draft_store import draft_namespace
 from agent.tools.execute import run
 from agent.tools.execute import runner_client
+from agent.tools.execute import trace
 
 CONVERSATION = "conv-exec-1"
 RUNNER = "http://code-runner:8080"
@@ -198,3 +199,127 @@ async def test_a_named_document_reports_its_collection(store, monkeypatch) -> No
 
     assert reads == {"proj_abc_restricted"}
     assert [f["path"] for f in seen[0]["files"]] == [f"{run.INPUT_DIR}Raumbuch.pdf"]
+
+
+class TestTheTrace:
+    @pytest.fixture
+    def traced(self, monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
+        seen: dict[str, list] = {"spans": [], "scores": []}
+        monkeypatch.setattr(
+            trace,
+            "emit_step_span",
+            lambda name, body_in, body_out, **_: seen["spans"].append((name, body_in, body_out)),
+        )
+        monkeypatch.setattr(
+            trace, "emit_scores", lambda scores, **kwargs: seen["scores"].append((list(scores), kwargs["writer"]))
+        )
+        return seen
+
+    @staticmethod
+    def _scores(traced: dict[str, list]) -> dict[tuple[str, str | None], Any]:
+        return {(score.name, score.item): score for batch, _ in traced["scores"] for score in batch}
+
+    async def test_a_kept_file_is_measured_without_its_content(self, store, monkeypatch, registry, traced) -> None:
+        secret = "export default () => 'Mietvertrag Huber'"
+        _runner(monkeypatch, _ok({"/workspace/flaechen.xlsx": b"PK" + b"x" * 98}), [])
+
+        await run.execute(RUNNER, secret)
+
+        name, body_in, body_out = traced["spans"][0]
+        assert name == "execute.run"
+        assert body_in["code_chars"] == len(secret)
+        assert len(body_in["code_sha256"]) == 16
+        assert body_in["documents"] is False
+        assert body_out["status"] == "ok"
+        assert body_out["runner_ms"] == 42
+        assert body_out["wall_ms"] >= 0
+        assert (body_out["files_kept"], body_out["files_new"], body_out["kept_bytes"]) == (1, 1, 100)
+        assert body_out["file_types"] == ["xlsx"]
+        assert "Huber" not in json.dumps(traced["spans"])
+        scores = self._scores(traced)
+        assert scores[("execute-status", "run:1")].value == "ok"
+        assert scores[("execute-files-made", "run:1")].value == 1.0
+        assert scores[("execute-runs-to-file", "run:1")].value == 1.0
+        assert traced["scores"][0][1] == "execute"
+
+    async def test_an_error_carries_the_first_stderr_line_and_the_tries_are_counted(
+        self, store, monkeypatch, registry, traced
+    ) -> None:
+        answers = iter(
+            [
+                {**_ok({}), "status": "error", "stderr": "\nTypeError: docx.Tabel is not a constructor\n    at run"},
+                _ok({"/workspace/a.docx": b"PK1"}),
+                _ok({"/workspace/a.docx": b"PK2"}),
+            ]
+        )
+        _runner(monkeypatch, lambda request: httpx.Response(200, json=next(answers)), [])
+
+        for _ in range(3):
+            await run.execute(RUNNER, "export default () => 1")
+
+        assert traced["spans"][0][2]["stderr_first_line"] == "TypeError: docx.Tabel is not a constructor"
+        assert "stderr_first_line" not in traced["spans"][1][2]
+        scores = self._scores(traced)
+        assert scores[("execute-status", "run:1")].value == "error"
+        assert ("execute-runs-to-file", "run:1") not in scores
+        assert scores[("execute-runs-to-file", "run:2")].value == 2.0
+        assert scores[("execute-runs-to-file", "run:3")].value == 1.0
+        assert scores[("execute-files-made", "run:3")].value == 0.0
+
+    async def test_an_unreachable_runner_is_unavailable(self, store, monkeypatch, registry, traced) -> None:
+        def refuse(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("refused", request=request)
+
+        _runner(monkeypatch, refuse, [])
+
+        await run.execute(RUNNER, "export default () => 1")
+
+        scores = self._scores(traced)
+        assert (scores[("execute-status", "run:1")].value, scores[("execute-status", "run:1")].comment) == (
+            "unavailable",
+            "unreachable",
+        )
+        assert ("execute-files-made", "run:1") not in scores
+
+    async def test_no_runner_and_a_refused_document_are_recorded(self, store, monkeypatch, registry, traced) -> None:
+        async def resolve(name: str) -> str:
+            return f"No document called {name}."
+
+        monkeypatch.setattr(run, "resolve_document", resolve)
+
+        await run.execute("", "export default () => 1")
+        await run.execute(RUNNER, "export default () => 1", documents=["Raumbuch.pdf"])
+
+        scores = self._scores(traced)
+        assert (scores[("execute-status", "run:1")].value, scores[("execute-status", "run:1")].comment) == (
+            "unavailable",
+            "no_runner",
+        )
+        assert (scores[("execute-status", "run:2")].value, scores[("execute-status", "run:2")].comment) == (
+            "refused",
+            "unresolved",
+        )
+        assert traced["spans"][1][1]["documents"] is True
+
+    async def test_a_kept_file_is_marked_as_made_by_a_run(self, store, monkeypatch) -> None:
+        _runner(monkeypatch, _ok({"/workspace/flaechen.xlsx": b"PK"}), [])
+
+        await run.execute(RUNNER, "export default () => 1")
+
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert (await backend.ausage(f"{DRAFT_ROOT}flaechen.xlsx")).made_by == "execute"
+
+
+def test_the_file_type_is_the_lowercased_extension() -> None:
+    assert [trace.file_type(p) for p in ("/w/a.DOCX", "/w/README", "/w/.env", "/w/x.tar.gz")] == [
+        "docx",
+        "none",
+        "none",
+        "gz",
+    ]
+
+
+def test_a_filed_run_file_counts_once_per_path() -> None:
+    first, again = trace.filed_scores("/drafts/a.docx"), trace.filed_scores("/drafts/a.docx")
+    assert first[0].name == "execute-files-filed"
+    assert first[0].item == again[0].item != trace.filed_scores("/drafts/b.docx")[0].item

@@ -326,9 +326,12 @@ a summary reaches the model.
 
 ## Observability
 
-- **Langfuse:** one span per `execute` (module size, inputs, duration, files written
-  and their sizes, outcome) under the turn's trace
-  ([`langfuse.md`](../observability/langfuse.md)).
+- **Langfuse:** one `execute.run` step per run under the turn's trace (the script's
+  length and hash, inputs, the runner's and the tool's duration, files kept with
+  their types and sizes, status, the first stderr line on an error), the tag
+  `feature:execute`, and the scores `execute-status`, `execute-runs-to-file`,
+  `execute-files-made` and `execute-files-filed`
+  ([`langfuse.md`](../observability/langfuse.md#a-chat-turns-root-observation)).
 - **Metrics:** runs per minute, duration p50 and p95, failures by kind (script,
   timeout, memory, output refused), replicas.
 - **Alerts:** failure rate above its baseline, replicas at the maximum.

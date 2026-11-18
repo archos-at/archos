@@ -65,3 +65,39 @@ class TestFilingAFileAScriptWrote:
 
         assert calls == []
         assert "cannot be filed" in message
+
+
+class TestFilingIsMeasured:
+    async def test_the_first_filing_of_a_run_file_is_scored_once(self, _one_store, monkeypatch, calls) -> None:
+        emitted: list = []
+        monkeypatch.setattr(filing_tools, "emit_scores", lambda scores, **kwargs: emitted.append((scores, kwargs)))
+        await _run_file(_one_store)
+        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
+        await _run_file(_one_store, data=BYTES + b"more")
+        await _file(
+            monkeypatch,
+            [
+                {"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")},
+                {"documentId": "doc-1", "version": _version("ver-1", "draft", "h2")},
+            ],
+            calls,
+        )
+
+        assert [(score.name, score.value) for scores, _ in emitted for score in scores] == [
+            ("execute-files-filed", 1.0)
+        ]
+        assert emitted[0][1]["writer"] == "file-draft"
+
+    async def test_a_written_draft_is_not_scored(self, _one_store, monkeypatch, calls) -> None:
+        emitted: list = []
+        monkeypatch.setattr(filing_tools, "emit_scores", lambda scores, **kwargs: emitted.append(scores))
+        backend = DraftBackend(store=_one_store, conversation_id=CONVERSATION)
+        assert (await backend.awrite(f"{DRAFT_ROOT}notiz.md", "# Notiz\n")).error is None
+        await _file(
+            monkeypatch,
+            [{"documentId": "doc-2", "version": _version("ver-1", "draft", "h1")}],
+            calls,
+            path=f"{DRAFT_ROOT}notiz.md",
+        )
+
+        assert emitted == []
