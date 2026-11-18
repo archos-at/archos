@@ -147,3 +147,80 @@ export function InboxAll(): JSX.Element {
     </div>
   )
 }
+
+export function InboxPopover(): JSX.Element {
+  return (
+    <div className="bg-background shadow-lg absolute bottom-[68px] left-3 z-50 flex max-h-[640px] w-[400px] flex-col overflow-hidden rounded-[16px]">
+      <header className="flex items-baseline gap-2 px-4 pb-2 pt-4">
+        <h2 className="text-section">Wartet auf Sie</h2>
+        <span className="text-muted-foreground text-meta">{waiting.length}</span>
+        <span className="text-destructive text-meta font-medium">1 überfällig</span>
+      </header>
+      <div className="border-hairline min-h-0 flex-1 overflow-hidden border-t">
+        <Rows entries={newestFirst(waiting).slice(0, 4)} />
+      </div>
+      <footer className="border-hairline flex items-center justify-between border-t px-4 py-3">
+        <span className="text-muted-foreground text-meta">4 Neuigkeiten</span>
+        <span className="text-name inline-flex items-center gap-1.5 font-medium">
+          Postfach öffnen
+          <ArrowRight className="size-3.5" aria-hidden />
+        </span>
+      </footer>
+    </div>
+  )
+}
+
+export function InboxPage(): JSX.Element {
+  const open = newestFirst(waiting)[0]!
+  const tab = 'px-3 py-1.5'
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="border-hairline flex items-end justify-between gap-4 border-b px-8 pb-4 pt-3">
+        <div>
+          <span className="text-muted-foreground text-meta">Anna Berger</span>
+          <h1 className="text-page-title">Postfach</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
+            <span className={`${tab} bg-sheet shadow-xs rounded-[4px]`}>Wartet auf Sie 7</span>
+            <span className={`${tab} text-muted-foreground`}>Neuigkeiten 4</span>
+            <span className={`${tab} text-muted-foreground`}>Archiviert</span>
+          </div>
+          <span className="text-muted-foreground text-name inline-flex h-8 items-center gap-1.5 px-1 font-medium">
+            <CheckCheck className="size-4" aria-hidden />
+            Alle gelesen
+          </span>
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-1">
+        <div className="border-hairline w-[400px] shrink-0 overflow-hidden border-r">
+          {newestFirst(waiting).map((entry, index) => (
+            <div key={entry.title} className={index === 0 ? 'bg-desk' : ''}>
+              <Row entry={entry} />
+            </div>
+          ))}
+        </div>
+        <article className="flex min-w-0 flex-1 flex-col gap-4 p-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-meta">
+                {open.project} · {open.where} · Anmerkung 2
+              </p>
+              <h2 className="text-pane-title mt-1">{open.title}</h2>
+              <p className="text-muted-foreground mt-1 text-sm">{open.from} · {open.ago}</p>
+            </div>
+            <span className="text-destructive text-meta shrink-0 rounded-full bg-[rgb(193_74_56_/_0.12)] px-2 py-0.5 font-medium">Überfällig</span>
+          </div>
+          <div className="bg-sheet shadow-sm flex flex-1 items-center justify-center rounded-[10px]">
+            <span className="text-muted-foreground text-sm">Hier steht die Stelle im Dokument, zu der die Anmerkung gehört.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="bg-primary text-primary-foreground inline-flex h-9 items-center rounded-control px-3 text-sm font-medium">Als erledigt markieren</span>
+            <span className="bg-sheet shadow-press inline-flex h-9 items-center rounded-control px-3 text-sm font-medium">In der Prüfansicht öffnen</span>
+            <span className="text-muted-foreground ml-auto text-sm font-medium">Archivieren</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  )
+}
