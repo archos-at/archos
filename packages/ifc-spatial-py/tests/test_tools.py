@@ -442,7 +442,10 @@ OPERATOR_MODULES = (
     "render",
     "ids_export",
     "relations",
+    "daylight_overhead",
+    "daylight_sun",
 )
+SURFACE_MODULE = {"daylight_overhead": "daylight", "daylight_sun": "daylight"}
 
 NOT_ON_THE_SURFACE = {
     "operators.facade_plane_of": (
@@ -508,7 +511,7 @@ def test_no_operator_is_implemented_tested_and_reachable_from_nothing() -> None:
         for node in tree.body:
             if not isinstance(node, ast.FunctionDef) or node.name.startswith("_"):
                 continue
-            qualified = f"{module}.{node.name}"
+            qualified = f"{SURFACE_MODULE.get(module, module)}.{node.name}"
             if qualified not in referenced and qualified not in NOT_ON_THE_SURFACE:
                 unreachable.append(qualified)
     assert not unreachable, (
