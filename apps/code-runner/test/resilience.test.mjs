@@ -170,3 +170,20 @@ describe("request bodies", () => {
     assert.match(result.body, /exceeds/);
   });
 });
+
+test("stop returns only once every slot's workerd has exited, so its storage can be removed", async () => {
+  const runner = await startRunner({ slots: 2 });
+  await bothSlotsServe(runner);
+  const pids = runner.slots.map((slot) => slot.pid);
+  assert.ok(pids.every((pid) => pid !== null));
+  await runner.stop();
+  const alive = pids.filter((pid) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  assert.deepEqual(alive, []);
+});
