@@ -48,12 +48,19 @@ def env(tmp_path, monkeypatch, qdrant_store):
     factory._document_metadata_store = None
 
 
-def _seed(file_name: str, count: int = 3, *, stored_as: str | None = None, scope: str = SCOPE) -> list[str]:
+def _seed(
+    file_name: str,
+    count: int = 3,
+    *,
+    stored_as: str | None = None,
+    scope: str = SCOPE,
+    document_id: str | None = None,
+) -> list[str]:
     from agent.knowledge import register_summary
 
     stored = stored_as or file_name
     records = [record(f"{file_name} Abschnitt {index}", stored, page_label=str(index + 1)) for index in range(count)]
-    write(scope, records)
+    write(scope, records, {"document_id": document_id} if document_id else None)
     register_summary(scope, stored, f"Zusammenfassung {file_name}")
     return [chunk.chunk_id for chunk in records]
 
@@ -196,3 +203,37 @@ def test_delete_collection_keeps_everything_when_qdrant_fails(env):
     assert _summary_rows() == set()
     assert env["bumped"] == [SCOPE]
     assert len(_ids(scope="proj_elsewhere")) == 3
+
+
+def test_delete_document_takes_its_chunks_by_id_under_any_name(env):
+    renamed = _seed("generated/doc_1/bericht.md", document_id="doc_1")
+    stale = _seed("alt/doc_1/bericht.md", 2, document_id="doc_1")
+    other = _seed("plan.pdf", document_id="doc_2")
+
+    assert env["ingestor"].delete_document("doc_1", "generated/doc_1/bericht.md", SCOPE) is True
+
+    assert _ids() == set(other)
+    assert not _ids() & (set(renamed) | set(stale))
+    assert {"generated/doc_1/bericht.md", "alt/doc_1/bericht.md"}.isdisjoint(_summary_rows())
+    assert env["bumped"] == [SCOPE]
+
+
+def test_delete_document_takes_the_name_only_on_chunks_that_carry_no_id(env):
+    unclaimed = _seed("plan.pdf", 2, stored_as="tmpab12cd34_plan.pdf")
+    claimed_by_another = _seed("plan.pdf", document_id="doc_other")
+
+    assert env["ingestor"].delete_document("doc_gone", "plan.pdf", SCOPE) is True
+
+    assert _ids() == set(claimed_by_another), "a chunk of another document is never matched by the name"
+    assert not _ids() & set(unclaimed)
+
+
+def test_delete_documents_reports_by_file_name(env):
+    _seed("plan.pdf", document_id="doc_1")
+
+    outcome = env["ingestor"].delete_documents([("doc_1", "plan.pdf"), ("doc_2", "ghost.pdf")], SCOPE)
+
+    assert outcome["successful"] == ["plan.pdf"]
+    assert outcome["not_found"] == ["ghost.pdf"]
+    assert outcome["failed"] == []
+    assert _ids() == set()

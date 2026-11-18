@@ -252,7 +252,7 @@ describe('proposeOperation', () => {
       projectId: PROJECT,
       scope: 'project',
       kind: 'operation',
-      proposedByKind: 'piloti',
+      proposedByKind: 'agent',
       onBehalfOf: 'user_1',
       originConversationId: 'conv_1',
       status: 'proposed',

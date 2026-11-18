@@ -659,6 +659,7 @@ export const RETIRED_AUDIT_ACTIONS = /** @type {const} */ ([
   'archiv.document.uploaded',
   'archiv.document.deleted',
   'archiv.document.renamed', 'platform.norm_registry.updated', // the registry takes no edits since ADR-0175
+  ...Object.keys(LEGACY_AGENT_AUDIT_SCHEMAS),
 ])
 
 /**

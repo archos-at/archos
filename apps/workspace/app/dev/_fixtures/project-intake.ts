@@ -9,7 +9,7 @@ import type {
   SuggestionGroup,
 } from '@/lib/project-intake/types'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 export const FIXTURE_PROJECT_ID = '00000000-0000-4000-8000-0000000000a1'
 
@@ -389,7 +389,7 @@ const filingProposal = (id: string, patch: Pick<FilingProposal, 'payload'>): Fil
   id,
   projectId: FIXTURE_PROJECT_ID,
   status: 'proposed',
-  proposedByKind: LEGACY_AGENT_KIND,
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_me',
   onBehalfOfName: 'Mia Huber',
   originConversationId: null,

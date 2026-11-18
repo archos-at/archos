@@ -2,7 +2,6 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { LEGACY_ORGANIZATION_SETTING, LEGACY_USER_SETTING } from './legacy-tenant-settings'
 
 vi.mock('server-only', () => ({}))
 
@@ -75,16 +74,14 @@ describe('contextStatement', () => {
     const batch = contextStatement({ kind: 'tenant', organizationId: 'org_01H', userId: 'user_01H' })
 
     expect(batch).toBe(
-      `SET LOCAL "app.organization_id" = 'org_01H'; SET LOCAL "${LEGACY_ORGANIZATION_SETTING}" = 'org_01H'; ` +
-        `SET LOCAL "app.user_id" = 'user_01H'; SET LOCAL "${LEGACY_USER_SETTING}" = 'user_01H'; ${TIMEOUT}`
+      `SET LOCAL "app.organization_id" = 'org_01H'; SET LOCAL "app.user_id" = 'user_01H'; ${TIMEOUT}`
     )
   })
 
-  it('gives a tenant with no user an empty user under both names, which no row policy matches', () => {
+  it('gives a tenant with no user an empty user, which no row policy matches', () => {
     const batch = contextStatement({ kind: 'tenant', organizationId: 'org_01H', userId: null })
 
     expect(batch).toContain(`SET LOCAL "app.user_id" = ''`)
-    expect(batch).toContain(`SET LOCAL "${LEGACY_USER_SETTING}" = ''`)
   })
 
   it('steps a platform scope up first and still sets the statement timeout', () => {
@@ -127,7 +124,7 @@ describe('the BFF client behind a transaction pooler', () => {
 
     expect(driver.calls.transactions).toEqual([
       [
-        `SET LOCAL "app.organization_id" = 'org_01H'; SET LOCAL "${LEGACY_ORGANIZATION_SETTING}" = 'org_01H'; SET LOCAL "app.user_id" = 'user_01H'; SET LOCAL "${LEGACY_USER_SETTING}" = 'user_01H'; SET LOCAL statement_timeout = '30000'`,
+        `SET LOCAL "app.organization_id" = 'org_01H'; SET LOCAL "app.user_id" = 'user_01H'; SET LOCAL statement_timeout = '30000'`,
         'select 1',
       ],
     ])

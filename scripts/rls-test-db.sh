@@ -4472,3 +4472,65 @@ apply_in um_0244 0244_usage_events_model_once.down.sql
 apply_in um_0244 0244_usage_events_model_once.sql
 check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 applies again after its down and folds nothing twice"
 echo "==> 0244 model folded once and its down migration verified"
+# Migration 0245 and the step-1 backfills of deploy 2 (ADR-0182 phase 4).
+# 0245: current_org() and current_user_id() read app.* only; its down restores
+# 0241. The backfill scripts in scripts/brand-free-backfill/ run against the
+# full schema; inbox_items and citation_events carry seeded rows, and the
+# mention and lane rewrites are checked on literal values.
+# ---------------------------------------------------------------------------
+echo "==> verifying migration 0245 and the step-1 backfills on sn_0245"
+migrate_before sn_0245 0245_app_session_settings_only
+apply_in sn_0245 0245_app_session_settings_only.sql
+apply_in sn_0245 0245_app_session_settings_only.sql   # up twice: idempotent
+check_in sn_0245 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "org_new" "0245: current_org() reads app.organization_id"
+check_in sn_0245 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "none" "0245: current_org() no longer reads grid.organization_id"
+check_in sn_0245 "SELECT coalesce(current_user_id(), 'none') FROM (SELECT set_config('grid.user_id', 'user_old', false)) AS s" "none" "0245: current_user_id() no longer reads grid.user_id"
+check_in sn_0245 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%' AND pg_get_expr(d.adbin, d.adrelid) NOT LIKE '%grid.%'" "4" "0245: the four organization defaults read only the new setting"
+apply_in sn_0245 0245_app_session_settings_only.down.sql
+check_in sn_0245 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0245 down: current_org() falls back to grid.organization_id again"
+apply_in sn_0245 0245_app_session_settings_only.sql
+
+sql_in sn_0245 <<'SQL'
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, count, created_at) VALUES
+  ('org_b1', 'user_b1', 'piloti.asks_you', 'document', 'doc_1', 'ann_1', 'piloti.asks_you:document:doc_1:ann_1', true, 2, '2026-11-01'),
+  ('org_b1', 'user_b1', 'agent.asks_you', 'document', 'doc_1', 'ann_1', 'agent.asks_you:document:doc_1:ann_1', true, 1, '2026-11-10'),
+  ('org_b1', 'user_b1', 'piloti.work_done', 'document', 'doc_1', 'ann_2', 'piloti.work_done:document:doc_1:ann_2', false, 1, '2026-11-02'),
+  ('org_b1', 'user_b1', 'mention.requested', 'document', 'doc_1', 'ann_3', 'mention.requested:document:doc_1:ann_3', true, 1, '2026-11-03');
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000245', 'org_b1', 'Backfill 0245', 'user_b1', 'proj_0245');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000245', 'org_b1', 'user_b1', 'a.pdf', 'k/0245/a', 'proj_0245', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000245');
+INSERT INTO document_annotations (organization_id, document_id, number, page, shape, x, y, w, h, kind, body, author_kind, status, created_by, mentions)
+VALUES ('org_b1', 'd1d1d1d1-0000-4000-8000-000000000245', 1, 1, 'region', 0.1, 0.1, 0.5, 0.5, 'question', 'Laufbreite?', 'piloti', 'proposed', 'user_b1',
+        '[{"targetId": "agent:piloti", "display": "agent:piloti"}, {"targetId": "user_b2", "display": "Ben"}]');
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, payload) VALUES
+  ('org_b1', 'user_b2', 'mention.requested', 'document', 'doc_2', 'ann_9', 'mention.requested:document:doc_2:ann_9', true,
+   '{"note": "agent:piloti", "mentions": [{"targetId": "agent:piloti", "display": "Agent"}]}');
+INSERT INTO citation_events (organization_id, turn_id, agent, kind, severity, detail) VALUES
+  ('org_b1', 'turn_1', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 2, "office_agent": 3, "project": 1}}'),
+  ('org_b1', 'turn_2', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 4}}'),
+  ('org_b1', 'turn_3', 'agent', 'health', 'info', '{"lanes": {"project": 5}}');
+INSERT INTO conversations (id, organization_id, created_by) VALUES ('conv_0245', 'org_b1', 'user_b1');
+INSERT INTO messages (id, conversation_id, organization_id, role, content, metadata)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000245', 'conv_0245', 'org_b1', 'user', '@agent:piloti office_piloti',
+        '{"mentions": [{"targetId": "agent:piloti", "display": "agent:piloti"}], "lane": "office_piloti", "lanes": ["office_piloti", "project"], "counts": {"office_piloti": 1}}');
+SQL
+apply_in sn_0245 ../scripts/brand-free-backfill/dry-run.sql
+apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql
+apply_in sn_0245 ../scripts/brand-free-backfill/inbox-types.sql
+apply_in sn_0245 ../scripts/brand-free-backfill/inbox-types.sql   # twice: idempotent
+check_in sn_0245 "SELECT string_agg(type || '=' || count || '@' || created_at::date, ',' ORDER BY type) FROM inbox_items WHERE recipient_user_id = 'user_b1'" "agent.asks_you=3@2026-11-01,agent.work_done=1@2026-11-02,mention.requested=1@2026-11-03" "backfill: an old inbox row folds into its twin or takes the new type, and others stay"
+check_in sn_0245 "SELECT count(*) FROM inbox_items WHERE group_key LIKE 'piloti.%'" "0" "backfill: no group key keeps the old type"
+apply_in sn_0245 ../scripts/brand-free-backfill/mention-ids.sql
+apply_in sn_0245 ../scripts/brand-free-backfill/mention-ids.sql   # twice: idempotent
+apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql    # twice: idempotent
+check_in sn_0245 "SELECT author_kind || ' ' || status FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" "agent proposed" "backfill: the agent's proposal is the agent's, still proposed"
+check_in sn_0245 "SELECT mentions::text FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" '[{"display": "agent:piloti", "targetId": "agent:core"}, {"display": "Ben", "targetId": "user_b2"}]' "backfill: a mark's agent mention takes the new id, a person's and the display text stay"
+check_in sn_0245 "SELECT payload::text FROM inbox_items WHERE anchor_id = 'ann_9'" '{"note": "agent:piloti", "mentions": [{"display": "Agent", "targetId": "agent:core"}]}' "backfill: an inbox payload's mention takes the new id, free text stays"
+apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql
+apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql   # twice: idempotent
+check_in sn_0245 "SELECT string_agg(detail -> 'lanes' ->> 'office_agent', ',' ORDER BY detail::text) FROM citation_events WHERE detail -> 'lanes' ? 'office_agent'" "4,5" "backfill: a lane count moves to the new key and adds to one already there"
+check_in sn_0245 "SELECT count(*) FROM citation_events WHERE detail -> 'lanes' ? 'office_piloti'" "0" "backfill: no lane count keeps the old key"
+check_in sn_0245 "SELECT metadata::text FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}, "mentions": [{"display": "agent:piloti", "targetId": "agent:core"}]}' "backfill: a message's agent mention and lane values take the new names, its keys and display text stay"
+check_in sn_0245 "SELECT content FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '@agent:piloti office_piloti' "backfill: a message's text stays as written"
+echo "==> migration 0245 and the step-1 backfills verified"

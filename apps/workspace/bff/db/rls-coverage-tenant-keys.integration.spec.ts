@@ -61,7 +61,7 @@ describe.skipIf(!url)('tenant keys against live Postgres', () => {
     return { projectA: projectA.id, projectB: projectB.id, folderA: folderA.id }
   }
 
-  it('reads the new setting names before the legacy ones', async () => {
+  it('reads the app setting names even when the legacy ones are set too', async () => {
     const [row] = await rolledBack(async (tx) => {
       await setSetting(tx, 'grid.organization_id', ORG_LEGACY)
       await setSetting(tx, 'app.organization_id', ORG_NEW)
@@ -72,24 +72,26 @@ describe.skipIf(!url)('tenant keys against live Postgres', () => {
     expect(row).toEqual({ organization_id: ORG_NEW, user_id: USER_NEW })
   })
 
-  it('still reads the legacy names when they are set alone', async () => {
+  it('no longer reads the legacy names set alone', async () => {
     const [row] = await rolledBack(async (tx) => {
       await setSetting(tx, 'grid.organization_id', ORG_LEGACY)
       await setSetting(tx, 'grid.user_id', USER_LEGACY)
       return await tx`select current_org() as organization_id, current_user_id() as user_id`
     })
-    expect(row).toEqual({ organization_id: ORG_LEGACY, user_id: USER_LEGACY })
+    expect(row).toEqual({ organization_id: null, user_id: null })
   })
 
-  it('defaults a message to the legacy organization when only the legacy setting is set', async () => {
-    const [row] = await rolledBack(async (tx) => {
-      await setSetting(tx, 'grid.organization_id', ORG_LEGACY)
-      await tx`insert into conversations (id, organization_id, created_by)
-               values (${CONVERSATION}, ${ORG_LEGACY}, 'user_keys')`
-      return await tx`insert into messages (conversation_id, role, content)
-                      values (${CONVERSATION}, 'user', 'legacy only') returning organization_id`
-    })
-    expect(row).toEqual({ organization_id: ORG_LEGACY })
+  it('gives a message no organization from the legacy setting alone', async () => {
+    await expect(
+      rolledBack(async (tx) => {
+        await setSetting(tx, 'grid.organization_id', ORG_LEGACY)
+        await asPlatform(tx)
+        await tx`insert into conversations (id, organization_id, created_by)
+                 values (${CONVERSATION}, ${ORG_LEGACY}, 'user_keys')`
+        await tx`insert into messages (conversation_id, role, content)
+                 values (${CONVERSATION}, 'user', 'legacy only')`
+      })
+    ).rejects.toThrow('null value in column "organization_id"')
   })
 
   it('refuses a message filed under another organization\'s conversation, even as the platform role', async () => {

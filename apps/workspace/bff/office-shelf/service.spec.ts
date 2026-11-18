@@ -450,7 +450,11 @@ describe('deleteOfficeShelfDocument', () => {
     const deletes = fetchSpy.mock.calls.filter(([, init]) => (init as RequestInit)?.method === 'DELETE')
     expect(deletes).toHaveLength(2)
     for (const [, init] of deletes) {
-      expect(JSON.parse(String((init as RequestInit).body))).toEqual({ file_ids: ['plan.pdf'], permanent: true })
+      expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+        file_ids: ['plan.pdf'],
+        documents: [{ id: 'd1', file_name: 'plan.pdf' }],
+        permanent: true,
+      })
     }
     expect(deleteOfficeShelfDocumentRow).toHaveBeenCalledWith('d1', 'org-1')
     expect(recordAuditEvent).toHaveBeenCalledWith(

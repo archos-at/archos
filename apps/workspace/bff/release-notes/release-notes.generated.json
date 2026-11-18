@@ -54,6 +54,14 @@
             "en": "An assistant connected to your workspace now reads its guide, catalog and project overviews under new addresses that start with „workspace://“. The old addresses keep working until the end of 2026, so connected assistants have time to pick up the new ones on their own.",
             "de": "Ein mit Ihrem Workspace verbundener Assistent ruft seine Anleitung, den Katalog und Projektübersichten jetzt unter neuen Adressen ab, die mit „workspace://“ beginnen. Die alten Adressen funktionieren bis Ende 2026 weiter, damit verbundene Assistenten Zeit haben, selbst auf die neuen umzusteigen."
           }
+        },
+        {
+          "section": "upgrade",
+          "area": "administration",
+          "text": {
+            "en": "New audit log entries for the agent's actions start with „agent.“, while earlier entries keep their old names, so the audit log shows both. If you filter or export the agent's actions, include both names.",
+            "de": "Neue Audit-Log-Einträge für Aktionen des Agenten beginnen mit „agent.“, während frühere Einträge ihre alten Namen behalten, sodass im Audit-Log beide angezeigt werden. Wenn Sie die Aktionen des Agenten filtern oder exportieren, müssen Sie beide Namen berücksichtigen."
+          }
         }
       ]
     },

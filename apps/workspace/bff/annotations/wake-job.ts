@@ -24,7 +24,7 @@ import { delegationEventId } from './wake-ids'
 import { announceAgentWork } from './agent-work'
 import { findWake, handBackDelegation, settleWake } from './wake-repository'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 export const WAKE_REQUIRES = [
   'user_message.trigger',
@@ -134,7 +134,7 @@ async function handBack(organizationId: string, payload: AgentWakePayload, doc: 
         kind: 'annotations.changed',
         annotationIds: [mark.id],
         change: 'updated',
-        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
       }).catch(() => undefined)
     }
     return handedBack

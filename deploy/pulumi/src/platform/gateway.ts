@@ -16,6 +16,8 @@ import { CMS } from "../config/cms";
 export const GATEWAY_NAME = objectName("gateway");
 export const GATEWAY_CLASS = objectName("gatewayClass");
 
+export const ENVOY_GATEWAY_CHART_VERSION = "1.10.0";
+
 export function installGatewayController(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -42,6 +44,7 @@ export function installGatewayController(
     "envoy-gateway",
     {
       chart: "oci://docker.io/envoyproxy/gateway-helm",
+      version: ENVOY_GATEWAY_CHART_VERSION,
       namespace: ns.metadata.name,
       values: cfg.rateLimit.enabled
         ? { config: { envoyGateway: rateLimitConfig(cfg, redisAuthSecret !== undefined) } }

@@ -9,11 +9,13 @@ import { isLegacyAgentSetup, LEGACY_AGENT_SETUP } from './legacy-project-setup'
 
 export const MAX_ADDRESS_LENGTH = 200
 
-export const PROJECT_SETUPS = ['agent', LEGACY_AGENT_SETUP, 'self'] as const
+export const AGENT_SETUP = 'agent' as const
+
+export const PROJECT_SETUPS = [AGENT_SETUP, LEGACY_AGENT_SETUP, 'self'] as const
 export type ProjectSetup = (typeof PROJECT_SETUPS)[number]
 
 export const isAgentSetup = (setup: ProjectSetup | undefined): boolean =>
-  setup === 'agent' || isLegacyAgentSetup(setup)
+  setup === AGENT_SETUP || isLegacyAgentSetup(setup)
 
 export const createProjectFieldsSchema = z
   .object({
@@ -26,7 +28,7 @@ export const createProjectFieldsSchema = z
       })
       .strict()
       .optional(),
-    setup: z.enum(PROJECT_SETUPS).default(LEGACY_AGENT_SETUP),
+    setup: z.enum(PROJECT_SETUPS).default(AGENT_SETUP),
     description: z
       .string()
       .trim()

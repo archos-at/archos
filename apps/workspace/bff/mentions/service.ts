@@ -28,8 +28,8 @@ import {
   voidOpenRequestsForResource,
   voidOpenRequestsForSubject,
 } from './repository'
-import { LEGACY_AGENT_MENTION_ID } from './legacy-mention-ids'
 import {
+  AGENT_MENTION_ID,
   isAgentMentionId,
   MENTION_ERROR_REASONS,
   type AddresseeSet,
@@ -415,9 +415,9 @@ export async function listMentionCandidates(
 
   const candidates: MentionCandidate[] = [
     {
-      targetId: LEGACY_AGENT_MENTION_ID,
+      targetId: AGENT_MENTION_ID,
       person: {
-        userId: LEGACY_AGENT_MENTION_ID,
+        userId: AGENT_MENTION_ID,
         email: null,
         name: PRODUCT_NAME,
         profilePictureUrl: null,

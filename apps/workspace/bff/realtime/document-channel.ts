@@ -19,8 +19,7 @@ import { defineChannel } from './channel'
 import { publish } from './hub'
 import { flushRoster, forgetRosterPeer, noteRosterPeer, readRoster, rosterKey, type RosterEntry, type RosterFacts } from './roster'
 import { PRODUCT_NAME } from '@/lib/brand'
-import type { AgentKind } from '@/lib/agent-kind'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND, type AgentKind } from '@/lib/agent-kind'
 
 export const DOCUMENT_REAUTHORIZE_MS = 30_000
 
@@ -104,10 +103,10 @@ export function agentPeer(conversationId: string, onBehalfOf: string, forName?: 
   const id = conversationId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 56)
   const name = forName?.trim().slice(0, 120)
   return {
-    peerId: `piloti-${id}`.padEnd(8, '0'),
+    peerId: `agent-${id}`.padEnd(8, '0'),
     userId: onBehalfOf,
     name: PRODUCT_NAME,
-    kind: LEGACY_AGENT_KIND,
+    kind: AGENT_KIND,
     ...(name ? { forName: name } : {}),
   }
 }

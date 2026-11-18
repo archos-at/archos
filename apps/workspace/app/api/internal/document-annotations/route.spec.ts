@@ -196,7 +196,7 @@ describe('POST /api/internal/document-annotations', () => {
       DOC_ID,
       OTHER_DOC,
       { body: 'Die lichte Breite ist im Schnitt B-B kotiert.' },
-      { kind: 'piloti' }
+      { kind: 'agent' }
     )
   })
 
@@ -455,14 +455,14 @@ function fakeRepository() {
   vi.mocked(listDocumentAnnotations).mockImplementation(async () => [...marks.values()])
   vi.mocked(insertDocumentAnnotations).mockImplementation(async (input: NewAnnotationsInput) =>
     input.marks.map((mark, index) => {
-      const acceptedBy = input.authorKind === 'piloti' ? (input.acceptedBy ?? null) : null
+      const acceptedBy = isAgentKind(input.authorKind) ? (input.acceptedBy ?? null) : null
       const row = record({
         ...mark,
         id: `55555555-5555-4555-8555-55555555555${index}`,
         number: 10 + index,
         authorKind: input.authorKind,
         createdBy: input.createdBy,
-        status: input.authorKind === 'piloti' && !acceptedBy ? 'proposed' : 'open',
+        status: isAgentKind(input.authorKind) && !acceptedBy ? 'proposed' : 'open',
         acceptedBy,
         acceptedAt: acceptedBy ? NOW : null,
       })
@@ -518,12 +518,12 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
 
     expect(response.status).toBe(200)
     expect(insertDocumentAnnotations).toHaveBeenCalledWith(
-      expect.objectContaining({ authorKind: 'piloti', createdBy: 'user_1', acceptedBy: 'user_1' })
+      expect.objectContaining({ authorKind: 'agent', createdBy: 'user_1', acceptedBy: 'user_1' })
     )
     const body = await response.json()
     expect(body).toMatchObject({ documentId: DOC_ID, created: [{ number: 10, kind: 'defect', body: PROPOSAL.body }] })
     const born = marks.get(body.created[0].id)
-    expect(born).toMatchObject({ status: 'open', authorKind: 'piloti', acceptedBy: 'user_1' })
+    expect(born).toMatchObject({ status: 'open', authorKind: 'agent', acceptedBy: 'user_1' })
     expect(violatedChecks(born ?? record())).toEqual([])
     await vi.waitFor(() =>
       expect(onMarksSet).toHaveBeenCalledWith(
@@ -557,7 +557,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
       {
         organizationId: 'org_1',
         annotationId: MARK_ID,
-        authorKind: 'piloti',
+        authorKind: 'agent',
         body: NOTE,
         createdBy: 'user_1',
         addressesAgent: false,

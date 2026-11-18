@@ -109,7 +109,7 @@ describe('createProject, set up by the agent', () => {
     expect(assignRole.mock.invocationCallOrder[0]).toBeLessThan(startProjectIntake.mock.invocationCallOrder[0])
     expect(setProjectStatusInOrg).not.toHaveBeenCalled()
     expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'project.created', metadata: { name: 'Aufstockung Hauptstraße', setup: 'piloti' } })
+      expect.objectContaining({ action: 'project.created', metadata: { name: 'Aufstockung Hauptstraße', setup: 'agent' } })
     )
     expect(project.id).toBe('p1')
   })

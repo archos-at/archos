@@ -181,7 +181,7 @@ describe('one’s own reply in the thread', () => {
     const thread = await openThread()
     const box = within(thread).getByTestId('thread-reply')
     await userEvent.type(box, `@${PRODUCT_NAME.slice(0, 3).toLowerCase()}`)
-    await userEvent.click(pickerOption(thread, 'agent:piloti'))
+    await userEvent.click(pickerOption(thread, 'agent:core'))
     await userEvent.type(box, 'Stimmt die Breite?{Enter}')
     await waitFor(() => expect(agent.questions()).toHaveLength(1))
 

@@ -231,10 +231,12 @@ def run_worker() -> None:
     otlp_metrics.install_from_env()
     orchestrator_tracing.instrument(getattr(hatchet, "config", None))
     slots = _int_env("RESEARCH_WORKERS", 1, floor=1)
+    workflows = [research_run(hatchet)]
+    orchestrator_client.register_workflows(workflows)
     hatchet_worker = hatchet.worker(
         f"{WORKER_NAME}-{socket.gethostname()}",
         slots=slots,
-        workflows=[research_run(hatchet)],
+        workflows=workflows,
         lifespan=_liveness,
     )
     logger.info("Research worker on Hatchet started (slots=%s, per-org cap=%s)", slots, max_active_per_org())

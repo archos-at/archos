@@ -36,18 +36,6 @@ class CreateCollectionRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Backend-specific metadata")
 
 
-class DeleteFilesRequest(BaseModel):
-    file_ids: list[str] = Field(..., description="List of file IDs to delete")
-    permanent: bool = Field(
-        False,
-        description=(
-            "True when nobody will undo this delete (an erase, a move to another collection): the Fassung facts "
-            "a person made on the files go with them. False (the default) keeps those facts for the files' "
-            "return after an archive, the folder bin or a publish."
-        ),
-    )
-
-
 class ScreeningPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -337,13 +325,13 @@ class GroupedSearchFilters(BaseModel):
     document_ids: list[_DocumentId] = Field(
         default_factory=list,
         max_length=1000,
-        description="Only passages of these documents (the BFF's document ids, `grid_document_id` on the chunks).",
+        description="Only passages of these documents (the BFF's document ids, `document_id` on the chunks).",
     )
     file_names: list[_FileName] = Field(
         default_factory=list,
         max_length=1000,
         description=(
-            "The same documents' file names, for the passages that carry no `grid_document_id` (written before "
+            "The same documents' file names, for the passages that carry no `document_id` (written before "
             "the field existed, or copied from Chroma): any of `document_ids` or of these. Only with `document_ids`."
         ),
     )

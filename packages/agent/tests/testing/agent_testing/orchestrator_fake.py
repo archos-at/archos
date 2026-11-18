@@ -67,6 +67,13 @@ class FakeWorkflow:
     def step(self, name: str) -> FakeStep:
         return next(step for step in self.steps if step.name == name)
 
+    @property
+    def name(self) -> str:
+        return self.options["name"]
+
+    def to_proto(self) -> FakeWorkflow:
+        return self
+
 
 class FakeRuns:
     def __init__(self) -> None:
@@ -96,9 +103,23 @@ class FakeWorker:
 class FakeRateLimits:
     def __init__(self) -> None:
         self.put_calls: list[tuple[str, int, Any]] = []
+        self.fail_with: list[BaseException] = []
 
     def put(self, key: str, limit: int, duration: Any = None) -> None:
         self.put_calls.append((key, limit, duration))
+        if self.fail_with:
+            raise self.fail_with.pop(0)
+
+
+class FakeAdmin:
+    def __init__(self) -> None:
+        self.put_calls: list[str] = []
+        self.fail_with: list[BaseException] = []
+
+    def put_workflow(self, proto: FakeWorkflow) -> None:
+        self.put_calls.append(proto.name)
+        if self.fail_with:
+            raise self.fail_with.pop(0)
 
 
 class FakeWorkflows(list):
@@ -123,6 +144,8 @@ class FakeHatchet:
         self.runs = FakeRuns()
         self.workers: list[FakeWorker] = []
         self.rate_limits = FakeRateLimits()
+        self.admin = FakeAdmin()
+        self._client = SimpleNamespace(admin=self.admin)
 
     def workflow(self, **options) -> FakeWorkflow:
         workflow = FakeWorkflow(options)

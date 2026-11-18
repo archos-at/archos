@@ -103,8 +103,8 @@ describe('the image build wiring', () => {
     expect(buildStep).toContain("[ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .")
   })
 
-  it('deletes the CLI binary it fetched, which the production install would not prune', () => {
-    expect(buildStep).toContain('rm -rf node_modules/@posthog/cli/node_modules/.bin_real')
+  it('ships no node_modules from the builder, where the CLI fetched its binary', () => {
+    expect(dockerfile).not.toMatch(/^COPY --from=builder \S* ?\/app\/node_modules /m)
   })
 
   it('keeps the maps in a stage of their own that is not the default target', () => {

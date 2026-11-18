@@ -1,0 +1,10 @@
+---
+# area: documents
+operators:
+  - >
+    Before this release reaches an environment, run the document-id backfill
+    for the search index from an agent-host pod (dry run first, then with
+    --apply) until it reports nothing left. Document search, similar passages
+    and deletes now find a document's index entries by its id, so entries
+    without it are missed until the backfill has run. The runbook for the
+    brand-free stored names has the steps.
