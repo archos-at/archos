@@ -72,7 +72,7 @@ def test_nothing_is_both():
 
 
 def test_every_record_tool_is_a_chat_data_source():
-    from agent.core.answer_pipeline import RECORD_TOOLS
+    from agent.core.retrieval_attempts import RECORD_TOOLS
 
     config = _config()
     stale = RECORD_TOOLS - (_source_tools(config) & set(_chat_tools(config)))

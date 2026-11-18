@@ -17,14 +17,11 @@ export function encodedDraftPath(path: string): string {
   const trimmed = path.trim()
   if (!trimmed || trimmed.length > MAX_DRAFT_PATH_CHARS) throw new BadRequestError('Invalid draft path')
   const stripped = trimmed.replace(/^\/+/, '')
-  if (!stripped) throw new BadRequestError('Invalid draft path')
   const segments = stripped.split('/')
   if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
     throw new BadRequestError('Invalid draft path')
   }
-  return segments
-    .map((segment) => encodeURIComponent(segment))
-    .join('/')
+  return segments.map((segment) => encodeURIComponent(segment)).join('/')
 }
 
 function backendHeaders(): Record<string, string> {

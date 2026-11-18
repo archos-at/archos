@@ -113,6 +113,12 @@ class TestTheDeletion:
         assert _keys(store, CONVERSATION) == []
         assert _keys(store, OTHER) == [f"{DRAFT_ROOT}befund.md"]
 
+    async def test_an_id_that_climbs_out_deletes_nothing(self, client, prod_token, store) -> None:
+        await _write(store, OTHER, "befund")
+
+        assert _delete(client, f"x..{OTHER}").status_code == 400
+        assert _keys(store, OTHER) == [f"{DRAFT_ROOT}befund.md"]
+
     def test_a_conversation_that_never_wrote_a_draft_is_a_204(self, client, prod_token) -> None:
         assert _delete(client).status_code == 204
 

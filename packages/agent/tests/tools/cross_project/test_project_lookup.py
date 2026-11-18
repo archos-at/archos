@@ -25,6 +25,10 @@ from agent.knowledge.restricted_use import admit_tool_results
 from agent.knowledge.restricted_use import bind_cross_project_turn
 from agent.knowledge.restricted_use import may_name
 from agent.knowledge.restricted_use import reset_cross_project_turn
+from agent.tools.cross_project import bff_calls
+from agent.tools.cross_project import observation
+from agent.tools.cross_project import permit_records
+from agent.tools.cross_project import project_facts
 from agent.tools.cross_project import register as lookup
 from agent.tools.cross_project.client import CrossProjectLookupError
 from agent.turn.response import answer_message_id
@@ -95,7 +99,7 @@ def _answering(monkeypatch, calls, body: dict[str, Any] | Exception) -> None:
             raise body
         return body
 
-    monkeypatch.setattr(lookup, "post_lookup", fake)
+    monkeypatch.setattr(bff_calls, "post_lookup", fake)
 
 
 @pytest.fixture
@@ -514,14 +518,14 @@ class TestThePermitRecords:
 
     @pytest.mark.parametrize(
         ("length", "cut"),
-        [(lookup.PERMIT_BODY_MAX_CHARS, False), (lookup.PERMIT_BODY_MAX_CHARS + 1, True)],
+        [(permit_records.PERMIT_BODY_MAX_CHARS, False), (permit_records.PERMIT_BODY_MAX_CHARS + 1, True)],
         ids=["exactly the cap", "one over"],
     )
     def test_the_cap_is_inclusive_and_a_cut_body_is_at_most_the_cap(self, length: int, cut: bool) -> None:
-        body, truncated = lookup.capped_body("a" * length)
+        body, truncated = permit_records.capped_body("a" * length)
 
         assert truncated is cut
-        assert len(body) <= lookup.PERMIT_BODY_MAX_CHARS
+        assert len(body) <= permit_records.PERMIT_BODY_MAX_CHARS
 
 
 class TestTheRecordedDecisions:
@@ -854,11 +858,11 @@ class TestWhatLangfuseSees:
         seen: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
         tags: list[str] = []
         monkeypatch.setattr(
-            lookup,
+            observation,
             "emit_retrieval_span",
             lambda *, tool_name, search_input, picks: seen.append((tool_name, search_input, picks)),
         )
-        monkeypatch.setattr(lookup, "add_trace_tag", tags.append)
+        monkeypatch.setattr(observation, "add_trace_tag", tags.append)
         seen.append(("tags", {}, {"tags": tags}))
         return seen
 
@@ -1062,7 +1066,7 @@ class TestTheProjectFacts:
             for fact in ("federal_state", "construction_method", "uses", "work_type")
         }
         ours: dict[str, set[str]] = {}
-        for token, fact in lookup.FACT_OF_TOKEN.items():
+        for token, fact in project_facts.FACT_OF_TOKEN.items():
             ours.setdefault(fact, set()).add(token)
 
         assert ours.pop("building_class") == {f"gk{grade}" for grade in range(1, 6)}
@@ -1096,9 +1100,9 @@ class TestTheProjectFacts:
     ) -> None:
         seen: list[dict[str, Any]] = []
         monkeypatch.setattr(
-            lookup, "emit_retrieval_span", lambda *, tool_name, search_input, picks: seen.append(search_input)
+            observation, "emit_retrieval_span", lambda *, tool_name, search_input, picks: seen.append(search_input)
         )
-        monkeypatch.setattr(lookup, "add_trace_tag", lambda tag: None)
+        monkeypatch.setattr(observation, "add_trace_tag", lambda tag: None)
         _answering(monkeypatch, calls, SEARCH_BODY)
 
         await lookup.run_project_lookup("search", query="Traufe", project_facts=["Tirol", "GK 4"])
