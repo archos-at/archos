@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startServer } from "../bin/server.mjs";
 
-export async function startRunner({ slots = 8, watchdogGraceMs } = {}) {
+export async function startRunner({ slots = 8, ...options } = {}) {
   const storage = await mkdtemp(join(tmpdir(), "code-runner-do-"));
-  const server = await startServer({ port: 0, host: "127.0.0.1", slots, storage, watchdogGraceMs });
+  const server = await startServer({ port: 0, host: "127.0.0.1", slots, storage, ...options });
   const url = `http://127.0.0.1:${server.port}`;
   return {
     url,
     storage,
+    slots: server.slots,
     async run(body) {
       const response = await fetch(`${url}/run`, { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) });
       return { http: response.status, body: await response.json() };

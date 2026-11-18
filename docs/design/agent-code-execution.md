@@ -61,8 +61,7 @@ was run", and the agent may try once more.
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
 - **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 1 CPU
-  and 1 GiB requested, 2 GiB limit: 4 × (190 MB per process + 128 MB isolate + 50 MB of files)
-  ≈ 1.5 GB.
+  and 1 GiB requested, 4 GiB limit: 4 slots at their 768 MiB memory cap and the front ([the budget](../../apps/code-runner/README.md#memory-per-run)).
 
 ## Storage
 
@@ -128,7 +127,7 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | Limits: 60 s / 180 s, 4 runs per pod, 50 MB in, 50 MB out | Taken |
 | CSV not fileable; HTML kept in the working directory but not fileable | Taken |
 | Shared runner pods across offices. An escaped script could read another run in the same pod (the other run's inputs) and copy it into its own files; it needs a bug in the isolate engine, and the output check sees types, not contents | Accepted for now; open: one runner deployment per organization |
-| Memory per run: self-hosted workerd enforces none; the pod limit bounds it | Open |
+| Memory per run: self-hosted workerd enforces none, so the runner's front watches each slot's anonymous resident memory and stops a run above 768 MiB (`status: error`), restarting the slot; set by the largest run the 50 MB in / 50 MB out limits allow (up to 628 MiB measured). A smaller cap needs smaller input and output limits first | Taken 2026-11-18 |
 | A cap on concurrent runs per organization | Open, not built |
 | Whether runs count toward an office's credits (ADR-0053) | Open |
 | A run as a row of the Herleitung (script, inputs with citation keys, outputs) | Open, not built |
