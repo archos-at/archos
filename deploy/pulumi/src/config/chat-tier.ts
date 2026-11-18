@@ -8,6 +8,7 @@ export function backendAutoscaled(c: { backend: BackendConfig }): boolean {
 
 export interface BackendConfig {
   resources: ResourceSpec;
+  legacyResources: ResourceSpec;
   maxActiveJobsPerOrg: number;
   maxQueuedJobsPerOrg: number;
   ingestMaxWorkers: number;
@@ -62,14 +63,16 @@ export function loadChatTier(
         "conversation bus no replica can relay a turn it does not run, or stop a stale one (ADR-0080).",
     );
   }
+  const backendResources: ResourceSpec = {
+    requestsCpu: cfg.get("backendRequestsCpu") ?? "1",
+    requestsMemory: cfg.get("backendRequestsMemory") ?? "2Gi",
+    limitsCpu: cfg.get("backendLimitsCpu") ?? "4",
+    limitsMemory: cfg.get("backendLimitsMemory") ?? "8Gi",
+  };
   return {
     backend: {
-      resources: {
-        requestsCpu: cfg.get("backendRequestsCpu") ?? "1",
-        requestsMemory: cfg.get("backendRequestsMemory") ?? "2Gi",
-        limitsCpu: cfg.get("backendLimitsCpu") ?? "4",
-        limitsMemory: cfg.get("backendLimitsMemory") ?? "8Gi",
-      },
+      resources: backendResources,
+      legacyResources: { ...backendResources, requestsCpu: cfg.get("legacyChatRequestsCpu") ?? backendResources.requestsCpu },
       maxActiveJobsPerOrg: num(cfg, "backendMaxActiveJobsPerOrg", 3),
       maxQueuedJobsPerOrg: num(cfg, "backendMaxQueuedJobsPerOrg", 50),
       ingestMaxWorkers: num(cfg, "backendIngestMaxWorkers", 2),

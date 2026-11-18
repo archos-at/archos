@@ -506,7 +506,7 @@
         "memory": "8Gi"
       },
       "requests": {
-        "cpu": "1",
+        "cpu": "1400m",
         "memory": "2Gi"
       }
     },
@@ -646,7 +646,7 @@
         "memory": "8Gi"
       },
       "requests": {
-        "cpu": "1",
+        "cpu": "400m",
         "memory": "2Gi"
       }
     },
