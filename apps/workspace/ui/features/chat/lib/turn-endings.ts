@@ -8,14 +8,16 @@ const store = () => useChatStore.getState()
 
 export const ending = new Set<string>()
 
+const ownerOf = (view: TurnView) => {
+  const { currentConversation, conversations } = store()
+  return currentConversation?.id === view.conversationId
+    ? currentConversation
+    : conversations.find((conversation) => conversation.id === view.conversationId)
+}
+
 const partialAnswerOf = (view: TurnView): ChatMessage | undefined => {
   if (!view.messageId) return undefined
-  const { currentConversation, conversations } = store()
-  const owner =
-    currentConversation?.id === view.conversationId
-      ? currentConversation
-      : conversations.find((conversation) => conversation.id === view.conversationId)
-  return owner?.messages.find(
+  return ownerOf(view)?.messages.find(
     (message) => message.id === view.messageId && message.isStreaming && message.content.trim().length > 0
   )
 }
@@ -34,22 +36,19 @@ const storedAnswerOf = async (view: TurnView): Promise<ChatMessage | null | unde
   }
 }
 
-const isNewestQuestion = (view: TurnView): boolean => {
-  const conversation = store().currentConversation
-  if (conversation?.id !== view.conversationId) return false
-  return conversation.messages.findLast((message) => message.messageType === 'user')?.id === view.turnId
-}
+const isNewestQuestion = (view: TurnView): boolean =>
+  ownerOf(view)?.messages.findLast((message) => message.messageType === 'user')?.id === view.turnId
 
 const awaitLostTurn = (view: TurnView, partial?: ChatMessage): void => {
   store().dropTurn(view.turnId)
   void store()
     ._awaitServerAnswer(view.conversationId, view.turnId)
     .then((outcome) => {
-      if (outcome !== 'nothing' || store().currentConversation?.id !== view.conversationId) return
+      if (outcome !== 'nothing' || !ownerOf(view)) return
       if (partial && isNewestQuestion(view)) {
         store().adoptRunMessage(view.conversationId, { ...partial, isStreaming: undefined, failed: true })
       }
-      store().addErrorCard('agent.response_interrupted')
+      store().addErrorCard('agent.response_interrupted', undefined, undefined, view.conversationId)
     })
     .finally(() => ending.delete(view.turnId))
 }
@@ -77,7 +76,7 @@ export const endFailedTurn = (view: TurnView, card: RunErrorCard = runErrorCard(
   void store()
     ._recoverInterruptedAssistantMessage(view.conversationId, view.turnId)
     .then((outcome) => {
-      if (outcome !== 'nothing' || store().currentConversation?.id !== view.conversationId) return
-      store().addErrorCard(card.code, card.message, card.details)
+      if (outcome !== 'nothing' || !ownerOf(view)) return
+      store().addErrorCard(card.code, card.message, card.details, view.conversationId)
     })
 }

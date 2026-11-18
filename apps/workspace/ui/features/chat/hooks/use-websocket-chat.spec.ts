@@ -158,6 +158,7 @@ beforeEach(() => {
     conversations: [],
     currentConversation: null,
     turns: {},
+    unseenAnswers: {},
     resumableTurn: null,
     isStreaming: false,
     isLoading: false,
@@ -371,24 +372,75 @@ describe('reload mid-answer', () => {
 describe('switching conversations mid-turn', () => {
   const TURN = answered[0]!.turn_id
 
-  it('closes the socket with the conversation and re-attaches the turn from its last seq on return', () => {
+  const leave = () => {
+    const b = conversationOf('conv-b')
+    useChatStore.setState({ conversations: [useChatStore.getState().currentConversation!, b] })
+    act(() => useChatStore.getState().selectConversation(b.id))
+  }
+  const left = () => useChatStore.getState().conversations.find((conversation) => conversation.id === CONVERSATION)!
+
+  it('keeps the left conversation’s socket open, so its answer is whole on return without a replay', async () => {
     const { rerender } = openTurn(answered)
     deliver(answered.filter((event) => event.seq <= 9))
     const first = socket()
-    const b = conversationOf('conv-b')
-    useChatStore.setState({ conversations: [useChatStore.getState().currentConversation!, b] })
 
-    act(() => useChatStore.getState().selectConversation(b.id))
+    leave()
     rerender()
-    expect(first.close).toHaveBeenCalled()
+    expect(first.close).not.toHaveBeenCalled()
     expect(socket().options.conversationId).toBe('conv-b')
-    expect(useChatStore.getState().isStreaming).toBe(false)
+    expect(useChatStore.getState()).toMatchObject({ isStreaming: false, unseenAnswers: {} })
+    expect(useChatStore.getState().isSessionBusy(CONVERSATION)).toBe(true)
+
+    act(() => {
+      for (const event of answered.filter((event) => event.seq > 9)) first.options.onEvent(event)
+    })
+    expect(useChatStore.getState().isSessionBusy(CONVERSATION)).toBe(false)
+    expect(useChatStore.getState().unseenAnswers).toEqual({ [CONVERSATION]: true })
+    const answer = left().messages.find((message) => message.messageType === 'agent_response')!
+    expect(answer.content.length).toBeGreaterThan(0)
+    expect(answer.isStreaming).toBeFalsy()
+    expect(useChatStore.getState().currentConversation!.messages).toEqual([])
+    await vi.waitFor(() => expect(client.createMessage).toHaveBeenCalledWith(CONVERSATION, expect.objectContaining({ role: 'assistant' })))
+    expect(client.createMessage).not.toHaveBeenCalledWith('conv-b', expect.anything())
 
     act(() => useChatStore.getState().selectConversation(CONVERSATION))
     rerender()
-    expect(socket().options.conversationId).toBe(CONVERSATION)
-    expect(socket().options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 9 }])
-    expect(useChatStore.getState().isStreaming).toBe(true)
+    expect(useChatStore.getState()).toMatchObject({ unseenAnswers: {}, isStreaming: false })
+    expect(messages()).toContain(answer)
+  })
+
+  it('closes the left conversation’s socket when nothing runs in it', () => {
+    const { rerender } = open(conversationOf(CONVERSATION, [questionOf('question-1')]))
+    const first = socket()
+    leave()
+    rerender()
+    expect(first.close).toHaveBeenCalled()
+  })
+
+  it('opens a socket again for a turn still running when the chat page is mounted anew', () => {
+    const { unmount } = openTurn(answered)
+    deliver(answered.filter((event) => event.seq <= 9))
+    leave()
+    unmount()
+    for (const each of sockets) expect(each.close).toHaveBeenCalled()
+
+    const count = sockets.length
+    renderHook(() => useWebSocketChat())
+    const reopened = sockets.slice(count).find((each) => each.options.conversationId === CONVERSATION)!
+    expect(reopened.options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 9 }])
+  })
+
+  it('stops the turn of a conversation that is deleted while it answers in the background', () => {
+    const { rerender } = openTurn(answered)
+    deliver(answered.filter((event) => event.seq <= 9))
+    const first = socket()
+    leave()
+    rerender()
+
+    act(() => useChatStore.getState().deleteConversation(CONVERSATION))
+    expect(useChatStore.getState().hasAnyBusySession()).toBe(false)
+    expect(first.sent).toContainEqual(expect.objectContaining({ type: 'cancel_turn', turn_id: TURN }))
+    expect(first.close).toHaveBeenCalled()
   })
 })
 

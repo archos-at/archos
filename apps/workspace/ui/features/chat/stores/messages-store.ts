@@ -8,7 +8,7 @@ import { createComposerActions } from './composer-actions'
 export type { ChatSendFn, MessagesSlice } from './messages-slice-types'
 export { registerStopStreamingHandler } from './turn-actions'
 export { mergeRemoteMessages } from '../lib/remote-message-merge'
-export { runningTurnIn, turnStateFor } from '../lib/turn-selectors'
+export { conversationActivity, runningTurnIn, turnStateFor } from '../lib/turn-selectors'
 
 export const initialMessagesState = {
   isStreaming: false,
@@ -16,6 +16,7 @@ export const initialMessagesState = {
   currentUserMessageId: null as string | null,
   currentTurnStartedAt: null as number | null,
   turns: {} as Record<string, TurnView>,
+  unseenAnswers: {} as Record<string, true>,
   projectId: null as string | null,
   composerPrefill: null as ComposerPrefill | null,
   composerSubject: null,

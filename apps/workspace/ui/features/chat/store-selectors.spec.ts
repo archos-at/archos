@@ -30,6 +30,8 @@ describe('ChatStore - Session Busy Selectors', () => {
     useChatStore.setState({
       conversations: [],
       currentConversation: null,
+      turns: {},
+      unseenAnswers: {},
       isStreaming: false,
       pendingInteraction: null,
     })
@@ -37,26 +39,25 @@ describe('ChatStore - Session Busy Selectors', () => {
 
   describe('isSessionBusy', () => {
     it('returns false when session has no active operations', () => {
-      const conv = conversation('session-1')
-      useChatStore.setState({ conversations: [conv], currentConversation: null })
+      useChatStore.setState({ conversations: [conversation('session-1')], currentConversation: null })
       expect(useChatStore.getState().isSessionBusy('session-1')).toBe(false)
     })
 
-    it('returns true when session is the current session with active shallow thinking', () => {
+    it('is true for the open chat while its turn runs', () => {
       const conv = conversation('session-1')
-      useChatStore.setState({ conversations: [conv], currentConversation: conv, isStreaming: true })
+      useChatStore.setState({ conversations: [conv], currentConversation: conv })
+      useChatStore.getState().beginTurn('session-1', 'turn-1')
       expect(useChatStore.getState().isSessionBusy('session-1')).toBe(true)
     })
 
-    it('does not count another session as busy because the current one streams', () => {
+    it('is true for a chat that answers in the background, and only for that one', () => {
       const current = conversation('session-current')
       const other = conversation('session-other')
-      useChatStore.setState({
-        conversations: [current, other],
-        currentConversation: current,
-        isStreaming: true,
-      })
-      expect(useChatStore.getState().isSessionBusy('session-other')).toBe(false)
+      useChatStore.setState({ conversations: [current, other], currentConversation: current })
+      useChatStore.getState().beginTurn('session-other', 'turn-1')
+      expect(useChatStore.getState().isSessionBusy('session-other')).toBe(true)
+      expect(useChatStore.getState().isSessionBusy('session-current')).toBe(false)
+      expect(useChatStore.getState().isStreaming).toBe(false)
     })
 
     it('does not count a live run as busy: the run is a message with its own stop', () => {
@@ -78,17 +79,10 @@ describe('ChatStore - Session Busy Selectors', () => {
       expect(useChatStore.getState().hasAnyBusySession()).toBe(false)
     })
 
-    it('returns true when the current session is streaming (shallow thinking)', () => {
-      const conv = conversation('a')
-      useChatStore.setState({ conversations: [conv], currentConversation: conv, isStreaming: true })
-      expect(useChatStore.getState().hasAnyBusySession()).toBe(true)
-    })
-
-    it('returns true when pendingInteraction is set (HITL prompt awaiting response)', () => {
-      useChatStore.setState({
-        conversations: [conversation('a')],
-        pendingInteraction: { turnId: 'msg-1', interactionId: 'interaction-1', input: 'text' },
-      })
+    it('is true while any chat answers, the open one or one in the background', () => {
+      const open = conversation('a')
+      useChatStore.setState({ conversations: [open, conversation('b')], currentConversation: open })
+      useChatStore.getState().beginTurn('b', 'turn-1')
       expect(useChatStore.getState().hasAnyBusySession()).toBe(true)
     })
   })

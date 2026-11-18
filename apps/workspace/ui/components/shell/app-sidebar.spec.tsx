@@ -431,6 +431,24 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(chat).toHaveClass('text-foreground', 'font-medium')
   })
 
+  test('a row shows what its chat is doing, and says it: working, waiting for an answer, answer ready', () => {
+    const base = chats().items[0]!
+    renderWith(
+      chats({
+        items: [
+          { ...base, id: 'w', title: 'Fluchtwege', activity: 'working' },
+          { ...base, id: 'q', title: 'Stellplätze', activity: 'waiting' },
+          { ...base, id: 'a', title: 'Abstandsflächen', activity: 'answered' },
+          { ...base, id: 'n', title: 'Brandschutz', activity: null },
+        ],
+      })
+    )
+    expect(within(screen.getByRole('link', { name: 'Fluchtwege (working)' })).getByTestId('rail-chat-working')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Stellplätze (waiting for your answer)' })).getByTestId('rail-chat-waiting')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Abstandsflächen (answer ready)' })).getByTestId('rail-chat-answered')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Brandschutz' }).querySelector('[data-testid^="rail-chat-"]')).toBeNull()
+  })
+
   test('with no chat open, „Chat“ stays the current place', () => {
     renderWith(chats({ items: chats().items.map((item) => ({ ...item, current: false })) }))
     const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')

@@ -42,6 +42,14 @@ const ensureServerConversation = (
   return tracked
 }
 
+const conversationOf = (
+  { currentConversation, conversations }: Pick<ChatStore, 'currentConversation' | 'conversations'>,
+  conversationId?: string
+): Conversation | null => {
+  if (conversationId === undefined || conversationId === currentConversation?.id) return currentConversation
+  return conversations.find((conversation) => conversation.id === conversationId) ?? null
+}
+
 export const forgetServerConversation = (conversationId: string): void => {
   ensuredServerConversations.delete(conversationId)
 }
@@ -72,8 +80,9 @@ export const createConversationPersistenceSlice: StateCreator<
     }
   },
 
-  _appendMessage: async (message: ChatMessage) => {
-    const { currentConversation, projectId } = get()
+  _appendMessage: async (message: ChatMessage, conversationId?: string) => {
+    const { projectId } = get()
+    const currentConversation = conversationOf(get(), conversationId)
     if (!currentConversation) return
 
     try {
@@ -153,8 +162,9 @@ export const createConversationPersistenceSlice: StateCreator<
     }
   },
 
-  _persistTurnProvenance: async (after?: Promise<unknown>) => {
-    const { currentConversation, currentUserMessageId } = get()
+  _persistTurnProvenance: async (after?: Promise<unknown>, turn?: { conversationId: string; turnId: string }) => {
+    const currentConversation = conversationOf(get(), turn?.conversationId)
+    const currentUserMessageId = turn?.turnId ?? get().currentUserMessageId
     if (!currentConversation) return
 
     const messages = currentConversation.messages

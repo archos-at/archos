@@ -97,4 +97,29 @@ describe('useSessionRows', () => {
     expect(result.current[0]!.temporary).toBe(true)
     expect(result.current[1]).toBe(olderBefore)
   })
+
+  test('a row says what its chat is doing: working, waiting for an answer, answer ready, then nothing once opened', () => {
+    useChatStore.setState({ turns: {}, unseenAnswers: {} })
+    const { result } = renderHook(() => useSessionRows())
+    const activityOf = (id: string) => result.current.find((row) => row.id === id)!.activity
+    expect(activityOf('older')).toBeNull()
+    const openBefore = result.current[0]
+
+    act(() => useChatStore.getState().beginTurn('older', 'turn-1'))
+    expect(activityOf('older')).toBe('working')
+    expect(result.current[0]).toBe(openBefore)
+
+    act(() => {
+      const { turns } = useChatStore.getState()
+      const interaction = { interaction_id: 'i1', input: 'text' } as never
+      useChatStore.setState({ turns: { ...turns, 'turn-1': { ...turns['turn-1']!, interaction } } })
+    })
+    expect(activityOf('older')).toBe('waiting')
+
+    act(() => useChatStore.getState().failTurn('turn-1'))
+    expect(activityOf('older')).toBe('answered')
+
+    act(() => useChatStore.getState().selectConversation('older'))
+    expect(activityOf('older')).toBeNull()
+  })
 })

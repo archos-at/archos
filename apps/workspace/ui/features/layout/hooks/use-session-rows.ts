@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { hasFinishedRun, hasLiveRun } from '@/features/chat/lib/session-activity'
+import { conversationActivity, type ConversationActivity } from '@/features/chat/lib/turn-selectors'
 import { conversationMatchesProject, isHiddenJobConversation } from '@/features/chat/lib/project-scope'
 
 export interface SessionRow {
@@ -13,6 +14,7 @@ export interface SessionRow {
   hasCompletedReport: boolean
   contentLocked: boolean
   temporary: boolean
+  activity: ConversationActivity | null
 }
 
 interface RowCache {
@@ -26,11 +28,12 @@ const sameRow = (a: SessionRow, b: SessionRow): boolean =>
   a.hasActiveDeepResearch === b.hasActiveDeepResearch &&
   a.hasCompletedReport === b.hasCompletedReport &&
   a.contentLocked === b.contentLocked &&
-  a.temporary === b.temporary
+  a.temporary === b.temporary &&
+  a.activity === b.activity
 
-const rowFor = (conversation: Conversation, cache: RowCache): SessionRow => {
+const rowFor = (conversation: Conversation, activity: ConversationActivity | null, cache: RowCache): SessionRow => {
   const known = cache.byConversation.get(conversation)
-  if (known) return known
+  if (known && known.activity === activity) return known
   const built: SessionRow = {
     id: conversation.id,
     title: conversation.title,
@@ -39,6 +42,7 @@ const rowFor = (conversation: Conversation, cache: RowCache): SessionRow => {
     hasCompletedReport: hasFinishedRun(conversation.messages),
     contentLocked: conversation.contentLocked === true,
     temporary: conversation.temporary === true,
+    activity,
   }
   const previous = cache.byId.get(conversation.id)
   const row = previous && sameRow(previous, built) ? previous : built
@@ -57,7 +61,7 @@ export function useSessionRows(projectId?: string | null): SessionRow[] {
         s.conversations
           .filter((c) => c.userId === s.currentUserId && conversationMatchesProject(c, scope) && !isHiddenJobConversation(c))
           .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
-          .map((c) => rowFor(c, cache.current))
+          .map((c) => rowFor(c, conversationActivity(s.turns, s.unseenAnswers, c.id), cache.current))
       )
     })
   )

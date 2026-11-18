@@ -42,6 +42,7 @@ export interface TurnDriver {
   projectId: string | undefined
   connect: () => Promise<void>
   close: () => void
+  busy: () => boolean
   ask: (message: UserMessage) => void
   deliver: (message: ClientMessage) => void
   cancel: (turnId: string, shown?: ShownAnswer) => void
@@ -319,6 +320,7 @@ export const createTurnDriver = (conversationId: string, projectId: string | und
       for (const turnId of [...unacknowledged.keys()]) forget(turnId)
       socket.close()
     },
+    busy: () => unacknowledged.size > 0 || openTurns().length > 0,
     ask: (message) => {
       asked.add(message.message_id)
       unacknowledged.set(message.message_id, message)

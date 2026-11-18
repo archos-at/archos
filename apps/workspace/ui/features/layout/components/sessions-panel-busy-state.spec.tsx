@@ -3,326 +3,129 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { SessionsPanel } from './SessionsPanel'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
-import type { LayoutStore } from '../types'
+import type { LayoutStore, Session } from '../types'
 import { useLayoutStore } from '../store'
-import { rowOf, setupChatStoreMock } from './sessions-panel.fixtures'
+import { setupChatStoreMock } from './sessions-panel.fixtures'
 
 const mockSetSessionsPanelOpen = vi.fn()
 
 vi.mock('../store', () => ({
-  useLayoutStore: vi.fn((selector?: StoreSelector<LayoutStore>) => {
-    const state: DeepPartial<LayoutStore> = {
-      isSessionsPanelOpen: true,
-      setSessionsPanelOpen: mockSetSessionsPanelOpen,
-    }
-    return selector ? selector(asStoreState<LayoutStore>(state)) : state
-  }),
+  useLayoutStore: vi.fn(),
 }))
 
 vi.mock('@/features/chat/store', () => ({
   useChatStore: vi.fn(),
 }))
 
-describe('SessionsPanel - Session Switching', () => {
-  const mockSessions = [
-    { id: 'session-1', title: 'Deep Research Session', date: new Date() },
-    { id: 'session-2', title: 'Idle Session', date: new Date() },
-  ]
+const session = (id: string, title: string, activity: Session['activity'] = null): Session => ({
+  id,
+  title,
+  date: new Date(),
+  activity,
+})
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    setupChatStoreMock()
-    vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
-      const state: DeepPartial<LayoutStore> = {
-        isSessionsPanelOpen: true,
-        setSessionsPanelOpen: mockSetSessionsPanelOpen,
-      }
-      return selector ? selector(asStoreState<LayoutStore>(state)) : state
-    })
-  })
-
-  test('allows switching sessions during active deep research (server-side SSE)', async () => {
-    setupChatStoreMock({
-      isSessionBusy: (sessionId: string) => sessionId === 'session-1',
-      hasAnyBusySession: () => true,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
-
-    const user = userEvent.setup()
-    const onSelectSession = vi.fn()
-    render(
-      <SessionsPanel
-        sessions={mockSessions}
-        selectedSessionId="session-2"
-        onSelectSession={onSelectSession}
-      />
-    )
-
-    const deepResearchSession = screen.getByRole('button', {
-      name: /chat: deep research session/i,
-    })
-    expect(rowOf(deepResearchSession)).not.toHaveClass('cursor-not-allowed')
-    expect(deepResearchSession).not.toBeDisabled()
-
-    await user.click(deepResearchSession)
-    expect(onSelectSession).toHaveBeenCalledWith('session-1')
-  })
-
-  test('blocks switching when shallow thinking (WebSocket) is active', async () => {
-    setupChatStoreMock({
-      isStreaming: true,
-      pendingInteraction: null,
-    })
-
-    const user = userEvent.setup()
-    const onSelectSession = vi.fn()
-    render(
-      <SessionsPanel
-        sessions={mockSessions}
-        selectedSessionId="session-1"
-        onSelectSession={onSelectSession}
-      />
-    )
-
-    const session2 = screen.getByRole('button', {
-      name: /chat: idle session \(processing in progress\)/i,
-    })
-    expect(rowOf(session2)).toHaveClass('cursor-not-allowed')
-    expect(session2).toBeDisabled()
-
-    await user.click(session2)
-    expect(onSelectSession).not.toHaveBeenCalled()
-  })
-
-  test('blocks switching when pending HITL interaction exists', async () => {
-    setupChatStoreMock({
-      isStreaming: false,
-      pendingInteraction: { turnId: 'm1', interactionId: 'p1', input: 'text' },
-    })
-
-    const user = userEvent.setup()
-    const onSelectSession = vi.fn()
-    render(
-      <SessionsPanel
-        sessions={mockSessions}
-        selectedSessionId="session-1"
-        onSelectSession={onSelectSession}
-      />
-    )
-
-    const session2 = screen.getByRole('button', {
-      name: /chat: idle session \(processing in progress\)/i,
-    })
-    expect(session2).toBeDisabled()
-
-    await user.click(session2)
-    expect(onSelectSession).not.toHaveBeenCalled()
-  })
-
-  test('allows switching between sessions when nothing is active', async () => {
-    setupChatStoreMock({
-      isStreaming: false,
-      pendingInteraction: null,
-    })
-
-    const user = userEvent.setup()
-    const onSelectSession = vi.fn()
-    render(
-      <SessionsPanel
-        sessions={mockSessions}
-        selectedSessionId="session-1"
-        onSelectSession={onSelectSession}
-      />
-    )
-
-    const session2 = screen.getByRole('button', { name: /chat: idle session/i })
-    expect(rowOf(session2)).not.toHaveClass('cursor-not-allowed')
-
-    await user.click(session2)
-    expect(onSelectSession).toHaveBeenCalledWith('session-2')
+beforeEach(() => {
+  vi.clearAllMocks()
+  setupChatStoreMock()
+  vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
+    const state: DeepPartial<LayoutStore> = {
+      isSessionsPanelOpen: true,
+      setSessionsPanelOpen: mockSetSessionsPanelOpen,
+    }
+    return selector ? selector(asStoreState<LayoutStore>(state)) : state
   })
 })
 
-describe('SessionsPanel - New chat button', () => {
-  const mockSessions = [{ id: 'session-1', title: 'First Session', date: new Date() }]
+describe('SessionsPanel - several chats at once', () => {
+  test('another chat opens while one still answers', async () => {
+    setupChatStoreMock({ hasAnyBusySession: () => true })
+    const user = userEvent.setup()
+    const onSelectSession = vi.fn()
+    render(
+      <SessionsPanel
+        sessions={[session('session-1', 'Fluchtwege', 'working'), session('session-2', 'Stellplätze')]}
+        selectedSessionId="session-1"
+        onSelectSession={onSelectSession}
+      />
+    )
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    setupChatStoreMock()
-    vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
-      const state: DeepPartial<LayoutStore> = {
-        isSessionsPanelOpen: true,
-        setSessionsPanelOpen: mockSetSessionsPanelOpen,
-      }
-      return selector ? selector(asStoreState<LayoutStore>(state)) : state
-    })
+    const other = screen.getByRole('button', { name: 'Chat: Stellplätze' })
+    expect(other).not.toBeDisabled()
+    await user.click(other)
+    expect(onSelectSession).toHaveBeenCalledWith('session-2')
   })
 
-  test('disables new session button when shallow streaming is active', () => {
-    setupChatStoreMock({ isStreaming: true })
+  test('a new chat starts while one still answers', async () => {
+    setupChatStoreMock({ hasAnyBusySession: () => true })
+    const user = userEvent.setup()
+    const onNewSession = vi.fn()
+    render(
+      <SessionsPanel sessions={[session('session-1', 'Fluchtwege', 'working')]} onNewSession={onNewSession} />
+    )
 
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const newSessionBtn = screen.getByRole('button', {
-      name: /start a new chat \(disabled during active operations\)/i,
-    })
-    expect(newSessionBtn).toBeDisabled()
+    const newChat = screen.getByRole('button', { name: /^start a new chat$/i })
+    expect(newChat).not.toBeDisabled()
+    await user.click(newChat)
+    expect(onNewSession).toHaveBeenCalledOnce()
   })
 
-  test('disables new session button when HITL interaction is pending', () => {
-    setupChatStoreMock({
-      pendingInteraction: { turnId: 'm1', interactionId: 'p1', input: 'text' },
-    })
+  test('each row says what its chat is doing: working, waiting for an answer, answer ready', () => {
+    render(
+      <SessionsPanel
+        sessions={[
+          session('session-1', 'Fluchtwege', 'working'),
+          session('session-2', 'Stellplätze', 'waiting'),
+          session('session-3', 'Abstandsflächen', 'answered'),
+          session('session-4', 'Brandschutz'),
+        ]}
+        selectedSessionId="session-4"
+      />
+    )
 
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const newSessionBtn = screen.getByRole('button', {
-      name: /start a new chat \(disabled during active operations\)/i,
-    })
-    expect(newSessionBtn).toBeDisabled()
-  })
-
-  test('enables new session button during active deep research (server-side)', () => {
-    setupChatStoreMock({
-      isSessionBusy: (sessionId: string) => sessionId === 'session-1',
-      hasAnyBusySession: () => true,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
-
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const newSessionBtn = screen.getByRole('button', { name: /^start a new chat$/i })
-    expect(newSessionBtn).not.toBeDisabled()
-  })
-
-  test('enables new session button when no active operations', () => {
-    setupChatStoreMock({ isStreaming: false, pendingInteraction: null })
-
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const newSessionBtn = screen.getByRole('button', { name: /^start a new chat$/i })
-    expect(newSessionBtn).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Chat: Fluchtwege — Working on this chat' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chat: Stellplätze — Waiting for your answer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chat: Abstandsflächen — Answer ready' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chat: Brandschutz' })).toBeInTheDocument()
   })
 })
 
 describe('SessionsPanel - Delete Button States', () => {
-  const mockSessions = [
-    { id: 'session-1', title: 'First Session', date: new Date() },
-    { id: 'session-2', title: 'Second Session', date: new Date() },
-  ]
+  const sessions = [session('session-1', 'First Session', 'working'), session('session-2', 'Second Session')]
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    setupChatStoreMock()
-    vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
-      const state: DeepPartial<LayoutStore> = {
-        isSessionsPanelOpen: true,
-        setSessionsPanelOpen: mockSetSessionsPanelOpen,
-      }
-      return selector ? selector(asStoreState<LayoutStore>(state)) : state
-    })
-  })
-
-  test('disables individual delete button when session has active deep research', async () => {
-    setupChatStoreMock({
-      isSessionBusy: (sessionId: string) => sessionId === 'session-1',
-      hasAnyBusySession: () => true,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
-
+  test('a chat that still answers cannot be deleted, and says why', async () => {
+    setupChatStoreMock({ hasAnyBusySession: () => true })
     const user = userEvent.setup()
-    render(<SessionsPanel sessions={mockSessions} />)
+    render(<SessionsPanel sessions={sessions} />)
 
-    const firstSession = screen.getByRole('button', { name: /chat: first session/i })
-    await user.hover(firstSession)
+    await user.hover(screen.getByRole('button', { name: /chat: first session/i }))
 
     const deleteButton = screen.getByRole('button', { name: /delete chat \(disabled\)/i })
     expect(deleteButton).toBeDisabled()
+    expect(deleteButton).toHaveAttribute('title', 'Cannot delete while operations are in progress')
   })
 
-  test('disables individual delete button when shallow streaming is active (global block)', async () => {
-    setupChatStoreMock({ isStreaming: true })
-
+  test('an idle chat can be deleted while another one answers', async () => {
+    setupChatStoreMock({ hasAnyBusySession: () => true })
     const user = userEvent.setup()
-    render(<SessionsPanel sessions={mockSessions} />)
+    render(<SessionsPanel sessions={sessions} />)
 
-    const firstSession = screen.getByRole('button', {
-      name: /chat: first session \(processing in progress\)/i,
-    })
-    await user.hover(firstSession)
+    await user.hover(screen.getByRole('button', { name: /chat: second session/i }))
 
-    const deleteButton = screen.getByRole('button', { name: /delete chat \(disabled\)/i })
-    expect(deleteButton).toBeDisabled()
-  })
-
-  test('enables delete button when session is idle and no global block', async () => {
-    setupChatStoreMock({
-      isSessionBusy: () => false,
-      hasAnyBusySession: () => false,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
-
-    const user = userEvent.setup()
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const firstSession = screen.getByRole('button', { name: /chat: first session/i })
-    await user.hover(firstSession)
-
-    const deleteButton = screen.getByRole('button', { name: /^delete chat$/i })
-    expect(deleteButton).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /^delete chat$/i })).not.toBeDisabled()
   })
 
   test('disables "Delete All" button when any session is busy', () => {
-    setupChatStoreMock({
-      isSessionBusy: () => false,
-      hasAnyBusySession: () => true,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
+    setupChatStoreMock({ hasAnyBusySession: () => true })
+    render(<SessionsPanel sessions={sessions} />)
 
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const deleteAllButton = screen.getByRole('button', {
-      name: /delete all chats in this project \(disabled\)/i,
-    })
-    expect(deleteAllButton).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: /delete all chats in this project \(disabled\)/i })
+    ).toBeDisabled()
   })
 
   test('enables "Delete All" button when no sessions are busy', () => {
-    setupChatStoreMock({
-      isSessionBusy: () => false,
-      hasAnyBusySession: () => false,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
+    render(<SessionsPanel sessions={[session('session-2', 'Second Session')]} />)
 
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const deleteAllButton = screen.getByRole('button', {
-      name: /^delete all chats in this project$/i,
-    })
-    expect(deleteAllButton).not.toBeDisabled()
-  })
-
-  test('has appropriate title attribute on disabled delete button for active session', async () => {
-    setupChatStoreMock({
-      isSessionBusy: (sessionId: string) => sessionId === 'session-1',
-      hasAnyBusySession: () => true,
-      isStreaming: false,
-      pendingInteraction: null,
-    })
-
-    const user = userEvent.setup()
-    render(<SessionsPanel sessions={mockSessions} />)
-
-    const firstSession = screen.getByRole('button', { name: /chat: first session/i })
-    await user.hover(firstSession)
-
-    const deleteButton = screen.getByRole('button', { name: /delete chat \(disabled\)/i })
-    expect(deleteButton).toHaveAttribute('title', 'Cannot delete while operations are in progress')
+    expect(screen.getByRole('button', { name: /^delete all chats in this project$/i })).not.toBeDisabled()
   })
 })

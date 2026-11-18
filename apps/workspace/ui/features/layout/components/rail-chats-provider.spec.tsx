@@ -110,4 +110,14 @@ describe('RailChatsProvider', () => {
     expect(captured).toBeNull()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
+
+  test('a row carries what its chat is doing, so the rail can show it from any page', () => {
+    useChatStore.setState({ turns: {}, unseenAnswers: { c2: true } })
+    useChatStore.getState().beginTurn('c4', 'turn-1')
+    show('/app/projects/p1/files')
+    const activityOf = (id: string) => captured?.items.find((item) => item.id === id)?.activity
+    expect(activityOf('c4')).toBe('working')
+    expect(activityOf('c2')).toBe('answered')
+    expect(activityOf('c3')).toBeNull()
+  })
 })

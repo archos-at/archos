@@ -232,9 +232,13 @@ export const createConversationActions = (
       void get()._persistCardInteractions(targetConversation.id, messageId, cardInteractions)
     },
 
-    addErrorCard: (code: ErrorCode, message?: string, details?: string) => {
+    addErrorCard: (code: ErrorCode, message?: string, details?: string, conversationId?: string) => {
       const { currentConversation, conversations } = get()
-      if (!currentConversation) return
+      const owner =
+        conversationId === undefined || conversationId === currentConversation?.id
+          ? currentConversation
+          : conversations.find((conversation) => conversation.id === conversationId)
+      if (!owner) return
 
       const errorMeta = getErrorMeta(code)
 
@@ -251,25 +255,18 @@ export const createConversationActions = (
         },
       }
 
-      const updatedConversation: Conversation = {
-        ...currentConversation,
-        messages: withErrorMessage(currentConversation.messages, errorMessage),
-        updatedAt: new Date(),
-      }
-
-      const updatedConversations = updateConversationInList(conversations, updatedConversation)
-
       set(
-        {
-          currentConversation: updatedConversation,
-          conversations: updatedConversations,
-        },
+        withConversation(get(), {
+          ...owner,
+          messages: withErrorMessage(owner.messages, errorMessage),
+          updatedAt: new Date(),
+        }),
         false,
         'addErrorCard'
       )
 
       if (errorConcernsTheThread(code)) {
-        void get()._appendMessage(errorMessage)
+        void get()._appendMessage(errorMessage, owner.id)
       }
     },
 

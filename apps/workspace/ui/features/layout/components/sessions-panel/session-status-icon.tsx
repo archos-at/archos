@@ -1,17 +1,21 @@
 import type { FC } from 'react'
-import { FileCheck2, Loader2, MessageSquare } from 'lucide-react'
+import { CircleCheck, FileCheck2, Loader2, MessageCircleQuestion, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Session } from '../../types'
 
-export const SessionStatusIcon: FC<{
-  session: Session
-  isSessionActive: boolean
-}> = ({ session, isSessionActive }) => {
+export const SessionStatusIcon: FC<{ session: Session }> = ({ session }) => {
   const base = 'size-4 shrink-0'
-  const isActive = isSessionActive || session.hasActiveDeepResearch
 
-  if (isActive) {
+  if (session.activity === 'waiting') {
+    return <MessageCircleQuestion className={cn(base, 'text-accent-primary')} aria-hidden="true" />
+  }
+
+  if (session.activity === 'working' || session.hasActiveDeepResearch) {
     return <Loader2 className={cn(base, 'text-accent-primary animate-spin motion-reduce:animate-none')} aria-hidden="true" />
+  }
+
+  if (session.activity === 'answered') {
+    return <CircleCheck className={cn(base, 'text-success')} aria-hidden="true" />
   }
 
   if (session.hasCompletedReport) {

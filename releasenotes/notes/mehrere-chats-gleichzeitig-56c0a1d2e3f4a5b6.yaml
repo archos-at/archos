@@ -1,0 +1,8 @@
+---
+features:
+  - >
+    Several chats can now answer at the same time. While one chat is still
+    working, you can open another or start a new one; the first keeps going and
+    its answer is complete when you come back. The chat list and the sidebar
+    show which chat is working, which one is waiting for your answer, and which
+    answer is ready.

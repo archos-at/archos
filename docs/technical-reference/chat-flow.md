@@ -27,7 +27,13 @@ the contract in [`websocket-protocol.md`](../api/websocket-protocol.md)).
    (`bff/turns/turn-fold.ts`) and draws the view into the thread
    (`features/chat/lib/turn-projection.ts`). Answer deltas wait for a 100 ms
    flush; anything else is folded at once.
-5. `RUN_STARTED` acknowledges the question; until it arrives the question is
+5. There is one driver, and one socket, per conversation with something open:
+   the conversation on screen, and every conversation the reader left while
+   its turn still runs (`features/chat/lib/turn-driver-pool.ts`). A left
+   conversation's frames keep folding into its own thread; its driver closes
+   once its turn and stages have landed. Leaving the chat page closes them
+   all, and coming back opens one for each turn still running.
+6. `RUN_STARTED` acknowledges the question; until it arrives the question is
    resent on every reopen. A question not acknowledged within 15 s reopens the
    socket, and a second miss ends the turn with an error card and its Retry.
    A running turn, and a finished one whose stages have not landed, is
@@ -54,7 +60,11 @@ their union.
 | `respondToPrompt(messageId, response)` | Mark the open question answered |
 
 `isStreaming`, `isLoading` and `pendingInteraction` are derived from the
-running turn's view (`turnStateFor`), never set by hand.
+running turn's view (`turnStateFor`), never set by hand, and speak of the
+conversation on screen only. What any conversation is doing, for the chat list
+and the rail, is `conversationActivity` (`lib/turn-selectors.ts`): `working`,
+`waiting` (the agent asked the reader), or `answered` (its turn ended while
+another chat was open; `unseenAnswers`, cleared by `selectConversation`).
 
 ### Session management
 

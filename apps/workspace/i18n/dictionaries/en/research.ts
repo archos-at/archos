@@ -35,7 +35,6 @@ export const research = {
   chatToolbar: {
     createNewSession: 'Create new session',
     signInToCreate: 'Sign in to create sessions',
-    cannotCreateActive: 'Cannot create a new session while the current session is active',
     newChat: 'New chat',
     toggleSessions: 'Chat history',
     historyDoor: 'Chats',
@@ -244,9 +243,7 @@ export const research = {
     stopConfirmBody:
       'The running research will be cancelled and cannot be resumed. Partial progress so far stays visible in the research panel.',
     stopConfirmConfirm: 'Stop research',
-    newSessionDisabled: 'Start a new chat (disabled during active operations)',
     startNewSession: 'Start a new chat',
-    cannotCreateActive: 'Cannot start a new chat while this one is still answering',
     newSessionButton: 'New chat',
     searchPlaceholder: 'Search chats',
     searchAria: 'Search chats',
@@ -256,8 +253,6 @@ export const research = {
     noMatchingDescription: 'Nothing in this project matches “{query}”.',
     noSessions: 'No chats yet',
     noSessionsDescription: 'Your chats with {productName} in this project will be listed here.',
-    navigationBlocked:
-      '{productName} is still answering. Starting or switching chats is paused until it finishes.',
     today: 'Today',
     yesterday: 'Yesterday',
     editTitle: 'Edit chat title',
@@ -270,8 +265,9 @@ export const research = {
     deleteSession: 'Delete chat',
     sessionActive: 'Working on this chat',
     reportCompleted: 'Report ready',
+    sessionWaiting: 'Waiting for your answer',
+    answerReady: 'Answer ready',
     chatSession: 'Chat',
-    sessionLabelBusy: 'Chat: {title} (processing in progress)',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
     temporaryMark: 'Temporary chat: nothing from it is kept.',

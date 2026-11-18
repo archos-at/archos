@@ -14,6 +14,7 @@ export type MessagesSlice = {
   currentUserMessageId: string | null
   currentTurnStartedAt: number | null
   turns: Record<string, TurnView>
+  unseenAnswers: Record<string, true>
   projectId: string | null
   composerPrefill: ComposerPrefill | null
   composerSubject: ComposerSubject | null
@@ -41,7 +42,7 @@ export type MessagesSlice = {
     patch: Partial<ChatMessage>
   ) => void
   setCardDecision: (messageId: string, cardKey: string, decision: CardDecision) => void
-  addErrorCard: (code: ErrorCode, message?: string, details?: string) => void
+  addErrorCard: (code: ErrorCode, message?: string, details?: string, conversationId?: string) => void
   dismissErrorCard: (messageId: string) => void
   dismissConnectionErrors: () => void
   setProjectId: (projectId: string | null) => void
