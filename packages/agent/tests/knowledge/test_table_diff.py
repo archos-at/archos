@@ -21,9 +21,9 @@ def _markdown(header: list[str], rows: list[list[str]]) -> str:
 def _sheet(
     rows: list[list[str]], *, header: list[str] = HEADER, sheet: str = "Raumliste", part: str = ""
 ) -> TableChunk:
-    locator = f"{sheet}: Zeilen 2-{len(rows) + 1}{part}"
+    locator = f"{sheet}: Zeilen 2-{len(rows) + 1}"
     return TableChunk(
-        page=sheet, locator=locator, text=f"Tabellenblatt „{sheet}“, {locator}\n\n{_markdown(header, rows)}"
+        page=sheet, locator=locator, text=f"Tabellenblatt „{sheet}“, {locator}{part}\n\n{_markdown(header, rows)}"
     )
 
 
@@ -147,6 +147,34 @@ class TestSheetsNamedWithDigits:
         diff = diff_tables([_sheet(rooms, sheet="1"), other], [_sheet(rooms, sheet="1")])
 
         assert diff.unpaired_first == ("„2“",)
+
+
+class TestSheetsWithOneHeader:
+    ground = [["0.01", "Windfang", "4"], ["0.02", "Wohnen", "20"]]
+    upper = [["1.01", "Zimmer", "12"], ["1.02", "Bad", "5"]]
+
+    def test_reordered_sheets_are_paired_by_their_name(self) -> None:
+        first = [_sheet(self.ground, sheet="EG"), _sheet(self.upper, sheet="OG")]
+        second = [_sheet(self.upper, sheet="OG"), _sheet(self.ground, sheet="EG")]
+
+        diff = diff_tables(first, second)
+
+        assert [(t.first_label, t.second_label) for t in diff.tables] == [("„EG“", "„EG“"), ("„OG“", "„OG“")]
+        assert not diff.differs
+
+    def test_a_missing_sheet_is_the_one_listed_as_missing(self) -> None:
+        first = [_sheet(self.ground, sheet="EG"), _sheet(self.upper, sheet="OG")]
+
+        diff = diff_tables(first, [_sheet(self.upper, sheet="OG")])
+
+        assert diff.unpaired_first == ("„EG“",) and not diff.unpaired_second
+        assert [t.first_label for t in diff.tables] == ["„OG“"] and not diff.tables[0].differs
+
+    def test_two_documents_with_other_sheet_names_are_paired_by_their_header(self) -> None:
+        diff = diff_tables([_sheet(ROOMS, sheet="Raumliste")], [_sheet(ROOMS, sheet="Raumprogramm")])
+
+        assert [(t.first_label, t.second_label) for t in diff.tables] == [("„Raumliste“", "„Raumprogramm“")]
+        assert not diff.differs
 
 
 class TestCells:

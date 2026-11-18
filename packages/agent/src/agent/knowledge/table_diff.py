@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from collections.abc import Mapping
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -101,6 +102,7 @@ class _Row:
 class _Table:
     name: str
     header: list[str]
+    scope: tuple[str, str] | None = None
     rows: list[_Row] = field(default_factory=list)
     pages: list[str] = field(default_factory=list)
 
@@ -159,9 +161,9 @@ def _column_names(header: list[str], width: int) -> list[str]:
 def _scope(chunk: TableChunk) -> tuple[str, str] | None:
     sheet = _sheet(chunk)
     if sheet:
-        return "sheet", sheet
+        return "sheet", _fold(sheet)
     locator = chunk.locator.strip()
-    return None if not locator or _ROW_RANGE.match(locator) else ("caption", locator)
+    return None if not locator or _ROW_RANGE.match(locator) else ("caption", _fold(locator))
 
 
 def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
@@ -175,7 +177,7 @@ def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
         header = _column_names(rows[0], width)
         scope = _scope(chunk)
         table = tables.setdefault(
-            (scope, tuple(_fold(name) for name in header)), _Table(name=_label(chunk), header=header)
+            (scope, tuple(_fold(name) for name in header)), _Table(name=_label(chunk), header=header, scope=scope)
         )
         if scope is None:
             table.pages.append(chunk.page.strip())
@@ -193,28 +195,45 @@ def _header_share(first: _Table, second: _Table) -> float:
     return len(one & two) / len(one | two) if one | two else 0.0
 
 
+def _same_place(table: _Table, left: list[_Table]) -> _Table | None:
+    return next((other for other in left if (other.scope, other.header_key) == (table.scope, table.header_key)), None)
+
+
+def _same_header(table: _Table, left: list[_Table]) -> _Table | None:
+    return next((other for other in left if other.header_key == table.header_key), None)
+
+
+def _like_header(table: _Table, left: list[_Table]) -> _Table | None:
+    best = max(left, key=lambda other: _header_share(table, other), default=None)
+    return best if best is not None and _header_share(table, best) >= HEADER_PAIR_SHARE else None
+
+
+def _take_pairs(
+    waiting: list[_Table], left: list[_Table], match: Callable[[_Table, list[_Table]], _Table | None]
+) -> tuple[list[tuple[_Table, _Table]], list[_Table]]:
+    pairs: list[tuple[_Table, _Table]] = []
+    unpaired: list[_Table] = []
+    for table in waiting:
+        other = match(table, left)
+        if other is None:
+            unpaired.append(table)
+            continue
+        left.remove(other)
+        pairs.append((table, other))
+    return pairs, unpaired
+
+
 def _pair_tables(
     first: list[_Table], second: list[_Table]
 ) -> tuple[list[tuple[_Table, _Table]], list[_Table], list[_Table]]:
     pairs: list[tuple[_Table, _Table]] = []
-    left = list(second)
-    unpaired: list[_Table] = []
-    for table in first:
-        match = next((other for other in left if other.header_key == table.header_key), None)
-        if match is None:
-            unpaired.append(table)
-            continue
-        left.remove(match)
-        pairs.append((table, match))
-    still_unpaired: list[_Table] = []
-    for table in unpaired:
-        best = max(left, key=lambda other: _header_share(table, other), default=None)
-        if best is None or _header_share(table, best) < HEADER_PAIR_SHARE:
-            still_unpaired.append(table)
-            continue
-        left.remove(best)
-        pairs.append((table, best))
-    return pairs, still_unpaired, left
+    waiting, left = list(first), list(second)
+    for match in (_same_place, _same_header, _like_header):
+        found, waiting = _take_pairs(waiting, left, match)
+        pairs.extend(found)
+    order = {id(table): index for index, table in enumerate(first)}
+    pairs.sort(key=lambda pair: order[id(pair[0])])
+    return pairs, waiting, left
 
 
 def _shared_columns(first: _Table, second: _Table) -> list[tuple[str, int, int]]:
