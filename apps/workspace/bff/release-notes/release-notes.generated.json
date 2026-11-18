@@ -88,6 +88,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "Select text in an answer and choose „Dazu fragen“ to ask about exactly that part, which appears above the message field until you send or remove it. A follow-up no longer has to describe or retype the sentence it means.",
+            "de": "Wählen Sie Text in einer Antwort aus und klicken Sie auf „Dazu fragen“, um genau dazu eine Frage zu stellen. Der ausgewählte Text erscheint über dem Nachrichtenfeld, bis Sie ihn senden oder entfernen. Bei einer Nachfrage müssen Sie den gemeinten Satz nicht mehr beschreiben oder erneut eingeben."
+          }
+        },
+        {
           "section": "improvements",
           "area": "agents",
           "text": {
