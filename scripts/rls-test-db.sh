@@ -4534,3 +4534,37 @@ check_in sn_0245 "SELECT count(*) FROM citation_events WHERE detail -> 'lanes' ?
 check_in sn_0245 "SELECT metadata::text FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}, "mentions": [{"display": "agent:piloti", "targetId": "agent:core"}]}' "backfill: a message's agent mention and lane values take the new names, its keys and display text stay"
 check_in sn_0245 "SELECT content FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '@agent:piloti office_piloti' "backfill: a message's text stays as written"
 echo "==> migration 0245 and the step-1 backfills verified"
+
+echo "==> verifying migration 0246 and the step-3 rename on ns_0246"
+migrate_before ns_0246 0246_documents_live_name_by_producer
+sql_in ns_0246 <<'SQL'
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000246', 'org_n1', 'Namespace 0246', 'user_n1', 'proj_0246');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                       authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
+VALUES ('d2d2d2d2-0000-4000-8000-000000000001', 'org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md',
+        'k/0246/1', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_document', 'conv_1-a', 'answer_artifact'),
+       ('d2d2d2d2-0000-4000-8000-000000000002', 'org_n1', 'user_n1', 'Bericht.pdf',
+        'k/0246/2', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'deep_research', 'run_1', 'agent_run'),
+       ('d2d2d2d2-0000-4000-8000-000000000003', 'org_n1', 'user_n1', 'plan.pdf',
+        'k/0246/3', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'user', NULL, NULL, NULL);
+SQL
+apply_in ns_0246 0246_documents_live_name_by_producer.sql
+apply_in ns_0246 0246_documents_live_name_by_producer.sql   # up twice: idempotent
+check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%authored_by_producer%' AND indexdef NOT LIKE '%piloti/%' AND indexdef NOT LIKE '%generated/%'" "1" "0246: the live-name rule names the producer, not a prefix"
+refused_in ns_0246 "INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind) VALUES ('org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md', 'k/0246/4', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_document', 'conv_2-a', 'answer_artifact')" "uniq_documents_live_name_per_collection" "0246: a second live agent document under one name is refused"
+sql_in ns_0246 <<'SQL'
+INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                       authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
+VALUES ('org_n1', 'user_n1', 'Bericht.pdf', 'k/0246/5', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246',
+        'agent', 'deep_research', 'run_2', 'agent_run');
+SQL
+check_in ns_0246 "SELECT count(*) FROM documents WHERE filename = 'Bericht.pdf'" "2" "0246: a producer that is never indexed stays outside the rule, as before"
+apply_in ns_0246 0246_documents_live_name_by_producer.down.sql
+check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%generated/%'" "1" "0246 down: the prefix arms of 0243 are back"
+apply_in ns_0246 0246_documents_live_name_by_producer.sql
+apply_in ns_0246 ../scripts/brand-free-backfill/namespace-dry-run.sql
+apply_in ns_0246 ../scripts/brand-free-backfill/namespace.sql
+apply_in ns_0246 ../scripts/brand-free-backfill/namespace.sql   # twice: idempotent
+check_in ns_0246 "SELECT string_agg(filename, ',' ORDER BY filename) FROM documents WHERE project_id = 'aaaaaaaa-0000-4000-8000-000000000246'" "Bericht.pdf,Bericht.pdf,generated/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md,plan.pdf" "backfill: the agent document moves to generated/, every other name stays"
+echo "==> migration 0246 and the step-3 rename verified"

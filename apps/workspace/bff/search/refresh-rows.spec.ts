@@ -19,6 +19,7 @@ const doc = (id: string, overrides: Partial<{ collectionName: string; authoredBy
   filename: `${id}.pdf`,
   collectionName: 'proj_a',
   authoredBy: 'user' as const,
+  authoredByProducer: null,
   publishedVersionId: null,
   projectId: PROJECT,
   scope: 'project',

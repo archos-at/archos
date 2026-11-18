@@ -2,7 +2,7 @@ import 'server-only'
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { bucketAdminS3Client, buildStorageKey, s3Client } from '@/lib/s3'
-import { agentDocumentFilename } from './agent-namespace'
+import { agentDocumentFilename, isNamespacedAgentDocument } from './agent-namespace'
 import { ensureTenantBucketChecked } from '@/lib/storage/bucket'
 import { admitOrDiscard } from '@/lib/storage/admission'
 import { requireProjectAccess } from '@/lib/authz/projects'
@@ -37,13 +37,6 @@ export const GENERATED_DOCUMENT_PRODUCERS = Object.keys(
 const REF_KIND_IS_A_RUN: Record<AuthoredRefKind, boolean> = {
   agent_run: true,
   answer_artifact: false,
-}
-
-const PRODUCER_FILES_UNDER_NAMESPACE: Record<GeneratedDocumentProducer, boolean> = {
-  deep_research: false,
-  diagram_svg: false,
-  diagram_pdf: false,
-  agent_document: true,
 }
 
 export function generatedDocumentMarking(
@@ -183,7 +176,7 @@ export async function fileGeneratedDocument(
 
   const documentId = crypto.randomUUID()
   const storedName = generatedFilename(title, rendered.contentType, new Date())
-  const filename = PRODUCER_FILES_UNDER_NAMESPACE[producer]
+  const filename = isNamespacedAgentDocument({ authoredByProducer: producer })
     ? agentDocumentFilename(documentId, storedName)
     : storedName
   const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storedName, folder.path)

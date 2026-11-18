@@ -22,6 +22,7 @@ export interface DocumentListRow {
   contentType: string | null
   status: string
   authoredBy: DocumentAuthor
+  authoredByProducer: string | null
   publishedVersionId: string | null
   lifecycle: DocumentLifecycle
   collectionName: string
@@ -66,6 +67,7 @@ export const documentListColumns = {
   contentType: documents.contentType,
   status: documents.status,
   authoredBy: documents.authoredBy,
+  authoredByProducer: documents.authoredByProducer,
   publishedVersionId: documents.publishedVersionId,
   lifecycle: documents.lifecycle,
   collectionName: documents.collectionName,

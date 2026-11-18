@@ -78,6 +78,7 @@ const placementRow = (filename: string, overrides: Partial<PlacementRow> = {}): 
   metadata: {},
   updatedAt: new Date('2026-10-01T00:00:00Z'),
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
   storageKey: `org/${ORG}/project/${PROJECT}/doc/doc-${filename}/${filename}`,
   storageBucket: 'test-bucket',

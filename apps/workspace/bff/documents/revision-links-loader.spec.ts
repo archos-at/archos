@@ -25,6 +25,7 @@ const subject = (overrides: Partial<RevisionLinksSubject> = {}): RevisionLinksSu
   filename: 'Grundriss_B.pdf',
   collectionName: 'proj_abc',
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
   ...overrides,
 })

@@ -32,6 +32,7 @@ const makeRow = (status: string): ReconcilableDocument => ({
   filename: 'plan.pdf',
   collectionName: 'proj_abc',
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
   errorMessage: null,
   metadata: { ingestJobId: 'job-1' },

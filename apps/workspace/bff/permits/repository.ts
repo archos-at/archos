@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, desc, eq, inArray, isNull, like, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
 import { CROSS_PROJECT_MAX_PERMIT_REQUIREMENTS, CROSS_PROJECT_MAX_PERMITS } from '@/lib/cross-project/types'
 import { getDb } from '@/lib/db'
 import { documentVisibleTo, internalRead, SCREENED_ONLY } from '@/lib/documents/visibility'
@@ -9,7 +9,7 @@ import { projects } from '@/lib/db/schema/projects'
 import { contentTokens, jaccardSimilarity, normalizeContentGerman } from '@/lib/knowledge/consolidation'
 import { cosineSimilaritySql, embedNote, type EmbeddedNote } from '@/lib/knowledge/embeddings'
 import { fuseHybridRelevance } from '@/lib/knowledge/recall-scoring'
-import { AGENT_DOCUMENT_NAMESPACES } from '../documents/agent-namespace'
+import { NAMESPACED_AGENT_PRODUCER } from '../documents/agent-namespace'
 import type { LiveFolderAccess } from './live-access'
 
 export const PERMIT_MAX_RECORDS = CROSS_PROJECT_MAX_PERMITS
@@ -109,12 +109,7 @@ export async function findPermitDocument(organizationId: string, ref: PermitDocu
           ? eq(documents.id, ref.documentId)
           : and(
               eq(documents.filename, ref.fileName),
-              or(
-                eq(documents.authoredBy, 'user'),
-                ...AGENT_DOCUMENT_NAMESPACES.map((namespace) =>
-                  like(documents.filename, `${namespace}%`)
-                )
-              )
+              or(eq(documents.authoredBy, 'user'), eq(documents.authoredByProducer, NAMESPACED_AGENT_PRODUCER))
             ),
         sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
         documentVisibleTo(internalRead('ingest'))

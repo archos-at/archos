@@ -201,12 +201,12 @@ describe('fileGeneratedDocument', () => {
           }),
         })
 
-      it('files a publishable agent document under piloti/<document id>/', async () => {
+      it('files a publishable agent document under generated/<document id>/', async () => {
         const result = await fileDocument()
 
         const row = admittedRow()
-        expect(row.filename).toBe(`piloti/${row.id}/${result.filename.split('/').pop()}`)
-        expect(row.filename).toMatch(/^piloti\/[^/]+\/aktenvermerk-\d{4}-\d{2}-\d{2}\.md$/)
+        expect(row.filename).toBe(`generated/${row.id}/${result.filename.split('/').pop()}`)
+        expect(row.filename).toMatch(/^generated\/[^/]+\/aktenvermerk-\d{4}-\d{2}-\d{2}\.md$/)
       })
 
       it('keeps the object key flat, under the document’s own prefix', async () => {
@@ -215,7 +215,7 @@ describe('fileGeneratedDocument', () => {
         const put = onlyPut()
         const row = admittedRow()
         expect(put.input.Key).toMatch(/\/doc\/[^/]+\/aktenvermerk-\d{4}-\d{2}-\d{2}\.md$/)
-        expect(put.input.Key).not.toContain('piloti')
+        expect(put.input.Key).not.toContain('generated/')
         expect(row.storageKey).toBe(put.input.Key)
       })
 
@@ -228,7 +228,7 @@ describe('fileGeneratedDocument', () => {
       it('leaves a producer whose output is never published unnamespaced', async () => {
         await file()
 
-        expect(admittedRow().filename).not.toContain('piloti/')
+        expect(admittedRow().filename).not.toContain('generated/')
       })
     })
 

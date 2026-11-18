@@ -1,5 +1,5 @@
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
-import { isAgentDocumentFilename } from './agent-namespace'
+import { isNamespacedAgentDocument } from './agent-namespace'
 
 declare const humanAuthored: unique symbol
 
@@ -15,13 +15,14 @@ export interface AuthoredDocumentRow {
   collectionName: string
   filename: string
   authoredBy: DocumentAuthor
+  authoredByProducer: string | null
   publishedVersionId: string | null
 }
 
 export function collectionFileRef(row: AuthoredDocumentRow): CollectionFileRef | null {
   if (row.authoredBy !== 'user') {
     if (!row.publishedVersionId) return null
-    if (!isAgentDocumentFilename(row.filename)) return null
+    if (!isNamespacedAgentDocument(row)) return null
   }
   return { collectionName: row.collectionName, filename: row.filename, documentId: row.id } as CollectionFileRef
 }
