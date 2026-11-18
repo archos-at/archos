@@ -101,7 +101,14 @@ function truncate(text, limit = LIMITS.maxStdioBytes) {
   const bytes = new TextEncoder().encode(value);
   if (bytes.byteLength <= limit) return value;
   const marker = "\n...[truncated]";
-  return decoder.decode(bytes.subarray(0, limit - marker.length)).replace(/�$/, "") + marker;
+  return decoder.decode(bytes.subarray(0, limit - marker.length)).replace(/\ufffd$/, "") + marker;
+}
+
+function keepTail(text, limit) {
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.byteLength <= limit) return text;
+  const marker = "[truncated]...\n";
+  return marker + decoder.decode(bytes.subarray(bytes.byteLength - (limit - marker.length))).replace(/^\ufffd/, "");
 }
 
 async function sha256(bytes) {
@@ -114,9 +121,10 @@ const VALUE_HINT =
 
 function explainedStderr(stderr) {
   const text = stderr ?? "";
-  if (!VALUE_NOT_JSON.test(text) || text.includes(VALUE_HINT)) return truncate(text);
+  if (!VALUE_NOT_JSON.test(text)) return truncate(text);
   const hint = `\n${VALUE_HINT}\n`;
-  return truncate(text.trimEnd(), LIMITS.maxStdioBytes - new TextEncoder().encode(hint).byteLength) + hint;
+  const log = text.split(VALUE_HINT).join("").trimEnd();
+  return keepTail(log, LIMITS.maxStdioBytes - new TextEncoder().encode(hint).byteLength) + hint;
 }
 
 function stripTypes(source) {
@@ -165,7 +173,7 @@ async function runIn(ws, run) {
   const outcome = await execute(ws, run);
   const collected = await collectChanged(ws, sent);
   if (collected.error) {
-    return { ...outcome, status: "error", stderr: truncate(`${outcome.stderr}${outcome.stderr ? "\n" : ""}${collected.error}`), files: [] };
+    return { ...outcome, status: "error", stderr: explainedStderr(`${outcome.stderr}${outcome.stderr ? "\n" : ""}${collected.error}`), files: [] };
   }
   return { ...outcome, files: collected.files };
 }

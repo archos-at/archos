@@ -169,7 +169,18 @@ describe("isolation", () => {
     });
     assert.equal(body.status, "error");
     assert.ok(Buffer.byteLength(body.stderr) <= 64 * 1024);
+    assert.match(body.stderr, /JSON-compatible|plain objects/);
     assert.match(body.stderr, /decimals with toNumber\(\)/);
+    assert.equal(body.stderr.split("decimals with toNumber()").length, 2);
+  });
+
+  test("a hint already in a long stderr is kept once, after the error", async () => {
+    const { body } = await runner.run({
+      source: `export default () => { console.error("decimals with toNumber()"); console.error("y".repeat(70000)); return [, 1]; }`,
+    });
+    assert.ok(Buffer.byteLength(body.stderr) <= 64 * 1024);
+    assert.match(body.stderr, /JSON-compatible|plain objects/);
+    assert.match(body.stderr, /Sets with Array\.from\.\n$/);
   });
 
   test("a module that does not parse is status error", async () => {
