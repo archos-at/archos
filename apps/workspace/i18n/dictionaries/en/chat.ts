@@ -1301,6 +1301,8 @@ export const chat = {
       },
       failedNote: {
         file: 'The file could not be finished this time.',
+        tooLarge: 'The file is too large: the files of a chat may take at most 25 MB together.',
+        notWritten: 'The file was not written in this attempt.',
         calculate: 'No reliable result came out of it.',
       },
       retry: 'Try again',

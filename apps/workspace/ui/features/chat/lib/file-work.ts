@@ -18,6 +18,10 @@ const OFFICE_SKILLS: Readonly<Record<string, readonly DraftFileFormat[] | 'any'>
 
 export type FileRunStatus = 'running' | 'ok' | 'error' | 'timeout' | 'refused' | 'unavailable'
 
+export type FileNotKeptReason = 'too_large' | 'not_written'
+
+const NOT_KEPT_REASONS: readonly FileNotKeptReason[] = ['too_large', 'not_written']
+
 export interface FileRunInput {
   name: string
   documentId?: string
@@ -33,6 +37,8 @@ export interface FileRun {
   reads: string[]
   made: string[]
   changed: string[]
+  failed: string[]
+  failedReasons: FileNotKeptReason[]
   documents: FileRunInput[]
   result?: string
   elapsedMs?: number
@@ -47,6 +53,7 @@ export interface FilePhase {
   state: FilePhaseState
   attempts: number
   elapsedMs?: number
+  reason?: FileNotKeptReason
 }
 
 export type FileOutcome = 'running' | 'made' | 'edited' | 'checked' | 'calculated' | 'failed'
@@ -57,6 +64,7 @@ export interface FileWork {
   format?: DraftFileFormat
   outcome: FileOutcome
   failedKind?: FilePhaseKind
+  failedReason?: FileNotKeptReason
   phases: FilePhase[]
   steps: number
   attempts: number
@@ -72,6 +80,14 @@ const strings = (value: StepDetailValue | undefined): string[] =>
 
 const count = (value: StepDetailValue | undefined): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
+
+const reasonsOf = (value: StepDetailValue | undefined, length: number): FileNotKeptReason[] => {
+  const given = Array.isArray(value) ? value : []
+  return Array.from({ length }, (_, index) => {
+    const reason = given[index]
+    return (NOT_KEPT_REASONS as readonly string[]).includes(reason ?? '') ? (reason as FileNotKeptReason) : 'not_written'
+  })
+}
 
 const runStatus = (step: StoredThinkingStep): FileRunStatus => {
   const status = step.detail?.status
@@ -100,6 +116,7 @@ export function fileRuns(steps: readonly StoredThinkingStep[]): FileRun[] {
     const detail = step.detail
     const result = typeof detail?.result === 'string' && detail.result.trim() ? detail.result : undefined
     const elapsedMs = count(detail?.elapsed_ms)
+    const failed = strings(detail?.failed)
     return [
       {
         id: step.id,
@@ -111,6 +128,8 @@ export function fileRuns(steps: readonly StoredThinkingStep[]): FileRun[] {
         reads: strings(detail?.reads),
         made: strings(detail?.made),
         changed: strings(detail?.changed),
+        failed,
+        failedReasons: reasonsOf(detail?.failed_reasons, failed.length),
         documents: inputsOf(detail),
         ...(result ? { result } : {}),
         ...(elapsedMs !== undefined ? { elapsedMs } : {}),
@@ -120,7 +139,7 @@ export function fileRuns(steps: readonly StoredThinkingStep[]): FileRun[] {
 }
 
 const subjectsOf = (run: FileRun): string[] => {
-  const kept = [...run.made, ...run.changed]
+  const kept = [...run.made, ...run.changed, ...run.failed]
   if (kept.length > 0) return kept
   if (run.writes.length > 0) return run.writes
   return run.reads
@@ -135,6 +154,17 @@ const kindOf = (run: FileRun, file: string): FilePhaseKind => {
 
 const stateOf = (status: FileRunStatus, live: boolean): FilePhaseState =>
   status === 'ok' ? 'done' : live ? 'running' : 'failed'
+
+const notKeptReason = (run: FileRun, file: string): FileNotKeptReason | undefined => {
+  const index = run.failed.indexOf(file)
+  return index < 0 ? undefined : run.failedReasons[index]
+}
+
+interface Member {
+  run: FileRun
+  kind: FilePhaseKind
+  reason?: FileNotKeptReason
+}
 
 const sumElapsed = (runs: readonly FileRun[]): number | undefined => {
   const known = runs.flatMap((run) => (run.elapsedMs === undefined ? [] : [run.elapsedMs]))
@@ -152,26 +182,25 @@ const mergeInputs = (runs: readonly FileRun[]): FileRunInput[] => {
   return [...seen.values()]
 }
 
-const phasesOf = (
-  runs: readonly { run: FileRun; kind: FilePhaseKind }[],
-  live: boolean
-): FilePhase[] => {
-  const phases: Array<FilePhase & { runs: FileRun[] }> = []
-  for (const { run, kind } of runs) {
+const phasesOf = (runs: readonly Member[], live: boolean): FilePhase[] => {
+  const phases: Array<{ kind: FilePhaseKind; members: Member[] }> = []
+  for (const member of runs) {
     const last = phases.at(-1)
-    if (last && last.kind === kind) {
-      last.runs.push(run)
+    if (last && last.kind === member.kind) {
+      last.members.push(member)
       continue
     }
-    phases.push({ kind, state: 'running', attempts: 0, runs: [run] })
+    phases.push({ kind: member.kind, members: [member] })
   }
-  return phases.map(({ runs: members, kind }) => {
-    const elapsedMs = sumElapsed(members)
+  return phases.map(({ members, kind }) => {
+    const elapsedMs = sumElapsed(members.map((member) => member.run))
+    const last = members.at(-1)!
     return {
       kind,
-      state: stateOf(members.at(-1)!.status, live),
+      state: last.reason ? 'failed' : stateOf(last.run.status, live),
       attempts: members.length,
       ...(elapsedMs !== undefined ? { elapsedMs } : {}),
+      ...(last.reason ? { reason: last.reason } : {}),
     }
   })
 }
@@ -179,7 +208,9 @@ const phasesOf = (
 const outcomeOf = (phases: readonly FilePhase[]): Pick<FileWork, 'outcome' | 'failedKind'> => {
   const last = phases.at(-1)
   if (!last) return { outcome: 'running' }
-  if (last.state === 'failed') return { outcome: 'failed', failedKind: last.kind }
+  if (last.state === 'failed') {
+    return { outcome: 'failed', failedKind: last.kind, ...(last.reason ? { failedReason: last.reason } : {}) }
+  }
   if (last.state === 'running') return { outcome: 'running' }
   const done = (kind: FilePhaseKind) => phases.some((phase) => phase.kind === kind && phase.state === 'done')
   if (done('calculate')) return { outcome: 'calculated' }
@@ -205,7 +236,7 @@ const prepared = (steps: readonly StoredThinkingStep[], before: number, format: 
 interface Group {
   key: string
   file?: string
-  members: { run: FileRun; kind: FilePhaseKind }[]
+  members: Member[]
 }
 
 export function fileWork(steps: readonly StoredThinkingStep[], live: boolean): FileWork[] {
@@ -230,7 +261,8 @@ export function fileWork(steps: readonly StoredThinkingStep[], live: boolean): F
         byFile.set(file, group)
         groups.push(group)
       }
-      group.members.push({ run, kind: kindOf(run, file) })
+      const reason = notKeptReason(run, file)
+      group.members.push({ run, kind: kindOf(run, file), ...(reason ? { reason } : {}) })
     }
   }
   return groups.map((group) => {

@@ -254,7 +254,15 @@ export const FileWorkRow: FC<{ work: FileWork; defaultOpen?: boolean }> = ({ wor
       {failed && (
         <div data-testid="file-work-failed" className="flex flex-col items-start gap-2 pb-2 pl-[26px]">
           <p className="text-muted-foreground text-[13px] leading-[19px]">
-            {t(work.file ? 'thinking.files.failedNote.file' : 'thinking.files.failedNote.calculate')}
+            {t(
+              work.failedReason === 'too_large'
+                ? 'thinking.files.failedNote.tooLarge'
+                : work.failedReason === 'not_written'
+                  ? 'thinking.files.failedNote.notWritten'
+                  : work.file
+                    ? 'thinking.files.failedNote.file'
+                    : 'thinking.files.failedNote.calculate'
+            )}
           </p>
           <Button
             type="button"

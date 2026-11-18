@@ -1302,6 +1302,8 @@ export const chat: typeof en.chat = {
       },
       failedNote: {
         file: 'Die Datei ließ sich diesmal nicht fertigstellen.',
+        tooLarge: 'Die Datei ist zu groß: Die Dateien eines Chats dürfen zusammen höchstens 25 MB groß sein.',
+        notWritten: 'Die Datei wurde bei diesem Versuch nicht geschrieben.',
         calculate: 'Es ist kein verlässliches Ergebnis entstanden.',
       },
       retry: 'Noch einmal versuchen',

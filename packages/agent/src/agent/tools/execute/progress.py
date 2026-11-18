@@ -38,6 +38,16 @@ MAX_LISTED = 8
 
 _PATH_LITERAL = re.compile(r"""(["'`])(/workspace/[^"'`$\n]+?\.[A-Za-z0-9]{1,5})\1""")
 
+_TEMPLATE_PATH = re.compile(r"""`(/workspace/[^`\n]*\$\{[^`\n]*\.[A-Za-z0-9]{1,5})`""")
+
+_TEMPLATE_PART = re.compile(r"\$\{[^}]*\}")
+
+UNNAMED_PART = "…"
+
+REASON_TOO_LARGE = "too_large"
+
+REASON_NOT_WRITTEN = "not_written"
+
 _READ_CALL = re.compile(r"readFile\w*\(\s*$")
 
 
@@ -63,10 +73,14 @@ def _name(path: str) -> str:
 
 
 def _named_paths(code: str) -> list[tuple[str, bool]]:
+    literal = [(match.start(), match.group(2)) for match in _PATH_LITERAL.finditer(code)]
+    template = [
+        (match.start(), _TEMPLATE_PART.sub(UNNAMED_PART, match.group(1))) for match in _TEMPLATE_PATH.finditer(code)
+    ]
     return [
-        (match.group(2), bool(_READ_CALL.search(code[: match.start()])))
-        for match in _PATH_LITERAL.finditer(code)
-        if not match.group(2).startswith(INPUT_PREFIX)
+        (path, bool(_READ_CALL.search(code[:start])))
+        for start, path in sorted(literal + template)
+        if not path.startswith(INPUT_PREFIX)
     ]
 
 
@@ -133,19 +147,42 @@ class FileRunProgress:
         step = status_step(self.slot, key, values=values, **self._detail(), **finished)
         turn_status.emit_step(step, started=started)
 
-    def finish(self, status: str, *, kept: list[KeptFile], elapsed_ms: int, value: Any = None) -> None:
+    def finish(
+        self,
+        status: str,
+        *,
+        kept: list[KeptFile],
+        elapsed_ms: int,
+        value: Any = None,
+        refused: tuple[str, ...] = (),
+    ) -> None:
         made = [_name(file.path) for file in kept if file.new]
         changed = [_name(file.path) for file in kept if not file.new]
-        result = _scalar_result(value) if status == "ok" and not kept else None
-        _hold(_Held(self.plan.writes, self.attempt, bool(kept) and status == "ok"))
+        failed = _not_kept(self.plan.writes, kept, refused) if status == "ok" else []
+        result = _scalar_result(value) if status == "ok" and not kept and not failed else None
+        _hold(_Held(self.plan.writes, self.attempt, bool(kept) and status == "ok" and not failed))
         self._emit(
             started=False,
             status=status,
             made=made[:MAX_LISTED],
             changed=changed[:MAX_LISTED],
+            failed=[name for name, _ in failed][:MAX_LISTED],
+            failed_reasons=[reason for _, reason in failed][:MAX_LISTED],
             elapsed_ms=max(0, elapsed_ms),
             result=result,
         )
+
+
+def _not_kept(writes: tuple[str, ...], kept: list[KeptFile], refused: tuple[str, ...]) -> list[tuple[str, str]]:
+    kept_names = {_name(file.path) for file in kept}
+    failed = [(_name(path), REASON_TOO_LARGE) for path in refused]
+    named = {name for name, _ in failed}
+    for path in writes:
+        name = _name(path)
+        if name in kept_names or name in named or (UNNAMED_PART in name and (kept or failed)):
+            continue
+        failed.append((name, REASON_NOT_WRITTEN))
+    return failed
 
 
 def _attempt(writes: tuple[str, ...]) -> int:

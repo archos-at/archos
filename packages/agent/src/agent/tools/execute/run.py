@@ -184,9 +184,11 @@ def dropped_inputs(sent: dict[str, bytes], result: RunResult) -> list[str]:
     ]
 
 
-async def _keep(backend: DraftBackend, existing: dict[str, int], result: RunResult) -> tuple[list[KeptFile], list[str]]:
+async def _keep(
+    backend: DraftBackend, existing: dict[str, int], result: RunResult
+) -> tuple[list[KeptFile], dict[str, str]]:
     kept: list[KeptFile] = []
-    refused: list[str] = []
+    refused: dict[str, str] = {}
     for path, data in sorted(result.files.items()):
         if path.startswith(INPUT_DIR):
             continue
@@ -195,7 +197,7 @@ async def _keep(backend: DraftBackend, existing: dict[str, int], result: RunResu
         if refusal is None:
             kept.append(KeptFile(draft_path, len(data), new=path not in existing))
         else:
-            refused.append(refusal)
+            refused[draft_path] = refusal
     return kept, refused
 
 
@@ -216,7 +218,7 @@ def _clip(text: str) -> str:
     return text if len(text) <= MAX_TEXT_BACK else text[:MAX_TEXT_BACK] + "\n… (cut)"
 
 
-def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: list[str]) -> str:
+def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: dict[str, str]) -> str:
     lines = [f"status: {result.status} ({result.duration_ms} ms)"]
     if sent.inputs:
         lines.append("documents read: " + ", ".join(f"'{name}' at {path}" for name, path in sent.inputs))
@@ -236,7 +238,7 @@ def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: list[
         lines.append("stderr:\n" + _clip(result.stderr))
     written = ", ".join(f"{file.path} ({_size(file.size)})" for file in kept)
     lines.append("files written: " + (written or "none"))
-    lines.extend(f"not kept: {reason}" for reason in refused)
+    lines.extend(f"not kept: {reason}" for reason in refused.values())
     lines.extend(f"not kept: {reason}" for reason in dropped_inputs(sent.files, result))
     if kept:
         lines.append("A written file stays in the working directory; file_draft puts it into the project when asked.")
@@ -279,5 +281,7 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
         facts.ran(result.status, result.duration_ms, result.stderr)
         kept, refused = await _keep(backend, sent.existing, result)
         facts.kept, facts.files_refused = kept, len(refused)
-        progress.finish(result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value)
+        progress.finish(
+            result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value, refused=tuple(refused)
+        )
     return _report(result, sent, kept, refused)
