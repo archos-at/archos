@@ -8,13 +8,14 @@ import { ingestWorkerEnv } from "./config";
 import { HEAVY_POOL, HEAVY_TIER, HEAVY_WORKFLOW, WORKFLOW, installIngestWorkerHeavy } from "./ingest-worker";
 import { hatchetNamespace } from "./hatchet-env";
 import { hatchetBacklogQuery } from "./keda-scaling";
+import { deploymentSpec, scaledObjectSpec, type EnvVar } from "../test-support/k8s-shapes";
 import { baseStackConfig } from "../test-support/stack-config";
 import { heavyFileBytesEnv } from "../config/workers";
 
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const SCALED = "kubernetes:keda.sh/v1alpha1:ScaledObject";
 
-type Resource = { type: string; name: string; inputs: Record<string, any> };
+type Resource = { type: string; name: string; inputs: Record<string, unknown> };
 const RESOURCES: Resource[] = [];
 
 pulumi.runtime.setMocks(
@@ -39,10 +40,11 @@ const find = (type: string, name: string): Resource => {
   return hit;
 };
 
-type EnvVar = { name?: unknown; value?: unknown };
-const envOf = (deployment: string): EnvVar[] => find(DEPLOYMENT, deployment).inputs.spec.template.spec.containers[0].env;
-const envValue = (env: EnvVar[], name: string) => env.find((e) => e.name === name)?.value;
-const triggerQuery = (scaledObject: string): string => find(SCALED, scaledObject).inputs.spec.triggers[0].metadata.query;
+const envOf = (deployment: string): EnvVar[] =>
+  deploymentSpec(find(DEPLOYMENT, deployment).inputs.spec).template.spec.containers[0]?.env ?? [];
+const envValue = (env: Array<{ name?: unknown; value?: unknown }>, name: string) => env.find((e) => e.name === name)?.value;
+const triggerQuery = (scaledObject: string): string | undefined =>
+  scaledObjectSpec(find(SCALED, scaledObject).inputs.spec).triggers[0]?.metadata.query;
 
 const pulumiDir = join(__dirname, "..", "..");
 

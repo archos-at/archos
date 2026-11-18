@@ -2,7 +2,8 @@
  * @vitest-environment node
  */
 import { describe, expect, it, vi } from 'vitest'
-import { configFromEnv, runOnce } from './housekeeping-clock.js'
+import contract from '../../../contracts/housekeeping-routes.json'
+import { ROUTES, configFromEnv, runOnce } from './housekeeping-clock.js'
 
 const config = { backendUrl: 'http://aiq-api:8000', internalToken: 'token' }
 const job = { route: 'ghost-jobs', timeoutMs: 1000 }
@@ -26,6 +27,10 @@ function response(status, body) {
 }
 
 describe('the Compose housekeeping clock', () => {
+  it('calls exactly the routes of contracts/housekeeping-routes.json', () => {
+    expect(ROUTES.map(({ route }) => route).sort()).toEqual([...contract.routes].sort())
+  })
+
   it('posts one cycle to the backend route with the internal token', async () => {
     const fetchImpl = vi.fn(async () => response(200, { reaped: [] }))
     const s = streak()

@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
+import { cronJobSpec } from "../test-support/k8s-shapes";
 import { baseStackConfig } from "../test-support/stack-config";
 
 const CRONJOB = "kubernetes:batch/v1:CronJob";
-const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
+const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
   {
@@ -19,8 +22,10 @@ pulumi.runtime.setMocks(
   false,
 );
 
-const API_HOUSEKEEPING = "http://api:8000/v1/maintenance/housekeeping/";
-const HOUSEKEEPING_ROUTES = ["base-corpus", "chat-checkpoints", "ghost-jobs", "job-events"];
+const CONTRACT: { prefix: string; routes: string[] } = JSON.parse(
+  readFileSync(join(__dirname, "../../../../contracts/housekeeping-routes.json"), "utf8"),
+);
+const API_HOUSEKEEPING = `http://api:8000${CONTRACT.prefix}`;
 
 function resolve<T>(value: pulumi.Input<T>): Promise<T> {
   return new Promise((done) => pulumi.output(value).apply((v) => done(v as T)));
@@ -54,15 +59,15 @@ describe("the backend housekeeping CronJobs", () => {
     await Promise.all(workers.housekeeping.map((job) => new Promise((done) => job.id.apply(done))));
 
     for (const r of RESOURCES.filter((r) => r.type === CRONJOB && r.name.startsWith("housekeeping-"))) {
-      const spec = await resolve<any>(r.inputs.spec);
-      const env: Array<{ name: string; value?: string }> = spec.jobTemplate.spec.template.spec.containers[0].env;
+      const spec = cronJobSpec(await resolve<unknown>(r.inputs.spec));
+      const env = spec.jobTemplate.spec.template.spec.containers[0]?.env ?? [];
       sweeps.push({ name: r.name, url: env.find((e) => e.name === "SWEEP_URL")?.value ?? "" });
     }
   }, 120_000);
 
-  it("run one CronJob for each of the four housekeeping routes", () => {
-    expect(sweeps).toHaveLength(HOUSEKEEPING_ROUTES.length);
-    expect(sweeps.map((s) => s.url.slice(API_HOUSEKEEPING.length)).sort()).toEqual(HOUSEKEEPING_ROUTES);
+  it("run one CronJob for each housekeeping route of contracts/housekeeping-routes.json", () => {
+    expect(sweeps).toHaveLength(CONTRACT.routes.length);
+    expect(sweeps.map((s) => s.url.slice(API_HOUSEKEEPING.length)).sort()).toEqual([...CONTRACT.routes].sort());
   });
 
   it("call each route on the api role", () => {

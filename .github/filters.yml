@@ -37,6 +37,7 @@
 backend:
   - 'packages/agent/**'
   - 'apps/agent-host/**'
+  - 'contracts/housekeeping-routes.json'
   # The eval harnesses and their tests: `be:test:ci` runs `evals/` beside
   # `tests/`, so a harness-only change must still run the backend suite.
   # It used to arrive here via the `retrieval` filter; that filter is gone
@@ -260,6 +261,8 @@ workspace:
   - 'packages/brand/**'
   # shared/public-site.spec.ts holds the app's links into the website to it.
   - 'contracts/public-site.json'
+  # workers/housekeeping-clock.spec.mjs holds the Compose clock to the housekeeping routes.
+  - 'contracts/housekeeping-routes.json'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
   - 'contracts/inbound-address.json'
   - 'contracts/inbound-mail-contract.json'
@@ -327,6 +330,8 @@ infra:
   # deploy/pulumi/src/platform/inbound-mail-worker.spec.ts reads the public site's
   # help and privacy paths the Worker's refusal links to.
   - 'contracts/public-site.json'
+  # deploy/pulumi/src/app/housekeeping.spec.ts holds the CronJobs to the housekeeping routes.
+  - 'contracts/housekeeping-routes.json'
   # deploy/pulumi/src/data/qdrant-alerts.spec.ts reads the runbook it links.
   - 'docs/deployment/qdrant-runbook.md'
   - 'Taskfile.yml'
