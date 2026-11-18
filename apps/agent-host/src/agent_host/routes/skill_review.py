@@ -15,9 +15,9 @@ from agent.observability.direct_trace import observed_generation
 from agent.skills import BUILTIN_SKILLS_DIR
 from agent.skills import parse_skill_md
 
-from ..models.requests import SkillReviewFinding
-from ..models.requests import SkillReviewRequest
-from ..models.requests import SkillReviewResponse
+from ..models.review_requests import SkillReviewFinding
+from ..models.review_requests import SkillReviewRequest
+from ..models.review_requests import SkillReviewResponse
 from ._llm_json import extract_json_object
 from ._llm_json import message_content
 
