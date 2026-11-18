@@ -41,6 +41,7 @@ describe('document lifecycle JSON Schema', () => {
     expect(options.map((option) => option.properties.op.const).sort()).toEqual([
       'create',
       'create_file',
+      'revise_file',
       'submit',
       'update',
       'update_file',

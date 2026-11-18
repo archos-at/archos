@@ -1,24 +1,31 @@
 import 'server-only'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { BadRequestError, ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { documentDisplayName, validateDocumentName } from '@/lib/documents/display-name'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
-import { findDocumentAuthoredByRef, listProjectDocuments, DOCUMENT_LIST_LIMIT } from '@/lib/documents/repository'
+import { listProjectDocuments, DOCUMENT_LIST_LIMIT } from '@/lib/documents/repository'
+import { folderOfSource } from '@/lib/documents/agent-folder'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
 import type { DocumentListRow } from '@/lib/documents/repository'
-import { findOpenVersion } from '@/lib/documents/version-repository'
 import { findConversationInOrg } from './repository'
-import { readConversationDraft } from './draft-preview'
-import { readConversationDraftBytes } from './draft-file'
-import { draftFileType, filedExtension, type DraftFileType } from './draft-media'
+import { readDraftFacts, type DraftFacts } from './draft-preview'
+import { draftFileName, draftFileType, filedExtension, type DraftFileType } from './draft-media'
 import { fileAgentFileDraft } from '@/lib/documents/agent-file'
 import { REFUSED_AGENT_FILE_TYPES } from '@/lib/documents/agent-file-types'
 import { findProjectFolder } from '@/lib/projects/folder-service'
 import type { FiledAgentDocumentDraft } from '@/lib/documents/agent-document'
 import type { Locale } from '@/i18n/config'
+import {
+  fileAsRevision,
+  legacyFiling,
+  readDraftWork,
+  recordFiling,
+  refile,
+  type RefilingContext,
+} from './draft-refiling'
 
 export const MAX_FILING_REF_CHARS = 200
 export const MAX_FILING_TITLE_CHARS = 200
@@ -105,8 +112,13 @@ export interface FileConversationDraftInput {
   name?: string
   folderId?: string | null
   force?: boolean
+  as?: 'own' | 'revision'
+  overChanges?: boolean
+  changeNote?: string
   locale?: Locale
 }
+
+export type DraftFilingOutcome = 'filed' | 'unchanged' | 'updated' | 'revised'
 
 export interface FiledConversationDraft {
   documentId: string
@@ -115,6 +127,10 @@ export interface FiledConversationDraft {
   alreadyFiled: boolean
   folderId: string | null
   folderName: string | null
+  outcome: DraftFilingOutcome
+  versionNumber: number | null
+  draftVersion: number
+  revisionOf: { documentId: string; name: string } | null
 }
 
 async function folderNameOf(projectId: string, organizationId: string, folderId: string | null): Promise<string | null> {
@@ -138,6 +154,7 @@ interface FilingTarget {
   path: string
   ref: string
   title: string
+  name?: string
   folderId?: string | null
   request?: Request
   locale?: Locale
@@ -154,19 +171,82 @@ async function fileDraftContent(target: FilingTarget, type: DraftFileType): Prom
     originConversationId: target.conversationId,
     locale: target.locale,
   }
-  if (type.filing === 'file') {
-    const draft = await readConversationDraftBytes(target.session, target.conversationId, target.path)
-    return fileAgentFileDraft({ ...common, filename: draft.filename, contentType: type.contentType, bytes: draft.bytes })
-  }
-  const draft = await readConversationDraft(target.session, target.conversationId, target.path)
-  if (draft.encoding !== 'utf-8') {
-    throw new UnprocessableError('This draft is not text and has no file type that can be filed', {
-      reason: 'not-fileable',
-      format: type.format,
-      extension: type.extension,
+  const work = await readDraftWork(target.session, target.conversationId, target.path, type)
+  if (work.kind === 'file') {
+    return fileAgentFileDraft({
+      ...common,
+      filename: target.name ?? draftFileName(target.path),
+      contentType: work.file.contentType,
+      bytes: work.file.bytes,
     })
   }
-  return fileAgentDocumentDraft({ ...common, content: draft.content })
+  return fileAgentDocumentDraft({ ...common, content: work.content })
+}
+
+async function sourceFolder(
+  session: AuthorizedSession,
+  projectId: string,
+  facts: DraftFacts,
+): Promise<string | null | undefined> {
+  return facts.derivedFrom ? folderOfSource(session, projectId, facts.derivedFrom.documentId) : undefined
+}
+
+async function fileNew(
+  context: RefilingContext,
+  input: FileConversationDraftInput,
+  ref: string,
+): Promise<FiledConversationDraft> {
+  const { session, conversationId, projectId, path, type, facts } = context
+  const title =
+    input.name === undefined ? (input.title ?? '').trim() || fallbackTitle(path) : filingName(input.name, filedExtension(type))
+  if (title.length > MAX_FILING_TITLE_CHARS) throw new BadRequestError('Title is too long')
+  const folderId = input.folderId === undefined ? await sourceFolder(session, projectId, facts) : input.folderId
+  const destination: Destination = folderId === undefined ? { kind: 'default' } : { kind: 'chosen', folderId }
+
+  if (!input.force) {
+    const clash = await findSameTitleDocument(projectId, session.organizationId, title, destination)
+    if (clash) {
+      throw new ConflictError('A document with this title is already in the project', {
+        reason: 'same-name',
+        documentId: clash.id,
+        displayName: documentDisplayName(clash),
+      })
+    }
+  }
+
+  const filed = await fileDraftContent(
+    {
+      session,
+      conversationId,
+      projectId,
+      path,
+      ref,
+      title,
+      name: input.name === undefined ? undefined : title,
+      folderId,
+      request: context.request,
+      locale: context.locale,
+    },
+    type,
+  )
+  await recordFiling(context, filed.documentId, filed.version)
+  return {
+    documentId: filed.documentId,
+    versionId: filed.version.id,
+    state: filed.version.state,
+    alreadyFiled: filed.alreadyFiled,
+    folderId: filed.folderId,
+    folderName: await folderNameOf(projectId, session.organizationId, filed.folderId),
+    outcome: filed.alreadyFiled ? 'unchanged' : 'filed',
+    versionNumber: filed.version.versionNumber ?? null,
+    draftVersion: facts.version,
+    revisionOf: null,
+  }
+}
+
+function ownReference(ref: string): string {
+  const suffix = `-${randomUUID().slice(0, 8)}`
+  return `${ref.slice(0, MAX_FILING_REF_CHARS - suffix.length)}${suffix}`
 }
 
 export async function fileConversationDraft(
@@ -188,54 +268,13 @@ export async function fileConversationDraft(
   const type = draftFileType(path)
   refuseUnfileable(type)
 
-  const title =
-    input.name === undefined ? (input.title ?? '').trim() || fallbackTitle(path) : filingName(input.name, filedExtension(type))
-  const destination: Destination =
-    input.folderId === undefined ? { kind: 'default' } : { kind: 'chosen', folderId: input.folderId }
-  if (title.length > MAX_FILING_TITLE_CHARS) {
-    throw new BadRequestError('Title is too long')
-  }
+  const facts = await readDraftFacts(session, conversationId, path)
   const ref = filingReference(conversationId, path)
+  const context: RefilingContext = { session, conversationId, projectId, path, type, facts, request, locale: input.locale }
 
-  const refHit = await findDocumentAuthoredByRef(ref, session.organizationId, projectId, 'agent_document')
-  if (refHit) {
-    const open = await findOpenVersion(refHit.id, session.organizationId)
-    if (open && (open.state === 'draft' || open.state === 'changes_requested')) {
-      return {
-        documentId: refHit.id,
-        versionId: open.id,
-        state: open.state,
-        alreadyFiled: true,
-        folderId: refHit.folderId,
-        folderName: await folderNameOf(projectId, session.organizationId, refHit.folderId),
-      }
-    }
-    throw new ConflictError('This draft has already been filed and is no longer a draft', {
-      reason: 'already-submitted',
-    })
-  }
-
-  if (!input.force) {
-    const clash = await findSameTitleDocument(projectId, session.organizationId, title, destination)
-    if (clash) {
-      throw new ConflictError('A document with this title is already in the project', {
-        reason: 'same-name',
-        documentId: clash.id,
-        displayName: documentDisplayName(clash),
-      })
-    }
-  }
-
-  const filed = await fileDraftContent(
-    { session, conversationId, projectId, path, ref, title, folderId: input.folderId, request, locale: input.locale },
-    type,
-  )
-  return {
-    documentId: filed.documentId,
-    versionId: filed.version.id,
-    state: filed.version.state,
-    alreadyFiled: filed.alreadyFiled,
-    folderId: filed.folderId,
-    folderName: await folderNameOf(projectId, session.organizationId, filed.folderId),
-  }
+  const nameOf = (folderId: string | null) => folderNameOf(projectId, session.organizationId, folderId)
+  if (input.as === 'revision') return fileAsRevision(context, input, nameOf)
+  const filed = facts.filing ?? (await legacyFiling(session, projectId, ref, type))
+  if (filed && input.as !== 'own') return refile(context, filed, input, nameOf)
+  return fileNew(context, input, filed ? ownReference(ref) : ref)
 }

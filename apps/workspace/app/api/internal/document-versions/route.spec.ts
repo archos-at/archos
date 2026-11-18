@@ -6,9 +6,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/documents/agent-document', () => ({ fileAgentDocumentDraft: vi.fn() }))
-vi.mock('@/lib/documents/agent-file', () => ({ fileAgentFileDraft: vi.fn(), replaceAgentFileVersion: vi.fn() }))
+vi.mock('@/lib/documents/agent-file', () => ({ fileAgentFileDraft: vi.fn() }))
+vi.mock('@/lib/documents/agent-file-revision', () => ({
+  reviseWithAgentWork: vi.fn(async (_session: unknown, input: { documentId: string }) => ({
+    document: { id: input.documentId, folderId: null },
+    version: { id: '22222222-2222-4222-8222-222222222222', state: 'draft' },
+    forked: false,
+  })),
+}))
+vi.mock('@/lib/documents/agent-folder', () => ({
+  agentDestination: vi.fn(async (_session: unknown, _projectId: string, named: { folder?: string }) =>
+    named.folder === undefined ? undefined : 'folder-einreichung',
+  ),
+}))
 vi.mock('@/lib/documents/lifecycle', () => ({
-  replaceVersionContent: vi.fn(),
   transitionDocumentVersion: vi.fn(),
   toDocumentVersionView: (value: unknown) => value,
 }))
@@ -19,9 +30,10 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
 }))
 
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
-import { fileAgentFileDraft, replaceAgentFileVersion } from '@/lib/documents/agent-file'
+import { fileAgentFileDraft } from '@/lib/documents/agent-file'
+import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
 import { AGENT_FILE_MAX_BYTES } from '@/lib/documents/agent-file-types'
-import { replaceVersionContent, transitionDocumentVersion } from '@/lib/documents/lifecycle'
+import { transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { withTenant } from '@/lib/db/tenant-context'
 import {
@@ -116,7 +128,6 @@ beforeEach(() => {
     alreadyFiled: false,
     folderId: null,
   })
-  vi.mocked(replaceAgentFileVersion).mockResolvedValue({ id: VERSION } as never)
 })
 
 describe('the origin conversation', () => {
@@ -262,18 +273,19 @@ describe('the ops it does serve', () => {
       ifMatch: 'sha256:abc',
     })
 
-    expect(replaceVersionContent).toHaveBeenCalledWith(
-      session,
-      DOC,
-      VERSION,
-      'korrigiert',
-      'sha256:abc',
-      {
+    expect(reviseWithAgentWork).toHaveBeenCalledWith(session, {
+      documentId: DOC,
+      work: { kind: 'markdown', content: 'korrigiert' },
+      ifMatch: 'sha256:abc',
+      overChanges: undefined,
+      changeNote: undefined,
+      agentFiledOnly: true,
+      options: {
         request: expect.any(Request),
         actingHuman: false,
         origin: { conversationId: expect.any(String), locale: 'de' },
       },
-    )
+    })
   })
 
   it('hands both writes the conversation, never the signed scope: what may leave is what the conversation USED (ADR-0088)', async () => {
@@ -290,7 +302,7 @@ describe('the ops it does serve', () => {
       { op: 'update', documentId: DOC, versionId: VERSION, content: 'Honorar 48.000', ifMatch: 'sha256:abc' },
       headers,
     )
-    expect(vi.mocked(replaceVersionContent).mock.calls[0][5]).toMatchObject({
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1].options).toMatchObject({
       origin: { conversationId: 's_conv_1', locale: 'de' },
     })
   })
@@ -384,20 +396,68 @@ describe('files the agent made by running code', () => {
 
     expect(response.status).toBe(201)
     expect(await response.json()).toMatchObject({ documentId: DOC, version: { id: VERSION } })
-    expect(replaceAgentFileVersion).toHaveBeenCalledWith(
-      session,
-      DOC,
-      VERSION,
-      { contentType: DOCX, bytes },
-      'sha256:abc',
-      { request: expect.any(Request), actingHuman: false, origin: { conversationId: 's_conv_1', locale: 'de' } },
-    )
-    expect(replaceVersionContent).not.toHaveBeenCalled()
+    expect(reviseWithAgentWork).toHaveBeenCalledWith(session, {
+      documentId: DOC,
+      work: { kind: 'file', file: { contentType: DOCX, bytes } },
+      ifMatch: 'sha256:abc',
+      overChanges: undefined,
+      changeNote: undefined,
+      agentFiledOnly: true,
+      options: { request: expect.any(Request), actingHuman: false, origin: { conversationId: 's_conv_1', locale: 'de' } },
+    })
+  })
+
+  it('update_file over a Fassung a person changed passes the person’s choice on', async () => {
+    await call({
+      op: 'update_file',
+      documentId: DOC,
+      versionId: VERSION,
+      contentType: DOCX,
+      contentBase64,
+      ifMatch: 'sha256:abc',
+      overChanges: true,
+    })
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({ overChanges: true, agentFiledOnly: true })
+  })
+
+  it('revise_file makes the next Fassung of a project document, with its Änderungsvermerk', async () => {
+    const response = await call({
+      op: 'revise_file',
+      documentId: DOC,
+      contentType: DOCX,
+      contentBase64,
+      changeNote: 'Fläche Raum 2.04 korrigiert',
+    })
+    expect(response.status).toBe(201)
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({
+      documentId: DOC,
+      changeNote: 'Fläche Raum 2.04 korrigiert',
+      agentFiledOnly: false,
+    })
+  })
+
+  it('create_file files into the folder the agent named', async () => {
+    vi.mocked(fileAgentFileDraft).mockResolvedValue({
+      documentId: DOC,
+      version: { id: VERSION, state: 'draft' } as never,
+      alreadyFiled: false,
+      folderId: 'folder-einreichung',
+    })
+    await call({
+      op: 'create_file',
+      projectId: PROJECT,
+      ref: 's_conv_1-plan',
+      title: 'Plan',
+      folder: 'Einreichung',
+      contentType: DOCX,
+      contentBase64,
+    })
+    expect(vi.mocked(fileAgentFileDraft).mock.calls[0][0]).toMatchObject({ folderId: 'folder-einreichung' })
   })
 
   it('update_file without If-Match is refused at the schema', async () => {
     const response = await call({ op: 'update_file', documentId: DOC, versionId: VERSION, contentType: DOCX, contentBase64 })
     expect(response.status).toBe(400)
-    expect(replaceAgentFileVersion).not.toHaveBeenCalled()
+    expect(reviseWithAgentWork).not.toHaveBeenCalled()
   })
 })

@@ -163,9 +163,25 @@ export const fileDraftBodySchema = z
       .max(500)
       .optional()
       .describe('The file name in the project; its extension is set to the draft’s own type. Omit to keep the title.'),
+    as: z
+      .enum(['own', 'revision'])
+      .optional()
+      .describe(
+        'For a draft made from a project document: `revision` files it as that document’s next Fassung, `own` as a separate file. Omit for a separate file.',
+      ),
+    overChanges: z
+      .boolean()
+      .optional()
+      .describe('Write the new Fassung over a Fassung a person changed since the draft was filed.'),
+    changeNote: z
+      .string()
+      .max(500)
+      .optional()
+      .describe('The Änderungsvermerk of a new Fassung: what changed against the Fassung before it.'),
   })
   .strict()
 
 export const draftPreviewQuerySchema = z.object({
   path: z.string().min(1).max(500),
+  v: z.coerce.number().int().min(1).max(1_000_000).optional(),
 })

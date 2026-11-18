@@ -60,8 +60,9 @@ export async function renderConversationDraft(
   conversationId: string,
   path: string,
   ifNoneMatch: string | null,
+  version?: number,
 ): Promise<Response> {
-  const draft = await readConversationDraftBytes(session, conversationId, path)
+  const draft = await readConversationDraftBytes(session, conversationId, path, version)
   if (draft.type.preview !== 'office' && draft.type.preview !== 'pdf') {
     throw new UnprocessableError('Only Word, Excel, PowerPoint and PDF drafts have a PDF rendition', {
       reason: 'no-rendition',

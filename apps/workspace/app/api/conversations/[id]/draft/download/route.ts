@@ -6,8 +6,8 @@ type Params = { id: string }
 
 export const GET = apiRoute<Params>(
   async ({ session, params, request }) => {
-    const { path } = parseQuery(request, draftPreviewQuerySchema)
-    return downloadConversationDraft(session, params.id, path)
+    const { path, v } = parseQuery(request, draftPreviewQuerySchema)
+    return downloadConversationDraft(session, params.id, path, v)
   },
   { authz: { enforcedBy: 'downloadConversationDraft (requireResourceAccess viewer on the conversation)' } },
 )

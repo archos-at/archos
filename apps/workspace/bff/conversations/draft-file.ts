@@ -22,9 +22,10 @@ export async function readConversationDraftBytes(
   session: AuthorizedSession,
   conversationId: string,
   path: string,
+  version?: number,
 ): Promise<ConversationDraftBytes> {
   await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
-  const response = await fetchDraftFromBackend(conversationId, path, { raw: true })
+  const response = await fetchDraftFromBackend(conversationId, path, { raw: true, version })
   const declared = Number(response.headers.get('content-length') ?? '0')
   if (declared > AGENT_FILE_MAX_BYTES) throw new PayloadTooLargeError(AGENT_FILE_MAX_BYTES)
   const bytes = new Uint8Array(await response.arrayBuffer())
@@ -37,8 +38,9 @@ export async function downloadConversationDraft(
   session: AuthorizedSession,
   conversationId: string,
   path: string,
+  version?: number,
 ): Promise<Response> {
-  const draft = await readConversationDraftBytes(session, conversationId, path)
+  const draft = await readConversationDraftBytes(session, conversationId, path, version)
   return new Response(Buffer.from(draft.bytes), {
     status: 200,
     headers: {

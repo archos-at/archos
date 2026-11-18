@@ -293,6 +293,7 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       ref: z.string().min(1).max(200),
       title: z.string().trim().min(1).max(200),
       content: z.string().max(2_000_000),
+      folder: z.string().trim().min(1).max(500).optional(),
     })
     .strict(),
   z
@@ -302,6 +303,7 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       versionId: z.guid(),
       content: z.string().max(2_000_000),
       ifMatch: z.string().min(1),
+      overChanges: z.boolean().optional(),
     })
     .strict(),
   z
@@ -311,6 +313,8 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       ref: z.string().min(1).max(200),
       title: z.string().trim().min(1).max(200),
       filename: z.string().trim().min(1).max(255).optional(),
+      folder: z.string().trim().min(1).max(500).optional(),
+      sourceDocumentId: z.guid().optional(),
       contentType: agentFileContentTypeSchema,
       contentBase64: agentFileBase64Schema,
     })
@@ -323,6 +327,16 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       contentType: agentFileContentTypeSchema,
       contentBase64: agentFileBase64Schema,
       ifMatch: z.string().min(1),
+      overChanges: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal('revise_file'),
+      documentId: z.guid(),
+      contentType: agentFileContentTypeSchema,
+      contentBase64: agentFileBase64Schema,
+      changeNote: z.string().trim().max(500).optional(),
     })
     .strict(),
   z
@@ -355,6 +369,7 @@ export const documentVersionViewSchema = z.object({
   publishedBy: z.string().nullable(),
   publishedAt: z.string().nullable(),
   reviewComment: z.string().nullable(),
+  changeNote: z.string().nullable().optional(),
   createdBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),

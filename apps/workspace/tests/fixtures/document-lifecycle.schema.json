@@ -28,6 +28,11 @@
             "content": {
               "type": "string",
               "maxLength": 2000000
+            },
+            "folder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
             }
           },
           "required": [
@@ -60,6 +65,9 @@
             "ifMatch": {
               "type": "string",
               "minLength": 1
+            },
+            "overChanges": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -95,6 +103,15 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 255
+            },
+            "folder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "sourceDocumentId": {
+              "type": "string",
+              "format": "uuid"
             },
             "contentType": {
               "type": "string",
@@ -152,6 +169,9 @@
             "ifMatch": {
               "type": "string",
               "minLength": 1
+            },
+            "overChanges": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -161,6 +181,43 @@
             "contentType",
             "contentBase64",
             "ifMatch"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "revise_file"
+            },
+            "documentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "contentType": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "description": "One of: application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.presentationml.presentation, application/pdf, image/svg+xml, image/png. text/csv is refused: file tables as .xlsx."
+            },
+            "contentBase64": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 33333336,
+              "format": "base64",
+              "contentEncoding": "base64",
+              "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+            },
+            "changeNote": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "op",
+            "documentId",
+            "contentType",
+            "contentBase64"
           ],
           "additionalProperties": false
         },
@@ -338,6 +395,12 @@
           ]
         },
         "reviewComment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeNote": {
           "type": [
             "string",
             "null"
@@ -552,6 +615,12 @@
                 ]
               },
               "reviewComment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "changeNote": {
                 "type": [
                   "string",
                   "null"
@@ -781,6 +850,12 @@
               ]
             },
             "reviewComment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "changeNote": {
               "type": [
                 "string",
                 "null"

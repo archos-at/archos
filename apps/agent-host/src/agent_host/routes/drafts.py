@@ -15,6 +15,10 @@ from pydantic import Field
 from agent.tools.documents import draft_store
 from agent.tools.documents.draft_store import BASE64
 from agent.tools.documents.draft_store import FILED_AT_DRAFT_VERSION_KEY
+from agent.tools.documents.draft_store import FILED_DOCUMENT_KEY
+from agent.tools.documents.draft_store import FILED_HASH_KEY
+from agent.tools.documents.draft_store import FILED_STATE_KEY
+from agent.tools.documents.draft_store import FILED_VERSION_KEY
 from agent.tools.documents.draft_store import MAX_DRAFT_BYTES
 from agent.tools.documents.draft_store import PREVIOUS_VERSION_KEY
 from agent.tools.documents.draft_store import VERSION_KEY
@@ -117,6 +121,12 @@ async def _read_draft(conversation_id: str, draft_path: str) -> dict:
     if filing:
         answer["filing"] = filing
         answer["filed_at_version"] = int(item.value.get(FILED_AT_DRAFT_VERSION_KEY) or 0)
+        answer["filed"] = {
+            "documentId": filing.get(FILED_DOCUMENT_KEY, ""),
+            "versionId": filing.get(FILED_VERSION_KEY, ""),
+            "contentHash": filing.get(FILED_HASH_KEY, ""),
+            "state": filing.get(FILED_STATE_KEY, ""),
+        }
     if item.value.get(PREVIOUS_VERSION_KEY):
         answer["previous_version"] = int(item.value[PREVIOUS_VERSION_KEY])
     derived = derived_from_value(item.value)
