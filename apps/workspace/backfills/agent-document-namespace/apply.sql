@@ -1,8 +1,6 @@
--- drop after release 2026-W51: ADR-0182 phase 4, deploy 2, step 3, backfill A (app database).
+-- drop after release 2026-W51: ADR-0182 phase 4, deploy 2, step 3 (app database).
 -- An agent document's filename moves from piloti/<id>/<name> to generated/<id>/<name>, with
--- the two tables that copy it. One transaction. Run as the database owner after migration 0246
--- and the generated/ writer are live. Then run namespace-metadata.sql against the jobs database.
--- Idempotent: a second run changes nothing.
+-- the two tables that copy it, in one transaction. Idempotent.
 
 BEGIN;
 
