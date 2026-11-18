@@ -10,6 +10,7 @@ from ifc_spatial import accessibility as ac
 from ifc_spatial import briefing as br
 from ifc_spatial import daylight as dl
 from ifc_spatial import envelope_geometry as eg
+from ifc_spatial import envelope_geometry_survey as egs
 from ifc_spatial import fire
 from ifc_spatial import operators as op
 from ifc_spatial import relations as rel
@@ -726,7 +727,7 @@ class TestAnExternalWallBoundsMoreThanOneRoom:
         rooms = op.enclosed_by(model, wall.GlobalId)
         assert op._rooms_on_one_side(model, wall, rooms.value) is True
 
-        external, _route, why = eg._external_route(model, wall)
+        external, _route, why = egs._external_route(model, wall)
         assert external is True
         assert "alle auf derselben Seite" in why
 
@@ -739,7 +740,7 @@ class TestAnExternalWallBoundsMoreThanOneRoom:
             assert "tragende Wand" in why and "Geometrie" in why
 
     def test_a_partition_is_still_a_partition(self, house: SpatialModel) -> None:
-        external, _route, _why = eg._external_route(house, house.file.by_guid("3cUkl32yn9qRSPvBJVyWY1"))
+        external, _route, _why = egs._external_route(house, house.file.by_guid("3cUkl32yn9qRSPvBJVyWY1"))
         assert external is False
 
 
