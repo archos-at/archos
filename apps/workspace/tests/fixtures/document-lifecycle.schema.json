@@ -188,6 +188,23 @@
           "type": "object",
           "properties": {
             "op": {
+              "const": "status"
+            },
+            "documentId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "op",
+            "documentId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
               "const": "revise_file"
             },
             "documentId": {

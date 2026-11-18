@@ -13,6 +13,7 @@ import { agentDestination } from '@/lib/documents/agent-folder'
 import { reviseWithAgentWork, type AgentWork } from '@/lib/documents/agent-file-revision'
 import { decodeAgentFileBase64 } from '@/lib/documents/agent-file-check'
 import { getAccessibleDocument } from '@/lib/documents/access'
+import { findOpenVersion, findPublishedVersion } from '@/lib/documents/version-repository'
 import { listReviewCandidates, matchReviewCandidate } from '@/lib/documents/reviewers'
 import { toDocumentVersionView, transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import {
@@ -99,6 +100,14 @@ async function runOp(
       folderId: filed.folderId,
       version: toDocumentVersionView(filed.version),
     }
+  }
+
+  if (body.op === 'status') {
+    const document = await getAccessibleDocument(session, body.documentId)
+    const current =
+      (await findOpenVersion(document.id, session.organizationId)) ??
+      (await findPublishedVersion(document.id, session.organizationId))
+    return { documentId: document.id, version: current ? toDocumentVersionView(current) : null }
   }
 
   if (body.op === 'update_file' || body.op === 'revise_file') {

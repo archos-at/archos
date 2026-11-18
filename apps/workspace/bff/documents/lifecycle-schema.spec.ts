@@ -42,6 +42,7 @@ describe('document lifecycle JSON Schema', () => {
       'create',
       'create_file',
       'revise_file',
+      'status',
       'submit',
       'update',
       'update_file',

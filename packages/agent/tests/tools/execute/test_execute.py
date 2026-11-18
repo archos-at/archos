@@ -14,6 +14,10 @@ from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 from agent.tools.documents.draft_store import DERIVED_FROM_KEY
 from agent.tools.documents.draft_store import DRAFT_ROOT
+from agent.tools.documents.draft_store import FILED_DOCUMENT_KEY
+from agent.tools.documents.draft_store import FILED_HASH_KEY
+from agent.tools.documents.draft_store import FILED_STATE_KEY
+from agent.tools.documents.draft_store import FILED_VERSION_KEY
 from agent.tools.documents.draft_store import DraftBackend
 from agent.tools.documents.draft_store import draft_namespace
 from agent.tools.execute import run
@@ -394,6 +398,55 @@ class TestDeletingAndDeriving:
 
         item = store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}Bericht.pdf")
         assert DERIVED_FROM_KEY not in item.value
+
+
+class TestAFiledDraftAPersonChanged:
+    async def _filed(self, store: InMemoryStore) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
+        assert await backend.awrite_run_file(path, b"PK-1") is None
+        await backend.arecord_filing(
+            path,
+            {
+                FILED_DOCUMENT_KEY: "doc-1",
+                FILED_VERSION_KEY: "ver-1",
+                FILED_HASH_KEY: "sha256:filed",
+                FILED_STATE_KEY: "approved",
+            },
+            draft_version=1,
+        )
+
+    def _project(self, monkeypatch: pytest.MonkeyPatch, content_hash: str, seen: list) -> None:
+        from agent.common.bff_http import SignedEnvelope
+        from agent.tools.execute import project_state
+
+        def post(payload: dict, envelope: Any) -> dict:
+            seen.append(payload)
+            return {"documentId": "doc-1", "version": {"contentHash": content_hash, "versionNumber": 3}}
+
+        monkeypatch.setattr(project_state, "_envelope", lambda: SignedEnvelope(header="h", signature="s"))
+        monkeypatch.setattr(project_state, "post_document_version", post)
+
+    async def test_the_run_says_it_worked_on_the_stale_copy(self, store, monkeypatch) -> None:
+        await self._filed(store)
+        seen: list = []
+        self._project(monkeypatch, "sha256:person", seen)
+        _runner(monkeypatch, _ok({}), [])
+
+        answer = await run.execute(RUNNER, 'fs.readFile("/workspace/Raumbuch.xlsx")')
+
+        assert seen == [{"op": "status", "documentId": "doc-1"}]
+        assert f"note: {DRAFT_ROOT}Raumbuch.xlsx was changed in the project by a person since it was filed" in answer
+        assert "(now Fassung 3)" in answer
+
+    async def test_an_unchanged_filing_says_nothing(self, store, monkeypatch) -> None:
+        await self._filed(store)
+        self._project(monkeypatch, "sha256:filed", [])
+        _runner(monkeypatch, _ok({}), [])
+
+        answer = await run.execute(RUNNER, 'fs.readFile("/workspace/Raumbuch.xlsx")')
+
+        assert "note:" not in answer
 
 
 class TestLargeInputs:

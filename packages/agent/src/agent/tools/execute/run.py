@@ -22,6 +22,7 @@ from ..documents.draft_store import DraftBackend
 from ..documents.draft_store import get_draft_backend
 from ..look.resolve import resolve_document
 from .progress import FileRunProgress
+from .project_state import changed_in_project
 from .runner_client import WORKSPACE
 from .runner_client import RunnerUnavailable
 from .runner_client import RunResult
@@ -285,6 +286,7 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
             facts.stop("refused", refusal.code)
             return f"Nothing was run. {refusal}"
         facts.sent(sent.files, timeout_s)
+        stale = await changed_in_project(backend, [_to_drafts(path) for path in sent.files if path in sent.existing])
         progress = FileRunProgress.begin(code, sent.existing, sent.documents)
         try:
             result = await run_code(runner_url, code, language="ts", files=sent.files, timeout_ms=timeout_s * 1000)
@@ -300,6 +302,5 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
         progress.finish(
             result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value, refused=tuple(refused)
         )
-    return _report(result, sent, kept, refused) + "".join(
-        f"\nremoved from the working directory: {path}" for path in removed
-    )
+    later = [*(f"removed from the working directory: {path}" for path in removed), *stale]
+    return "\n".join([_report(result, sent, kept, refused), *later])

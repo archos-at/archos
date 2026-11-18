@@ -332,6 +332,12 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
     .strict(),
   z
     .object({
+      op: z.literal('status'),
+      documentId: z.guid(),
+    })
+    .strict(),
+  z
+    .object({
       op: z.literal('revise_file'),
       documentId: z.guid(),
       contentType: agentFileContentTypeSchema,

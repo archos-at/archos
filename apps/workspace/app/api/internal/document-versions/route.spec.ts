@@ -19,6 +19,13 @@ vi.mock('@/lib/documents/agent-folder', () => ({
     named.folder === undefined ? undefined : 'folder-einreichung',
   ),
 }))
+vi.mock('@/lib/documents/access', () => ({
+  getAccessibleDocument: vi.fn(async (_session: unknown, id: string) => ({ id, folderId: null })),
+}))
+vi.mock('@/lib/documents/version-repository', () => ({
+  findOpenVersion: vi.fn(async () => null),
+  findPublishedVersion: vi.fn(async () => ({ id: 'ver-pub', state: 'published', contentHash: 'sha256:person', versionNumber: 3 })),
+}))
 vi.mock('@/lib/documents/lifecycle', () => ({
   transitionDocumentVersion: vi.fn(),
   toDocumentVersionView: (value: unknown) => value,
@@ -433,6 +440,15 @@ describe('files the agent made by running code', () => {
       documentId: DOC,
       changeNote: 'Fläche Raum 2.04 korrigiert',
       agentFiledOnly: false,
+    })
+  })
+
+  it('status answers the current Fassung of a document the agent filed, so a run knows when a person changed it', async () => {
+    const response = await call({ op: 'status', documentId: DOC })
+    expect(response.status).toBe(201)
+    expect(await response.json()).toMatchObject({
+      documentId: DOC,
+      version: { id: 'ver-pub', contentHash: 'sha256:person', versionNumber: 3 },
     })
   })
 
