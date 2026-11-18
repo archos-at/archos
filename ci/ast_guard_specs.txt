@@ -31,3 +31,4 @@ apps/workspace/ui/components/ui/avatar-identity.spec.ts
 apps/workspace/ui/components/ui/breakpoints.spec.ts
 apps/workspace/ui/components/ui/section-label.spec.tsx
 apps/workspace/ui/components/ui/touch-target.spec.ts
+apps/website/src/lib/rich-text.test.ts
