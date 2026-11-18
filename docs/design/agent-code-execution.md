@@ -107,7 +107,9 @@ LangGraph store under `("conversation", <id>, "tool-data")` (`tools/execute/tool
 the working directory but not in it: it is not a file the person sees, files or downloads, and it
 does not count against the 25 MB. References count up per conversation (`r1`, `r2`, …) under a
 per-conversation lock, and only the latest 20 are kept; the agent host's drafts route deletes them
-with the conversation. Deep research binds no `execute`, so a tool there keeps nothing and names
+with the conversation. Erasure first writes an `erased` marker into the namespace and keeps it; a
+tool still running then keeps nothing, because a write checks the marker before and after and removes
+what it wrote when the conversation was erased meanwhile, whichever process it runs in. Deep research binds no `execute`, so a tool there keeps nothing and names
 nothing (`current_step_scope() != "chat"`).
 
 **Limits, said out loud.** A result over 8 MB is not kept, and the tool's text says so and asks

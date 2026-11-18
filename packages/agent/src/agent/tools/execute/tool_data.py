@@ -4,8 +4,9 @@ import asyncio
 import json
 import logging
 import re
-from collections import OrderedDict
+from collections.abc import AsyncIterator
 from collections.abc import Container
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +28,8 @@ MAX_DATA_PER_RUN = 10
 
 INDEX_KEY = "index"
 
+ERASED_KEY = "erased"
+
 WORKSPACE_ABOUT: dict[str, str] = {
     "project-profile-get": "Projektprofil",
     "project-get": "Projektdaten",
@@ -35,8 +38,7 @@ WORKSPACE_ABOUT: dict[str, str] = {
 
 _REFERENCE = re.compile(r"r[1-9][0-9]{0,6}")
 
-_MAX_LOCKS = 512
-_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+_locks: dict[str, tuple[asyncio.Lock, int]] = {}
 
 
 def data_namespace(conversation_id: str) -> tuple[str, str, str]:
@@ -69,14 +71,19 @@ class DataRefused(Exception):
         self.code = code
 
 
-def _lock(conversation_id: str) -> asyncio.Lock:
-    lock = _locks.get(conversation_id)
-    if lock is None:
-        lock = _locks[conversation_id] = asyncio.Lock()
-        while len(_locks) > _MAX_LOCKS:
-            _locks.popitem(last=False)
-    _locks.move_to_end(conversation_id)
-    return lock
+@asynccontextmanager
+async def _lock(conversation_id: str) -> AsyncIterator[None]:
+    lock, users = _locks.get(conversation_id) or (asyncio.Lock(), 0)
+    _locks[conversation_id] = (lock, users + 1)
+    try:
+        async with lock:
+            yield
+    finally:
+        lock, users = _locks[conversation_id]
+        if users <= 1:
+            del _locks[conversation_id]
+        else:
+            _locks[conversation_id] = (lock, users - 1)
 
 
 def _size(count: int) -> str:
@@ -131,11 +138,16 @@ async def _keep(conversation_id: str, data: ToolData) -> str:
                 f"This result is too large to hand to execute ({_size(len(body))}, at most "
                 f"{MAX_DATA_BYTES // (1024 * 1024)} MB): narrow the query to hand it over."
             )
+        if await store.aget(namespace, ERASED_KEY) is not None:
+            return ""
         await store.aput(namespace, reference, {"tool": data.tool, "about": data.about, "json": body.decode("utf-8")})
         kept.append(reference)
         for dropped in kept[:-MAX_KEPT]:
             await store.adelete(namespace, dropped)
         await store.aput(namespace, INDEX_KEY, {"next": number + 1, "references": kept[-MAX_KEPT:]})
+        if await store.aget(namespace, ERASED_KEY) is not None:
+            await _drop_all(store, namespace, frozenset({ERASED_KEY}))
+            return ""
     path = INPUT_DIR + file_name(data.tool, reference)
     return (
         f'Data for execute: {reference} ({_count(data, len(body))}). execute(data=["{reference}"]) reads every '
@@ -170,22 +182,38 @@ async def hand_over(conversation_id: str, references: list[str], taken: Containe
         item = await store.aget(namespace, reference) if _REFERENCE.fullmatch(reference) else None
         if item is None:
             raise _unknown(reference, kept)
-        path = INPUT_DIR + file_name(str(item.value.get("tool") or "data"), reference)
-        if path in taken:
-            path = INPUT_DIR + file_name("data", reference)
+        path = _free_path(str(item.value.get("tool") or "data"), reference, taken, {entry.path for entry in handed})
         handed.append(HandedData(reference, str(item.value.get("about") or ""), path, item.value["json"].encode()))
     return handed
+
+
+def _free_path(tool: str, reference: str, taken: Container[str], handed: set[str]) -> str:
+    candidates = [file_name(tool, reference), file_name("data", reference)]
+    candidates += [file_name(f"data-{number}", reference) for number in range(2, MAX_DATA_PER_RUN + 3)]
+    for name in candidates:
+        path = INPUT_DIR + name
+        if path not in taken and path not in handed:
+            return path
+    raise DataRefused(f"No free name under {INPUT_DIR} for tool result '{reference}'.", "data_path_taken")
+
+
+async def _drop_all(store: Any, namespace: tuple[str, ...], keep: frozenset[str] = frozenset()) -> int:
+    seen: set[str] = set(keep)
+    dropped = 0
+    while True:
+        page = await store.asearch(namespace, limit=100)
+        keys = [item.key for item in page if item.key not in seen]
+        if not keys:
+            return dropped
+        seen.update(keys)
+        for key in keys:
+            await store.adelete(namespace, key)
+            dropped += key not in (INDEX_KEY, ERASED_KEY)
 
 
 async def delete_conversation_tool_data(conversation_id: str) -> int:
     store = await draft_store.get_draft_store()
     namespace = data_namespace(conversation_id)
-    seen: set[str] = set()
-    while True:
-        page = await store.asearch(namespace, limit=100)
-        keys = [item.key for item in page if item.key not in seen]
-        if not keys:
-            return len(seen - {INDEX_KEY})
-        seen.update(keys)
-        for key in keys:
-            await store.adelete(namespace, key)
+    await store.aput(namespace, ERASED_KEY, {"erased": True})
+    async with _lock(conversation_id):
+        return await _drop_all(store, namespace, frozenset({ERASED_KEY}))

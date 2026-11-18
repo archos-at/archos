@@ -101,7 +101,8 @@ class TestTheDeletion:
 
         assert _delete(client).status_code == 204
 
-        assert store.search(tool_data.data_namespace(CONVERSATION)) == []
+        left = store.search(tool_data.data_namespace(CONVERSATION))
+        assert [(item.key, item.value) for item in left] == [(tool_data.ERASED_KEY, {"erased": True})]
 
     async def test_another_conversations_working_directory_stands(self, client, prod_token, store) -> None:
         await _write(store, CONVERSATION, "befund")

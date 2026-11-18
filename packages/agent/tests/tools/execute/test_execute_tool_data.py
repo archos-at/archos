@@ -314,3 +314,48 @@ class TestLimits:
 
         assert seen == []
         assert "exceed 50 MB" in report
+
+
+class TestErasureAndConcurrency:
+    async def test_nothing_is_kept_after_the_conversation_was_erased(self, store, monkeypatch) -> None:
+        await tool_data.delete_conversation_tool_data(CONVERSATION)
+
+        line = await _schedule_line(monkeypatch)
+
+        assert "Data for execute" not in line
+        keys = {item.key for item in store.search(tool_data.data_namespace(CONVERSATION), limit=100)}
+        assert keys == {tool_data.ERASED_KEY}
+
+    async def test_a_result_written_while_the_conversation_is_erased_does_not_survive(self, store, monkeypatch) -> None:
+        namespace = tool_data.data_namespace(CONVERSATION)
+        original = InMemoryStore.aput
+
+        async def _erased_meanwhile(self, ns, key, value, *args, **kwargs):
+            if tuple(ns) == namespace and key == "r1":
+                await original(self, namespace, tool_data.ERASED_KEY, {"erased": True})
+            return await original(self, ns, key, value, *args, **kwargs)
+
+        monkeypatch.setattr(InMemoryStore, "aput", _erased_meanwhile)
+
+        line = await _schedule_line(monkeypatch)
+
+        assert "Data for execute" not in line
+        keys = {item.key for item in store.search(namespace, limit=100)}
+        assert keys == {tool_data.ERASED_KEY}
+
+    async def test_concurrent_results_get_distinct_references_and_no_lock_is_left(self, store, monkeypatch) -> None:
+        import asyncio
+
+        lines = await asyncio.gather(*(_schedule_line(monkeypatch, _schedule(3)) for _ in range(5)))
+
+        assert sorted(line.split()[3] for line in lines) == [f"r{n}" for n in range(1, 6)]
+        assert tool_data._locks == {}
+
+    async def test_a_handed_result_never_takes_a_documents_path(self, store, monkeypatch) -> None:
+        await _schedule_line(monkeypatch)
+        taken = {"/workspace/in/ifc_query-r1.json", "/workspace/in/data-r1.json"}
+
+        handed = await tool_data.hand_over(CONVERSATION, ["r1"], taken)
+
+        assert handed[0].path.startswith("/workspace/in/")
+        assert handed[0].path not in taken
