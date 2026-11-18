@@ -3,7 +3,7 @@ from __future__ import annotations
 from langchain_core.messages import HumanMessage
 
 from agent.cards import envelope
-from agent.cards.catalog import CARD_EXAMPLES
+from agent.cards.card_examples import CARD_EXAMPLES
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.envelope import REFUSED_CONFINED
