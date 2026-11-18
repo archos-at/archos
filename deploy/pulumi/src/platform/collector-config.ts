@@ -31,6 +31,7 @@ export interface CollectorConfig {
 
 export const OTLP_GRPC_PORT = 4317;
 export const OTLP_HTTP_PORT = 4318;
+export const SHIPPER_OTLP_PORT = 4319;
 export const HEALTH_PORT = 13133;
 
 export const OTLP_RECEIVER = "otlp";
