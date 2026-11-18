@@ -203,7 +203,7 @@ function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sti
   )
 }
 
-export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false, officeName = 'Bürobibliothek' }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
+export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false, officeName = 'Bürobibliothek', person = null, personOpen = null }: { person?: string | null; personOpen?: string | null; personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
       <nav aria-label={OFFICE} className="mb-2 w-full">
@@ -215,6 +215,31 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, 
           {inbox === 'org' && <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />}
         </SidebarMenu>
       </nav>
+      {person === 'group' && (
+        <nav aria-label="Persönlich" className="mb-2 w-full">
+          <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium">Persönlich</div>
+          <SidebarMenu className="gap-0.5">
+            <NavRow icon={FolderLock} label="Meine Ablage" active={personOpen === 'shelf'} />
+            <NavRow icon={Zap} label="Meine Automatisierungen" active={personOpen === 'auto'} />
+          </SidebarMenu>
+        </nav>
+      )}
+      {person === 'menu' && (
+        <div className="bg-background shadow-lg absolute bottom-[60px] left-3 right-3 z-50 flex flex-col gap-0.5 rounded-[12px] p-1.5">
+          {[
+            { icon: FolderLock, label: 'Meine Ablage' },
+            { icon: Zap, label: 'Meine Automatisierungen' },
+            { icon: BookMarked, label: 'Mein Gedächtnis' },
+          ].map(({ icon: Icon, label }) => (
+            <span key={label} className="text-name flex h-9 items-center gap-[11px] rounded-control px-2.5 font-normal">
+              <Icon className="text-muted-foreground size-4" aria-hidden />
+              {label}
+            </span>
+          ))}
+          <span className="border-hairline text-muted-foreground text-name mt-1 flex h-9 items-center border-t px-2.5 pt-1 font-normal">Einstellungen</span>
+          <span className="text-muted-foreground text-name flex h-9 items-center px-2.5 font-normal">Abmelden</span>
+        </div>
+      )}
       {inbox === 'person' && (
         <SidebarMenu className="border-hairline mb-1 gap-0.5 border-t pt-2">
           <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />

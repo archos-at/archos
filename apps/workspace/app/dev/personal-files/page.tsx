@@ -62,6 +62,9 @@ const OFFICE_FILES: FileItem[] = [
 ]
 
 function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'bell', inboxOpen = false, officeName, newChat = false, mine = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean; officeName?: string; newChat?: boolean; mine?: boolean }): JSX.Element {
+  const query = useSearchParams()
+  const person = query?.get('person') ?? null
+  const personOpen = query?.get('pact') ?? null
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -80,7 +83,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           <SidebarMenu className="mb-1 gap-0.5">
             <NavRow icon={SquarePen} label="Neuer Chat" active={newChat} />
-            <NavRow icon={Folder} label={mine ? 'Meine Ablage' : 'Ablage'} badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+            {!(person && own) && <NavRow icon={Folder} label={mine && !person ? 'Meine Ablage' : 'Ablage'} badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && !personOpen && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />}
             {shelfRows && (
               <ul className="flex flex-col gap-0.5 pt-0.5">
                 {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
@@ -88,7 +91,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
               </ul>
             )}
             {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-            <NavRow icon={Zap} label={mine ? 'Meine Automatisierungen' : 'Automatisierung'} active={section === 'automation'} />
+            {!(person && own) && <NavRow icon={Zap} label={mine && !person ? 'Meine Automatisierungen' : 'Automatisierung'} active={!personOpen && section === 'automation'} />}
           </SidebarMenu>
           {inbox === 'top' && (
             <SidebarMenu className="mt-1 gap-0.5">
@@ -106,7 +109,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <MoreRow label="Alle Chats" indent={false} />
           </ul>
         </SidebarContent>
-        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} />
+        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} />
         <SidebarRail aria-label="Breite ändern" />
       </Sidebar>
     </SidebarProvider>
@@ -504,7 +507,7 @@ function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across, alon
       <Rail own={across} section="files" gear="none" mine={alone && own} />
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? 'Projektübergreifend' : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} />
+        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? (across ? 'Projektübergreifend' : 'Persönlich') : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} />
         <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
           {query ? <SearchHits query={query} /> : null}
           {!own && !folder && !query && <UnreadHint count={2} />}
@@ -536,7 +539,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
