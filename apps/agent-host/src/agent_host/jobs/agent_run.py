@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import logging
 from typing import Any
 
@@ -42,7 +41,7 @@ async def _run_agent(
         "platform_lessons": platform_lessons,
         "organization_id": organization_id,
     }
-    state_cls = _get_agent_state_class(agent)
+    state_cls = getattr(type(agent), "state_model", None)
     if state_cls:
         state = _model_state(state_cls, input_text, data_sources, available_documents, fields)
     else:
@@ -96,57 +95,3 @@ async def _run_with_reader_controls(agent, state: Any, monitor: CancellationMoni
     finally:
         reset_added_documents(added_token)
         reset_write_now(token)
-
-
-def _get_agent_state_class(agent) -> type | None:
-    declared = getattr(type(agent), "state_model", None)
-    if isinstance(declared, type):
-        return declared
-
-    agent_module = type(agent).__module__
-    agent_name = type(agent).__name__
-
-    state_name_patterns = [
-        "AgentState",
-        f"{agent_name}State",
-        f"{agent_name.replace('Agent', '')}AgentState",  # DeepResearcher -> DeepResearcherAgentState
-        f"{agent_name.replace('erAgent', '')}AgentState",  # DeepResearcherAgent -> DeepResearchAgentState
-        "State",
-    ]
-
-    try:
-        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
-        models_module = importlib.import_module(agent_module.replace(".agent", ".models"))
-        name = _declared_state_name(models_module, state_name_patterns)
-        if name is not None:
-            return getattr(models_module, name)
-        found = _message_state(models_module)
-        if found is not None:
-            return found
-    except ImportError, AttributeError:
-        pass
-
-    try:
-        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
-        module = importlib.import_module(agent_module)
-        name = _declared_state_name(module, state_name_patterns)
-        if name is not None:
-            return getattr(module, name)
-    except ImportError:
-        pass
-
-    return None
-
-
-def _declared_state_name(module: Any, patterns: list[str]) -> str | None:
-    return next((name for name in patterns if hasattr(module, name)), None)
-
-
-def _message_state(module: Any) -> type | None:
-    for name in dir(module):
-        if not name.endswith("State") or name.startswith("_"):
-            continue
-        cls = getattr(module, name)
-        if isinstance(cls, type) and hasattr(cls, "model_fields") and "messages" in cls.model_fields:
-            return cls
-    return None

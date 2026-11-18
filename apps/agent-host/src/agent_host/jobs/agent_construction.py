@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import logging
 from typing import Any
 
@@ -26,13 +25,6 @@ async def _resolve_deep_research_checkpointer(fn_config: Any) -> Any | None:
     from agent.common import get_checkpointer
 
     return await get_checkpointer(checkpoint_db)
-
-
-def _load_agent_class(agent_class_path: str) -> type:
-    module_path, class_name = agent_class_path.rsplit(".", 1)
-    # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
-    module = importlib.import_module(module_path)
-    return getattr(module, class_name)
 
 
 _CHAT_MODEL_AGENT_TYPES = frozenset({"research_agent", "project_intake_agent"})

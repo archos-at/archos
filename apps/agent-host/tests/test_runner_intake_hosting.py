@@ -76,7 +76,7 @@ class TestReportlessAgentGetsNoReportPasses:
 
     @pytest.mark.parametrize("agent_type", ["deep_researcher", "researcher"])
     def test_the_agents_registered_before_the_intake_keep_their_report(self, agent_type) -> None:
-        agent_cls = agent_construction._load_agent_class(AGENT_REGISTRY[agent_type].class_path)
+        agent_cls = AGENT_REGISTRY[agent_type].load()
         assert report_passes._produces_report(agent_cls) is True
 
 
@@ -127,8 +127,10 @@ class TestRunnerWiring:
 
 
 class TestRegistryEntry:
-    def test_the_intake_agent_is_registered_by_path(self) -> None:
+    def test_the_intake_agent_is_registered(self) -> None:
+        from agent.agents.intake.agent import ProjectIntakeAgent
+
         entry = get_agent_config("project_intake")
-        assert entry.class_path == "agent.agents.intake.agent.ProjectIntakeAgent"
+        assert entry.load() is ProjectIntakeAgent
         assert entry.config_name == "project_intake_agent"
         assert entry.description
