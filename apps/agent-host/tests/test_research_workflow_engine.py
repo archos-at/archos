@@ -149,7 +149,7 @@ async def test_cancel_stops_a_running_run_and_its_hatchet_run(engine, monkeypatc
     run_id = await engine.submit("job-cancel", "sleep:120", "org-a")
     _wait_for(lambda: engine.times("job-cancel", "test.started"), timeout=60, what="the run to start")
 
-    from agent_host.jobs.runner import _update_status_if_not_terminal
+    from agent_host.jobs.job_status import _update_status_if_not_terminal
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
