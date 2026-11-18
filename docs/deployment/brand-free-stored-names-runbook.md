@@ -133,8 +133,9 @@ column that says who wrote the document, so the prefix means nothing afterwards.
   `lanes.sql` rewrites `office_piloti` as a value in `messages.metadata`, and as
   a key of `citation_events.detail.lanes`, where its count adds to an existing
   `office_agent` count.
-- **Before the backfill:** in each collection, count points that already carry a
-  `document_id`. It must be 0, or those points hold an older meaning.
+- **Before the backfill:** in each collection, count the points whose
+  `document_id` differs from their `grid_document_id`. It must be 0. A point
+  deploy 1 wrote carries both keys with one value and needs nothing.
 - **Backfill:** per collection, scroll the points with `grid_document_id` and no
   `document_id` (500 per page, no vectors) and `set_payload` the new key from the
   old. Repeat until none are left. Then check that a sample of 1,000 ids has
