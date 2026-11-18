@@ -143,7 +143,7 @@ const ROUTE_MODULES = import.meta.glob<Record<string, unknown>>([
   '!./answer-feedback/**',
 ])
 
-const PERMISSION_NAME = new Map(
+const PERMISSION_NAME = new Map<string, string>(
   Object.entries(PLATFORM_PERMISSIONS).map(([name, value]) => [value, name])
 )
 
