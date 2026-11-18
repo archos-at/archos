@@ -21,7 +21,7 @@ export const CODE_RUNNER = {
   workDirSizeLimit: "1Gi",
   tmpSizeLimit: "64Mi",
   resources: {
-    requests: { cpu: "1", memory: "1Gi" },
+    requests: { cpu: "250m", memory: "1Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
 } as const;
@@ -126,7 +126,7 @@ export function installCodeRunner(
       metadata: { name, namespace, labels },
       spec: { selector: labels, ports: [{ port, targetPort: port, name: "http" }] },
     },
-    { provider, dependsOn: deployment },
+    { provider, dependsOn },
   );
 
   const pdb = installPdb(name, namespace, provider, labels, [deployment]);

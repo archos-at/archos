@@ -82,8 +82,9 @@ was run", and the agent may try once more.
   chronos, cetz under LGPL-3.0, shipped unmodified as source).
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
-- **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 1 CPU
-  and 1 GiB requested, 4 GiB limit: 4 slots at their 768 MiB memory cap and the front ([the budget](../../apps/code-runner/README.md#memory-per-run)).
+- **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 250m CPU
+  and 1 GiB requested (an idle pod uses a few millicores; dev's nodes had no full CPU free), 2 CPU and
+  4 GiB limit: 4 slots at their 768 MiB memory cap and the front ([the budget](../../apps/code-runner/README.md#memory-per-run)).
 
 ## The browser
 
