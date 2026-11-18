@@ -5,7 +5,7 @@ import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } 
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
 import { StackedLabel } from '@/components/ui/stacked-label'
-import { AuthorshipLine } from '@/features/documents'
+import { AuthorshipLine } from '@/features/documents/chat-card-parts'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import { useTranslations } from '@/i18n'

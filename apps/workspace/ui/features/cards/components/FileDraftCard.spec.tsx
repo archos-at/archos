@@ -26,7 +26,7 @@ vi.mock('@/features/documents/lib/open-filed-document', () => ({ openFiledDocume
 vi.mock('@/hooks/use-seen-once', () => ({ useSeenOnce: () => [() => {}, true] }))
 
 const thumbnail = vi.hoisted(() => ({ calls: [] as Array<string | null>, source: null as string | null }))
-vi.mock('@/features/knowledge', () => ({
+vi.mock('@/features/knowledge/file-preview', () => ({
   useFileThumbnailState: (url: string | null) => {
     thumbnail.calls.push(url)
     return url && thumbnail.source ? { source: thumbnail.source, state: 'drawn' } : { source: null, state: url ? 'loading' : 'idle' }

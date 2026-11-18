@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { documentFilesHref } from '@/features/documents'
+import { documentFilesHref } from '@/features/documents/chat-card-parts'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
