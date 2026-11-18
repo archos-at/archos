@@ -166,16 +166,19 @@ def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
 SPAWNS_PYTHON = re.compile(r"\bsys\.executable\b")
 
 
-def _spawners(test_files: dict[str, str]) -> set[str]:
+def _spawners(test_files: dict[str, str]) -> tuple[set[str], str | None]:
     spawners: set[str] = set()
     for file, text in test_files.items():
         if not SPAWNS_PYTHON.search(text):
             continue
         if Path(file).name.startswith("test_"):
             spawners.add(file)
-        else:
-            spawners |= _importers(file, test_files) or set()
-    return spawners
+            continue
+        importers = _importers(file, test_files)
+        if importers is None:
+            return set(), file
+        spawners |= importers
+    return spawners, None
 
 
 def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool) -> tuple[str, list[str], str]:
@@ -203,8 +206,10 @@ def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool
             return "full", [], f"{path} is package data no test names"
         extra |= named
     reason = f"{len(changed)} changed files; testmon selects, plus {len(extra)} test files naming a non-Python change"
-    if any(path.endswith(".py") and _matches(path, PY_PACKAGE_SRC) for path in changed):
-        spawners = _spawners(test_files)
+    if any(_matches(path, PY_PACKAGE_SRC) for path in changed):
+        spawners, unconnected = _spawners(test_files)
+        if unconnected:
+            return "full", [], f"{unconnected} runs Python in a subprocess, and no test file connects to it"
         extra |= spawners
         reason += f" and {len(spawners)} that run package code in a subprocess"
     return "select", sorted(extra), reason
@@ -242,6 +247,8 @@ def _python_test_files() -> dict[str, str]:
         for path in (ROOT / root).rglob("*.py"):
             relative = path.relative_to(ROOT).as_posix()
             if root == "packages" and "/tests/" not in f"/{relative}" and "/testing/" not in f"/{relative}":
+                continue
+            if "/.venv/" in f"/{relative}":
                 continue
             files[relative] = path.read_text(encoding="utf-8", errors="ignore")
     return files

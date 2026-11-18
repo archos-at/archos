@@ -471,8 +471,9 @@ adds the tests that name it or one of its directories, as tests read whole
 fixture directories. A non-Python file that a helper or conftest reads (a
 quoted name) runs the full suite, since nothing says which tests load it. A test
 that runs package code in a subprocess (`sys.executable`, itself or through a
-`*_testing` helper) is invisible to testmon, so any change to package Python
-adds every such test file: about 40, a minute serial. The token ceilings of
+`*_testing` helper) is invisible to testmon, so any change under a package's
+source, Python or data, adds every such test file; a spawning helper no test
+file connects to runs the full suite. The token ceilings of
 `test_static_prefix_size.py` went unrun on two pull requests that way and
 turned `develop` red on 2026-11-18. Named test files run in their suite's first
 shard; the core suite's include `packages/agent/tests/`, which they silently

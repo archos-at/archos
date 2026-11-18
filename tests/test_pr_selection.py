@@ -187,6 +187,25 @@ def test_the_prompt_size_test_runs_when_a_tool_text_changes(mod):
     assert "packages/agent/tests/common/test_backend_tools_schema.py" in extra
 
 
+def test_package_data_runs_the_prompt_size_test_too(mod):
+    changed = ["packages/agent/src/agent/core/prompts/chat_static.md"]
+
+    mode, extra, _ = mod.decide_python(changed, mod._python_test_files(), recorded=True)
+
+    assert mode == "select"
+    assert "packages/agent/tests/core/test_static_prefix_size.py" in extra
+
+
+def test_a_spawning_helper_no_test_connects_to_forces_the_full_suite(mod):
+    tests = {**SPAWNING, "tests/helpers/run.py": "subprocess.run([sys.executable, '-m', 'agent'])"}
+    changed = ["packages/agent/src/agent/core/turn_tools.py"]
+
+    mode, _, reason = mod.decide_python(changed, tests, recorded=True)
+
+    assert mode == "full"
+    assert "tests/helpers/run.py" in reason
+
+
 def test_a_document_a_helper_only_cites_selects_nothing_extra(mod):
     assert mod.decide_python(["packages/AGENTS.md"], TESTS, recorded=True)[:2] == ("select", [])
 
