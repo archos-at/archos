@@ -86,3 +86,49 @@ image fails its deploy (`resolve-image-refs.sh`: "no image in the last 200 devel
   reached" and the agent answers without files. Undo with
   `kubectl -n grid annotate scaledobject code-runner autoscaling.keda.sh/paused-replicas-`. Follow up
   with the stack change above, or the next deploy is still on.
+
+## The browser (Puppeteer in a run)
+
+The switch is `grid-oib:browserRendererEnabled: "true"`, beside `codeRunnerEnabled` (the program
+refuses it without the runner). It deploys the `browser-renderer` Deployment, Service, KEDA
+ScaledObject (1 to 3 pods) and the NetworkPolicy `browser-renderer-code-runner-only`, opens the code
+runner's egress to it on 9222, and sets `BROWSER_RENDERER_ADDR` on the code runner. No PDB: a single
+replica never blocks a node drain. Off, a run that launches a browser fails with "This runner has no
+browser" and the `office-html-pdf` skill sends the agent to Typst.
+
+1. **The image.** As for the code runner (section 1): merge with the flag off, let CI publish
+   `ghcr.io/archos-at/browser-renderer:sha-<commit>`, give the package the repository's Write access
+   and private visibility, check the tag with `docker manifest inspect`.
+2. **The nodes.** Chromium's sandbox needs unprivileged user namespaces. The renderer container runs
+   `seccompProfile: Unconfined` for that (declared in `deploy/pulumi/src/app/browser-renderer.ts`);
+   the node must also allow them. On an Ubuntu 23.10+ node that is
+   `sysctl kernel.apparmor_restrict_unprivileged_userns=0`, a provider setting outside Pulumi. Where
+   the node forbids them, the pod logs `No usable sandbox!` and never becomes ready: the browser stays
+   off rather than running without its sandbox. Never add `--no-sandbox`.
+3. **Dev.** Add `grid-oib:browserRendererEnabled: "true"` to `Pulumi.dev.yaml`, check
+   `npm run preview` lists only the resources above and the env change on `code-runner`, merge. Then:
+   `kubectl -n grid get deploy browser-renderer` ready `1/1`; `kubectl -n grid logs deploy/browser-renderer`
+   shows `"reason":"self-test"` and `browser renderer listening`; in a project chat, ask for "einen
+   Ablaufplan Entwurf, Einreichung, Bewilligung als Diagramm und PDF". Expect a PDF and a PNG, and in
+   the renderer's log one `browser session ended` per launch with `refused: 0` unless the page tried
+   the network.
+4. **Prod.** The same line in `Pulumi.prod.yaml`, in exactly this form, which the prod deploy and
+   **Promote to prod** read with `sed` to check the image exists:
+
+   ```yaml
+     grid-oib:browserRendererEnabled: "true"
+   ```
+
+5. **Watch:** pod restarts, OOM kills (the limit is 1.5 GiB for two browsers), replicas at 3, and
+   runs answering `busy`.
+
+**Chrome security fixes.** The base image `ghcr.io/puppeteer/puppeteer` is pinned by digest in
+`apps/browser-renderer/Dockerfile`. Dependabot opens a pull request for a new digest every Monday
+(two days' cooldown). Merge it within the week, and the same day when the Chrome release notes name a
+security fix rated High or Critical; update `BROWSER_RENDERER_CHROME` in the Dockerfile when the
+Chrome version in the path moves, and run `task browser:test`. Between Puppeteer releases, check
+monthly that the pinned Chrome is no more than one stable release behind.
+
+**Off at once:** `kubectl -n grid annotate scaledobject browser-renderer autoscaling.keda.sh/paused-replicas="0"`;
+runs that launch a browser then fail and the agent falls back to Typst. Undo with
+`autoscaling.keda.sh/paused-replicas-`, and follow up with the stack change.

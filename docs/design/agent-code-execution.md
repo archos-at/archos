@@ -23,6 +23,7 @@ processed in code, so only the findings reach the model.
 | Filing | `file_draft` → `POST /api/internal/document-versions` with `op: create_file` / `update_file` (`apps/workspace/bff/documents/agent-file*.ts`) |
 | How to write a file | the builtin skill collection `office` (`packages/agent/src/agent/skills/builtin/office/`) |
 | Deployment | `deploy/pulumi/src/app/code-runner.ts`, CI's image `code-runner` |
+| Browser | `apps/browser-renderer`: headless Chromium for Puppeteer in a run ([README](../../apps/browser-renderer/README.md)), `deploy/pulumi/src/app/browser-renderer.ts`, CI's image `browser-renderer`, off until `grid-oib:browserRendererEnabled: "true"` |
 
 ## One run
 
@@ -64,6 +65,51 @@ was run", and the agent may try once more.
   and 1 GiB requested, 2 GiB limit: 4 × (190 MB per process + 128 MB isolate + 50 MB of files)
   ≈ 1.5 GB.
 
+## The browser
+
+A run can drive headless Chromium with ordinary Puppeteer, written as Cloudflare documents it for
+Workers: `import puppeteer from "@cloudflare/puppeteer"; puppeteer.launch(env.BROWSER)`. It turns HTML
+and CSS into a designed PDF, renders Mermaid diagrams (which need a real DOM) and takes PNG
+screenshots. The model writes Puppeteer fluently, which is why it is Puppeteer.
+
+- **Where Chromium runs.** In its own Deployment `browser-renderer`, never in the code runner: one
+  fresh `chrome-headless-shell` process per run, reached over a pipe, its profile in a memory volume
+  deleted with it. A separate pod rather than a sidecar, so the browser's network namespace has nothing
+  to reach (a sidecar shares the runner's loopback, where its HTTP front and workerd sockets listen),
+  its NetworkPolicy can deny all egress and admit only the code runner, and Chromium's memory has its
+  own limit and its own scaling (1 to 3 pods, 2 browsers each, then `busy`).
+- **How the isolate reaches it.** The isolate stays `globalOutbound: null`. The library's entry builds
+  `env.BROWSER` inside the isolate; its WebSocket is pumped through the host module `codemode:browser`,
+  which runs in the run's Durable Object and holds the one real WebSocket to the renderer, through a
+  service binding to the address Pulumi sets (`BROWSER_RENDERER_ADDR`, the Service's cluster IP). A
+  `@cloudflare/puppeteer` that talked to a real Workers binding was not possible: `CodemodeBackend`
+  hands a loader isolate no bindings, and a host module call carries values, not sockets.
+- **What it may do.** The renderer's front checks every CDP command against an allowlist, allows
+  navigation only to `about:blank` and `data:`, refuses anything naming `file://`, and intercepts
+  every request at browser level: `data:` and `blob:` load, Mermaid comes from the image, everything
+  else fails. Downloads are denied and windows a page opens are closed. Details: the renderer's README.
+
+### Threat model
+
+The page runs code the model wrote, on HTML that may carry text from an office's documents, so we
+treat it as hostile. What it must not do: send anything out of the cluster, read another run's page
+or files, or keep anything for the next run. Layers, each enough on its own for egress: the CDP guard
+(allowlist, navigation, `file://`), Chromium's request interception (`BlockedByClient` for every
+non-`data:` request), a loopback proxy that refuses everything and names that resolve to nothing, the
+renderer's own network namespace per renderer process (Chromium's sandbox), and a NetworkPolicy with
+no egress. Against escape: Chromium's sandbox stays on (renderers in their own user, PID and network
+namespaces under seccomp-bpf), the pod runs non-root with a read-only root, no capabilities, no
+privilege escalation, no service-account token and no secret, and a session dies with its process
+group at 190 s. Against leaks between runs: a process and a profile per run, deleted at its end. The
+cost of the sandbox: it needs unprivileged user namespaces, which the container runtime's default
+seccomp profile forbids, so the renderer container runs `seccompProfile: Unconfined`; Chromium then
+applies its own, stricter filter to every renderer. Nodes must allow unprivileged user namespaces
+(on Ubuntu 23.10 or later, `kernel.apparmor_restrict_unprivileged_userns=0`); where they do not,
+Chromium refuses to start and the pod never becomes ready. Residual risks: a Chromium bug that
+escapes the sandbox lands in a pod with no egress and no secrets, but shares the pod with one other
+run's browser; the image's Chrome is only as current as its pinned digest, which Dependabot proposes
+weekly.
+
 ## Storage
 
 The working directory is the draft store the Markdown drafts already used: a LangGraph store on the
@@ -93,8 +139,9 @@ before) with the bytes. The BFF:
 
 The builtin collection `office` holds `office-files` (the entry point: the run contract, libraries,
 the office's number and date formats, exact calculation, reading the file back, filing) and
-`office-word`, `office-excel`, `office-powerpoint` and `office-pdf-charts`, one per file type with its
-pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
+`office-word`, `office-excel`, `office-powerpoint`, `office-pdf-charts` and `office-html-pdf` (HTML
+and CSS to PDF, Mermaid, screenshots; when to take Typst or `pdf-lib` instead), one per file type
+with its pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
 file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
 `apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's
 Apache-2.0 document skills were source material, rewritten for this runtime (`NOTICE`).
@@ -115,6 +162,8 @@ sandbox is configured, which production never does.
 | Plain module, warm | 13 ms (16 ms as TypeScript) |
 | Endless loop, `timeoutMs` 2000 | `timeout` after 5 s, other slots serving |
 | workerd per slot | 134 MB idle, about 190 MB after a run |
+| HTML report to PDF through the browser | 390 to 930 ms, renderer pod peak 108 MiB |
+| Mermaid diagram to SVG, PNG and .docx | 1.1 to 1.7 s, peak 191 MiB (two at once: 2.4 s, 329 MiB) |
 
 In production a run is visible as the `execute` tool span of its `chat-turn` trace in Langfuse: its
 output starts `status: ok`, `error` or `timeout` with the duration, and names the files kept.
@@ -136,6 +185,8 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | Renaming `/drafts/` to `/workspace/` | Open |
 | Background runs (Hatchet fan-out, a KEDA trigger on its backlog) | Open, not built |
 | Showing an HTML output beside the chat (MCP Apps, ADR-0142), sandboxed on its own origin | Open |
+| A browser for runs: self-hosted `chrome-headless-shell` on the Puppeteer team's image, one process per run, Chromium's sandbox on, its own Deployment, reached through `@cloudflare/puppeteer` and a host-module binding. Not Cloudflare's hosted Browser Rendering (documents would leave the cluster), not Gotenberg, not browserless (SSPL) | Taken 2026-11-18 |
+| The renderer container's seccomp profile: `Unconfined` so Chromium's own sandbox can run, rather than a `Localhost` profile that would need a file on every node | Taken; revisit if the provider offers node seccomp profiles |
 
 ## Considered and dropped
 
