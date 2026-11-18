@@ -23,7 +23,6 @@ apps/workspace/bff/proxy/ws-upgrade-headers.spec.ts
 apps/workspace/bff/skills/legacy-names.spec.ts
 apps/workspace/bff/turns/turn-steps.spec.ts
 apps/workspace/bff/utils.spec.ts
-apps/workspace/eslint-rules/lint-config.spec.mjs
 apps/workspace/i18n/aggregate-imports.spec.ts
 apps/workspace/i18n/key-coverage.spec.ts
 apps/workspace/i18n/raw-error-copy.spec.ts
