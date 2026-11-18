@@ -919,6 +919,14 @@ jobs:
         run: task pkg:install
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - name: Install the code runner's own toolchain
+        run: task runner:install
+      - name: code-runner (workerd isolate suite)
+        run: task runner:test
 
   # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
   # folder card tasks, the research run and the BFF's `bff-job`, each end to end, with its retries,

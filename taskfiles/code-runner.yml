@@ -1,0 +1,28 @@
+version: '3'
+
+tasks:
+  runner:install:
+    desc: 'apps/code-runner: install its own toolchain (workerd, the libraries, esbuild)'
+    dir: apps/code-runner
+    cmds:
+      - bun install --frozen-lockfile
+
+  runner:build:
+    desc: 'apps/code-runner: bundle the approved libraries and the worker into dist/'
+    dir: apps/code-runner
+    cmds:
+      - node build/build.mjs
+
+  runner:test:
+    desc: 'apps/code-runner: build, then the contract, isolation and library suites against a real workerd'
+    dir: apps/code-runner
+    cmds:
+      - task: runner:build
+      - node --test --test-concurrency=1 'test/*.test.mjs'
+
+  runner:serve:
+    desc: 'apps/code-runner: run the service on :8080 (CODE_RUNNER_STORAGE_DIR, CODE_RUNNER_SLOTS)'
+    dir: apps/code-runner
+    cmds:
+      - task: runner:build
+      - node bin/server.mjs
