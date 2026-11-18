@@ -30,7 +30,6 @@ apps/workspace/tests/brand-literals.spec.ts
 apps/workspace/tests/db/migrations-journal.test.ts
 apps/workspace/tests/hover-fill.spec.ts
 apps/workspace/tests/lib/boot.test.ts
-apps/workspace/tests/lib/jobs/fire-headers.test.ts
 apps/workspace/tests/mono-plain-zero.spec.ts
 apps/workspace/tests/one-edge.spec.ts
 apps/workspace/tests/react-flow-stylesheet.spec.ts
