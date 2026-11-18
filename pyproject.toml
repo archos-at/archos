@@ -16,7 +16,9 @@ testpaths = [
 # name (`task be:eval:turn-shapes` passes `-m live`, and a later `-m` replaces
 # this one). A key that happens to be in the shell is not that request: before
 # this, `task verify` spent model tokens on any machine that had one.
-addopts = "--import-mode=importlib -m 'not live'"
+# `code_runner` is the same for the tests that start the real code runner: they
+# need its Node toolchain and take a minute, so `task runner:e2e` asks for them.
+addopts = "--import-mode=importlib -m 'not live and not code_runner'"
 # Makes `from tests.provider_doubles import ...` (the shared provider-contract double)
 # resolve the same way under every invocation — `python -m pytest`, the bare
 # `pytest` console script, and an IDE runner — instead of
@@ -46,6 +48,11 @@ markers = [
   # still skips itself without OPENROUTER_API_KEY.
   # `.github/workflows/turn-shapes-live.yml` runs them with the key.
   "live: needs a real model behind OPENROUTER_API_KEY; deselected unless -m live",
+  # Starts apps/code-runner (node bin/server.mjs, real workerd) and drives the
+  # agent's tools against it. Deselected by `addopts`; `task runner:e2e` passes
+  # `-m code_runner`, and each test skips itself when the runner is not installed
+  # and built. CI runs it in the `runner-e2e` job.
+  "code_runner: starts the real code runner; deselected unless -m code_runner",
 ]
 
 

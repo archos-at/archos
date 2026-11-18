@@ -390,6 +390,28 @@ packages:
   - '.github/workflows/ci.yml'
   - '.github/filters.yml'
   - '.github/actions/setup-task/**'
+# The agent's execute and file_draft tools against the real code runner
+# (`task runner:e2e`, the `runner-e2e` job): the runner, the Python side of
+# the path, the office skills' example scripts it runs, and the test itself.
+runner_e2e:
+  - 'apps/code-runner/**'
+  - 'packages/agent/src/agent/tools/execute/**'
+  - 'packages/agent/src/agent/tools/documents/**'
+  - 'packages/agent/src/agent/skills/builtin/office/**'
+  - 'packages/agent/src/agent/common/bff_http.py'
+  - 'packages/agent/src/agent/project_context.py'
+  - 'packages/agent/tests/tools/execute/**'
+  - 'packages/agent/pyproject.toml'
+  - 'pyproject.toml'
+  - 'uv.lock'
+  - '.node-version'
+  - 'Taskfile.yml'
+  - 'taskfiles/code-runner.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-python-env/**'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'
 # The per-migration backfill and down checks at the end of
 # scripts/rls-test-db.sh. They read only the migrations and the script, so the
 # workspace job skips them unless one of those changed. The rest of the tenant

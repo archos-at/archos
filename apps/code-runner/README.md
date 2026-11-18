@@ -95,8 +95,21 @@ caller ── HTTP :8080 ──> bin/server.mjs ──unix socket──> workerd
 ```bash
 task runner:install   # bun install --frozen-lockfile in apps/code-runner
 task runner:test      # build, then node --test against a real workerd
+task runner:e2e       # build, then the agent's execute and file_draft tools against this server
 task runner:serve     # build, then node bin/server.mjs on :8080
 ```
+
+`task runner:e2e` is the whole path from the agent's side
+(`packages/agent/tests/tools/execute/test_execute_with_the_runner.py`, marker `code_runner`): it
+starts `node bin/server.mjs` on a free port (`PORT=0`, the port read from its first log line), runs
+three office-skill examples (Word memo, Excel area schedule with `SUM`, vega chart) through
+`agent.tools.execute.run.execute` into an in-memory draft store, checks the bytes with `zipfile` and
+openpyxl, rewrites the workbook in a second run (draft version 1 to 2), files all three through
+`file_draft` with only `bff_http.post_json` stubbed, and checks a thrown error and an endless loop.
+It needs the root venv as well as this toolchain, so CI runs it in its own `runner-e2e` job. About
+20 s, 11 of them the endless loop: with `timeout_seconds=1` the watchdog fires at 1 s plus its 10 s
+grace. `pyproject.toml`'s `addopts` deselects the marker everywhere else; the test skips itself
+when node or the build is missing, which the task's build step rules out.
 
 The build (`build/build.mjs`) bundles each manifest library with esbuild into one ES module
 (browser/worker conditions, Node built-ins left to the isolate's `nodejs_compat` `node:*` modules),
