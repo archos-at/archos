@@ -1500,6 +1500,10 @@
     "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
   },
   {
+    "en": "Ask the assistant to compare any two files you pick with # in the chat, not only two versions of one document. Two lists, such as room lists in Excel, CSV or a table in a PDF, are compared row by row: which rows differ and in which column, which rows only one file has, and where each stands in both files.",
+    "de": "Lassen Sie den Assistenten beliebige zwei Dateien Ihrer Wahl mit # im Chat vergleichen, nicht nur zwei Versionen desselben Dokuments. Zwei Listen, etwa Raumlisten in Excel, CSV oder als Tabelle in einem PDF, werden zeilenweise verglichen: Welche Zeilen sich unterscheiden und in welcher Spalte, welche Zeilen nur in einer Datei vorkommen und an welcher Stelle sie in beiden Dateien stehen."
+  },
+  {
     "en": "Asked for an Excalidraw diagram or a sketch, Piloti now draws it, and you can open the drawing as a sketch to rework it, instead of being told it cannot. Asked about itself, such as whether it works inside your own assistant, Piloti now answers instead of searching your files.",
     "de": "Wenn Sie Piloti um ein Excalidraw-Diagramm oder eine Skizze bitten, erstellt es diese jetzt. Sie können die Zeichnung als Skizze öffnen und weiterbearbeiten, statt die Meldung zu erhalten, dass dies nicht möglich ist. Fragen Sie Piloti nach sich selbst, etwa ob es in Ihrem eigenen Assistenten funktioniert, antwortet es jetzt, statt Ihre Dateien zu durchsuchen."
   },
