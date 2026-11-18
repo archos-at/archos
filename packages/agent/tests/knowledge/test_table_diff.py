@@ -81,6 +81,51 @@ class TestRowsByKey:
         assert len(diff.tables) == 1 and not diff.differs
 
 
+def _pdf_page(page: int, rows: list[list[str]]) -> TableChunk:
+    return TableChunk(page=str(page), locator="", text=f"[TABLE from page {page}]\n\n{_markdown(HEADER, rows)}")
+
+
+def _pdf_pages(rows: list[list[str]], per_page: int) -> list[TableChunk]:
+    return [_pdf_page(n // per_page + 1, rows[n : n + per_page]) for n in range(0, len(rows), per_page)]
+
+
+class TestAListOverSeveralPages:
+    rooms = [[f"1.{n:02d}", f"Raum {n}", "10,00 m²"] for n in range(1, 9)]
+
+    def test_shifted_page_breaks_report_no_row_as_missing(self) -> None:
+        longer = [["0.01", "Windfang", "4,00 m²"], *self.rooms]
+
+        diff = diff_tables(_pdf_pages(self.rooms, 4), _pdf_pages(longer, 4))
+
+        assert len(diff.tables) == 1 and not diff.unpaired_first and not diff.unpaired_second
+        table = diff.tables[0]
+        assert table.only_first == () and table.changed == () and table.equal_rows == 8
+        assert [(row.key, row.place) for row in table.only_second] == [("0.01", "page 1")]
+
+    def test_a_row_keeps_the_page_it_stands_on(self) -> None:
+        moved = [["0.01", "Windfang", "4,00 m²"], *self.rooms[:7], ["1.08", "Raum 8", "11,00 m²"]]
+
+        table = diff_tables(_pdf_pages(self.rooms, 4), _pdf_pages(moved, 4)).tables[0]
+
+        assert [(c.key, c.first_place, c.second_place) for c in table.changed] == [("1.08", "page 2", "page 3")]
+
+    def test_the_list_is_one_table_named_by_its_pages(self) -> None:
+        rooms = [[f"{n}", f"Raum {n}", "10"] for n in range(40)]
+
+        text = "\n".join(render_tables(diff_tables(_pdf_pages(rooms, 2), _pdf_pages(rooms[:-1], 3)), "A.pdf", "B.pdf"))
+
+        assert "Table pages 1–20 ↔ pages 1–13: rows matched by column „Nr.“; 39 equal" in text
+        assert "more tables" not in text and "Tables only in" not in text
+
+    def test_two_captioned_tables_with_one_header_stay_two(self) -> None:
+        first = [
+            TableChunk("2", "Tabelle 1", _markdown(HEADER, ROOMS[:2])),
+            TableChunk("3", "Tabelle 2", _markdown(HEADER, ROOMS[2:])),
+        ]
+
+        assert len(diff_tables(first, first).tables) == 2
+
+
 class TestCells:
     def test_the_same_number_written_two_ways_is_no_deviation(self) -> None:
         assert same_cell("12,50 m²", "12.5 m²")
@@ -90,6 +135,16 @@ class TestCells:
     def test_another_unit_or_another_number_is_a_deviation(self) -> None:
         assert not same_cell("12,50 m²", "12,50 m")
         assert not same_cell("12,50", "12,51")
+
+    def test_a_dot_before_three_digits_is_not_read_as_a_decimal_point(self) -> None:
+        assert not same_cell("1.250", "1,25")
+        assert not same_cell("1.01", "1.010")
+        assert same_cell("1.250.000", "1250000")
+        assert same_cell("1.250", "1.250")
+
+    def test_a_code_with_a_leading_zero_is_no_number(self) -> None:
+        assert not same_cell("01", "1")
+        assert same_cell("0,50", "0.5")
 
     def test_an_escaped_pipe_stays_inside_its_cell(self) -> None:
         rows = [["1.01", "Wohnen \\| Essen", "23,40"]]

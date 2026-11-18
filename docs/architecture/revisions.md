@@ -293,7 +293,7 @@ Four things, in rising cost.
 |---|---|---|---|
 | **Look** | Two Fassungen side by side, overlaid (older cyan, newer orange) or swiped, page by page, through the preview's pdf.js runtime | No | `features/documents/components/revision-compare/` |
 | **Pages and values** | For the agent: which pages changed, the values that moved in the printed text, the quantities and dimension strings that changed in the drawing reading, and the Plankopf. Read from the index, so nothing is read again | No | `packages/agent/src/agent/knowledge/revision_diff.py`, `list_files(compare_to=…)` |
-| **Rows** | For the agent: tables and lists (xlsx, csv, tables in a PDF) row by row. Rows are matched by the column that identifies a row in both files, else in their order; a deviating row names its column, both values and its place in both files. The same number written two ways (`12,50`, `12.5`) is no deviation | No | `packages/agent/src/agent/knowledge/table_diff.py`, in the same `list_files(compare_to=…)` report |
+| **Rows** | For the agent: tables and lists (xlsx, csv, tables in a PDF) row by row. Rows are matched by the column that identifies a row in both files, else in their order; a deviating row names its column, both values and its place in both files. A list that runs over several pages is one table, whatever the page breaks, and each row keeps its page. The same number written two ways (`12,50`, `12.5`) is no deviation; a code with a leading zero (`01`) and a dot before exactly three digits (`1.250`) are compared as text | No | `packages/agent/src/agent/knowledge/table_diff.py`, in the same `list_files(compare_to=…)` report |
 | **Marks** | On request, or unasked where the office switched it on (below, „Piloti notices a new Fassung“), the agent boxes what changed on the newer page and says it in words | One vision call per page pair, cached | `lib/documents/revision-compare-service.ts`, `routes/revision_compare.py`, `packages/agent/src/agent/knowledge/revision_compare.py` |
 | **Words** | The change summary: what differs between two descriptions | Summary model, at ingest or at confirmation | `document_revisions.py`, `summarize_change` |
 
@@ -615,7 +615,9 @@ sequenceDiagram
   as one (a scan, a drawing's schedule) is compared as printed lines or not at
   all. Rows are matched by one column; a list whose rows are identified only by
   two columns together is matched in its order. At most 60 deviating rows per
-  table are listed, and the report says when it is cut.
+  table are listed, and the report says when it is cut. Tables of a PDF that
+  have no caption and the same header are read as one list, so two such lists
+  in one file are compared together.
 
 ## Where to change what
 

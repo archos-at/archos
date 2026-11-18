@@ -24,6 +24,8 @@ _SEPARATOR_ROW = re.compile(r"^\|(?:\s*:?-{3,}:?\s*\|)+$")
 _SPACE = re.compile(r"\s+")
 _NUMBER = re.compile(r"^([+-]?\d+(?:[.,]\d+)*)\s*(.*)$")
 _ROW_RANGE = re.compile(r"^(?:.*:\s*)?Zeilen?\s+\d+(?:-\d+)?$")
+_LEADING_ZERO = re.compile(r"^[+-]?0\d")
+_DOT_GROUPS = re.compile(r"^[+-]?\d{1,3}(?:\.\d{3})+$")
 
 
 @dataclass(frozen=True)
@@ -97,9 +99,15 @@ class _Row:
 
 @dataclass
 class _Table:
-    label: str
+    name: str
     header: list[str]
     rows: list[_Row] = field(default_factory=list)
+    pages: list[str] = field(default_factory=list)
+
+    @property
+    def label(self) -> str:
+        pages = list(dict.fromkeys(self.pages))
+        return self.name if len(pages) < 2 else f"pages {pages[0]}–{pages[-1]}"
 
     @property
     def header_key(self) -> tuple[str, ...]:
@@ -139,6 +147,13 @@ def _column_names(header: list[str], width: int) -> list[str]:
     return [name or f"column {index}" for index, name in enumerate(padded, start=1)]
 
 
+def _scope(chunk: TableChunk) -> str:
+    page, locator = chunk.page.strip(), chunk.locator.strip()
+    if page and not page.isdigit():
+        return page
+    return "" if _ROW_RANGE.match(locator) else locator
+
+
 def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
     tables: dict[tuple[str, tuple[str, ...]], _Table] = {}
     for chunk in chunks:
@@ -148,9 +163,12 @@ def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
         rows = [_cells(line) for line in lines]
         width = max(len(row) for row in rows)
         header = _column_names(rows[0], width)
+        scope = _scope(chunk)
         table = tables.setdefault(
-            (chunk.page, tuple(_fold(name) for name in header)), _Table(label=_label(chunk), header=header)
+            (scope, tuple(_fold(name) for name in header)), _Table(name=_label(chunk), header=header)
         )
+        if not scope:
+            table.pages.append(chunk.page.strip())
         table.rows.extend(_filled_rows(rows[2:], width, _place(chunk)))
     return [table for table in tables.values() if table.rows]
 
@@ -227,8 +245,14 @@ def _number(value: str) -> tuple[Decimal, str] | None:
     if not match:
         return None
     digits = match.group(1)
+    if _LEADING_ZERO.match(digits):
+        return None
     if "," in digits:
         digits = digits.replace(".", "").replace(",", ".")
+    elif _DOT_GROUPS.match(digits):
+        if digits.count(".") == 1:
+            return None
+        digits = digits.replace(".", "")
     try:
         return Decimal(digits), _fold(match.group(2))
     except InvalidOperation:

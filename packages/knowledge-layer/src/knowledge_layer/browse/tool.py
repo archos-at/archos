@@ -20,7 +20,6 @@ from nat.plugin_api import FunctionRef
 from nat.plugin_api import register_function
 
 from .compare import _PREVIOUS_WORDS  # noqa: F401
-from .compare import ComparePair  # noqa: F401
 from .compare import _change_line_between  # noqa: F401
 from .compare import _stored_chunks  # noqa: F401
 from .compare import compare_files  # noqa: F401
