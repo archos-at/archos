@@ -8,6 +8,7 @@ import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
+import { CODE_RUNNER } from "../app/code-runner";
 import { LOG_SHIPPER } from "../config/observability";
 import { HEALTH_PORT, OTLP_GRPC_PORT, OTLP_HTTP_PORT, SHIPPER_OTLP_PORT } from "./collector-config";
 import { METRICS_EXPORT_PORT } from "./otel-collector";
@@ -62,6 +63,7 @@ export function installNetworkPolicies(
           values: [
             ...langfuseWithheld,
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
+            ...(cfg.codeRunner.enabled ? [CODE_RUNNER.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
             PUBLIC_SOURCE_FETCHER.name,
             QDRANT.name,
@@ -234,6 +236,24 @@ export function installNetworkPolicies(
       })
     : undefined;
 
+  // The runner of untrusted code: reached by the agent tiers alone, and reaching
+  // nothing, not even DNS (docs/design/agent-code-execution.md, Isolation).
+  const codeRunner = cfg.codeRunner.enabled
+    ? mk("code-runner-agent-only", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": CODE_RUNNER.name } },
+        policyTypes: ["Ingress", "Egress"],
+        ingress: [
+          {
+            from: CODE_RUNNER.callers.map((name) => ({
+              podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
+            })),
+            ports: [{ protocol: "TCP", port: CODE_RUNNER.port }],
+          },
+        ],
+        egress: [],
+      })
+    : undefined;
+
   const kedaOperator = [{ ...nsLabel(KEDA_NAMESPACE), podSelector: { matchLabels: { ...KEDA_OPERATOR_LABEL } } }];
 
   const kedaToBackend = backendAutoscaled(cfg)
@@ -387,6 +407,7 @@ export function installNetworkPolicies(
     ...(backendToLangfuse ? [backendToLangfuse] : []),
     ...(langfuseToClickhouse ? [langfuseToClickhouse] : []),
     ...(gotenberg ? [gotenberg] : []),
+    ...(codeRunner ? [codeRunner] : []),
     ...(clamav ? [clamav] : []),
     appToQdrant,
     qdrantPeers,

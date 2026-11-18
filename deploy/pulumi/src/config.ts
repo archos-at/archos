@@ -9,6 +9,7 @@ import {
 import { type DnsConfig, loadDns } from "./config/dns";
 import { type DragonflyConfig, type RateLimitConfig, loadDragonfly } from "./config/dragonfly";
 import { type ImagesConfig, loadImages } from "./config/images";
+import { type CodeRunnerConfig, loadCodeRunner } from "./config/code-runner";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { LOG_SHIPPER, type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
@@ -83,6 +84,8 @@ export interface DeployConfig {
   };
 
   gotenberg: GotenbergConfig;
+
+  codeRunner: CodeRunnerConfig;
 
   geocoderUrl: string;
 
@@ -298,6 +301,8 @@ export function loadConfig(): DeployConfig {
     publicSourceFetcher: publicSourceFetcherConfig(cfg),
 
     ...loadWorkers(cfg),
+
+    codeRunner: loadCodeRunner(cfg, images),
 
     geocoderUrl: loadGeocoderUrl(cfg),
 

@@ -11,6 +11,7 @@ import { API_TIER, CHAT_TIER } from "./tier-names";
 import { posthogDeploymentEnv, posthogEnv } from "./posthog-env";
 import { hatchetEnv } from "./hatchet-env";
 import { publicSourceFetcherEnv } from "./public-source-fetcher";
+import { codeRunnerEnv } from "./code-runner";
 import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
 import type { ModelWorkload } from "../config/app-services";
 import { heavyFileBytesEnv } from "../config/workers";
@@ -27,6 +28,7 @@ export interface AppWiring {
   seaweedPublicEndpoint: pulumi.Output<string>;
   gotenbergUrl?: pulumi.Output<string>;
   malwareScanUrl?: pulumi.Output<string>;
+  codeRunnerUrl?: pulumi.Output<string>;
   qdrantUrl: pulumi.Output<string>;
   dsn: Postgres["dsn"];
   imagePullSecrets: { name: string }[];
@@ -213,7 +215,7 @@ function backendQdrantEnv(w: AppWiring): EnvVar[] {
 const CHAT_ONLY_ENV = new Set(["CHAT_DRAIN_SECONDS", "CHAT_AFFINITY", "CONVERSATION_BUS"]);
 
 export function chatEnv(w: AppWiring): EnvVar[] {
-  return [...backendEnv(w), { name: "PROCESS_ROLE", value: "chat" }];
+  return [...backendEnv(w), ...codeRunnerEnv(w.codeRunnerUrl), { name: "PROCESS_ROLE", value: "chat" }];
 }
 
 export function apiEnv(w: AppWiring): EnvVar[] {
@@ -226,6 +228,7 @@ export function apiEnv(w: AppWiring): EnvVar[] {
 export function workerEnv(w: AppWiring): EnvVar[] {
   return [
     ...backendEnv(w, "grid-agent-worker", "research"),
+    ...codeRunnerEnv(w.codeRunnerUrl),
     { name: "PROCESS_ROLE", value: "worker" },
     { name: "RESEARCH_WORKERS", value: String(w.cfg.agentWorker.concurrency) },
   ];
