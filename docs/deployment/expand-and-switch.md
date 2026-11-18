@@ -51,3 +51,8 @@ An expand is on prod when its commit is an ancestor of that commit.
 | **Promote to prod** (`promote.yml`, step "Refuse a switch whose expand prod does not run yet") | A promotion of a develop commit that holds any switch whose expand prod does not run yet. Promote an earlier commit that has the expand without the switch, or promote again once that one is live. |
 
 A switch that names no registered expand fails both checks.
+
+[`tests/test_expand_switch.py`](../../tests/test_expand_switch.py) runs the
+promote step's own `run:` from `promote.yml`, after its "Pick the commit" step,
+in a clone whose `origin` has `develop` and `prod`. A change to either step that
+stops refusing a promotion carrying an expand and its switch fails that test.
