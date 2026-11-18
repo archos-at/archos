@@ -61,14 +61,17 @@ const DOC = '11111111-1111-4111-8111-111111111111'
 const VERSION = '22222222-2222-4222-8222-222222222222'
 const PROJECT = '33333333-3333-4333-8333-333333333333'
 
+const FILE_DRAFT_BODY = {
+  op: 'create',
+  projectId: PROJECT,
+  ref: 's_conv_1-aktenvermerk',
+  title: 'Aktenvermerk',
+  content: '# Aktenvermerk',
+}
+
 const AGENT_REQUEST_BODIES: Partial<Record<DocumentVersionOp, Record<string, unknown>>> = {
-  create: {
-    op: 'create',
-    projectId: PROJECT,
-    ref: 's_conv_1-aktenvermerk',
-    title: 'Aktenvermerk',
-    content: '# Aktenvermerk',
-  },
+  create: FILE_DRAFT_BODY,
+  file: FILE_DRAFT_BODY,
   update: { op: 'update', documentId: DOC, versionId: VERSION, content: 'korrigiert', ifMatch: 'sha256:abc' },
   submit: { op: 'submit', documentId: DOC, versionId: VERSION },
 }
@@ -151,6 +154,14 @@ describe('the origin conversation', () => {
       ref: 's_someone_elses-aktenvermerk',
       originConversationId: 's_conv_1',
     })
+  })
+})
+
+describe('filing at the person’s request', () => {
+  it('files as the person’s sign-off, never as a draft that waits for review', async () => {
+    await call(FILE_DRAFT_BODY)
+
+    expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({ op: 'file' })
   })
 })
 
@@ -355,6 +366,7 @@ describe('files the agent made by running code', () => {
     expect(await response.json()).toMatchObject({ documentId: DOC, alreadyFiled: false, version: { id: VERSION } })
     const input = vi.mocked(fileAgentFileDraft).mock.calls[0][0]
     expect(input).toMatchObject({
+      op: 'file',
       session,
       projectId: PROJECT,
       ref: 's_conv_1-kosten',

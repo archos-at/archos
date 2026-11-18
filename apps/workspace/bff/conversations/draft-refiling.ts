@@ -7,7 +7,7 @@ import { reviseWithAgentWork, type AgentWork, type RevisedWithAgentWork } from '
 import { documentDisplayName } from '@/lib/documents/display-name'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { findDocumentAuthoredByRef } from '@/lib/documents/repository'
-import { findOpenVersion, listDocumentVersions } from '@/lib/documents/version-repository'
+import { findOpenVersion, findPublishedVersion, listDocumentVersions } from '@/lib/documents/version-repository'
 import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import { recordDraftFilingInBackend } from './draft-backend'
@@ -162,7 +162,9 @@ async function unchangedFiling(
   folderNameOf: (folderId: string | null) => Promise<string | null>,
 ): Promise<RefiledDraft> {
   const document = await getAccessibleDocument(context.session, filed.documentId)
-  const current = await findOpenVersion(filed.documentId, context.session.organizationId)
+  const current =
+    (await findOpenVersion(filed.documentId, context.session.organizationId)) ??
+    (await findPublishedVersion(filed.documentId, context.session.organizationId))
   return {
     documentId: filed.documentId,
     versionId: current?.id ?? filed.versionId,

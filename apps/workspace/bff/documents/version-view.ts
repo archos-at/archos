@@ -26,6 +26,7 @@ export function toDocumentVersionView(version: DocumentVersion): DocumentVersion
     publishedAt: version.publishedAt?.toISOString() ?? null,
     reviewComment: version.reviewComment,
     changeNote: version.changeNote ?? null,
+    origin: version.origin,
     createdBy: version.createdBy,
     createdAt: version.createdAt.toISOString(),
     updatedAt: version.updatedAt.toISOString(),

@@ -42,8 +42,6 @@ logger = logging.getLogger(__name__)
 MAX_TITLE_CHARS = 200
 MAX_REF_CHARS = 200
 
-MAX_REVIEWER_CHARS = 200
-
 IN_REVIEW_STATE = "in_review"
 
 FILE_AS_REVISION = "new_revision"
@@ -55,9 +53,7 @@ MAX_FOLDER_CHARS = 300
 
 MAX_CHANGE_NOTE_CHARS = 500
 
-_STILL_A_DRAFT = (
-    "This is a DRAFT that nobody has approved yet — do not say the document is approved, published or final."
-)
+_SIGNED_OFF = "The user filed it, so it is their project document, marked as made by you; it waits for no approval."
 
 _NO_PROJECT = (
     "Error: There is no project in this conversation, so there are no project files in which a "
@@ -114,11 +110,6 @@ def _unknown_folder(details: dict[str, Any]) -> str:
         f"Error: There is no folder „{details.get('folder', '')}“ in this project. Nothing was filed. "
         f"The folders are: {named}. Ask the user which one they meant, or file without `folder`."
     )
-
-
-_NOT_SUBMITTABLE_NOW = (
-    "Error: This draft has already been submitted. Tell the user that it is waiting for approval by a person."
-)
 
 
 def _slug(path: str) -> str:
@@ -195,10 +186,6 @@ async def _draft(path: str) -> tuple[DraftBackend, DraftUsage]:
 
 
 _CALL_FAILED = "Error filing: {error}. Nothing was filed; tell the user that the draft is in the working directory."
-
-_SUBMIT_FAILED_AFTER_FILING = (
-    "Error submitting: {error}. Tell the user that the draft is in the project as a DRAFT, but not submitted."
-)
 
 
 def _refusal_for(exc: FilingError) -> str | None:
@@ -319,23 +306,14 @@ def _project_or_refuse() -> str:
 
 
 _FILE_DRAFT_DESCRIPTION = (
-    "Files a draft from the working directory into the project AS A DRAFT. `path`: `" + DRAFT_ROOT + "<name>.md`; "
+    "Files a draft from the working directory into the project. `path`: `" + DRAFT_ROOT + "<name>.md`; "
     "`title` optional. "
-    "Call it when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after "
-    "every write. Again for the same path puts the current draft into the same document. A DRAFT: nobody has "
-    "approved it. "
-    "`submit=true` submits it FOR APPROVAL (filed and unchanged, it is only submitted). Call with `submit=true` "
-    "only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. "
-    "`reviewer` (only with submit): the person exactly as the user named them; without it the draft goes to "
-    "the project's editors. "
+    "Call it only when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after "
+    "every write: the user who files it signs it off, and it becomes a project document like their own upload, "
+    "marked as made by you. Again for the same path puts the current draft into the same document. "
     "`folder`: a folder the user named. A file made from a project document files as its own file, unless "
     'the user asks for its new version: `file_as="new_revision"` and `change_note`. '
     '`file_as="separate_file"` only when the user asks for one after a refusal.'
-)
-
-_REVIEWER_WITHOUT_SUBMIT = (
-    "Error: `reviewer` applies only together with `submit=true`. Nothing was filed. If the user "
-    "asked for approval or review, call again with `submit=true`; otherwise without `reviewer`."
 )
 
 
@@ -377,64 +355,6 @@ def _separate_reference(path: str, filed_document: str) -> str:
     return f"{ref[: MAX_REF_CHARS - len(suffix)]}{suffix}"
 
 
-def _submit_payload(filing: dict[str, str], reviewer: str) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "op": "submit",
-        "documentId": filing[FILED_DOCUMENT_KEY],
-        "versionId": filing[FILED_VERSION_KEY],
-        "reviewerUserIds": [],
-    }
-    if reviewer:
-        payload["reviewer"] = reviewer
-    return payload
-
-
-def _unknown_reviewer(reviewer: str) -> str:
-    return (
-        f"I do not know a person named „{reviewer}“ in this project. Nothing was submitted. "
-        "Ask the user for the exact name or email address, or submit without a name "
-        "— then the draft goes to the project's editors."
-    )
-
-
-def _whom(reviewer: str) -> str:
-    return f"to {reviewer}" if reviewer else "to the project's editors"
-
-
-async def _submit(
-    backend: DraftBackend,
-    path: str,
-    filing: dict[str, str],
-    reviewer: str,
-    envelope: SignedEnvelope,
-    *,
-    failure: str = _CALL_FAILED,
-) -> dict[str, str]:
-    body = await _post(
-        _submit_payload(filing, reviewer),
-        envelope,
-        bad_request=_unknown_reviewer(reviewer) if reviewer else None,
-        conflict=_NOT_SUBMITTABLE_NOW,
-        failure=failure,
-    )
-    submitted = filing_record(body)
-    await backend.arecord_filing(path, submitted)
-    return submitted
-
-
-async def _submit_unchanged(
-    backend: DraftBackend, path: str, usage: DraftUsage, reviewer: str, envelope: SignedEnvelope
-) -> str:
-    submitted = await _submit(backend, path, usage.filing, reviewer, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
-    emit_draft_card(
-        path=path, content=usage.content or "", version=usage.version or 1, filing=submitted, size=_card_size(usage)
-    )
-    return (
-        f"Submitted for approval {_whom(reviewer)}: „{draft_title(path, usage.content or '')}“ is now waiting "
-        f"for review by a person. {_STILL_A_DRAFT}"
-    )
-
-
 def _filed_message(chosen: str, usage: DraftUsage, choice: _Choice, put: _Put) -> str:
     unmoved = (
         f" It stays in its folder; `folder` „{choice.folder}“ was not applied, because a filed document is not moved."
@@ -443,52 +363,33 @@ def _filed_message(chosen: str, usage: DraftUsage, choice: _Choice, put: _Put) -
     )
     if put.kind == FILED_AS_REVISION:
         source = usage.derived_from.get("name") or "the project document"
-        return f"Filed in the project as the new version of „{source}“, as a draft.{unmoved} {_STILL_A_DRAFT}"
+        return f"Filed in the project as the new version of „{source}“.{unmoved} {_SIGNED_OFF}"
     verb = "Filed in the project" if put.first else "Filed in the project as the current version of the draft"
-    return f"{verb}: „{chosen}“.{unmoved} {_STILL_A_DRAFT}"
+    return f"{verb}: „{chosen}“.{unmoved} {_SIGNED_OFF}"
 
 
-async def _file(path: str, choice: _Choice, *, submit: bool, reviewer: str) -> str:
+async def _file(path: str, choice: _Choice) -> str:
     path = modernize_draft_path(path)
     _project_or_refuse()
     envelope = _envelope()
-    named = " ".join((reviewer or "").split())[:MAX_REVIEWER_CHARS]
-    if named and not submit:
-        raise _Refused(_REVIEWER_WITHOUT_SUBMIT)
     backend, usage = await _draft(path)
-    if submit and usage.filed_unchanged and not choice.file_as:
-        return await _submit_unchanged(backend, path, usage, named, envelope)
-
     chosen = choice.title or draft_title(path, usage.content or "")
     put = await _put(path, usage, replace(choice, title=chosen), envelope)
     filing = put.filing
     if put.first and usage.made_by == MADE_BY_RUN:
         emit_scores(filed_scores(path), writer="file-draft")
     await backend.arecord_filing(path, filing, draft_version=usage.version, kind=put.kind)
-
-    def _card(record: dict[str, str]) -> None:
-        emit_draft_card(
-            path=path,
-            content=usage.content or "",
-            version=usage.version or 1,
-            filing=record,
-            title=chosen,
-            size=_card_size(usage),
-            filed_at_version=usage.version or 1,
-            derived_from=usage.derived_from,
-        )
-
-    filed = _filed_message(chosen, usage, choice, put)
-    if not submit:
-        _card(filing)
-        return f"{filed} The same call with `submit=true` can submit it for approval, if the user asks for that."
-    try:
-        submitted = await _submit(backend, path, filing, named, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
-    except _Refused as refused:
-        _card(filing)
-        raise _Refused(f"{filed} — but NOT submitted. {refused.message}") from refused
-    _card(submitted)
-    return f"{filed} It is submitted for approval {_whom(named)} and now waits for review by a person."
+    emit_draft_card(
+        path=path,
+        content=usage.content or "",
+        version=usage.version or 1,
+        filing=filing,
+        title=chosen,
+        size=_card_size(usage),
+        filed_at_version=usage.version or 1,
+        derived_from=usage.derived_from,
+    )
+    return _filed_message(chosen, usage, choice, put)
 
 
 def _clean(text: str | None, limit: int) -> str:
@@ -498,8 +399,6 @@ def _clean(text: str | None, limit: int) -> str:
 async def run_file_draft(
     path: str,
     title: str | None = None,
-    submit: bool = False,
-    reviewer: str | None = None,
     folder: str | None = None,
     file_as: Literal["new_revision", "separate_file"] | None = None,
     change_note: str | None = None,
@@ -511,7 +410,7 @@ async def run_file_draft(
         change_note=_clean(change_note, MAX_CHANGE_NOTE_CHARS),
     )
     try:
-        return await _file(path, choice, submit=submit, reviewer=reviewer or "")
+        return await _file(path, choice)
     except _Refused as refused:
         return refused.message
 

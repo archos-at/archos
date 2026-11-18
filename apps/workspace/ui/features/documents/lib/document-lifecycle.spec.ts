@@ -196,7 +196,7 @@ describe('the table is the only table', () => {
       'rejected',
     ] as const) {
       const fromTable = DOCUMENT_VERSION_TRANSITIONS.filter(
-        (row) => row.from === state && !['upload', 'create', 'update'].includes(row.op),
+        (row) => row.from === state && !['upload', 'file', 'create', 'update'].includes(row.op),
       ).map((row) => row.op)
       expect(availableReviewOps(version(state), omnipotent)).toEqual([...new Set(fromTable)])
     }

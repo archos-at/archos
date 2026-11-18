@@ -6,7 +6,7 @@ import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 import type { Locale } from '@/i18n/config'
-import { recordGeneratedDraft, type FiledAgentDocumentDraft } from './agent-document'
+import { recordGeneratedDraft, type FiledAgentDocumentDraft, type GeneratedDraftOp } from './agent-document'
 import { checkAgentFile, refuse } from './agent-file-check'
 import { stampAgentFile } from './agent-file-marking'
 import { AGENT_FILE_TYPES, normalizeContentType, type AgentFileContentType } from './agent-file-types'
@@ -28,6 +28,7 @@ export interface AgentFileUpload {
 }
 
 export interface FileAgentFileDraftInput extends AgentFileUpload {
+  op: GeneratedDraftOp
   session: AuthorizedSession
   projectId: string
   ref: string

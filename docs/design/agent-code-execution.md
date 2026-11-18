@@ -241,18 +241,19 @@ before) with the bytes. The BFF:
   relationships, and content that runs when opened (scripts, DDE, PDF actions). CSV is refused with a
   pointer to Excel, because it has no place for the AI marking;
 - **marks it as made by AI** in its own bytes (`agent-file-marking.ts`: OOXML custom properties, XMP
-  in PDF, PNG and SVG), and files it as a generated draft (producer `agent_file`) under the person's
-  session;
-- **writes the next version** of a document the agent filed (`update_file`): into its open draft, or,
-  once it was approved or published, into a new draft Fassung (`openDraftForRevision`), always with the
-  same type (`bff/documents/agent-file-revision.ts`). When a person changed the document since the
+  in PDF, PNG and SVG), and files it (producer `agent_file`) under the person's session as version 1
+  `published`, like the person's own upload: the person who files it signs it off, and it is indexed
+  and citable at once (ADR-0054, update of 2026-11-18);
+- **writes the next version** of a document the agent filed (`update_file`) as the next `published`
+  Fassung, always with the same type (`bff/documents/agent-file-revision.ts`). When a person changed the document since the
   draft was filed (`ifMatch`), or opened a draft of their own, it answers 409 `changed-in-project`
   with the Fassung's number. The agent tells the person, who decides on the card; writing over a
   person's change (`overChanges`) is only ever a person's request, never the agent's;
 - **makes the next Fassung of a project document** the run read (`revise_file`), only when the person
   asked for it and only for a file (never a Markdown draft), with its Änderungsvermerk
   (`document_versions.change_note`, migration 0248, written with the bytes), under the person's write
-  access to a document of the same project, with the AI marking in the bytes. It refuses with
+  access to a document of the same project, with the AI marking in the bytes, published like any
+  filing. It refuses with
   `changed-in-project` when the document changed since the run read it or a person has a draft open;
   filed again, the draft stays on this path;
 - **resolves a folder** the agent names (`folder`, by name or path; an unknown one is refused with the

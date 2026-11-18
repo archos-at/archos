@@ -28,7 +28,6 @@ export const TURN_EVENT_KEYS: Record<string, string> = {
   'status.action.fileCheck': 'thinking.turnStatus.',
   'status.action.fileRetry': 'thinking.turnStatus.',
   'status.action.calculation': 'thinking.turnStatus.',
-  'status.action.draftSubmitted': 'thinking.turnStatus.',
   'status.action.taskCreated': 'thinking.turnStatus.',
   'status.action.annotationsRead': 'thinking.turnStatus.',
   'status.action.annotationsPropose': 'thinking.turnStatus.',

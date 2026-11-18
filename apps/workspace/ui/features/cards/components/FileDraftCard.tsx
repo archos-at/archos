@@ -64,7 +64,7 @@ const FILE_WIDE_BUTTON = cn(FILE_BUTTON, 'max-sm:col-span-2')
 const FiledActions: FC<{ filing: DraftFiling }> = ({ filing }) => {
   const t = useTranslations(chatCopy)
   const isMobile = useIsMobile()
-  const { href, shownDocumentId, projectId, isSubmitting, isFiling } = filing
+  const { href, shownDocumentId, projectId, isFiling } = filing
   return (
     <div className={DECISION_ROW}>
       {href && shownDocumentId && projectId && (
@@ -91,21 +91,6 @@ const FiledActions: FC<{ filing: DraftFiling }> = ({ filing }) => {
             busy={isFiling}
             idle={t('cards.fileDraft.updateInProject')}
             working={t('cards.fileDraft.updating')}
-          />
-        </Button>
-      )}
-      {filing.canSubmit && (
-        <Button
-          size="sm"
-          className={DECISION_BUTTON}
-          aria-disabled={isSubmitting || undefined}
-          aria-busy={isSubmitting || undefined}
-          onClick={() => void filing.submit()}
-        >
-          <StackedLabel
-            busy={isSubmitting}
-            idle={t('cards.documentDraft.submit')}
-            working={t('cards.documentDraft.submitting')}
           />
         </Button>
       )}

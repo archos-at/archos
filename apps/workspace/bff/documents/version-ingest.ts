@@ -42,13 +42,13 @@ export async function agentProvenance(
   document: Document,
   version: DocumentVersion,
 ): Promise<AgentDocumentProvenance> {
-  const approver = version.approvedBy
-    ? (await resolvePeople(organizationId, [version.approvedBy])).get(version.approvedBy)
-    : undefined
+  const signedOffBy = version.approvedBy ?? version.publishedBy
+  const signedOffAt = version.approvedAt ?? version.publishedAt
+  const approver = signedOffBy ? (await resolvePeople(organizationId, [signedOffBy])).get(signedOffBy) : undefined
   return {
     authored_by: 'agent',
     approved_by: approver?.name ?? null,
-    approved_at: version.approvedAt?.toISOString() ?? null,
+    approved_at: signedOffAt?.toISOString() ?? null,
     producer: document.authoredByProducer,
   }
 }

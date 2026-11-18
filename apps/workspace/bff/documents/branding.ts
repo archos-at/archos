@@ -15,6 +15,8 @@ export interface DocumentBrandingTemplate {
   headerWithoutOrganization: string
   footer: string
   prose: string
+  filedFooter: string
+  filedProse: string
   disclaimer: string
 }
 
@@ -48,6 +50,10 @@ export const PLATFORM_DOCUMENT_BRANDING: PlatformDocumentBranding = {
         'Dieses Dokument hat {product} verfasst. Es ist ein Arbeitsstand und keine ' +
         'Freigabe: Die fachliche Verantwortung für den Inhalt trägt die Person, die ihn ' +
         'freigibt — vorher trägt sie niemand.',
+      filedFooter: 'Von {product} erstellt',
+      filedProse:
+        'Dieses Dokument hat {product} verfasst. Die Person, die es im Projekt abgelegt ' +
+        'hat, hat es damit freigegeben und trägt die fachliche Verantwortung für den Inhalt.',
       disclaimer:
         'Maßgeblich sind die geltenden Rechtsvorschriften in der jeweils gültigen Fassung.',
     },
@@ -61,6 +67,10 @@ export const PLATFORM_DOCUMENT_BRANDING: PlatformDocumentBranding = {
         '{product} wrote this document. It is a working draft and not an approval: ' +
         'responsibility for its content rests with the person who approves it, and until ' +
         'then it rests with nobody.',
+      filedFooter: 'Created by {product}',
+      filedProse:
+        '{product} wrote this document. The person who filed it in the project signed it ' +
+        'off by doing so and is responsible for its content.',
       disclaimer: 'The applicable regulations, in their version in force, are what governs.',
     },
   },
@@ -73,6 +83,8 @@ const templateOverrideSchema = z.object({
   headerWithoutOrganization: z.string().optional(),
   footer: z.string().optional(),
   prose: z.string().optional(),
+  filedFooter: z.string().optional(),
+  filedProse: z.string().optional(),
   disclaimer: z.string().optional(),
 })
 
@@ -158,6 +170,7 @@ export interface ResolveDocumentBrandingInput {
   organizationId?: string | null
   organizationName?: string | null
   locale?: Locale | null
+  filed?: boolean
 }
 
 export async function resolveDocumentBranding(
@@ -179,8 +192,8 @@ export async function resolveDocumentBranding(
       organization ? template.header : template.headerWithoutOrganization,
       values,
     ),
-    footerLine: fillTemplate(template.footer, values),
-    prose: fillTemplate(template.prose, values),
+    footerLine: fillTemplate(input.filed ? template.filedFooter : template.footer, values),
+    prose: fillTemplate(input.filed ? template.filedProse : template.prose, values),
     disclaimer: fillTemplate(template.disclaimer, values),
     logo: branding.logo,
     aiGeneratorName: AI_GENERATOR_NAME,

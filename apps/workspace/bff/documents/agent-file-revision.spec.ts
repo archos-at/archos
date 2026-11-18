@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))
-vi.mock('./lifecycle', () => ({ replaceVersionFile: vi.fn() }))
+vi.mock('./lifecycle', () => ({ replaceVersionFile: vi.fn(), transitionDocumentVersion: vi.fn() }))
 vi.mock('./revision', () => ({ openDraftForRevision: vi.fn() }))
 vi.mock('./version-repository', () => ({
   findOpenVersion: vi.fn(),
@@ -21,7 +21,7 @@ import { getAccessibleDocument } from './access'
 import { renderRevisionFile, reviseWithAgentWork, type ReviseWithAgentWorkInput } from './agent-file-revision'
 import { DOCX, ooxml } from './agent-file.fixtures'
 import { generatedDocumentMarking } from './generated'
-import { replaceVersionFile } from './lifecycle'
+import { replaceVersionFile, transitionDocumentVersion } from './lifecycle'
 import { openDraftForRevision } from './revision'
 import { version } from './version-content.fixtures'
 import { findOpenVersion, findPublishedVersion } from './version-repository'
@@ -54,6 +54,9 @@ beforeEach(() => {
   vi.mocked(replaceVersionFile).mockImplementation(async (_session, _id, versionId) =>
     version({ id: versionId, versionNumber: 3, contentType: DOCX }),
   )
+  vi.mocked(transitionDocumentVersion).mockImplementation(async (_session, _id, versionId) =>
+    version({ id: versionId, versionNumber: 3, state: 'published', contentType: DOCX }),
+  )
 })
 
 describe('reviseWithAgentWork', () => {
@@ -79,6 +82,23 @@ describe('reviseWithAgentWork', () => {
 
     expect(revised.forked).toBe(true)
     expect(vi.mocked(replaceVersionFile).mock.calls[0][2]).toBe('ver_fork')
+  })
+
+  it('publishes the Fassung it wrote, because the person who files it signs it off', async () => {
+    vi.mocked(findPublishedVersion).mockResolvedValue(version({ id: 'ver_pub', state: 'published', contentHash: 'sha256:filed', contentType: DOCX }))
+    vi.mocked(openDraftForRevision).mockResolvedValue({
+      version: version({ id: 'ver_fork', state: 'draft', contentHash: 'sha256:filed' }),
+      filename: 'Raumbuch.xlsx',
+      reviewers: [],
+    })
+
+    const revised = await revise({ ifMatch: 'sha256:filed' })
+
+    expect(transitionDocumentVersion).toHaveBeenCalledWith(session, 'doc_1', 'ver_fork', 'file', {
+      request: undefined,
+      actingHuman: false,
+    })
+    expect(revised.version).toMatchObject({ id: 'ver_fork', state: 'published' })
   })
 
   it('refuses when a person changed the bytes, and writes over them only when a person said so', async () => {
@@ -139,7 +159,7 @@ describe('reviseWithAgentWork', () => {
     const memo = makeDocument({ ...filed, authoredByProducer: 'agent_document', contentType: 'text/markdown' })
     vi.mocked(getAccessibleDocument).mockResolvedValue(memo)
     const { renderVersionBytes } = await import('./version-content')
-    const rendered = await renderVersionBytes(memo, version({ contentType: 'text/markdown' }), '# Vermerk')
+    const rendered = await renderVersionBytes(memo, version({ contentType: 'text/markdown' }), '# Vermerk', { filed: true })
     vi.mocked(findOpenVersion).mockResolvedValue(
       version({ id: 'ver_open', state: 'draft', contentHash: rendered.contentHash, contentType: 'text/markdown' }),
     )
