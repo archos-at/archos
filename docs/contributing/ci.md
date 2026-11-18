@@ -65,8 +65,9 @@ It also lists the third-party image pins the change adds or moves
 ([`ci/pinned_images.py`](../../ci/pinned_images.py)), for trivy.
 
 **4. How much does this run owe?** A pull request gets the light check: Plan, the
-three Repo checks, Semgrep, the Workspace job, Website, Infra, Packages, CMS and
-trivy when touched, and the affected backend tests when testmon can select them.
+three Repo checks, Semgrep, the Workspace job, Website, Infra, Packages, CMS, the
+code runner end to end and trivy when touched, and the affected backend tests
+when testmon can select them.
 Those fail most and cost least. Backend core and suites, the Workspace tests, the
 Hatchet engine tests and the image builds run on the push to `develop` after the
 merge, the run the deploy to staging waits for, and production only ever gets a
