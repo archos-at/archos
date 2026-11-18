@@ -1,7 +1,6 @@
 # drop after release 2026-W49: specs Wave B1 has not yet rewritten to test behaviour; each still reads source text. docs/contributing/code-conventions.md#specs-test-behaviour
 apps/cms/tests/choices.test.ts
 apps/workspace/bff/db/integration-suite-coverage.spec.ts
-apps/workspace/bff/utils.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
 deploy/pulumi/index-deploy-jobs.spec.ts
 deploy/pulumi/src/app/backend-scaling.spec.ts

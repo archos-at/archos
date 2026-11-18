@@ -35,6 +35,7 @@ apps/website/src/lib/rich-text.test.ts
 apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/bff/proxy/server-js-runtime-copies.spec.ts
+apps/workspace/bff/utils.spec.ts
 apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
 apps/workspace/tests/brand-literals.spec.ts
