@@ -365,6 +365,7 @@ function MailHint({ chip = false }: { chip?: boolean }): JSX.Element {
 }
 
 export function NewChatPage({ temporary, infoOpen = false, lay = 'subline', across = false }: { temporary: boolean; infoOpen?: boolean; lay?: string; across?: boolean }): JSX.Element {
+  const belongs = useSearchParams()?.get('belongs')
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-end gap-3 px-8 pb-2 pt-2">
@@ -385,7 +386,7 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'subline', acro
                 <div className="relative">
                   <p className={cn('text-muted-foreground inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-sm', infoOpen && 'bg-desk text-foreground')}>
                     <LockKeyhole className="size-3.5" aria-hidden />
-                    Nur Sie sehen diesen Chat.
+                    Nur Sie sehen diesen Chat.{belongs === '1' ? (across ? ' Er gehört zu keinem Projekt.' : ' Er gehört zum Projekt Wohnbau Seestadt Baufeld D12.') : ''}
                   </p>
                   {infoOpen && <OnlyYouInfo />}
                 </div>

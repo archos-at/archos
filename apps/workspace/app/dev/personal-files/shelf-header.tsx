@@ -2,6 +2,7 @@
 
 // PROTOTYPE, not for merge: a calmer head for the Ablage page (concept for ticket 81).
 
+import { useSearchParams } from 'next/navigation'
 import type { JSX } from 'react'
 import { UsersRound, LockKeyhole, X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
@@ -62,7 +63,30 @@ export function Who({ own }: { own: boolean }): JSX.Element {
   )
 }
 
+function WhoPill({ own }: { own: boolean }): JSX.Element {
+  return (
+    <span className="bg-sheet shadow-press text-name mb-0.5 inline-flex h-8 items-center gap-1.5 rounded-control px-2.5 font-medium">
+      {own ? (
+        <>
+          <LockKeyhole className="size-3.5" aria-hidden />
+          Nur Sie
+        </>
+      ) : (
+        <>
+          <span className="flex -space-x-1.5">
+            {['AB', 'FH', 'MH'].map((name, index) => (
+              <span key={name} className={`text-meta ring-sheet flex size-5 items-center justify-center rounded-full text-[9px] font-medium ring-2 ${['bg-[#f3dede]', 'bg-[#efe6cf]', 'bg-[#dfe7ef]'][index]}`}>{name}</span>
+            ))}
+          </span>
+          6 im Projekt
+        </>
+      )}
+    </span>
+  )
+}
+
 export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false, alone = false, plainTitle = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean; alone?: boolean; plainTitle?: boolean }): JSX.Element {
+  const who = useSearchParams()?.get('who')
   const search = (
     <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />
@@ -104,10 +128,12 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
     <header className="border-hairline flex flex-col gap-4 border-b px-8 pb-0 pt-3">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <span className="text-muted-foreground text-meta">{crumb}</span>
+          <span className="text-muted-foreground text-meta">{crumb}{who === 'c' ? (own ? ' · Nur Sie' : ' · Projektteam') : ''}</span>
           <h1 className="text-page-title">{office ?? (alone && own && !plainTitle ? 'Meine Ablage' : 'Ablage')}</h1>
+          {alone && who === 'b' && <p className="text-muted-foreground mt-1 text-sm">{own ? 'Nur Sie sehen diese Ablage.' : 'Alle im Projekt sehen diese Ablage.'}</p>}
         </div>
-        {alone && <Who own={own} />}
+        {alone && !who && <Who own={own} />}
+        {alone && who === 'd' && <WhoPill own={own} />}
       </div>
       {!office && !alone && (
         <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
