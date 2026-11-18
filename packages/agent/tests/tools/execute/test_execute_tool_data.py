@@ -343,6 +343,24 @@ class TestErasureAndConcurrency:
         keys = {item.key for item in store.search(namespace, limit=100)}
         assert keys == {tool_data.ERASED_KEY}
 
+    async def test_a_result_whose_index_write_fails_is_not_left_behind(self, store, monkeypatch) -> None:
+        namespace = tool_data.data_namespace(CONVERSATION)
+        original = InMemoryStore.aput
+
+        async def _index_fails(self, ns, key, value, *args, **kwargs):
+            if tuple(ns) == namespace and key == tool_data.INDEX_KEY:
+                await original(self, namespace, tool_data.ERASED_KEY, {"erased": True})
+                raise ConnectionError("store went away")
+            return await original(self, ns, key, value, *args, **kwargs)
+
+        monkeypatch.setattr(InMemoryStore, "aput", _index_fails)
+
+        line = await _schedule_line(monkeypatch)
+
+        assert "Data for execute" not in line
+        keys = {item.key for item in store.search(namespace, limit=100)}
+        assert keys == {tool_data.ERASED_KEY}
+
     async def test_concurrent_results_get_distinct_references_and_no_lock_is_left(self, store, monkeypatch) -> None:
         import asyncio
 

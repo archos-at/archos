@@ -124,6 +124,19 @@ async def keep_tool_data(data: ToolData) -> str:
         return ""
 
 
+async def _write(store: Any, namespace: tuple[str, ...], reference: str, value: dict, kept: list[str]) -> None:
+    number = int(reference[1:])
+    try:
+        await store.aput(namespace, reference, value)
+        kept = [*kept, reference]
+        for dropped in kept[:-MAX_KEPT]:
+            await store.adelete(namespace, dropped)
+        await store.aput(namespace, INDEX_KEY, {"next": number + 1, "references": kept[-MAX_KEPT:]})
+    except BaseException:
+        await store.adelete(namespace, reference)
+        raise
+
+
 async def _keep(conversation_id: str, data: ToolData) -> str:
     async with _lock(conversation_id):
         store = await draft_store.get_draft_store()
@@ -140,11 +153,7 @@ async def _keep(conversation_id: str, data: ToolData) -> str:
             )
         if await store.aget(namespace, ERASED_KEY) is not None:
             return ""
-        await store.aput(namespace, reference, {"tool": data.tool, "about": data.about, "json": body.decode("utf-8")})
-        kept.append(reference)
-        for dropped in kept[:-MAX_KEPT]:
-            await store.adelete(namespace, dropped)
-        await store.aput(namespace, INDEX_KEY, {"next": number + 1, "references": kept[-MAX_KEPT:]})
+        await _write(store, namespace, reference, {"tool": data.tool, "about": data.about, "json": body.decode()}, kept)
         if await store.aget(namespace, ERASED_KEY) is not None:
             await _drop_all(store, namespace, frozenset({ERASED_KEY}))
             return ""
