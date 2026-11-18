@@ -195,7 +195,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `pgPoolerImage` | digest-pinned `ghcr.io/cloudnative-pg/pgbouncer:1.26.0@sha256:…` | PgBouncer image, must be 1.21 or newer (prepared statements in transaction mode). Scanned by the trivy `image-scan` job; override only for a deliberate upgrade |
 | `pgAppUser` | `aiq` | Role owning all three databases |
 | 🔒 **`pgAppPassword`** | — | Role password; drives every DSN |
-| `pgPrimaryUpdateStrategy` | `unsupervised` | Automatic switchover on operator/image updates |
+| `pgPrimaryUpdateStrategy` | `unsupervised` | CNPG rolls a changed pod spec (image, restart-requiring parameter, resources) on its own: replicas first, then a switchover to the most aligned replica (`primaryUpdateMethod: switchover`); a 1-instance cluster restarts its primary. `supervised` stops before the primary for a manual `kubectl cnpg promote`. An operator upgrade restarts nothing: the operator chart (`CNPG_CHART_VERSION`, pinned) runs with `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES`. With `switchover`, change `imageName` and PostgreSQL parameters in separate deploys |
 | `pgBackupsEnabled` | `false` (prod template: true) | Continuous WAL + nightly base backups (PITR) |
 | `pgBackupEndpoint` | in-cluster SeaweedFS | Point at external S3 for offsite PITR |
 | `pgBackupBucket` | `grid-pg-backups` | Backup bucket (auto-created on in-cluster SeaweedFS) |

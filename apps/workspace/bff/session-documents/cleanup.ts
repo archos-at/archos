@@ -2,6 +2,7 @@ import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import type { Document } from '@/lib/db/schema/documents'
 import {
+  chunkPurgeBody,
   collectionFileRef,
   type CollectionFileRef,
 } from '@/lib/documents/collection-file-ref'
@@ -29,7 +30,7 @@ export async function purgeCollectionChunks(
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_ids: refs.map((ref) => ref.filename) }),
+        body: chunkPurgeBody(refs),
         signal: AbortSignal.timeout(BACKEND_FETCH_TIMEOUT_MS),
       },
     )

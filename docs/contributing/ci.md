@@ -16,6 +16,7 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
 | Merge Dependabot's minor and patch updates once `CI OK` passes | Dependabot pull requests | `dependabot-auto-merge.yml` | `CI OK`, through auto-merge ([setup](testing-and-verification.md)) |
+| Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; `keep-open` and Dependabot exempt) | daily | `stale-prs.yml` | No |
 
 Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
@@ -241,10 +242,9 @@ Why it is built this way:
 - The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the
   Source maps workflow installs that same version (a test holds the two
   together). Its npm package downloads the binary on first use (`bun install
-  --ignore-scripts` skips its postinstall), which happens inside the build RUN,
-  and the same RUN deletes the binary: `bun install --production` over an
-  existing `node_modules` does not prune devDependencies (measured with bun
-  1.3.11), so the later production install would let it ship.
+  --ignore-scripts` skips its postinstall), which happens inside the build RUN.
+  It never ships: the runner's `node_modules` is the `prod-deps` stage's fresh
+  production install, not the builder's.
 
 An image already in GHCR under its `inputs-<hash>` is not rebuilt when the
 secret is added later, so its maps are never uploaded. Wait for the weekly

@@ -13,7 +13,7 @@ import type { SettledBy } from '@/lib/analytics/ingest-events'
 import { announceSettledIngests, announceSettledShelves } from './announce-settled'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
-import { collectionFileRef, type CollectionFileRef } from './collection-file-ref'
+import { collectionFileRef, type AuthoredDocumentRow, type CollectionFileRef } from './collection-file-ref'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from './document-status'
 import { parseRevisionLinkNames, type RevisionLinkNames } from './revision-links'
 import { setDocumentReconciledStatus } from './repository'
@@ -185,13 +185,9 @@ export type BackendIngestKnowledge =
   | { state: 'absent' }
   | { state: 'unreachable' }
 
-export async function describeBackendIngestState(row: {
-  metadata?: unknown
-  collectionName: string
-  filename: string
-  authoredBy: DocumentAuthor
-  publishedVersionId: string | null
-}): Promise<BackendIngestKnowledge> {
+export async function describeBackendIngestState(
+  row: AuthoredDocumentRow & { metadata?: unknown },
+): Promise<BackendIngestKnowledge> {
   const jobId = extractIngestJobId(row.metadata)
   if (jobId) {
     const statuses = await fetchJobStatuses([jobId])

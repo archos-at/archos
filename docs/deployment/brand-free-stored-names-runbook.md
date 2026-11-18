@@ -36,10 +36,16 @@ psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/dry-run.sql
 psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
 ```
 
-| Environment | Dry run before | Backfill run | Dry run after |
-|---|---|---|---|
-| dev | not run | not run | not run |
-| prod | not run | not run | not run |
+| Step | Environment | Dry run before | Backfill run | Dry run after |
+|---|---|---|---|---|
+| 1 (SQL) | dev | actor kind 21 / 2 / 21; inbox 44, twins 0; mention id 0 / 2 / 0 / 0; lane 36 / 6 | 2026-11-18 ~13:45 UTC, after #1761 was live on every dev workload: all four scripts; `inbox-types.sql` renamed 44, a second run 0 | every count 0 |
+| 1 (SQL) | prod | not run | not run | not run |
+| 2a (Qdrant) | dev | office collections 192 with only the old key, 0 disagree; base corpus 0 | 2026-11-18 13:35 UTC: 192 written | 0 left, 0 disagree; a second dry run 0 |
+| 2a (Qdrant) | prod | not run | not run | not run |
+
+The step-1 counts follow `dry-run.sql`'s rows: actor kind is annotations /
+replies / proposals, mention id is annotations / replies / inbox payloads /
+messages, and lane is messages / citation events.
 
 ## 1. Session settings `grid.organization_id`, `grid.user_id` → `app.*`
 
@@ -133,18 +139,37 @@ column that says who wrote the document, so the prefix means nothing afterwards.
   `lanes.sql` rewrites `office_piloti` as a value in `messages.metadata`, and as
   a key of `citation_events.detail.lanes`, where its count adds to an existing
   `office_agent` count.
-- **Before the backfill:** in each collection, count the points whose
-  `document_id` differs from their `grid_document_id`. It must be 0. A point
-  deploy 1 wrote carries both keys with one value and needs nothing.
-- **Backfill:** per collection, scroll the points with `grid_document_id` and no
-  `document_id` (500 per page, no vectors) and `set_payload` the new key from the
-  old. Repeat until none are left. Then check that a sample of 1,000 ids has
-  equal values.
-- **Switch:** readers filter on `document_id` (`vector_store/similar.py`,
-  `search/document_groups.py`, the agent host's `document_search` and
-  `similar_passages`). Writers keep both keys until the contract.
-- **Purge (step 2):** `vector_store/store.py` `delete_file` deletes by
-  `document_id`, not by `file_name`, so the namespace no longer keys the purge.
+- **Backfill (step 2a):** `scripts/qdrant_backfill_document_id.py`, run in a
+  pod that has `QDRANT_URL` and `QDRANT_API_KEY` (every agent-host pod), after
+  deploy 1 is live everywhere. The dry run (`all`) counts, per collection, the
+  points with only the old key, and the points whose two keys disagree, which
+  must be 0. `all --apply` gives each point with only the old key the new one,
+  500 per page with no vectors, and exits 1 while any is left or any pair
+  disagrees. Points with neither key (the base corpus, law lookups, imports)
+  are not touched.
+- **Switch (step 2b):** readers filter on and read `document_id`
+  (`vector_store/similar.py`, `search/document_groups.py`, the agent host's
+  `document_search` and `similar_passages`), and a hit's metadata carries
+  `document_id` instead of the old key. The search response sends the id under
+  both names; the BFF reads `document_id` first
+  (`bff/documents/legacy-search-hit.ts`). Writers keep both keys until the
+  contract. Merge 2b only after 2a has run on that environment: until then, a
+  reader that filters on `document_id` misses the points that lack it.
+- **Purge (step 2b):** the BFF sends `documents: [{id, file_name}]` beside
+  `file_ids` (`chunkPurgeBody`). A backend that reads `documents` deletes the
+  points whose `document_id` is the id, and the points stored under the name
+  that carry no `document_id` (an import, a point from before the field), never
+  another document's. The job records and summaries are forgotten for every name
+  a deleted point was stored under. A backend one release old reads `file_ids`.
+  The base corpus, law lookups and the vector reconcile sweep still delete by
+  name: their points have no document row.
+- **Follow-up, not in this phase (owner decision):** `document_metadata` and
+  `document_revision_retained` are keyed by `(collection, filename)`, and so are
+  the listing, the tags, title and folder-path routes, the facets and the BFF's
+  search joins. After step 2 the purge no longer depends on the name, but the
+  summaries and metadata still join on it. Re-keying them by `document_id` is
+  its own project; until then step 3 rewrites the namespace in Postgres,
+  `document_metadata`, `document_revision_retained` and Qdrant together.
 - **Contract:** stop writing `grid_document_id`, drop its index, run a batched
   `delete_payload` of it, and delete the legacy modules.
 

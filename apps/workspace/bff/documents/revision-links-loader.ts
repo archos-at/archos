@@ -47,7 +47,7 @@ interface VisibleRef extends RevisionRef {
 }
 
 const namesOf = (collectionName: string, filename: string): Promise<RevisionLinkNames | null> => {
-  const ref = collectionFileRef({ collectionName, filename, authoredBy: 'user', publishedVersionId: null })
+  const ref = collectionFileRef({ id: null, collectionName, filename, authoredBy: 'user', publishedVersionId: null })
   return ref ? readRevisionLinkNames(ref) : Promise.resolve(null)
 }
 

@@ -261,7 +261,13 @@ pods it builds, and a selector on the template's own labels matched no pod
 (both PgBouncers ran on one node until 2026-10).
 
 The operators (CloudNativePG, KEDA, cert-manager, Envoy Gateway,
-metrics-server) are Helm releases in their own namespaces and are not pinned.
+metrics-server) and Hatchet are Helm releases in their own namespaces, each
+pinned to an exact chart version by an exported `*_CHART_VERSION` constant.
+A release without a version re-resolves the repository's latest on every `up`:
+on 2026-11-18 that upgraded the CloudNativePG operator during a prod promotion,
+every Postgres instance restarted, and the app tiers crash-looped for about
+five minutes. `index-helm-pins.spec.ts` fails on a release without one. Move a
+pin on dev first, as a change of its own.
 
 **Cluster-autoscaler scales on *unschedulable pods*, not utilisation.** Its
 documented prerequisites — an HPA as the first scaling tier, `requests`/`limits`
@@ -1197,8 +1203,15 @@ schema.
 
 - **HA:** `grid-oib:pgInstances: 3` (the prod default) runs one primary + two
   streaming replicas with automatic failover; `primaryUpdateStrategy:
-  unsupervised` lets CNPG switch over + roll on its own when the provider drains
-  a node. Replicas use `preferred` pod anti-affinity on `kubernetes.io/hostname`
+  unsupervised` with `primaryUpdateMethod: switchover` lets CNPG roll on its
+  own: replicas first, then the primary hands over to the most aligned replica
+  instead of restarting in place. A 1-instance cluster (dev) has no replica to
+  hand to, so its primary is recreated and clients see a restart. An operator
+  upgrade rolls nothing: the operator runs with
+  `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES`, which swaps the instance manager
+  inside the running pods and leaves the postmaster up. With `switchover`,
+  CNPG refuses a change to `imageName` and PostgreSQL parameters in one
+  update; make them in two deploys. Replicas use `preferred` pod anti-affinity on `kubernetes.io/hostname`
   so they spread across worker nodes. Both routes below follow the current
   primary through a failover.
 - **Two routes to the primary (ADR-0083).** `grid-pg-pooler-rw` is a CloudNativePG

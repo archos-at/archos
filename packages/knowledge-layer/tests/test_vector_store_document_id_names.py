@@ -42,7 +42,7 @@ def test_ensure_payload_indexes_creates_the_document_id_index_on_a_collection_ma
     assert made == {DOCUMENT_ID_FIELD: models.PayloadSchemaType.KEYWORD}
 
 
-def test_both_names_are_enriched_and_only_the_new_one_is_hidden_from_hits():
+def test_both_names_are_enriched_and_hits_read_the_new_one():
     assert {LEGACY_DOCUMENT_ID_FIELD, DOCUMENT_ID_FIELD} <= ENRICHED_FIELDS
-    assert DOCUMENT_ID_FIELD in STORE_ONLY_FIELDS
-    assert LEGACY_DOCUMENT_ID_FIELD not in STORE_ONLY_FIELDS
+    assert LEGACY_DOCUMENT_ID_FIELD in STORE_ONLY_FIELDS
+    assert DOCUMENT_ID_FIELD not in STORE_ONLY_FIELDS

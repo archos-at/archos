@@ -111,6 +111,31 @@ COPY patches ./patches
 RUN bun install --frozen-lockfile --ignore-scripts
 
 # =============================================================================
+# Stage 2b: Production dependencies, the runner's node_modules
+# =============================================================================
+# Only the lockfile's inputs, so this layer keeps its digest while bun.lock does
+# not move, and a deploy that changed only source pulls none of it. A fresh
+# install: `--production` over the builder's full install pruned nothing, and
+# every devDependency shipped.
+#
+# bun installs the musl builds of the native modules beside the glibc ones;
+# they cannot load on this glibc base. `require('sharp')` proves the glibc
+# build survived.
+FROM base AS prod-deps
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY patches ./patches
+
+RUN bun install --frozen-lockfile --production --ignore-scripts \
+    && find node_modules -mindepth 1 -maxdepth 2 -type d \
+         \( -name '*-linux-*-musl' -o -name '*-linuxmusl-*' \) -prune -exec rm -rf {} + \
+    && if find node_modules -mindepth 1 -maxdepth 2 -type d -name '*musl*' | grep .; then \
+         echo "error: a musl binary would ship" >&2; exit 1; fi \
+    && node -e "require('sharp')"
+
+# =============================================================================
 # Stage 3: Builder
 # =============================================================================
 FROM base AS builder
@@ -141,16 +166,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # build. Then every map leaves the served trees, with the `sourceMappingURL`
 # comments that would point at them (Next serves `.next/static` to anyone, and
 # a map carries the original source), and the build fails if a map survives,
-# if no map-bearing chunk was kept, or if any kept chunk carries no id. The CLI's npm package fetches its binary on first use;
-# it is deleted after, because the production install below does not prune an
-# existing node_modules and would ship it.
+# if no map-bearing chunk was kept, or if any kept chunk carries no id.
+# `.next/cache` is the build's own cache, never read at runtime.
 ARG GIT_SHA=""
 
 RUN EMIT_SOURCE_MAPS=1 bun run build \
     && export POSTHOG_CLI_API_KEY=phx_offline_inject POSTHOG_CLI_PROJECT_ID=0 \
     && node_modules/.bin/posthog-cli sourcemap inject --directory .next/static \
     && node_modules/.bin/posthog-cli sourcemap inject --directory .next/server \
-    && rm -rf node_modules/@posthog/cli/node_modules/.bin_real \
     && mkdir -p /sourcemaps \
     && (cd .next && find static server -name '*.map' -type f | while read -r map; do \
          mkdir -p "/sourcemaps/$(dirname "$map")" && cp "$map" "/sourcemaps/$map" || exit 1; \
@@ -160,7 +183,8 @@ RUN EMIT_SOURCE_MAPS=1 bun run build \
     && find .next/static .next/server -name '*.js' -type f -exec sed -i '/^\/\/# sourceMappingURL=/d' {} + \
     && if find .next/static .next/server -name '*.map' | grep -q .; then echo "error: a source map would ship" >&2; exit 1; fi \
     && if [ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .; then \
-      echo "error: a source-mapped chunk carries no PostHog chunk id; its stack frames could not be matched" >&2; exit 1; fi
+      echo "error: a source-mapped chunk carries no PostHog chunk id; its stack frames could not be matched" >&2; exit 1; fi \
+    && rm -rf .next/cache
 
 # The deploy-time WorkOS Jobs (deploy/pulumi/src/app/workos-authz-jobs.ts) run
 # TypeScript scripts, and the runner keeps neither bun nor tsx. Bundle each to
@@ -176,9 +200,6 @@ RUN for script in provision-workos-authz migrate-folder-grants-to-workos; do \
 # Hatchet worker in process (`bff-job` and the scheduling tasks, ADR-0150). Its
 # own script, for the shims Next would otherwise provide.
 RUN bun scripts/build-jobs-bundle.ts
-
-# Remove devDependencies — keeps dev-only packages out of the production image
-RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # =============================================================================
 # Source maps: the maps and chunks the builder kept aside, for CI to export
@@ -205,24 +226,16 @@ ENV HOSTNAME="0.0.0.0"
 # deployment that sets NODE_OPTIONS itself must keep this --require in it.
 ENV NODE_OPTIONS="--require /app/scripts/legacy-env-names.cjs"
 
-# The commit this image was built from. `--build-arg GIT_SHA=$(git rev-parse
-# HEAD)` in the image build (publish-images.yml / docker-build.yml); unset
-# everywhere else, and the boot line then prints `sha=unknown` rather than
-# guessing. There is no `.git` in the image, so a build arg is the only way the
-# running container can answer "which commit am I", and it is the question a
-# pilot report cannot be actioned without.
-ARG GIT_SHA=""
-ENV GIT_SHA=$GIT_SHA
-
 RUN groupadd --system --gid 1001 nodejs \
     && useradd --system --uid 1001 --gid nodejs nextjs \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/bun
 
+# The largest layer first, from prod-deps: unchanged while bun.lock is.
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # The MCP Apps views the agent door serves as ui:// resources (ADR-0142), built by `bun run build`.
 COPY --from=builder --chown=nextjs:nodejs /app/mcp-app-views ./mcp-app-views
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
@@ -280,6 +293,16 @@ COPY --from=builder --chown=nextjs:nodejs /app/bff/turns/turn-headers.js ./bff/t
 COPY --from=builder --chown=nextjs:nodejs /app/bff/redis/connect.js ./bff/redis/connect.js
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
+
+# The commit this image was built from. `--build-arg GIT_SHA=$(git rev-parse
+# HEAD)` in the image build (publish-images.yml / docker-build.yml); unset
+# everywhere else, and the boot line then prints `sha=unknown` rather than
+# guessing. There is no `.git` in the image, so a build arg is the only way the
+# running container can answer "which commit am I", and it is the question a
+# pilot report cannot be actioned without. After every layer, because it
+# changes on every commit.
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
 
 USER nextjs
 
