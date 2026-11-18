@@ -41,6 +41,7 @@ const LISTED: ListedDocument = {
   contentType: 'application/pdf',
   status: 'completed',
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
   lifecycle: 'active',
   collectionName: 'archiv_org-1',

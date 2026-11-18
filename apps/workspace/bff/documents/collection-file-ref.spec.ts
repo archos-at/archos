@@ -9,14 +9,16 @@ const row = {
   id: 'doc_7',
   collectionName: 'proj_abc',
   filename: 'brandschutz-gutachten-2026-08-20.pdf',
+  authoredByProducer: null,
   publishedVersionId: null,
 } as const
 
 const publishedAgent = {
   id: 'doc_1',
   collectionName: 'proj_abc',
-  filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
+  filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
   authoredBy: 'agent',
+  authoredByProducer: 'agent_document',
   publishedVersionId: 'ver_2',
 } as const
 
@@ -38,38 +40,27 @@ describe('collectionFileRef', () => {
     expect(collectionFileRef({ ...row, authoredBy: 'agent' })).toBeNull()
   })
 
-  it('names the pair for a PUBLISHED agent document under its namespace', () => {
+  it('names the pair for a PUBLISHED agent document', () => {
     expect(collectionFileRef(publishedAgent)).toMatchObject({
-      collectionName: 'proj_abc',
-      filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
-    })
-  })
-
-  it('names the pair for a PUBLISHED agent document under the new namespace exactly as under the old', () => {
-    expect(
-      collectionFileRef({
-        ...publishedAgent,
-        filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
-      })
-    ).toMatchObject({
       collectionName: 'proj_abc',
       filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
     })
   })
 
-  it('refuses an agent draft under the namespace: nothing was ever published', () => {
+  it('reads who wrote it from the producer, not the name, so a row not yet renamed is still indexed', () => {
+    expect(collectionFileRef({ ...publishedAgent, filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md' })).toMatchObject({
+      filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
+    })
+  })
+
+  it('refuses an agent draft: nothing was ever published', () => {
     expect(collectionFileRef({ ...publishedAgent, publishedVersionId: null })).toBeNull()
   })
 
-  it('refuses a published agent row OUTSIDE the namespace', () => {
-    expect(
-      collectionFileRef({ ...publishedAgent, filename: 'brandschutz-gutachten-2026-08-20.pdf' }),
-    ).toBeNull()
-  })
-
-  it('is not fooled by a name that merely mentions the namespace', () => {
-    expect(collectionFileRef({ ...publishedAgent, filename: 'piloti-bericht.md' })).toBeNull()
-    expect(collectionFileRef({ ...publishedAgent, filename: 'x/piloti/doc_1/a.md' })).toBeNull()
+  it('refuses a published row of a producer that is never indexed, whatever its name says', () => {
+    for (const authoredByProducer of ['deep_research', 'diagram_svg', 'diagram_pdf', null]) {
+      expect(collectionFileRef({ ...publishedAgent, authoredByProducer }), String(authoredByProducer)).toBeNull()
+    }
   })
 })
 
@@ -95,6 +86,7 @@ describe('the URL builders', () => {
       collectionName: 'proj_a b',
       filename: 'Schnitt A-A/EG.pdf',
       authoredBy: 'user',
+      authoredByProducer: null,
       publishedVersionId: null,
     })
     if (!awkward) throw new Error('unreachable: the fixture row is human-authored')
@@ -111,6 +103,7 @@ describe('purgeIngestedChunks — reversible unless said otherwise', () => {
     collectionName: 'proj_abc',
     filename: 'EG_Grundriss_Index_B.pdf',
     authoredBy: 'user',
+    authoredByProducer: null,
     publishedVersionId: null,
   })!
   const fetchSpy = vi.fn()

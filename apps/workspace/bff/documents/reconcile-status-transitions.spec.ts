@@ -165,8 +165,8 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
       { current: [{ ...indexedPlan, supersedes: ['plan-a.pdf'] }, older] }
     )
     vi.mocked(listCollectionDocumentsForProjection).mockResolvedValueOnce([
-      { id: 'doc-a', filename: 'plan-a.pdf', collectionName: 'proj_abc', authoredBy: 'user', publishedVersionId: null },
-      { id: 'doc-agent', filename: 'plan-a.pdf', collectionName: 'proj_abc', authoredBy: 'agent', publishedVersionId: null },
+      { id: 'doc-a', filename: 'plan-a.pdf', collectionName: 'proj_abc', authoredBy: 'user', authoredByProducer: null, publishedVersionId: null },
+      { id: 'doc-agent', filename: 'plan-a.pdf', collectionName: 'proj_abc', authoredBy: 'agent', authoredByProducer: null, publishedVersionId: null },
     ])
     const fetchesBefore = collectionCalls().length
 

@@ -150,6 +150,7 @@ export async function moveDocumentToFolder(
     collectionName: document.collectionName,
     filename: document.filename,
     authoredBy: document.authoredBy,
+    authoredByProducer: document.authoredByProducer,
     publishedVersionId: document.publishedVersionId,
   })
   if (backendRef) {

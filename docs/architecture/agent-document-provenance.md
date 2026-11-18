@@ -83,9 +83,11 @@ version's bytes to `POST /v1/ingest` with these four fields beside `file_name`,
 unless the dispatch names the row's own `published_version_id`, so a draft, an
 in-review version, an approved-but-unpublished one, a superseded one and a
 rejected one never reach the index; the document is filed under the
-`piloti/<document id>/<name>` namespace so a model-chosen title cannot collide
-with a person's upload, and migration 0083 makes that a unique index rather than
-a convention. Superseding and archiving purge the chunks, and the backend's
+`generated/<document id>/<name>` namespace so a model-chosen title cannot collide
+with a person's upload (rows filed before step 3 of ADR-0182 phase 4 carry
+the old prefix until the backfill renames them). Only the `agent_document` and
+`agent_file` producers are filed there and may be indexed, and migration 0246 makes
+one live row per name a unique index over those producers rather than a convention. Superseding and archiving purge the chunks, and the backend's
 `unregister_summary` takes the `document_metadata` row's `provenance` with them.
 
 The BFF resolves `approved_by` through `resolvePeople`, the same lookup every
