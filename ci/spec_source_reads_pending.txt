@@ -18,7 +18,6 @@ apps/workspace/bff/proxy/ws-upgrade-headers.spec.ts
 apps/workspace/bff/skills/legacy-names.spec.ts
 apps/workspace/bff/turns/turn-steps.spec.ts
 apps/workspace/bff/utils.spec.ts
-apps/workspace/i18n/aggregate-imports.spec.ts
 apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
 apps/workspace/tests/brand-literals.spec.ts

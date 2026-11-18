@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { de } from '@/i18n/dictionaries/de'
-import { en } from '@/i18n/dictionaries/en'
-import { createTranslator } from '@/i18n/translate'
+import { collaborationCopy } from '@/i18n/namespaces/collaboration'
+import { namespaceRoot, translatorFor } from '@/i18n/namespace'
 import { INBOUND_MAIL_FILING_FAILURES } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { inboxItemCopy } from './item-copy'
 import { INBOX_TYPE_DEFINITIONS } from './registry'
@@ -44,12 +43,9 @@ function view(type: InboxItemType, variant: string | null, overrides: Partial<In
   }
 }
 
-describe.each([
-  ['de', de],
-  ['en', en],
-] as const)('the E-Mail-Eingang’s notices in %s', (_locale, dictionaryOf) => {
-  const dictionary = { collaboration: dictionaryOf.collaboration }
-  const t = createTranslator(dictionary, 'collaboration')
+describe.each(['de', 'en'] as const)('the E-Mail-Eingang’s notices in %s', (locale) => {
+  const dictionary = namespaceRoot(collaborationCopy, locale)
+  const t = translatorFor(collaborationCopy, locale)
 
   it.each(EMITTED.flatMap(([type, variants]) => variants.map((variant) => [type, variant] as const)))(
     '%s (%s) reads a whole sentence naming the project',
