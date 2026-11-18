@@ -833,16 +833,22 @@ def github_only(job: dict, variables: dict = CLUSTER) -> list[str]:
         reasons.append("a service container")
     if job.get("container") and resolve(job["container"].get("image", ""), vars=variables):
         reasons.append("a job container")
-    for step in job.get("steps", []):
-        if not _may_run(step, variables):
-            continue
-        uses = step.get("uses", "")
-        if uses.startswith("docker/") or uses == "./.github/actions/build-image":
-            reasons.append(f"builds images ({uses})")
-        no_docker = resolve(step.get("env", {}).get("NO_DOCKER", "false"), vars=variables) in (True, "true")
-        if not no_docker and _needs_docker(step.get("run", "")):
-            reasons.append(f"Docker or root in {step.get('name') or step['run'].splitlines()[0]!r}")
-    return reasons
+    return reasons + [reason for step in job.get("steps", []) for reason in _step_reasons(step, variables)]
+
+
+def _step_reasons(step: dict, variables: dict) -> list[str]:
+    if not _may_run(step, variables):
+        return []
+    uses = step.get("uses", "")
+    if uses.startswith("./.github/actions/"):
+        action = yaml.safe_load((ROOT / uses / "action.yml").read_text(encoding="utf-8"))
+        return [reason for inner in action["runs"].get("steps", []) for reason in _step_reasons(inner, variables)]
+    if uses.startswith("docker/"):
+        return [f"builds images ({uses})"]
+    no_docker = resolve(step.get("env", {}).get("NO_DOCKER", "false"), vars=variables) in (True, "true")
+    if not no_docker and _needs_docker(step.get("run", "")):
+        return [f"Docker or root in {step.get('name') or step['run'].splitlines()[0]!r}"]
+    return []
 
 
 @pytest.mark.parametrize("workflow", CLUSTER_WORKFLOWS)
@@ -887,6 +893,11 @@ def test_the_jobs_that_stay_on_github_are_the_ones_that_must():
 
     assert hosted == {"packages", "hatchet", "image", "image-push", "publish"}
     assert load("sourcemaps.yml")["jobs"]["upload"]["runs-on"] == "ubuntu-latest"
+
+
+def test_the_detector_sees_docker_inside_a_local_action():
+    assert _step_reasons({"uses": "./.github/actions/build-image"}, CLUSTER)
+    assert not _step_reasons({"uses": "./.github/actions/setup-python-env"}, CLUSTER)
 
 
 def test_the_detector_sees_docker_behind_a_task_and_a_script():
