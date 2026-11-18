@@ -392,14 +392,16 @@ async def test_grouped_search_names_the_searched_collection_not_the_chunks_claim
 @pytest.mark.asyncio
 async def test_grouped_search_names_each_documents_id_when_its_chunks_carry_it(app):
     known = _ranked("a.pdf", 0.9, 0.03)
-    known.metadata["grid_document_id"] = "0b0e9c1e-1111-4111-8111-111111111111"
+    known.metadata["document_id"] = "0b0e9c1e-1111-4111-8111-111111111111"
     unknown = _ranked("b.pdf", 0.8, 0.02)
     set_active_retriever(_grouped_retriever([("proj_a", [known, unknown])]))
 
     async with _client(app) as client:
         res = await client.post("/v1/collections/search", json={"query": "q", "collections": ["proj_a"]})
 
-    assert [h["grid_document_id"] for h in res.json()["hits"]] == ["0b0e9c1e-1111-4111-8111-111111111111", None]
+    hits = res.json()["hits"]
+    assert [h["document_id"] for h in hits] == ["0b0e9c1e-1111-4111-8111-111111111111", None]
+    assert [h["grid_document_id"] for h in hits] == [h["document_id"] for h in hits], "a BFF one release old reads it"
 
 
 @pytest.mark.asyncio
@@ -482,7 +484,7 @@ async def test_grouped_search_narrows_to_documents_reading_types_and_references_
     assert retriever.search_grouped.await_args.kwargs["filters"] == {
         "$and": [
             {"tags": {"$in": ["Plan"]}},
-            {"grid_document_id": {"$in": [DOC_A, DOC_B]}},
+            {"document_id": {"$in": [DOC_A, DOC_B]}},
             {"document_type": {"$in": ["site_plan", "fire_safety_concept"]}},
             {
                 "references": {
@@ -512,7 +514,7 @@ def test_the_reading_filters_compile_in_the_one_scope_filter():
         GroupedSearchFilters(document_ids=[DOC_A], reading_types=["permit"], refers_to=["ÖNORM B 1600"])
     )
     compiled = scope_filter(["proj_a"], filters)
-    assert "grid_document_id" in repr(compiled) and "document_type" in repr(compiled)
+    assert "document_id" in repr(compiled) and "document_type" in repr(compiled)
     assert "norm:önorm b 1600" in repr(compiled)
 
 
@@ -740,7 +742,7 @@ async def test_a_document_filter_names_the_files_whose_passages_carry_no_id(app)
         "$and": [
             {
                 "$or": [
-                    {"grid_document_id": {"$in": [DOC_A]}},
+                    {"document_id": {"$in": [DOC_A]}},
                     {"file_name": {"$in": ["Screenshot 2026-08-28 175733.png", "a.pdf"]}},
                 ]
             },

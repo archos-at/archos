@@ -75,5 +75,5 @@ def test_a_hit_keeps_its_document_id_so_grouping_and_the_bff_join_by_it():
         }
     )
 
-    assert metadata == {"grid_document_id": "doc-1", "file_name": "a.pdf"}
+    assert metadata == {schema.DOCUMENT_ID_FIELD: "doc-1", "file_name": "a.pdf"}
     assert document_key(SimpleNamespace(metadata=metadata, file_name="a.pdf")) == ("id", "doc-1")

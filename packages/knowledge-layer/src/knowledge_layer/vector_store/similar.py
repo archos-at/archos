@@ -11,9 +11,9 @@ from qdrant_client import models
 
 from agent.knowledge.base import reading_order
 
-from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 from .schema import CHUNK_ID_FIELD
 from .schema import DENSE
+from .schema import DOCUMENT_ID_FIELD
 from .schema import READING_ORDER_FIELD
 from .schema import SCOPE_FIELD
 from .schema import TEXT_FIELD
@@ -121,7 +121,7 @@ def _excluded(source: PassageSource) -> models.Filter:
     exclusions: list[Any] = [_file_condition(source)]
     if source.document_id:
         exclusions.append(
-            models.FieldCondition(key=LEGACY_DOCUMENT_ID_FIELD, match=models.MatchValue(value=source.document_id))
+            models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=source.document_id))
         )
     return models.Filter(must_not=exclusions)
 

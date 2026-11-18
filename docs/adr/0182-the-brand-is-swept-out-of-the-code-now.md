@@ -50,6 +50,10 @@ both brand ratchets only shrink; the neutral-name map names the target of each r
 * Good, because the comment purge and the rename touch each file once.
 * Bad, because phases 3 and 4 still need prod deploys between their steps, and phase 4 needs
   15 to 20 owner approvals.
+* Bad, because a document's summaries and metadata (`document_metadata`,
+  `document_revision_retained`, the listing and the search joins) stay keyed by its file name.
+  Phase 4 moves the purge to `document_id` and rewrites the agent namespace in every store at
+  once; re-keying those stores by `document_id` is a follow-up the owner deferred.
 
 ### Confirmation
 

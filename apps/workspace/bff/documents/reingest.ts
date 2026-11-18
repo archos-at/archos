@@ -62,6 +62,7 @@ export async function reingestDocument(
   if (isInFlight) {
     const knowledge = await describeBackendIngestState({
       metadata: doc.metadata,
+      id: doc.id,
       collectionName: doc.collectionName,
       filename: doc.filename,
       authoredBy: doc.authoredBy,

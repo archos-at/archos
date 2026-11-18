@@ -356,6 +356,19 @@ class TestThePurge:
         assert res.status_code == 200
         delete_files.assert_called_once_with([OLDER], COLLECTION, permanent=True)
 
+    async def test_a_purge_that_names_its_documents_deletes_them_by_id(self, app):
+        from agent.knowledge.factory import get_active_ingestor
+
+        ingestor = get_active_ingestor()
+        ingestor.delete_documents.return_value = {"successful": [OLDER], "failed": [], "total_deleted": 1}
+        body = {"file_ids": [OLDER], "documents": [{"id": "doc-1", "file_name": OLDER}], "permanent": True}
+
+        res, delete_files = await self._delete(app, body)
+
+        assert res.status_code == 200
+        ingestor.delete_documents.assert_called_once_with([("doc-1", OLDER)], COLLECTION, permanent=True)
+        delete_files.assert_not_called()
+
 
 class TestValidation:
     async def test_a_file_cannot_replace_itself(self, app, store):

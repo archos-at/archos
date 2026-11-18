@@ -22,6 +22,7 @@ export interface BackendSearchHit {
   page_number: number | null
   collection: string
   rank?: number
+  document_id?: string
   grid_document_id?: string
   lexical?: boolean | null
 }
