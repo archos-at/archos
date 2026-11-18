@@ -34,7 +34,6 @@ apps/workspace/ui/components/shell/app-rail-material.spec.ts
 apps/workspace/ui/features/bim/mobile-chrome.spec.ts
 apps/workspace/ui/features/cards/phone-contracts.spec.tsx
 apps/workspace/ui/features/cards/section-marks.spec.ts
-apps/workspace/ui/features/chat/components/thread-chrome-touch.spec.ts
 apps/workspace/ui/features/documents/components/files-phone-rules.spec.tsx
 apps/workspace/ui/features/documents/components/mobile-files.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
