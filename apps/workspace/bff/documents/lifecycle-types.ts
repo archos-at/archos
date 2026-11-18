@@ -25,6 +25,7 @@ export {
 
 export const DOCUMENT_VERSION_OPS = [
   'upload',
+  'file',
   'create',
   'update',
   'submit',
@@ -90,6 +91,30 @@ export const DOCUMENT_VERSION_TRANSITIONS = [
     auditAction: 'document.version.published',
     promotes: true,
     effects: ['audit', 'eventHint', 'announceNewRevision'],
+  },
+  {
+    from: null,
+    to: 'published',
+    op: 'file',
+    actor: 'either',
+    permission: ['project:documents:write', 'project:edit'],
+    alsoRequires: 'project:documents:generate',
+    requires: {},
+    auditAction: 'document.version.published',
+    promotes: true,
+    effects: ['ingestPublished', 'audit', 'eventHint', 'announceNewRevision'],
+  },
+  {
+    from: 'draft',
+    to: 'published',
+    op: 'file',
+    actor: 'either',
+    permission: ['project:documents:write', 'project:edit'],
+    alsoRequires: 'project:documents:generate',
+    requires: {},
+    auditAction: 'document.version.published',
+    promotes: true,
+    effects: ['ingestPublished', 'audit', 'eventHint', 'announceNewRevision'],
   },
   {
     from: null,

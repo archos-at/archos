@@ -17,7 +17,7 @@ import {
 
 export interface CreateVersionInput {
   document: Document
-  op: Extract<DocumentVersionOp, 'upload' | 'create'>
+  op: Extract<DocumentVersionOp, 'upload' | 'file' | 'create'>
   storageKey: string
   storageBucket: string | null
   contentType: string | null

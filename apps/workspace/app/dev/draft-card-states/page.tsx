@@ -51,6 +51,20 @@ export default function DraftCardStatesPreview() {
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <div data-testid="draft-card-states-preview" className="flex min-h-screen flex-col items-center gap-10 bg-background p-4 sm:p-10">
+        <Panel title="Abgelegt" note="Wer ablegt, segnet ab: die Datei liegt im Projekt, wie ein eigener Upload, ohne Freigabeschritt.">
+          <FileDraftCard
+            title="Raumbuch.xlsx"
+            path="/drafts/Raumbuch abgelegt.xlsx"
+            bytes={9_604}
+            version={1}
+            documentId="00000000-0000-4000-8000-000000000002"
+            versionId="00000000-0000-4000-8000-0000000000a2"
+            versionState="published"
+            filedDraftVersion={1}
+            cardKey="state-filed"
+          />
+        </Panel>
+
         <Panel title="Seit dem Ablegen geändert" note="Der Entwurf wurde nach dem Ablegen neu geschrieben. „Im Projekt aktualisieren“ führt hier zur Meldung unten.">
           <FileDraftCard
             title="Raumbuch.xlsx"
@@ -59,7 +73,7 @@ export default function DraftCardStatesPreview() {
             version={2}
             documentId="00000000-0000-4000-8000-000000000001"
             versionId="00000000-0000-4000-8000-0000000000a1"
-            versionState="draft"
+            versionState="published"
             filedDraftVersion={1}
             cardKey="state-changed"
           />
@@ -90,7 +104,7 @@ export default function DraftCardStatesPreview() {
             version={1}
             documentId="00000000-0000-4000-8000-000000000001"
             versionId="00000000-0000-4000-8000-0000000000a1"
-            versionState="draft"
+            versionState="published"
             removed
             cardKey="state-removed"
           />

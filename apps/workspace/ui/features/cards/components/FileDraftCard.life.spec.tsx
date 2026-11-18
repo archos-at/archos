@@ -23,8 +23,6 @@ vi.mock('@/features/chat/store', () => {
   return { useChatStore }
 })
 
-const submit = vi.hoisted(() => vi.fn(() => Promise.resolve({})))
-vi.mock('@/lib/documents/lifecycle-client', () => ({ documentLifecycleClient: { submit } }))
 vi.mock('@/features/documents/lib/open-filed-document', () => ({ openFiledDocument: vi.fn(() => Promise.resolve(true)) }))
 vi.mock('@/hooks/use-seen-once', () => ({ useSeenOnce: () => [() => {}, true] }))
 vi.mock('@/features/knowledge/file-preview', () => ({
@@ -78,30 +76,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('FileDraftCard — after it was filed and changed', () => {
-  it('says the draft changed since filing, offers the update and holds back the submit of stale bytes', async () => {
-    stubFetch(updated('draft'))
+  it('says the draft changed since filing, offers the update, and says the update is in the project', async () => {
+    stubFetch(updated('published'))
     const user = userEvent.setup()
-    render(<FileDraftCard {...XLSX} {...FILED} versionState="draft" />)
+    render(<FileDraftCard {...XLSX} {...FILED} versionState="published" />)
 
     expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Changed since it was filed')
-    expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Update in the project' }))
 
-    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Updated, in the project as a draft'))
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent(/^Updated in the project$/))
     expect(filingBody()).toEqual({ path: PATH, title: 'Raumbuch.xlsx', force: false })
-    await user.click(screen.getByRole('button', { name: 'Submit for approval' }))
-    expect(submit).toHaveBeenCalledWith('doc-1', 'ver-2')
-  })
-
-  it('offers the submit again once an approved document got its new draft revision', async () => {
-    stubFetch(updated('draft'))
-    const user = userEvent.setup()
-    render(<FileDraftCard {...XLSX} {...FILED} versionState="approved" />)
-
-    await user.click(screen.getByRole('button', { name: 'Update in the project' }))
-
-    expect(await screen.findByRole('button', { name: 'Submit for approval' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /approval/i })).not.toBeInTheDocument()
   })
 
   it('names a person’s change, hides the update while it is open, and lets the person choose', async () => {

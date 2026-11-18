@@ -14,7 +14,7 @@ vi.mock('@/lib/organizations/service', () => ({
 }))
 vi.mock('./lifecycle', () => ({ createDocumentVersion: vi.fn() }))
 vi.mock('./repository', () => ({ findDocumentInOrg: vi.fn() }))
-vi.mock('./version-repository', () => ({ findOpenVersion: vi.fn() }))
+vi.mock('./version-repository', () => ({ findOpenVersion: vi.fn(), findPublishedVersion: vi.fn() }))
 
 import { aiProvenanceMarking, markingIsInBytes } from '@/lib/ai-provenance'
 import { PLATFORM_DOCUMENT_BRANDING, resolveDocumentBranding } from './branding'
@@ -23,7 +23,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { fileGeneratedDocument } from './generated'
 import { createDocumentVersion } from './lifecycle'
 import { findDocumentInOrg } from './repository'
-import { findOpenVersion } from './version-repository'
+import { findOpenVersion, findPublishedVersion } from './version-repository'
 import {
   AGENT_DOCUMENT_MEDIA_TYPE,
   fileAgentDocumentDraft,
@@ -145,7 +145,7 @@ describe('fileAgentDocumentDraft', () => {
     vi.mocked(createDocumentVersion).mockResolvedValue({ id: 'ver_1' } as never)
   })
 
-  it('files the item first, then records version 1 as a draft', async () => {
+  it('files the item first, then records version 1 by the op its caller names', async () => {
     vi.mocked(fileGeneratedDocument).mockResolvedValue({
       documentId: 'doc_1',
       filename: 'aktenvermerk-2026-09-10.md',
@@ -154,6 +154,7 @@ describe('fileAgentDocumentDraft', () => {
     })
 
     const result = await fileAgentDocumentDraft({
+      op: 'file',
       session,
       projectId: 'proj_1',
       ref: 's_conv_1-aktenvermerk',
@@ -166,7 +167,7 @@ describe('fileAgentDocumentDraft', () => {
     )
     expect(createDocumentVersion).toHaveBeenCalledWith(
       session,
-      expect.objectContaining({ op: 'create' }),
+      expect.objectContaining({ op: 'file' }),
     )
     expect(result).toMatchObject({ documentId: 'doc_1', alreadyFiled: false })
   })
@@ -180,6 +181,7 @@ describe('fileAgentDocumentDraft', () => {
     })
 
     await fileAgentDocumentDraft({
+      op: 'file',
       session,
       projectId: 'proj_1',
       ref: 's_conv_1-honorar',
@@ -203,6 +205,7 @@ describe('fileAgentDocumentDraft', () => {
     vi.mocked(findOpenVersion).mockResolvedValue({ id: 'ver_existing' } as never)
 
     const result = await fileAgentDocumentDraft({
+      op: 'create',
       session,
       projectId: 'proj_1',
       ref: 's_conv_1-aktenvermerk',
@@ -212,5 +215,28 @@ describe('fileAgentDocumentDraft', () => {
 
     expect(createDocumentVersion).not.toHaveBeenCalled()
     expect(result).toMatchObject({ alreadyFiled: true, version: { id: 'ver_existing' } })
+  })
+
+  it('answers the published version, not a second one, when a filing that was signed off is filed again', async () => {
+    vi.mocked(fileGeneratedDocument).mockResolvedValue({
+      documentId: 'doc_1',
+      filename: 'aktenvermerk-2026-09-10.md',
+      folderId: 'fold_1',
+      alreadyFiled: true,
+    })
+    vi.mocked(findOpenVersion).mockResolvedValue(null)
+    vi.mocked(findPublishedVersion).mockResolvedValue({ id: 'ver_published', state: 'published' } as never)
+
+    const result = await fileAgentDocumentDraft({
+      op: 'file',
+      session,
+      projectId: 'proj_1',
+      ref: 's_conv_1-aktenvermerk',
+      title: 'Aktenvermerk',
+      content: '# Aktenvermerk',
+    })
+
+    expect(createDocumentVersion).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ alreadyFiled: true, version: { id: 'ver_published' } })
   })
 })

@@ -37,12 +37,14 @@ like a file, not like a chat message:
   is marked „Nur lesen“, can be opened to reach a folder inside it, and keeps
   „Ablegen“ locked with the reason. On a phone it is the bottom sheet every
   dialog becomes.
-- **After filing, the project is the truth.** The card says „Im Projekt“ and
-  „Liegt als Entwurf in „Protokolle““ (the folder chosen; „Alle Dateien“ for
-  the root), offers „Im Projekt öffnen“ and „Zur
-  Freigabe einreichen“, and then shows the review state („In Prüfung“). The
-  conversation's copy steps back: no second download of bytes that are not the
-  filed, AI-marked ones.
+- **After filing, the project is the truth.** Wer ablegt, segnet ab: the
+  person who files the file signs it off, as with their own upload, so it
+  lands `published` and needs no Freigabe. The card says „Im Projekt“ and
+  „Liegt in „Protokolle““ (the folder chosen; „Alle Dateien“ for the root),
+  keeps „Von {productName} erstellt“, and offers „Im Projekt öffnen“. It shows
+  no review state and no „Zur Freigabe einreichen“. The conversation's copy
+  steps back: no second download of bytes that are not the filed, AI-marked
+  ones.
 - **One card per file.** When the agent rewrites the same file in the same
   turn, the card turns to v2; it does not stack a second card.
 - **Honest refusals.** A CSV cannot carry the AI marking in its bytes, so it
@@ -182,8 +184,7 @@ card in the answer.
 
 - **Seit dem Ablegen geändert.** A filed card whose draft was written again
   says so and offers „Im Projekt aktualisieren“, which writes the new bytes
-  into the same document (a new draft Fassung once it was approved). „Zur
-  Freigabe einreichen“ waits for it, then submits the version just written.
+  into the same document as its next published Fassung.
 - **A person changed it in the project.** The card says so in one sentence,
   with the Fassung's number, and offers „Trotzdem als neue Fassung ablegen“ and
   „Als eigene Datei ablegen“ (the save dialog, as for a first filing); nothing is

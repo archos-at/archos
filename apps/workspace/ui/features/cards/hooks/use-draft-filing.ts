@@ -6,7 +6,6 @@ import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { documentLifecycleClient } from '@/lib/documents/lifecycle-client'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { useCardDecision } from './use-card-decision'
 import { DraftFileError, fileConversationDraft, type DraftDestination } from '../lib/document-draft-filing'
@@ -45,17 +44,6 @@ interface FiledDoc {
   state?: string
   versionNumber?: number | null
   revisionOf?: { documentId: string; name: string } | null
-}
-
-const SUBMITTABLE: ReadonlySet<DocumentVersionState> = new Set(['draft', 'changes_requested'])
-
-const STATE_LABEL: Partial<Record<DocumentVersionState, string>> = {
-  in_review: 'inReview',
-  changes_requested: 'changesRequested',
-  approved: 'approved',
-  published: 'published',
-  superseded: 'ersetzt',
-  rejected: 'changesRequested',
 }
 
 function errorDetails(error: unknown, status: number): Record<string, unknown> | null {
@@ -111,7 +99,6 @@ export function useDraftFiling({
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isFiling, setIsFiling] = useState(false)
   const [filedDoc, setFiledDoc] = useState<FiledDoc | null>(null)
@@ -122,15 +109,9 @@ export function useDraftFiling({
 
   const filed = Boolean(documentId && versionId && versionState)
   const shownDocumentId = filedDoc?.documentId ?? documentId ?? null
-  const shownVersionId = filedDoc?.versionId ?? versionId ?? null
   const filedAtVersion = filedDoc?.draftVersion ?? filedDraftVersion ?? null
   const shownFiled = filed || filedDoc !== null
   const href = shownDocumentId && projectId ? documentFilesHref(projectId, shownDocumentId) : null
-  const rewritten = filedDoc?.outcome === 'updated' || filedDoc?.outcome === 'revised'
-  const currentState = (rewritten ? filedDoc?.state : versionState) as DocumentVersionState | null | undefined
-  const submitted = rewritten
-    ? !SUBMITTABLE.has(currentState ?? 'draft')
-    : decision === 'submitted' || (versionState ? !SUBMITTABLE.has(versionState) : false)
   const filedDecision = decision === 'filed'
   const filedKnown = shownFiled || filedDecision
   const changedSinceFiling =
@@ -169,20 +150,6 @@ export function useDraftFiling({
       cancelled = true
     }
   }, [filed, filedDoc, decision, conversationId, path, title, t])
-
-  const submit = async () => {
-    if (!shownDocumentId || !shownVersionId || isSubmitting || changedSinceFiling) return
-    setError(null)
-    setIsSubmitting(true)
-    try {
-      await documentLifecycleClient.submit(shownDocumentId, shownVersionId)
-      decide('submitted')
-    } catch {
-      setError(t('cards.documentDraft.error'))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
 
   const file = async (force: boolean, chosen?: DraftDestination): Promise<DraftFileOutcome> => {
     if (!conversationId || isFiling) return 'failed'
@@ -224,7 +191,6 @@ export function useDraftFiling({
   const fileOverChanges = (): Promise<DraftFileOutcome> => file(false, { overChanges: true })
   const fileAsOwn = (): Promise<DraftFileOutcome> => file(false, { as: 'own' })
 
-  const stateKey = versionState ? STATE_LABEL[versionState] : undefined
   const revised = filedDoc?.outcome === 'revised' && filedDoc.revisionOf ? filedDoc.revisionOf : null
   const folderName =
     filedDoc && filedDoc.folderName !== undefined ? (filedDoc.folderName ?? tFiles('folders.allFiles')) : null
@@ -236,9 +202,7 @@ export function useDraftFiling({
         : t('cards.fileDraft.revisedFiled', { name: revised.name })
       : filedDoc?.outcome === 'updated'
         ? t('cards.fileDraft.updated')
-        : filed && submitted && stateKey
-      ? t(`cards.documentDraft.${stateKey}` as 'cards.documentDraft.inReview')
-      : folderName && !filed
+        : folderName && !filed
         ? t('cards.fileDraft.filedIn', { folder: folderName })
         : filedKnown
           ? t('cards.documentDraft.filed')
@@ -254,14 +218,11 @@ export function useDraftFiling({
     shownDocumentId,
     folderName,
     href,
-    submitted,
     canFile: !shownFiled && canDecide && Boolean(conversationId) && (!filedDecision || restoreFailed),
-    canSubmit: (filed || filedDoc !== null) && !submitted && canDecide && !changedSinceFiling,
     canUpdate: changedSinceFiling && canDecide && Boolean(conversationId) && projectChange === null,
     changedSinceFiling,
     projectChange,
     isFiling,
-    isSubmitting,
     error,
     conflict,
     stateLabel,
@@ -269,7 +230,6 @@ export function useDraftFiling({
     update,
     fileOverChanges,
     fileAsOwn,
-    submit,
   }
 }
 

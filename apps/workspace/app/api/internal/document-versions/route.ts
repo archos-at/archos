@@ -68,6 +68,7 @@ async function runOp(
   if (body.op === 'create') {
     requireEnvelopeProject(context, body.projectId)
     const filed = await fileAgentDocumentDraft({
+      op: 'file',
       session,
       projectId: body.projectId,
       ref: body.ref,
@@ -88,6 +89,7 @@ async function runOp(
   if (body.op === 'create_file') {
     requireEnvelopeProject(context, body.projectId)
     const filed = await fileAgentFileDraft({
+      op: 'file',
       session,
       projectId: body.projectId,
       ref: body.ref,

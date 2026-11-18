@@ -49,7 +49,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
   const reduced = useReducedMotion()
   const filing = useDraftFiling(props)
   const life = useDraftLife(props)
-  const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling, isSubmitting } = filing
+  const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling } = filing
   const [previewOpen, setPreviewOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [previewContent, setPreviewContent] = useState<string | null>(null)
@@ -163,22 +163,6 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
               busy={isFiling}
               idle={t('cards.fileDraft.updateInProject')}
               working={t('cards.fileDraft.updating')}
-            />
-          </button>
-        )}
-
-        {filing.canSubmit && (
-          <button
-            type="button"
-            className={DRAFT_ACTION}
-            aria-disabled={isSubmitting || undefined}
-            aria-busy={isSubmitting || undefined}
-            onClick={() => void filing.submit()}
-          >
-            <StackedLabel
-              busy={isSubmitting}
-              idle={t('cards.documentDraft.submit')}
-              working={t('cards.documentDraft.submitting')}
             />
           </button>
         )}

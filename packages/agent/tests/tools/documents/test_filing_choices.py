@@ -198,7 +198,7 @@ class TestAFiledDocumentThatIsGone:
         assert "„Einreichung“ was not applied" in message
 
 
-class TestTheCardAndSubmitFollowTheCurrentVersion:
+class TestTheCardFollowsTheCurrentVersion:
     async def test_a_draft_changed_after_filing_carries_the_version_it_was_filed_at(
         self, _one_store, monkeypatch, calls, registry
     ) -> None:
@@ -211,7 +211,7 @@ class TestTheCardAndSubmitFollowTheCurrentVersion:
         card = _draft_cards(registry)[-1]
         assert (card["version"], card["filed_draft_version"]) == (2, 1)
 
-    async def test_an_approved_filing_gets_the_next_version_and_submit_goes_to_it(
+    async def test_a_filing_filed_again_lands_as_the_next_published_version(
         self, _one_store, monkeypatch, calls
     ) -> None:
         await _run_file(_one_store)
@@ -219,17 +219,11 @@ class TestTheCardAndSubmitFollowTheCurrentVersion:
         await filing_tools.run_file_draft(XLSX)
         await _run_file(_one_store, data=BYTES + b"v2")
         calls.clear()
-        _answer(
-            monkeypatch,
-            calls,
-            {"documentId": "doc-1", "version": _version("ver-2", "draft", "h2")},
-            {"documentId": "doc-1", "version": _version("ver-2", "in_review", "h2")},
-        )
+        _answer(monkeypatch, calls, {"documentId": "doc-1", "version": _version("ver-2", "published", "h2")})
 
-        message = await filing_tools.run_file_draft(XLSX, submit=True)
+        message = await filing_tools.run_file_draft(XLSX)
 
-        assert [payload["op"] for payload, _ in calls] == ["update_file", "submit"]
-        assert calls[1][0]["versionId"] == "ver-2"
-        assert "submitted for approval" in message
+        assert [payload["op"] for payload, _ in calls] == ["update_file"]
+        assert "approval" not in message.replace("waits for no approval", "")
         stored = _one_store.get(draft_namespace(CONVERSATION), XLSX).value
         assert stored[FILED_VERSION_KEY] == "ver-2"

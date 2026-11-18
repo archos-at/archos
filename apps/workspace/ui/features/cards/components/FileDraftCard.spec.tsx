@@ -166,7 +166,7 @@ describe('FileDraftCard — filing', () => {
 
     await fileThroughDialog(user)
 
-    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed as a draft in “Berichte”'))
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “Berichte”'))
     expect(fetch).toHaveBeenCalledWith('/api/conversations/conv-1/draft/file', expect.objectContaining({ method: 'POST' }))
     expect(filingBody()).toEqual({
       path: XLSX.path,
@@ -182,19 +182,15 @@ describe('FileDraftCard — filing', () => {
     expect(screen.queryByRole('button', { name: 'File into the project' })).not.toBeInTheDocument()
   })
 
-  it('shows a card the agent filed as filed, with its review action', () => {
-    render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState="draft" />)
+  for (const versionState of ['draft', 'in_review', 'changes_requested', 'approved', 'published'] as const) {
+    it(`shows a filed file as in the project, with no submit and no review state (${versionState})`, () => {
+      render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState={versionState} />)
 
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in the project as a draft')
-    expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeInTheDocument()
-  })
-
-  it('shows the review state once it was submitted', () => {
-    render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState="in_review" />)
-
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('In review')
-    expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
-  })
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent(/^Filed in the project$/)
+      expect(screen.queryByRole('button', { name: /approval/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open in the project' })).toHaveAttribute('href', expect.stringContaining('doc-1'))
+    })
+  }
 
   it('opens a filed file in the project from its thumbnail', async () => {
     const user = userEvent.setup()
@@ -230,7 +226,7 @@ describe('FileDraftCard — filing', () => {
     await user.type(screen.getByTestId('save-to-project-name'), 'Flächen EG{Enter}')
 
     await waitFor(() =>
-      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed as a draft in “Protokolle”'),
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “Protokolle”'),
     )
     expect(filingBody()).toMatchObject({ folderId: 'f-prot', name: 'Flächen EG.xlsx' })
     expect(screen.queryByTestId('save-to-project')).not.toBeInTheDocument()
@@ -244,7 +240,7 @@ describe('FileDraftCard — filing', () => {
     await fileThroughDialog(user)
 
     await waitFor(() =>
-      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed as a draft in “All Files”'),
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “All Files”'),
     )
   })
 

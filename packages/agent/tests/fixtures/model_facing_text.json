@@ -13644,7 +13644,7 @@
     }
   },
   "tool:chat:file_draft": {
-    "description": "Files a draft from the working directory into the project AS A DRAFT. `path`: `/drafts/<name>.md`; `title` optional. Call it when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write. Again for the same path puts the current draft into the same document. A DRAFT: nobody has approved it. `submit=true` submits it FOR APPROVAL (filed and unchanged, it is only submitted). Call with `submit=true` only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. `reviewer` (only with submit): the person exactly as the user named them; without it the draft goes to the project's editors. `folder`: a folder the user named. A file made from a project document files as its own file, unless the user asks for its new version: `file_as=\"new_revision\"` and `change_note`. `file_as=\"separate_file\"` only when the user asks for one after a refusal.",
+    "description": "Files a draft from the working directory into the project. `path`: `/drafts/<name>.md`; `title` optional. Call it only when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write: the user who files it signs it off, and it becomes a project document like their own upload, marked as made by you. Again for the same path puts the current draft into the same document. `folder`: a folder the user named. A file made from a project document files as its own file, unless the user asks for its new version: `file_as=\"new_revision\"` and `change_note`. `file_as=\"separate_file\"` only when the user asks for one after a refusal.",
     "schema": {
       "properties": {
         "change_note": {
@@ -13686,21 +13686,6 @@
         },
         "path": {
           "type": "string"
-        },
-        "reviewer": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "submit": {
-          "default": false,
-          "type": "boolean"
         },
         "title": {
           "anyOf": [

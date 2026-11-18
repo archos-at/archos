@@ -11,7 +11,7 @@ import { stampAgentFile } from './agent-file-marking'
 import { normalizeContentType } from './agent-file-types'
 import { contentDigest } from './content-digest'
 import { generatedDocumentMarking, generatedDocumentProvenance, UnmarkedRenderingError } from './generated'
-import { replaceVersionFile, type ReplaceVersionOptions } from './lifecycle'
+import { replaceVersionFile, transitionDocumentVersion, type ReplaceVersionOptions } from './lifecycle'
 import { openDraftForRevision } from './revision'
 import { renderVersionBytes, type RenderedVersionBytes } from './version-content'
 import { findOpenVersion, findPublishedVersion, MAX_CHANGE_NOTE_CHARS } from './version-repository'
@@ -112,13 +112,17 @@ export async function reviseWithAgentWork(
   const open = current && EDITABLE.has(current.state) ? current : null
   const target = open ?? (await openDraftForRevision(session, document.id)).version
   const note = input.changeNote?.trim().slice(0, MAX_CHANGE_NOTE_CHARS) || null
-  const version = await replaceVersionFile(
+  const written = await replaceVersionFile(
     session,
     document.id,
     target.id,
     target.contentHash,
     { ...input.options, versionFields: { changeNote: note } },
-    async (doc, written) => render(input.work, doc, written),
+    async (doc, version) => render(input.work, doc, version),
   )
+  const version = await transitionDocumentVersion(session, document.id, written.id, 'file', {
+    request: input.options.request,
+    actingHuman: input.options.actingHuman,
+  })
   return { document, version, forked: open === null, unchanged: false }
 }

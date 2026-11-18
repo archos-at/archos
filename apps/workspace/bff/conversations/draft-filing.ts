@@ -162,6 +162,7 @@ interface FilingTarget {
 
 async function fileDraftContent(target: FilingTarget, type: DraftFileType): Promise<FiledAgentDocumentDraft> {
   const common = {
+    op: 'file' as const,
     session: target.session,
     projectId: target.projectId,
     ref: target.ref,

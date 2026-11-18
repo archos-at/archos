@@ -80,6 +80,7 @@ describe('fileAgentFileDraft', () => {
     vi.mocked(createDocumentVersion).mockResolvedValue(version({ id: 'ver_9' }))
 
     const filed = await fileAgentFileDraft({
+      op: 'file',
       session,
       projectId: 'proj_1',
       ref: 'conv_1-kosten',
@@ -100,7 +101,7 @@ describe('fileAgentFileDraft', () => {
 
   it('refuses a file that fails the output check before it touches the project', async () => {
     await expect(
-      fileAgentFileDraft({ session, projectId: 'proj_1', ref: 'r', title: 'T', contentType: DOCX, bytes: png() }),
+      fileAgentFileDraft({ op: 'file', session, projectId: 'proj_1', ref: 'r', title: 'T', contentType: DOCX, bytes: png() }),
     ).rejects.toBeInstanceOf(AgentFileRefusedError)
     expect(fileGeneratedDocument).not.toHaveBeenCalled()
   })
