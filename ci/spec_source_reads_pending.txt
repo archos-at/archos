@@ -17,7 +17,6 @@ apps/workspace/bff/documents/status-batch-contract.spec.ts
 apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/bff/knowledge/doc-class.spec.ts
 apps/workspace/bff/office-shelf/collection-prefix.spec.ts
-apps/workspace/bff/projects/people-stay-out-of-the-prompt.spec.ts
 apps/workspace/bff/proxy/server-js-runtime-copies.spec.ts
 apps/workspace/bff/proxy/ws-teardown.spec.ts
 apps/workspace/bff/proxy/ws-upgrade-headers.spec.ts
