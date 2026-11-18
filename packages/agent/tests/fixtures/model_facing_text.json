@@ -2527,7 +2527,7 @@
       "description": "A document the agent wrote into this conversation's working directory.\n\nSystem-emitted by the working directory's ``write_file`` / ``edit_file``, and\nagain by ``file_draft`` once the draft has become a project document.\n\n**The card has two states, and the difference is three fields.** Unfiled, it\nreports a file that exists in this conversation and nowhere else: not filed,\nnot indexed, not citable, not in the Files pane. Filed, it names a\n``documents`` row — and then it can offer the two things a reader wants,\nopening it and sending it for review, both through the routes the Files pane\nitself uses.\n\nThe three fields travel together or not at all: a card carrying a\n``document_id`` and no ``version_state`` could not say whether the draft is\nstill submittable, and one carrying a state with no ``version_id`` could not\nsubmit it. ``_require_filed_together`` is what refuses the half-filled shape,\nbecause the alternative is a card that renders a live-looking control over\nnothing.",
       "properties": {
         "bytes": {
-          "description": "Size of the draft as stored, in UTF-8 bytes",
+          "description": "Size in bytes: UTF-8 for text, the file's own size for a binary file",
           "minimum": 0,
           "title": "Bytes",
           "type": "integer"
@@ -2544,6 +2544,19 @@
           "default": null,
           "description": "The project document this draft was filed as; absent while it is unfiled",
           "title": "Document Id"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The file's media type when a script wrote it (Word, Excel, PowerPoint, PDF, CSV, SVG, PNG); absent for a Markdown draft",
+          "title": "Media Type"
         },
         "path": {
           "description": "Path in the working directory, e.g. '/drafts/aktenvermerk.md'",
@@ -8548,7 +8561,7 @@
               "constraints": [
                 ">= 0"
               ],
-              "description": "Size of the draft as stored, in UTF-8 bytes",
+              "description": "Size in bytes: UTF-8 for text, the file's own size for a binary file",
               "name": "bytes",
               "required": true,
               "type": "integer"
@@ -8561,6 +8574,13 @@
               "name": "version",
               "required": true,
               "type": "integer"
+            },
+            {
+              "constraints": [],
+              "description": "The file's media type when a script wrote it (Word, Excel, PowerPoint, PDF, CSV, SVG, PNG); absent for a Markdown draft",
+              "name": "media_type",
+              "required": false,
+              "type": "string"
             },
             {
               "constraints": [],
@@ -13494,6 +13514,34 @@
       },
       "required": [
         "operation"
+      ],
+      "type": "object"
+    }
+  },
+  "tool:chat:execute": {
+    "description": "Runs a JavaScript or TypeScript module you write in a sandbox with no network, and keeps the files it writes. Use it to make real files (Word, Excel, PowerPoint, PDF, charts) and to calculate exactly. Read the `office-files` skill first: it lists the libraries and how to write a file well. `code` is `export default async function (input) { … }`; its return value comes back as `value`. /drafts/ is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/ (the report names each path). Files written under /workspace/ are kept in /drafts/. Errors come back on stderr: fix and run again, at most three times per file.",
+    "schema": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "documents": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code"
       ],
       "type": "object"
     }

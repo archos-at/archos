@@ -5,6 +5,7 @@ export const draftFileResponseSchema = z.object({
   versionId: z.string().min(1),
   state: z.string().min(1),
   alreadyFiled: z.boolean(),
+  folderName: z.string().optional(),
 })
 
 export type DraftFileResponse = z.infer<typeof draftFileResponseSchema>

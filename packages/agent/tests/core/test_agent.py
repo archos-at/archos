@@ -3051,7 +3051,7 @@ class TestATurnThatWritesADraft:
         return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": call_id}])
 
     @pytest.mark.asyncio
-    async def test_write_then_edit_leaves_one_file_and_two_cards(
+    async def test_write_then_edit_leaves_one_file_and_one_card_at_its_second_version(
         self, provider, scripted_llm, cards, working_directory
     ):
         backend, tools = working_directory
@@ -3091,7 +3091,6 @@ class TestATurnThatWritesADraft:
         assert stored.value["content"] == "# Aktenvermerk\n\nPunkt 3: Fluchtweg, gekürzt.\n"
 
         assert [(card["type"], card["version"], card["title"]) for card in cards.snapshot()] == [
-            ("document_draft", 1, "Aktenvermerk"),
             ("document_draft", 2, "Aktenvermerk"),
         ]
 
@@ -3150,7 +3149,7 @@ class TestATurnThatWritesADraft:
         assert posted[0]["content"] == "# Aktenvermerk\n\nFluchtweg.\n"
 
         drafts = [card for card in cards.snapshot() if card["type"] == "document_draft"]
-        assert "document_id" not in drafts[0]
+        assert len(drafts) == 1
         assert (drafts[-1]["document_id"], drafts[-1]["version_id"], drafts[-1]["version_state"]) == (
             "doc-7",
             "ver-7",

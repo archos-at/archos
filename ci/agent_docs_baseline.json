@@ -1,6 +1,7 @@
 {
   "AGENTS.md": 84,
   "apps/agent-host/AGENTS.md": 23,
+  "apps/code-runner/AGENTS.md": 17,
   "apps/website/AGENTS.md": 22,
   "apps/workspace/AGENTS.md": 32,
   "packages/AGENTS.md": 38,

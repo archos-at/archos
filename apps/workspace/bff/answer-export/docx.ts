@@ -1,12 +1,10 @@
 import 'server-only'
 import { createZip, type ZipEntry } from '@/lib/bim/zip'
-import {
-  AI_GENERATOR_NAME,
-  AI_PROVENANCE_PROPERTIES,
-  digitalSourceTypeOf,
-  type AiProvenance,
-} from '@/lib/ai-provenance'
+import type { AiProvenance } from '@/lib/ai-provenance'
+import { aiCustomProperties, customPropertiesXml, escapeXml } from '@/lib/documents/ooxml-provenance'
 import type { DocBlock, DocRun } from './blocks'
+
+export { escapeXml }
 
 const PAGE_WIDTH_TWIPS = 11906
 const PAGE_HEIGHT_TWIPS = 16838
@@ -14,15 +12,6 @@ const MARGIN_TWIPS = 1134
 const CONTENT_WIDTH_TWIPS = PAGE_WIDTH_TWIPS - 2 * MARGIN_TWIPS
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-
-export const escapeXml = (value: string): string =>
-  value
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 
 const renderRun = (run: DocRun): string => {
   if (!run.text) return ''
@@ -139,42 +128,8 @@ export interface DocxOptions {
   aiProvenance?: DocxProvenance
 }
 
-const CUSTOM_PROPERTIES_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'
-
-const customProperties = (provenance: DocxProvenance): string => {
-  const properties: { name: string; value: string }[] = [
-    { name: AI_PROVENANCE_PROPERTIES.generated, value: '<vt:bool>true</vt:bool>' },
-    {
-      name: AI_PROVENANCE_PROPERTIES.generator,
-      value: `<vt:lpwstr>${escapeXml(AI_GENERATOR_NAME)}</vt:lpwstr>`,
-    },
-    { name: AI_PROVENANCE_PROPERTIES.humanReviewed, value: '<vt:bool>false</vt:bool>' },
-    {
-      name: AI_PROVENANCE_PROPERTIES.digitalSourceType,
-      value: `<vt:lpwstr>${digitalSourceTypeOf(provenance)}</vt:lpwstr>`,
-    },
-  ]
-  if (provenance.runId) {
-    properties.push({
-      name: AI_PROVENANCE_PROPERTIES.runId,
-      value: `<vt:lpwstr>${escapeXml(provenance.runId)}</vt:lpwstr>`,
-    })
-  }
-
-  return (
-    XML_DECLARATION +
-    '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" ' +
-    'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
-    properties
-      .map(
-        (property, index) =>
-          `<property fmtid="${CUSTOM_PROPERTIES_FMTID}" pid="${index + 2}" ` +
-          `name="${escapeXml(property.name)}">${property.value}</property>`
-      )
-      .join('') +
-    '</Properties>'
-  )
-}
+const customProperties = (provenance: DocxProvenance): string =>
+  customPropertiesXml(aiCustomProperties(provenance))
 
 const contentTypes = (withProvenance: boolean): string =>
   XML_DECLARATION +

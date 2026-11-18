@@ -133,6 +133,7 @@ files = "agent.tools.files.register"
 # DeepAgents tools bound directly by the agent's register and are not NAT
 # functions at all, so this entry point covers exactly the one that calls the BFF.
 documents = "agent.tools.documents.register"
+execute = "agent.tools.execute.register"
 # Delegation (`create_task`). Its own entry point rather than a member of
 # `documents`: the two call different BFF routes with different contracts,
 # and a deployment that turns one off must be able to keep the other.

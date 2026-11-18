@@ -93,6 +93,11 @@ export async function renderVersionBytes(
   version: DocumentVersion,
   content: string,
 ): Promise<RenderedVersionBytes> {
+  if (document.authoredBy !== 'user' && document.authoredByProducer === 'agent_file') {
+    throw new ConflictError('This draft is a file the agent made; replace it with update_file, not with text', {
+      producer: document.authoredByProducer,
+    })
+  }
   const renderer =
     document.authoredBy === 'user'
       ? undefined

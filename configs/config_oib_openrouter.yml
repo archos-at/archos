@@ -751,6 +751,10 @@ functions:
   file_draft:
     _type: file_draft
 
+  execute:
+    _type: execute
+    runner_url: ${CODE_RUNNER_URL:-}
+
   # Delegation (packages/agent/src/agent/tools/tasks). Hands work that outlives this turn
   # to a `tasks` row (ADR-0051) — a norm check, the Einreichcheck
   # skill, a document to write, a draft to revise — through
@@ -847,6 +851,7 @@ functions:
       - surface_documents
       - propose_file_change
       - file_draft
+      - execute
       - create_task
       - project_lookup
       # The `canvas` function group (below): eight tools, `canvas__room` …
