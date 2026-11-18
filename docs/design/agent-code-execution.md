@@ -47,6 +47,18 @@ processed in code, so only the findings reach the model.
    and the report says so on a `not kept:` line. The agent may fix and run again, at most three times
    per file.
 
+**What a document read leaves behind.** A named document is located through
+`GET /api/internal/document-file` (`common/stored_file.py`), which checks the envelope's collection
+scope and restricted-use clearance and answers only where the object is; the agent reads the bytes
+from the object store itself. That read is **not** in the download log: the route is exempt in
+`download-log/coverage-routes.spec.ts`, as every read the agent makes while answering is
+([`download-log.md`](../user-guides/download-log.md), "Not recorded"). What it leaves is the
+restricted-use record (`note_collections_read`, the collection only) and the `execute.run` step
+(`documents_named`, `input_bytes`, never a name). A run differs from other agent reads in one way:
+the script can copy an input's bytes into a working file, and that copy leaves through
+`/draft/download` or `file_draft` without a row naming the original. The follow-up is in
+[Decisions](#decisions).
+
 A `503 busy` is retried three times with backoff; a runner that cannot be reached answers "nothing
 was run", and the agent may try once more.
 
@@ -137,6 +149,7 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | Memory per run: self-hosted workerd enforces none; the pod limit bounds it | Open |
 | A cap on concurrent runs per organization | Open, not built |
 | Whether runs count toward an office's credits (ADR-0053) | Open |
+| An `execute` input read as a download-log row. Today no row is written (see [One run](#one-run)). The change: a kind `agent_run` in `download-log/kinds.ts`, recorded always like `download`; a migration widening `document_access_log_kind_check` and `document_access_log_open_needs_own_list` (the table is append-only, so its down migration refuses once a row exists); `GET /api/internal/document-file?handOver=execute` calling `recordDocumentAccess` as the envelope's person, refusing with 503 under an own access list when the row cannot be written; `stored_file.locate_stored_file` passing it for `execute` only; the kind's label in the download-log view and the user guide. `dxf_measure` and the canvas keep no row: their bytes stay in the agent and only a measurement or a rendering leaves | Open, not built |
 | A run as a row of the Herleitung (script, inputs with citation keys, outputs) | Open, not built |
 | A dedicated Langfuse step per run (`execute.run`: status, timings, input and kept files, never contents) and the scores `execute-status`, `execute-runs-to-file`, `execute-files-made`, `execute-files-filed` ([`langfuse.md`](../observability/langfuse.md)) | Taken. Alerts (failure rate, replicas at maximum) are open |
 | Renaming `/drafts/` to `/workspace/` | Open |
