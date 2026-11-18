@@ -102,14 +102,17 @@ browser" and the `office-html-pdf` skill sends the agent to Typst.
 1. **The image.** As for the code runner (section 1): merge with the flag off, let CI publish
    `ghcr.io/archos-at/browser-renderer:sha-<commit>`, give the package the repository's Write access
    and private visibility, check the tag with `docker manifest inspect`.
-2. **The nodes.** Chromium's sandbox needs unprivileged user namespaces. The renderer container runs
-   `seccompProfile: Unconfined` for that (declared in `deploy/pulumi/src/app/browser-renderer.ts`);
-   the node must also allow them. On an Ubuntu 23.10+ node that is
-   `sysctl kernel.apparmor_restrict_unprivileged_userns=0`, a provider setting outside Pulumi. Where
-   the node forbids them, the pod logs `No usable sandbox!` and never becomes ready: the browser stays
-   off rather than running without its sandbox. Never add `--no-sandbox`.
-3. **Dev.** Add `grid-oib:browserRendererEnabled: "true"` to `Pulumi.dev.yaml`, check
-   `npm run preview` lists only the resources above and the env change on `code-runner`, merge. Then:
+2. **The sandbox.** Chromium runs `--no-sandbox`; the container is the sandbox (why:
+   [threat model](../design/agent-code-execution.md#threat-model)). The container runs as 10042 with
+   `seccompProfile: RuntimeDefault`, every capability dropped and a read-only root (declared in
+   `deploy/pulumi/src/app/browser-renderer.ts`), which Pod Security `baseline` admits, and needs
+   nothing from the nodes. `index-pod-security.spec.ts` checks every pod the program creates against
+   its namespace's level. Never set `Unconfined`: `grid` refuses the pod and `pulumi up` hangs on the
+   rollout.
+3. **Dev.** `grid-oib:browserRendererEnabled: "true"` is in `Pulumi.dev.yaml`. Before merging a change
+   to it, check `npm run preview` lists only the resources above and the env change on `code-runner`.
+   The pod requests 500m CPU: if it stays `Pending` with `Insufficient cpu`, `kubectl describe nodes`
+   shows what is free. Then:
    `kubectl -n grid get deploy browser-renderer` ready `1/1`; `kubectl -n grid logs deploy/browser-renderer`
    shows `"reason":"self-test"` and `browser renderer listening`; in a project chat, ask for "einen
    Ablaufplan Entwurf, Einreichung, Bewilligung als Diagramm und PDF". Expect a PDF and a PNG, and in

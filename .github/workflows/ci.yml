@@ -968,8 +968,6 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - name: Install the code runner's own toolchain
         run: task runner:install
-      - name: Let Chromium's sandbox create user namespaces
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: browser-renderer (allowlist and hardened container suites)
         run: task browser:test
       - name: code-runner (workerd isolate suite)

@@ -116,26 +116,30 @@ The page runs code the model wrote, on HTML that may carry text from an office's
 treat it as hostile. What it must not do: send anything out of the cluster, read another run's page
 or files, or keep anything for the next run. Layers, each enough on its own for egress: the CDP guard
 (allowlist, navigation, `file://`), Chromium's request interception (`BlockedByClient` for every
-non-`data:` request), a loopback proxy that refuses everything and names that resolve to nothing, the
-renderer's own network namespace per renderer process (Chromium's sandbox), and a NetworkPolicy with
-no egress. Against escape: Chromium's sandbox stays on (renderers in their own user, PID and network
-namespaces under seccomp-bpf), the pod runs non-root with a read-only root, no capabilities, no
-privilege escalation, no service-account token and no secret, and a session dies with its process
-group at 190 s. Against leaks between runs: a process and a profile per run, deleted at its end. The
-cost of the sandbox: it needs unprivileged user namespaces, which the container runtime's default
-seccomp profile forbids, so the renderer container runs `seccompProfile: Unconfined`; Chromium then
-applies its own, stricter filter to every renderer. Nodes must allow unprivileged user namespaces
-(on Ubuntu 23.10 or later, `kernel.apparmor_restrict_unprivileged_userns=0`); where they do not,
-Chromium refuses to start and the pod never becomes ready. Residual risks: a Chromium bug that
-escapes the sandbox lands in a pod with no egress and no secrets, but shares the pod with one other
-run's browser; the image's Chrome is only as current as its pinned digest, which Dependabot proposes
-weekly. The allowlist is the 42 CDP methods Puppeteer sends for the documented uses (input without
-drag and drop, which can carry a file into the page); everything a run receives from the browser
-counts against 50 MiB, and the runner's host module holds at most 56 MiB unread. Known follow-ups:
-the renderer container's `seccompProfile: Unconfined` should become a `Localhost` profile (the
-runtime default plus the namespace calls Chromium's sandbox needs) once the provider lets us place
-one on the nodes; and the 1.5 GiB memory limit for two browsers is set from four measured documents,
-to be revisited with production peaks.
+non-`data:` request), a loopback proxy that refuses everything and names that resolve to nothing, and
+a NetworkPolicy that admits only the code runner and allows no egress at all. Against leaks between
+runs: a process and a fresh profile per run, one run per Chromium, deleted at its end.
+
+**The container is the sandbox.** Chromium runs with `--no-sandbox`. Its own sandbox needs
+unprivileged user namespaces, and dev has none to give: the nodes (Ubuntu 24.04, kernel 6.8,
+containerd 1.7) set `kernel.apparmor_restrict_unprivileged_userns=1`, so under `RuntimeDefault`
+`unshare -Ur` fails and Chromium aborts with `No usable sandbox!` (probe, 2026-11-18); and the
+namespace `grid` enforces Pod Security `baseline`, which refuses `seccompProfile: Unconfined`, the
+earlier way around the runtime's filter. So the boundary is the pod: uid 10042, no capabilities,
+`NoNewPrivs`, the runtime's default seccomp filter on every Chromium process, a read-only root, no
+service-account token, no secret and no environment from one, no network but the code runner's
+ingress, and a session that dies with its process group at 190 s. What Chromium's sandbox gave on top,
+and is now gone: a renderer exploit no longer has to escape a second, stricter seccomp filter and its
+own user, PID and network namespaces; it holds the browser process's rights in the pod, which reach
+the other session's browser (two per pod) and nothing else. What would bring it back: a node AppArmor
+profile that allows user namespaces for the Chrome binary plus a `Localhost` seccomp profile (the
+runtime default plus the namespace calls), both files on every node, which the provider does not let
+us place today; or gVisor as the pod's runtime class. Residual risks: the image's Chrome is only as
+current as its pinned digest, which Dependabot proposes weekly. The allowlist is the 42 CDP methods
+Puppeteer sends for the documented uses (input without drag and drop, which can carry a file into the
+page); everything a run receives from the browser counts against 50 MiB, and the runner's host module
+holds at most 56 MiB unread. Known follow-up: the 1.5 GiB memory limit for two browsers is set from
+four measured documents, to be revisited with production peaks.
 
 ## Storage
 
@@ -228,8 +232,8 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | Renaming `/drafts/` to `/workspace/` | Open |
 | Background runs (Hatchet fan-out, a KEDA trigger on its backlog) | Open, not built |
 | Showing an HTML output beside the chat (MCP Apps, ADR-0142), sandboxed on its own origin | Open |
-| A browser for runs: self-hosted `chrome-headless-shell` on the Puppeteer team's image, one process per run, Chromium's sandbox on, its own Deployment, reached through `@cloudflare/puppeteer` and a host-module binding. Not Cloudflare's hosted Browser Rendering (documents would leave the cluster), not Gotenberg, not browserless (SSPL) | Taken 2026-11-18 |
-| The renderer container's seccomp profile: `Unconfined` so Chromium's own sandbox can run, rather than a `Localhost` profile that would need a file on every node | Taken; revisit if the provider offers node seccomp profiles |
+| A browser for runs: self-hosted `chrome-headless-shell` on the Puppeteer team's image, one process per run, its own Deployment, reached through `@cloudflare/puppeteer` and a host-module binding. Not Cloudflare's hosted Browser Rendering (documents would leave the cluster), not Gotenberg, not browserless (SSPL) | Taken 2026-11-18 |
+| The container is the browser's sandbox: Chromium runs `--no-sandbox` under `RuntimeDefault` seccomp, because dev's nodes forbid unprivileged user namespaces and `grid`'s Pod Security `baseline` refuses `Unconfined` ([Threat model](#threat-model)) | Taken 2026-11-18; revisit when the provider lets us place node AppArmor and seccomp profiles, or offers gVisor |
 
 ## Considered and dropped
 
