@@ -589,7 +589,9 @@ file or draft the agent made into the project, from the card („Ins Projekt
 ablegen“, „Im Projekt aktualisieren“) or through the agent's `file_draft`, which
 the agent calls only when the person asks, that person signs it off, exactly as
 their own upload does. The filing writes a version born `published`, with
-`origin = 'upload'` and the filer as `published_by`, and no approval nobody gave.
+`origin = 'filing'` (migration 0249 widens `document_versions_published_is_approved`
+to `origin IN ('upload', 'filing')`) and the filer as `published_by`, and no
+approval nobody gave. The version list says „Abgelegt“.
 It no longer starts as `draft` and walks the review states.
 
 Why. The review round asked the person who had just said „leg das ins Projekt“
@@ -616,7 +618,10 @@ What changed:
   `submit` alone. `file_draft` lost `submit` and `reviewer`, and the cards lost
   „Zur Freigabe einreichen“ and every review-state line.
 - Provenance stays: the AI marking in the bytes, `authored_by = 'agent'`, the
-  `generated/` filename namespace, „Von ARCHOS erstellt“ on the card.
+  `generated/` filename namespace, „Von ARCHOS erstellt“ on the card. A filed
+  Markdown document's footer says „Von ARCHOS erstellt“ and that the person who
+  filed it signed it off; only a draft's says „Entwurf, nicht freigegeben“
+  (`filedFooter` / `filedProse` in `branding.ts`).
 
 What did not change: the review states, the review round and its inbox stay for
 any document a person chooses to send for review. A background run that files

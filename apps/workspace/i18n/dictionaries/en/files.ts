@@ -1260,6 +1260,7 @@ export const files = {
       },
       uploaded: 'Uploaded',
       created: 'Created',
+      filed: 'Filed',
       submitted: 'Submitted',
       approved: 'Approved',
       published: 'Published',

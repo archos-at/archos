@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DOCUMENT_LIFECYCLES, DOCUMENT_VERSION_STATES, type DocumentVersionState } from './lifecycle-vocabulary'
+import { DOCUMENT_LIFECYCLES, DOCUMENT_VERSION_ORIGINS, DOCUMENT_VERSION_STATES, type DocumentVersionState } from './lifecycle-vocabulary'
 import { mailOriginViewSchema } from './mail-origin-schema'
 import { AGENT_FILE_CONTENT_TYPES, AGENT_FILE_MAX_BASE64_LENGTH, AGENT_FILE_MAX_BYTES } from './agent-file-types'
 
@@ -401,6 +401,7 @@ export const documentVersionViewSchema = z.object({
   publishedAt: z.string().nullable(),
   reviewComment: z.string().nullable(),
   changeNote: z.string().nullable().optional(),
+  origin: z.enum(DOCUMENT_VERSION_ORIGINS).optional(),
   createdBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),

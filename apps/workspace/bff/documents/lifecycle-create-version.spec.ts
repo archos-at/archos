@@ -223,7 +223,7 @@ describe('createDocumentVersion — a person files a draft the agent made', () =
     await file()
 
     const values = vi.mocked(insertPublishedVersion).mock.calls[0][0]
-    expect(values).toMatchObject({ state: 'published', origin: 'upload', publishedBy: 'user_approver' })
+    expect(values).toMatchObject({ state: 'published', origin: 'filing', publishedBy: 'user_approver' })
     expect(values).not.toHaveProperty('approvedBy')
     expect(values).not.toHaveProperty('submittedBy')
     expect(insertDocumentVersion).not.toHaveBeenCalled()
@@ -252,7 +252,7 @@ describe('createDocumentVersion — a person files a draft the agent made', () =
     await transitionDocumentVersion(filer, 'doc_1', 'ver_2', 'file', { actingHuman: false })
 
     const stamp = vi.mocked(promoteVersionToPublished).mock.calls[0][4]
-    expect(stamp).toMatchObject({ state: 'published', origin: 'upload', publishedBy: 'user_approver' })
+    expect(stamp).toMatchObject({ state: 'published', origin: 'filing', publishedBy: 'user_approver' })
     expect(stamp).not.toHaveProperty('approvedBy')
     expect(dispatchDocument).toHaveBeenCalledWith(expect.objectContaining({ versionId: 'ver_2' }))
     expect(emitInboxItems).not.toHaveBeenCalled()

@@ -1279,6 +1279,7 @@ export const files: typeof en.files = {
       },
       uploaded: 'Hochgeladen',
       created: 'Erstellt',
+      filed: 'Abgelegt',
       submitted: 'Eingereicht',
       approved: 'Freigegeben',
       published: 'Veröffentlicht',

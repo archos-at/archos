@@ -426,6 +426,14 @@
             "null"
           ]
         },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "upload",
+            "filing",
+            "draft"
+          ]
+        },
         "createdBy": {
           "type": "string"
         },
@@ -644,6 +652,14 @@
                 "type": [
                   "string",
                   "null"
+                ]
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "upload",
+                  "filing",
+                  "draft"
                 ]
               },
               "createdBy": {
@@ -879,6 +895,14 @@
               "type": [
                 "string",
                 "null"
+              ]
+            },
+            "origin": {
+              "type": "string",
+              "enum": [
+                "upload",
+                "filing",
+                "draft"
               ]
             },
             "createdBy": {

@@ -102,7 +102,7 @@ export function stampFor(
       return { state: to, reviewedBy: session.userId, reviewedAt: now, reviewComment: comment }
     case 'published':
       return transition.op === 'file'
-        ? { state: to, origin: 'upload', publishedBy: session.userId, publishedAt: now }
+        ? { state: to, origin: 'filing', publishedBy: session.userId, publishedAt: now }
         : { state: to, publishedBy: session.userId, publishedAt: now }
     case 'draft':
       return { state: to, reviewComment: null, reviewedBy: null, reviewedAt: null }

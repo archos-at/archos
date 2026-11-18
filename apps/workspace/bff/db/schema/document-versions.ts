@@ -88,10 +88,10 @@ export const documentVersions = pgTable(
       'document_versions_review_complete',
       sql`(${table.reviewedBy} IS NULL) = (${table.reviewedAt} IS NULL)`
     ),
-    originKnown: check('document_versions_origin_known', sql`${table.origin} IN ('upload', 'draft')`),
+    originKnown: check('document_versions_origin_known', sql`${table.origin} IN ('upload', 'filing', 'draft')`),
     publishedIsApproved: check(
       'document_versions_published_is_approved',
-      sql`${table.state} <> 'published' OR ${table.origin} = 'upload' OR (${table.approvedBy} IS NOT NULL AND ${table.approvedAt} IS NOT NULL)`
+      sql`${table.state} <> 'published' OR ${table.origin} IN ('upload', 'filing') OR (${table.approvedBy} IS NOT NULL AND ${table.approvedAt} IS NOT NULL)`
     ),
     refusalHasComment: check(
       'document_versions_refusal_has_comment',

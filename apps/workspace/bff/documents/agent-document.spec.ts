@@ -172,6 +172,31 @@ describe('fileAgentDocumentDraft', () => {
     expect(result).toMatchObject({ documentId: 'doc_1', alreadyFiled: false })
   })
 
+  it('says in the bytes of a filed document that it is made by the product, and only a draft says it is unapproved', async () => {
+    vi.mocked(fileGeneratedDocument).mockResolvedValue({
+      documentId: 'doc_1',
+      filename: 'aktenvermerk-2026-09-10.md',
+      folderId: 'fold_1',
+      alreadyFiled: false,
+    })
+    const rendered = async (op: 'file' | 'create'): Promise<string> => {
+      vi.mocked(fileGeneratedDocument).mockClear()
+      await fileAgentDocumentDraft({ op, session, projectId: 'proj_1', ref: 'r', title: 'Aktenvermerk', content: '# Aktenvermerk' })
+      const { render } = vi.mocked(fileGeneratedDocument).mock.calls[0][0]
+      const marking = aiProvenanceMarking({})
+      const out = await render({ projectId: 'proj_1', projectName: 'P', marking })
+      return new TextDecoder().decode(out.bytes)
+    }
+
+    const filed = await rendered('file')
+    expect(filed).toContain(`Von ${PRODUCT_NAME} erstellt`)
+    expect(filed).not.toContain('Entwurf, nicht freigegeben')
+    expect(filed).not.toContain('keine Freigabe')
+
+    const draft = await rendered('create')
+    expect(draft).toContain('Entwurf, nicht freigegeben')
+  })
+
   it('hands the filing its origin, so a confined thread files only where it may (ADR-0087)', async () => {
     vi.mocked(fileGeneratedDocument).mockResolvedValue({
       documentId: 'doc_1',

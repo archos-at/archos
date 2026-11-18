@@ -55,7 +55,7 @@ export function renderRevisionFile(document: Document, version: DocumentVersion,
 function render(work: AgentWork, document: Document, version: DocumentVersion): Promise<RenderedVersionBytes> | RenderedVersionBytes {
   return work.kind === 'file'
     ? renderRevisionFile(document, version, work.file)
-    : renderVersionBytes(document, version, work.content)
+    : renderVersionBytes(document, version, work.content, { filed: true })
 }
 
 async function currentVersion(session: AuthorizedSession, documentId: string): Promise<DocumentVersion | null> {

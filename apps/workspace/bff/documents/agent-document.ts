@@ -44,6 +44,7 @@ export async function fileAgentDocumentDraft(
   const branding = await resolveDocumentBranding({
     organizationId: input.session.organizationId,
     organizationName,
+    filed: input.op === 'file',
   })
 
   const filed = await fileGeneratedDocument({

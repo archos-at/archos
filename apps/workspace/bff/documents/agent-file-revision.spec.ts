@@ -159,7 +159,7 @@ describe('reviseWithAgentWork', () => {
     const memo = makeDocument({ ...filed, authoredByProducer: 'agent_document', contentType: 'text/markdown' })
     vi.mocked(getAccessibleDocument).mockResolvedValue(memo)
     const { renderVersionBytes } = await import('./version-content')
-    const rendered = await renderVersionBytes(memo, version({ contentType: 'text/markdown' }), '# Vermerk')
+    const rendered = await renderVersionBytes(memo, version({ contentType: 'text/markdown' }), '# Vermerk', { filed: true })
     vi.mocked(findOpenVersion).mockResolvedValue(
       version({ id: 'ver_open', state: 'draft', contentHash: rendered.contentHash, contentType: 'text/markdown' }),
     )
