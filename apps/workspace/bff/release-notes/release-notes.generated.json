@@ -64,6 +64,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+            "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
+          }
+        },
+        {
           "section": "improvements",
           "area": "agents",
           "text": {

@@ -3556,6 +3556,10 @@
     "de": "Mehrere Anmerkungen, die Sie gleichzeitig erreichen, etwa die morgendlichen Fälligkeitserinnerungen oder ein an Sie übergebener Stapel, werden auf Ihren Geräten nun in einer einzigen Benachrichtigung zusammengefasst, die angibt, wie viele fällig und wie viele überfällig sind."
   },
   {
+    "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+    "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
+  },
+  {
     "en": "Sheets that show several drawings at once, such as two floor plans side by side, are now read drawing by drawing instead of as one merged description. The detail view also says which drawing on the sheet each entry describes.",
     "de": "Zeichnungsblätter, auf denen mehrere Zeichnungen gleichzeitig zu sehen sind, etwa zwei Grundrisse nebeneinander, werden jetzt Zeichnung für Zeichnung gelesen statt als eine zusammengeführte Beschreibung. Die Detailansicht zeigt außerdem, welche Zeichnung des Blatts jeder Eintrag beschreibt."
   },
