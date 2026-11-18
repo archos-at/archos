@@ -30,7 +30,7 @@ const SESSIONS = [
 const ACTIVITY: Record<string, Session['activity']> = { 's-1': 'working', 's-4': 'waiting', 's-5': 'answered', 's-7': 'failed' }
 const PARALLEL_SESSIONS: Session[] = SESSIONS.map((session) => ({ ...session, activity: ACTIVITY[session.id] ?? null }))
 const PARALLEL_RAIL: RailChats = {
-  items: PARALLEL_SESSIONS.slice(0, 6).map((session) => ({
+  items: PARALLEL_SESSIONS.slice(0, 7).map((session) => ({
     id: session.id,
     title: session.title,
     href: `/dev/sessions?variant=parallel&session=${session.id}`,
