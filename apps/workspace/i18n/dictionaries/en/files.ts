@@ -1878,6 +1878,12 @@ export const files = {
     },
   },
   saveTo: {
+    howToFile: 'How to file',
+    asOwnFile: 'File as a separate file',
+    asRevision: 'File as a new revision of “{name}”',
+    revisionHint: '“{name}” gets a new revision in the project; the earlier one stays readable.',
+    changeNote: 'Change note',
+    changeNoteHint: 'What changed against the previous revision, in one sentence.',
     title: 'File into the project',
     description: 'Choose the folder and the name the file will have in the project.',
     name: 'Name',

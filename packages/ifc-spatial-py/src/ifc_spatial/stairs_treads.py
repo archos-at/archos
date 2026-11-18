@@ -17,7 +17,7 @@ from ifc_spatial.stairs_constants import TREAD_NORMAL_DOT
 from ifc_spatial.stairs_records import _Flight
 from ifc_spatial.stairs_records import _Tread
 
-from .clearance import _usable_triangles
+from .clearance_triangles import _usable_triangles
 from .geometry import FACE_AREA_FRACTION
 from .geometry import MIN_FACE_AREA
 from .geometry import triangle_normals_areas

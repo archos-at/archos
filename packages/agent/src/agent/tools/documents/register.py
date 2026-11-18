@@ -5,7 +5,10 @@ import base64
 import hashlib
 import logging
 import re
+from dataclasses import dataclass
+from dataclasses import replace
 from typing import Any
+from typing import Literal
 
 from agent import project_context
 from agent.common.bff_http import SignedEnvelope
@@ -19,6 +22,7 @@ from ..execute.trace import filed_scores
 from .cards import draft_title
 from .cards import emit_draft_card
 from .draft_store import DRAFT_ROOT
+from .draft_store import FILED_AS_REVISION
 from .draft_store import FILED_DOCUMENT_KEY
 from .draft_store import FILED_HASH_KEY
 from .draft_store import FILED_STATE_KEY
@@ -40,7 +44,16 @@ MAX_REF_CHARS = 200
 
 MAX_REVIEWER_CHARS = 200
 
-REPLACEABLE_STATES = frozenset({"draft", "changes_requested"})
+IN_REVIEW_STATE = "in_review"
+
+FILE_AS_REVISION = "new_revision"
+
+FILE_AS_SEPARATE = "separate_file"
+
+
+MAX_FOLDER_CHARS = 300
+
+MAX_CHANGE_NOTE_CHARS = 500
 
 _STILL_A_DRAFT = (
     "This is a DRAFT that nobody has approved yet — do not say the document is approved, published or final."
@@ -72,6 +85,36 @@ _NOT_REPLACEABLE_NOW = (
     "or a person has changed it since it was last filed. Tell the user that a "
     "person must first return it, or that they should check the current state in the project."
 )
+
+_IN_REVIEW = (
+    "Error: The document in the project is in review right now, so it cannot take a new version. Nothing was "
+    "filed. Tell the user that a person must first decide the review."
+)
+
+_NO_SOURCE = (
+    "Error: `{path}` was not made from a project document, so it cannot become a new version of one. Nothing was "
+    "filed. File it as its own file instead."
+)
+
+
+def _changed_in_project(details: dict[str, Any]) -> str:
+    number = details.get("versionNumber")
+    which = f" (it is now Fassung {number})" if isinstance(number, int) else ""
+    return (
+        f"Error: A person changed the document in the project since this draft was filed{which}. Nothing was "
+        "filed. Tell the user so in one sentence: they decide on the draft's card whether it goes over their "
+        'change. Only if they ask for a separate file, call again with `file_as="separate_file"`.'
+    )
+
+
+def _unknown_folder(details: dict[str, Any]) -> str:
+    folders = [str(folder) for folder in details.get("folders") or [] if isinstance(folder, str)]
+    named = ", ".join(f"„{folder}“" for folder in folders) or "none"
+    return (
+        f"Error: There is no folder „{details.get('folder', '')}“ in this project. Nothing was filed. "
+        f"The folders are: {named}. Ask the user which one they meant, or file without `folder`."
+    )
+
 
 _NOT_SUBMITTABLE_NOW = (
     "Error: This draft has already been submitted. Tell the user that it is waiting for approval by a person."
@@ -105,6 +148,9 @@ def _file_bytes(usage: DraftUsage) -> str:
 
 def _card_size(usage: DraftUsage) -> int | None:
     return len(base64.b64decode(usage.content or "")) if usage.is_binary else None
+
+
+class _Gone(Exception): ...
 
 
 class _Refused(Exception):
@@ -155,6 +201,16 @@ _SUBMIT_FAILED_AFTER_FILING = (
 )
 
 
+def _refusal_for(exc: FilingError) -> str | None:
+    if exc.reason == "changed-in-project":
+        return _changed_in_project(exc.details)
+    if exc.reason == "in-review":
+        return _IN_REVIEW
+    if exc.reason == "folder-unknown":
+        return _unknown_folder(exc.details)
+    return None
+
+
 async def _post(
     payload: dict[str, Any],
     envelope: SignedEnvelope,
@@ -166,6 +222,11 @@ async def _post(
     try:
         return await asyncio.to_thread(post_document_version, payload, envelope)
     except FilingError as exc:
+        if exc.status == 404 and payload.get("op") in {"update", "update_file", "revise_file"}:
+            raise _Gone from exc
+        named = _refusal_for(exc)
+        if named is not None:
+            raise _Refused(named) from exc
         if bad_request is not None and exc.status == 400:
             raise _Refused(bad_request) from exc
         if conflict is not None and exc.status == 409:
@@ -173,32 +234,64 @@ async def _post(
         raise _Refused(failure.format(error=exc)) from exc
 
 
-def _create_payload(path: str, usage: DraftUsage, title: str) -> dict[str, Any]:
+@dataclass(frozen=True)
+class _Choice:
+    title: str = ""
+    folder: str = ""
+    file_as: str = ""
+    change_note: str = ""
+    separate_ref: str = ""
+
+
+def _create_payload(path: str, usage: DraftUsage, choice: _Choice) -> dict[str, Any]:
     common = {
         "projectId": project_context.get_project_id_from_context(),
-        "ref": filing_reference(_conversation_id(), path),
-        "title": title,
+        "ref": choice.separate_ref or filing_reference(_conversation_id(), path),
+        "title": choice.title,
+        **({"folder": choice.folder} if choice.folder else {}),
     }
     kind = file_content_type(path)
     if kind is None:
         return {"op": "create", **common, "content": usage.content or ""}
+    source = usage.derived_from.get("document_id")
     return {
         "op": "create_file",
         **common,
+        **({"sourceDocumentId": source} if source and not choice.folder else {}),
         "filename": path.rsplit("/", 1)[-1],
         "contentType": kind,
         "contentBase64": _file_bytes(usage),
     }
 
 
-async def _create(path: str, usage: DraftUsage, title: str, envelope: SignedEnvelope) -> dict[str, str]:
-    body = await _post(_create_payload(path, usage, title), envelope)
+async def _create(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> dict[str, str]:
+    body = await _post(_create_payload(path, usage, choice), envelope)
     filing = filing_record(body)
     if not body.get("alreadyFiled"):
         return filing
-    if filing[FILED_STATE_KEY] not in REPLACEABLE_STATES:
+    if filing[FILED_STATE_KEY] == IN_REVIEW_STATE:
         raise _Refused(_ALREADY_SUBMITTED)
     return await _update(path, usage, filing, envelope)
+
+
+async def _revise(
+    path: str, usage: DraftUsage, envelope: SignedEnvelope, *, change_note: str, own: dict[str, str]
+) -> dict[str, str]:
+    source = own.get(FILED_DOCUMENT_KEY) or usage.derived_from.get("document_id")
+    kind = file_content_type(path)
+    if not source or kind is None:
+        raise _Refused(_NO_SOURCE.format(path=path))
+    match = own.get(FILED_HASH_KEY) or usage.derived_from.get("content_hash")
+    payload = {
+        "op": "revise_file",
+        "documentId": source,
+        "contentType": kind,
+        "contentBase64": _file_bytes(usage),
+        **({"versionId": own[FILED_VERSION_KEY]} if own.get(FILED_VERSION_KEY) else {}),
+        **({"ifMatch": match} if match else {}),
+        **({"changeNote": change_note} if change_note else {}),
+    }
+    return filing_record(await _post(payload, envelope))
 
 
 def _update_payload(path: str, usage: DraftUsage, filing: dict[str, str]) -> dict[str, Any]:
@@ -226,26 +319,18 @@ def _project_or_refuse() -> str:
 
 
 _FILE_DRAFT_DESCRIPTION = (
-    "Files a draft from the working directory into the project AS A DRAFT, so that others can see and "
-    "review it. `path` is the path in the working directory (`" + DRAFT_ROOT + "<name>.md`), `title` "
-    "is optionally the title in the project — by default the document's first heading. "
-    "Call it when the user asks for it („leg das ins Projekt“, „abspeichern“, „ablegen“), "
-    "not on your own after every write. "
-    "A second call for the same path replaces the content of the same draft; no "
-    "second document is created. What is filed is a DRAFT: nobody has approved it, it is not "
-    "published and is not searched. "
-    "`submit=true` then submits the draft FOR APPROVAL: it goes into review and appears in the "
-    "reviewers' inbox. If it is already filed and unchanged since, it is only submitted. "
-    "Call with `submit=true` only when the user asks for approval, review or hand-over — "
-    "„ablegen“ alone is not such a request. Submitting costs a person attention, and the "
-    "draft cannot be changed afterwards. "
-    "`reviewer` applies only together with `submit=true` and is optional: the person who is to review, named exactly "
-    "as the user named them (name or email) — THIS execution does not know the "
-    "project members and does not check the name; it is resolved on submission against the "
-    "project's members. So fill it only when the user named the person themselves, "
-    "and take the name over unchanged. Without `reviewer` the draft goes to the project's "
-    "editors. Even after submission the document is NOT approved: it waits for approval "
-    "by a person."
+    "Files a draft from the working directory into the project AS A DRAFT. `path`: `" + DRAFT_ROOT + "<name>.md`; "
+    "`title` optional. "
+    "Call it when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after "
+    "every write. Again for the same path puts the current draft into the same document. A DRAFT: nobody has "
+    "approved it. "
+    "`submit=true` submits it FOR APPROVAL (filed and unchanged, it is only submitted). Call with `submit=true` "
+    "only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. "
+    "`reviewer` (only with submit): the person exactly as the user named them; without it the draft goes to "
+    "the project's editors. "
+    "`folder`: a folder the user named. A file made from a project document files as its own file, unless "
+    'the user asks for its new version: `file_as="new_revision"` and `change_note`. '
+    '`file_as="separate_file"` only when the user asks for one after a refusal.'
 )
 
 _REVIEWER_WITHOUT_SUBMIT = (
@@ -257,8 +342,39 @@ _REVIEWER_WITHOUT_SUBMIT = (
 class FileDraftConfig(FunctionBaseConfig, name="file_draft"): ...
 
 
-async def _refile(path: str, usage: DraftUsage, envelope: SignedEnvelope) -> dict[str, str]:
-    return await _update(path, usage, usage.filing, envelope)
+@dataclass(frozen=True)
+class _Put:
+    filing: dict[str, str]
+    first: bool
+    kind: str | None
+
+
+async def _refile(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> _Put:
+    try:
+        if usage.filed_kind == FILED_AS_REVISION:
+            filing = await _revise(path, usage, envelope, change_note=choice.change_note, own=usage.filing)
+            return _Put(filing, first=False, kind=FILED_AS_REVISION)
+        return _Put(await _update(path, usage, usage.filing, envelope), first=False, kind=None)
+    except _Gone:
+        return _Put(await _create(path, usage, choice, envelope), first=True, kind="")
+
+
+async def _put(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> _Put:
+    if choice.file_as == FILE_AS_REVISION:
+        filing = await _revise(path, usage, envelope, change_note=choice.change_note, own={})
+        return _Put(filing, first=False, kind=FILED_AS_REVISION)
+    filed = bool(usage.filing.get(FILED_DOCUMENT_KEY))
+    if filed and choice.file_as != FILE_AS_SEPARATE:
+        return await _refile(path, usage, choice, envelope)
+    if filed:
+        choice = replace(choice, separate_ref=_separate_reference(path, usage.filing[FILED_DOCUMENT_KEY]))
+    return _Put(await _create(path, usage, choice, envelope), first=True, kind="")
+
+
+def _separate_reference(path: str, filed_document: str) -> str:
+    ref = filing_reference(_conversation_id(), path)
+    suffix = f"-{hashlib.sha256(filed_document.encode()).hexdigest()[:8]}"
+    return f"{ref[: MAX_REF_CHARS - len(suffix)]}{suffix}"
 
 
 def _submit_payload(filing: dict[str, str], reviewer: str) -> dict[str, Any]:
@@ -319,7 +435,20 @@ async def _submit_unchanged(
     )
 
 
-async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
+def _filed_message(chosen: str, usage: DraftUsage, choice: _Choice, put: _Put) -> str:
+    unmoved = (
+        f" It stays in its folder; `folder` „{choice.folder}“ was not applied, because a filed document is not moved."
+        if choice.folder and not put.first
+        else ""
+    )
+    if put.kind == FILED_AS_REVISION:
+        source = usage.derived_from.get("name") or "the project document"
+        return f"Filed in the project as the new version of „{source}“, as a draft.{unmoved} {_STILL_A_DRAFT}"
+    verb = "Filed in the project" if put.first else "Filed in the project as the current version of the draft"
+    return f"{verb}: „{chosen}“.{unmoved} {_STILL_A_DRAFT}"
+
+
+async def _file(path: str, choice: _Choice, *, submit: bool, reviewer: str) -> str:
     path = modernize_draft_path(path)
     _project_or_refuse()
     envelope = _envelope()
@@ -327,15 +456,15 @@ async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
     if named and not submit:
         raise _Refused(_REVIEWER_WITHOUT_SUBMIT)
     backend, usage = await _draft(path)
-    if submit and usage.filed_unchanged:
+    if submit and usage.filed_unchanged and not choice.file_as:
         return await _submit_unchanged(backend, path, usage, named, envelope)
 
-    chosen = " ".join((title or "").split())[:MAX_TITLE_CHARS] or draft_title(path, usage.content or "")
-    first = not usage.filing.get(FILED_DOCUMENT_KEY)
-    filing = await _create(path, usage, chosen, envelope) if first else await _refile(path, usage, envelope)
-    if first and usage.made_by == MADE_BY_RUN:
+    chosen = choice.title or draft_title(path, usage.content or "")
+    put = await _put(path, usage, replace(choice, title=chosen), envelope)
+    filing = put.filing
+    if put.first and usage.made_by == MADE_BY_RUN:
         emit_scores(filed_scores(path), writer="file-draft")
-    await backend.arecord_filing(path, filing, draft_version=usage.version)
+    await backend.arecord_filing(path, filing, draft_version=usage.version, kind=put.kind)
 
     def _card(record: dict[str, str]) -> None:
         emit_draft_card(
@@ -345,24 +474,25 @@ async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
             filing=record,
             title=chosen,
             size=_card_size(usage),
+            filed_at_version=usage.version or 1,
+            derived_from=usage.derived_from,
         )
 
+    filed = _filed_message(chosen, usage, choice, put)
     if not submit:
         _card(filing)
-        return (
-            f"Filed in the project: „{chosen}“. {_STILL_A_DRAFT} "
-            "The same call with `submit=true` can submit it for approval, if the user asks for that."
-        )
+        return f"{filed} The same call with `submit=true` can submit it for approval, if the user asks for that."
     try:
         submitted = await _submit(backend, path, filing, named, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
     except _Refused as refused:
         _card(filing)
-        raise _Refused(f"Filed in the project: „{chosen}“ — but NOT submitted. {refused.message}") from refused
+        raise _Refused(f"{filed} — but NOT submitted. {refused.message}") from refused
     _card(submitted)
-    return (
-        f"Filed in the project and submitted for approval {_whom(named)}: „{chosen}“ is now waiting for "
-        f"review by a person. {_STILL_A_DRAFT}"
-    )
+    return f"{filed} It is submitted for approval {_whom(named)} and now waits for review by a person."
+
+
+def _clean(text: str | None, limit: int) -> str:
+    return " ".join((text or "").split())[:limit]
 
 
 async def run_file_draft(
@@ -370,9 +500,18 @@ async def run_file_draft(
     title: str | None = None,
     submit: bool = False,
     reviewer: str | None = None,
+    folder: str | None = None,
+    file_as: Literal["new_revision", "separate_file"] | None = None,
+    change_note: str | None = None,
 ) -> str:
+    choice = _Choice(
+        title=_clean(title, MAX_TITLE_CHARS),
+        folder=_clean(folder, MAX_FOLDER_CHARS),
+        file_as=file_as or "",
+        change_note=_clean(change_note, MAX_CHANGE_NOTE_CHARS),
+    )
     try:
-        return await _file(path, title or "", submit=submit, reviewer=reviewer or "")
+        return await _file(path, choice, submit=submit, reviewer=reviewer or "")
     except _Refused as refused:
         return refused.message
 

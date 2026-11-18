@@ -122,6 +122,18 @@ class DocumentDraftCard(CardModel):
     version_state: DocumentVersionState | None = Field(
         default=None, description="That version's editorial state, as the lifecycle API last reported it"
     )
+    filed_draft_version: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing"
+        ),
+    )
+    derived_from_document_id: str | None = Field(
+        default=None, description="The project document the run read this file from, when it is a changed copy of one"
+    )
+    derived_from_name: str | None = Field(default=None, description="That document's name, as the person knows it")
+    removed: bool | None = Field(default=None, description="True once the draft was deleted from the conversation")
 
     @model_validator(mode="after")
     def _require_filed_together(self) -> DocumentDraftCard:

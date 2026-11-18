@@ -1275,6 +1275,32 @@
           "title": "Bytes",
           "type": "integer"
         },
+        "derived_from_document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The project document the run read this file from, when it is a changed copy of one",
+          "title": "Derived From Document Id"
+        },
+        "derived_from_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "That document's name, as the person knows it",
+          "title": "Derived From Name"
+        },
         "document_id": {
           "anyOf": [
             {
@@ -1287,6 +1313,20 @@
           "default": null,
           "description": "The project document this draft was filed as; absent while it is unfiled",
           "title": "Document Id"
+        },
+        "filed_draft_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+          "title": "Filed Draft Version"
         },
         "media_type": {
           "anyOf": [
@@ -1306,6 +1346,19 @@
           "minLength": 1,
           "title": "Path",
           "type": "string"
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True once the draft was deleted from the conversation",
+          "title": "Removed"
         },
         "title": {
           "description": "The document's first heading, or its file name when it has none",

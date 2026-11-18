@@ -33,6 +33,11 @@ describe('AnswerCardItem', () => {
       document_id: null,
       version_id: null,
       version_state: null,
+      filed_draft_version: null,
+      previous_version: null,
+      derived_from_document_id: null,
+      derived_from_name: null,
+      removed: null,
     }
     render(
       <>

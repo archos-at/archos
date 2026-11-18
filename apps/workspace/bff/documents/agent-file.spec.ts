@@ -48,8 +48,13 @@ describe('the agent_file producer', () => {
 })
 
 describe('agentFileName', () => {
-  it('keeps the agent’s name, made safe, with the extension of its type', () => {
-    expect(agentFileName('../../Kostenschätzung Haus A.DOCX', DOCX)).toBe('Kostenschaetzung-Haus-A.docx')
+  it('keeps the name as the office writes it, umlauts, ß and spaces included, with the extension of its type', () => {
+    expect(agentFileName('../../Kostenschätzung Haus A.DOCX', DOCX)).toBe('Kostenschätzung Haus A.docx')
+    expect(agentFileName('Flächenaufstellung Straße 7.docx', DOCX)).toBe('Flächenaufstellung Straße 7.docx')
+  })
+
+  it('strips only what no file system takes, and control characters', () => {
+    expect(agentFileName('Plan: A*B?"<>|\u0007 neu.docx', DOCX)).toBe('Plan AB neu.docx')
   })
 
   it('refuses an extension that does not match the type', () => {

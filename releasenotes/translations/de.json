@@ -324,6 +324,10 @@
     "de": "Eine Datei wird auch gefunden, wenn die Antwort ihren Namen anders groß schreibt oder wenn sie als Beilage in diesem Chat hochgeladen wurde."
   },
   {
+    "en": "A file made from a project document can be filed as its next Fassung with a short note of what changed, and a draft you no longer need can be deleted from the chat.",
+    "de": "Eine aus einem Projektdokument erstellte Datei kann mit einer kurzen Notiz zu den Änderungen als nächste Fassung abgelegt werden. Einen Entwurf, den Sie nicht mehr benötigen, können Sie aus dem Chat löschen."
+  },
+  {
     "en": "A file named with a split term („Gehalts-Abrechnung“) or with invisible characters is now stopped by the name check too.",
     "de": "Eine Datei mit einem durch Bindestrich getrennten Begriff („Gehalts-Abrechnung“) oder unsichtbaren Zeichen im Namen wird jetzt ebenfalls von der Namensprüfung blockiert."
   },
@@ -410,6 +414,10 @@
   {
     "en": "A file you upload no longer shows you as having approved it. Nobody reviewed it, and the history now says so.",
     "de": "Bei einer von Ihnen hochgeladenen Datei wird nicht mehr angezeigt, dass Sie sie genehmigt haben. Niemand hat sie geprüft, und der Verlauf zeigt das jetzt."
+  },
+  {
+    "en": "A file {productName} changed after you filed it now updates the project document in one click, and the card warns you first when someone else has changed that document.",
+    "de": "Wenn sich eine Datei {productName} nach dem Ablegen geändert hat, können Sie jetzt das Projektdokument mit einem Klick aktualisieren. Die Karte warnt Sie vorher, wenn jemand anderes das Dokument geändert hat."
   },
   {
     "en": "A filed Recherchebericht now always lands in the project its research was run for. Before, a report from a run started outside a project, or from an older run reopened while another project was open, could end up in the wrong project, with that project's Bundesland on its cover sheet.",

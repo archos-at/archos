@@ -93,6 +93,11 @@ running search row.
   fertigstellen.“) and offers „Noch einmal versuchen“, which puts the request
   into the composer. The Herleitung's header carries the warning pill
   („1 Datei nicht fertig“).
+- A file the code wrote but the run did not keep is a failure row, never
+  „Erstellt“: too large for the chat's files (said in words, with no retry), or
+  not written. A path the code only read is never a failure, nor a file
+  rewritten with the same bytes. The settled row names the files the run
+  actually kept, also when the code built the path from a template.
 - A duration shows only from 10 s.
 - A calculation's result is shown only when it is short (a number, or up to
   three named numbers), written the office's way; anything longer is the
@@ -173,17 +178,37 @@ card in the answer.
   `conversation-draft-rendition-get`), offered to outside agents.
 - Examples on `/dev/document-draft-card`.
 
+## After filing, and later turns
+
+- **Seit dem Ablegen geändert.** A filed card whose draft was written again
+  says so and offers „Im Projekt aktualisieren“, which writes the new bytes
+  into the same document (a new draft Fassung once it was approved). „Zur
+  Freigabe einreichen“ waits for it, then submits the version just written.
+- **A person changed it in the project.** The card says so in one sentence,
+  with the Fassung's number, and offers „Trotzdem als neue Fassung ablegen“ and
+  „Als eigene Datei ablegen“ (the save dialog, as for a first filing); nothing is
+  written until the person chooses.
+- **A file made from a project document.** The save dialog opens in that
+  document's folder and offers „Als eigene Datei ablegen“ (chosen) and „Als neue
+  Fassung von {Name} ablegen“ with an Änderungsvermerk; the agent makes a new
+  Fassung only when the person asked for it. Without a source the dialog opens in
+  „Berichte“ when it exists, the folder the agent's own filing uses.
+- **A newer version in a later turn.** The card of an earlier answer says
+  „Inzwischen überarbeitet“ and offers neither „Öffnen“ nor „Herunterladen“,
+  which would serve the newer bytes.
+- **Entwurf löschen.** The card's menu deletes the draft after a
+  confirmation; a draft a run removed or a person deleted says „Entwurf
+  gelöscht“. When something was filed from it, the card says it stays in the
+  project and keeps „Im Projekt öffnen“.
+- **Names.** A filed file keeps the dialog's name with umlauts and spaces, and
+  downloads under it.
+
 ## Deliberately later
 
 - **„Mit Code berechnet“.** The card does not know which run made the file: a
   `document_draft` card carries a path, not the `execute` call. The slice that
   closes it puts the run's id on the card and opens the script and its output
   from there. Until then the authorship line and „Entwurf“ are the label.
-- **A newer version in a later turn.** A card from an earlier answer keeps
-  saying v1 when a later turn writes v2; it could say „Neuere Fassung unten“.
-- **Replacing a filed file.** Filing again while the filed version is still a
-  draft answers the filed version, as for Markdown; it does not swap in the
-  newer bytes with `update_file`.
 - **Prerendered previews.** The first look at an Office file waits for
   LibreOffice (a few seconds). Converting when the file is written, and keeping
   the rendition beside the draft, would make it instant and survive restarts.
