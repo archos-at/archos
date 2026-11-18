@@ -3,7 +3,6 @@ apps/cms/tests/choices.test.ts
 apps/website/src/lib/rich-text.test.ts
 apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/bff/agent-asks/ask-wire.spec.ts
-apps/workspace/bff/api/wire-modules.spec.ts
 apps/workspace/bff/db/integration-suite-coverage.spec.ts
 apps/workspace/bff/documents/ingest-document-type-contract.spec.ts
 apps/workspace/bff/documents/ingest-mail-contract.spec.ts
