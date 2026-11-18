@@ -4510,6 +4510,10 @@ INSERT INTO citation_events (organization_id, turn_id, agent, kind, severity, de
   ('org_b1', 'turn_1', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 2, "office_agent": 3, "project": 1}}'),
   ('org_b1', 'turn_2', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 4}}'),
   ('org_b1', 'turn_3', 'agent', 'health', 'info', '{"lanes": {"project": 5}}');
+INSERT INTO conversations (id, organization_id, created_by) VALUES ('conv_0245', 'org_b1', 'user_b1');
+INSERT INTO messages (id, conversation_id, organization_id, role, content, metadata)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000245', 'conv_0245', 'org_b1', 'user', '@agent:piloti office_piloti',
+        '{"mentions": [{"targetId": "agent:piloti", "display": "agent:piloti"}], "lane": "office_piloti", "lanes": ["office_piloti", "project"], "counts": {"office_piloti": 1}}');
 SQL
 apply_in sn_0245 ../scripts/brand-free-backfill/dry-run.sql
 apply_in sn_0245 ../scripts/brand-free-backfill/actor-kind.sql
@@ -4527,6 +4531,6 @@ apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql
 apply_in sn_0245 ../scripts/brand-free-backfill/lanes.sql   # twice: idempotent
 check_in sn_0245 "SELECT string_agg(detail -> 'lanes' ->> 'office_agent', ',' ORDER BY detail::text) FROM citation_events WHERE detail -> 'lanes' ? 'office_agent'" "4,5" "backfill: a lane count moves to the new key and adds to one already there"
 check_in sn_0245 "SELECT count(*) FROM citation_events WHERE detail -> 'lanes' ? 'office_piloti'" "0" "backfill: no lane count keeps the old key"
-check_in sn_0245 "SELECT replace('[{\"targetId\": \"agent:piloti\", \"display\": \"agent:piloti\"}]'::jsonb::text, '\"targetId\": \"agent:piloti\"', '\"targetId\": \"agent:core\"')::jsonb::text" '[{"display": "agent:piloti", "targetId": "agent:core"}]' "backfill: the mention rewrite touches a targetId and nothing else"
-check_in sn_0245 "SELECT regexp_replace('{\"lane\": \"office_piloti\", \"lanes\": [\"office_piloti\", \"project\"], \"counts\": {\"office_piloti\": 1}}'::jsonb::text, '\"office_piloti\"(?!:)', '\"office_agent\"', 'g')::jsonb::text" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}}' "backfill: the message lane rewrite touches values and leaves keys"
+check_in sn_0245 "SELECT metadata::text FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}, "mentions": [{"display": "agent:piloti", "targetId": "agent:core"}]}' "backfill: a message's agent mention and lane values take the new names, its keys and display text stay"
+check_in sn_0245 "SELECT content FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '@agent:piloti office_piloti' "backfill: a message's text stays as written"
 echo "==> migration 0245 and the step-1 backfills verified"
