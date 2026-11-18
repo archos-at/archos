@@ -36,3 +36,4 @@ apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
+deploy/pulumi/index-workos-authz.spec.ts
