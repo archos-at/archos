@@ -19,6 +19,7 @@ from agent.project_context import get_project_id_from_context
 from agent.tools.bim.failures import NO_ORG_TEXT
 from agent.tools.bim.failures import NO_PROJECT_TEXT
 from agent.tools.bim.failures import QUERY_FAILURES
+from agent.tools.bim.handover import with_query_data
 from agent.tools.bim.measurement_sources import note_model_read
 from agent.tools.bim.rendering import clipped
 from agent.tools.bim.rendering import listed
@@ -607,9 +608,6 @@ def _render(
     return "\n".join(line for line in lines if line)
 
 
-_model_handle = model_handle
-
-
 def _trace(
     query: dict[str, Any],
     result: dict[str, Any] | None,
@@ -703,7 +701,8 @@ async def _query(arguments: IfcQueryInput, default_limit: int, outcome: ActionOu
     _trace(query, result)
     outcome.failed = not result.get("resolved")
     outcome.hits = _listed(result) if not outcome.failed else None
-    return _render(result, project_id, arguments.building_class, arguments.main_use.strip().lower())
+    rendered = _render(result, project_id, arguments.building_class, arguments.main_use.strip().lower())
+    return await with_query_data(result, rendered)
 
 
 class IfcQueryConfig(FunctionBaseConfig, name="ifc_query"):
