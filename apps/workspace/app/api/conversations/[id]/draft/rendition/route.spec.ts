@@ -98,6 +98,29 @@ describe('GET /api/conversations/[id]/draft/rendition', () => {
     expect(convertOfficeToPdf).not.toHaveBeenCalled()
   })
 
+  it.each(['/drafts/seite.html', '/drafts/schnitt.svg', '/drafts/daten.xml', '/drafts/skript.js', '/drafts/ohne-endung'])(
+    'never renders %s, so an unchecked run file is never served inline',
+    async (path) => {
+      fetchMock.mockImplementation(async () => rawAnswer(new TextEncoder().encode('<script>alert(1)</script>')))
+
+      const res = await get(path)
+
+      expect(res.status).toBe(422)
+      expect(res.headers.get('content-type')).not.toMatch(/html|svg|xml|javascript/)
+      expect(convertOfficeToPdf).not.toHaveBeenCalled()
+    },
+  )
+
+  it('answers a PDF draft as application/pdf, never sniffed, framed only by this origin', async () => {
+    fetchMock.mockImplementation(async () => rawAnswer(PDF))
+
+    const res = await get('/drafts/plan.pdf')
+
+    expect(res.headers.get('content-type')).toBe('application/pdf')
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(res.headers.get('content-security-policy')).toBe("frame-ancestors 'self'")
+  })
+
   it('says 503 when no converter is configured', async () => {
     convertOfficeToPdf.mockRejectedValue(new RenditionUnavailableError('not configured'))
 

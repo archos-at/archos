@@ -83,6 +83,33 @@ describe('GET /api/conversations/[id]/draft/download', () => {
     expect(res.headers.get('content-type')).toBe('text/plain')
   })
 
+  it.each([
+    ['seite.html', '<script>alert(1)</script>'],
+    ['seite.htm', '<script>alert(1)</script>'],
+    ['seite.xhtml', '<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>'],
+    ['seite.HTML', '<script>alert(1)</script>'],
+    ['schnitt.svg', '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'],
+    ['schnitt.SVG', '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'],
+    ['daten.xml', '<?xml-stylesheet href="x.xsl"?><a/>'],
+    ['skript.js', 'alert(1)'],
+    ['ohne-endung', '<script>alert(1)</script>'],
+  ])('serves an unchecked run file %s only as a sandboxed attachment', async (name, body) => {
+    fetchMock.mockResolvedValue(rawAnswer(new TextEncoder().encode(body)))
+
+    const res = await get(`?path=${encodeURIComponent(`/drafts/${name}`)}`)
+
+    expect(res.status).toBe(200)
+    const type = res.headers.get('content-type') ?? ''
+    if (name.toLowerCase().endsWith('.svg')) expect(type).toBe('image/svg+xml')
+    else expect(type).not.toMatch(/html|xml|javascript/)
+    expect(res.headers.get('content-disposition')).toMatch(/^attachment;/)
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    const policy = res.headers.get('content-security-policy') ?? ''
+    expect(policy).toContain("default-src 'none'")
+    expect(policy).toContain('sandbox')
+    expect(policy).not.toMatch(/script-src/)
+  })
+
   it('answers 404 without addressing the backend when the reader may not see the conversation', async () => {
     requireResourceAccessMock.mockRejectedValue(new NotFoundError())
 

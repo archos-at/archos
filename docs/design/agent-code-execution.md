@@ -90,6 +90,17 @@ has a text suffix and is at most 64 KB, otherwise as base64; together a conversa
 most 25 MB (Markdown drafts keep their own 256 KB cap). A binary file cannot be edited with
 `edit_file`. The directory is deleted with its conversation (the agent host's drafts route).
 
+**A run's file is kept unchecked.** The output check (`agent-file-check.ts`) runs at filing only, so
+the working directory may hold an HTML page, an SVG with a script, or an Office file with a macro. The
+file card reaches those bytes through two routes, and neither serves them as active content:
+`/draft/download` answers an attachment with the type from the extension (HTML and XML as
+`text/plain`, anything unknown as `application/octet-stream`), `nosniff` and
+`default-src 'none'; …; sandbox` (`bff/conversations/draft-file.ts`); `/draft/rendition` answers only
+a PDF draft or an Office draft converted to PDF, as `application/pdf` with `nosniff`, and refuses
+every other type with 422 (`draft-rendition.ts`). Both specs pin it per type. A check at keep time
+would add a BFF round trip per kept file and refuse what the agent may still be building toward
+(an HTML report it renders to PDF next); the delivery headers are the boundary instead.
+
 `/drafts/` stays the model's name for it; inside a run it is `/workspace/`, and the tool maps the two.
 The rename to `/workspace/` everywhere is not done.
 
@@ -145,6 +156,7 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | Where working files live: the draft store, 25 MB per conversation, base64 | Taken |
 | Limits: 60 s / 180 s, 4 runs per pod, 50 MB in, 50 MB out | Taken |
 | CSV not fileable; HTML kept in the working directory but not fileable | Taken |
+| Run files are checked at filing, not when kept; until then they are served only as a sandboxed attachment or a PDF rendition ([Storage](#storage)) | Taken |
 | Shared runner pods across offices. An escaped script could read another run in the same pod (the other run's inputs) and copy it into its own files; it needs a bug in the isolate engine, and the output check sees types, not contents | Accepted for now; open: one runner deployment per organization |
 | Memory per run: self-hosted workerd enforces none; the pod limit bounds it | Open |
 | A cap on concurrent runs per organization | Open, not built |
