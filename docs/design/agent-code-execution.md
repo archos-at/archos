@@ -171,6 +171,8 @@ the modules a script imports are loaded, which keeps a run fast.
 | Excel | `exceljs` 4.4.0 | MIT | Tested: a sheet with a `SUM` formula in 188 ms. Last release 2023; already a dependency of the workspace app |
 | PowerPoint | `pptxgenjs` 4.0.1 | MIT | Candidate |
 | PDF | `pdf-lib` 1.17.1 | MIT | Candidate; last release 2021. Word to PDF can instead go through Gotenberg after the run |
+| Typeset PDF with diagrams | Typst 0.14.2 compiled to WebAssembly (`@myriaddreamin/typst-ts-web-compiler` 0.7.0), with fletcher, timeliney, chronos, cetz | Apache-2.0; cetz LGPL-3.0-or-later | Built 2026-11-18: A4 report with table, header and footer, flowchart, Gantt and sequence diagram in 1 to 6 s; see `apps/code-runner/README.md` |
+| PDF from components | Forme `@formepdf/core` 0.31.0 (Rust layout engine as WebAssembly) | MIT | Built 2026-11-18: table, header and footer with page numbers, a Vega chart, in 1.6 s |
 | Charts | `vega` 6.4.0, `vega-lite` 6.5.0, `vega-interpreter` 2.3.2 | BSD-3-Clause | Tested: a bar chart as SVG in 102 ms, with the interpreter |
 | Numbers and data | `decimal.js` 10.6.0 (exact decimals for areas and money), `papaparse` 5.7.1 (CSV), `date-fns` 4.4.0 | MIT | Candidates |
 | Office kit | Ours: the office's branding, area schedules, the sources sheet | | To build |

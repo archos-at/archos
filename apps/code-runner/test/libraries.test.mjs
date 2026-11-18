@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
+import { extractText, getDocumentProxy } from "unpdf";
 import manifest from "../libraries.json" with { type: "json" };
 import { returned, startRunner } from "./harness.mjs";
 
@@ -202,6 +203,44 @@ const CASES = {
     });
     assert.match(result.value, /<h1>Protokoll<\/h1>/);
     assert.match(result.value, /<strong>eins<\/strong>/);
+    return result;
+  },
+
+  async forme() {
+    const result = await ok({
+      source: `import { Document, Page, View, Text, Table, Row, Cell, Fixed, Svg, PageBreak, h, renderDocument } from "forme";
+        import * as vega from "vega";
+        import * as vegaLite from "vega-lite";
+        import { expressionInterpreter } from "vega-interpreter";
+        import { writeFile } from "node:fs/promises";
+        export default async (rows) => {
+          const spec = vegaLite.compile({ width: 300, height: 120, data: { values: rows.map(([, room, area]) => ({ room, area })) }, mark: "bar",
+            encoding: { x: { field: "room", type: "nominal" }, y: { field: "area", type: "quantitative" } } }).spec;
+          const view = new vega.View(vega.parse(spec, null, { ast: true }), { expr: expressionInterpreter, renderer: "none" });
+          const svg = await view.toSVG();
+          const size = /width="([\\d.]+)" height="([\\d.]+)"/.exec(svg);
+          const cell = (text, style) => h(Cell, { style: { padding: 4, ...style } }, h(Text, null, text));
+          const doc = h(Document, null,
+            h(Page, { size: "A4", margin: 48 },
+              h(Fixed, { position: "header" }, h(Text, { style: { fontSize: 8, color: "#555" } }, "Musterbüro – Baubeschreibung")),
+              h(Fixed, { position: "footer" }, h(Text, { style: { fontSize: 8, textAlign: "right" } }, "Seite {{pageNumber}} von {{totalPages}}")),
+              h(Text, { style: { fontSize: 18, fontWeight: "bold", marginBottom: 8 } }, "Flächenaufstellung"),
+              h(Table, { columns: [{ width: { fraction: 0.2 } }, { width: { fraction: 0.55 } }, { width: { fraction: 0.25 } }] },
+                h(Row, { header: true, style: { backgroundColor: "#e6e6e6" } }, cell("Geschoss"), cell("Raum"), cell("Fläche m²", { textAlign: "right" })),
+                ...rows.map(([floor, room, area]) => h(Row, null, cell(floor), cell(room), cell(area.toLocaleString("de-AT", { minimumFractionDigits: 2 }), { textAlign: "right" })))),
+              h(View, { style: { marginTop: 16 } }, h(Svg, { width: Number(size[1]), height: Number(size[2]), content: svg })),
+              h(PageBreak, null),
+              h(Text, null, "Anhang")));
+          await writeFile("/workspace/flaechen.pdf", await renderDocument(doc));
+        }`,
+      input: [["EG", "Wohnen", 32.4], ["OG", "Zimmer 1", 14.8]],
+    });
+    const pdf = await getDocumentProxy(new Uint8Array(returned(result, "/workspace/flaechen.pdf")));
+    const { text } = await extractText(pdf, { mergePages: true });
+    assert.equal(pdf.numPages, 2);
+    assert.match(text, /Zimmer 1/);
+    assert.match(text, /32,40/);
+    assert.match(text, /Seite 2 von 2/);
     return result;
   },
 

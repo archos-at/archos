@@ -1,0 +1,139 @@
+import { builtinModules } from "node:module";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import * as esbuild from "esbuild";
+import { TYPST_COMPILER_FILE, TYPST_FILES_FILE, buildTypst } from "./typst.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const DIST = join(ROOT, "dist");
+
+export const SIZE_BUDGET_BYTES = 4 * 1024 * 1024;
+const PERMISSIVE = new Set(["MIT", "ISC", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "0BSD"]);
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
+const NODE_BUILTINS = new Set(builtinModules.filter((name) => !name.startsWith("_")));
+
+async function readJson(path) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function checkManifest(manifest, pkg) {
+  for (const lib of manifest.libraries) {
+    const packageName = lib.package ?? lib.name;
+    const pinned = pkg.devDependencies?.[packageName] ?? pkg.dependencies?.[packageName];
+    if (pinned !== lib.version) {
+      throw new Error(`${lib.name}: libraries.json says ${lib.version}, package.json pins ${pinned}.`);
+    }
+    const installed = await readJson(join(ROOT, "node_modules", packageName, "package.json"));
+    if (installed.version !== lib.version) {
+      throw new Error(`${lib.name}: ${installed.version} is installed, ${lib.version} is pinned. Run bun install.`);
+    }
+    if (!PERMISSIVE.has(lib.license)) throw new Error(`${lib.name}: licence ${lib.license} is not admitted.`);
+    const declared = String(installed.license ?? "");
+    if (declared !== lib.license && !(lib.license_note && declared.includes(lib.license))) {
+      throw new Error(`${lib.name}: the package declares ${declared}, the manifest ${lib.license}.`);
+    }
+  }
+}
+
+async function entrySource(name) {
+  const spec = JSON.stringify(name);
+  const probe = await esbuild.build({
+    ...LIBRARY_OPTIONS,
+    stdin: { contents: `export * from ${spec};`, resolveDir: ROOT, sourcefile: "probe.mjs" },
+    minify: false,
+    metafile: true,
+  });
+  const named = Object.values(probe.metafile.outputs)[0].exports.filter((key) => key !== "default");
+  if (named.length > 0) {
+    const hasDefault = await esbuild
+      .build({ ...LIBRARY_OPTIONS, stdin: { contents: `export { default } from ${spec};`, resolveDir: ROOT, sourcefile: "probe.mjs" }, logLevel: "silent" })
+      .then(() => true, () => false);
+    const dflt = hasDefault ? `export { default } from ${spec};` : `import * as ns from ${spec};\nexport default ns;`;
+    return `export * from ${spec};\n${dflt}\n`;
+  }
+  const ns = await import(name);
+  const keys = Object.keys(ns.default ?? {}).filter((key) => IDENTIFIER.test(key) && key !== "default");
+  const destructure = keys.length ? `export const { ${keys.join(", ")} } = m;\n` : "";
+  return `import m from ${spec};\nexport default m;\n${destructure}`;
+}
+
+const nodeBuiltins = {
+  name: "node-builtins",
+  setup(build) {
+    build.onResolve({ filter: /^[a-z_]+(\/[a-z_]+)?$|^node:/ }, (args) => {
+      const bare = args.path.replace(/^node:/, "");
+      if (!NODE_BUILTINS.has(bare)) return undefined;
+      return { path: `node:${bare}`, external: true };
+    });
+  },
+};
+
+const LIBRARY_OPTIONS = {
+  bundle: true,
+  format: "esm",
+  platform: "browser",
+  conditions: ["worker", "browser", "import"],
+  mainFields: ["browser", "module", "main"],
+  target: "es2022",
+  minify: true,
+  legalComments: "none",
+  define: { "process.env.NODE_ENV": '"production"', global: "globalThis" },
+  plugins: [nodeBuiltins],
+  write: false,
+  logLevel: "error",
+};
+
+async function buildLibrary(lib) {
+  const entry = lib.entry
+    ? { entryPoints: [join(ROOT, lib.entry)] }
+    : { stdin: { contents: await entrySource(lib.name), resolveDir: ROOT, sourcefile: `${lib.name}-entry.mjs` } };
+  const wasm = lib.wasm ? { external: [`./${lib.wasm.module}`] } : {};
+  if (lib.wasm) await copyFile(join(ROOT, lib.wasm.from), join(DIST, lib.wasm.module));
+  const result = await esbuild.build({ ...entry, ...LIBRARY_OPTIONS, ...wasm });
+  const code = result.outputFiles[0].text;
+  const bytes = Buffer.byteLength(code);
+  if (bytes > SIZE_BUDGET_BYTES) throw new Error(`${lib.name}: ${bytes} bytes is over the ${SIZE_BUDGET_BYTES} budget.`);
+  await writeFile(join(DIST, "libs", `${lib.name}.mjs.txt`), code);
+  return bytes;
+}
+
+async function buildWorker(names, typstModule, wasmLibraries) {
+  const imports = names.map((name, i) => `import l${i} from "./libs/${name}.mjs.txt";`);
+  const map = names.map((name, i) => `  ${JSON.stringify(name)}: l${i},`);
+  const wasmImports = wasmLibraries.map((lib, i) => `import w${i} from "./${lib.wasm.module}";`);
+  const wasmMap = wasmLibraries.map((lib, i) => `  ${JSON.stringify(lib.name)}: { ${JSON.stringify(lib.wasm.module)}: { wasm: w${i} } },`);
+  const typst = { module: typstModule, compiler: TYPST_COMPILER_FILE, files: TYPST_FILES_FILE };
+  await writeFile(
+    join(DIST, "libraries.gen.js"),
+    `${[...imports, ...wasmImports].join("\n")}\nexport const LIBRARY_MODULES = {\n${map.join("\n")}\n};\nexport const WASM_MODULES = {\n${wasmMap.join("\n")}\n};\nexport const TYPST = ${JSON.stringify(typst)};\n`,
+  );
+  const wasmExternals = wasmLibraries.map((lib) => `./${lib.wasm.module}`);
+  await esbuild.build({
+    entryPoints: [join(ROOT, "src", "worker.js")],
+    outfile: join(DIST, "worker.js"),
+    bundle: true,
+    format: "esm",
+    platform: "browser",
+    conditions: ["workerd", "worker", "browser", "import"],
+    target: "es2022",
+    external: ["cloudflare:*", "node:*", `./${TYPST_COMPILER_FILE}`, `./${TYPST_FILES_FILE}`, ...wasmExternals],
+    loader: { ".txt": "text" },
+    alias: { "#libraries": join(DIST, "libraries.gen.js") },
+    logLevel: "error",
+  });
+}
+
+const manifest = await readJson(join(ROOT, "libraries.json"));
+const pkg = await readJson(join(ROOT, "package.json"));
+await checkManifest(manifest, pkg);
+await rm(DIST, { recursive: true, force: true });
+await mkdir(join(DIST, "libs"), { recursive: true });
+const sizes = {};
+for (const lib of manifest.libraries) sizes[lib.name] = await buildLibrary(lib);
+const typst = await buildTypst(ROOT, DIST, manifest.typst, pkg, LIBRARY_OPTIONS);
+sizes[manifest.typst.module] = typst.library;
+await buildWorker([...manifest.libraries.map((lib) => lib.name), manifest.typst.module], manifest.typst.module, manifest.libraries.filter((lib) => lib.wasm));
+console.log(`typst compiler ${(typst.compiler / 1024).toFixed(0)} KiB, fonts and packages ${(typst.files / 1024).toFixed(0)} KiB`);
+await writeFile(join(DIST, "sizes.json"), `${JSON.stringify(sizes, null, 2)}\n`);
+for (const [name, bytes] of Object.entries(sizes)) console.log(`${name.padEnd(18)} ${(bytes / 1024).toFixed(0).padStart(6)} KiB`);

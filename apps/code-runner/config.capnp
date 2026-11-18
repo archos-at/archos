@@ -10,7 +10,12 @@ const config :Workerd.Config = (
 );
 
 const runner :Workerd.Worker = (
-  modules = [ (name = "worker.js", esModule = embed "dist/worker.js") ],
+  modules = [
+    (name = "worker.js", esModule = embed "dist/worker.js"),
+    (name = "typst-compiler.wasm", data = embed "dist/typst-compiler.wasm"),
+    (name = "typst-files.bin", data = embed "dist/typst-files.bin"),
+    (name = "forme.wasm", data = embed "dist/forme.wasm"),
+  ],
   compatibilityDate = "2026-05-26",
   compatibilityFlags = ["nodejs_compat"],
   bindings = [

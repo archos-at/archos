@@ -11,6 +11,7 @@ from agent.skills.models import SkillValidationError
 EXPECTED = {
     ("bim", "ifc-spatial-reasoning"),
     ("drawing", "excalidraw-sketch"),
+    ("office", "office-pdf"),
     ("oib", "plot-development"),
     ("oib", "existing-building"),
     ("oib", "fire-safety"),
@@ -63,8 +64,10 @@ def test_builtin_frontmatter_declares_only_its_audience() -> None:
             "grid-auto-invoke",
             "grid-title",
             "grid-hidden",
+            "agents",
+            "title",
         }, skill.name
-        assert skill.metadata.get("grid-agents"), skill.name
+        assert skill.metadata.get("grid-agents") or skill.metadata.get("agents"), skill.name
 
     by_name = {s.name: s for s in discover_builtin_skills()}
     assert by_name["long-form-report-writer"].metadata == {"grid-agents": "deep_researcher"}

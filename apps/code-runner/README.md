@@ -111,6 +111,7 @@ then bundles `src/worker.js` with those modules inlined as text into `dist/worke
 | `PORT`, `HOST` | `8080`, `0.0.0.0` | where the front listens |
 | `CODE_RUNNER_SLOTS` | `8` | workerd processes, so runs in flight |
 | `CODE_RUNNER_STORAGE_DIR` | `/run/code-runner/do` | Durable Object storage; mount memory here |
+| `CODE_RUNNER_SLOT_MEMORY_MIB` | `512` | a slot whose workerd holds more anonymous memory than this after a run is restarted before its next run; `0` turns it off (see Slot memory) |
 
 ## Measured
 
@@ -152,6 +153,44 @@ with both a default and named exports (`import docx from "docx"`, `import { Docu
 | pptxgenjs | 4.0.1 | MIT | PowerPoint |
 | marked | 18.1.3 | MIT | Markdown to HTML |
 | decimal.js | 10.6.0 | MIT | exact decimals |
+| forme | `@formepdf/core` 0.31.0 with `@formepdf/react` 0.31.0 and `react` 19.2.0 | MIT | PDF from components (`src/forme.js`): `h(Document, …)` and `await renderDocument(tree)`; 7.2 MiB of WebAssembly handed in like Typst's |
+| typst | Typst 0.14.2 (`@myriaddreamin/typst-ts-web-compiler` 0.7.0) | Apache-2.0 | typeset PDF from Typst markup, with diagrams; see below |
+
+### Typst
+
+`import { compile } from "typst"` and `await compile(markup, { files, inputs })` return the PDF bytes.
+`files` maps the names the markup reads (`image("chart.svg")`) to strings or bytes; `inputs` reaches the
+markup as `sys.inputs`. A compile error throws with Typst's diagnostics (`main.typ:line:col`).
+
+- **The compiler is WebAssembly, and an isolate cannot compile WebAssembly from bytes** ("Wasm code
+  generation disallowed by embedder"). So the outer worker embeds `dist/typst-compiler.wasm` and
+  `dist/typst-files.bin` as data modules (`config.capnp`), and `withBinaryModules` in `src/runner.js`
+  hands them to the run's loader as a `wasm` and a `data` module whenever a run imports `typst` (Forme's
+  `forme.wasm` the same way, from a library's `wasm` entry in `libraries.json`). The
+  isolate gets an already compiled `WebAssembly.Module` and instantiates it, which is allowed.
+- **No code from strings.** The wasm-bindgen glue calls `new Function` for six fixed bodies
+  (`return this`, `return 0`, `return path`, ...). `build/typst.mjs` replaces the call at bundle time
+  with a function that answers exactly those and throws on any other.
+- **Fonts and packages are bundled, nothing is fetched.** `libraries.json` under `typst` lists them:
+  Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
+  `fletcher` 0.5.8 (flowcharts), `timeliney` 0.4.0 (Gantt), `chronos` 0.3.0 (sequence), `cetz` 0.4.2,
+  0.4.1 and 0.3.4 (the drawing layer each of them pins) and `oxifmt`, each with its sha256. The build
+  downloads a package from `packages.typst.org` once, checks the hash, and caches it in
+  `node_modules/.cache/typst-packages`; at run time an import of any other package fails and names it.
+- **Licences.** Everything is permissive except `cetz`, LGPL-3.0-or-later, shipped unmodified as Typst
+  source; the build admits it only because its entry carries `license_note`.
+- **Cost.** 28 MiB of WebAssembly and 2.7 MiB of fonts and packages per workerd process (mapped, idle
+  anonymous memory unchanged). A run that compiles: 3 to 6 s cold, 1.3 to 2.5 s with the slot warm;
+  the Typst work itself is 50 to 800 ms per document once the compiler is up. Memory: the first Typst
+  run in a slot takes it from about 230 to about 390 MiB (anonymous), and each further run adds about
+  100 MiB until V8 collects the finished isolates, up to about 1 GiB. Hence the slot memory limit below.
+
+### Slot memory
+
+After every run the front reads the slot's `RssAnon` (`/proc/<pid>/status`); over
+`CODE_RUNNER_SLOT_MEMORY_MIB` (default 512, `0` turns it off) it restarts that workerd before the slot
+takes the next run, about 1 s. The answer has already left, so the caller only sees that slot busy for
+that second. With the default, a slot never holds more than one finished Typst run.
 
 An isolate forbids `eval` and `new Function`, so a Vega view takes the interpreter:
 `new vega.View(vega.parse(spec, null, { ast: true }), { expr: expressionInterpreter, renderer: "none" })`.
