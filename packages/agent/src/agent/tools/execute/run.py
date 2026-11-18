@@ -25,6 +25,8 @@ from .runner_client import WORKSPACE
 from .runner_client import RunnerUnavailable
 from .runner_client import RunResult
 from .runner_client import run_code
+from .tool_data import DataRefused
+from .tool_data import hand_over
 from .trace import KeptFile
 from .trace import RunFacts
 from .trace import record_run
@@ -137,6 +139,7 @@ class _Sent:
     files: dict[str, bytes] = field(default_factory=dict)
     inputs: list[tuple[str, str]] = field(default_factory=list)
     documents: list[tuple[str, str | None]] = field(default_factory=list)
+    data: list[tuple[str, str]] = field(default_factory=list)
 
 
 async def _inputs(backend: DraftBackend, documents: list[str]) -> _Sent:
@@ -202,6 +205,8 @@ def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: list[
     lines = [f"status: {result.status} ({result.duration_ms} ms)"]
     if sent.inputs:
         lines.append("documents read: " + ", ".join(f"'{name}' at {path}" for name, path in sent.inputs))
+    if sent.data:
+        lines.append("data read: " + ", ".join(f"{reference} at {path}" for reference, path in sent.data))
     if result.value is not None:
         lines.append("value: " + _clip(json.dumps(result.value, ensure_ascii=False, default=str)))
     if result.stdout:
@@ -217,15 +222,40 @@ def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: list[
     return "\n".join(lines)
 
 
-async def execute(runner_url: str, code: str, *, documents: list[str] | None = None, timeout_seconds: int = 0) -> str:
-    facts = RunFacts.of(code, documents)
+async def execute(
+    runner_url: str,
+    code: str,
+    *,
+    documents: list[str] | None = None,
+    data: list[str] | None = None,
+    timeout_seconds: int = 0,
+) -> str:
+    facts = RunFacts.of(code, documents, data)
     try:
-        return await _execute(facts, runner_url, code, list(documents or []), timeout_seconds)
+        return await _execute(facts, runner_url, code, list(documents or []), list(data or []), timeout_seconds)
     finally:
         record_run(facts)
 
 
-async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[str], timeout_seconds: int) -> str:
+async def _with_data(sent: _Sent, conversation_id: str, data: list[str]) -> _Sent:
+    try:
+        handed = await hand_over(conversation_id, data, sent.files)
+    except DataRefused as refused:
+        raise _Refusal(str(refused), refused.code) from refused
+    for entry in handed:
+        sent.files[entry.path] = entry.data
+        sent.data.append((entry.reference, entry.path))
+        sent.documents.append((entry.about, None))
+    if sum(len(body) for body in sent.files.values()) > MAX_INPUT_BYTES:
+        raise _Refusal(
+            "The files and data for this run exceed 50 MB. Hand over fewer or narrower results.", "too_large"
+        )
+    return sent
+
+
+async def _execute(
+    facts: RunFacts, runner_url: str, code: str, documents: list[str], data: list[str], timeout_seconds: int
+) -> str:
     if not runner_url:
         facts.stop("unavailable", "no_runner")
         return NO_RUNNER
@@ -237,7 +267,7 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
     async with _lock(conversation_id):
         backend = await get_draft_backend(conversation_id)
         try:
-            sent = await _inputs(backend, documents)
+            sent = await _with_data(await _inputs(backend, documents), conversation_id, data)
         except _Refusal as refusal:
             facts.stop("refused", refusal.code)
             return f"Nothing was run. {refusal}"
