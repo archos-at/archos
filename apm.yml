@@ -13,7 +13,7 @@ dependencies:
 
     - mattpocock/skills/skills/productivity/writing-for-agents#5863806dd4e15c63174bee4e7515a4256792ecfa
 
-    # Held together at 6654f6b until CONTEXT.md is renamed GLOSSARY.md here (agent-skills.md).
+    # Held together at 6654f6b until CONTEXT.md is renamed GLOSSARY.md here.
     - mattpocock/skills/skills/engineering/improve-codebase-architecture#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
     - mattpocock/skills/skills/engineering/codebase-design#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
     - mattpocock/skills/skills/engineering/domain-modeling#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76

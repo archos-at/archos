@@ -1,4 +1,4 @@
-# Read by nothing shipped: no config sets domain_catalog_path (country-extensibility.md).
+# Read by nothing shipped: no config sets domain_catalog_path.
 default_domain_id: general_research
 
 domains:

@@ -96,7 +96,7 @@ tasks:
       - TZ=UTC bunx vitest related --run {{range splitList " " .FILES}}{{shellQuote .}} {{end}}--shard={{.SHARD}} --passWithNoTests --reporter=default{{if .GITHUB_ACTIONS}} --reporter=github-actions{{end}}
 
   workspace:test:merge:
-    desc: Merge sharded blob reports into one result + the coverage CI comments on
+    desc: Merge the local shards' blob reports into one result and one coverage report
     dir: '{{.UI}}'
     cmds:
       - >-
