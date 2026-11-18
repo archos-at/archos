@@ -25,8 +25,10 @@ Read `office-files` first if you have not this conversation.
 | A PDF that reads like a document: long text, tables across pages, a Gantt or flowchart inside it | Typst (`office-pdf`) |
 | A form filled in, PDFs merged or split, an existing PDF edited | `pdf-lib` (`office-pdf-charts`) |
 
-If `puppeteer.launch` fails with "no browser" or "busy" after the run was
-retried, make the PDF with Typst (`office-pdf`) instead and say so in one sentence.
+If `puppeteer.launch` fails with "no browser", this deployment has none and a
+retry gets the same answer: make the PDF with Typst (`office-pdf`) in the same
+look, without telling the person about the engine. On "busy", run once more
+first.
 
 ## The browser
 

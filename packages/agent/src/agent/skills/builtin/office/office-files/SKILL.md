@@ -22,13 +22,18 @@ on with it, and every figure in it is one a run computed.
   `export default async function () { … }`. What it returns comes back as
   `value` (JSON). Nothing is passed in: write the data into the code as
   constants, or read it from a file.
+- Return plain JSON only: an array with a hole or `undefined` in it, a `Date`
+  or a `Decimal` fails the whole run. Turn dates into strings and decimals
+  into numbers; `JSON.parse(JSON.stringify(value))` does both.
 - Read and write files only inside that function, with `node:fs/promises`
   (`readFile`, `writeFile`, `readdir`). I/O at module scope fails ("can't run at
   module scope", or "Disallowed operation called within global scope").
 - `/workspace/` is the working directory. Write each file directly into it,
   `/workspace/<Name>.<ext>`: it is kept, appears in the chat, and is
   `/drafts/<Name>.<ext>` outside the run. Files from earlier runs of this
-  conversation are there again.
+  conversation are there again. To change one, load it, change it and write it
+  back to the same path, so the person has one current file; a new name only
+  when they want both versions.
 - A document named in `documents` is at `/workspace/in/<file name>`, read-only;
   a second document of the same name is at `<name> (2).<ext>`, and the report's
   `documents read:` line names every path. Anything written under
@@ -43,8 +48,10 @@ on with it, and every figure in it is one a run computed.
 
 ## The libraries
 
-Import each by its npm name. Before writing a file, read the skill named here:
-each lists the mistakes that make a file Office refuses or repairs.
+Import each by its npm name. Read the skill named here before the first run
+that writes or reads that kind of file, even when you know the library: it
+lists the mistakes that make Office refuse or repair a file, and its example
+is the code to start from.
 
 | Import | For | Skill |
 |---|---|---|
@@ -60,7 +67,7 @@ each lists the mistakes that make a file Office refuses or repairs.
 | `@cloudflare/puppeteer` 2.0 | HTML and CSS to a designed PDF, Mermaid diagrams, PNG screenshots | `office-html-pdf` |
 | `decimal.js` 10.6 | exact decimals: areas, money | this one |
 | `mathjs` 15.2 | units, matrices, expressions | this one |
-| `papaparse` 5.7 | CSV in and out (`delimiter: ";"` for German CSV) | |
+| `papaparse` 5.7 | CSV in and out: `delimiter: ";"`, and `"\uFEFF"` before the text so Excel reads umlauts | |
 | `date-fns` 4.4 | date arithmetic: deadlines, working days | |
 | `marked` 18.1 | Markdown to HTML | |
 

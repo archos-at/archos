@@ -154,6 +154,15 @@ describe("isolation", () => {
     assert.equal(body.value, null);
   });
 
+  test("a value that is not plain JSON is an error that says how to return one", async () => {
+    for (const value of ["const cells = []; cells[2] = 1; return cells;", "return { eingang: new Date(0) };"]) {
+      const { body } = await runner.run({ source: `export default () => { ${value} }` });
+      assert.equal(body.status, "error");
+      assert.match(body.stderr, /JSON-compatible|plain objects/);
+      assert.match(body.stderr, /JSON\.parse\(JSON\.stringify\(value\)\)/);
+    }
+  });
+
   test("a module that does not parse is status error", async () => {
     const { body } = await runner.run({ source: `export default () => {` });
     assert.equal(body.status, "error");
