@@ -31,7 +31,6 @@ apps/workspace/tests/hover-fill.spec.ts
 apps/workspace/tests/lib/boot.test.ts
 apps/workspace/tests/mono-plain-zero.spec.ts
 apps/workspace/ui/components/shell/app-rail-material.spec.ts
-apps/workspace/ui/components/ui/focus-ring.spec.ts
 apps/workspace/ui/components/ui/thread-column.spec.ts
 apps/workspace/ui/features/bim/mobile-chrome.spec.ts
 apps/workspace/ui/features/cards/phone-contracts.spec.tsx
