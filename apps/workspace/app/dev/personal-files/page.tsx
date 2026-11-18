@@ -462,8 +462,9 @@ function ShelfPage({ own, form, moreOpen, trashOpen, folder }: { own: boolean; f
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={own ? 'Projektunabhängig' : PROJECTS[0]!.name} />
-        <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto pt-2 ${folder ? '[&_[data-testid=folder-breadcrumb-row]]:hidden' : ''}`}>
-          {folder && <FolderPath trail={folderTrail(folder)} name={REAL_FOLDERS.find((item) => item.id === folder)?.name ?? ''} count={REAL_FILES.filter((file) => file.folderId === folder).length + REAL_FOLDERS.filter((item) => item.parentId === folder).length} />}
+        <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
+          {!own && <FolderPath trail={folder ? folderTrail(folder) : []} name={folder ? (REAL_FOLDERS.find((item) => item.id === folder)?.name ?? '') : 'Projektablage'} read={folder ? 'Alle 2 Dokumente gelesen' : '284 von 286 Dokumenten gelesen'} />}
+          {own && <FolderPath trail={[]} name="Meine Ablage" read="Alle 6 Dokumente gelesen" />}
           {own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} toolsInHead /> : <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} openFolder={folder} toolsInHead />}
         </div>
       </div>

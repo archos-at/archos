@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: a calmer head for the Ablage page (concept for ticket 81).
 
 import type { JSX } from 'react'
-import { ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
 function Side({ icon: Icon, label, who, picked }: { icon: LucideIcon; label: string; who: string; picked: boolean }): JSX.Element {
   return (
@@ -157,26 +157,29 @@ export function TrashWindow(): JSX.Element {
   )
 }
 
-export function FolderPath({ trail, name, count }: { trail: string[]; name: string; count: number }): JSX.Element {
+export function FolderPath({ trail, name, read }: { trail: string[]; name: string; read: string }): JSX.Element {
   const shown = trail.length > 3 ? [trail[0]!, '…', trail[trail.length - 1]!] : trail
   return (
-    <div className="flex flex-col gap-1.5 px-8 pb-1 pt-5">
-      <nav aria-label="Pfad" className="text-muted-foreground text-meta flex items-center gap-1.5">
-        {shown.map((step, index) => (
-          <span key={`${step}-${index}`} className="flex items-center gap-1.5">
-            {index > 0 && <ChevronRight className="size-3" aria-hidden />}
-            <span className={step === '…' ? 'bg-desk rounded-[4px] px-1.5' : 'underline-offset-2 hover:underline'}>{step}</span>
-          </span>
-        ))}
-      </nav>
-      <div className="flex items-center gap-3">
-        <span title={`Zurück zu ${trail[trail.length - 1]}`} className="bg-sheet shadow-press flex size-8 shrink-0 items-center justify-center rounded-control">
+    <div className="border-hairline mx-8 flex h-11 items-center gap-2 border-b">
+      {trail.length > 0 && (
+        <span title={`Zurück zu ${trail[trail.length - 1]}`} className="text-muted-foreground hover:bg-desk -ml-1.5 flex size-7 shrink-0 items-center justify-center rounded-control">
           <ArrowLeft className="size-4" aria-label="Eine Ebene zurück" />
         </span>
-        <Folder className="size-5 shrink-0" aria-hidden />
-        <h2 className="text-section min-w-0 truncate">{name}</h2>
-        <span className="text-muted-foreground text-meta shrink-0">{count} Elemente</span>
-      </div>
+      )}
+      <nav aria-label="Pfad" className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-[13px]">
+        {shown.map((step, index) => (
+          <span key={`${step}-${index}`} className="flex shrink-0 items-center gap-1.5">
+            <span>{step}</span>
+            <ChevronRight className="size-3" aria-hidden />
+          </span>
+        ))}
+        <span className="text-foreground min-w-0 truncate font-medium">{name}</span>
+      </nav>
+      <span className="text-muted-foreground text-meta ml-auto inline-flex shrink-0 items-center gap-1.5">
+        <Sparkles className="size-3.5" aria-hidden />
+        {read}
+        <ChevronDown className="size-3" aria-hidden />
+      </span>
     </div>
   )
 }
