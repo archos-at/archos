@@ -30,7 +30,10 @@ on with it, and every figure in it is one a run computed.
   `/drafts/<Name>.<ext>` outside the run. Files from earlier runs of this
   conversation are there again.
 - A document named in `documents` is at `/workspace/in/<file name>`, read-only;
-  anything written under `/workspace/in/` is dropped.
+  a second document of the same name is at `<name> (2).<ext>`, and the report's
+  `documents read:` line names every path. Anything written under
+  `/workspace/in/` is dropped, and the report says so: write a changed copy to
+  `/workspace/<Name>.<ext>`.
 - No network, no `fetch`, no npm, no shell, no Python, no LibreOffice: only the
   libraries below. TypeScript types are stripped, so plain JavaScript and
   TypeScript both run.

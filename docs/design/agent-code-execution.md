@@ -33,13 +33,19 @@ processed in code, so only the findings reach the model.
 3. It sends every file of the working directory (`/drafts/x` becomes `/workspace/x`) and the bytes of
    each named document (at most 10) under `/workspace/in/<file name>`. A document is resolved against
    the turn's inventory and read as the person, through the signed envelope; a base-corpus document is
-   refused (read it with `read_file`). Together at most 50 MB.
+   refused (read it with `read_file`). Together at most 50 MB. The file name is one path segment: a
+   folder part is cut, an empty, `.` or `..` name becomes `document`, and a name already taken (by
+   another document, or a working file under `/drafts/in/`) gets ` (2)`, ` (3)` before its extension
+   (`unique_input_path` in `run.py`). A document named twice is sent once. The report's
+   `documents read:` line names each document's path.
 4. The runner gives the run a free slot, a fresh Durable Object and a fresh isolate, runs the module
    with a 60 s limit (180 s maximum), and returns the module's value, stdout, stderr and only the files
    it created or changed under `/workspace/`.
 5. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
    that would take the conversation's files past 25 MB, and answers with the status, value, output and
-   the files kept. The agent may fix and run again, at most three times per file.
+   the files kept. An input the script changed, or a file it wrote under `/workspace/in/`, is dropped,
+   and the report says so on a `not kept:` line. The agent may fix and run again, at most three times
+   per file.
 
 A `503 busy` is retried three times with backoff; a runner that cannot be reached answers "nothing
 was run", and the agent may try once more.
