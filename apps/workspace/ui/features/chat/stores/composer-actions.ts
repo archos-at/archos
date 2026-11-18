@@ -1,5 +1,5 @@
 import type { DraftMention } from '@/lib/mentions/mention-text'
-import type { ComposerPrefill, ComposerSubject } from '../types'
+import type { ComposerExcerpt, ComposerPrefill, ComposerSubject } from '../types'
 import type { MessagesGet, MessagesSet, MessagesSlice } from './messages-slice-types'
 
 export const createComposerActions = (
@@ -9,6 +9,7 @@ export const createComposerActions = (
   MessagesSlice,
   | 'setComposerPrefill'
   | 'setComposerSubject'
+  | 'setComposerExcerpt'
   | 'consumeComposerPrefill'
   | 'setChatSendFn'
   | 'setComposerDraft'
@@ -31,6 +32,10 @@ export const createComposerActions = (
 
     setComposerSubject: (subject: ComposerSubject | null) => {
       set({ composerSubject: subject }, false, 'setComposerSubject')
+    },
+
+    setComposerExcerpt: (excerpt: ComposerExcerpt | null) => {
+      set({ composerExcerpt: excerpt }, false, 'setComposerExcerpt')
     },
 
     consumeComposerPrefill: () => {

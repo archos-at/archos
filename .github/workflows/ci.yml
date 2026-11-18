@@ -1,76 +1,25 @@
 name: CI
 
-# The one pipeline, with two jobs to do:
-#
-#   pull_request  The merge gate. Prove the change, applied to its base, keeps
-#                 every check a change of its shape can break, at the light
-#                 depth (rule 4). `CI OK` is the single required status check.
-#   push          The release gate, on develop and release/**. Prove the merged
-#                 result, build the images for exactly that tree, and tag them
-#                 for the commit only once every check has passed. Deploy
-#                 (deploy.yml) follows a green push run and nothing else, so a
-#                 commit with `sha-<commit>` images is a commit CI passed.
-#
-# Four rules decide how much runs, and each exists because its absence cost
-# something measurable. docs/contributing/ci.md has the numbers.
-#
-#   1. Run what the change can break. `changes` diffs a pull request against its
-#      base, and a push against the LAST COMMIT CI PASSED on that branch
-#      (ci/last_green.py), never against the previous push. A red commit's tier
-#      therefore keeps running until something makes it green.
-#   2. Never test the same thing twice. A push whose tree a green pull request
-#      run already tested, on top of a green parent, skips every check
-#      (ci/reuse_green_run.py). An image whose inputs GHCR already has is
-#      re-tagged, not rebuilt (ci/image_inputs.py).
-#   3. Spend runner slots like they are scarce, because they are. Runs queue for
-#      a free runner, so a job that saves thirty seconds of work but costs a
-#      slot makes everyone slower. Work that shares a toolchain shares a job.
-#   4. A pull request gets the light check, develop the full suite. The shards,
-#      suites, Hatchet tests and image builds run on the push the deploy to
-#      staging waits for, and on a pull request labelled `ci:full` (ci/ci_depth.py).
 on:
   push:
     branches: [develop, "release/**"]
   pull_request:
-    # `claude/**`: a PR stacked on another PR's branch gets the same gate as
-    # one that targets develop, instead of nothing until the PR below merges.
     branches: [develop, "release/**", "claude/**"]
 
 permissions:
   contents: read
 
 concurrency:
-  # One group per pull request and one per branch.
-  #
-  # A pull request's newer push cancels its older run: every run diffs the
-  # whole PR, so the newer one owes everything the older one did.
-  #
-  # A branch's runs are never cancelled mid-flight, and a run that is still
-  # QUEUED is replaced by a newer push (GitHub keeps one pending run per group).
-  # That is what makes a merge train cheap: nine quick merges cost the run in
-  # progress plus one more, not nine. It is safe only because a push diffs
-  # against the last green commit (rule 1), so the run that survives covers
-  # every commit that was dropped. Deploy reads a dropped run as superseded.
   group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Where every job runs: the repository variable CI_RUNNER, or GitHub's hosted
-# `ubuntu-latest` when it is unset. Moving to self-hosted runners (Actions
-# Runner Controller) is setting the variable to the scale set's name, not an
-# edit here. The runner image must carry what the hosted image gives these jobs
-# for free: Docker (service containers, buildx, gitleaks), python3, jq, gh,
-# curl and git. docs/contributing/ci.md#runners-and-cost.
 env:
-  # Image references must be lowercase, and nothing lowercases this one for us.
   REGISTRY: ghcr.io/archos-at
 
 jobs:
   changes:
     name: Plan
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    # Every job has a timeout of a few times its measured run. GitHub's
-    # default is 360 minutes, and a hung job holds one of the capped runner
-    # slots for all of them while every queued run waits behind it.
     timeout-minutes: 10
     permissions:
       contents: read
@@ -78,12 +27,7 @@ jobs:
       packages: read # whether GHCR already has an image with these inputs
       pull-requests: read # the `ci:full` label as it is now, not when the event fired
     outputs:
-      # 'light' or 'full': how much of CI this run owes (ci/ci_depth.py). A
-      # failure of that step reads as full.
       depth: ${{ steps.depth.outputs.depth || 'full' }}
-      # 'true' when this push's tree already passed in full on its pull request.
-      # The filter then does not run, every tier reads 'false', every check
-      # skips. Images are still planned: a pull request builds, never pushes.
       reused: ${{ steps.reuse.outputs.hit || 'false' }}
       backend: ${{ steps.filter.outputs.backend || 'false' }}
       workspace: ${{ steps.filter.outputs.workspace || 'false' }}
@@ -96,16 +40,9 @@ jobs:
       hatchet: ${{ steps.filter.outputs.hatchet || 'false' }}
       runner_e2e: ${{ steps.filter.outputs.runner_e2e || 'false' }}
       skills: ${{ steps.filter.outputs.skills || 'false' }}
-      # The images this run builds (a matrix), and all three with their hashes.
       build: ${{ steps.images.outputs.build }}
       images: ${{ steps.images.outputs.images }}
-      # Third-party image pins this change adds or moves, for trivy.
       pins: ${{ steps.pins.outputs.pins || '[]' }}
-      # What a pull request's test lanes run: 'select' only the tests its
-      # change reaches, 'full' the sharded, coverage-gated suite, 'none' (UI)
-      # nothing. A push is always full. Reaches since what is `reference`:
-      # 'green' its last green run, 'base' the whole pull request against
-      # develop. ci/pr_selection.py says why, in this job's log.
       backend_mode: ${{ steps.pysel.outputs.py_mode || 'full' }}
       py_reference: ${{ steps.pysel.outputs.reference || 'base' }}
       py_extra: ${{ steps.pysel.outputs.py_extra || '[]' }}
@@ -116,15 +53,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          # Every commit and tree, no file contents: the diff base, the merge
-          # base and `git diff --name-only` need only those. The full history
-          # is 1.1 GB and fetching it cost this job, which every other job
-          # waits for, ~29s; blobless it is 16 MB. The few blobs the image and
-          # pin scripts read at the base are fetched on demand by the two
-          # steps below that source ci/git_auth.sh.
           filter: blob:none
-          # synchronize checks out the PR head. The default PR checkout is a
-          # merge commit, which would mix develop into the diff.
           ref: ${{ github.event.action == 'synchronize' && (github.event.pull_request.head.sha || github.sha) || github.sha }}
 
       - name: How much this run owes
@@ -138,11 +67,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 ci/ci_depth.py
-
-      # Push only. Not continue-on-error on purpose: the script falls back to
-      # the root commit (everything runs) on any lookup failure, so a failure
-      # of the step itself is a broken checkout, and it should say so loudly
-      # rather than leave the filter without a base.
       - name: Last commit CI passed on this branch
         id: green
         if: github.event_name == 'push'
@@ -150,11 +74,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 ci/last_green.py
 
-      # A squash merge onto a base that has not moved lands exactly the tree the
-      # PR's last run tested. That result counts only on top of a green parent:
-      # a PR run that skipped the backend because it did not touch it proves
-      # nothing about a backend that was already red on develop. A miss, or a
-      # failure of this step, runs everything.
       - name: Reuse the pull request's green result for this tree
         id: reuse
         if: steps.green.outputs.parent-is-green == 'true'
@@ -167,16 +86,10 @@ jobs:
         id: filter
         if: steps.reuse.outputs.hit != 'true'
         with:
-          # What each tier means and why it is wide: .github/filters.yml
           filters: .github/filters.yml
-          # Empty token -> git diff, so `base` is honoured on pull_request too.
           token: ''
           base: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
 
-      # A pull request builds an image when it changes what goes into it. A push
-      # builds one when GHCR has no image with these inputs yet, whatever the
-      # diff, so a dropped run, a failed build or a new week costs a rebuild and
-      # never a missing image.
       - name: Images this run must build
         id: images
         env:
@@ -193,7 +106,6 @@ jobs:
       - name: Tests this change reaches
         id: pysel
         if: github.event_name == 'pull_request' && (steps.filter.outputs.backend == 'true' || steps.filter.outputs.workspace == 'true')
-        # A failure here leaves every mode unset, which reads 'full'.
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -211,8 +123,6 @@ jobs:
           . ci/git_auth.sh
           python3 ci/pinned_images.py new "$BASE"
 
-      # A skipped job reads as passed, so the run page says what was decided
-      # and why: the diff base, reuse, tiers, images, pins.
       - name: Summary
         if: always()
         continue-on-error: true
@@ -230,18 +140,6 @@ jobs:
           PINS: ${{ steps.pins.outputs.pins }}
         run: python3 ci/plan_summary.py >> "$GITHUB_STEP_SUMMARY"
 
-  # Whole-repo checks, deliberately behind no path filter: they lint every file,
-  # so gating them on a tier would let a deploy/-only PR land drift that stays
-  # invisible until an unrelated PR trips over it. Whoever introduces the drift
-  # is the one who sees it. One job, because every step needs the same Python
-  # environment and none is slow enough to be worth a runner slot of its own.
-  # Repo checks run as three legs side by side. As one job they ran in series
-  # and were the last check to finish in 21 of 45 pull request runs measured on
-  # 2026-11-03 (median 195 s, p90 331 s, max 444 s): pre-commit, the machinery
-  # tests, reno's history-walking lint and apm's network fetches, one after
-  # another. Runners wait about two seconds for a slot now, so the split costs
-  # setup time on three runners and saves the sum on the critical path. Each
-  # leg is named "Repo checks (...)" so the run page still groups them.
   repo:
     name: Repo checks (lint, secrets)
     needs: changes
@@ -251,14 +149,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      # No persisted checkout token: this job runs repository-defined pre-commit
-      # hooks, which never need a credential (hook repos clone anonymously).
-      # A pull request starts shallow and fetches only down to its merge base,
-      # which is all the release-note rule and gitleaks read; the full history
-      # was 1.1 GB and ~75 s of every PR's critical path
-      # (docs/audit/blast-radius-2026-10.md §7). reno alone needs the whole
-      # history, and only when the notes change (below). A push keeps the full
-      # clone: its gitleaks scan reads every commit.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -273,18 +163,12 @@ jobs:
           . ci/git_auth.sh
           ci/fetch_merge_base.sh "$BASE_SHA" "$HEAD_SHA"
       - uses: ./.github/actions/setup-python-env
-      # pre-commit builds an isolated env per hook repo, and they only change
-      # when a `rev:` does: ~25s of env building becomes ~0.3s warm. The
-      # interpreter path is in the key because pre-commit rebuilds an env whose
-      # pyvenv.cfg names another one, and setup-python floats the patch version.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ env.pythonLocation }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
             pre-commit-${{ runner.os }}-${{ env.pythonLocation }}-
-      # Ruff runs once, in `Backend lint` below, where its findings become
-      # annotations on the diff.
       - name: Pre-commit (all hooks, all files)
         env:
           SKIP: ruff-check,ruff-format
@@ -292,17 +176,8 @@ jobs:
           . .venv/bin/activate
           pre-commit run --all-files
       - uses: ./.github/actions/setup-task
-      # `github` output makes each finding an annotation on the diff.
       - name: Backend lint (ruff)
         run: task be:lint -- --output-format=github
-      # Every commit the change adds, not only its final diff, so a secret is
-      # caught in the commit that added it even when a later one deletes it.
-      # On a pull request that is base..HEAD: the commits under the base were
-      # scanned when they landed, and the weekly Security run reads the whole
-      # history of every branch. A push reads its own full history. Not
-      # `--all`, gitleaks' default: a full-depth checkout fetches every
-      # branch, and an open PR's fixture then failed every other PR's run.
-      # Exceptions: CONTRIBUTING.md "Secret scanning".
       - name: Secret scan (gitleaks)
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -314,10 +189,6 @@ jobs:
             --log-opts="$range"
 
 
-  # The tests of ci/, the workflows and the release-note pipeline. Here rather
-  # than only in the backend suite, so the backend filter need not fire for a
-  # change that only touches those (.github/filters.yml). A shallow checkout:
-  # they read the tree, not its history.
   repo-tests:
     name: Repo checks (CI machinery tests)
     needs: changes
@@ -335,9 +206,6 @@ jobs:
       - name: Repository machinery tests (CI, release notes)
         run: task be:test:harness
 
-  # The release notes and the agent-skill lockfile. Neither needs the project
-  # venv: reno and the house rules run through `uv run --no-project`, apm
-  # through `uvx`, so this leg sets up uv alone.
   release-notes:
     name: Repo checks (release notes, skills, migrations)
     needs: changes
@@ -348,9 +216,6 @@ jobs:
       contents: read
       pull-requests: read # the no-release-note label, read when the job runs
     steps:
-      # As in the lint leg: a pull request fetches down to its merge base, which
-      # the release-note rule reads; reno's lint deepens the clone itself when
-      # the notes changed. A push keeps the full clone for reno.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -368,22 +233,9 @@ jobs:
         with:
           enable-cache: true
       - uses: ./.github/actions/setup-task
-      # `skills/` is the source, `.claude/` and `.agents/` are generated and
-      # gitignored, and apm.lock.yaml hashes both, so a skill edit that was
-      # never re-locked appears in no diff at all. `apm audit` exits 0 on
-      # drift; `task agents:audit` is the wrapper that does not.
-      # Only when the skills, the manifest, the lockfile or apm's pin change:
-      # nothing else can make the lockfile stale, and apm fetches every pinned
-      # skill repository over the network, 17 s at the median and over two
-      # minutes in 6 of 45 pull request runs measured on 2026-11-03.
       - name: Agent-skill lockfile (apm)
         if: needs.changes.outputs.skills == 'true'
         run: task agents:audit
-      # The notes are published verbatim to piloti.at, so their prose is linted
-      # on every run, a push straight to release/** included. reno's own lint
-      # reads the notes through the whole git history, and its verdict changes
-      # only with the notes, reno's config or its pin, so a pull request that
-      # touches none of them skips that part rather than fetch 1.1 GB for it.
       - name: Release notes (lint)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -396,11 +248,6 @@ jobs:
             . ci/git_auth.sh
             task release:lint
           fi
-      # docs/contributing/obligations.md: a change a customer can notice ships with its note. The
-      # escape hatch is the `no-release-note` label, read from the PR as it is
-      # NOW rather than from the event payload: a re-run replays the payload, so
-      # a label added after the push used to need another commit. Add the
-      # label, then re-run this job.
       - name: Release notes (required for user-visible changes)
         if: github.event_name == 'pull_request'
         env:
@@ -414,12 +261,6 @@ jobs:
             exit 0
           fi
           python3 ci/require_release_note.py "$BASE_SHA" "$HEAD_SHA"
-      # A migration this pull request adds may not take away what a running
-      # build reads (a drop, a rename, a narrowed type): the migration Job runs
-      # forward only, so it would break a rollback by image tag and the old
-      # pods mid-rollout. The `migration:contract` label, read live, is the
-      # author's word that production is past every build reading the old
-      # shape. ci/migration_contract.py; docs/deployment/rollback.md.
       - name: Migrations stay rollback-safe (expand/contract)
         if: github.event_name == 'pull_request'
         env:
@@ -433,11 +274,6 @@ jobs:
             exit 0
           fi
           python3 ci/migration_contract.py "$BASE_SHA" "$HEAD_SHA"
-      # A pull request that declares a switch (deploy/rollout/switches/) merges
-      # only once prod runs the expand it names: one promotion carrying both
-      # lets the new writers run beside pods that cannot read them. Re-run this
-      # job once the promotion with the expand is live. ci/expand_switch.py;
-      # docs/deployment/expand-and-switch.md.
       - name: A switch merges only once prod runs its expand
         if: github.event_name == 'pull_request'
         env:
@@ -454,10 +290,6 @@ jobs:
           git fetch -q --filter=blob:none origin prod:refs/remotes/origin/prod
           python3 ci/expand_switch.py pr "$BASE_SHA" "$HEAD_SHA" origin/prod
 
-  # Diff-aware: `semgrep ci` on a pull request reports only findings the change
-  # introduces, so it blocks a new finding without failing on the backlog. A
-  # push has nothing new to find that its pull request did not, and the
-  # full-tree report is advisory, so it lives in the weekly Security run.
   semgrep:
     name: SAST (Semgrep, new findings)
     needs: changes
@@ -465,17 +297,9 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     container:
-      # Pinned: an unpinned scanner image changes the rules under a PR that
-      # did not change, and nobody can tell which version said what.
       image: semgrep/semgrep:1.177.0
     steps:
-      # Shallow, on purpose: `semgrep ci` finds the merge base itself, asking
-      # the GitHub API first (GH_TOKEN below) and deepening the clone only if
-      # that fails. The full history cost ~72 s (docs/audit/blast-radius-2026-10.md §7).
-      # The checkout keeps its token so that fallback fetch can run.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # p/github-actions includes the mutable-action-tag rule, so an action
-      # referenced by tag instead of commit SHA is a new finding here.
       - name: Semgrep scan
         run: >-
           semgrep ci --json-output=semgrep.json
@@ -488,12 +312,6 @@ jobs:
         continue-on-error: true
         run: python3 ci/semgrep_summary.py semgrep.json "new findings this pull request introduces" >> "$GITHUB_STEP_SUMMARY"
 
-  # The core suite, in four shards. It is ~900 CPU-seconds on a 2-vCPU runner
-  # and nothing in it dominates (docs/contributing/ci.md#the-backend-lane), so
-  # as one job it was the whole run's critical path: 7-8 of a 14-minute run,
-  # with the other suites queued behind it in the same job. Each shard takes
-  # its share by recorded test time (pytest-split), writes coverage data and
-  # gates nothing; `backend-coverage` combines the data and applies the gate.
   backend:
     name: Backend core (shard ${{ matrix.shard }}/4)
     needs: changes
@@ -501,28 +319,13 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
-      # One shard's failure should not hide the others' results.
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-    # A real Qdrant for every Python suite (ADR-0115): it is the only vector
-    # store, and the behaviour under test (German BM25, fusion, strict mode,
-    # group_by) is the server's, so a mock would only test the mock. Same
-    # version as production. In every backend job, so a suite that gains a
-    # store test cannot run it against nothing.
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
-        # Storage in memory: on the container disk every payload index is a
-        # sync, and a test collection creates about forty (core suite with the
-        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11). The
-        # tmpfs is half the runner's memory and an empty test collection takes
-        # about 300 MiB of it, so the store fixture keeps one module's pair per
-        # process (knowledge_layer_testing/vector_store.py); full, Qdrant
-        # refuses every write with "WAL buffer size exceeds available disk space".
         options: --tmpfs /qdrant/storage
-        # WARN, not the default INFO: the runner prints the service's log after the
-        # job, and thousands of request lines buried the pytest failure out of reach.
         env:
           QDRANT__LOG_LEVEL: WARN
         ports:
@@ -533,7 +336,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # ONE interpreter, the one the backend image ships (apps/agent-host/Dockerfile).
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -547,10 +349,6 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # The core suite's coverage gate (65% of packages/agent/src/agent) over all
-  # four shards. The total is in the job log and summary; the sticky PR comment
-  # it used to post listed only changed files, so it read "no changed files" on
-  # most pull requests and re-notified every push.
   backend-coverage:
     name: Backend coverage gate
     needs: [changes, backend]
@@ -560,8 +358,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      # The sources the data names, for the report; no environment beyond
-      # coverage itself, at the version the shards ran.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -579,9 +375,6 @@ jobs:
           uvx --python 3.14 --from "$coverage" coverage report --skip-covered --fail-under=65
           echo "Backend coverage (packages/agent/src/agent): $(uvx --python 3.14 --from "$coverage" coverage report --format=total)%" >> "$GITHUB_STEP_SUMMARY"
 
-  # Every Python suite but the core one, one job each. Run back to back in one
-  # job they took 4:50 (sources 2:32, agent_host 1:00, the rest 0:36), the
-  # longest job of a full pull request; side by side the longest is sources.
   backend-suites:
     name: Backend suites (${{ matrix.suite }})
     needs: changes
@@ -595,10 +388,7 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
-        # Storage in memory, as in the first Qdrant service of ci.yml.
         options: --tmpfs /qdrant/storage
-        # WARN, not the default INFO: the runner prints the service's log after the
-        # job, and thousands of request lines buried the pytest failure out of reach.
         env:
           QDRANT__LOG_LEVEL: WARN
         ports:
@@ -619,30 +409,12 @@ jobs:
       - name: Python package suites (packages/knowledge-layer, public-sources, ris-adapter, tavily-web-search)
         if: matrix.suite == 'sources'
         run: task be:test:sources
-      # The suites above run each claim queue on SQLite only: their Postgres
-      # parameter skips without TEST_POSTGRES_URL, and production runs the
-      # Postgres SQL. ubuntu-latest ships the server binaries; the RLS script
-      # builds the throwaway cluster, as in the workspace job.
       - name: Claim queues on real Postgres
         if: matrix.suite == 'claim queues'
         run: task be:test:postgres
         env:
-          # Turns "the Postgres branch skipped" into a failure for THIS step only.
           TEST_POSTGRES_REQUIRED: "1"
 
-  # A pull request whose change testmon can see runs only the tests that
-  # change reaches, per suite, from the database the last green develop push
-  # recorded (`testmon.yml`). The full sharded suite and the coverage gate
-  # run on every push to develop, which the deploy waits for, so a test this
-  # selection misses still turns develop red before staging. What forces the
-  # full suite on a pull request instead: ci/pr_selection.py.
-  #
-  # The core selection runs in four shards. A change to a module every test
-  # imports (logging, the conftest) selects the whole suite, and half the
-  # selections measured on 2026-10-22 were that: 15,200 tests in 4-5.5 minutes
-  # in one job, longer than the full suite's shards. pytest-split splits what
-  # testmon selected, so the shards must select from the same database: they
-  # read develop's and keep none of their own.
   backend-affected:
     name: Backend affected tests (${{ matrix.suite }}${{ matrix.shard && format(' {0}/4', matrix.shard) || '' }})
     needs: changes
@@ -662,10 +434,7 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
-        # Storage in memory, as in the first Qdrant service of ci.yml.
         options: --tmpfs /qdrant/storage
-        # WARN, not the default INFO: the runner prints the service's log after the
-        # job, and thousands of request lines buried the pytest failure out of reach.
         env:
           QDRANT__LOG_LEVEL: WARN
         ports:
@@ -680,13 +449,6 @@ jobs:
         with:
           python-version: "3.14"
       - uses: ./.github/actions/setup-task
-      # This pull request's own database first: it carries what the last push
-      # ran, so the next push re-runs only what it changed (and anything that
-      # failed, which testmon keeps selecting until it passes). Else develop's,
-      # which is all a core shard reads (above). Develop's too when the plan
-      # selected against the whole pull request (`py_reference: base`): that
-      # selection is sound only measured from develop, and from this pull
-      # request's database it would skip a test whose file it changed earlier.
       - name: Restore this pull request's test database
         id: own-db
         if: ${{ !matrix.shard && needs.changes.outputs.py_reference == 'green' }}
@@ -696,10 +458,6 @@ jobs:
           key: testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-${{ github.sha }}
           restore-keys: |
             testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-
-      # Its own step, with the path `testmon.yml` saves under: a cache is
-      # found only by the paths it was saved with, and when this was one step
-      # with the suite's own path, develop's database was never found and a
-      # first push ran every test.
       - name: Restore develop's test database
         if: steps.own-db.outputs.cache-matched-key == ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -722,7 +480,6 @@ jobs:
             extra="$(jq -r --arg root "$root" '[.[] | select(test($root))] | join(" ")' <<<"$EXTRA_JSON")"
           fi
           task be:test:affected SUITE="$SUITE" SHARD="$SHARD" EXTRA="$extra"
-      # Saved red or green: a failed test is recorded as failed and re-runs.
       - name: Keep this pull request's database for its next push
         if: always() && steps.affected.outcome != 'skipped' && !matrix.shard
         continue-on-error: true
@@ -730,24 +487,12 @@ jobs:
         with:
           path: .testmondata-${{ matrix.suite }}
           key: testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-${{ github.sha }}
-      # Production's claim SQL, beside the suite whose queue it is cheapest to
-      # pair with. 14 seconds; not worth selecting.
       - name: Claim queues on real Postgres
         if: matrix.suite == 'api'
         run: task be:test:postgres
         env:
           TEST_POSTGRES_REQUIRED: "1"
 
-  # Everything on the UI's toolchain except the test shards. The production
-  # build is NOT here: the frontend image build (`image`) runs the same
-  # `bun run build` inside the Dockerfile whenever the UI's inputs change, so a
-  # second build here only duplicated two minutes of work.
-  #
-  # Tenant isolation is the only check that proves row-level security holds
-  # (ADR-0041): `tenant-isolation.integration.spec.ts` self-skips without a
-  # database, so the unit shards are green whether the policies work or not.
-  # It also runs the migrations as a non-superuser owner, which is what catches
-  # a privilege mistake a superuser hides.
   workspace:
     name: Workspace (cards, lint, types, tenant isolation)
     needs: changes
@@ -755,14 +500,9 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      # These jobs run PR-controlled code (`bun install` runs lifecycle scripts,
-      # the suite runs the app), so no repository credential is left in
-      # .git/config for them to find. Nothing here needs authenticated git.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Node is the RUNTIME (Turbopack's PostCSS step spawns a real `node`);
-      # Bun is the toolchain: install, scripts, `bun check` (ADR-0103).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
@@ -770,43 +510,23 @@ jobs:
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
       - run: task workspace:cards:check
-      # Findings become annotations on the pull request's diff.
       - run: task workspace:lint -- --format=github
       - run: task workspace:types
-      # How many specs a change to each hub module selects, against its recorded
-      # baseline: a new edge from a hub into a subtree fails here.
       - run: task workspace:blast-radius
-      # ubuntu-latest ships PostgreSQL server binaries but runs no cluster; the
-      # script builds a throwaway one and tears it down.
       - name: Tenant isolation (row-level security, real Postgres)
         run: task db:test:rls
         env:
-          # Turns "the suite skipped" into a failure for THIS step only: the
-          # unit shards legitimately have no database.
           RLS_SUITE_REQUIRED: "1"
-          # The per-migration checks only when a migration or the script moved.
           RLS_MIGRATION_CHECKS: ${{ needs.changes.outputs.migrations == 'true' && '1' || '0' }}
 
   workspace-test:
     name: Workspace tests (shard ${{ matrix.shard }}/8)
     needs: changes
-    # A pull request whose change no UI spec reads since its reference (the
-    # last green run or the base, ci/pr_selection.py) runs none ('none'); one that a selection can see runs only the specs
-    # its change reaches ('select'); everything else, and every push, all.
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
-      # One shard's failure should not hide the others' results.
       fail-fast: false
-      # Eight. The suite is mostly per-file startup (import and setup are ~60%
-      # of a shard), so it scales with shards, and by 2026-10-19 four shards
-      # took 7-11 minutes each against ~3:30 for a backend core shard. The
-      # old reason for four, queued runner slots, did not hold up: job-level
-      # queueing was under three seconds in every run measured then. Six
-      # shards split by time (duration-sequencer.ts) all took 3.4-4.2 min on
-      # 2026-10-22, the longest job of the run: with no shard left heavier
-      # than the rest, only more of them shorten it.
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
@@ -821,8 +541,6 @@ jobs:
       - run: task workspace:install
       - name: All specs, shard ${{ matrix.shard }}/8
         if: github.event_name == 'push' || needs.changes.outputs.ui_mode == 'full'
-        # No coverage instrumentation: nothing gates on UI coverage, and the
-        # pull request comment it fed was removed (docs/contributing/ci.md).
         run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=false
       - name: The specs this change reaches, shard ${{ matrix.shard }}/8
         if: github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'select'
@@ -833,8 +551,6 @@ jobs:
 
   site:
     name: Website (Astro check, tests, build, a11y)
-    # The public website, apps/website, and the riso kit's fast gate (task website:verify).
-    # Its CMS has its own job, `cms`.
     needs: changes
     if: needs.changes.outputs.site == 'true'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
@@ -848,12 +564,6 @@ jobs:
           node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
-      # The website's accessibility gate drives Chromium; this installs its system libraries
-      # (the version is apps/website's playwright devDependency). Not fatal on its own: the
-      # runner image already carries every library Chromium links against, and what apt still
-      # fetches are nine optional font packages. When the runner cannot resolve the Ubuntu
-      # mirrors (2026-11-11: three runs within an hour), the gate below still runs, and it
-      # fails by itself if Chromium cannot start.
       - run: >-
           npx --yes playwright@1.63.0 install-deps chromium
           || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
@@ -861,9 +571,6 @@ jobs:
 
   cms:
     name: CMS (typecheck, lint, tests, Postgres suite)
-    # The website's CMS, apps/cms (Payload, ADR-0155): task cms:verify. Its own job
-    # and its own tier, because its toolchain is its own lockfile and its suite
-    # needs a Postgres the website's job has no use for.
     needs: changes
     if: needs.changes.outputs.cms == 'true'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
@@ -877,9 +584,6 @@ jobs:
           node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
-      # ubuntu-latest ships PostgreSQL server binaries but runs no cluster;
-      # scripts/test-db.sh builds a throwaway one, migrates it, checks the config
-      # against the migrations, runs the review rules on it, and tears it down.
       - run: task cms:verify
 
   infra:
@@ -897,20 +601,8 @@ jobs:
           node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
-      # The program and the policy pack, each from its own lockfile; a policy
-      # rule that no longer compiles would otherwise surface only at deploy time.
       - run: task infra:install
-      # What can run on an untrusted PR: the types (every CRD `spec`, and the
-      # policy pack) and the manifests under `pulumi.runtime.setMocks` (a
-      # renamed flag, a Service missing a port, a probe on the wrong endpoint).
-      # `pulumi preview`, CRD schema validation and CrossGuard need stack
-      # credentials and run in deploy.yml.
       - run: task infra:types
-      # The collector build the image digest pins (`collectorImage` in
-      # deploy/pulumi/src/config/observability.ts): `collector-validate.spec.ts` runs every
-      # rendered config through its `validate`, which is what refuses an
-      # unknown component or key before the collector would at start. Bump the
-      # version and checksum together with that digest.
       - name: Install otelcol-contrib (config validation)
         env:
           OTELCOL_VERSION: "0.165.0"
@@ -921,11 +613,6 @@ jobs:
           echo "${OTELCOL_SHA256}  $RUNNER_TEMP/otelcol.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/otelcol.tar.gz" -C "$RUNNER_TEMP" otelcol-contrib
           echo "OTELCOL_BIN=$RUNNER_TEMP/otelcol-contrib" >> "$GITHUB_ENV"
-      # agentgateway's published config schema at the tag its image pins
-      # (`MCP_GATEWAY.image` in deploy/pulumi/src/platform/mcp-gateway-config.ts):
-      # `index-mcp-gateway.spec.ts` holds the file the program renders against it,
-      # which refuses a key agentgateway does not know before a pod would. Bump
-      # the version and checksum together with that digest.
       - name: Fetch agentgateway's config schema (config validation)
         env:
           AGENTGATEWAY_VERSION: "v1.7.0"
@@ -938,9 +625,6 @@ jobs:
           echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
       - run: task infra:test
 
-  # packages/ifc-spatial-py sits outside the uv workspace (own uv.lock),
-  # so the backend tier's install cannot run it. ~4 minutes, which is why it is
-  # filtered at all.
   packages:
     name: Standalone packages (packages/)
     needs: changes
@@ -951,8 +635,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Keyed on the package's OWN uv.lock: the root one would restore an
-      # environment this suite never uses (IfcOpenShell + shapely wheels).
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
@@ -968,19 +650,11 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - name: Install the code runner's own toolchain
         run: task runner:install
-      - name: Let Chromium's sandbox create user namespaces
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: browser-renderer (allowlist and hardened container suites)
         run: task browser:test
       - name: code-runner (workerd isolate suite)
         run: task runner:test
 
-  # The agent's `execute` tool against the real code runner, end to end: the
-  # office skills' scripts run in workerd, their files land in an in-memory
-  # draft store, a second run rewrites one, `file_draft` builds the payloads,
-  # and a thrown error and an endless loop come back as reports. Its own job
-  # because it needs the root venv and the runner's Node toolchain, which no
-  # other job holds together; about 20 s once both are installed.
   runner-e2e:
     name: Code runner end to end (execute tool)
     needs: changes
@@ -1004,12 +678,6 @@ jobs:
       - name: execute and file_draft against the real runner
         run: task runner:e2e
 
-  # The path from the agent to the engine: `ifc_measure` builds the call, the
-  # engine answers over real IFC files, the renderer writes what the model reads.
-  # The root environment has no engine, so these suites skip in every backend job,
-  # and the engine's own suite stops short of the agent. Either side can break it.
-  # Not setup-python-env: this job adds a package to the venv that action caches
-  # for every other job, under a key that does not know about it.
   agent-engine:
     name: Agent to engine tests
     needs: changes
@@ -1027,15 +695,10 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
-      # Its own cache key: the engine's wheels are in no other job's download cache.
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-suffix: agent-engine
-      # The root environment, then the engine the way apps/agent-host/Dockerfile
-      # installs it, so the versions it resolves are the image's. Unlocked on
-      # purpose: a new release can turn this red with no commit, and the next image
-      # would carry that release too. docs/contributing/ci.md has the exception.
       - name: Install the root environment and the engine
         run: |
           uv venv --python 3.14 .venv
@@ -1049,16 +712,8 @@ jobs:
           packages/agent/tests/tools/bim/test_ifc_measure_tool.py
           packages/agent/tests/tools/bim/test_question_battery.py
           --junitxml="$RUNNER_TEMP/agent-engine.xml"
-      # A skipped suite is green, and every one of these skips without the engine.
       - name: Every suite ran, none skipped
         run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP/agent-engine.xml"
-
-  # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
-  # folder card tasks, the research run and the BFF's `bff-job`, each end to end, with its retries,
-  # cancel and per-organization cap. Every suite here skips without an engine,
-  # so until this job none of them had ever run. Its own job rather than a step
-  # of the backend or workspace ones: it needs both toolchains and an engine
-  # none of them starts, and it runs only when the code it proves changes.
   hatchet:
     name: Hatchet engine tests
     needs: changes
@@ -1078,13 +733,9 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
-      # hatchet-lite and its Postgres, healthy, with an API token made inside
-      # the container; exports HATCHET_CLIENT_TOKEN, _HOST_PORT, _TLS_STRATEGY.
       - name: Start a Hatchet engine (hatchet-lite)
         id: engine
         run: bash ci/hatchet_engine.sh start
-      # Each suite runs whatever the one before it did, so one red suite does
-      # not hide the others' results.
       - name: Ingest workflow on the engine (Python)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
         timeout-minutes: 8
@@ -1092,7 +743,6 @@ jobs:
           .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=150
           packages/agent/tests/knowledge/test_ingest_workflow_engine.py
           --junitxml="$RUNNER_TEMP/hatchet-ingest.xml"
-      # Its first test waits for the engine's own cron, up to a minute.
       - name: Folder card tasks on the engine (Python)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
         timeout-minutes: 8
@@ -1107,10 +757,6 @@ jobs:
           .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=150
           apps/agent-host/tests/test_research_workflow_engine.py
           --junitxml="$RUNNER_TEMP/hatchet-research.xml"
-      # Over the migrated database as the restricted role, which the RLS script
-      # builds (`--only`). One cluster per file: the BFF's job and scheduler
-      # suites take from whole tables, so they never share one. The glob picks
-      # up a new `bff/<area>/orchestrator.integration.spec.ts` without an edit here.
       - name: BFF jobs on the engine (TypeScript, real Postgres)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
         working-directory: apps/workspace
@@ -1120,7 +766,6 @@ jobs:
             bash ../../scripts/rls-test-db.sh --only "$spec" \
               --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/hatchet-bff-$area.xml"
           done
-      # A skipped suite is green, and every one of these skips without an engine.
       - name: Every suite ran, none skipped
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
         run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP"/hatchet-*.xml
@@ -1128,10 +773,6 @@ jobs:
         if: failure()
         run: bash ci/hatchet_engine.sh logs
 
-  # The third-party images deploy/pulumi pins by digest (ADR-0029) are built by
-  # nobody here, so nothing else scans them. Only the pins this change adds or
-  # moves: an untouched pin with a CVE disclosed this morning is not this
-  # change's to fix, and the weekly Security run scans every pin.
   trivy:
     name: Image vulns (trivy, changed pins)
     needs: changes
@@ -1160,9 +801,6 @@ jobs:
           path: .trivy-cache/fanal
           key: trivy-layers-${{ env.TRIVY_VERSION }}-${{ hashFiles('pins.txt') }}
 
-  # A pull request proves each image it changes still builds, and pushes
-  # nothing: the token is read-only, so no build here can reach the registry
-  # or the layer cache the next publish imports.
   image:
     name: Image build (${{ matrix.name }})
     needs: changes
@@ -1190,10 +828,6 @@ jobs:
           hash: ${{ matrix.hash }}
           registry: ${{ env.REGISTRY }}
 
-  # A push builds each image GHCR does not have yet and pushes it under its
-  # content tag only. It runs beside the checks rather than after them: the
-  # content tag claims nothing about the commit, so building early costs
-  # nothing if a check later fails, and saves the build time when none does.
   image-push:
     name: Image build + push (${{ matrix.name }})
     needs: changes
@@ -1221,15 +855,8 @@ jobs:
           hash: ${{ matrix.hash }}
           registry: ${{ env.REGISTRY }}
           push: "true"
-          # The PostHog source maps the build kept aside, for the Source maps
-          # workflow to upload after CI; nothing here holds a PostHog key.
-          # docs/contributing/ci.md#posthog-releases-and-source-maps
           export-sourcemaps: ${{ matrix.name == 'frontend' }}
 
-  # The commit's tags, `sha-<commit>` for all three images (and `latest` on
-  # develop), go on only after every check on this push passed. That is the
-  # contract deploy.yml and a prod promotion rely on: every commit CI passed
-  # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
     needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image-push]
@@ -1252,7 +879,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      # A registry-side manifest copy: seconds, and no layer moves.
       - name: Tag sha-${{ github.sha }}
         env:
           IMAGES: ${{ needs.changes.outputs.images }}
@@ -1273,11 +899,6 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    # `retrieval-eval` used to be here. It read the real OIB Richtlinien, which
-    # are now operator-provided and gitignored (data/oib/README.md), so no CI
-    # checkout can hold a corpus to measure, and a job that can only pass
-    # vacuously is worse than none. It survives as `task be:eval:retrieval`;
-    # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
     needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
@@ -1294,11 +915,6 @@ jobs:
               sys.exit(f"Failing jobs: {failed}")
           print("All required jobs passed or were skipped.")
           PY
-      # A green full pull_request run leaves a marker named for the tree it tested
-      # (GITHUB_SHA is the merge commit every job checked out), so the push
-      # that lands this exact tree on a green parent can skip its checks. After
-      # the check above and without always(), so a failing gate uploads nothing.
-      # Best effort: a hiccup costs the push a full run, never this gate.
       - name: Name the tree this run tested
         id: tree
         if: github.event_name == 'pull_request' && needs.changes.outputs.depth == 'full'

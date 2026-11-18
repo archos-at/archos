@@ -341,6 +341,8 @@ export const files = {
     vision_not_configured:
       'Scanned pages and images need a vision model, and none is set up. Ask your admins to configure one.',
     dispatch_failed: "Reading couldn't be started. Try again.",
+    allowance_spent:
+      "Your office's allowance for reading documents in is used up for this month. The file is stored but not read yet. An admin can raise the monthly limit; then read it again.",
     timeout: 'Reading took too long and was stopped. Try again. Splitting a very large file helps.',
     empty: 'No text was found in this file. It may be password-protected, damaged or empty.',
     deleted: 'The file was deleted while {productName} was reading it.',

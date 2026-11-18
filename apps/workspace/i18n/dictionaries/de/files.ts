@@ -350,6 +350,8 @@ export const files: typeof en.files = {
     vision_not_configured:
       'Für gescannte Seiten und Bilder braucht {productName} ein Bildmodell, und es ist keins eingerichtet. Bitte die Admins, eins zu konfigurieren.',
     dispatch_failed: 'Das Lesen ließ sich nicht starten. Bitte erneut lesen.',
+    allowance_spent:
+      'Das Kontingent Ihres Büros für das Einlesen ist für diesen Monat aufgebraucht. Die Datei ist gespeichert, aber noch nicht gelesen. Ihre Administration kann das Monatslimit erhöhen; danach erneut lesen.',
     timeout: 'Das Lesen hat zu lange gedauert und wurde abgebrochen. Erneut lesen. Sehr große Dateien besser aufteilen.',
     empty: 'In dieser Datei war kein Text zu finden. Sie ist vielleicht passwortgeschützt, beschädigt oder leer.',
     deleted: 'Die Datei wurde gelöscht, während {productName} sie las.',

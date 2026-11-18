@@ -232,7 +232,7 @@ describe("RabbitMQ", () => {
     expect(metadata).toEqual({ name: "hatchet-rabbitmq", namespace: "background-work" });
     expect(spec.replicas).toBe(3);
     expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:7fa20d0d23d63ed90499bbf62e24af48ec4ae5eb22d173f3db96e3f85b26884a");
-    expect(spec.resources).toEqual({ requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
+    expect(spec.resources).toEqual({ requests: { cpu: "270m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
     expect(spec.persistence).toEqual({ storageClassName: "premium", storage: "10Gi" });
     const label = { "background-work/component": "rabbitmq" };
     expect(spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm).toEqual({

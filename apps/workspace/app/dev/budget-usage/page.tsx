@@ -46,6 +46,7 @@ const DAILY_TREND = Array.from({ length: 30 }, (_, index) => {
 const USAGE = {
   unit: 'credit',
   summary: { day: DAY, month: MONTH, perModel: MODELS },
+  ingest: { month: spend(8420, 21730), monthlyLimit: 30000 },
   perMember: [
     { userId: 'user_01', day: spend(420, 52), month: spend(4890, 704) },
     { userId: 'user_02', day: spend(230, 31), month: spend(3910, 610) },
@@ -116,7 +117,7 @@ export default function BudgetUsageDevPage(): JSX.Element {
       <div>
         <h1 className="text-lg font-semibold">Organization — Usage &amp; budgets</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Spend against the limits that stop it: two meters, a 30-day trend, part-to-whole by model
+          Spend against the limits that stop it: two meters for the work, one for reading documents in, a 30-day trend, part-to-whole by model
           and its table twin.
         </p>
       </div>

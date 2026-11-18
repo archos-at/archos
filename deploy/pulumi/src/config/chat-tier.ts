@@ -8,6 +8,7 @@ export function backendAutoscaled(c: { backend: BackendConfig }): boolean {
 
 export interface BackendConfig {
   resources: ResourceSpec;
+  legacyResources: ResourceSpec;
   maxActiveJobsPerOrg: number;
   maxQueuedJobsPerOrg: number;
   ingestMaxWorkers: number;
@@ -62,14 +63,16 @@ export function loadChatTier(
         "conversation bus no replica can relay a turn it does not run, or stop a stale one (ADR-0080).",
     );
   }
+  const backendResources: ResourceSpec = {
+    requestsCpu: cfg.get("backendRequestsCpu") ?? "1",
+    requestsMemory: cfg.get("backendRequestsMemory") ?? "2Gi",
+    limitsCpu: cfg.get("backendLimitsCpu") ?? "4",
+    limitsMemory: cfg.get("backendLimitsMemory") ?? "8Gi",
+  };
   return {
     backend: {
-      resources: {
-        requestsCpu: cfg.get("backendRequestsCpu") ?? "1",
-        requestsMemory: cfg.get("backendRequestsMemory") ?? "2Gi",
-        limitsCpu: cfg.get("backendLimitsCpu") ?? "4",
-        limitsMemory: cfg.get("backendLimitsMemory") ?? "8Gi",
-      },
+      resources: backendResources,
+      legacyResources: { ...backendResources, requestsCpu: cfg.get("legacyChatRequestsCpu") ?? backendResources.requestsCpu },
       maxActiveJobsPerOrg: num(cfg, "backendMaxActiveJobsPerOrg", 3),
       maxQueuedJobsPerOrg: num(cfg, "backendMaxQueuedJobsPerOrg", 50),
       ingestMaxWorkers: num(cfg, "backendIngestMaxWorkers", 2),
@@ -83,19 +86,19 @@ export function loadChatTier(
     },
     api: {
       resources: {
-        requestsCpu: cfg.get("apiRequestsCpu") ?? "500m",
+        requestsCpu: cfg.get("apiRequestsCpu") ?? "875m",
         requestsMemory: cfg.get("apiRequestsMemory") ?? "1536Mi",
         limitsCpu: cfg.get("apiLimitsCpu") ?? "2",
         limitsMemory: cfg.get("apiLimitsMemory") ?? "6Gi",
       },
       minReplicas: apiMinReplicas,
       maxReplicas: apiMaxReplicas,
-      hpaCpuTargetPercent: num(cfg, "apiHpaCpuTargetPercent", 70),
+      hpaCpuTargetPercent: num(cfg, "apiHpaCpuTargetPercent", 40),
     },
     conversationBus,
     agentWorker: {
       resources: {
-        requestsCpu: cfg.get("agentWorkerRequestsCpu") ?? "1",
+        requestsCpu: cfg.get("agentWorkerRequestsCpu") ?? "375m",
         requestsMemory: cfg.get("agentWorkerRequestsMemory") ?? "2Gi",
         limitsCpu: cfg.get("agentWorkerLimitsCpu") ?? "4",
         limitsMemory: cfg.get("agentWorkerLimitsMemory") ?? "8Gi",

@@ -1,7 +1,3 @@
-# OIB workflow config — OpenRouter endpoint + credential, persistent OIB
-# knowledge base plus web search. The MODEL each role runs on is admin-controlled
-# at runtime (Platform → Models), not decided here; see the note above `llms:`.
-
 general:
   use_uvloop: true
   telemetry:
@@ -10,31 +6,10 @@ general:
         _type: console
         level: INFO
       otlp:
-        # Ships runtime logs to the same OTLP collector as the traces below
-        # (which forwards WARN+ to PostHog Logs, ADR-0029). The
-        # /v1/logs path is derived from the injected traces endpoint; no
-        # endpoint == observability tier not deployed == no-op.
         _type: otelcollector_logs
         endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
         level: INFO
     tracing:
-      # Ships spans to the OTLP endpoint over HTTP/protobuf. Only the endpoint
-      # is injected by the deployment (OTEL_EXPORTER_OTLP_ENDPOINT); producers
-      # send unauthenticated OTLP to the in-cluster collector and hold no
-      # ingestion key of their own (ADR-0029).
-      #
-      # The endpoint DEFAULTS TO EMPTY ON PURPOSE. NAT cannot declare this
-      # entry conditionally, so the exporter is always constructed; the
-      # registration in `otel_header_redaction_exporter.py` turns a blank
-      # endpoint into a no-op exporter. That keeps the backend on the same
-      # "availability = flag AND capability" rule as the rest of the tier —
-      # Compose and local dev export nothing instead of retrying forever
-      # against a collector that was never deployed. A previous localhost
-      # fallback here did exactly that.
-      #
-      # Set it to run against a local collector; the value must include the
-      # full /v1/traces path, because explicit config endpoints are used as-is
-      # (only SDK env-var defaults get the signal path appended).
       otelcollector_redaction:
         _type: otelcollector_redaction
         project: ${OTEL_SERVICE_NAME:-backend-chat}
@@ -45,15 +20,9 @@ general:
   front_end:
     _type: agent_host
     runner_class: agent_host.plugin.AgentHostWorker
-    # /websocket is the chat socket (wire v2, agent_host.chat_socket). AgentHostConfig
-    # turns NAT's own socket route and step adaptor off, and refuses a
-    # `websocket_path` set here.
     db_url: ${NAT_JOB_STORE_DB_URL:-sqlite+aiosqlite:///./jobs.db}
     expiry_seconds: 86400
     cors:
-      # Env-overridable so a deployed instance (e.g. a preview deployment) can allow
-      # its own https origin. Default keeps local dev working. Set
-      # CORS_ALLOW_ORIGIN_REGEX to a regex matching your frontend origin(s).
       allow_origin_regex: '${CORS_ALLOW_ORIGIN_REGEX:-http://localhost(:\d+)?|http://127.0.0.1(:\d+)?}'
       allow_methods:
         - GET
@@ -66,64 +35,8 @@ general:
       expose_headers:
         - "*"
 
+# model_name is the boot floor only: Platform → Models picks the live model, except for summary_llm and rerank_llm.
 llms:
-  # ───────────────────────────────────────────────────────────────────────────
-  # THIS FILE DOES NOT DECIDE WHICH MODEL RUNS.
-  #
-  # `model_name` below is the BOOT FLOOR only — what a role runs on in a process
-  # that has no BFF to ask (local `nat run`, a detached worker, an unreachable
-  # frontend). The default an actual user gets is a row in the database:
-  # `platform_model_defaults`, provisioned by the BFF on first boot when the
-  # table is empty and edited under Platform → Models. Every organization that
-  # has not chosen its own model for an agent group follows that row on its next
-  # turn; a tenant's own choice (Organization → Models) still wins over both.
-  # Resolution order: org override → platform default → the value here.
-  #
-  # TWO EXCEPTIONS, and they are real: `summary_llm` and `rerank_llm` have no
-  # agent group, so nothing can re-point them — they resolve to the literals
-  # below on EVERY request, always, and editing them is an unconditional
-  # fleet-wide model change no admin can revert. Bootstrap also declines to
-  # provision a group whose endpoint is not the platform model provider, which
-  # leaves that group on the value below too.
-  # See docs/architecture/org-model-configuration.md.
-  #
-  # So: do NOT edit these to move the fleet to a newer model — that is a save in
-  # the admin UI, not a commit and a redeploy. Change them (or set
-  # DEFAULT_MODEL) only to move the *floor*, e.g. for a deployment that
-  # runs without the BFF. What this file remains the sole owner of is the
-  # plumbing: base_url, api_key, temperature, max_tokens, timeouts and
-  # retries — none of which an override may touch. reasoning_effort is a
-  # fallback: the platform owner's thinking level per agent group wins where
-  # one is set (platform_reasoning_efforts,
-  # docs/architecture/org-model-configuration.md).
-  # ───────────────────────────────────────────────────────────────────────────
-  #
-  # ───────────────────────────────────────────────────────────────────────────
-  # REASONING EFFORT PER AGENT ROLE — OPENROUTER-STANDARD VALUES, PASSED THROUGH
-  # reasoning_effort uses OpenRouter's unified vocabulary (none/minimal/low/
-  # medium/high/xhigh) and is sent verbatim: OpenRouter maps the requested
-  # effort to the nearest level the EFFECTIVE model supports, per model,
-  # server-side — including models selected by org overrides (ADR-0014). We
-  # deliberately keep NO app-side per-provider mapping (it would duplicate and
-  # drift from OpenRouter's contract). Never use provider-native tier names
-  # here (e.g. DeepSeek's "max") — OpenRouter rejects/ignores them; the
-  # highest unified level is "xhigh". See
-  # https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
-  # Policy: none for pure routing/trivial one-liners, medium for everything
-  # else — high tiers multiplied hidden reasoning tokens across hundreds of
-  # agent turns per run for no measurable quality gain (observed 20+ min runs
-  # stuck in planning). Each role has its own LLM definition so roles are
-  # independently tunable; swap model_name/base_url/api_key to change provider
-  # (the system is LLM-agnostic — see docs/architecture/llm-providers.md).
-  #
-  # request_timeout (seconds) bounds every HTTP call — NAT's default is None
-  # (UNBOUNDED), which let one stalled provider call hang a whole deep-research
-  # run indefinitely. max_retries is the OpenAI-client retry count; kept low
-  # because the middleware layers (ModelRetryMiddleware,
-  # SelectiveToolRetryMiddleware) add their own retries on top.
-  # ───────────────────────────────────────────────────────────────────────────
-
-  # Shallow Research — fast retrieval + synthesis (the quick-answer tier).
   research_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -134,67 +47,9 @@ llms:
     max_tokens: 65536
     max_retries: 2
     request_timeout: 120
-    # medium, like every other role in this file. This is the role that decides
-    # WHAT TO RETRIEVE — with no results in hand, which of four corpora holds the
-    # answer — and the whole round budget is then spent executing that decision.
-    # It was the only role denied deliberation.
-    #
-    # The traces price the trade, and it is not close. Output is 0.4-1.4 % of a
-    # turn's tokens and ~2 % of its cost; one wasted retrieval round costs
-    # ~40 000 INPUT tokens, i.e. ~14 % of a turn, plus a round off a budget that
-    # truncates. Tripling output tokens at medium is single-digit percent of a
-    # turn; one round saved pays for it many times over.
-    #
-    # The previous note argued LATENCY, not cost: "medium spent a large
-    # hidden-token think budget before emitting the first answer token (final
-    # synth ≈29s on a simple meta-ish query)". That is a real effect measured on
-    # the case where deliberation is worth least. Re-measure it on the loop eval,
-    # which is the question set this role is for, not on a meta query — and
-    # weigh it knowing that a truncated answer at 27 s is worse than a complete
-    # one at 35 s.
     reasoning_effort: medium
-    # Chat Completions, like every other role in this file. The Responses API
-    # was switched on for deferred tool loading (gone, ADR-0048) and nothing
-    # needs it since. What decided the move: the chat prompt carries one cache
-    # breakpoint at the end of its static system block
-    # (`common/prompt_caching.py`), and the Responses API does not expose a
-    # per-block `cache_control` (OpenRouter prompt caching guide, on or after
-    # 2026-10-07); langchain's converter drops the key (measured 2026-11-10,
-    # `test_prompt_caching.py::TestTheMarkerIsOnTheWire`). On Responses the
-    # breakpoint never reaches the provider and every turn's first call
-    # re-writes the 23-31k-token static prefix at 1.25x. The answer suite has
-    # not yet measured this transport for this role (no credit on the suite's
-    # key, 2026-11-10); the token report's arm `terra-cc` is that run.
     api_type: chat_completion
-    # ── PROMPT CACHING: nothing to configure here, and that is the point ──
-    # This role re-sends ~35 KB of identical prefix (system prompt + tool
-    # schemas) on each of a turn's 3-6 calls. Two facts decide what that costs,
-    # and BOTH are handled in code, not by a key in this block:
-    #
-    # 1. USAGE ACCOUNTING IS ALWAYS ON. OpenRouter returns `cost`,
-    #    `cache_discount` and `prompt_tokens_details.cached_tokens` on every
-    #    response; its `usage: {include: true}` request option "[is] deprecated
-    #    and [has] no effect". Do not add one. What a streamed call loses is
-    #    the *carrier*, not the flag: this role's answering call streams, and
-    #    langchain-openai keeps only the token counts of the final chunk.
-    #    `provider_usage.install_chat_stream_cost_carrier` (and, for a
-    #    `responses` role, `cost_tracking.install_responses_cost_carrier`) puts
-    #    the provider's `cost` and `is_byok` back, so the call is charged.
-    # 2. THE CACHE KEY IS DERIVED, NOT CONFIGURED. Caching itself is automatic
-    #    for the OpenAI family (≥1024 prompt tokens, no `cache_control`
-    #    breakpoint). Claude caches only when asked, so the same module adds a
-    #    top-level `cache_control` for `anthropic/*` models (0 % cached over a
-    #    month until 2026-10-27). What every family needs is landing twice on
-    #    the SAME upstream endpoint. `common/prompt_caching.py` derives a `session_id` +
-    #    `prompt_cache_key` from the org, the model, the system prompt and the
-    #    tool set, and `common/llm_factory.py` attaches them to every OpenRouter
-    #    call — so this works unchanged when an admin re-points the group at
-    #    another model (ADR-0014). Never pin `provider.order` here to "help":
-    #    a manual order DISABLES OpenRouter's sticky routing, which is the
-    #    mechanism the key exists to drive.
-    # https://openrouter.ai/docs/guides/best-practices/prompt-caching
 
-  # HITL Clarification & Planning — clarify ambiguity, generate the research plan.
   clarifier_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -207,7 +62,6 @@ llms:
     request_timeout: 120
     reasoning_effort: medium
 
-  # Deep Researcher — Orchestrator (also the report writer): top-level control.
   deep_orchestrator_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -216,15 +70,10 @@ llms:
     temperature: 1.0
     top_p: 0.95
     max_tokens: 128000
-    # The writer runs on this model and a long German report at this output
-    # size takes minutes to stream. A 180 s bound inside a 2400 s run budget
-    # ended exactly those runs with a generic provider error — and one retry
-    # of a ten-minute call is the most a run can afford before its own clock.
     max_retries: 1
     request_timeout: 600
     reasoning_effort: medium
 
-  # Deep Researcher — Planning sub-agents.
   deep_planner_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -237,7 +86,6 @@ llms:
     request_timeout: 180
     reasoning_effort: medium
 
-  # Deep Researcher — Researcher sub-agents (parallel investigations).
   deep_researcher_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -250,7 +98,6 @@ llms:
     request_timeout: 120
     reasoning_effort: medium
 
-  # Deep Researcher — source routing (which source to query). Lighter decision.
   deep_router_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -263,10 +110,6 @@ llms:
     request_timeout: 60
     reasoning_effort: medium
 
-  # RIS query planner — pure JSON-schema extraction (structured outputs), not a
-  # reasoning task. Dedicated cheap twin of deep_router_llm (same model/base_url)
-  # so we can drop reasoning_effort to none WITHOUT weakening deep_router_llm,
-  # which is also the deep-research source_router_llm where medium still matters.
   ris_planner_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -279,7 +122,6 @@ llms:
     request_timeout: 60
     reasoning_effort: none
 
-  # Card generation — structured rich-UI compliance cards.
   card_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -292,16 +134,6 @@ llms:
     request_timeout: 120
     reasoning_effort: medium
 
-  # Post-answer follow-up questions — one short structured-output call over a
-  # finished answer. A dedicated entry rather than a second use of card_llm for
-  # two reasons the stage depends on. reasoning_effort is `none`: the stage
-  # declares a hard output-token ceiling and reasoning tokens are spent against
-  # that same ceiling, so a thinking model would truncate the JSON body and turn
-  # a working stage into one that silently returns nothing (the trap
-  # memory_reflection documents and avoids by declaring no ceiling at all).
-  # request_timeout sits UNDER the stage's 20s asyncio bound with one retry, so
-  # a slow provider produces a recorded timeout rather than a stage that was
-  # already dead when the bound fired.
   follow_ups_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -314,7 +146,6 @@ llms:
     request_timeout: 15
     reasoning_effort: none
 
-  # Document / project summaries — trivial one-liners.
   summary_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -327,29 +158,6 @@ llms:
     request_timeout: 30
     reasoning_effort: none
 
-  # LLM-judge retrieval reranking — one batched relevance judgment over up to
-  # rerank_candidates chunks. Dedicated entry: summary_llm's 100-token cap is
-  # too small for the JSON scores reply. Greedy decoding (0) pins the judgment;
-  # pure JSON extraction needs no reasoning effort.
-  #
-  # max_tokens must fit ONE SCORE PER CANDIDATE. At ~12 tokens per entry, the old
-  # 256 sat 12 tokens above a 20-candidate reply — and a model emitting one decimal
-  # score ("8.5") overran it, truncating the JSON mid-object and silently disabling
-  # reranking for that turn. 2048 covers a ~150-candidate pool with headroom.
-  #
-  # request_timeout x (max_retries + 1) must stay UNDER rerank_chunks' own 30s
-  # asyncio timeout, or the outer bound fires first and both knobs are dead letters.
-  # It must ALSO exceed the time the reply itself takes to decode. A 60-candidate
-  # pool is ~16k input tokens and ~720 output tokens; at a routine 50 tok/s that is
-  # ~14s of decoding alone, so the 12s this briefly carried would have timed out on
-  # every turn -- and because reranking fails open, the only symptom would have been
-  # one warning line and silently unranked results. 25s single-shot leaves headroom
-  # without letting a hung provider hold a turn open to the outer bound.
-  #
-  # NOTE: rerank_llm has NO agent group, so no platform default or org override
-  # can re-point it — this literal is what every request uses, always. OpenRouter
-  # DROPS a sampling parameter an endpoint does not advertise, so `temperature`
-  # can be silently inert on a given model; `seed` is set for the same reason.
   rerank_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
@@ -363,25 +171,10 @@ llms:
     request_timeout: 25
     reasoning_effort: none
 
-# The review canvas (packages/agent/src/agent/tools/canvas), one NAT function group: the agent
-# works a document the way a person at the canvas does. See who is in the
-# `room`, `point` and `highlight` for everyone,
-# read the `marks`, propose a `mark` (a person takes it over), and, when the
-# person asks, set one open, `update` or `delete` one in their name; `reply` in
-# a thread. The model calls them `canvas__<tool>`. Each acts on a document the
-# model names, the one open on the canvas, or the conversation's subject; the
-# BFF checks it against the asker's access and the turn's signed scope, from
-# the signed envelope. Chat only, because only a turn carries an envelope.
 function_groups:
   canvas:
     _type: document_canvas
 
-  # Everything a person can do in the workspace, through the agent's own MCP server
-  # (packages/agent/src/agent/tools/workspace, ADR-0122): `workspace__search`,
-  # `workspace__describe`, `workspace__call`, `workspace__report_missing`. The
-  # model finds an operation, reads its schema, calls it; a write comes back as a
-  # proposal the person accepts. Each call echoes the turn's signed envelope, so
-  # it acts as the asker. Chat only, because only a turn carries an envelope.
   workspace:
     _type: workspace_tools
 
@@ -400,34 +193,13 @@ functions:
         description: "Search uploaded documents and files."
         tools:
           - knowledge_search
-          # The locator reads the same index through the same scope, so it
-          # belongs to the same source: narrowing that turns the knowledge base
-          # off must take both, and `get_source_id_for_tool` must resolve it or
-          # nothing it returns is captured as a citable source.
           - read_passage
-          # The file browser reads the same files through the same scope, so
-          # switching the knowledge base off must take it too.
           - list_files
-          # The filesystem verbs (`ls`, `glob`, `grep`, `read_file`, ADR-0133)
-          # read the same files through the same scope, and belong to this
-          # source for the same reason. They are not NAT functions, so they are
-          # not listed here: `common/data_sources.source_id_for_call` maps them
-          # to the source `knowledge_search` belongs to, PER MOUNT, so a call
-          # under /drafts/ is never refused and never captured as a source.
-          # Other projects' uploaded documents (ADR-0094). Without this line
-          # nothing the lookup returns is captured as a citable source, and a
-          # turn whose only finding was a precedent was replaced by the canned
-          # "search unavailable" reply (found by the precedent eval).
           - project_lookup
       - id: ris
         name: "RIS – Österreichisches Recht"
         description: "Search Austrian federal/state law and case law in the official RIS (Rechtsinformationssystem des Bundes) and fetch entire documents on demand."
         tools:
-          # All four, deliberately: `get_source_id_for_tool` must resolve the
-          # name a tool result arrives under, or nothing it returned is captured
-          # as a citable source. `law_lookup` is the chat surface's law tool and
-          # stays under this source (and its switch) until a country-neutral
-          # picker exists (#1644); the other three are deep research's.
           - law_lookup
           - ris_search_tool
           - ris_fetch_tool
@@ -437,13 +209,6 @@ functions:
     _type: tavily_web_search
     max_results: 8
     max_content_length: 1000
-    # Optional domain allow/deny lists (default: unrestricted). These are HARD
-    # filters: with include_domains set, any result NOT on the list is dropped;
-    # exclude_domains removes matching domains. Shallow chat uses THIS instance,
-    # so a real allow-list must be set here AND on advanced_web_search_tool below.
-    # RIS domain is excluded because the structured RIS adapter handles Austrian
-    # building law exclusively (accurate, up-to-date, traceable).
-    # include_domains: []
     exclude_domains:
       - ris.bka.gv.at
 
@@ -451,34 +216,13 @@ functions:
     _type: tavily_web_search
     max_results: 4
     advanced_search: true
-    # Optional domain allow/deny lists (default: unrestricted). These are HARD
-    # filters: with include_domains set, any result NOT on the list is dropped;
-    # exclude_domains removes matching domains. Deep research uses THIS instance,
-    # so a real allow-list must be set here AND on web_search_tool above.
-    # RIS domain is excluded because the structured RIS adapter handles Austrian
-    # building law exclusively (accurate, up-to-date, traceable).
-    # include_domains: []
     exclude_domains:
       - ris.bka.gv.at
 
-  # Austrian RIS (OGD-RIS API, no API key needed): live search over federal/
-  # state law and case law, plus on-demand fetching of ENTIRE documents
-  # (complete consolidated laws, court decisions). Fetched documents are also
-  # ingested into the per-session knowledge collection so knowledge_search can
-  # retrieve and cite specific sections afterwards.
   ris_search_tool:
     _type: ris_search
-    # max_results == page_size: the agent sees every hit the page fetched, so
-    # asking for page 2 continues where page 1 stopped instead of skipping the
-    # hits that were fetched but never shown.
     page_size: 20
     max_results: 20
-    # Query planning via strict structured outputs (response_format:
-    # json_schema); falls back to the agent's raw arguments when the planner
-    # is unavailable or fails. Uses ris_planner_llm — a dedicated cheap twin of
-    # deep_router_llm at reasoning_effort: none, because this is pure JSON
-    # extraction, not a reasoning task. Kept separate from deep_router_llm so
-    # lowering effort here does not weaken deep-research source routing.
     planner_llm: ris_planner_llm
 
   ris_fetch_tool:
@@ -486,18 +230,6 @@ functions:
     max_chars: 40000
     ingest_into_knowledge: true
 
-  # The chat surface's law lookup: question in, citable passages out. The
-  # country-neutral lookup (`agent.knowledge.law_lookup`, ADR-0174 amendment
-  # 2026-11-11) reads the source the turn's knowledge context carries for its
-  # country; `source` is the repository record it falls back to while no
-  # released record reaches the turn. `tool_name` is the name its errors,
-  # sources step and `retrieve.law_lookup` span state; a turn stored before the
-  # rename says `ris_lookup`, which the citation parser and the evals still read.
-  # Its bounds are its own (candidates 3, fetches 2, passages 6), one module per
-  # stage; they are not tunable here, because each is a claim about what one
-  # charged call may cost. `planner_llm` serves BOTH internal model calls:
-  # planning a live search and picking the answering provisions out of a law's
-  # headings. Neither happens when the catalog answers and the caller named one.
   law_lookup:
     _type: law_lookup
     source: at-ris
@@ -505,33 +237,13 @@ functions:
     planner_llm: ris_planner_llm
     ingest_into_knowledge: true
 
-  # Norm registry (configs/norms/<country>/registry.yml, override via
-  # NORMS_DIR; ADR-0025): typed spine with verified RIS pointers.
-  # ris_search short-circuits to these pointers on a catalog match
-  # (catalog_shortcut), ris_catalog_lookup annotates hits with registry
-  # relations, and both answering prompts show the lane-rendered block.
   ris_catalog_lookup_tool:
     _type: ris_catalog_lookup
     max_matches: 8
 
-  # LET THE MODEL SEE A DRAWING, NOT ONLY ITS CAPTION.
-  #
-  # `look` (packages/agent/src/agent/tools/look, ADR-0128): a page, a region of it, or an
-  # embedded image, in every context. It replaced the knowledge layer's image
-  # viewer and the canvas group's own look, one function under two names. Until
-  # 2026-09 the viewer was declared in no config at all, so retrieval returned
-  # VLM captions OF drawings and the model never saw a drawing: NAT only binds a
-  # function that appears under `functions:`.
-  #
-  # It fails closed on its own: no vision key, or `VIEW_IMAGES_ENABLED`
-  # off, and it returns a sentence saying so rather than an image.
   look:
     _type: look
 
-  # TAKE THE PERSON TO THE PLACE (`tools/viewer`, ADR-0144). One allow-listed
-  # viewer action per call (open at a page, mark a passage or a box, compare two
-  # Fassungen, select a model element), sent as an AG-UI frontend tool call that
-  # only the asker's live page runs. Chat only: deep research has no screen.
   show_in_viewer:
     _type: show_in_viewer
 
@@ -541,9 +253,6 @@ functions:
     include_base_collection: true
     include_session_collection: true
     project_collections: []
-    # Phase-0 default exclusion (norm-registry spec §8): diff documents and the
-    # superseded non-rev.1 zitierte_normen duplicate never surface in default
-    # retrieval. Replaced by role/edition metadata filters in Phase 2.
     exclude_file_names:
       - aenderungen_oib-rl_1_ausgabe_mai_2023.pdf
       - aenderungen_oib-rl_1_leitfaden_ausgabe_mai_2023.pdf
@@ -562,7 +271,6 @@ functions:
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023_rev.1.pdf
       - oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
-      # The diffs oib.or.at publishes beside the 2019 and 2025 Richtlinien (agent/common/oib_file_names.py)
       - oib-rl-1-aenderungen-gegenueber-version-2015.pdf
       - oib-rl-2-aenderungen-gegenueber-version-2015.pdf
       - oib-rl-2.1-aenderungen-gegenueber-version-2015.pdf
@@ -577,177 +285,43 @@ functions:
     generate_summary: true
     summary_model: summary_llm
     summary_db: ${SUMMARY_DB:-sqlite+aiosqlite:///./summaries.db}
-    # top_k=16 with a 5-per-document diversity cap still spans >=4 distinct
-    # Richtlinien on cross-cutting questions instead of 5 chunks from the 1-2
-    # top-scoring PDFs, and gives each of them enough consecutive text to reason
-    # over. The cap and the total move together: raising the cap without raising
-    # top_k buys per-document depth by giving up that breadth.
     top_k: 16
     max_chunks_per_document: 5
-    # LLM-judge reranking: over-fetch rerank_candidates chunks and re-order them
-    # against the query with the dedicated rerank LLM before trimming to top_k.
-    # Fail-open: any judge error returns the fused (hybrid+vector) order.
-    #
-    # The pool must exceed top_k by SEVERAL TIMES, not by a margin. At 20-vs-16 the
-    # judge could only reshuffle 20 candidates into 16 slots, so the stage that is
-    # supposed to convert recall into precision had four chunks of headroom. 60 gives
-    # it a real pool; the cost is one batched call either way (the extra candidates
-    # come from a Chroma n_results bump, not extra round-trips), plus the judge's
-    # input tokens. The trim is now max(top_k, rerank_candidates), so raising
-    # Platform -> Retrieval top_k above this can no longer silently cap a search.
     rerank_llm: rerank_llm
     rerank_candidates: 60
-    # Cross-encoder reranking, PRIMARY; the LLM judge above is the fallback.
-    # A cross-encoder scores each (query, passage) pair with a model built for
-    # exactly that and answers in ~100ms over the FULL chunk, where the judge is
-    # one frontier-model call reading 60 excerpts of 1200 chars: ~16k input
-    # tokens, ~14s of decoding, on the path to the first answer token of every
-    # research turn (docs/audit/latency-and-caching-audit-2026-09.md §3.2).
-    #
-    # `openrouter` because it is the one key every deployment already holds:
-    # `OPENROUTER_API_KEY` is the credential, `POST /api/v1/rerank` the route
-    # (answers 401 without a key, so it exists). The default model is
-    # `qwen/qwen3-reranker-8b`, multilingual, which a German corpus needs, and
-    # served from a zero-data-retention endpoint, which every rerank is pinned to
-    # (`cohere/rerank-v3.5`, the default until 2026-09, has none).
-    # `RERANKER_MODEL` / `RERANKER_BASE_URL` override per deployment.
-    #
-    # Fail-open: a key that does not resolve or any provider error falls back to
-    # the judge (first failure per 5 min warns, the rest debug; 5 consecutive
-    # failures disable the cross-encoder for 5 min). A provider that HANGS costs
-    # `RERANKER_TIMEOUT_SECONDS` (3s) before that fallback, so worst case a
-    # turn pays 3s + the judge's own 30s bound — never the other way round. Set
-    # `reranker_provider: none` to hand reranking back to the judge. No offline
-    # eval covers reranking (`evals/
-    # oib_retrieval` stops upstream of it); the golden compliance eval and the
-    # profiler's `tool` spans for `knowledge_search` are the before/after.
     reranker_provider: openrouter
-    # The retrieval loop (rag-system-audit-2026-08 F13): the same judge model
-    # reads the head of the fused pool BESIDE the reranker and says whether it
-    # can answer the question. A sufficient pool — the common case — costs no
-    # extra latency. An insufficient one gets up to two alternative
-    # formulations, each retrieved from every collection in scope and fused
-    # into the same RRF before a second rerank; the live status line says so.
-    # Fail-open: any judge error keeps the first pool.
     requery_llm: rerank_llm
     requery_max_queries: 2
-    # The prefetch requeries like any search. Skipping it was measured 3.4 s
-    # slower on the turns it applied to, and the switch was removed
-    # (docs/audit/turn-latency-measured-2026-09.md §3.5).
-    # Who answers the judge's yes/no (ADR-0064). `jev` asks the decision model
-    # one noul per passage of the fused head — ~300 ms in parallel, a fraction
-    # of a cent — and runs `requery_llm` only when the head is insufficient,
-    # for the phrasings a decision model cannot write. The hidden frontier
-    # call on EVERY search becomes a frontier call on the insufficient
-    # minority. No key, a BYOK key on another host, breaker open: the judge
-    # runs as before. (A ZDR org is decided for: every call is pinned to ZDR.)
-    # `reranker_provider: jev` is the same model as a reranker, an option to
-    # evaluate beside the cross-encoder, not the default.
     requery_decider: jev
     decision_sufficiency_threshold: 0.55
 
-  # The locator beside the search: open the passage a conclusion NAMED
-  # (document + Punkt, or document + page) instead of searching for it again.
-  # Bound by deep research, intake and the door; the agent's conversation reads with
-  # `read_file` instead (ADR-0133 slice 6); a `read_passage` call there is
-  # answered by the tool node with the tools it has.
-  # Deterministic — one filtered fetch, no reranker, no requery judge, no LLM.
-  # Collection scope, base corpus and file exclusions are read off the
-  # `knowledge_search` instance named here rather than restated, so the two
-  # cannot end up pointed at different corpora.
   read_passage:
     _type: read_passage
     knowledge_search: knowledge_search
 
-  # The file browser (packages/knowledge-layer/src/knowledge_layer/browse/tool.py): `ls` over the
-  # reader's own shelves — every file, by folder, name, Dokumentart and upload
-  # date, paged. The prompt inventory stops at a few dozen names; this does
-  # not. Deterministic, no LLM, and it reads only the scope `knowledge_search`
-  # reads. Its partner, Ctrl+F across the files, is `knowledge_search(match=
-  # "exact")` for deep research and intake, and `grep` for the agent's conversation, which
-  # binds `list_files` without its tree view (`ls(depth=…)` draws the tree;
-  # `knowledge_layer.chat_binding`) (docs/architecture/agent-tool-surface.md).
   list_files:
     _type: list_files
     knowledge_search: knowledge_search
 
-  # Project Memory: silent, observable capture of durable project findings.
-  # Available in project-scoped chats; no-ops (with a clear error) elsewhere.
   remember:
     _type: project_memory_remember
-    # Judges, in a turn with restricted folders in scope (ADR-0087), whether a
-    # finding draws on a restricted document it did not read. The same model
-    # and agent group as memory_reflection_llm; unset fails closed (the finding
-    # is restricted to every restricted folder in scope).
     judge_llm: card_llm
 
-  # Rich UI cards, deep research only: its writer calls emit_card mid-answer
-  # when a structured element (legal basis, dimension/stair diagram, summary)
-  # adds value. Chat binds no emit_card; its cards travel in the answer
-  # envelope's `cards` field, whose contract carries the doctrine
-  # (cards/envelope.py). Either way cards are validated and delivered
-  # alongside the written answer.
   emit_card:
     _type: emit_card
 
-  # Blocking multiple-choice question the answering agent can put mid-turn,
-  # for a choice it can enumerate but cannot decide (which of two IFC models,
-  # which Bundesland). Goes through the same HITL channel as the clarifier, so
-  # the addressee guard and reconnect handling apply; degrades to "answer with
-  # a stated assumption" wherever no HITL channel is bound.
   ask_user:
     _type: ask_user
 
-  # L2 of the card vocabulary. `emit_card` advertises one line per card type;
-  # this returns the exact nesting and a worked example for the type actually
-  # being emitted. Rendering all 27 shapes up front costs ~5,200 tokens on every
-  # turn whether or not a card is emitted, and ~190 more for each type we add.
-  #
-  # Bound to NO agent today, and declared so a config that wants it has the
-  # `_type` to hand. Deep research's writer emits through `emit_card`, and a
-  # failed call returns this same L2 entry for the type that failed, so the
-  # shape is learned on the retry that needed it instead of in a charged round
-  # trip paid in advance. Chat has no `emit_card`: the envelope contract carries
-  # the common shapes, and a refused card goes to `card_repair_llm` with its
-  # type's shape.
   describe_card:
     _type: describe_card
 
-  # Document surfacing: show a file (filename= / mode=one) or a short browse
-  # choice (mode=many). Distinct from knowledge_search, which cites passages;
-  # the UI peeks cited files, so the agent must not also surface after citing.
   surface_documents:
     _type: surface_documents
 
-  # The WRITE-side workspace tool (packages/agent/src/agent/tools/files): move, rename,
-  # create_folder and assign as one `operation` argument — four tools until
-  # they were merged (docs/architecture/agent-tool-surface.md). It proposes: it
-  # resolves the file or the folder against what the turn can already see,
-  # renders ONE `file_operation_proposal` card, and changes nothing. Accepting the card runs the operation through the routes
-  # the Files pane already uses, in the reader's own session — the BFF stays
-  # the single writer of `app` (ADR-0003), which is why there is no
-  # backend path here to write with.
-  #
-  # Bound on the agent only. Deep research runs unattended on the
-  # job worker with nobody to press Accept, so a proposal card there is a
-  # decision nobody is on the other end of; the two agents differ here for the
-  # same reason `ask_user` does.
   propose_file_change:
     _type: propose_file_change
 
-  # The working directory's door into the project (packages/agent/src/agent/tools/
-  # documents). `file_draft` puts a draft the turn WROTE into the project as a
-  # draft version, and with `submit: true` sends that version for review (it was
-  # a second tool, `submit_draft`, until the two merged). Unlike the proposal
-  # tool above this one DOES change the project — and it does it through
-  # `POST /api/internal/document-versions`, echoing the BFF-signed request
-  # envelope, so the write happens in the requesting person's pinned session
-  # under their permissions and their audit actor (ADR-0054 §4). The BFF stays
-  # the single writer of `app`.
-  #
-  # Bound on the agent only, for the same reason as the proposal
-  # tool and one more: the envelope is minted per chat turn, so an unattended
-  # deep-research run has no signed identity to file as and the tool refuses.
   file_draft:
     _type: file_draft
 
@@ -755,254 +329,59 @@ functions:
     _type: execute
     runner_url: ${CODE_RUNNER_URL:-}
 
-  # Delegation (packages/agent/src/agent/tools/tasks). Hands work that outlives this turn
-  # to a `tasks` row (ADR-0051) — a norm check, the Einreichcheck
-  # skill, a document to write, a draft to revise — through
-  # `POST /api/internal/tasks`, echoing the same BFF-signed envelope, so the row
-  # is created in the requesting person's pinned session, under their
-  # permissions, and spends their budget.
-  #
-  # Bound on the agent only, for the two reasons the filing tools
-  # give and one of its own: the envelope is minted per chat turn, so an
-  # unattended run has no identity to delegate as; and a background run
-  # delegating further background runs is a loop with nobody in it.
   create_task:
     _type: create_task
 
-  # Cross-project lookups for a chat, shared or solo (packages/agent/src/agent/tools/cross_project,
-  # ADR-0094): search other projects' documents, find projects, read a brief.
-  # Chat only: deep research gets no admission round, so it must never be
-  # handed another project's content.
   project_lookup:
     _type: project_lookup
 
-  # BIM/IFC: deterministic structured queries over the project's uploaded IFC
-  # model (ADR-0045). Distinct from knowledge_search in kind, not degree — that
-  # tool retrieves text about REGULATIONS, this one runs SQL against THIS
-  # building's elements, so "how many external walls on the ground floor" comes
-  # back as a count rather than as a summary an LLM had to add up.
   ifc_query:
     _type: ifc_query
     default_limit: 25
 
-  # BIM/IFC, the geometric half: measurements, topology and spatial relations
-  # read from the model's own bytes by the IfcOpenShell engine (roadmap §13b).
-  # It answers what the EXPORT DID NOT WRITE DOWN — a room's floor area with no
-  # published quantity, a window's Brüstungshöhe, the lichte Raumhöhe under a
-  # suspended ceiling — and every answer carries its provenance (deklariert /
-  # gemessen ±Toleranz / vermutlich) so a measurement can never be reported as
-  # something the model states. Gated by the same `ifc-models` flag as
-  # ifc_query: both go through lib/bim/internal-access in the BFF, so a model
-  # this tool can reach is one ifc_query could already answer questions about.
   ifc_measure:
     _type: ifc_measure
     default_limit: 50
 
-  # A DXF drawing measured as a site (ADR-0153), above all a Katasterauszug:
-  # parcel areas, neighbours and shared boundaries, the buildings on a parcel
-  # and their distance to each boundary, what remains after setbacks, labels and
-  # layers. Read from the drawing's own geometry, the model the PDF rendition
-  # draws (ADR-0152). Not project-only: a DXF attached to a chat is measured too.
   dxf_measure:
     _type: dxf_measure
 
-  # The FUNCTION NAME here is deliberately still `shallow_research_agent` while
-  # the `_type` is `research_agent`. NAT puts the function name — not the type —
-  # on the wire as `Function Start: <name>`, and the frontend persists that
-  # string as `functionName` in every stored turn's metadata
-  # (`lib/conversations/message-provenance.ts`). Renaming it would leave old
-  # turns matching one name and new turns another, and the live-trace rules that
-  # match it (`features/chat/lib/live-activity.ts`, `executed-steps.ts`) key on
-  # the substring `shallow`, so a bare greeting would start announcing
-  # "Recherche läuft". The type is free because no `_type` is ever persisted.
+  # Stored turns persist this function name as functionName: renaming it splits history.
   shallow_research_agent:
     _type: research_agent
     llm: research_llm
-    # The filesystem verbs read the office's documents through this search's
-    # scope (ADR-0133): `ls`, `glob`, `grep` and `read_file` over /project/,
-    # /office/, /chat/ and /law/oib/, beside the conversation's drafts under
-    # /drafts/. They are built per turn (the drafts are per conversation), not
-    # listed below. They replace `read_passage` and the literal modes of
-    # `knowledge_search` on this binding (slice 6); `knowledge_search` and
-    # `list_files` are rebound at build time, only when this is set.
     filesystem: knowledge_search
-    # Explicit list (replaces registry inheritance) so the non-data-source
-    # `remember` and `ask_user` tools are included alongside search/knowledge.
     tools:
       - web_search_tool
       - knowledge_search
       - list_files
       - look
       - show_in_viewer
-      # ONE law tool on the chat surface. Search → pick → fetch → find the
-      # paragraph was three charged calls and a 40 000-character blob that
-      # carried no Citation key, so nothing downstream could treat it as
-      # evidence; `law_lookup` runs that path inside itself and returns passages
-      # in the knowledge layer's own grounding grammar. The three older RIS
-      # tools stay registered and stay bound to deep research below, which has
-      # its own budget shape.
       - law_lookup
       - remember
-      # No `emit_card`: every chat card travels in the answer envelope's
-      # `cards` field (cards/envelope.py), at no extra call. Bound, the tool
-      # was 2 676 tokens of schema on every call, repeating the contract the
-      # envelope schema already teaches, and a model at low effort spent a
-      # whole round on it (September 2026 census). Deep research binds its own.
       - surface_documents
       - propose_file_change
       - file_draft
       - execute
       - create_task
       - project_lookup
-      # The `canvas` function group (below): eight tools, `canvas__room` …
       - canvas
-      # The `workspace` function group (above): four tools, `workspace__search` …
       - workspace
       - ifc_query
       - ifc_measure
       - dxf_measure
       - ask_user
     verbose: true
-    # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of
-    # the longest chain this surface documents, plus one repair.
-    #
-    # The accounting is one unit per ROUND in `core/round_charge.py`: a round is one
-    # LLM decision that emitted tool calls, charged when the model emits it and
-    # never refunded. Three consequences that are not obvious from the name:
-    #   * a round that comes back with 0 hits costs what one that answers costs;
-    #   * PARALLEL calls inside one round cost ONE between them. That is the
-    #     point: a model that opens all five members of a Richtlinien-Familie in
-    #     one batch is using its round well, and „was weißt du über die OIB 2"
-    #     — one `knowledge_search` plus five parallel `read_file` — used to
-    #     exhaust a budget of seven on the single most ordinary question the
-    #     product answers. The prompt asks for that fan-out; the budget used to
-    #     forbid it;
-    #   * `use_skill` is a real round when the model spends one on it, and is
-    #     charged like any other. Nothing is reserved on top of this number: no
-    #     skill is forced on a turn, so every `use_skill` round is one the
-    #     QUESTION spent on a skill the model chose to open — which is what the
-    #     floors below already count. A standing instruction that used to arrive
-    #     as a forced skill is prompt text now (the platform prompt, and the
-    #     office's own `X-Grid-Org-Instructions` block), and prompt text costs
-    #     no round.
-    #
-    # There is no second currency beside this one. The interaction allowance
-    # that used to hold `emit_card` / `remember` / the working directory's file
-    # verbs out of the budget existed only because the budget counted CALLS; a
-    # round of three cards is one round, so nothing has to be exempted and
-    # nothing has to be kept in step.
-    #
-    # Floors traced against the tool surface as it now stands, IN ROUNDS. The
-    # chains are the same; what changed is that a step needing two or three
-    # parallel calls is one round, so each floor is the number of think-act
-    # cycles rather than the number of calls:
-    #   „wie hoch ist der Keller"  use_skill, survey                        = 2
-    #     ...plus a storey-name miss repaired by briefing                    = 3
-    #   OIB 3 Lichteinfall         use_skill, knowledge_search (the clause
-    #     supplies angle_deg/swivel_deg, which light_incidence refuses to
-    #     default), find_elements+relations, overhang, light_incidence       = 5
-    #   OIB 2 Fluchtweg            use_skill, knowledge_search,
-    #     find_elements, egressPath+clearWidth over the door list,
-    #     fire/doorGraph                                                    = 5
-    #   „was weißt du über die OIB 2"  knowledge_search, then the family
-    #     opened in one parallel batch of read_file                         = 2
-    #
-    # Truncation is still silent TO THE READER — the synthesis anchor says
-    # „exhausted your research budget" to the MODEL and asks for no disclosure,
-    # and `[CONFIDENCE:…]` grades SOURCE grounding, not whether
-    # evidence-gathering was cut off — but it is not invisible to US: it emits a
-    # `status:budget` telemetry step and a `Forcing synthesis (rounds)` warning
-    # carrying the ceiling, the rounds spent, the input tokens and the ordered
-    # tool shape, so "how often, and on which questions" is a query rather than
-    # a guess. Whether the READER is told is a product decision.
-    #
-    # 5 is the bare floor with no repair budget, and a storey-name miss is the
-    # commonest repair on this surface. 7 = floor + two repairs. The number is
-    # kept at 7 rather than lowered with the unit: the floors moved because
-    # parallel calls stopped costing, and reading that as headroom to take back
-    # would re-introduce the failure this change removes. Every round is a full
-    # round trip carrying ~9 000 tokens of tool schema plus the grown history,
-    # and what bounds THAT is `max_input_tokens_per_turn` below, not this.
-    #
-    # Raising a ceiling costs nothing on a query that never reaches it — the
-    # short shapes above still stop at 2. The only new cost is a confused model
-    # wandering, bounded at two extra round trips. Set against that, truncation
-    # before the measurement is the worst failure this product has.
-    #
-    # 7 rounds = 14 node visits + forced synthesis, under the graph's
-    # `recursion_limit`, which is derived from this number alone and is
-    # `(max_tool_iterations * 2) + 10` = 24. Nothing else bounds the loop, and
-    # there is no `max_llm_turns` to move with it — that key was dead for
-    # releases and is gone.
     max_tool_iterations: 7
-    # The bound that protects the person paying, and the reason the round
-    # ceiling is free to be generous. Rounds say how far the investigation goes;
-    # they say nothing about what it costs now that one round can fan out into
-    # twelve calls against an 80 000-token context. Read off the cost tracker
-    # that already meters every call of the turn (`common/cost_tracking.py`),
-    # checked at the top of the agent node beside the round ceiling, and
-    # answered the same way: forced synthesis, with its own
-    # `status:budget:input` record so a firing is countable.
-    #
-    # 600 000 is well above the worst turn measured — 288 583 prompt tokens
-    # across eight calls, on „was weißt du über die OIB 2" — and that headroom
-    # is deliberate. A bound that fires on a hard question is a hobble; this one
-    # exists to stop a runaway, and a firing should be rare enough that the
-    # record is worth reading. Lower it only against measurement, never to
-    # "save money" on a distribution nobody has looked at. 0 disables it.
     max_input_tokens_per_turn: 600000
-    # A RUNAWAY GUARD, not a doctrine. Nothing caps the width of a round on
-    # purpose — a round costs one whatever it fans out into, and the family
-    # overview the prompt asks for is five parallel opens in one batch — but
-    # "no cap at all" means one confused decision can put sixty concurrent
-    # calls into the vector store, and the token bound above only sees that at
-    # the START of the next round, after the fan-out has been served. 12 sits
-    # far above every batch the prompt asks for, so a normal turn never meets
-    # it. The calls past it are not refused: each is answered with a notice
-    # saying it was not run THIS round and may be issued again in the next one,
-    # and it stays on the message (a provider rejects an un-answered call).
-    # Each firing leaves a `status:width:N` record, so a cap that fires on real
-    # turns is visible rather than inferred. 0 disables it.
     max_calls_per_round: 12
-    # The turn's one repair (ADR-0067): a quotation the model misremembered is
-    # corrected in place to the cited passage's own wording on card_repair_llm.
-    # No retrieval, no rewrite. Off, or without card_repair_llm, the quote
-    # ships marked.
     repair_pass: true
-    # A card the answer envelope carried and the validator refused is fixed
-    # ONCE on the card model — the failed object, the refusal and the type's
-    # shape in a few thousand tokens — instead of costing the full-context
-    # round the `emit_card` retry used to. Unset = drop it and record it.
     card_repair_llm: card_llm
-    # The answer check (ADR-0139): one structured call at temperature 0, after
-    # the answer streamed, grades the answer against everything the turn
-    # registered. The follow-ups model: the smallest role an organisation
-    # configures, resolved with its override and BYOK for that group. Unset =
-    # no confidence level, the chip says the check was unavailable.
     claim_judge_llm: follow_ups_llm
-    # Agent skills (ADR-0135): Deep Agents' SkillsMiddleware catalog in the turn
-    # context, each SKILL.md read with `read_file` under /skills/. Empty
-    # allowlist = every resolved skill (builtin + org) is offered. No body
-    # rides the prompt by size; the turn-start decision below pins the ONE
-    # method the question is the subject of (~400 tokens, or the IFC method on
-    # a model question).
     skills_enabled: true
-    # The turn-start decision (ADR-0064): one decision-model request beside
-    # the skill resolution — does the message need evidence, which corpus and
-    # which OIB families, which skill, which card types — acted on by ADDING
-    # only: the named fetches run as round 0 before the first LLM call (no
-    # budget spent, answered by the duplicate guard when the model asks
-    # again), the chosen skill's body and card shapes ride this turn's prompt. Every tool stays bound whatever it
-    # says (ADR-0052). `scripts/decision_eval.py` is the adoption gate;
-    # DECISIONS_ENABLED=false switches every decision off at once.
     turn_decisions: true
     skill_allowlist: []
 
-  # Filesystem skills for deep research. Researcher workers load OIB/BIM
-  # methods with read_file from /skills/; the writer loads synthesis the same
-  # way. Curated offers are hidden on this mount and reach a run through the
-  # BFF payload instead. The NVIDIA `research` collection stays off: it needs
-  # a sandbox this config does not run.
   deep_research_skills:
     _type: deep_research_skills
     agents:
@@ -1018,18 +397,8 @@ functions:
     planner_llm: deep_planner_llm
     writer_llm: deep_orchestrator_llm
     skills: deep_research_skills
-    # Explicit tool list (mirrors shallow_research_agent) so deep research
-    # workers get the same OIB knowledge base + RIS access, plus remember and
-    # emit_card. Deep uses advanced_web_search_tool (the deep-tuned Tavily
-    # instance), not web_search_tool. Pinning the list also avoids depending on
-    # data_source_registry inheritance in the async job-worker build path.
     tools:
       - knowledge_search
-      # The locator, now on both surfaces. A researcher worker that has read a
-      # Gliederung and knows the Punkt it needs was sending the corpus to find
-      # that passage again by similarity, paying a fan-out and a reranker pass
-      # for an address it already held — and every batch it spent that way is a
-      # round the run does not get back.
       - read_passage
       - list_files
       - look
@@ -1044,25 +413,8 @@ functions:
       - ifc_measure
       - dxf_measure
     verbose: true
-    # Durable checkpointing for async deep-research jobs (T3-8), mirroring
-    # workflow.checkpoint_db below: re-invoking the same job_id resumes from
-    # the last persisted checkpoint instead of starting over. STRICTLY OPT-IN:
-    # empty/unset DEEP_CHECKPOINT_DB means no durability (in-memory graph,
-    # today's behavior). Do NOT default to a relative sqlite path here — the
-    # container's working directory is not guaranteed writable, and a default-on
-    # value took application startup down (post-#72 incident). Point the env var
-    # at a writable volume path or a Postgres DSN to enable resume-by-job_id.
     checkpoint_db: ${DEEP_CHECKPOINT_DB:-}
 
-  # The Erfassungs-Agent (ADR-0111, docs/design/agentic-project-intake.md):
-  # The agent sets a new project's profile up from its documents, as a background
-  # run on the research worker (agent type `project_intake`). It runs on the
-  # chat model's agent group (`research_llm`; the runner maps this type to
-  # AgentGroup.RESEARCH), so an organization's model choice for chat applies.
-  # Its own tools (intake_needs, record_values, finish_intake, read_document)
-  # are built by the agent; the list below is the shared reading tools, pinned
-  # because an empty list would inherit every data source, the web and RIS
-  # among them, and a profile value comes from the project's documents only.
   project_intake_agent:
     _type: project_intake_agent
     llm: research_llm
@@ -1070,27 +422,14 @@ functions:
       - list_files
       - knowledge_search
       - read_passage
-    # The reading's budgets, stated to the model as information. The run ends
-    # itself before the BFF reconciles a reading older than 30 minutes.
     max_tool_steps: 80
     max_run_seconds: 1200
 
 workflow:
   _type: chat_deepresearcher_agent
   verbose: true
-  # The conversation window, in tokens, trimmed before the agent runs. Set
-  # explicitly rather than left to the default, because this is the number the
-  # deployment is choosing: it is the one part of the context nobody can
-  # reconstruct. A single call on this surface carries 37-84k input tokens and
-  # the static prompt alone is ~14k, so 8 000 trimmed the user's own words and
-  # their corrections while re-sending everything else. See the field docstring
-  # in `core/conversation_register.py`.
   max_history_tokens: 40000
   enable_clarifier: true
-  # The clarification step that confirms a research plan before deep research
-  # runs. A block on the workflow rather than its own function: it has one
-  # caller and is never chosen by a model. The `clarifier` agent group is
-  # unchanged, so a per-org model override still re-points it.
   clarifier:
     llm: clarifier_llm
     planner_llm: clarifier_llm
@@ -1100,21 +439,5 @@ workflow:
     verbose: true
   use_async_deep_research: true
   checkpoint_db: ${CHECKPOINT_DB:-./checkpoints.db}
-  # Enables the async post-answer memory-reflection stage (reuses the cheap
-  # card_llm). This only makes the capability AVAILABLE; whether it runs is
-  # decided per TURN by the BFF (`GET /api/internal/stages`) from the
-  # `memory-reflection` WorkOS flag, with no env-var fallback. A deployment that
-  # signs nobody in (REQUIRE_AUTH not true) gets it, as every rollout flag is on
-  # there (`apps/workspace/bff/authz/feature-flags.ts`).
   memory_reflection_llm: card_llm
-  # Enables the async post-answer follow-up-questions stage. As above, this only
-  # makes the capability AVAILABLE; whether it runs is decided per TURN by the
-  # BFF (`GET /api/internal/stages`) from the `post-answer-follow-ups` WorkOS
-  # flag, the same way.
-  # The stage delivers a `grid_stage_message` frame, rendered as a rail below
-  # the answer card. It ran `silent` for one slice first, so its skip rate,
-  # empty rate and true per-turn cost were measured before any reader saw a chip
-  # (post-answer-stages.md §10, slices 1 and 3). The in-answer `follow_ups` CARD
-  # it replaces is retired (slice 4), so removing `follow_ups_llm` here no longer
-  # falls back to the card — it leaves the product with no follow-up questions.
   follow_ups_llm: follow_ups_llm

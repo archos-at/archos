@@ -5,6 +5,7 @@ import { join } from "node:path";
 export function chromeArgs({ profile, proxyPort }) {
   return [
     "--headless",
+    "--no-sandbox",
     "--remote-debugging-pipe",
     `--user-data-dir=${profile}`,
     "--disable-dev-shm-usage",

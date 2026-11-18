@@ -117,7 +117,7 @@ class TestAfterAPersonChangedIt:
         message = await filing_tools.run_file_draft(XLSX)
 
         assert "Fassung 2" in message
-        assert "over_changes=true" in message
+        assert 'file_as="over_changes"' in message
         assert 'file_as="separate_file"' in message
 
     async def test_over_changes_and_separate_file_carry_out_the_users_choice(
@@ -130,7 +130,7 @@ class TestAfterAPersonChangedIt:
         calls.clear()
         _answer(monkeypatch, calls, _created("ver-2", "draft", "h2"), _created("ver-9", "draft", "h9"))
 
-        await filing_tools.run_file_draft(XLSX, over_changes=True)
+        await filing_tools.run_file_draft(XLSX, file_as="over_changes")
         await _run_file(_one_store, data=BYTES + b"v3")
         await filing_tools.run_file_draft(XLSX, file_as="separate_file")
 

@@ -65,10 +65,10 @@ default. Run the writing form when the user asked for it in this session:
 | `task prompts:push`, which checks | the same task with `-- --apply`, which publishes the platform prompt to Langfuse |
 | `task langfuse:provision`, which checks | the same task with `-- --apply`, which creates score configs, the review queue, judges and the golden dataset in Langfuse |
 | a commit, a branch, a push to your own branch | a force-push, or any history rewrite on a branch someone else may have checked out |
+| merging a pull request an owner approved, once `CI OK` is green | merging past the required review, which a code owner ([`CODEOWNERS`](.github/CODEOWNERS)) may do once `CI OK` is green |
 
-Anything else that destroys what you cannot regenerate needs the same yes:
-`rm -rf`, `git clean -fdx`, a `DROP` or unfiltered `DELETE` against a database
-anyone else uses, removing a Docker volume.
+Anything else that destroys what you cannot regenerate needs the same yes: `rm -rf`,
+`git clean -fdx`, a `DROP` or unfiltered `DELETE` against a database anyone else uses, removing a Docker volume.
 
 ## Obligations
 

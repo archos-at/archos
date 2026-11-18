@@ -50,6 +50,8 @@ FILE_AS_REVISION = "new_revision"
 
 FILE_AS_SEPARATE = "separate_file"
 
+FILE_AS_OVER_CHANGES = "over_changes"
+
 MAX_FOLDER_CHARS = 300
 
 MAX_CHANGE_NOTE_CHARS = 500
@@ -102,7 +104,7 @@ def _changed_in_project(details: dict[str, Any]) -> str:
     return (
         f"Error: A person changed the document in the project since this draft was filed{which}. Nothing was "
         "filed. Tell the user in one sentence and ask which they want: the draft as a new version on top of "
-        "theirs (call again with `over_changes=true`), or the draft as its own file "
+        'theirs (call again with `file_as="over_changes"`), or the draft as its own file '
         '(`file_as="separate_file"`). Do not choose for them.'
     )
 
@@ -314,25 +316,18 @@ def _project_or_refuse() -> str:
 
 
 _FILE_DRAFT_DESCRIPTION = (
-    "Files a draft from the working directory into the project AS A DRAFT, so that others can see and "
-    "review it. `path` is the path in the working directory (`" + DRAFT_ROOT + "<name>.md`), `title` "
-    "is optionally the title in the project — by default the document's first heading. "
-    "Call it when the user asks for it („leg das ins Projekt“, „abspeichern“, „ablegen“), "
-    "not on your own after every write. "
-    "A second call for the same path puts the current draft into the same document; no "
-    "second document is created. What is filed is a DRAFT: nobody has approved it, it is not "
-    "published and is not searched. "
-    "`submit=true` then submits the draft FOR APPROVAL into the reviewers' inbox; filed and unchanged, "
-    "it is only submitted. Only when the user asks for approval, review or hand-over — "
-    "„ablegen“ alone is not such a request. "
-    "`reviewer` (only with `submit=true`, optional): the person to review, exactly as the user named "
-    "them (name or email); it is resolved against the project's members on submission, so never "
-    "guess one. Without it the draft goes to the project's editors. Submitted is still NOT approved. "
-    "`folder` (optional): the folder the user named, by name or path; an unknown one is refused with the "
-    "folders that exist. Without it a file goes where its source document lies, else to the default folder. "
-    "A file made from a project document files as its own file; only when the user asks for a new version of "
-    'that document pass `file_as="new_revision"` and `change_note`, one German sentence of what changed. '
-    '`over_changes=true` and `file_as="separate_file"` only carry out the user\'s answer to a refusal.'
+    "Files a draft from the working directory into the project AS A DRAFT. `path`: `" + DRAFT_ROOT + "<name>.md`; "
+    "`title` optional. "
+    "Call it when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after "
+    "every write. Again for the same path puts the current draft into the same document. A DRAFT: nobody has "
+    "approved it. "
+    "`submit=true` submits it FOR APPROVAL (filed and unchanged, it is only submitted). Call with `submit=true` "
+    "only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. "
+    "`reviewer` (only with submit): the person exactly as the user named them; without it the draft goes to "
+    "the project's editors. "
+    "`folder`: a folder the user named. A file made from a project document files as its own file, unless "
+    'the user asks for its new version: `file_as="new_revision"` and `change_note`. '
+    '`file_as="over_changes"`/`"separate_file"` only answer a refusal, as the user chose.'
 )
 
 _REVIEWER_WITHOUT_SUBMIT = (
@@ -484,15 +479,14 @@ async def run_file_draft(
     submit: bool = False,
     reviewer: str | None = None,
     folder: str | None = None,
-    file_as: Literal["new_revision", "separate_file"] | None = None,
+    file_as: Literal["new_revision", "separate_file", "over_changes"] | None = None,
     change_note: str | None = None,
-    over_changes: bool = False,
 ) -> str:
     choice = _Choice(
         title=_clean(title, MAX_TITLE_CHARS),
         folder=_clean(folder, MAX_FOLDER_CHARS),
-        file_as=file_as or "",
-        over_changes=over_changes,
+        file_as="" if file_as == FILE_AS_OVER_CHANGES else file_as or "",
+        over_changes=file_as == FILE_AS_OVER_CHANGES,
         change_note=_clean(change_note, MAX_CHANGE_NOTE_CHARS),
     )
     try:

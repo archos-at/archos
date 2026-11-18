@@ -17,6 +17,7 @@ import { createSessionNavigationSlice } from './session-navigation'
 import { createSessionServerSyncSlice } from './session-server-sync'
 import { createConversationPersistenceSlice, forgetServerConversation } from './conversation-persistence'
 import { createAnswerRecoverySlice } from './answer-recovery'
+import { turnStateFor, withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createConversationMetadataSlice } from './conversation-metadata'
 
 export { patchConversationMessageById } from '../lib/conversation-updates'
@@ -55,16 +56,18 @@ export type SessionsSlice = {
     options?: { quiet?: boolean }
   ) => Promise<RecoveryOutcome>
   _awaitServerAnswer: (conversationId: string, afterUserMessageId: string) => Promise<RecoveryOutcome>
-  isSessionBusy: (conversationId: string) => boolean
   hasAnyBusySession: () => boolean
   _ensureConversationExists: () => Promise<void>
-  _appendMessage: (message: ChatMessage) => Promise<void>
+  _appendMessage: (message: ChatMessage, conversationId?: string) => Promise<void>
   _persistCardInteractions: (
     conversationId: string,
     messageId: string,
     cardInteractions: CardInteractions
   ) => Promise<void>
-  _persistTurnProvenance: (after?: Promise<unknown>) => Promise<void>
+  _persistTurnProvenance: (
+    after?: Promise<unknown>,
+    turn?: { conversationId: string; turnId: string }
+  ) => Promise<void>
   _persistPromptState: (messageId: string, response: string) => Promise<void>
   _persistStageOutput: (conversationId: string, messageId: string, stages: MessageStages) => Promise<void>
   _cutStoppedAnswer: (conversationId: string, messageId: string, turnId: string, shown: string) => Promise<void>
@@ -132,12 +135,19 @@ export const createSessionsSlice: StateCreator<
       })
     })
 
+    const turns = Object.fromEntries(
+      Object.entries(get().turns).filter(([, view]) => view.conversationId !== conversationId)
+    )
+    const remaining = currentConversation?.id === conversationId ? null : currentConversation
+
     set(
       {
         conversations: updatedConversations,
         composerDrafts: nextComposerDrafts,
-        currentConversation:
-          currentConversation?.id === conversationId ? null : currentConversation,
+        currentConversation: remaining,
+        unseenAnswers: withoutUnseenAnswer(get().unseenAnswers, conversationId),
+        turns,
+        ...turnStateFor(turns, remaining?.id),
       },
       false,
       'deleteConversation'

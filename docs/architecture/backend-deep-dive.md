@@ -1128,7 +1128,7 @@ The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
-`apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
+`apps/agent-host/src/agent_host/jobs/citation_events.py`. A text those parsers find no
 `Citation:` line in carries no sources at all. A web search is read by its
 result records (`citations/web_results.py`: one `<Document href>` header per
 hit, never an address inside a page's text, and no address `common/url_safety.py`
@@ -1899,7 +1899,7 @@ is what that framework costs.
   (the skill resolver was one) fails healthy jobs with a timeout that names
   nothing, so it is wrapped in `asyncio.to_thread`, as `agent.py` does for
   `_resolve_skills_blocking`. The runner heartbeats only once
-  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/runner.py`) is
+  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/job_cancellation.py`) is
   entered, so slow pre-run work belongs inside it. The symptom is in
   [`gotchas.md`](../contributing/gotchas.md) ("no heartbeat received from worker").
 - **Nothing request-scoped is read from context.** There is no request in a

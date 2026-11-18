@@ -48,6 +48,9 @@ The user has this file open, so every bare reference in their message („dieses
 {%- if trigger_block is defined and trigger_block %}
 {{ trigger_block }}
 {% endif %}
+{%- if answer_excerpt_block is defined and answer_excerpt_block %}
+{{ answer_excerpt_block }}
+{% endif %}
 {%- if document_inventory %}
 {{ document_inventory }}
 {% endif %}

@@ -29,8 +29,10 @@ import {
   type CanvasFocusRegion,
 } from '../lib/canvas-bridge'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
-import type { ChatMessage, Conversation, PendingInteraction } from '../types'
-import { createTurnDriver, type DriverHooks, type TurnDriver, type UserMessage } from '../lib/turn-driver'
+import type { AnswerExcerpt, ChatMessage, Conversation, PendingInteraction } from '../types'
+import { createTurnDriver, type ConnectionFailure, type DriverHooks, type TurnDriver, type UserMessage } from '../lib/turn-driver'
+import { createDriverPool, type DriverPool } from '../lib/turn-driver-pool'
+import type { TurnView } from '@/lib/turns/turn-fold'
 import {
   readAddresseeRuling,
   readSendFailure,
@@ -152,30 +154,28 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
   }
   const socketPermitted = socketGateRef.current.open
 
-  const driverRef = useRef<TurnDriver | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [steerOffered, setSteerOffered] = useState(false)
 
   const isSessionExpired = authRequired && !user && !authLoading
-  const hooks: DriverHooks = {
+  const isOpen = (conversationId: string): boolean =>
+    useChatStore.getState().currentConversation?.id === conversationId
+  const hooks = {
     refreshAuth: async () => {
       if (!authRequired || !getAccessToken) return
       await getAccessToken()
     },
-    onConnected: (connected, offered) => {
-      setIsConnected(connected)
-      setSteerOffered(offered)
-    },
-    onGaveUp: () => explainConnectionFailure(),
-    onOffline: () => {
+    onGaveUp: (conversationId: string) => explainConnectionFailure(conversationId),
+    onOffline: (conversationId: string) => {
+      if (!isOpen(conversationId)) return
       if (useChatStore.getState().currentConversation?.messages.some(isTransientConnectionError)) return
       addErrorCard('connection.lost')
     },
-    onQueueFull: (text, retryAfter) => {
+    onQueueFull: (conversationId: string, text: string, retryAfter: number | null) => {
       const message = retryAfter
         ? `${tChat('errorRegistry.researchQueueFull.full')} ${tChat('errorRegistry.researchQueueFull.retryHint', { seconds: retryAfter })}`
         : tChat('errorRegistry.researchQueueFull.message')
-      addErrorCard('research.queue_full', message, text.trim() || undefined)
+      addErrorCard('research.queue_full', message, text.trim() || undefined, conversationId)
     },
   }
   const hooksRef = useRef(hooks)
@@ -183,65 +183,102 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
     hooksRef.current = hooks
   })
 
-  const budgetCheckedRef = useRef(false)
-  const explainConnectionFailure = async (): Promise<'network' | 'other'> => {
-    const conversationId = useChatStore.getState().currentConversation?.id
-    const stillHere = () => useChatStore.getState().currentConversation?.id === conversationId
-    if (!budgetCheckedRef.current) {
-      budgetCheckedRef.current = true
+  const budgetCheckedRef = useRef(new Set<string>())
+  const explainConnectionFailure = async (conversationId: string): Promise<ConnectionFailure> => {
+    if (!isOpen(conversationId)) return 'unwatched'
+    if (!budgetCheckedRef.current.has(conversationId)) {
+      budgetCheckedRef.current.add(conversationId)
       const budgetMessage = await discoverBudgetFailureMessage(tChat)
-      if (!stillHere()) return 'network'
+      if (!isOpen(conversationId)) return 'unwatched'
       if (budgetMessage) {
         addErrorCard('budget.exhausted', budgetMessage)
         return 'other'
       }
     }
     const backendUp = await checkBackendHealthCached()
-    if (!stillHere()) return 'network'
+    if (!isOpen(conversationId)) return 'unwatched'
     const expired = backendUp && isSessionExpired
     addErrorCard(expired ? 'auth.session_expired' : 'connection.failed')
     return expired ? 'other' : 'network'
   }
 
-  const ensureDriver = useCallback((conversationId: string): TurnDriver => {
-    const projectId = useChatStore.getState().projectId || undefined
-    const current = driverRef.current
-    if (current?.conversationId === conversationId && current.projectId === projectId) return current
-    current?.close()
-    budgetCheckedRef.current = false
-    const driver = createTurnDriver(conversationId, projectId, {
-      refreshAuth: () => hooksRef.current.refreshAuth(),
-      onConnected: (connected, offered) => hooksRef.current.onConnected(connected, offered),
-      onGaveUp: () => hooksRef.current.onGaveUp(),
-      onOffline: () => hooksRef.current.onOffline(),
-      onQueueFull: (text, retryAfter) => hooksRef.current.onQueueFull(text, retryAfter),
-    })
-    driverRef.current = driver
-    void driver.connect()
-    return driver
+  const linksRef = useRef(new Map<string, { connected: boolean; steerOffered: boolean }>())
+  const gaveUpRef = useRef(new Set<string>())
+  const showLinkOf = useCallback((conversationId: string | undefined): void => {
+    const link = conversationId ? linksRef.current.get(conversationId) : undefined
+    setIsConnected(link?.connected ?? false)
+    setSteerOffered(link?.steerOffered ?? false)
   }, [])
+
+  const [pool] = useState<DriverPool>(() =>
+    createDriverPool(
+      (conversationId, projectId) => {
+        budgetCheckedRef.current.delete(conversationId)
+        const driverHooks: DriverHooks = {
+          refreshAuth: () => hooksRef.current.refreshAuth(),
+          onConnected: (connected, offered) => {
+            linksRef.current.set(conversationId, { connected, steerOffered: offered })
+            if (connected) gaveUpRef.current.delete(conversationId)
+            if (isOpen(conversationId)) showLinkOf(conversationId)
+          },
+          onGaveUp: () => {
+            gaveUpRef.current.add(conversationId)
+            return hooksRef.current.onGaveUp(conversationId)
+          },
+          onOffline: () => hooksRef.current.onOffline(conversationId),
+          onQueueFull: (text, retryAfter) => hooksRef.current.onQueueFull(conversationId, text, retryAfter),
+        }
+        return createTurnDriver(conversationId, projectId, driverHooks)
+      },
+      (conversationId) => {
+        linksRef.current.delete(conversationId)
+        gaveUpRef.current.delete(conversationId)
+      }
+    )
+  )
+
+  const ensureDriver = useCallback(
+    (conversationId: string): TurnDriver =>
+      pool.ensure(conversationId, useChatStore.getState().projectId || undefined),
+    [pool]
+  )
+
+  const reconcileDrivers = useCallback((previousTurns?: Record<string, TurnView>): void => {
+    const { currentConversation, conversations, turns, projectId } = useChatStore.getState()
+    pool.reconcile({
+      currentId: currentConversation?.id,
+      turns,
+      previousTurns,
+      known: (id) => id === currentConversation?.id || conversations.some((conversation) => conversation.id === id),
+      projectIdOf: (id) => conversations.find((conversation) => conversation.id === id)?.projectId || projectId || undefined,
+    })
+  }, [pool])
+
+  const redialGivenUp = useCallback((): void => {
+    for (const conversationId of [...gaveUpRef.current]) {
+      gaveUpRef.current.delete(conversationId)
+      void pool.get(conversationId)?.connect()
+    }
+  }, [pool])
 
   useEffect(() => {
     if (currentConversationId && autoConnect && socketPermitted) ensureDriver(currentConversationId)
-    const driver = driverRef.current
-    if (driver && driver.conversationId !== currentConversationId) {
-      driver.close()
-      driverRef.current = null
-      setIsConnected(false)
-      setSteerOffered(false)
-    }
-  }, [currentConversationId, projectId, autoConnect, socketPermitted, ensureDriver])
+    reconcileDrivers()
+    redialGivenUp()
+    showLinkOf(currentConversationId)
+  }, [currentConversationId, projectId, autoConnect, socketPermitted, ensureDriver, reconcileDrivers, redialGivenUp, showLinkOf])
   useEffect(
-    () => () => {
-      driverRef.current?.close()
-      driverRef.current = null
-    },
-    []
+    () =>
+      useChatStore.subscribe((state, previous) => {
+        if (state.turns !== previous.turns || state.conversations !== previous.conversations) reconcileDrivers(previous.turns)
+      }),
+    [reconcileDrivers]
   )
+  useEffect(() => () => pool.closeAll(), [pool])
 
   useEffect(() => {
-    const driver = driverRef.current
-    if (!resumableTurn || !isConnected || driver?.conversationId !== resumableTurn.conversationId) return
+    const driver = resumableTurn && pool.get(resumableTurn.conversationId)
+    if (!resumableTurn || !isConnected || !driver) return
     const { turns, beginTurn } = useChatStore.getState()
     if (runningTurnIn(turns, resumableTurn.conversationId)) return
     beginTurn(resumableTurn.conversationId, resumableTurn.turnId)
@@ -251,7 +288,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
       turn_id: resumableTurn.turnId,
       after_seq: 0,
     })
-  }, [resumableTurn, isConnected])
+  }, [resumableTurn, isConnected, pool])
 
   useEffect(() => {
     registerStopStreamingHandler((turnId, shown) => {
@@ -264,9 +301,10 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
   const connect = useCallback(() => {
     const conversationId = useChatStore.getState().currentConversation?.id
     if (!conversationId) return
-    if (driverRef.current?.conversationId === conversationId) void driverRef.current.connect()
+    const driver = pool.get(conversationId)
+    if (driver) void driver.connect()
     else ensureDriver(conversationId)
-  }, [ensureDriver])
+  }, [ensureDriver, pool])
   useConnectionRecovery(connect)
 
   const deliverAsContext = useCallback(
@@ -318,7 +356,8 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
       dataSourcesForMessage: string[] | null,
       conversationId: string | undefined,
       reasoningEffort?: ChatEffort,
-      asked?: CanvasFocus
+      asked?: CanvasFocus,
+      answerExcerpt?: AnswerExcerpt
     ): boolean => {
       const canvas = asked ?? openCanvasFocus() ?? undefined
       if (!conversationId) {
@@ -353,6 +392,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         reasoning_effort: effort,
         ...(posthogSessionId ? { posthog_session_id: posthogSessionId } : {}),
         ...(clientTools.length ? { client_tools: clientTools } : {}),
+        ...(answerExcerpt ? { answer_excerpt: answerExcerpt.text } : {}),
       }
       afterTemporarySettled(conversationId, () => ensureDriver(conversationId).ask(question))
       return true
@@ -390,6 +430,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
               metadata: {
                 enabledDataSources: dataSourcesForMessage,
                 ...(messageFiles.length > 0 ? { messageFiles } : {}),
+                ...(options.answerExcerpt ? { answerExcerpt: options.answerExcerpt } : {}),
               },
               createdAt: new Date().toISOString(),
               mentions: mentions.map((mention) => ({ targetId: mention.targetId })),
@@ -416,6 +457,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         messageType: 'user',
         enabledDataSources: dataSourcesForMessage,
         messageFiles: messageFiles.length > 0 ? messageFiles : undefined,
+        ...(options.answerExcerpt ? { answerExcerpt: options.answerExcerpt } : {}),
         mentions: mentions.map((mention) => ({ ...mention })),
         addressees: ruling,
       })
@@ -425,7 +467,15 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         return { ok: true, addressees: ruling }
       }
 
-      const started = openAgentTurn(messageId, content, dataSourcesOnWire, conversationId, options.reasoningEffort)
+      const started = openAgentTurn(
+        messageId,
+        content,
+        dataSourcesOnWire,
+        conversationId,
+        options.reasoningEffort,
+        undefined,
+        options.answerExcerpt
+      )
       return { ok: started, addressees: ruling }
     },
     [addErrorCard, collectSendMetadata, deliverAsContext, openAgentTurn]
@@ -438,7 +488,11 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         return sendRuledMessage(content, options ?? {})
       }
       const { dataSourcesForMessage, dataSourcesOnWire, messageFiles } = collectSendMetadata()
-      const message = addUserMessage(content, { enabledDataSources: dataSourcesForMessage, messageFiles })
+      const message = addUserMessage(content, {
+        enabledDataSources: dataSourcesForMessage,
+        messageFiles,
+        answerExcerpt: options?.answerExcerpt,
+      })
       const conversationId = useChatStore.getState().currentConversation?.id
       return openAgentTurn(
         message.id,
@@ -446,7 +500,8 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         dataSourcesOnWire,
         conversationId,
         options?.reasoningEffort,
-        options?.canvas
+        options?.canvas,
+        options?.answerExcerpt
       )
     },
     [addUserMessage, collectSendMetadata, openAgentTurn, sendRuledMessage]
@@ -456,14 +511,14 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
     ({ text, focusRegion, onLeftover }: SteerRequest): boolean => {
       const { currentConversation, turns } = useChatStore.getState()
       const running = runningTurnIn(turns, currentConversation?.id)
-      const driver = driverRef.current
-      if (!text.trim() || !running || driver?.conversationId !== running.conversationId) return false
+      const driver = pool.get(running?.conversationId)
+      if (!text.trim() || !running || !driver) return false
       return driver.steer(running.turnId, text.trim(), {
         focusRegion,
         onLeftover: onLeftover ?? ((leftover) => void sendMessage(leftover)),
       })
     },
-    [sendMessage]
+    [sendMessage, pool]
   )
 
   useEffect(() => registerCanvasChatSteerer((request) => steer(request)), [steer])

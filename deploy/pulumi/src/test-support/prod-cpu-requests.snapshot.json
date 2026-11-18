@@ -1,0 +1,752 @@
+{
+  "resources": {
+    "b3fe466d041fc60f": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "efdce18dda0856e7": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "2c2271ac2954e8aa": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "178e5136269d6359": {
+      "limits": {
+        "cpu": "200m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "10m",
+        "memory": "64Mi"
+      }
+    },
+    "51ddb6e762d9c0a6": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "706487805e89c81f": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "384Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "e825d13504869824": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "d514152ee999b97f": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "768Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "352a5e09e3e35167": {
+      "limits": {
+        "cpu": "1000m",
+        "memory": "2560Mi"
+      },
+      "requests": {
+        "cpu": "1000m",
+        "memory": "1Gi"
+      }
+    },
+    "df2de3224ec3e5b1": {
+      "limits": {
+        "cpu": "1",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "200m",
+        "memory": "512Mi"
+      }
+    },
+    "dd5d0f5c8f297ad1": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
+    },
+    "9cf4c31914663366": {
+      "limits": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      },
+      "requests": {
+        "cpu": "10m",
+        "memory": "64Mi"
+      }
+    },
+    "983619d6ff20fdfd": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "6b7d04244aa5d997": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "96769a2505f624f1": {
+      "limits": {
+        "cpu": "2",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "2",
+        "memory": "1Gi"
+      }
+    },
+    "4b55eb0150c857b1": {
+      "limits": {
+        "cpu": "1",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "270m",
+        "memory": "512Mi"
+      }
+    },
+    "518a3fca3573c3bd": {
+      "limits": {
+        "cpu": "2",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "850m",
+        "memory": "2Gi"
+      }
+    },
+    "eac59817a4d44d3e": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "2Gi"
+      },
+      "requests": {
+        "cpu": "10m",
+        "memory": "128Mi"
+      }
+    },
+    "f27582c3a58391cb": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "128Mi"
+      },
+      "requests": {
+        "cpu": "10m",
+        "memory": "32Mi"
+      }
+    },
+    "1a1621e691d63f29": {
+      "limits": {
+        "cpu": "1",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
+    },
+    "763293b31aa4316c": {
+      "limits": {
+        "cpu": "3",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "1500m",
+        "memory": "1Gi"
+      }
+    },
+    "8a961aebb3fcec02": {
+      "limits": {
+        "cpu": "4",
+        "memory": "16Gi"
+      },
+      "requests": {
+        "cpu": "4",
+        "memory": "16Gi"
+      }
+    },
+    "80d71faf1c40c1d4": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "5564908e1e7997f1": {
+      "limits": {
+        "cpu": "2",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "1750m",
+        "memory": "1Gi"
+      }
+    },
+    "fd4ef0f9fae44059": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "6eeb0f02a0030e68": {
+      "limits": {
+        "cpu": "1",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "64Mi"
+      }
+    },
+    "dd32c74fded0a15c": {
+      "limits": {
+        "cpu": "2",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "500m",
+        "memory": "4Gi"
+      }
+    },
+    "95cfdaaa6d4be2a6": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "2629ac89dffca397": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "850365770cd476bf": {
+      "limits": {
+        "cpu": "1",
+        "memory": "2Gi"
+      },
+      "requests": {
+        "cpu": "1",
+        "memory": "1Gi"
+      }
+    },
+    "dfc39758e654f398": {
+      "limits": {
+        "cpu": "1",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "512Mi"
+      }
+    },
+    "14b30cfd3c1bfd7a": {
+      "limits": {
+        "cpu": "1",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "512Mi"
+      }
+    },
+    "e370e26cb69b4c69": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "128Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "64Mi"
+      }
+    },
+    "afb2ef19efca018f": {
+      "limits": {
+        "cpu": "2",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "75m",
+        "memory": "1Gi"
+      }
+    },
+    "2ae4c626a0807de2": {
+      "limits": {
+        "cpu": "2",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "75m",
+        "memory": "1Gi"
+      }
+    },
+    "746ded4ac4e926f9": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "43fb188c9006dfd7": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "fdb62ddd30bd7b83": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "6d5b2b4253a463fb": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "6865f5e5ca0c080e": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "4df35d4caf287ec6": {
+      "limits": {
+        "cpu": "2",
+        "memory": "3Gi"
+      },
+      "requests": {
+        "cpu": "200m",
+        "memory": "1Gi"
+      }
+    },
+    "e2f671ad30327932": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "119f9f90cf0e2e28": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "dd9586efe9c0f45d": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
+    },
+    "43d8b3d91a2dcd6a": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "269e667b44da09b7": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "2ba3b399b7937870": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "086d31a9d5f2a52e": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "d5ba9ccbb538d8f3": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "408504822a4f8ffb": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "1e861c0fa40479f3": {
+      "limits": {
+        "cpu": "4",
+        "memory": "8Gi"
+      },
+      "requests": {
+        "cpu": "1400m",
+        "memory": "2Gi"
+      }
+    },
+    "a2ae6ae1c6e0f3a8": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "18927798b9a02531": {
+      "limits": {
+        "cpu": "2",
+        "memory": "6Gi"
+      },
+      "requests": {
+        "cpu": "1200m",
+        "memory": "6Gi"
+      }
+    },
+    "e84374524efaba67": {
+      "limits": {
+        "cpu": "2",
+        "memory": "12Gi"
+      },
+      "requests": {
+        "cpu": "1",
+        "memory": "12Gi"
+      }
+    },
+    "93094781ffbf62bf": {
+      "limits": {
+        "cpu": "4",
+        "memory": "8Gi"
+      },
+      "requests": {
+        "cpu": "375m",
+        "memory": "2Gi"
+      }
+    },
+    "acfb878569fef639": {
+      "limits": {
+        "cpu": "2",
+        "memory": "6Gi"
+      },
+      "requests": {
+        "cpu": "875m",
+        "memory": "1536Mi"
+      }
+    },
+    "6b024c2d1570b1df": {
+      "limits": {
+        "cpu": "2",
+        "memory": "6Gi"
+      },
+      "requests": {
+        "cpu": "875m",
+        "memory": "1536Mi"
+      }
+    },
+    "9f69c6ba35fd9f77": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "64Mi"
+      }
+    },
+    "57800c2f60ba3fd9": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "192Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "64Mi"
+      }
+    },
+    "5f22fdaf0aa49ace": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "0def5b760a9e4d54": {
+      "limits": {
+        "cpu": "1",
+        "memory": "2Gi"
+      },
+      "requests": {
+        "cpu": "250m",
+        "memory": "512Mi"
+      }
+    },
+    "34f8d76c0dfdef9c": {
+      "limits": {
+        "cpu": "1",
+        "memory": "1536Mi"
+      },
+      "requests": {
+        "cpu": "925m",
+        "memory": "512Mi"
+      }
+    },
+    "79554c60b72471e8": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
+    "80a7e448306ed941": {
+      "limits": {
+        "cpu": "1",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "256Mi"
+      }
+    },
+    "e88692a89b823d49": {
+      "limits": {
+        "cpu": "4",
+        "memory": "8Gi"
+      },
+      "requests": {
+        "cpu": "400m",
+        "memory": "2Gi"
+      }
+    },
+    "b3b2cdac6f85fb9f": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
+    },
+    "9e4b47c6d67f94fd": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "dd634d952a94b79d": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "66215b6583966664": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "1c815d274ec42af6": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "efaae0b1e43301a6": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "ffc8a62e04c365a1": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    },
+    "e13eda9d69793822": {
+      "limits": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "25m",
+        "memory": "64Mi"
+      }
+    }
+  },
+  "cpuScalingTargets": {
+    "b583cc5ff23bb709": {
+      "averageUtilization": 70,
+      "type": "Utilization"
+    },
+    "1c643d34ba6cc3c4": {
+      "averageUtilization": 40,
+      "type": "Utilization"
+    },
+    "1c575ddbd648f8c8": {
+      "averageUtilization": 40,
+      "type": "Utilization"
+    },
+    "8dca89197712ea61": {
+      "averageUtilization": 38,
+      "type": "Utilization"
+    }
+  }
+}

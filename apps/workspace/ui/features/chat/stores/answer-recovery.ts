@@ -4,6 +4,7 @@ import type { SessionsSlice } from './sessions-store'
 import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { updateConversationInList } from '../lib/conversation-updates'
 import { getConversationsClient } from '../lib/conversations-client-access'
+import { runningTurnIn } from '../lib/turn-selectors'
 
 const TURN_SILENCE_MS = 70_000
 const AWAIT_ANSWER_POLL_MS = 4_000
@@ -76,9 +77,9 @@ export const createAnswerRecoverySlice: StateCreator<
       const serverMessages = await conversationsClient.listMessages(conversationId)
       const mapped = mapServerMessagesToChatMessages(serverMessages)
 
-      const { conversations, currentConversation, isStreaming } = get()
+      const { conversations, currentConversation, turns } = get()
       const target = conversations.find((c) => c.id === conversationId)
-      if (!target || isStreaming) return 'superseded'
+      if (!target || runningTurnIn(turns, conversationId)) return 'superseded'
 
       const localIds = new Set(target.messages.map((m) => m.id))
 

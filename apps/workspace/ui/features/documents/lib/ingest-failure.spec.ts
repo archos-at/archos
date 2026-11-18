@@ -69,6 +69,7 @@ describe('classifyIngestFailure', () => {
 
   it.each([
     ['INGEST_DISPATCH_FAILED_MESSAGE', 'dispatch_failed'],
+    ['INGEST_ALLOWANCE_SPENT_MESSAGE', 'allowance_spent'],
     ['RENDITION_REQUIRED_MESSAGE', 'rendition_failed'],
     ['DRAWING_UNREADABLE_MESSAGE', 'drawing_unreadable'],
   ] as const)('classifies the BFF constant %s', (name, kind) => {

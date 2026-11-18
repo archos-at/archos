@@ -1,22 +1,3 @@
-# Bilingual OIB retrieval vocabulary.
-#
-# The corpus is German; users ask in German AND English. A German-language index
-# cannot be reached by an English query on lexical grounds at all, and only weakly
-# on dense grounds -- measured on this corpus with a multilingual retriever, an
-# English question scored MRR 0.293 against the same question in German at 0.678.
-# Prepending the German terms below to the English query closed that gap to 0.674.
-# This file is that bridge.
-#
-# EVERY German term here was counted in data/oib/*.pdf before being written down,
-# and the count is recorded beside it. A glossary entry naming a word the corpus
-# does not use is worse than no entry: it spends query budget and can only add
-# noise. Terms that failed that check are listed at the bottom so nobody re-adds
-# them from intuition -- `Anleiterbarkeit`, `Bruttogeschossfläche` and
-# `Luftschalldämmung` all occur ZERO times, despite being natural things to guess.
-#
-# Admin-editable, like the norm registry beside it. `en` are the surface forms an
-# English speaker types; `de` are the corpus's own words, most frequent first.
-
 concepts:
   - id: escape_route
     en: [escape route, escape routes, egress, rescue route, means of escape, evacuation route]
@@ -132,13 +113,3 @@ concepts:
   - id: fire_brigade_access
     en: [fire brigade access, access road, hardstanding, setup area]
     de: [Aufstellfläche, Feuerwehrzufahrt] # 10 / 6
-
-# Counted and found ABSENT from data/oib/*.pdf — do not add without re-counting:
-#   Anleiterbarkeit (0), Bruttogeschossfläche (0), Luftschalldämmung (0),
-#   Anleiterstelle (0), Hauptzugang (0), Bemessungswert (0),
-#   Standardschallpegeldifferenz (0), Hauptgang (2, and "Gang" already covers it),
-#   Abstellfläche (2, too rare to be useful), Notausgang (3, the corpus says
-#   Fluchtweg/Rettungsweg instead).
-#
-# The `en` forms are matched with punctuation flattened to spaces, so "fire-brigade
-# access" and "fire brigade access" are one entry. Do not enumerate both spellings.

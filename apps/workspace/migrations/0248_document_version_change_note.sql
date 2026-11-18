@@ -1,4 +1,4 @@
--- 0247: a Fassung the agent made from a person's request carries its Änderungsvermerk, the short note of
+-- 0248: a Fassung the agent made from a person's request carries its Änderungsvermerk, the short note of
 -- what changed against the Fassung before it. Written when the Fassung is filed, shown with it.
 
 ALTER TABLE "document_versions" ADD COLUMN IF NOT EXISTS "change_note" text;

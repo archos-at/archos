@@ -3,6 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { GATEWAY_NAME } from "./gateway";
 import { PLATFORM_RESOURCES } from "../constants";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const CERT_MANAGER_CHART_VERSION = "v1.21.3";
 
@@ -38,7 +39,7 @@ export function installCertManager(
           kind: "ControllerConfiguration",
           enableGatewayAPI: true,
         },
-        resources: PLATFORM_RESOURCES.certManager,
+        resources: scaledCpuRequest(PLATFORM_RESOURCES.certManager),
       },
     },
     { provider, dependsOn: [ns, ...dependsOn] },

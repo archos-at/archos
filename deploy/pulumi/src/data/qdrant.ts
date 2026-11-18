@@ -14,6 +14,7 @@ import {
 import { installPdb, onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { qdrantAlertRules } from "./qdrant-alerts";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -276,7 +277,7 @@ function qdrantPodSpec(
         readinessProbe: { httpGet: { path: "/readyz", ...http }, periodSeconds: 5, timeoutSeconds: 3, failureThreshold: 6 },
         livenessProbe: { httpGet: { path: "/livez", ...http }, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 6 },
         lifecycle: shutdown.lifecycle,
-        resources: { requests: envelope, limits: envelope },
+        resources: scaledCpuRequest({ requests: envelope, limits: envelope }),
         securityContext: { ...hardenedContainerSecurityContext(), readOnlyRootFilesystem: true },
         volumeMounts: [
           { name: "data", mountPath: "/qdrant/storage" },
@@ -428,7 +429,7 @@ function installSnapshotCronJob(
                     image: QDRANT.curlImage,
                     imagePullPolicy: pullPolicyFor(QDRANT.curlImage),
                     securityContext: { ...hardenedContainerSecurityContext(), readOnlyRootFilesystem: true },
-                    resources: BOOTSTRAP_JOB_RESOURCES,
+                    resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                     command: ["/bin/sh", "-c", snapshotScript()],
                     env: [
                       {
