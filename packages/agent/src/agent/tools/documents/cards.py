@@ -64,6 +64,17 @@ def emit_draft_card(
     except ValidationError:
         logger.exception("Failed to build document_draft card for %s", path)
         return False
-    registry.add(validated)
+    earlier = next(
+        (
+            index
+            for index, shown in enumerate(registry.snapshot())
+            if shown.get("type") == "document_draft" and shown.get("path") == path
+        ),
+        None,
+    )
+    if earlier is None:
+        registry.add(validated)
+    else:
+        registry.replace(earlier, validated)
     logger.info("Emitted document_draft card (path=%s version=%d)", path, version)
     return True

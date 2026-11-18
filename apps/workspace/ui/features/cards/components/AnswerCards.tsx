@@ -20,6 +20,8 @@ import { GuardrailCheckCard } from '../schematics/GuardrailCheckCard'
 import { FireAccessPlanCard } from '../schematics/FireAccessPlanCard'
 import { DocumentAnswerCard } from './DocumentAnswerCard'
 import { DocumentDraftCard } from './DocumentDraftCard'
+import { FileDraftCard } from './FileDraftCard'
+import { isMarkdownDraft } from '@/lib/conversations/draft-media'
 import { TaskCreatedCard } from './TaskCreatedCard'
 import { IfcViewerCard } from './IfcViewerCard'
 import { IfcModelPickerCard } from './IfcModelPickerCard'
@@ -248,6 +250,25 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           documents={(card.documents ?? []) as SurfacedDocument[]}
           search={card.search ?? null}
           projectId={projectId}
+        />
+      </FadeIn>
+    )
+  }
+
+  if (card.type === 'document_draft' && !isMarkdownDraft(card.path, card.media_type)) {
+    return (
+      <FadeIn distance={6}>
+        <FileDraftCard
+          title={card.title}
+          path={card.path}
+          bytes={card.bytes}
+          version={card.version}
+          documentId={card.document_id}
+          versionId={card.version_id}
+          versionState={card.version_state}
+          messageId={messageId}
+          cardKey={key}
+          decisionsMustPersist={decisionsMustPersist}
         />
       </FadeIn>
     )
