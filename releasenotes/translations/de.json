@@ -2536,6 +2536,10 @@
     "de": "Im Chat können Sie jetzt eine DXF-Zeichnung vermessen: wie weit ein Haus von jeder Grundstücksgrenze entfernt ist, wie lang die Grenze zum Nachbarn ist und welche Fläche nach den von Ihnen angegebenen Abständen und der Bebauungsdichte noch bebaubar ist."
   },
   {
+    "en": "In the derivation, a source card read across many pages no longer lists every page one by one. It names the pages as ranges, shows the first three, and counts the rest, so the card stays readable.",
+    "de": "In der Ableitung listet eine Quellenkarte mit vielen Seiten nicht mehr jede Seite einzeln auf. Stattdessen fasst sie Seiten zu Bereichen zusammen, zeigt die ersten drei an und zählt die übrigen, damit die Karte übersichtlich bleibt."
+  },
+  {
     "en": "In the derivation, project documents, the Office filing and chat attachments now each have their own label and color instead of all appearing as building law.",
     "de": "In der Herleitung haben Projektdokumente, die Büroablage und Chat-Anhänge jetzt jeweils eine eigene Kennzeichnung und Farbe, statt alle als Baurecht zu erscheinen."
   },

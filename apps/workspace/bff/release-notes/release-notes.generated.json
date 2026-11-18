@@ -113,6 +113,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "In the derivation, a source card read across many pages no longer lists every page one by one. It names the pages as ranges, shows the first three, and counts the rest, so the card stays readable.",
+            "de": "In der Ableitung listet eine Quellenkarte mit vielen Seiten nicht mehr jede Seite einzeln auf. Stattdessen fasst sie Seiten zu Bereichen zusammen, zeigt die ersten drei an und zählt die übrigen, damit die Karte übersichtlich bleibt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A document the agent wrote and you published no longer drops out of search after the weekly cleanup. Until now it could only be found again once it was published anew.",
