@@ -76,7 +76,9 @@ export function installNetworkPolicies(
   });
 
   const cnpg = mk("allow-cnpg-operator", {
-    podSelector: {},
+    podSelector: cfg.posthog.logsEnabled
+      ? { matchExpressions: [{ key: "app.kubernetes.io/name", operator: "NotIn", values: [OTEL_COLLECTOR] }] }
+      : {},
     policyTypes: ["Ingress"],
     ingress: [{ from: [nsLabel("cnpg-system")] }],
   });

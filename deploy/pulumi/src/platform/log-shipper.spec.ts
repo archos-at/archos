@@ -192,10 +192,17 @@ describe("container logs, with PostHog logs on (the default)", () => {
         ports: [4317, 4318, 13133, 8889].map((port) => ({ protocol: "TCP", port })),
       },
     ]);
-    const toGateway = RESOURCES.filter(
-      (r) => r.type === "kubernetes:networking.k8s.io/v1:NetworkPolicy" && JSON.stringify(r.inputs).includes("4319"),
-    );
-    expect(toGateway.map((r) => r.name)).toEqual(["allow-log-shipper-to-collector"]);
+    const selectsCollector = (sel: any) =>
+      Object.entries(sel.matchLabels ?? {}).every(([k, v]) => k === "app.kubernetes.io/name" && v === "otel-collector") &&
+      (sel.matchExpressions ?? []).every((e: any) => e.operator === "NotIn" && !e.values.includes("otel-collector"));
+    const opensShipperPort = (rule: any) => !rule.ports?.length || rule.ports.some((p: any) => p.port === 4319);
+    const reaching: string[] = [];
+    for (const r of RESOURCES.filter((r) => r.type === "kubernetes:networking.k8s.io/v1:NetworkPolicy")) {
+      if ((await resolve<any>(r.inputs.metadata)).namespace !== "grid") continue;
+      const spec = await resolve<any>(r.inputs.spec);
+      if (selectsCollector(spec.podSelector) && (spec.ingress ?? []).some(opensShipperPort)) reaching.push(r.name);
+    }
+    expect(reaching).toEqual(["allow-log-shipper-to-collector"]);
   });
 });
 
