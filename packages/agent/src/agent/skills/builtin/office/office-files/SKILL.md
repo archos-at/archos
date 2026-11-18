@@ -48,10 +48,8 @@ on with it, and every figure in it is one a run computed.
 
 ## The libraries
 
-Import each by its npm name. Read the skill named here before the first run
-that writes or reads that kind of file, even when you know the library: it
-lists the mistakes that make Office refuse or repair a file, and its example
-is the code to start from.
+Import each by its npm name. The skill named here lists the mistakes that make
+Office refuse or repair a file, and its example is the code to start from.
 
 | Import | For | Skill |
 |---|---|---|
