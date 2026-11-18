@@ -370,6 +370,29 @@ def test_the_skill_lockfile_is_audited_only_when_something_it_hashes_changed():
     assert evaluate(PLAN["outputs"]["skills"], steps={"filter": {"outputs": {"skills": "true"}}}) == "true"
 
 
+def test_only_the_helper_unshallows_a_clone():
+    root = WORKFLOWS.parents[1]
+    sources = [
+        *WORKFLOWS.glob("*.yml"),
+        *(root / ".github" / "actions").rglob("*.yml"),
+        *(root / "ci").glob("*"),
+        *(root / "taskfiles").glob("*.yml"),
+        root / "Taskfile.yml",
+    ]
+    bare = [
+        f"{path.relative_to(root)}:{number}"
+        for path in sources
+        if path.is_file() and path.name != "unshallow.sh"
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if "--unshallow" in line
+    ]
+
+    assert bare == [], (
+        f"{bare} run `git fetch --unshallow`, which aborts on a clone an earlier step completed: "
+        "call ci/unshallow.sh instead"
+    )
+
+
 def test_semgrep_finds_its_own_merge_base_from_a_shallow_clone():
     steps = JOBS["semgrep"]["steps"]
     checkout = steps[0]
