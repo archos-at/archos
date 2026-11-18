@@ -362,3 +362,36 @@ class TestGetCheckpointer:
         finally:
             await conn.close()
             os.unlink(db_path)
+
+
+class TestCheckpointerBootRetry:
+    @pytest.fixture(autouse=True)
+    def clear_checkpointer_cache(self):
+        import agent.common as common_module
+
+        common_module._checkpointers.clear()
+        common_module._postgres_pools.clear()
+        yield
+        common_module._checkpointers.clear()
+        common_module._postgres_pools.clear()
+
+    @pytest.mark.asyncio
+    async def test_a_first_setup_failure_while_postgres_restarts_is_retried(self, monkeypatch):
+        import psycopg
+
+        from agent.common import boot_retry
+
+        monkeypatch.setattr(boot_retry, "_async_sleep", AsyncMock())
+        mock_checkpointer = MagicMock()
+        mock_checkpointer.setup = AsyncMock(
+            side_effect=[psycopg.OperationalError("FATAL:  the database system is starting up"), None]
+        )
+
+        with (
+            patch("agent.common.AsyncConnectionPool", return_value=MagicMock()),
+            patch("agent.common.AsyncPostgresSaver", return_value=mock_checkpointer),
+        ):
+            checkpointer = await get_checkpointer("postgresql://user:pass@localhost:5432/testdb")
+
+        assert checkpointer is mock_checkpointer
+        assert mock_checkpointer.setup.await_count == 2
