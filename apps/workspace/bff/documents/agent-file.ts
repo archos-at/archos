@@ -34,6 +34,7 @@ export interface FileAgentFileDraftInput extends AgentFileUpload {
   ref: string
   title: string
   filename?: string
+  folderId?: string | null
   request?: Request
   actingHuman?: boolean
   originConversationId?: string | null
@@ -71,6 +72,7 @@ export async function fileAgentFileDraft(input: FileAgentFileDraftInput): Promis
     ref: input.ref,
     title: input.title,
     filename,
+    folderId: input.folderId,
     request: input.request,
     render: ({ marking }) => {
       stored = stampAgentFile(checked, provenance, marking)

@@ -28,6 +28,12 @@ LOCAL_STACK_UI_PORT="${LOCAL_STACK_UI_PORT:-3000}"     # the gateway (server.js)
 LOCAL_STACK_NEXT_PORT="${LOCAL_STACK_NEXT_PORT:-3001}" # `next dev` behind the gateway
 LOCAL_STACK_API_PORT="${LOCAL_STACK_API_PORT:-8000}"   # backend, PROCESS_ROLE=api
 LOCAL_STACK_CHAT_PORT="${LOCAL_STACK_CHAT_PORT:-8001}" # backend, PROCESS_ROLE=chat
+LOCAL_STACK_PREVIEW_PORT="${LOCAL_STACK_PREVIEW_PORT:-3311}" # `previews`: next dev alone, for /dev/* and captures
+
+# Free disk `previews` and `up` insist on before starting next dev. Turbopack's
+# dev cache under .next/ grows by hundreds of MB; on a full disk it panics with
+# ENOSPC and every page answers 500.
+LOCAL_STACK_MIN_FREE_MB="${LOCAL_STACK_MIN_FREE_MB:-2048}"
 
 # The UI checkout `next dev` runs in. Next allows one `next dev` per directory
 # (`.next/dev/lock`), so a second stack beside a running one needs a copy:

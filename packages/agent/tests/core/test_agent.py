@@ -14,10 +14,10 @@ from agent.citations.session import reset_session_registry
 from agent.citations.session import set_session_registry
 from agent.common import LLMProvider
 from agent.common import LLMRole
-from agent.common.answer_envelope import render_envelope_response_format
 from agent.common.brand import PRODUCT_NAME
 from agent.common.data_source_registry import populate_from_config
 from agent.common.data_source_registry import reset_registry
+from agent.common.envelope_schema import render_envelope_response_format
 from agent.common.retrieval_rounds import assistant_checkpoint
 from agent.core.agent import ChatAgent
 from agent.core.models import ResearchAgentState
@@ -2891,12 +2891,12 @@ class TestTheDelegationRulesLiveInTheTool:
 
 class TestTheWorkingDirectoryBudget:
     def test_the_recursion_limit_derives_from_the_ceiling_alone(self):
-        from agent.core.agent import _recursion_limit
+        from agent.core.turn_binding import _recursion_limit
 
         assert _recursion_limit(5) == (5 * 2) + 10
 
     def test_a_draft_read_back_is_never_a_source(self):
-        from agent.core.agent import _capture_sources
+        from agent.core.source_capture import _capture_sources
 
         registry = SourceRegistry()
         for verb in ("ls", "read_file", "write_file", "edit_file"):

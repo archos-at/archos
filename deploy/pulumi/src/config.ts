@@ -26,6 +26,7 @@ import {
 } from "./config/qdrant";
 import { type McpGatewayConfig, loadMcpGateway } from "./config/mcp-gateway";
 import { bool, nodeGroup, num } from "./config/readers";
+import { cpuRequestScale } from "./config/cpu-requests";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
 import { malwareScanConfig } from "./config/malware-scan";
@@ -156,6 +157,7 @@ export interface DeployConfig {
 export function loadConfig(): DeployConfig {
   const cfg = new pulumi.Config();
   refuseLangfuseV4WriteMode(cfg.get("langfuseV4WriteMode"));
+  cpuRequestScale();
 
   const rejectPlaceholder = (key: string, markers: string[]) => {
     const v = cfg.get(key);

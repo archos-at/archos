@@ -14,8 +14,6 @@ export const HARDENING = [
   "ALL",
   "--security-opt",
   "no-new-privileges",
-  "--security-opt",
-  "seccomp=unconfined",
   "--user",
   "10042:10042",
   "--memory",

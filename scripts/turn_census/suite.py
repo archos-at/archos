@@ -167,7 +167,7 @@ def final_answer(log_text: str) -> str:
 
 
 def last_envelope(research: list[dict]) -> tuple[dict | None, int | None]:
-    from agent.common.answer_envelope import extract_answer_envelope
+    from agent.common.envelope_parsing import extract_answer_envelope
 
     found, at = None, None
     for position, entry in enumerate(research):

@@ -261,13 +261,17 @@ def test_the_declaration_is_read_relative_to_the_ui(mod):
 def test_the_newest_green_run_on_an_ancestor_is_the_reference(mod):
     runs = {
         "workflow_runs": [
-            {"head_sha": "c" * 40, "created_at": "2026-10-20T09:00:00Z"},  # not an ancestor (force-pushed away)
-            {"head_sha": "b" * 40, "created_at": "2026-10-20T08:00:00Z"},
-            {"head_sha": "a" * 40, "created_at": "2026-10-20T07:00:00Z"},
+            {"id": 3, "head_sha": "c" * 40, "created_at": "2026-10-20T09:00"},  # not an ancestor (force-pushed away)
+            {"id": 2, "head_sha": "b" * 40, "created_at": "2026-10-20T08:00:00Z"},
+            {"id": 1, "head_sha": "a" * 40, "created_at": "2026-10-20T07:00:00Z"},
         ]
     }
+    marker = {"artifacts": [{"name": "ci-green-" + "d" * 40, "expired": False}]}
 
-    found = mod.previous_green(lambda _path: runs, "o/r", "branch", "h" * 40, lambda sha: sha != "c" * 40)
+    def get(path: str) -> dict:
+        return marker if "/artifacts" in path else runs
+
+    found = mod.previous_green(get, "o/r", "branch", "h" * 40, lambda sha: sha != "c" * 40)
 
     assert found["head_sha"] == "b" * 40
 

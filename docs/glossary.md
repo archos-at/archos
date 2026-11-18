@@ -233,6 +233,7 @@ replaced `agent_capability_missing`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | `CI OK` | The single required status check: passes only when every needed job passed or was skipped | [`docs/contributing/ci.md`](contributing/ci.md) |
+| Light run | A pull request's CI run: the cheap checks only. The shards, suites, Hatchet tests and image builds run on the push to `develop`, or on a pull request labelled `ci:full` | [`ci/ci_depth.py`](../ci/ci_depth.py) |
 | Plan | CI's first job: what the change touched, whether the tree was already tested, which images to build | [`docs/contributing/ci.md`](contributing/ci.md) |
 | Tier | A path group in `.github/filters.yml` that gates a set of jobs. A skipped tier counts as passed | [`.github/filters.yml`](../.github/filters.yml) |
 | Last green commit | The newest commit CI passed on a branch, which a push diffs against instead of the previous push | [`ci/last_green.py`](../ci/last_green.py) |

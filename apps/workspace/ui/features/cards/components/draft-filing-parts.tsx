@@ -2,6 +2,8 @@
 
 import type { FC, MouseEvent } from 'react'
 import { documentFilesHref, openFiledDocument } from '@/features/documents/chat-card-parts'
+import { SaveToProjectDialog } from '@/features/documents/save-to-project'
+import { draftFileType, filedExtension } from '@/lib/conversations/draft-media'
 import { StackedLabel } from '@/components/ui/stacked-label'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -70,5 +72,30 @@ export const DraftConflictNotice: FC<{ filing: DraftFiling }> = ({ filing }) => 
         </button>
       </p>
     </div>
+  )
+}
+
+export const DraftSaveDialog: FC<{
+  filing: DraftFiling
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  path: string
+}> = ({ filing, open, onOpenChange, title, path }) => {
+  if (!filing.projectId) return null
+  return (
+    <SaveToProjectDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      projectId={filing.projectId}
+      fileName={title}
+      extension={filedExtension(draftFileType(path))}
+      pending={filing.isFiling}
+      error={open ? filing.error : null}
+      onSave={async ({ folderId, name }) => {
+        const outcome = await filing.file(false, { folderId, name })
+        if (outcome !== 'failed') onOpenChange(false)
+      }}
+    />
   )
 }

@@ -13,6 +13,7 @@ import {
   composeCollectorConfig,
   renderCollectorConfig,
 } from "./collector-config";
+import { cpuRequest } from "../config/cpu-requests";
 
 const COMPONENT = "otel-agent";
 const KUBELET_PORT = 10250;
@@ -75,7 +76,7 @@ export function installOtelAgent(
                 ],
                 volumeMounts: [{ name: "config", mountPath: "/etc/otelcol", readOnly: true }],
                 resources: {
-                  requests: { cpu: "50m", memory: "64Mi" },
+                  requests: { cpu: cpuRequest("50m"), memory: "64Mi" },
                   limits: { cpu: "250m", memory: "256Mi" },
                 },
                 readinessProbe: { httpGet: { path: "/", port: HEALTH_PORT }, periodSeconds: 10, timeoutSeconds: 5 },

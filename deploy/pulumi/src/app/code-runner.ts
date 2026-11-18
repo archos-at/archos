@@ -9,6 +9,7 @@ import { hardenedContainerSecurityContext } from "../platform/security";
 import { SCALER_COOLDOWN_SECONDS, SCALER_POLLING_SECONDS } from "./keda-scaling";
 import { browserRendererEnv } from "./browser-renderer";
 import { CHAT_TIERS } from "./tier-names";
+import { cpuUtilizationTarget, scaledCpuRequest } from "../config/cpu-requests";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -95,7 +96,7 @@ export function installCodeRunner(
                 lifecycle: { preStop: { sleep: { seconds: CODE_RUNNER_ROLLOUT.endpointDrainSeconds } } },
                 ports: [{ containerPort: port, name: "http" }],
                 ...(browserAddr ? { env: browserRendererEnv(browserAddr) } : {}),
-                resources: CODE_RUNNER.resources,
+                resources: scaledCpuRequest(CODE_RUNNER.resources),
                 readinessProbe: { httpGet: { path: "/health", port }, periodSeconds: 10 },
                 livenessProbe: {
                   httpGet: { path: "/health", port },
@@ -157,7 +158,7 @@ export function installCodeRunnerScaling(
         cooldownPeriod: SCALER_COOLDOWN_SECONDS,
         advanced: { horizontalPodAutoscalerConfig: { behavior: CODE_RUNNER_SCALE_BEHAVIOR } },
         triggers: [
-          { type: "cpu", metricType: "Utilization", metadata: { value: String(cpuTargetPercent) } },
+          { type: "cpu", metricType: "Utilization", metadata: { value: String(cpuUtilizationTarget(cpuTargetPercent)) } },
           { type: "memory", metricType: "Utilization", metadata: { value: String(memoryTargetPercent) } },
         ],
       },

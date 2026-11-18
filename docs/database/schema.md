@@ -10,6 +10,23 @@
 
 The `app` database stores application state managed by the Next.js BFF. It uses **Drizzle ORM** (PostgreSQL dialect) with schema definitions in `apps/workspace/bff/db/schema/`.
 
+## Which database holds a table
+
+One Postgres server holds three databases. A table you cannot find in `app` is
+probably in `jobs`: the Python backend's tables live there, and `\dt` in `app`
+does not list them. `tests/test_database_placement.py` checks this table
+against `deploy/compose/init-db.sql`, the backend's table names and the
+backfill manifests.
+
+| Database | Tables | Created by |
+|---|---|---|
+| `app` | every table in `apps/workspace/bff/db/schema/` | `apps/workspace/migrations/` |
+| `jobs` | `job_info`, `job_access`, `job_events`, `document_metadata`, `document_revision_retained`, `ingest_jobs`, `research_orchestrator_runs` | `init-db.sql`, then the Python stores at first use (`SUMMARY_DB`, `NAT_JOB_STORE_DB_URL`) |
+| `checkpoints` | `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations` | `init-db.sql`, then LangGraph |
+
+A registered backfill names its database in `backfill.json` (`"database": "jobs"`;
+the default is `app`, [backfills.md](../deployment/backfills.md)).
+
 ---
 
 ## Schema Files
@@ -1790,7 +1807,9 @@ LLM budgets and the usage ledger (ADR-0015).
   `apps/workspace/bff/db/schema/budgets.ts`.
 - `llm_usage_rollups` (migration 0015, ADR-0019): write-through daily spend
   aggregate — one row per (org, UTC day, user, project; empty string = none),
-  `cost_usd`, `events`. Incremented in the same transaction as every ledger
+  `cost_usd`, `events`, and since 0247 `ingest_credits`, `ingest_tokens`,
+  `ingest_events` (the share of the totals from `activity = 'ingest'`, which
+  the limits leave out). Incremented in the same transaction as every ledger
   insert; budget enforcement reads these rows instead of aggregating the
   ledger per WebSocket upgrade. Backfilled from the ledger by the migration.
   Rows of an unbilled activity (`dictation`) are never added to it, and

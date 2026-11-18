@@ -14,7 +14,12 @@ import { FEATURE_FLAGS, isAgentAuthoredDocumentsEnabled } from '@/lib/authz/feat
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { findProjectInOrg } from '@/lib/projects/repository'
-import { findRootProjectFolderByName, getOrCreateProjectFolderByName } from '@/lib/projects/folder-service'
+import {
+  findProjectFolder,
+  findRootProjectFolderByName,
+  getOrCreateProjectFolderByName,
+  type FolderRow,
+} from '@/lib/projects/folder-service'
 import { requireMayFileFrom, type ConversationOrigin } from '@/lib/conversations/restricted-egress'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { AuthoredRefKind } from './document-authors'
@@ -82,6 +87,7 @@ export interface FileGeneratedDocumentInput {
   title: string
   render: (context: GeneratedRenderContext) => Promise<GeneratedRendering> | GeneratedRendering
   filename?: string
+  folderId?: string | null
   request?: Request
   origin?: ConversationOrigin
 }
@@ -113,12 +119,26 @@ const EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
 
 export function generatedFilename(title: string, contentType: string, now: Date): string {
   const day = now.toISOString().slice(0, 10)
-  const slug = fileSlug(title)
   const extension = EXTENSION_BY_CONTENT_TYPE[contentType.split(';')[0].trim()] ?? 'bin'
+  const stem = title.toLowerCase().endsWith(`.${extension}`) ? title.slice(0, -(extension.length + 1)) : title
+  const slug = fileSlug(stem)
   return `${slug || 'document'}-${day}.${extension}`
 }
 
-export async function assertMayFileGeneratedDocument(session: AuthorizedSession, projectId: string): Promise<void> {
+type ChosenFolder = Pick<FolderRow, 'id' | 'path'> | null
+
+async function chosenFolder(session: AuthorizedSession, projectId: string, folderId: string | null): Promise<ChosenFolder> {
+  if (folderId === null) return null
+  const folder = await findProjectFolder(projectId, folderId, session.organizationId)
+  if (!folder) throw new NotFoundError('Folder not found')
+  return folder
+}
+
+export async function assertMayFileGeneratedDocument(
+  session: AuthorizedSession,
+  projectId: string,
+  folderId?: string | null,
+): Promise<void> {
   if (!isAgentAuthoredDocumentsEnabled(session)) {
     throw new ForbiddenError('Agent-authored documents are disabled', {
       feature: FEATURE_FLAGS.agentAuthoredDocuments,
@@ -128,6 +148,11 @@ export async function assertMayFileGeneratedDocument(session: AuthorizedSession,
   await requireProjectAccess(session, projectId, ['project:documents:write', 'project:edit'])
   await requireProjectAccess(session, projectId, 'project:documents:generate')
 
+  if (folderId !== undefined) {
+    const chosen = await chosenFolder(session, projectId, folderId)
+    await requireFolderWrite(session, projectId, [chosen?.id ?? null])
+    return
+  }
   const destination = await findRootProjectFolderByName(projectId, GENERATED_DOCUMENT_FOLDER_NAME, session.organizationId)
   await requireFolderWrite(session, projectId, [destination?.id ?? null])
 }
@@ -138,7 +163,7 @@ export async function fileGeneratedDocument(
   const { session, projectId, producer, ref, title, render, request, origin } = input
   const refKind = GENERATED_DOCUMENT_PRODUCER_REF_KINDS[producer]
 
-  await assertMayFileGeneratedDocument(session, projectId)
+  await assertMayFileGeneratedDocument(session, projectId, input.folderId)
 
   const existing = await findDocumentAuthoredByRef(ref, session.organizationId, projectId, producer)
   if (existing) {
@@ -153,11 +178,15 @@ export async function fileGeneratedDocument(
   const project = await findProjectInOrg(projectId, session.organizationId)
   if (!project) throw new NotFoundError('Project not found')
 
-  const existingDestination = await findRootProjectFolderByName(
-    projectId,
-    resolveGeneratedDocumentDestination(producer).folderName,
-    session.organizationId,
-  )
+  const chosen = input.folderId === undefined ? undefined : await chosenFolder(session, projectId, input.folderId)
+  const existingDestination =
+    chosen === undefined
+      ? await findRootProjectFolderByName(
+          projectId,
+          resolveGeneratedDocumentDestination(producer).folderName,
+          session.organizationId,
+        )
+      : chosen
   if (origin) {
     const destination = existingDestination
     await requireMayFileFrom(origin, {
@@ -175,16 +204,14 @@ export async function fileGeneratedDocument(
     throw new UnmarkedRenderingError(producer, rendered.contentType)
   }
 
-  const destination = resolveGeneratedDocumentDestination(producer)
-  const folder = await getOrCreateProjectFolderByName(projectId, destination.folderName, session.organizationId)
-  if (folder.id !== existingDestination?.id) await requireFolderWrite(session, projectId, [folder.id])
+  const folder = chosen === undefined ? await defaultDestination(session, projectId, producer, existingDestination) : chosen
 
   const documentId = crypto.randomUUID()
   const storedName = input.filename ?? generatedFilename(title, rendered.contentType, new Date())
   const filename = isNamespacedAgentDocument({ authoredByProducer: producer })
     ? agentDocumentFilename(documentId, storedName)
     : storedName
-  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storedName, folder.path)
+  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storedName, folder?.path)
 
   const storageBucket = await ensureTenantBucketChecked(bucketAdminS3Client, session.organizationId)
 
@@ -203,7 +230,7 @@ export async function fileGeneratedDocument(
       id: documentId,
       organizationId: session.organizationId,
       projectId,
-      folderId: folder.id,
+      folderId: folder?.id ?? null,
       createdBy: session.userId,
       authoredBy: 'agent',
       authoredByProducer: producer,
@@ -213,7 +240,12 @@ export async function fileGeneratedDocument(
       displayName: title.trim() || storedName,
       storageKey,
       storageBucket,
-      collectionName: await placementCollectionFor(session.organizationId, projectId, project.collectionName, folder.id),
+      collectionName: await placementCollectionFor(
+        session.organizationId,
+        projectId,
+        project.collectionName,
+        folder?.id ?? null,
+      ),
       fileSize: body.byteLength,
       contentType: rendered.contentType,
       status: 'stored',
@@ -239,7 +271,7 @@ export async function fileGeneratedDocument(
       action: 'document.generated',
       targetType: 'document',
       targetId: documentId,
-      filedIn: { projectId, folderId: folder.id },
+      filedIn: { projectId, folderId: folder?.id ?? null },
       metadata: { projectId, producer, filename, fileSize: body.byteLength },
       request,
     })
@@ -248,7 +280,19 @@ export async function fileGeneratedDocument(
     throw error
   }
 
-  return { documentId, filename, folderId: folder.id, alreadyFiled: false }
+  return { documentId, filename, folderId: folder?.id ?? null, alreadyFiled: false }
+}
+
+async function defaultDestination(
+  session: AuthorizedSession,
+  projectId: string,
+  producer: GeneratedDocumentProducer,
+  checked: ChosenFolder,
+): Promise<FolderRow> {
+  const destination = resolveGeneratedDocumentDestination(producer)
+  const folder = await getOrCreateProjectFolderByName(projectId, destination.folderName, session.organizationId)
+  if (folder.id !== checked?.id) await requireFolderWrite(session, projectId, [folder.id])
+  return folder
 }
 
 async function unfile(

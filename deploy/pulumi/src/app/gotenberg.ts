@@ -8,6 +8,7 @@ import { hardenedContainerSecurityContext } from "../platform/security";
 import { ROLLOUT, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { GOTENBERG, PORT, UID } from "../constants";
 import { scrapeAnnotations } from "../platform/scrape";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface Gotenberg {
   deployment: k8s.apps.v1.Deployment;
@@ -53,7 +54,7 @@ export function installGotenberg(
                 lifecycle: shutdown.lifecycle,
                 args: [...GOTENBERG.args],
                 ports: [{ containerPort: PORT.gotenberg, name: "http" }],
-                resources: GOTENBERG.resources,
+                resources: scaledCpuRequest(GOTENBERG.resources),
                 readinessProbe: {
                   httpGet: { path: "/health", port: PORT.gotenberg },
                   initialDelaySeconds: 10,

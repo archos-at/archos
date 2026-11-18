@@ -16,7 +16,10 @@ about what the week meant. Security and severe fixes are written down the same
 way and kept in the repository: the notes are product news, not a bug register.
 
 - **Tool:** [reno](https://docs.openstack.org/reno/latest/), OpenStack's release-note
-  manager. One YAML file per change, under `releasenotes/notes/`.
+  manager. One YAML file per change, under `releasenotes/notes/`. It runs through
+  `uv run --no-project`, outside the project environment: in `[dependency-groups]`
+  it would add a resolver constraint and `uv.lock` churn to every backend install
+  for tooling the product never uses.
 - **Rule:** [AGENTS.md](../../AGENTS.md), the "Change what a customer can notice"
   row. Enforced on every PR by the release-note step of the **Repo checks** job
   in [`ci.yml`](../../.github/workflows/ci.yml), which goes by file, not by what
@@ -50,7 +53,14 @@ reno picks the filename, a slug plus a random suffix, which is why two
 branches never collide on the same note file even when they both add one.
 
 Set the area line the template starts with, then keep exactly the sections you
-need and delete the rest:
+need and delete the rest; an empty section fails the lint. The template
+(`template:` in [`releasenotes/config.yaml`](../../releasenotes/config.yaml))
+carries the area line and two comment lines that point here, and no more: a
+note is a YAML file under the comment ratchet
+([`code-conventions.md`](code-conventions.md#comments)), which leaves the
+`# area:` line out and allows three other comment lines. What the template used
+to spell out is here: who reads a note in the tier table above, how to write it
+in [the house rules](#the-house-rules) below.
 
 ```yaml
 ---

@@ -17,7 +17,9 @@ export function browserHost(env) {
 
   async function open() {
     if (!env.BROWSER_RENDERER_ADDR) {
-      throw new BrowserUnavailable("This runner has no browser: Puppeteer is not available in this deployment.");
+      throw new BrowserUnavailable(
+        "This runner has no browser: Puppeteer is not available in this deployment, and a retry gets the same answer. Make the PDF with Typst (office-pdf) instead.",
+      );
     }
     if (state.opened >= BROWSERS_PER_RUN) {
       throw new Error(`A run may launch at most ${BROWSERS_PER_RUN} browsers. Reuse one browser and open pages in it.`);

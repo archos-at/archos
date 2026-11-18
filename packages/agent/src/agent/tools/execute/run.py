@@ -20,6 +20,7 @@ from ..documents.draft_store import DRAFT_ROOT
 from ..documents.draft_store import DraftBackend
 from ..documents.draft_store import get_draft_backend
 from ..look.resolve import resolve_document
+from .progress import FileRunProgress
 from .runner_client import WORKSPACE
 from .runner_client import RunnerUnavailable
 from .runner_client import RunResult
@@ -85,7 +86,7 @@ def _headers() -> dict[str, str]:
     return bff_http.SignedEnvelope(header=header, signature=signature).headers()
 
 
-async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes]:
+async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
     try:
         resolved = await resolve_document(name)
     except Refused as refused:
@@ -109,7 +110,8 @@ async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes]:
             f"'{resolved.file_name}' could not be read for the script ({exc.reason}).", "unreadable"
         ) from exc
     note_collections_read([resolved.collection])
-    return resolved.collection, resolved.file_name, data
+    document_id = resolved.target.document_id if resolved.target else None
+    return resolved.collection, resolved.file_name, data, document_id
 
 
 def input_name(file_name: str) -> str:
@@ -134,6 +136,7 @@ def unique_input_path(file_name: str, taken: Container[str]) -> str:
 class _Sent:
     files: dict[str, bytes] = field(default_factory=dict)
     inputs: list[tuple[str, str]] = field(default_factory=list)
+    documents: list[tuple[str, str | None]] = field(default_factory=list)
 
 
 async def _inputs(backend: DraftBackend, documents: list[str]) -> _Sent:
@@ -141,13 +144,14 @@ async def _inputs(backend: DraftBackend, documents: list[str]) -> _Sent:
     used = sum(len(data) for data in sent.files.values())
     read: set[tuple[str, str]] = set()
     for name in documents[:MAX_DOCUMENTS]:
-        collection, file_name, data = await _document_bytes(name, MAX_INPUT_BYTES - used)
+        collection, file_name, data, document_id = await _document_bytes(name, MAX_INPUT_BYTES - used)
         if (collection, file_name) in read:
             continue
         read.add((collection, file_name))
         path = unique_input_path(file_name, sent.files)
         sent.files[path] = data
         sent.inputs.append((file_name, path))
+        sent.documents.append((file_name, document_id))
         used += len(data)
     if used > MAX_INPUT_BYTES:
         raise _Refusal("The files for this run exceed 50 MB. Name fewer documents.", "too_large")
@@ -238,13 +242,16 @@ async def _execute(facts: RunFacts, runner_url: str, code: str, documents: list[
             facts.stop("refused", refusal.code)
             return f"Nothing was run. {refusal}"
         facts.sent(sent.files, timeout_s)
+        progress = FileRunProgress.begin(code, sent.files, sent.documents)
         try:
             result = await run_code(runner_url, code, language="ts", files=sent.files, timeout_ms=timeout_s * 1000)
         except RunnerUnavailable as exc:
             logger.warning("execute: %s", exc)
             facts.stop("unavailable", exc.code)
+            progress.finish("unavailable", kept=[], elapsed_ms=0)
             return f"Nothing was run: {exc}. Try once more; if it fails again, answer without running code."
         facts.ran(result.status, result.duration_ms, result.stderr)
         kept, refused = await _keep(backend, sent.files, result)
         facts.kept, facts.files_refused = kept, len(refused)
+        progress.finish(result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value)
     return _report(result, sent, kept, refused)

@@ -4,6 +4,7 @@ import { translatorFor } from '@/i18n/namespace'
 import { filesCopy } from '@/i18n/namespaces/files'
 import {
   DRAWING_UNREADABLE_MESSAGE,
+  INGEST_ALLOWANCE_SPENT_MESSAGE,
   INGEST_DISPATCH_FAILED_MESSAGE,
   RENDITION_REQUIRED_MESSAGE,
 } from '@/lib/documents/ingest-dispatch'
@@ -65,6 +66,7 @@ describe('classifyIngestFailure', () => {
 
   it.each([
     [INGEST_DISPATCH_FAILED_MESSAGE, 'dispatch_failed'],
+    [INGEST_ALLOWANCE_SPENT_MESSAGE, 'allowance_spent'],
     [RENDITION_REQUIRED_MESSAGE, 'rendition_failed'],
     [DRAWING_UNREADABLE_MESSAGE, 'drawing_unreadable'],
   ] as const)('classifies the BFF message %s', (message, kind) => {

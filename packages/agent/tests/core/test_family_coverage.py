@@ -16,8 +16,8 @@ from agent.common.data_source_registry import populate_from_config
 from agent.common.data_source_registry import reset_registry
 from agent.common.norm_registry import oib_families
 from agent.core.agent import ChatAgent
-from agent.core.agent import _opened_documents
 from agent.core.models import ResearchAgentState
+from agent.core.source_capture import _opened_documents
 from agent.knowledge.inventory import set_norm_families
 
 CORPUS = (

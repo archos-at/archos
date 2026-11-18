@@ -1500,6 +1500,10 @@
     "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
   },
   {
+    "en": "Ask the assistant to compare any two files you pick with # in the chat, not only two versions of one document. Two lists, such as room lists in Excel, CSV or a table in a PDF, are compared row by row: which rows differ and in which column, which rows only one file has, and where each stands in both files.",
+    "de": "Lassen Sie den Assistenten beliebige zwei Dateien Ihrer Wahl mit # im Chat vergleichen, nicht nur zwei Versionen desselben Dokuments. Zwei Listen, etwa Raumlisten in Excel, CSV oder als Tabelle in einem PDF, werden zeilenweise verglichen: Welche Zeilen sich unterscheiden und in welcher Spalte, welche Zeilen nur in einer Datei vorkommen und an welcher Stelle sie in beiden Dateien stehen."
+  },
+  {
     "en": "Asked for an Excalidraw diagram or a sketch, Piloti now draws it, and you can open the drawing as a sketch to rework it, instead of being told it cannot. Asked about itself, such as whether it works inside your own assistant, Piloti now answers instead of searching your files.",
     "de": "Wenn Sie Piloti um ein Excalidraw-Diagramm oder eine Skizze bitten, erstellt es diese jetzt. Sie können die Zeichnung als Skizze öffnen und weiterbearbeiten, statt die Meldung zu erhalten, dass dies nicht möglich ist. Fragen Sie Piloti nach sich selbst, etwa ob es in Ihrem eigenen Assistenten funktioniert, antwortet es jetzt, statt Ihre Dateien zu durchsuchen."
   },
@@ -3400,6 +3404,10 @@
     "de": "Das Lesen eines hochgeladenen Dokuments zählt jetzt zu den Ausgaben Ihres Büros und wird dem Projekt und der hochladenden Person zugeordnet. Bisher fehlten in den Ausgaben alle Kosten eines Uploads, und Uploads, die gerade laufen, werden nicht durch ein Budget gestoppt."
   },
   {
+    "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
+    "de": "Das Lesen hochgeladener Dokumente belastet Ihr Tages- und Monatslimit nicht mehr: Dafür steht Ihnen monatlich ein eigenes Kontingent in dreifacher Höhe Ihres Monatslimits zur Verfügung, das unter Verbrauch & Budgets separat angezeigt wird. Ein großer Upload zu Projektbeginn lässt Ihr Tageslimit nun für Ihre Fragen unangetastet."
+  },
+  {
     "en": "Refreshing a project's search or restoring a folder from the Papierkorb does not take a file out of quarantine. A release does.",
     "de": "Das Auffrischen der Suche eines Projekts oder das Wiederherstellen eines Ordners aus dem Papierkorb holt eine Datei nicht aus der Quarantäne. Das tut nur eine Freigabe."
   },
@@ -3532,6 +3540,10 @@
     "de": "Sehen Sie, was eine neue Fassung geändert hat: Filtern Sie nach Dokumenten, deren Angaben von der ersetzten Fassung abweichen, etwa eine neue Gebäudeklasse oder ein Geschoss mehr, und jeder Treffer nennt die Änderung mit altem und neuem Wert. Die Filterleiste sagt außerdem, wie viele Dokumente Piloti noch nicht gelesen hat, damit eine Zahl nie den Eindruck erweckt, ihnen fehle ein Wert."
   },
   {
+    "en": "Select text in an answer and choose „Dazu fragen“ to ask about exactly that part, which appears above the message field until you send or remove it. A follow-up no longer has to describe or retype the sentence it means.",
+    "de": "Wählen Sie Text in einer Antwort aus und klicken Sie auf „Dazu fragen“, um genau dazu eine Frage zu stellen. Der ausgewählte Text erscheint über dem Nachrichtenfeld, bis Sie ihn senden oder entfernen. Bei einer Nachfrage müssen Sie den gemeinten Satz nicht mehr beschreiben oder erneut eingeben."
+  },
+  {
     "en": "Send a draft back with Änderungen anfordern and Piloti revises it from your reason, producing the next version of the same document rather than a second one.",
     "de": "Geben Sie einen Entwurf mit „Änderungen anfordern“ zurück, überarbeitet Piloti ihn anhand Ihrer Begründung; es entsteht die nächste Fassung desselben Dokuments, kein zweites."
   },
@@ -3554,6 +3566,10 @@
   {
     "en": "Several annotations reaching you at once, such as the morning's due date reminders or a batch handed over to you, now arrive as one notification on your devices that says how many are due and how many are overdue.",
     "de": "Mehrere Anmerkungen, die Sie gleichzeitig erreichen, etwa die morgendlichen Fälligkeitserinnerungen oder ein an Sie übergebener Stapel, werden auf Ihren Geräten nun in einer einzigen Benachrichtigung zusammengefasst, die angibt, wie viele fällig und wie viele überfällig sind."
+  },
+  {
+    "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+    "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
   },
   {
     "en": "Sheets that show several drawings at once, such as two floor plans side by side, are now read drawing by drawing instead of as one merged description. The detail view also says which drawing on the sheet each entry describes.",
@@ -5170,6 +5186,10 @@
   {
     "en": "When you draw a box and ask Piloti about it, Piloti answers about that box again, and an @Piloti question in an Anmerkung is answered in its thread. Everyone sees in the thread when Piloti is working on it, also after reloading, and the thread says why when Piloti could not answer.",
     "de": "Wenn Sie ein Rechteck zeichnen und Piloti dazu befragen, antwortet Piloti wieder zu diesem Rechteck. Eine Frage mit @Piloti in einer Anmerkung wird im zugehörigen Thread beantwortet. Alle sehen im Thread, wenn Piloti daran arbeitet – auch nach dem Neuladen. Kann Piloti nicht antworten, steht im Thread, warum."
+  },
+  {
+    "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+    "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
   },
   {
     "en": "When you mention Piloti in an annotation's thread, or hand an open annotation to Piloti, your inbox tells you when it is done or when it has a question for you. Taking an annotation back from Piloti stops the work.",

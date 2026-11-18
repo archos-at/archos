@@ -74,8 +74,10 @@ of its own, so the shipper reads one from the text (`LEVEL_PATTERNS` in
 `deploy/pulumi/src/platform/log-shipper.ts`); an unrecognised stderr line counts
 as warn, so a crash's stack trace survives. Every line of a backfill pod
 (`app-backfill-*`, [`backfills.md`](../deployment/backfills.md)) is kept,
-whatever its level, so each `backfill.count` line of a deploy arrives. Lines
-longer than 16 KiB are cut.
+whatever its level, so each `backfill.count` line of a deploy arrives; another
+short-lived Job whose info lines must all arrive goes in
+`LOG_SHIPPER.unsampledPodPrefixes`, since a JSON line without a level counts as
+info. Lines longer than 16 KiB are cut.
 Each row is one watch notification: an event that repeats arrives again with its
 count raised (`k8s.event.count`), so count rows by reason, not as distinct
 events. Normal events are info rows, Warning events warn rows; deletions (an

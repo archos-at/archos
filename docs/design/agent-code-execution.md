@@ -1,29 +1,40 @@
 # The agent's `execute` tool: code in an isolate, nothing more
 
-**Status:** implemented, off until a stack sets `grid-oib:codeRunnerEnabled: "true"`
-(how: [`code-runner-runbook.md`](../deployment/code-runner-runbook.md)). Without the runner the
-tool stays bound and answers that code execution is not available.
+**Status:** implemented. A stack turns it on with `grid-oib:codeRunnerEnabled: "true"` and the
+browser with `grid-oib:browserRendererEnabled: "true"`; `deploy/pulumi/Pulumi.<stack>.yaml` is
+where each stack's switch lives (dev has the runner and no browser, prod neither). Without the
+runner the tool stays bound and answers that code execution is not available; without the browser a
+run's `puppeteer.launch` fails and the agent makes the PDF with Typst.
 
 ## The result
 
 The chat agent has one tool, `execute`. It runs a short JavaScript (or TypeScript) module the agent
 wrote, in a fresh V8 isolate with no network, and keeps the files the module wrote in the
-conversation's working directory. From there `file_draft` files a Word, Excel, PowerPoint, PDF, SVG
-or PNG file into the project as a draft, checked and marked as made by AI.
+conversation's working directory. From there `file_draft`, or the person with the card's
+„Ins Projekt ablegen“, files a Word, Excel, PowerPoint, PDF, SVG or PNG file into the project as a
+draft, checked and marked as made by AI.
 
 So the agent computes instead of writing about computing: totals, ratios and comparisons come from
 code that ran, and the office gets files it opens without explanation. Documents handed to a run are
 processed in code, so only the findings reach the model.
 
-| | As built |
-|---|---|
-| Runtime | `apps/code-runner`: self-hosted workerd with `@cloudflare/computer`'s `CodemodeBackend` ([README](../../apps/code-runner/README.md)) |
-| Tool | `packages/agent/src/agent/tools/execute/` (`run.py`, `runner_client.py`), bound to the chat agent in `configs/config_oib_openrouter.yml` |
-| Working directory | the LangGraph draft store (`tools/documents/draft_store.py`), `/drafts/` to the model, `/workspace/` inside a run |
-| Filing | `file_draft` → `POST /api/internal/document-versions` with `op: create_file` / `update_file` (`apps/workspace/bff/documents/agent-file*.ts`) |
-| How to write a file | the builtin skill collection `office` (`packages/agent/src/agent/skills/builtin/office/`) |
-| Deployment | `deploy/pulumi/src/app/code-runner.ts`, CI's image `code-runner` |
-| Browser | `apps/browser-renderer`: headless Chromium for Puppeteer in a run ([README](../../apps/browser-renderer/README.md)), `deploy/pulumi/src/app/browser-renderer.ts`, CI's image `browser-renderer`, off until `grid-oib:browserRendererEnabled: "true"` |
+## The parts
+
+Start here; each row names the code and the page that owns its detail.
+
+| Part | Code | Written down in |
+|---|---|---|
+| Tool: description, one run, status steps, trace | `packages/agent/src/agent/tools/execute/` (`register.py`, `run.py`, `runner_client.py`, `progress.py`, `trace.py`), bound to the chat agent in `configs/config_oib_openrouter.yml` | [One run](#one-run) below |
+| Runner: workerd and `CodemodeBackend`, slots, limits, libraries | `apps/code-runner` | [its README](../../apps/code-runner/README.md), [the runner](#the-runner) below |
+| Browser: Chromium for Puppeteer in a run | `apps/browser-renderer`, `apps/code-runner/src/browser/` | [its README](../../apps/browser-renderer/README.md), [the browser](#the-browser) below |
+| Working directory: `/drafts/` to the model, `/workspace/` in a run | `packages/agent/src/agent/tools/documents/draft_store.py` | [Storage](#storage) below |
+| Filing by the agent: `file_draft`, the output check, the AI marking | `apps/workspace/bff/documents/agent-file.ts`, `agent-file-check.ts`, `agent-file-marking.ts` | [Filing](#filing) below |
+| The file in the chat: card, preview, download, the person's filing with folder and name, links in the answer | `apps/workspace/ui/features/cards/components/FileDraftCard.tsx`, `apps/workspace/app/api/conversations/[id]/draft/`, `apps/workspace/bff/conversations/draft-filing.ts`, `apps/workspace/ui/features/documents/save-to-project.ts`, `apps/workspace/ui/features/chat/lib/draft-links.ts` | [agent-made-files-ux.md](agent-made-files-ux.md) |
+| The Herleitung: one row per file, in the office's words | `progress.py`, `apps/workspace/ui/features/chat/lib/file-work.ts`, `apps/workspace/ui/features/chat/components/reasoning/FileWorkList.tsx` | [In der Herleitung](agent-made-files-ux.md#in-der-herleitung) |
+| How to write a file: the builtin skill collection `office`, offered, never required | `packages/agent/src/agent/skills/builtin/office/` | [The office skills](#the-office-skills) below |
+| Deployment: Deployments, NetworkPolicies, KEDA, the stack switches | `deploy/pulumi/src/app/code-runner.ts`, `deploy/pulumi/src/app/browser-renderer.ts`, CI's images `code-runner` and `browser-renderer` | [code-runner-runbook.md](../deployment/code-runner-runbook.md): turning it on, checks, known failures |
+| Observability: the `execute.run` step and four scores per run | `packages/agent/src/agent/tools/execute/trace.py` | [langfuse.md](../observability/langfuse.md) |
+| Tests | `task runner:test`, `task browser:test`, `task runner:e2e` (CI's `packages` and `runner-e2e` jobs) | [the runner's README](../../apps/code-runner/README.md#running-and-testing), [ci.md](../contributing/ci.md#the-jobs) |
 
 ## One run
 
@@ -116,26 +127,30 @@ The page runs code the model wrote, on HTML that may carry text from an office's
 treat it as hostile. What it must not do: send anything out of the cluster, read another run's page
 or files, or keep anything for the next run. Layers, each enough on its own for egress: the CDP guard
 (allowlist, navigation, `file://`), Chromium's request interception (`BlockedByClient` for every
-non-`data:` request), a loopback proxy that refuses everything and names that resolve to nothing, the
-renderer's own network namespace per renderer process (Chromium's sandbox), and a NetworkPolicy with
-no egress. Against escape: Chromium's sandbox stays on (renderers in their own user, PID and network
-namespaces under seccomp-bpf), the pod runs non-root with a read-only root, no capabilities, no
-privilege escalation, no service-account token and no secret, and a session dies with its process
-group at 190 s. Against leaks between runs: a process and a profile per run, deleted at its end. The
-cost of the sandbox: it needs unprivileged user namespaces, which the container runtime's default
-seccomp profile forbids, so the renderer container runs `seccompProfile: Unconfined`; Chromium then
-applies its own, stricter filter to every renderer. Nodes must allow unprivileged user namespaces
-(on Ubuntu 23.10 or later, `kernel.apparmor_restrict_unprivileged_userns=0`); where they do not,
-Chromium refuses to start and the pod never becomes ready. Residual risks: a Chromium bug that
-escapes the sandbox lands in a pod with no egress and no secrets, but shares the pod with one other
-run's browser; the image's Chrome is only as current as its pinned digest, which Dependabot proposes
-weekly. The allowlist is the 42 CDP methods Puppeteer sends for the documented uses (input without
-drag and drop, which can carry a file into the page); everything a run receives from the browser
-counts against 50 MiB, and the runner's host module holds at most 56 MiB unread. Known follow-ups:
-the renderer container's `seccompProfile: Unconfined` should become a `Localhost` profile (the
-runtime default plus the namespace calls Chromium's sandbox needs) once the provider lets us place
-one on the nodes; and the 1.5 GiB memory limit for two browsers is set from four measured documents,
-to be revisited with production peaks.
+non-`data:` request), a loopback proxy that refuses everything and names that resolve to nothing, and
+a NetworkPolicy that admits only the code runner and allows no egress at all. Against leaks between
+runs: a process and a fresh profile per run, one run per Chromium, deleted at its end.
+
+**The container is the sandbox.** Chromium runs with `--no-sandbox`. Its own sandbox needs
+unprivileged user namespaces, and dev has none to give: the nodes (Ubuntu 24.04, kernel 6.8,
+containerd 1.7) set `kernel.apparmor_restrict_unprivileged_userns=1`, so under `RuntimeDefault`
+`unshare -Ur` fails and Chromium aborts with `No usable sandbox!` (probe, 2026-11-18); and the
+namespace `grid` enforces Pod Security `baseline`, which refuses `seccompProfile: Unconfined`, the
+earlier way around the runtime's filter. So the boundary is the pod: uid 10042, no capabilities,
+`NoNewPrivs`, the runtime's default seccomp filter on every Chromium process, a read-only root, no
+service-account token, no secret and no environment from one, no network but the code runner's
+ingress, and a session that dies with its process group at 190 s. What Chromium's sandbox gave on top,
+and is now gone: a renderer exploit no longer has to escape a second, stricter seccomp filter and its
+own user, PID and network namespaces; it holds the browser process's rights in the pod, which reach
+the other session's browser (two per pod) and nothing else. What would bring it back: a node AppArmor
+profile that allows user namespaces for the Chrome binary plus a `Localhost` seccomp profile (the
+runtime default plus the namespace calls), both files on every node, which the provider does not let
+us place today; or gVisor as the pod's runtime class. Residual risks: the image's Chrome is only as
+current as its pinned digest, which Dependabot proposes weekly. The allowlist is the 42 CDP methods
+Puppeteer sends for the documented uses (input without drag and drop, which can carry a file into the
+page); everything a run receives from the browser counts against 50 MiB, and the runner's host module
+holds at most 56 MiB unread. Known follow-up: the 1.5 GiB memory limit for two browsers is set from
+four measured documents, to be revisited with production peaks.
 
 ## Storage
 
@@ -173,6 +188,11 @@ before) with the bytes. The BFF:
   session;
 - **replaces** a draft only when the agent filed it with `create_file` and the type is the same.
 
+The agent's `file_draft` files into the default folder `Berichte`. The person files the same draft
+from its card („Ins Projekt ablegen“), choosing folder and name; that path goes through
+`bff/conversations/draft-filing.ts` into the same `fileAgentFileDraft`, with the same check and
+marking ([Filing, in the chat](agent-made-files-ux.md#what-this-change-ships)).
+
 ## The office skills
 
 The builtin collection `office` holds `office-files` (the entry point: the run contract, libraries,
@@ -190,24 +210,14 @@ sandbox is configured, which production never does.
 
 ## What is measured
 
-`task runner:test`, shared 4-core container, 2026-11-18 (full table in the README):
-
-| What | Time |
-|---|---|
-| Word file, cold slot / warm slot | 328 ms / 117 to 234 ms |
-| Excel with a `SUM` formula, first use | 376 ms |
-| PDF made and read back, first use | 1004 ms |
-| Bar chart to SVG, first use | 360 to 430 ms |
-| Typst PDF with table and diagrams, fresh slot / warm slot | 3 to 6 s / 1 to 2.5 s |
-| Forme PDF with table and chart | 1.2 to 1.6 s |
-| Plain module, warm | 13 ms (16 ms as TypeScript) |
-| Endless loop, `timeoutMs` 2000 | `timeout` after 5 s, other slots serving |
-| workerd per slot | 134 MB idle, about 190 MB after a run; a slot ending a run 128 MiB above its idle memory is restarted; a run above `CODE_RUNNER_SLOT_MEMORY_MIB` (768 MiB) is stopped |
-| HTML report to PDF through the browser | 390 to 930 ms, renderer pod peak 108 MiB |
-| Mermaid diagram to SVG, PNG and .docx | 1.1 to 1.7 s, peak 191 MiB (two at once: 2.4 s, 329 MiB) |
-
-In production a run is visible as the `execute` tool span of its `chat-turn` trace in Langfuse: its
-output starts `status: ok`, `error` or `timeout` with the duration, and names the files kept.
+Times and memory per file type, per library and through the browser are measured in the runner's
+[Measured](../../apps/code-runner/README.md#measured) and
+[Memory per run](../../apps/code-runner/README.md#memory-per-run) and the renderer's
+[Measured](../../apps/browser-renderer/README.md#measured). In order of size: a plain module about
+15 ms warm, a Word or Excel file a few hundred ms, a Typst PDF 1 to 6 s, a Forme PDF with table and chart 1.2 to 1.6 s (measured
+only here), a browser PDF under 1 s, an
+endless loop `timeout` at its limit plus 10 s with the other slots serving. In production each run is
+an `execute.run` step and four scores ([langfuse.md](../observability/langfuse.md)).
 
 ## Decisions
 
@@ -223,13 +233,13 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | A cap on concurrent runs per organization | Open, not built |
 | Whether runs count toward an office's credits (ADR-0053) | Open |
 | An `execute` input read as a download-log row. Today no row is written (see [One run](#one-run)). The change: a kind `agent_run` in `download-log/kinds.ts`, recorded always like `download`; a migration widening `document_access_log_kind_check` and `document_access_log_open_needs_own_list` (the table is append-only, so its down migration refuses once a row exists); `GET /api/internal/document-file?handOver=execute` calling `recordDocumentAccess` as the envelope's person, refusing with 503 under an own access list when the row cannot be written; `stored_file.locate_stored_file` passing it for `execute` only; the kind's label in the download-log view and the user guide. `dxf_measure` and the canvas keep no row: their bytes stay in the agent and only a measurement or a rendering leaves | Open, not built |
-| A run as a row of the Herleitung (script, inputs with citation keys, outputs) | Open, not built |
+| A run as a row of the Herleitung | Built for the person's view: one row per file or calculation, named by what the run made, never by its script ([In der Herleitung](agent-made-files-ux.md#in-der-herleitung)). Open: the script and its inputs with citation keys, for the developer view |
 | A dedicated Langfuse step per run (`execute.run`: status, timings, input and kept files, never contents) and the scores `execute-status`, `execute-runs-to-file`, `execute-files-made`, `execute-files-filed` ([`langfuse.md`](../observability/langfuse.md)) | Taken. Alerts (failure rate, replicas at maximum) are open |
 | Renaming `/drafts/` to `/workspace/` | Open |
 | Background runs (Hatchet fan-out, a KEDA trigger on its backlog) | Open, not built |
 | Showing an HTML output beside the chat (MCP Apps, ADR-0142), sandboxed on its own origin | Open |
-| A browser for runs: self-hosted `chrome-headless-shell` on the Puppeteer team's image, one process per run, Chromium's sandbox on, its own Deployment, reached through `@cloudflare/puppeteer` and a host-module binding. Not Cloudflare's hosted Browser Rendering (documents would leave the cluster), not Gotenberg, not browserless (SSPL) | Taken 2026-11-18 |
-| The renderer container's seccomp profile: `Unconfined` so Chromium's own sandbox can run, rather than a `Localhost` profile that would need a file on every node | Taken; revisit if the provider offers node seccomp profiles |
+| A browser for runs: self-hosted `chrome-headless-shell` on the Puppeteer team's image, one process per run, its own Deployment, reached through `@cloudflare/puppeteer` and a host-module binding. Not Cloudflare's hosted Browser Rendering (documents would leave the cluster), not Gotenberg, not browserless (SSPL) | Taken 2026-11-18 |
+| The container is the browser's sandbox: Chromium runs `--no-sandbox` under `RuntimeDefault` seccomp, because dev's nodes forbid unprivileged user namespaces and `grid`'s Pod Security `baseline` refuses `Unconfined` ([Threat model](#threat-model)) | Taken 2026-11-18; revisit when the provider lets us place node AppArmor and seccomp profiles, or offers gVisor |
 
 ## Considered and dropped
 

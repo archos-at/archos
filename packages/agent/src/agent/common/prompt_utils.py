@@ -48,7 +48,7 @@ def render_prompt_template(template: str, **kwargs: Any) -> str:
             in_flight=kwargs.get("in_flight_documents"),
         )
     if "answer_envelope_schema" not in kwargs:
-        from agent.common.answer_envelope import render_envelope_schema
+        from agent.common.envelope_schema import render_envelope_schema
 
         kwargs["answer_envelope_schema"] = render_envelope_schema()
     kwargs.setdefault("product_name", PRODUCT_NAME)

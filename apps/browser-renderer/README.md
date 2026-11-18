@@ -11,7 +11,7 @@ turning it on: [`code-runner-runbook.md`](../../docs/deployment/code-runner-runb
 
 | Call | Answer |
 |---|---|
-| `GET /health` | `200 ok`, once the self-test browser started with its sandbox |
+| `GET /health` | `200 ok`, once the self-test browser started and exited |
 | `POST /v1/devtools/browser` | `200 {sessionId}`: a new Chromium process with a new profile; `503 {error: "busy"}` when the pod runs `BROWSER_RENDERER_SESSIONS` already |
 | WebSocket `/v1/devtools/browser/<sessionId>` | CDP, one JSON message per frame, through the guard below. One socket per session; closing it ends the session |
 | `DELETE /v1/devtools/browser/<sessionId>` | ends the session |
@@ -26,11 +26,15 @@ runner's binding (`apps/code-runner/src/browser/`) only forwards them.
   When the socket closes, the browser exits, the session passes 190 s, or no socket connects within
   10 s, the whole process group is killed with `SIGKILL` and the directory deleted. Nothing of one run
   survives into the next.
-- **Chromium's sandbox stays on.** No `--no-sandbox`. Renderers run in their own user, PID and network
-  namespaces under Chromium's seccomp-bpf filter (the container suite checks `Seccomp: 2` and the
-  namespaces). The sandbox needs unprivileged user namespaces: the container runs with
-  `seccompProfile: Unconfined` and every capability dropped (see the design doc). If the sandbox
-  cannot start, Chromium refuses to run and the service exits at its self-test: it fails closed.
+- **The container is the sandbox.** Chromium runs with `--no-sandbox`: its own sandbox needs
+  unprivileged user namespaces, which the dev nodes forbid (Ubuntu's
+  `kernel.apparmor_restrict_unprivileged_userns=1`; Chromium aborts with `No usable sandbox!`), and
+  the namespace's Pod Security `baseline` refuses the `seccompProfile: Unconfined` the old way around
+  needed. Every Chromium process runs as 10042 with no capabilities, `NoNewPrivs`, the runtime's
+  default seccomp filter and a read-only root, in a pod with no network but the code runner's ingress,
+  no secret and no service-account token. The container suite checks each of these. Why, what it
+  costs, and what would bring Chromium's sandbox back:
+  [threat model](../../docs/design/agent-code-execution.md#threat-model).
 - **Limits:** 2 sessions per pod (`BROWSER_RENDERER_SESSIONS`), 10 pages per session, 190 s per
   session, 50 MiB of messages from the browser to the client per session (every byte counts, so with
   base64 a run's PDFs and screenshots stay under about 37 MB; past it the session ends), 72 MiB per
@@ -70,8 +74,8 @@ their licences ship in the image) and are the fontconfig defaults for `sans-seri
 
 ## Image
 
-`Dockerfile` starts from the Puppeteer team's image `ghcr.io/puppeteer/puppeteer:25.16.0`, pinned by
-digest, which holds Node and Chrome for Testing's `chrome-headless-shell` (156.0.8078.47 at this
+`Dockerfile` starts from the Puppeteer team's image `ghcr.io/puppeteer/puppeteer:25.18.1`, pinned by
+digest, which holds Node and Chrome for Testing's `chrome-headless-shell` (157.0.8103.78 at this
 digest), and adds the front (`src/`), `ws`, the assets and `tini`. The build links the one
 `chrome-headless-shell` the base holds to `/app/chrome-headless-shell` and fails if it finds none or
 two, so a new base needs no path change. The `node` and `oven/bun` build stages are pinned by digest
@@ -94,9 +98,10 @@ task browser:test      # builds browser-renderer:test, then the guard suite and 
 
 The container suite (`test/renderer.test.mjs`) runs the image with the pod's hardening
 (`test/container.mjs`: read-only root, tmpfs `/tmp`, all capabilities dropped, `no-new-privileges`,
-non-root, an internal Docker network with no route out) and checks the sandbox, the pipe, the fonts,
-Mermaid, each refused request, `file://`, downloads, windows, cleanup and `busy`. It needs Docker and,
-on Ubuntu 23.10 or later, `kernel.apparmor_restrict_unprivileged_userns=0` (CI sets it). The code
+Docker's default seccomp profile, non-root, an internal Docker network with no route out) and checks
+the uid, capabilities, seccomp and read-only root of every Chromium process, the pipe, the fonts,
+Mermaid, each refused request, `file://`, downloads, windows, cleanup and `busy`. It needs Docker and
+nothing from the host's kernel settings. The code
 runner's `test/browser.test.mjs` drives the same image from inside a run.
 
 ## Measured

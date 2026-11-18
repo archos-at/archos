@@ -210,8 +210,8 @@ def _response_formats(out: dict[str, dict[str, Any]]) -> None:
     from agent.agents.deep_researcher.anatomy import ReportAnatomyDraft
     from agent.agents.deep_researcher.models.subagent_contracts import ResearchNotes
     from agent.agents.deep_researcher.models.subagent_contracts import ResearchPlan
-    from agent.common.answer_envelope import render_envelope_response_format
     from agent.common.claim_judge import CheckReply
+    from agent.common.envelope_schema import render_envelope_response_format
     from agent.common.llm_factory import strict_json_response_format
     from agent.core.models.clarify import ClarificationResponse
     from agent.core.models.clarify import PlanResponse
@@ -269,7 +269,7 @@ def _prompt_texts(out: dict[str, dict[str, Any]]) -> None:
     from agent.cards.envelope import render_envelope_cards_contract
     from agent.cards.models import AnswerCard
     from agent.cards.prompt import build_card_generation_prompt
-    from agent.common.answer_envelope import render_envelope_schema
+    from agent.common.envelope_schema import render_envelope_schema
 
     def rows(entries: list[tuple[str, str]]) -> str:
         return "\n".join(f"{card_type}: {line}" for card_type, line in entries)

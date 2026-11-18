@@ -125,8 +125,17 @@ describe("container logs, with PostHog logs on (the default)", () => {
   it("keeps every line of a backfill pod, whose counts the deploy reads, out of the sampler", () => {
     const statements = (shipper.processors["transform/pod_logs"] as any).log_statements.flatMap((s: any) => s.statements);
     expect(statements).toContain(
-      `set(log.attributes["sampling.priority"], 100) where IsMatch(resource.attributes["k8s.pod.name"], "^${BACKFILL_POD}-")`,
+      `set(log.attributes["sampling.priority"], 100) where IsMatch(resource.attributes["k8s.pod.name"], "^(${BACKFILL_POD})-")`,
     );
+  });
+
+  it("samples info lines at 10% everywhere but the pods LOG_SHIPPER.unsampledPodPrefixes names", () => {
+    expect(
+      { infoSamplePercent: LOG_SHIPPER.infoSamplePercent, unsampledPodPrefixes: LOG_SHIPPER.unsampledPodPrefixes },
+      "A pod whose info lines a deploy or a person must read in full (a short-lived Job's counts) goes in " +
+        "LOG_SHIPPER.unsampledPodPrefixes in src/config/observability.ts; a line with no level counts as info and " +
+        "is otherwise kept at 10%. Update this expectation and docs/observability/debug-a-failed-rollout.md with it.",
+    ).toEqual({ infoSamplePercent: 10, unsampledPodPrefixes: [BACKFILL_POD] });
   });
 
   it("mounts only the pod log directory, read-only, and holds no PostHog token", async () => {

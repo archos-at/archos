@@ -10,6 +10,7 @@ import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduli
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { ROLLOUT, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { PORT, UID } from "../constants";
+import { cpuUtilizationTarget } from "../config/cpu-requests";
 
 export const WEB_HEALTH_PATH = "/healthz";
 
@@ -125,7 +126,7 @@ export function installWeb(
               name: "cpu",
               target: {
                 type: "Utilization",
-                averageUtilization: cfg.web.hpaCpuTargetPercent,
+                averageUtilization: cpuUtilizationTarget(cfg.web.hpaCpuTargetPercent),
               },
             },
           },

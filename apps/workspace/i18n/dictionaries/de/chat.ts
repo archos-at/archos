@@ -1234,7 +1234,13 @@ export const chat: typeof en.chat = {
           draftEdit: 'Entwurf wird überarbeitet …',
           fileProposal: 'Vorschlag für Ihre Ablage wird vorbereitet …',
           draftFiled: 'Entwurf wird im Projekt abgelegt …',
-          codeRun: 'Rechnet und erstellt Dateien …',
+          codeRun: 'Bereitet die Arbeit vor …',
+          fileMake: '{format} wird erstellt: {file} …',
+          filesMake: '{count, plural, one {#\u00A0Datei wird} other {#\u00A0Dateien werden}} erstellt …',
+          fileEdit: '{file} wird überarbeitet …',
+          fileCheck: '{file} wird geprüft …',
+          fileRetry: '{format} wird erstellt: {file} – noch ein Versuch …',
+          calculation: 'Rechnet …',
           draftSubmitted: 'Entwurf wird zur Freigabe eingereicht …',
           taskCreated: 'Aufgabe wird angelegt …',
           annotationsRead: 'Anmerkungen werden gelesen …',
@@ -1258,6 +1264,66 @@ export const chat: typeof en.chat = {
     },
     skill: {
       activated: 'Skill „{skill}“ wird angewendet',
+    },
+    files: {
+      heading: {
+        files: 'Dateien',
+        calculations: 'Berechnungen',
+        both: 'Dateien und Berechnungen',
+      },
+      format: {
+        word: 'Word-Dokument',
+        excel: 'Excel-Tabelle',
+        powerpoint: 'Präsentation',
+        pdf: 'PDF',
+        image: 'Grafik',
+        csv: 'CSV-Tabelle',
+        markdown: 'Textentwurf',
+        text: 'Datei',
+      },
+      running: {
+        make: '{format} wird erstellt: {file}',
+        edit: '{file} wird überarbeitet',
+        check: '{file} wird geprüft',
+        calculate: 'Berechnung läuft',
+      },
+      retrying: 'wird noch einmal versucht',
+      settled: {
+        made: '{file} erstellt',
+        edited: '{file} überarbeitet',
+        checked: '{file} geprüft',
+        calculated: 'Berechnung',
+      },
+      failed: {
+        make: '{file} konnte nicht erstellt werden',
+        edit: '{file} konnte nicht überarbeitet werden',
+        check: '{file} konnte nicht geprüft werden',
+        calculate: 'Die Berechnung ist nicht gelungen',
+      },
+      failedNote: {
+        file: 'Die Datei ließ sich diesmal nicht fertigstellen.',
+        calculate: 'Es ist kein verlässliches Ergebnis entstanden.',
+      },
+      retry: 'Noch einmal versuchen',
+      retryPrompt: {
+        make: 'Bitte versuche noch einmal, {file} zu erstellen.',
+        edit: 'Bitte versuche noch einmal, {file} zu überarbeiten.',
+        check: 'Bitte prüfe {file} noch einmal.',
+        calculate: 'Bitte rechne das noch einmal.',
+      },
+      steps: '{count, plural, one {#\u00A0Schritt} other {#\u00A0Schritte}}',
+      result: 'Ergebnis: {result}',
+      inputs: 'Grundlage:',
+      openInput: '{name} öffnen',
+      phase: {
+        prepare: { done: 'Vorbereitet', running: 'Wird vorbereitet …', failed: 'Nicht vorbereitet' },
+        make: { done: 'Erstellt', running: 'Wird erstellt …', failed: 'Nicht erstellt' },
+        edit: { done: 'Überarbeitet', running: 'Wird überarbeitet …', failed: 'Nicht überarbeitet' },
+        check: { done: 'Geprüft', running: 'Wird geprüft …', failed: 'Nicht geprüft' },
+        calculate: { done: 'Berechnet', running: 'Wird berechnet …', failed: 'Nicht berechnet' },
+        ready: 'Liegt als Entwurf in diesem Chat',
+      },
+      summary: '{count, plural, one {#\u00A0Datei erstellt} other {#\u00A0Dateien erstellt}}',
     },
     executedSteps: 'Ausgeführt:',
     stepName: {
@@ -1301,6 +1367,7 @@ export const chat: typeof en.chat = {
     derivationCited: '{count, plural, one {#\u00A0Quelle zitiert} other {#\u00A0Quellen zitiert}}',
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
+      files: '{count, plural, one {#\u00A0Datei nicht fertig} other {#\u00A0Dateien nicht fertig}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
       unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
       contradicted:
@@ -1772,6 +1839,12 @@ export const chat: typeof en.chat = {
   retryThorough: {
     action: 'Gründlicher neu beantworten',
     aria: 'Dieselbe Frage mit höherem Aufwand erneut beantworten lassen',
+  },
+  answerExcerpt: {
+    ask: 'Dazu fragen',
+    askingAbout: 'Frage bezieht sich auf diesen Teil der Antwort:',
+    clear: 'Markierten Teil entfernen',
+    inMessage: 'Bezogen auf:',
   },
   copyMessage: {
     copy: 'Nachricht kopieren',

@@ -4,6 +4,7 @@ import { DeployConfig } from "../config";
 import { BACKGROUND_WORK } from "../config/background-work";
 import { NODE_GROUP_LABEL } from "../constants";
 import { scrapeAnnotations } from "./scrape";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 // Not the Bitnami chart: its images moved behind a paid catalogue in 2025.
 export const RABBITMQ_OPERATOR_VERSION = "2.23.2";
@@ -15,7 +16,7 @@ export const RABBITMQ = {
   cluster: "hatchet-rabbitmq",
   podLabel: { "background-work/component": "rabbitmq" } as Record<string, string>,
   replicas: 3,
-  resources: { requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
+  resources: { requests: { cpu: "270m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
   amqpPort: 5672,
   managementPort: 15672,
   metricsPort: 15692,
@@ -39,7 +40,7 @@ export function rabbitmqClusterSpec(cfg: DeployConfig) {
   return {
     image: RABBITMQ_IMAGE,
     replicas: RABBITMQ.replicas,
-    resources: RABBITMQ.resources,
+    resources: scaledCpuRequest(RABBITMQ.resources),
     persistence: { storageClassName: cfg.storage.className, storage: cfg.backgroundWork.rabbitmq.storageSize },
     affinity: {
       ...(cfg.nodeGroups.app
