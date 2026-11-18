@@ -12,9 +12,9 @@
     "mermaid": "12.3.0",
     "source-code-pro": "2.42.0",
     "source-sans": "3.52.0",
-    "ws": "8.22.1"
+    "ws": "8.22.2"
   },
   "devDependencies": {
-    "devtools-protocol": "0.0.1666840"
+    "devtools-protocol": "0.0.1740066"
   }
 }
