@@ -62,6 +62,7 @@ const OFFICE_FILES: FileItem[] = [
 ]
 
 function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'bell', inboxOpen = false, officeName }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
+  const order = useSearchParams()?.get('order')
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -78,33 +79,89 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           </div>
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-          <SidebarMenu className="mb-6 gap-0.5">
-            <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
-            {shelfRows && (
-              <ul className="flex flex-col gap-0.5 pt-0.5">
-                {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
-                <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
+          {order === 'chatfirst' ? (
+            <>
+              <NewChatButton />
+              <div className="h-3" />
+              <SidebarMenu className="gap-0.5">
+                <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+                {shelfRows && (
+                  <ul className="flex flex-col gap-0.5 pt-0.5">
+                    {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
+                    <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
+                  </ul>
+                )}
+                {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
+                <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+              </SidebarMenu>
+              <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
+                Letzte Chats
+                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+              </div>
+              <ul className="flex flex-col gap-0.5">
+                {ALL_CHATS.map((chat, index) => (
+                  <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
+                ))}
+                <MoreRow label="Alle Chats" indent={false} />
               </ul>
-            )}
-            {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-            <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
-          </SidebarMenu>
-          <NewChatButton />
-          {inbox === 'top' && (
-            <SidebarMenu className="mt-1 gap-0.5">
-              <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
-            </SidebarMenu>
+            </>
+          ) : order === 'chatsup' ? (
+            <>
+              <NewChatButton />
+              <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
+                Letzte Chats
+                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+              </div>
+              <ul className="flex flex-col gap-0.5">
+                {ALL_CHATS.map((chat, index) => (
+                  <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
+                ))}
+                <MoreRow label="Alle Chats" indent={false} />
+              </ul>
+              <div className="h-5" />
+              <SidebarMenu className="gap-0.5">
+                <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+                {shelfRows && (
+                  <ul className="flex flex-col gap-0.5 pt-0.5">
+                    {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
+                    <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
+                  </ul>
+                )}
+                {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
+                <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+              </SidebarMenu>
+            </>
+          ) : (
+            <>
+              <SidebarMenu className="mb-6 gap-0.5">
+                <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+                {shelfRows && (
+                  <ul className="flex flex-col gap-0.5 pt-0.5">
+                    {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
+                    <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
+                  </ul>
+                )}
+                {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
+                <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+              </SidebarMenu>
+              <NewChatButton />
+              {inbox === 'top' && (
+                <SidebarMenu className="mt-1 gap-0.5">
+                  <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
+                </SidebarMenu>
+              )}
+              <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
+                Letzte Chats
+                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+              </div>
+              <ul className="flex flex-col gap-0.5">
+                {ALL_CHATS.map((chat, index) => (
+                  <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
+                ))}
+                <MoreRow label="Alle Chats" indent={false} />
+              </ul>
+            </>
           )}
-          <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
-            Letzte Chats
-            <ChevronDown className="size-3.5 shrink-0" aria-hidden />
-          </div>
-          <ul className="flex flex-col gap-0.5">
-            {ALL_CHATS.map((chat, index) => (
-              <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
-            ))}
-            <MoreRow label="Alle Chats" indent={false} />
-          </ul>
         </SidebarContent>
         <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} />
         <SidebarRail aria-label="Breite ändern" />
