@@ -183,6 +183,12 @@ describe("isolation", () => {
     assert.match(body.stderr, /JSON-compatible|plain objects/);
     assert.equal(body.stderr.split(VALUE_HINT).length, 2);
     assert.ok(body.stderr.endsWith(`${VALUE_HINT}\n`));
+    const late = await runner.run({
+      source: `export default () => { console.error("y".repeat(70000)); console.error(${JSON.stringify(VALUE_HINT)}); return [, 1]; }`,
+    });
+    assert.ok(Buffer.byteLength(late.body.stderr) <= 64 * 1024);
+    assert.equal(late.body.stderr.split(VALUE_HINT).length, 2);
+    assert.ok(late.body.stderr.endsWith(`${VALUE_HINT}\n`));
   });
 
   test("a module that does not parse is status error", async () => {
