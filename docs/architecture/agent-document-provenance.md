@@ -66,7 +66,7 @@ office decided, never for what the OIB requires.
 
 ## The gate
 
-`common/answer_envelope._gate_verdict` drops a verdict whose `reference`
+`common/envelope_gates._gate_verdict` drops a verdict whose `reference`
 resolves to an agent-authored source, logs why, and emits a technical
 `status:verdict:dropped` event (`reason: agent_authored_reference`) so the rate
 is countable. The verdict is the one place an answer names a Fundstelle for a

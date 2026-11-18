@@ -44,7 +44,6 @@
   "packages/agent/src/agent/citations/verification.py": 5,
   "packages/agent/src/agent/common/__init__.py": 1,
   "packages/agent/src/agent/common/answer_dialect.py": 3,
-  "packages/agent/src/agent/common/answer_envelope.py": 8,
   "packages/agent/src/agent/common/budget_guard.py": 1,
   "packages/agent/src/agent/common/cache.py": 10,
   "packages/agent/src/agent/common/card_numbers.py": 2,

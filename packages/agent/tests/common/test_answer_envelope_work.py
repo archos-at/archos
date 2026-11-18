@@ -6,10 +6,10 @@ import pathlib
 from agent.common.answer_envelope import WORK_ITEMS_MAX
 from agent.common.answer_envelope import WORK_TEXT_MAX_CHARS
 from agent.common.answer_envelope import AnswerMeta
-from agent.common.answer_envelope import extract_answer_envelope
-from agent.common.answer_envelope import gate_answer_meta
-from agent.common.answer_envelope import render_envelope_response_format
-from agent.common.answer_envelope import render_envelope_schema
+from agent.common.envelope_gates import gate_answer_meta
+from agent.common.envelope_parsing import extract_answer_envelope
+from agent.common.envelope_schema import render_envelope_response_format
+from agent.common.envelope_schema import render_envelope_schema
 
 FIXTURE = json.loads(
     pathlib.Path(__file__).resolve().parents[4].joinpath("tests/fixtures/answer_meta/work_payload.json").read_text()

@@ -369,7 +369,7 @@ arguments above was re-checked against the fence:
   PARSER: `_ANSWER_JSON_FENCE_RE` ended the ```` ```answer_json ```` block at the
   first ```` ``` ```` after it, which is the drawing's own fence inside the
   `answer` string, so the reader got raw JSON. That is fixed
-  (`answer_envelope._envelope_blocks`), and a fence that mermaid cannot parse
+  (`envelope_parsing._envelope_blocks`), and a fence that mermaid cannot parse
   degrades to its source with one quiet line, exactly as before.
 - **Filing across a reload** is idempotent on (answer, source hash, producer)
   — `use-diagram-filing.ts` — so a fence filed twice finds the same document.
