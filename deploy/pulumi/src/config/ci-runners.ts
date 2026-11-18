@@ -41,7 +41,7 @@ export function loadCiRunners(cfg: pulumi.Config): CiRunnersConfig {
       },
     },
     scratch: {
-      storageClass: cfg.get("ciRunnersScratchStorageClass") ?? cfg.get("storageClass") ?? "",
+      storageClass: cfg.get("ciRunnersScratchStorageClass") ?? cfg.require("storageClass"),
       size: cfg.get("ciRunnersScratchSize") ?? "15Gi",
     },
     nodeGroup: nodeGroup(cfg, "ciRunnersNodeGroup"),

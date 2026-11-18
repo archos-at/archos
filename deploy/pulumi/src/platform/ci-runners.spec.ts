@@ -105,6 +105,8 @@ describe("CI runners, rendered", () => {
     expect(runner.image).toBe(IMAGE);
     expect(runner.securityContext).toEqual({ allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } });
     expect(spec.volumes.map((v: any) => Object.keys(v).filter((k) => k !== "name"))).toEqual([["emptyDir"], ["ephemeral"]]);
+    const scratch = spec.volumes.find((v: any) => v.name === "scratch").ephemeral.volumeClaimTemplate.spec;
+    expect(scratch.storageClassName).toBe(baseStackConfig()["grid-oib:storageClass"]);
   });
 
   it("yields to staging: a runner never preempts, and any staging pod may evict it", () => {
