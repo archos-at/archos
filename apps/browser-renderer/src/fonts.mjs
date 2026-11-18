@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const escape = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+const XML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
+const escape = (text) => text.replace(/[&<>]/g, (character) => XML_ENTITIES[character]);
 
 export async function writeFontConfig(root, fontDirs) {
   const cache = join(root, "fontconfig-cache");

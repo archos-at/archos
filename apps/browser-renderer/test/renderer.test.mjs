@@ -21,9 +21,15 @@ async function acquire() {
   return { status: response.status, body: await response.json() };
 }
 
+function sessionSocket(sessionId) {
+  const url = new URL(`/v1/devtools/browser/${sessionId}`, `http://${renderer.addr}`);
+  url.protocol = "ws:";
+  return url.href;
+}
+
 async function open() {
   const { body } = await acquire();
-  const ws = new WebSocket(`ws://${renderer.addr}/v1/devtools/browser/${body.sessionId}`);
+  const ws = new WebSocket(sessionSocket(body.sessionId));
   await new Promise((resolve, reject) => {
     ws.once("open", resolve);
     ws.once("error", reject);
@@ -90,7 +96,8 @@ describe("the browser renderer container", () => {
     assert.doesNotMatch(report, /--no-sandbox\b|--disable-setuid-sandbox|--remote-debugging-port|--no-zygote\s/);
     const renderers = processes.filter((line) => line.includes("--type=renderer"));
     assert.ok(renderers.length > 0, report);
-    const ns = (kind, line) => new RegExp(`${kind}=(\\S+)`).exec(line)[1];
+    const NAMESPACE = { userns: /userns=(\S+)/, netns: /netns=(\S+)/ };
+    const ns = (kind, line) => NAMESPACE[kind].exec(line)[1];
     for (const line of renderers) {
       assert.match(line, /Seccomp:\s+2/, `a renderer runs under Chromium's seccomp-bpf sandbox: ${line}`);
       assert.notEqual(ns("userns", line), ns("userns", main), "a renderer runs in its own user namespace");
@@ -249,7 +256,7 @@ describe("the browser renderer container", () => {
     const third = await acquire();
     assert.equal(third.status, 503);
     assert.deepEqual(third.body, { error: "busy" });
-    const again = new WebSocket(`ws://${renderer.addr}/v1/devtools/browser/${one.sessionId}`);
+    const again = new WebSocket(sessionSocket(one.sessionId));
     const refused = await new Promise((resolve) => {
       again.once("open", () => resolve(false));
       again.once("error", () => resolve(true));

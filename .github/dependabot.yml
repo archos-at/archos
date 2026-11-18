@@ -242,7 +242,7 @@ updates:
       time: "06:00"
       timezone: Europe/Vienna
     cooldown:
-      default-days: 2
+      default-days: 7
     open-pull-requests-limit: 3
     groups:
       chromium:

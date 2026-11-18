@@ -127,8 +127,9 @@ browser" and the `office-html-pdf` skill sends the agent to Typst.
 
 **Chrome security fixes.** The base image `ghcr.io/puppeteer/puppeteer` is pinned by digest in
 `apps/browser-renderer/Dockerfile`. Dependabot opens a pull request for a new digest every Monday
-(two days' cooldown). Merge it within the week, and the same day when the Chrome release notes name a
-security fix rated High or Critical, after `task browser:test` passes. The build finds the new
+once a release is seven days old, the repository's cooldown for every ecosystem. Merge it within the
+week. When the Chrome release notes name a security fix rated High or Critical, do not wait for it:
+bump the digest by hand the same day, after `task browser:test` passes. The build finds the new
 Chrome by itself; the `node` and `oven/bun` build stages come in the same weekly pull requests. Between Puppeteer releases, check
 monthly that the pinned Chrome is no more than one stable release behind.
 
