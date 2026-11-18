@@ -1,7 +1,7 @@
 import 'server-only'
 import { and, desc, eq, gte, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import { budgetPolicies, llmUsageEvents, llmUsageRollups, UNBILLED_USAGE_ACTIVITIES, type BudgetPolicy, type BudgetScope, type BudgetUnit, type NewLlmUsageEvent } from '@/lib/db/schema/budgets'
+import { budgetPolicies, llmUsageEvents, llmUsageRollups, INGEST_USAGE_ACTIVITY, UNBILLED_USAGE_ACTIVITIES, type BudgetPolicy, type BudgetScope, type BudgetUnit, type NewLlmUsageEvent } from '@/lib/db/schema/budgets'
 
 export function utcDayStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
@@ -152,6 +152,9 @@ interface RollupIncrement {
   credits: number
   tokens: number
   events: number
+  ingestCredits: number
+  ingestTokens: number
+  ingestEvents: number
 }
 
 export function buildRollupIncrements(events: NewLlmUsageEvent[]): RollupIncrement[] {
@@ -173,6 +176,9 @@ export function buildRollupIncrements(events: NewLlmUsageEvent[]): RollupIncreme
       credits: 0,
       tokens: 0,
       events: 0,
+      ingestCredits: 0,
+      ingestTokens: 0,
+      ingestEvents: 0,
     }
     entry.costUsd += num(event.costUsd)
     if (event.isByok === true) entry.ownKeyCostUsd += num(event.costUsd)
@@ -180,6 +186,11 @@ export function buildRollupIncrements(events: NewLlmUsageEvent[]): RollupIncreme
     entry.credits += num(event.credits)
     entry.tokens += event.totalTokens ?? 0
     entry.events += 1
+    if (event.activity === INGEST_USAGE_ACTIVITY) {
+      entry.ingestCredits += num(event.credits)
+      entry.ingestTokens += event.totalTokens ?? 0
+      entry.ingestEvents += 1
+    }
     byKey.set(key, entry)
   }
   return [...byKey.values()]
@@ -196,6 +207,7 @@ export async function insertUsageEventsWithRollups(events: NewLlmUsageEvent[]): 
       const ownKeyCostUsd = increment.ownKeyCostUsd.toFixed(8)
       const priceUsd = increment.priceUsd.toFixed(8)
       const credits = increment.credits.toFixed(6)
+      const ingestCredits = increment.ingestCredits.toFixed(6)
       await tx
         .insert(llmUsageRollups)
         .values({
@@ -209,6 +221,9 @@ export async function insertUsageEventsWithRollups(events: NewLlmUsageEvent[]): 
           credits,
           tokens: increment.tokens,
           events: increment.events,
+          ingestCredits,
+          ingestTokens: increment.ingestTokens,
+          ingestEvents: increment.ingestEvents,
         })
         .onConflictDoUpdate({
           target: [
@@ -224,6 +239,9 @@ export async function insertUsageEventsWithRollups(events: NewLlmUsageEvent[]): 
             credits: sql`${llmUsageRollups.credits} + ${credits}`,
             tokens: sql`${llmUsageRollups.tokens} + ${increment.tokens}`,
             events: sql`${llmUsageRollups.events} + ${increment.events}`,
+            ingestCredits: sql`${llmUsageRollups.ingestCredits} + ${ingestCredits}`,
+            ingestTokens: sql`${llmUsageRollups.ingestTokens} + ${increment.ingestTokens}`,
+            ingestEvents: sql`${llmUsageRollups.ingestEvents} + ${increment.ingestEvents}`,
             updatedAt: new Date(),
           },
         })
@@ -240,6 +258,9 @@ export interface SpendWindow {
   credits: number
   tokens: number
   events: number
+  ingestCredits?: number
+  ingestTokens?: number
+  ingestEvents?: number
   ingestCostUsd?: number
   dictationCostUsd?: number
 }
@@ -251,6 +272,9 @@ export const EMPTY_SPEND_WINDOW: SpendWindow = {
   credits: 0,
   tokens: 0,
   events: 0,
+  ingestCredits: 0,
+  ingestTokens: 0,
+  ingestEvents: 0,
   ingestCostUsd: 0,
   dictationCostUsd: 0,
 }
@@ -282,12 +306,18 @@ export async function sumRollupTotals(
       monthCredits: sql<string>`coalesce(sum(${llmUsageRollups.credits}), 0)`,
       monthTokens: sql<string>`coalesce(sum(${llmUsageRollups.tokens}), 0)`,
       monthEvents: sql<string>`coalesce(sum(${llmUsageRollups.events}), 0)`,
+      monthIngestCredits: sql<string>`coalesce(sum(${llmUsageRollups.ingestCredits}), 0)`,
+      monthIngestTokens: sql<string>`coalesce(sum(${llmUsageRollups.ingestTokens}), 0)`,
+      monthIngestEvents: sql<string>`coalesce(sum(${llmUsageRollups.ingestEvents}), 0)`,
       dayCostUsd: sql<string>`coalesce(sum(${llmUsageRollups.costUsd}) filter (where ${isToday}), 0)`,
       dayOwnKeyCostUsd: sql<string>`coalesce(sum(${llmUsageRollups.ownKeyCostUsd}) filter (where ${isToday}), 0)`,
       dayPriceUsd: sql<string>`coalesce(sum(${llmUsageRollups.priceUsd}) filter (where ${isToday}), 0)`,
       dayCredits: sql<string>`coalesce(sum(${llmUsageRollups.credits}) filter (where ${isToday}), 0)`,
       dayTokens: sql<string>`coalesce(sum(${llmUsageRollups.tokens}) filter (where ${isToday}), 0)`,
       dayEvents: sql<string>`coalesce(sum(${llmUsageRollups.events}) filter (where ${isToday}), 0)`,
+      dayIngestCredits: sql<string>`coalesce(sum(${llmUsageRollups.ingestCredits}) filter (where ${isToday}), 0)`,
+      dayIngestTokens: sql<string>`coalesce(sum(${llmUsageRollups.ingestTokens}) filter (where ${isToday}), 0)`,
+      dayIngestEvents: sql<string>`coalesce(sum(${llmUsageRollups.ingestEvents}) filter (where ${isToday}), 0)`,
     })
     .from(llmUsageRollups)
     .where(and(...conditions))
@@ -299,9 +329,16 @@ export async function sumRollupTotals(
 function windowColumns(dayStartIso: string) {
   const isToday = sql`${llmUsageEvents.createdAt} >= ${dayStartIso}`
   const ownKey = sql`${llmUsageEvents.isByok} = true`
+  const ingest = sql`${llmUsageEvents.activity} = ${INGEST_USAGE_ACTIVITY}`
   const platformIngest = sql`${llmUsageEvents.activity} = 'ingest' and ${llmUsageEvents.isByok} is not true`
   const platformDictation = sql`${llmUsageEvents.activity} = 'dictation' and ${llmUsageEvents.isByok} is not true`
   return {
+    monthIngestCredits: sql<string>`coalesce(sum(${llmUsageEvents.credits}) filter (where ${ingest}), 0)`,
+    monthIngestTokens: sql<string>`coalesce(sum(${llmUsageEvents.totalTokens}) filter (where ${ingest}), 0)`,
+    monthIngestEvents: sql<string>`count(*) filter (where ${ingest})`,
+    dayIngestCredits: sql<string>`coalesce(sum(${llmUsageEvents.credits}) filter (where ${isToday} and ${ingest}), 0)`,
+    dayIngestTokens: sql<string>`coalesce(sum(${llmUsageEvents.totalTokens}) filter (where ${isToday} and ${ingest}), 0)`,
+    dayIngestEvents: sql<string>`count(*) filter (where ${isToday} and ${ingest})`,
     monthIngestCostUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}) filter (where ${platformIngest}), 0)`,
     dayIngestCostUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}) filter (where ${isToday} and ${platformIngest}), 0)`,
     monthDictationCostUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}) filter (where ${platformDictation}), 0)`,
@@ -334,6 +371,12 @@ interface WindowRow {
   dayCredits: string
   dayTokens: string
   dayEvents: string
+  monthIngestCredits: string
+  monthIngestTokens: string
+  monthIngestEvents: string
+  dayIngestCredits: string
+  dayIngestTokens: string
+  dayIngestEvents: string
   monthIngestCostUsd?: string
   dayIngestCostUsd?: string
   monthDictationCostUsd?: string
@@ -349,6 +392,9 @@ function toWindows(row: WindowRow): { day: SpendWindow; month: SpendWindow } {
       credits: num(row.dayCredits),
       tokens: num(row.dayTokens),
       events: num(row.dayEvents),
+      ingestCredits: num(row.dayIngestCredits),
+      ingestTokens: num(row.dayIngestTokens),
+      ingestEvents: num(row.dayIngestEvents),
       ...(row.dayIngestCostUsd !== undefined ? { ingestCostUsd: num(row.dayIngestCostUsd) } : {}),
       ...(row.dayDictationCostUsd !== undefined ? { dictationCostUsd: num(row.dayDictationCostUsd) } : {}),
     },
@@ -359,6 +405,9 @@ function toWindows(row: WindowRow): { day: SpendWindow; month: SpendWindow } {
       credits: num(row.monthCredits),
       tokens: num(row.monthTokens),
       events: num(row.monthEvents),
+      ingestCredits: num(row.monthIngestCredits),
+      ingestTokens: num(row.monthIngestTokens),
+      ingestEvents: num(row.monthIngestEvents),
       ...(row.monthIngestCostUsd !== undefined ? { ingestCostUsd: num(row.monthIngestCostUsd) } : {}),
       ...(row.monthDictationCostUsd !== undefined ? { dictationCostUsd: num(row.monthDictationCostUsd) } : {}),
     },
@@ -374,6 +423,9 @@ export const sumSpendWindows = (windows: SpendWindow[]): SpendWindow =>
       credits: total.credits + w.credits,
       tokens: total.tokens + w.tokens,
       events: total.events + w.events,
+      ingestCredits: (total.ingestCredits ?? 0) + (w.ingestCredits ?? 0),
+      ingestTokens: (total.ingestTokens ?? 0) + (w.ingestTokens ?? 0),
+      ingestEvents: (total.ingestEvents ?? 0) + (w.ingestEvents ?? 0),
       ingestCostUsd: (total.ingestCostUsd ?? 0) + (w.ingestCostUsd ?? 0),
       dictationCostUsd: (total.dictationCostUsd ?? 0) + (w.dictationCostUsd ?? 0),
     }),
@@ -495,6 +547,9 @@ export async function aggregateDailySpend(options: {
       credits: sql<string>`coalesce(sum(${llmUsageEvents.credits}), 0)`,
       tokens: sql<string>`coalesce(sum(${llmUsageEvents.totalTokens}), 0)`,
       events: sql<string>`count(*)`,
+      ingestCredits: sql<string>`coalesce(sum(${llmUsageEvents.credits}) filter (where ${llmUsageEvents.activity} = ${INGEST_USAGE_ACTIVITY}), 0)`,
+      ingestTokens: sql<string>`coalesce(sum(${llmUsageEvents.totalTokens}) filter (where ${llmUsageEvents.activity} = ${INGEST_USAGE_ACTIVITY}), 0)`,
+      ingestEvents: sql<string>`count(*) filter (where ${llmUsageEvents.activity} = ${INGEST_USAGE_ACTIVITY})`,
       ingestCostUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}) filter (where ${llmUsageEvents.activity} = 'ingest' and ${llmUsageEvents.isByok} is not true), 0)`,
       dictationCostUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}) filter (where ${llmUsageEvents.activity} = 'dictation' and ${llmUsageEvents.isByok} is not true), 0)`,
     })
@@ -510,6 +565,9 @@ export async function aggregateDailySpend(options: {
     credits: num(row.credits),
     tokens: num(row.tokens),
     events: num(row.events),
+    ingestCredits: num(row.ingestCredits),
+    ingestTokens: num(row.ingestTokens),
+    ingestEvents: num(row.ingestEvents),
     ingestCostUsd: num(row.ingestCostUsd),
     dictationCostUsd: num(row.dictationCostUsd),
   }))

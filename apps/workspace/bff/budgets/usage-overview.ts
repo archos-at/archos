@@ -5,7 +5,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { getBudgetStatus } from './budget-status'
 import { getOrgBudget, getOrgBudgetUnit } from './policy-lookup'
 import { getDailySpendTrend, getSpendByMember, getSpendSummary } from './spend-queries'
-import { toTenantWindow, type TenantSpendWindow } from './spend-windows'
+import { ingestLimitOf } from './ingest-limit'
+import { toTenantIngestWindow, toTenantWindow, type TenantSpendWindow } from './spend-windows'
 
 export interface UsageOverview {
   unit: BudgetUnit
@@ -14,6 +15,7 @@ export interface UsageOverview {
     month: TenantSpendWindow
     perModel: Array<{ model: string; day: TenantSpendWindow; month: TenantSpendWindow }>
   }
+  ingest: { day: TenantSpendWindow; month: TenantSpendWindow; monthlyLimit: number | null }
   perMember: Array<{ userId: string; day: TenantSpendWindow; month: TenantSpendWindow }> | null
   dailyTrend: Array<{ day: string } & TenantSpendWindow> | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
@@ -59,6 +61,7 @@ async function assembleUsageOverview(
   const { filter, statusUserId, admin, scope } = options
   const unit = await getOrgBudgetUnit(organizationId)
   const project = toTenantWindow(unit)
+  const projectIngest = toTenantIngestWindow(unit)
 
   const [summary, orgBudget, status, perMember, dailyTrend] = await Promise.all([
     getSpendSummary(organizationId, filter),
@@ -78,6 +81,11 @@ async function assembleUsageOverview(
         day: project(entry.day),
         month: project(entry.month),
       })),
+    },
+    ingest: {
+      day: projectIngest(summary.day),
+      month: projectIngest(summary.month),
+      monthlyLimit: ingestLimitOf(orgBudget),
     },
     perMember: perMember
       ? perMember.map((entry) => ({ userId: entry.userId, day: project(entry.day), month: project(entry.month) }))

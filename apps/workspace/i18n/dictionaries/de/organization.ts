@@ -540,6 +540,11 @@ export const organization: typeof en.organization = {
     ownKeyNote:
       'Ihre Organisation arbeitet mit einem eigenen Anbieterschlüssel. Der Verbrauch wird in Tokens auf Ihrer eigenen Rechnung gezählt; {productName} berechnet dafür keine Punkte.',
     overLimit: 'Budget ausgeschöpft — neue Anfragen werden blockiert',
+    workTitle: 'Laufende Arbeit',
+    ingestTitle: 'Einlesen von Unterlagen',
+    ingestNote:
+      'Das Einlesen hochgeladener Unterlagen zählt nicht gegen Tages- und Monatslimit. Es hat ein eigenes Kontingent pro Monat: das Dreifache des Monatslimits.',
+    ingestOverLimit: 'Kontingent ausgeschöpft — neue Unterlagen werden gespeichert, aber erst nach einer Erhöhung gelesen',
     legendTitle: 'Verbrauch nach Modell',
     legendEmpty: 'In diesem Zeitraum wurde noch keine LLM-Nutzung erfasst.',
     trendTitle: 'Letzte 30 Tage',

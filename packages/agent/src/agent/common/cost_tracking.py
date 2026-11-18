@@ -60,6 +60,7 @@ class BudgetSnapshot:
     remaining_org_tokens: float | None = None
     remaining_user_tokens: float | None = None
     remaining_project_tokens: float | None = None
+    activity: str | None = None
 
     @classmethod
     def from_header(cls, raw: str | None) -> BudgetSnapshot | None:
@@ -85,6 +86,7 @@ class BudgetSnapshot:
             remaining_org_tokens=_num("remainingOrgTokens"),
             remaining_user_tokens=_num("remainingUserTokens"),
             remaining_project_tokens=_num("remainingProjectTokens"),
+            activity=USAGE_ACTIVITY_INGEST if data.get("activity") == USAGE_ACTIVITY_INGEST else None,
         )
 
     def exhausted_scope(self, pending_cost_usd: float, pending_tokens: int = 0) -> str | None:

@@ -274,6 +274,7 @@ async def _run(scope: JobScope, request: JobRequest, run: RunContext, *, agent_c
         checkpointer=await _resolve_deep_research_checkpointer(models.fn_config),
     )
     usage = request.usage_context or {}
+    budget = BudgetSnapshot.from_header(usage.get("budget_header")) or BudgetSnapshot()
     with (
         track_agent_profile(
             agent_name=_JOB_PROFILE_NAMES.get(getattr(models.fn_config, "type", None), "deep_research_job"),
@@ -283,7 +284,8 @@ async def _run(scope: JobScope, request: JobRequest, run: RunContext, *, agent_c
         track_llm_costs(
             job_id=request.job_id,
             identity=request.identity,
-            budget=BudgetSnapshot.from_header(usage.get("budget_header")) or BudgetSnapshot(),
+            budget=budget,
+            activity=budget.activity,
         ),
         _bound_card_registry() as card_registry,
     ):

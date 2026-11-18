@@ -152,8 +152,8 @@ track_llm_costs()  ──sets──▶  cost_tracker_var (ContextVar)
     uploader (the BFF sends both with the dispatch) and stamped
     `activity = 'ingest'`. It carries an unlimited budget: a half-indexed
     document is worse than an overspent day, so ingestion is never stopped
-    mid-job; its spend lands in the same rollups, so the *next* chat turn sees
-    it against the organization's limit.
+    mid-job. Its spend never counts against the daily and monthly limits; it
+    has an allowance of its own (see [The ingest allowance](#the-ingest-allowance)).
 - **Calls that are not LangChain**: the ingest VLM and OCR calls use the raw
   `openai` client and the embedder is llama-index's, so no callback ever sees
   them. `meter_openai_client(client, role=…)` wraps `chat.completions.create`
@@ -218,7 +218,9 @@ CHECK-constrained), `audio_seconds` (since 0107, for transcription calls), `requ
 **`llm_usage_rollups`** (ADR-0019) — the write-through daily aggregate per
 `(org, day, user, project)`, carrying `cost_usd`, `own_key_cost_usd`,
 `price_usd`, `credits`, `tokens` and `events`, incremented in the same
-transaction as the ledger insert. Unbilled activities (`dictation`) never
+transaction as the ledger insert. Since 0246 it also carries
+`ingest_credits`, `ingest_tokens` and `ingest_events`: the part of each total
+that came from `activity = 'ingest'` rows. Unbilled activities (`dictation`) never
 reach it, which is what keeps them out of every budget.
 
 ## Limits & enforcement
@@ -242,6 +244,35 @@ reach it, which is what keeps them out of every budget.
   applies — `remaining*Usd` (credits converted back to USD of cost, the exact
   inverse of pricing) for a credit organization, `remaining*Tokens` for a
   token organization — and `BudgetSnapshot.exhausted_scope` checks both.
+
+### The ingest allowance
+
+An office that sets a project up uploads its whole folder at once, and reading
+it in used to spend the day's allowance before the first question (KAN-53). So
+reading documents in is paid from an allowance of its own:
+
+- **What counts as ingestion**: every ledger row with `activity = 'ingest'`.
+  That is the indexing of any upload (OCR, vision, embeddings), first or later,
+  and the project intake reading that an upload starts
+  (`project-intake/run.ts`, trigger `upload`). An intake reading a person
+  clicks is day-to-day work.
+- **Work limits leave it out**: `consumed()` in `budgets/spend-windows.ts` is
+  the one place a limit reads spend, and it subtracts the ingest share. Org,
+  member and project limits all go through it.
+- **Its ceiling**: per organization and UTC month, `INGEST_ALLOWANCE_FACTOR`
+  (3) times the organization's monthly limit (`budgets/ingest-limit.ts`). It
+  has no setting of its own: raising the monthly limit raises it, and an
+  organization with no monthly limit has no ingest ceiling. It exists so a
+  fault cannot spend without bound, not as a commercial limit.
+- **Enforced at the start of a job, never inside one**: `dispatchIngest`
+  refuses to start a new ingestion once the allowance is spent and fails the
+  row with `INGEST_ALLOWANCE_SPENT_MESSAGE` (the file stays stored; "read
+  again" works after the limit is raised). A running job always finishes. A
+  lookup failure reads as "not spent".
+- **The intake reading**: the BFF sends it a budget snapshot holding what is
+  left of the ingest allowance and `activity: 'ingest'`
+  (`ingestBudgetSnapshot`); `BudgetSnapshot.from_header` carries the activity
+  onto the job's tracker, so its rows are booked as ingestion.
 
 Enforcement points:
 
@@ -287,6 +318,10 @@ saying its usage is on its own bill and the agent charges no credits.
 - **Two budget meters** (today / this month): stacked segments per model as
   share of the limit, 2px surface gaps, muted remaining track; exhausted →
   destructive badge ("new requests are blocked").
+- **Reading documents in**: a third meter under its own label, this month's
+  ingestion against the ingest allowance, with one sentence saying it does not
+  count against the two limits above. The meters, the member table, the trend
+  and the model table above it are day-to-day work only.
 - **Color**: the validated 8-slot categorical palette (dataviz reference
   instance), separate light/dark steps under the `.dark` class; slots are
   assigned to model ids **alphabetically** (stable per entity, never by
