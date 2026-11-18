@@ -6,7 +6,10 @@ import type { JSX, ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Archive,
+  ArrowUp,
+  AtSign,
   Bell,
+  ChevronDown,
   BookMarked,
   ChevronRight,
   Folder,
@@ -15,6 +18,9 @@ import {
   Library,
   LayoutGrid,
   LockKeyhole,
+  Paperclip,
+  Mic,
+  Mail,
   HatGlasses,
   MoreHorizontal,
   PencilLine,
@@ -463,23 +469,55 @@ function TemporaryToggle({ on }: { on: boolean }): JSX.Element {
 export function NewChatPage({ temporary }: { temporary: boolean }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex items-start justify-end gap-3 px-8 pb-2 pt-2">
+      <header className="flex items-center justify-end gap-3 px-8 pb-2 pt-2">
+        {!temporary && (
+          <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium">
+            <LockKeyhole className="size-3.5" aria-hidden />
+            Nur Sie
+          </span>
+        )}
         <TemporaryToggle on={temporary} />
       </header>
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
-        {temporary ? (
-          <>
-            <HatGlasses className="size-7" aria-hidden />
-            <h1 className="text-pane-title">Temporärer Chat</h1>
-            <p className="text-muted-foreground max-w-sm text-sm">Nur Sie sehen diesen Chat. Er steht in keiner Liste, {PRODUCT} merkt sich nichts daraus, und er wird gelöscht, sobald Sie ihn verlassen.</p>
-          </>
-        ) : (
-          <h1 className="text-pane-title">Womit kann ich helfen?</h1>
-        )}
-      </div>
-      <div className="mx-auto mb-8 w-full max-w-2xl px-8">
-        <div className={cn('bg-sheet flex flex-col gap-3 rounded-[10px] border p-3', temporary ? 'border-foreground border-dashed' : 'border-field-border')}>
-          <span className="text-muted-foreground text-sm">Frage stellen …</span>
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8 pb-24">
+        <div className="flex flex-col items-center gap-3 text-center">
+          {temporary ? (
+            <>
+              <HatGlasses className="size-7" aria-hidden />
+              <h1 className="text-page-title">Temporärer Chat</h1>
+              <p className="text-muted-foreground max-w-sm text-sm">Nur Sie sehen diesen Chat. Er steht in keiner Liste, {PRODUCT} merkt sich nichts daraus, und er wird gelöscht, sobald Sie ihn verlassen.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-page-title">Guten Morgen, Anna.</h1>
+              <span className="bg-sheet shadow-press text-name inline-flex h-9 items-center gap-2 rounded-[10px] px-3 font-normal">
+                <Mail className="text-muted-foreground size-4" aria-hidden />
+                6 E-Mails warten auf Ablage
+                <span className="text-muted-foreground">·</span>
+                <span className="font-medium underline underline-offset-2">Ansehen</span>
+              </span>
+            </>
+          )}
+        </div>
+        <div className="w-full max-w-[720px]">
+          <div className={cn('bg-sheet flex flex-col gap-6 rounded-[16px] px-4 pb-3 pt-4', temporary ? 'border-foreground border border-dashed' : 'shadow-md')}>
+            <span className="text-muted-foreground text-sm">Fragen Sie {PRODUCT} zu diesem Projekt …</span>
+            <div className="text-muted-foreground flex items-center gap-4 text-xs">
+              <span className="inline-flex items-center gap-1.5 underline underline-offset-2">
+                <AtSign className="size-3.5" aria-hidden />
+                Kollegin oder Kollegen erwähnen
+              </span>
+              <span className="text-foreground ml-auto inline-flex items-center gap-1 font-medium">
+                Mittel
+                <ChevronDown className="size-3.5" aria-hidden />
+              </span>
+              <Paperclip className="text-foreground size-4" aria-hidden />
+              <Mic className="text-foreground size-4" aria-hidden />
+              <span className="bg-muted-foreground text-background flex size-7 items-center justify-center rounded-control">
+                <ArrowUp className="size-4" aria-hidden />
+              </span>
+            </div>
+          </div>
+          <p className="text-muted-foreground text-meta pt-2 text-center">{PRODUCT} ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.</p>
         </div>
       </div>
     </main>
