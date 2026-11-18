@@ -17,7 +17,7 @@ import {
 const COMPONENT = "otel-agent";
 const KUBELET_PORT = 10250;
 const SCRAPE_INTERVAL = "30s";
-const GATEWAY_EXPORTER = "otlp_http/gateway";
+export const GATEWAY_EXPORTER = "otlp_http/gateway";
 const KUBELET_RECEIVER = "kubelet_stats";
 
 export interface OtelAgent {
@@ -92,7 +92,7 @@ export function installOtelAgent(
         },
       },
     },
-    { provider, dependsOn: [...dependsOn, configMap, identity.binding] },
+    { provider, dependsOn: [...dependsOn, configMap, ...identity.bindings] },
   );
 
   return { daemonSet, configMap };
@@ -160,11 +160,11 @@ export function annotatedPods(): CollectorFragment {
   };
 }
 
-export function toGateway(): CollectorFragment {
+export function toGateway(host = "otel-collector"): CollectorFragment {
   return {
     exporters: {
       [GATEWAY_EXPORTER]: {
-        endpoint: `http://otel-collector:${OTLP_HTTP_PORT}`,
+        endpoint: `http://${host}:${OTLP_HTTP_PORT}`,
         compression: "gzip",
         ...boundedDelivery(500),
       },

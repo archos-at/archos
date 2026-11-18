@@ -15,6 +15,7 @@ describe("the PostHog logs pipeline", () => {
   it("runs the redaction after the severity filter and before the exporter", () => {
     const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "dev");
     expect(fragment.pipelines?.["logs/posthog"]?.processors).toEqual([
+      "filter/sdk_logs_only",
       "filter/warn_and_above",
       "transform/posthog_redact",
       "resource/logs_environment",
