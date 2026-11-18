@@ -15575,6 +15575,132 @@
         }
       }
     },
+    "/api/conversations/{id}/draft": {
+      "delete": {
+        "operationId": "conversation-draft-delete",
+        "summary": "Delete an unfiled draft from a conversation",
+        "description": "Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete an unfiled draft from a conversation",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "conversation-draft-get",
+        "summary": "Read an unfiled draft ARCHOS wrote",
+        "description": "One draft in the conversation’s working directory, to read before filing; `path` is the one the answer’s card names. To keep it: conversation-draft-file.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read an unfiled draft ARCHOS wrote",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/conversations/{id}/draft/download": {
       "get": {
         "operationId": "conversation-draft-download",
@@ -15603,6 +15729,18 @@
               "minLength": 1,
               "maxLength": 500
             }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The version the card names (current or the one before); omit for the current.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "description": "The version the card names (current or the one before); omit for the current."
           }
         ],
         "responses": {
@@ -15753,6 +15891,23 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "as": {
+                    "description": "`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.",
+                    "type": "string",
+                    "enum": [
+                      "own",
+                      "revision"
+                    ]
+                  },
+                  "overChanges": {
+                    "description": "Write over a revision a person changed since filing.",
+                    "type": "boolean"
+                  },
+                  "changeNote": {
+                    "description": "With `revision`: what changed, one sentence.",
+                    "type": "string",
+                    "maxLength": 500
                   }
                 },
                 "required": [
@@ -15797,11 +15952,96 @@
         }
       }
     },
-    "/api/conversations/{id}/draft": {
+    "/api/conversations/{id}/draft/rendition": {
       "get": {
-        "operationId": "conversation-draft-get",
-        "summary": "Read an unfiled draft ARCHOS wrote",
-        "description": "One draft in the conversation’s working directory, to read before filing; `path` is the one the answer’s card names. To keep it: conversation-draft-file.",
+        "operationId": "conversation-draft-rendition-get",
+        "summary": "Read a Word, Excel or PowerPoint draft as a PDF",
+        "description": "The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The version the card names (current or the one before); omit for the current.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "description": "The version the card names (current or the one before); omit for the current."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read a Word, Excel or PowerPoint draft as a PDF",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/conversations/{id}/draft/restore": {
+      "post": {
+        "operationId": "conversation-draft-restore",
+        "summary": "Restore the earlier version of a draft",
+        "description": "Makes the version kept before a draft’s last change its next version. Returns the version number.",
         "tags": [
           "conversations"
         ],
@@ -15853,83 +16093,10 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Read an unfiled draft ARCHOS wrote",
-          "readOnlyHint": true,
+          "title": "Restore the earlier version of a draft",
+          "readOnlyHint": false,
           "destructiveHint": false,
-          "idempotentHint": true,
-          "openWorldHint": false
-        }
-      }
-    },
-    "/api/conversations/{id}/draft/rendition": {
-      "get": {
-        "operationId": "conversation-draft-rendition-get",
-        "summary": "Read a Word, Excel or PowerPoint draft as a PDF",
-        "description": "The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.",
-        "tags": [
-          "conversations"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
-            },
-            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
-          },
-          {
-            "name": "path",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 500
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
-            "content": {
-              "application/pdf": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              },
-              "text/plain": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error400"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "429": {
-            "$ref": "#/components/responses/Error429"
-          }
-        },
-        "x-mcp-annotations": {
-          "title": "Read a Word, Excel or PowerPoint draft as a PDF",
-          "readOnlyHint": true,
-          "destructiveHint": false,
-          "idempotentHint": true,
+          "idempotentHint": false,
           "openWorldHint": false
         }
       }

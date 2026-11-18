@@ -166,22 +166,29 @@ export const fileDraftBodySchema = z
     as: z
       .enum(['own', 'revision'])
       .optional()
-      .describe(
-        'For a draft made from a project document: `revision` files it as that document’s next Fassung, `own` as a separate file. Omit for a separate file.',
-      ),
+      .describe('`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.'),
     overChanges: z
       .boolean()
       .optional()
-      .describe('Write the new Fassung over a Fassung a person changed since the draft was filed.'),
+      .describe('Write over a revision a person changed since filing.'),
     changeNote: z
       .string()
       .max(500)
       .optional()
-      .describe('The Änderungsvermerk of a new Fassung: what changed against the Fassung before it.'),
+      .describe('With `revision`: what changed, one sentence.'),
   })
   .strict()
 
 export const draftPreviewQuerySchema = z.object({
   path: z.string().min(1).max(500),
-  v: z.coerce.number().int().min(1).max(1_000_000).optional(),
+})
+
+export const draftFileQuerySchema = draftPreviewQuerySchema.extend({
+  v: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1_000_000)
+    .optional()
+    .describe('The version the card names (current or the one before); omit for the current.'),
 })

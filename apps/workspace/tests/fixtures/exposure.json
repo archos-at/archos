@@ -1779,6 +1779,16 @@
    "withheld": null,
    "reason": null
   },
+  "conversation-draft-delete": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "conversation-draft-download": {
    "kind": "catalog",
    "domain": "conversations",
@@ -1810,6 +1820,16 @@
    "reason": null
   },
   "conversation-draft-rendition-get": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "conversation-draft-restore": {
    "kind": "catalog",
    "domain": "conversations",
    "sensitivity": null,
