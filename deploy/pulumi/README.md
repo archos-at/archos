@@ -34,65 +34,108 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 
 ## Quick start
 
+Staging (`dev`) and `prod` keep every secret in their Pulumi ESC environment
+(`grid-oib/<stack>`, imported by the stack file's `environment:` block), and
+the committed `Pulumi.<stack>.yaml` holds only non-secret config. Stack config
+wins over ESC on a conflict, so never run `pulumi config set --secret` on these
+two stacks: it writes ciphertext into the committed file and shadows the ESC
+value. Set each secret with `esc env set`, or edit them together with
+`pulumi env edit grid-oib/<stack>` (under `values.pulumiConfig`, as `fn::secret`).
+
 ```bash
 task infra:install   # the program and its policy pack, each from its own lockfile
 cd deploy/pulumi
-pulumi stack init prod
+pulumi stack select prod   # `pulumi stack init prod` the first time
+```
 
-# Non-secret config is templated in Pulumi.prod.yaml — edit the placeholders
-# (storageClass, baseDomain, letsEncryptEmail, imageTag, …).
+Edit the non-secret placeholders in `Pulumi.prod.yaml` (`storageClass`,
+`baseDomain`, `letsEncryptEmail`, `imageTag`, …), then set the secrets:
 
-# Secrets: with ESC adopted (see docs/deployment/pulumi-cloud-feature-audit.md),
-# dev secrets live in the `grid-oib/dev` environment. Migrate in three steps —
-# the middle one is not optional, `--keep-config` leaves the values in BOTH
-# places and stack config wins over ESC, so skipping it means the secrets never
-# actually move:
-#   1. pulumi config env init --stack dev --keep-config   # copy into ESC
-#   2. delete every `secure:` block from Pulumi.dev.yaml   # drop the duplicates
-#   3. pulumi preview --stack dev                          # must be a NO-OP:
-#      resolving through ESC yields the same values, so a non-empty diff means
-#      a key did not make it across (restore from git and retry).
-# Edit secrets afterwards via `pulumi env edit grid-oib/dev` (add under
-# values.pulumiConfig as fn::secret), or one key at a time with
-#   esc env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:<key> "<value>" --secret
-# Staging (dev) and prod keep EVERY secret in ESC: for them, run each line below
-# as that `esc env set`. A
-# `pulumi config set --secret` writes ciphertext into the committed stack file
-# instead, and stack config wins over ESC, so on those stacks it shadows the
-# ESC value. The lines below are for a scratch stack without ESC:
-pulumi config set --secret grid-oib:kubeconfig           "$(cat ~/.kube/grid-config)"
-pulumi config set --secret grid-oib:pgAppPassword        "$(openssl rand -base64 24)"
-pulumi config set --secret grid-oib:seaweedfsSecretKey   "$(openssl rand -base64 24)"
-pulumi config set --secret grid-oib:gridInternalApiToken "$(openssl rand -hex 32)"
-pulumi config set --secret grid-oib:gridAdminToken       "$(openssl rand -hex 32)"
-pulumi config set --secret grid-oib:openrouterApiKey     "sk-or-..."
-pulumi config set --secret grid-oib:tavilyApiKey         "tvly-..."
-pulumi config set --secret grid-oib:workosApiKey         "sk_live_..."
-pulumi config set --secret grid-oib:workosCookiePassword "$(openssl rand -hex 32)"
-# REQUIRED (deploy fails closed without it):
-pulumi config set --secret grid-oib:jobPayloadKek      "$(openssl rand -base64 32)"
-# REQUIRED: Dragonfly `requirepass` on both instances. Deploy fails closed
-# without them (opt out deliberately with allowUnauthenticatedRedis=true). The
-# two MUST differ — every app pod holds the cache password in its REDIS_URL, and
-# sharing it would let the app tier flush the edge rate-limit counters.
-pulumi config set --secret grid-oib:dragonflyPassword       "$(openssl rand -base64 32)"
-pulumi config set --secret grid-oib:rateLimitStorePassword  "$(openssl rand -base64 32)"
-# REQUIRED with seaweedfsTopology=split + seaweedfsFilerStore=postgres (both
-# defaults on a new stack): the login for the dedicated `seaweedfs_filer` role
-# that owns the filer namespace. Deploy fails closed without it.
+```bash
+ESC=matthiasbigl/grid-oib/prod
+esc env set $ESC pulumiConfig.grid-oib:kubeconfig             "$(cat ~/.kube/grid-config)" --secret
+esc env set $ESC pulumiConfig.grid-oib:pgAppPassword          "$(openssl rand -base64 24)" --secret
+esc env set $ESC pulumiConfig.grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)" --secret
+esc env set $ESC pulumiConfig.grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:gridAdminToken         "$(openssl rand -hex 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:openrouterApiKey       "sk-or-..." --secret
+esc env set $ESC pulumiConfig.grid-oib:tavilyApiKey           "tvly-..." --secret
+esc env set $ESC pulumiConfig.grid-oib:workosApiKey           "sk_live_..." --secret
+esc env set $ESC pulumiConfig.grid-oib:workosCookiePassword   "$(openssl rand -hex 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:jobPayloadKek          "$(openssl rand -base64 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:dragonflyPassword      "$(openssl rand -base64 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:rateLimitStorePassword "$(openssl rand -base64 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:seaweedfsFilerDbPassword "$(openssl rand -base64 24)" --secret
+esc env set $ESC pulumiConfig.grid-oib:seaweedfsTenantAdminSecretKey "$(openssl rand -base64 24)" --secret
+esc env set $ESC pulumiConfig.grid-oib:qdrantApiKey           "$(openssl rand -base64 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:qdrantReadOnlyApiKey   "$(openssl rand -base64 32)" --secret
+esc env set $ESC pulumiConfig.grid-oib:qdrantS3SecretKey      "$(openssl rand -base64 32)" --secret
+pulumi preview
+pulumi up
+```
+
+What each secret is for, and which are required:
+
+- `jobPayloadKek` encrypts the job payloads claimed from the database. The
+  deploy fails closed without it (`allowPlaintextJobPayloads=true` overrides,
+  for dev or a single node).
+- `dragonflyPassword` and `rateLimitStorePassword` are the `requirepass` of the
+  cache and of the edge rate-limit store. The deploy fails closed without them
+  (`allowUnauthenticatedRedis=true` opts out). The two must differ: every app
+  pod holds the cache password in its `REDIS_URL`, and sharing it would let the
+  app tier flush the edge rate-limit counters.
+- `seaweedfsFilerDbPassword` is the login of the `seaweedfs_filer` role that
+  owns the filer namespace, required with `seaweedfsTopology=split` and
+  `seaweedfsFilerStore=postgres`, both defaults on a new stack.
+- `seaweedfsTenantAdminSecretKey` is the only identity allowed to create and
+  drop tenant buckets, required with `seaweedfsPerOrgBuckets=true`.
+- `qdrantApiKey`, `qdrantReadOnlyApiKey` and `qdrantS3SecretKey` are required
+  on every stack, each its own value (ADR-0115). Rotating `qdrantApiKey` takes
+  three deploys through `qdrantAltApiKey`:
+  [`qdrant-runbook.md`](../../docs/deployment/qdrant-runbook.md), "Rotate the API key".
+- Optional: `posthogPersonalApiKey` (product feedback tickets, ADR-0118),
+  `byokLocalKek` (the local BYOK backend), and `openrouterChatKey`,
+  `openrouterResearchKey`, `openrouterIngestKey` (one OpenRouter key per
+  workload, each falling back to `openrouterApiKey`).
+
+### Moving a stack's secrets into ESC
+
+A stack whose secrets still sit in its stack file moves them in three steps.
+The second is not optional: `--keep-config` leaves the values in both places,
+and stack config wins over ESC, so skipping it means the secrets never move.
+
+1. `pulumi config env init --stack dev --keep-config` copies them into ESC.
+2. Delete every `secure:` block from `Pulumi.dev.yaml`.
+3. `pulumi preview --stack dev` must be a no-op: a non-empty diff means a key
+   did not make it across (restore the file from git and retry).
+
+### A scratch stack without ESC
+
+Only a stack with no ESC environment takes its secrets as stack config. Select
+or create that stack first, so the ciphertext lands in its own file and never
+in `Pulumi.prod.yaml` or `Pulumi.dev.yaml`:
+
+```bash
+pulumi stack init scratch   # or `pulumi stack select scratch`
+pulumi config set --secret grid-oib:kubeconfig             "$(cat ~/.kube/grid-config)"
+pulumi config set --secret grid-oib:pgAppPassword          "$(openssl rand -base64 24)"
+pulumi config set --secret grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)"
+pulumi config set --secret grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)"
+pulumi config set --secret grid-oib:gridAdminToken         "$(openssl rand -hex 32)"
+pulumi config set --secret grid-oib:openrouterApiKey       "sk-or-..."
+pulumi config set --secret grid-oib:tavilyApiKey           "tvly-..."
+pulumi config set --secret grid-oib:workosApiKey           "sk_live_..."
+pulumi config set --secret grid-oib:workosCookiePassword   "$(openssl rand -hex 32)"
+pulumi config set --secret grid-oib:jobPayloadKek          "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:dragonflyPassword      "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:rateLimitStorePassword "$(openssl rand -base64 32)"
 pulumi config set --secret grid-oib:seaweedfsFilerDbPassword "$(openssl rand -base64 24)"
-# REQUIRED with seaweedfsPerOrgBuckets=true: the credential for the only
-# identity allowed to create and drop tenant buckets.
 pulumi config set --secret grid-oib:seaweedfsTenantAdminSecretKey "$(openssl rand -base64 24)"
-# REQUIRED on every stack (Qdrant is always deployed): the read-write and
-# read-only API keys and the snapshot S3 identity's secret, each its own value
-# (ADR-0115).
-pulumi config set --secret grid-oib:qdrantApiKey         "$(openssl rand -base64 32)"
-pulumi config set --secret grid-oib:qdrantReadOnlyApiKey "$(openssl rand -base64 32)"
-pulumi config set --secret grid-oib:qdrantS3SecretKey    "$(openssl rand -base64 32)"
-# Rotating qdrantApiKey later takes three deploys through qdrantAltApiKey:
-# docs/deployment/qdrant-runbook.md, "Rotate the API key".
-
+pulumi config set --secret grid-oib:qdrantApiKey           "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:qdrantReadOnlyApiKey   "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:qdrantS3SecretKey      "$(openssl rand -base64 32)"
 pulumi preview
 pulumi up
 ```

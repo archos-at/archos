@@ -85,10 +85,12 @@ That password comes from Pulumi config `pgRuntimePassword`, which is **required
 and has no fallback**. It used to default to `pgAppPassword`; that was wrong,
 because Postgres authenticates by (role, password), so a shared password let
 anyone holding the runtime DSN log in as the schema owner instead — and the
-owner is exempt from every policy. Set it per stack:
+owner is exempt from every policy. Set it per stack, in the stack's ESC
+environment (a scratch stack without one takes `pulumi config set --secret`
+instead, as in [the Pulumi README](../../deploy/pulumi/README.md#a-scratch-stack-without-esc)):
 
 ```bash
-pulumi config set --secret pgRuntimePassword "$(openssl rand -base64 32)"
+esc env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:pgRuntimePassword "$(openssl rand -base64 32)" --secret
 ```
 
 A fourth login, `keda_scaler`, is declared the same way and is not an
