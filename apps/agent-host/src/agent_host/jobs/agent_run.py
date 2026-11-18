@@ -115,6 +115,7 @@ def _get_agent_state_class(agent) -> type | None:
     ]
 
     try:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         models_module = importlib.import_module(agent_module.replace(".agent", ".models"))
         name = _declared_state_name(models_module, state_name_patterns)
         if name is not None:
@@ -126,6 +127,7 @@ def _get_agent_state_class(agent) -> type | None:
         pass
 
     try:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         module = importlib.import_module(agent_module)
         name = _declared_state_name(module, state_name_patterns)
         if name is not None:
