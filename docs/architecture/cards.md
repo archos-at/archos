@@ -358,7 +358,8 @@ including `trifft zu` and `aktuell`, the directive dialect) live in the
 
 Deep research can still emit cards via the **`emit_card` tool**
 (`cards/register.py`); the agent no longer binds it, and its cards travel
-in the envelope's `cards` field only. Mid-turn, with full context, the
+in the envelope's `cards` field only (bound, its schema was 2 676 tokens on every
+call and a model at low effort spent a whole round on it, September 2026 census). Mid-turn, with full context, the
 researcher calls the tool whenever a structured element communicates better
 than prose. The card is
 validated against the shared schema and pushed into the conversation-scoped
@@ -410,7 +411,7 @@ rule. A surface whose leaf fails its card model is repaired from the rule plus
 the shapes of the card types it holds. A card that was going to be right pays
 nothing; one that was not pays the same single round trip, knowing which field
 was wrong. `describe_card` stays registered but is bound to no
-agent today (see its comment in `configs/config_oib_openrouter.yml`); deep
+agent today and is declared only so a config that wants it has the `_type`; deep
 research, which composes one long report, would pay the lookup once where a
 chat turn paid it per turn.
 
@@ -566,6 +567,18 @@ research. The forced-synthesis anchor then says "Do not attempt any further tool
 calls", which made the second card unreachable by construction: the model had
 already decided to draw it, and nothing in the answer, the log or the
 `research_truncated` note said what had been lost.
+
+Why seven: the longest chains this surface answers take five rounds
+(OIB 3 Lichteinfall: `use_skill`, `knowledge_search`, `find_elements` with
+relations, overhang, `light_incidence`; OIB 2 Fluchtweg likewise), and a
+storey-name miss is the commonest repair, so seven is that floor plus two
+repairs. The number stayed at seven when the unit changed from calls to
+rounds: reading the freed calls as headroom would bring the failure back.
+Seven rounds are 14 node visits plus the forced synthesis, inside the graph's
+`recursion_limit` of `(max_tool_iterations * 2) + 10` = 24. What bounds the
+cost of a round is `max_input_tokens_per_turn`, not this ceiling. A cut-off
+turn emits a `status:budget` step and a `Forcing synthesis (rounds)` warning
+with the ceiling, rounds spent, input tokens and the tool shape.
 
 The fix was the UNIT, not an exemption. The budget counts tool-calling ROUNDS
 now — one LLM decision that emitted tool calls, costing one whatever it asked

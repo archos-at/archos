@@ -1,20 +1,3 @@
-# Agent Package Manager manifest: third-party agent skills, pinned and locked.
-#
-# Skills we did not write are dependencies, so they get a manifest and a
-# lockfile rather than a hand copy. `apm install --frozen` reproduces the same
-# bytes everywhere, the contract `uv.lock` and `bun.lockb` already give us.
-#
-#   task agents:setup   install from this file
-#   task agents:audit   drift and hidden-Unicode scan
-#
-# One source, many harnesses. `skills/` holds every skill this repo authors;
-# apm deploys them, alongside the third-party ones, into each harness path
-# below. Those paths (.claude/, .agents/) are generated and gitignored.
-#
-# Add a harness here and its directory starts getting the same set. Pinned
-# rather than auto-detected because apm 0.28 resolves targets differently in
-# `install` and in the `audit` replay, so autodetection reported permanent
-# drift against files install never wrote.
 name: grid-oib-agent
 version: 1.0.0
 description: Agent skills for working on the Grid OIB agent repository
@@ -25,50 +8,18 @@ targets:
 
 dependencies:
   apm:
-    # This repo's own skills go here as local paths (`- ./skills/<name>`), so
-    # editing one and re-running `task agents:setup` republishes it to every
-    # target. A skill of our own is only for agent-specific procedure
-    # (docs/contributing/agent-skills.md).
     - ./skills/verify-on-dev
     - ./skills/querying-product-analytics
     - ./skills/updating-tickets
 
-    # Writing documents an agent consumes: skills, AGENTS.md, CLAUDE.md.
-    # Pinned to a commit; an unpinned ref drifts silently under `apm install`.
     - mattpocock/skills/skills/productivity/writing-for-agents#5863806dd4e15c63174bee4e7515a4256792ecfa
 
-    # `improve-codebase-architecture` is a BUNDLE, not one skill: it calls the
-    # Skill tool for `codebase-design` (the module/interface/depth/seam/adapter/
-    # leverage/locality vocabulary it refuses to drift from), `grilling` (the
-    # decision loop once you pick a candidate) and `domain-modeling` (keeping
-    # CONTEXT.md current). Pinning it alone leaves three dead Skill calls, so
-    # all four are pinned together at the same commit.
-    #
-    # HELD at 6654f6b on 2026-11-15 while every other skill moved to its latest
-    # commit: upstream 5863806 renamed the glossary these four maintain from
-    # `CONTEXT.md` to `GLOSSARY.md` and no longer mentions the old name, so an
-    # agent would start a second glossary beside ours (77 files cite
-    # CONTEXT.md). Bump these four together with that rename, as one change.
-    #
-    # It reads `docs/adr/` to avoid re-proposing decisions we already recorded,
-    # which is why it is worth more here than in a repo without an ADR log. It
-    # also wants a `CONTEXT.md` domain glossary, which this repo does not have
-    # yet; the skill creates one lazily.
+    # Held together at 6654f6b until CONTEXT.md is renamed GLOSSARY.md here.
     - mattpocock/skills/skills/engineering/improve-codebase-architecture#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
     - mattpocock/skills/skills/engineering/codebase-design#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
     - mattpocock/skills/skills/engineering/domain-modeling#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
     - mattpocock/skills/skills/productivity/grilling#6654f6b60cd9d5be8b54c6fafe44346dabeb3b76
 
-    # pstack (poteto's stack). unslop and `how` carry no
-    # disable-model-invocation and so fire on their own; the rest only run when
-    # asked for by name. Removed on 2026-11-15: `typescript-best-practices`
-    # (generic advice the model already follows; the repo's own TypeScript
-    # rules are in docs/contributing/code-conventions.md) and `why` (21 KB that
-    # fanned out across every connector on any "why" question; `docs/adr/` and
-    # `git log` answer those here).
-    #
-    # `technical-writing` covers human-facing prose — docs, RFCs, PR bodies —
-    # where `writing-for-agents` covers the documents an agent consumes.
     - cursor/plugins/pstack/skills/unslop#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
     - cursor/plugins/pstack/skills/how#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
     - cursor/plugins/pstack/skills/technical-writing#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
@@ -76,72 +27,13 @@ dependencies:
     - cursor/plugins/pstack/skills/blast-radius#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
     - cursor/plugins/pstack/skills/principle-model-the-domain#bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
 
-    # UI evidence. These two replace the `apps/workspace/visual/` harness: one
-    # drives a real browser, the other puts what it captured in the PR.
-    #
-    # `agent-browser` is a native CLI, NOT an npm library the repo imports — it
-    # is installed per machine (`npm i -g agent-browser && agent-browser
-    # install`), and the skill is the instruction sheet for it. Its `--full`,
-    # `set viewport`, `set media dark` and `eval` cover what `capture.mjs` did
-    # per target, and `skills get core --full` carries the version-matched
-    # command reference, so this pin ages with the CLI rather than against it.
-    #
-    # `before-and-after` owns only the GitHub half: it formats media into one
-    # marked block and publishes it with `gh --attach` (GitHub CLI 2.99+). That
-    # is the whole reason the PNGs stop being committed — the evidence lands in
-    # the PR body, where a reviewer already is, instead of in everyone's clone.
-    # It does not capture anything itself; it expects agent-browser above.
-    # KNOWN WART, deliberately accepted: `before-and-after` ships its skill in a
-    # directory called `skill/`, and apm names a deployed skill after that
-    # DIRECTORY rather than the `name:` in its frontmatter, so it lands at
-    # `.claude/skills/skill/` and harnesses offer it as "skill".
-    #
-    # The object form below takes an `alias:` that fixes the directory (`name:`
-    # is rejected outright), and it is NOT used here because `apm install` and
-    # `apm audit` disagree about it: install honours the alias, the audit replay
-    # ignores it, and `task agents:audit` then reports permanent drift — four
-    # files orphaned, four unintegrated — on every run, red forever. Confirmed
-    # on 0.28.0 and still true on 0.31.0. It is the same install-vs-replay
-    # divergence the `targets:` block above is pinned for.
-    #
-    #   - git: vercel-labs/before-and-after
-    #     path: skill
-    #     ref: 8306d34f459b6704e08e6adb5829fcddb0dc3557
-    #     alias: before-and-after
-    #
-    # A working gate beats a tidy name, so the string form stays until apm
-    # teaches its audit replay about aliases. The skill still TRIGGERS correctly
-    # — matching is on the frontmatter description, not the directory — so what
-    # the wart costs is the name you would type to invoke it by hand.
     - vercel-labs/agent-browser/skills/agent-browser#53384771fbafc261ba67608ac806dd5aa70b84f0
     - vercel-labs/before-and-after/skill#8306d34f459b6704e08e6adb5829fcddb0dc3557
 
-    # Interface design. `frontend-design` is Anthropic's own skill for building
-    # new UI or reshaping an existing one: aesthetic direction, typography,
-    # choices that do not read as templated defaults. Where it disagrees with
-    # docs/design/design-language.md, the design language wins.
     - anthropics/skills/skills/frontend-design#1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064
 
-    # Modern web platform guidance, stewarded by the Chrome, Edge, Firefox and
-    # MDN teams and backed by their evals: steers UI work away from legacy
-    # patterns and heavy polyfills toward native HTML, CSS and DOM APIs
-    # (dialogs, popovers, view transitions, container queries, forms, CWV).
-    # It fires on its own for client-side work and skips backend and tooling.
-    # KNOWN EXCEPTION to "pinned": the skill text and its bundled guides/ are
-    # pinned here, but the skill tells the agent to run
-    # `npx -y modern-web-guidance@latest search|retrieve`, an unpinned CLI from
-    # npm, at each use. Accepted for the evals-backed, current content; the
-    # bundled guides/ under the deployed skill are the pinned offline fallback.
     - GoogleChrome/modern-web-guidance/skills/modern-web-guidance#4dd968349e54ca45a05dd5c818fb035c9054b022
 
-    # Interface craft, from Emil Kowalski (Vercel, Linear). `emil-design-eng` is
-    # the one skill kept from that repo: it carries the polish and motion bar
-    # (easing, duration, origin, press feedback) in one place. The other twelve
-    # (animate, the four *-animation(s) skills, animation-performance,
-    # animation-vocabulary, apple-design, break-ui, mobile-native, ask-sonner,
-    # pick-ui-library, prototype) were removed on 2026-11-15: most fired on
-    # their own and each cost its listing on every turn for work this repo
-    # rarely does.
     - emilkowalski/skills/skills/emil-design-eng#64eb3deb9a5fbfa041faf783e0bc3fd635872e9c
   mcp: []
 
