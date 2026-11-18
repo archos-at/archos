@@ -129,8 +129,9 @@ then bundles `src/worker.js` with those modules inlined as text into `dist/worke
 | Infinite loop with `timeoutMs: 2000`, test grace 3 s | `timeout` after 5.0 s, the other slots serving meanwhile |
 | workerd resident memory per slot | 134 MB idle, about 190 MB after a run |
 
-Eight slots hold about 1.1 GB before any run. Size the pod's memory limit for that plus the runs
-(the design doc's budget assumed one 70 MB process), or lower `CODE_RUNNER_SLOTS` and add replicas.
+Four slots hold about 540 MB before any run. The worst case, 4 × (190 MB per process + 128 MB in
+the isolate + 50 MB of files) ≈ 1.5 GB, fits the pod's 2 GiB limit; for more runs add replicas, not
+slots.
 
 ## The libraries
 
