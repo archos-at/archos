@@ -7,7 +7,7 @@ export const FILE_RUN_SLOT = 'file-run:'
 export const LONG_RUN_MS = 10_000
 
 const OFFICE_SKILLS: Readonly<Record<string, readonly DraftFileFormat[] | 'any'>> = {
-  'office-files': 'any',
+  'execute': 'any',
   'office-word': ['word'],
   'office-excel': ['excel', 'csv'],
   'office-powerpoint': ['powerpoint'],

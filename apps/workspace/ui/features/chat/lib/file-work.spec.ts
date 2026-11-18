@@ -87,7 +87,7 @@ describe('fileWork', () => {
     const steps = [
       skill('office-excel'),
       run('a', { writes: ['Bericht.docx'], status: 'ok', made: ['Bericht.docx'] }),
-      skill('office-files'),
+      skill('execute'),
       run('b', { writes: ['Plan.pdf'], status: 'ok', made: ['Plan.pdf'] }),
     ]
     expect(fileWork(steps, false).map((work) => work.phases[0].kind)).toEqual(['make', 'prepare'])

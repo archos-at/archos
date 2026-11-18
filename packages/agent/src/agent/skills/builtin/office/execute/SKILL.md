@@ -1,20 +1,21 @@
 ---
-name: office-files
+name: execute
 description: >
-  Use before the first `execute` call, whenever the person wants a real file
-  (Word, Excel, PowerPoint, PDF, a chart) or a figure that has to be computed
-  rather than estimated: a Flächenaufstellung, an Aktenvermerk, a deck, a total.
-  The run contract, the libraries, the office's conventions, how to check a file.
+  Read before your first execute call: what a run can import, how documents
+  and tool data get in and files get out, and the mistakes that make a run fail.
 metadata:
   agents: researcher
-  title: Dateien erstellen
+  title: Rechnen und auswerten
 ---
 
-# Files the office opens without explanation
+# Running code with execute
 
-`execute` runs a JavaScript module you write in a fresh sandbox and keeps the
-files it writes. A file is done when the person can open it, read it and work
-on with it, and every figure in it is one a run computed.
+`execute` runs a JavaScript module you write in a fresh sandbox. Use it for
+anything that has to be computed rather than estimated: a total, an area, a
+deadline, a check over a table, the rows another tool returned. It also keeps
+the files a run writes, so it makes the Word, Excel, PowerPoint and PDF files
+the office opens. A figure is done when a run computed it; a file is done when
+the person can open it, read it and work on with it.
 
 ## The run
 

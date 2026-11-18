@@ -1,11 +1,8 @@
 ---
 name: office-pdf
 description: >
-  Use when the person wants a PDF that reads like a document: a report, a
-  Baubeschreibung, a Terminplan, a protocol, with tables, a header and footer,
-  a flowchart, a Gantt chart for the project schedule or a sequence diagram.
-  Typeset with Typst inside `execute`. Read `office-files` first for the run
-  contract.
+  Making a PDF document, a schedule or a flowchart? Code that typesets it
+  right the first time.
 metadata:
   agents: researcher
   title: PDF setzen
