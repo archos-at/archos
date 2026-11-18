@@ -2,6 +2,8 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import type { CiRunnersConfig } from "../config/ci-runners";
 import { NODE_GROUP_LABEL } from "../constants";
+import { scaledCpuRequest } from "../config/cpu-requests";
+import { cpuMillicores } from "../config/resources";
 
 export const ARC_CHART_VERSION = "0.15.0";
 const ARC_CHARTS = "oci://ghcr.io/actions/actions-runner-controller-charts";
@@ -47,7 +49,7 @@ export function installCiRunners(runners: CiRunnersConfig, provider: k8s.Provide
       version: ARC_CHART_VERSION,
       namespace: ARC_SYSTEM_NAMESPACE,
       values: {
-        resources: { requests: { cpu: "50m", memory: "128Mi" }, limits: { cpu: "500m", memory: "512Mi" } },
+        resources: scaledCpuRequest({ requests: { cpu: "50m", memory: "128Mi" }, limits: { cpu: "500m", memory: "512Mi" } }),
       },
     },
     { provider, dependsOn: [systemNs] },
@@ -137,7 +139,7 @@ function runnerPodSpec(runners: CiRunnersConfig): Record<string, unknown> {
           { name: "PYTEST_XDIST_AUTO_NUM_WORKERS", value: String(wholeCores(runners.resources.limits.cpu)) },
           { name: "HOSTNAME", value: "0.0.0.0" },
         ],
-        resources: runners.resources,
+        resources: scaledCpuRequest(runners.resources),
         securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } },
         volumeMounts: [
           { name: "shm", mountPath: "/dev/shm" },
@@ -149,9 +151,11 @@ function runnerPodSpec(runners: CiRunnersConfig): Record<string, unknown> {
 }
 
 export function wholeCores(cpu: string): number {
-  const cores = cpu.endsWith("m") ? Number(cpu.slice(0, -1)) / 1000 : Number(cpu);
-  if (!Number.isFinite(cores) || cores <= 0) throw new Error(`grid-oib:ciRunnersLimitsCpu is not a CPU quantity: "${cpu}"`);
-  return Math.max(1, Math.floor(cores));
+  const millicores = cpuMillicores(cpu);
+  if (!Number.isFinite(millicores) || millicores <= 0) {
+    throw new Error(`grid-oib:ciRunnersLimitsCpu is not a CPU quantity: "${cpu}"`);
+  }
+  return Math.max(1, Math.floor(millicores / 1000));
 }
 
 function installPriorityClass(provider: k8s.Provider): k8s.scheduling.v1.PriorityClass {

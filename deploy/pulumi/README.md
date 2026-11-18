@@ -464,7 +464,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `ciRunnersGithubConfigUrl` | `https://github.com/archos-at/archos` | Where the scale set registers |
 | `ciRunnersScaleSetName` | `dev-cluster` | The `runs-on` label, and the value of the repository variable `CI_RUNNER` |
 | `ciRunnersMinRunners` / `ciRunnersMaxRunners` | `0` / `3` | Idle runners cost a pod each; at zero a job waits for one to start. Three is what staging had room for in the ci-shadow trial |
-| `ciRunnersRequestsCpu/Memory`, `ciRunnersLimitsCpu/Memory` | 250m / 4Gi / 3 / 7Gi | Per runner. The CPU limit is also pytest's worker count (`PYTEST_XDIST_AUTO_NUM_WORKERS`), since `-n logical` counts the node's CPUs |
+| `ciRunnersRequestsCpu/Memory`, `ciRunnersLimitsCpu/Memory` | 250m / 4Gi / 3 / 7Gi | Per runner; the CPU request is scaled by `cpuRequestScale` like every other. The CPU limit is also pytest's worker count (`PYTEST_XDIST_AUTO_NUM_WORKERS`), since `-n logical` counts the node's CPUs |
 | `ciRunnersScratchStorageClass` / `ciRunnersScratchSize` | `storageClass` / `15Gi` | Each runner's ephemeral volume for the checkout, caches and `/tmp`, off the node's disk |
 | `ciRunnersNodeGroup` | (unset) | A worker group for the runners alone. Unset, they share staging's nodes at the lowest priority |
 | **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |

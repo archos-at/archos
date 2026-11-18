@@ -62,7 +62,8 @@ neither a privileged pod nor a Kubernetes credential where a pull request's code
   `arc-runners`, enforces the Baseline Pod Security Standard.
 * **Staging first.** The runners' PriorityClass is below every other pod's and never preempts:
   a staging pod that needs the room evicts a runner, and a runner waits for room. They request
-  250m CPU and use up to 3, and run on their own worker group when `ciRunnersNodeGroup` is set.
+  250m CPU before `cpuRequestScale` and use up to 3, and run on their own worker group when
+  `ciRunnersNodeGroup` is set.
 * **A NetworkPolicy** that lets the runners reach the internet and cluster DNS and nothing
   else: no RFC 1918, CGNAT, link-local or loopback address, so not Postgres, not SeaweedFS,
   not Qdrant, not the metadata endpoint. Nothing may connect to a runner. The program refuses
