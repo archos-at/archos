@@ -28,7 +28,8 @@ to `/workspace/<Name>.pdf`. `files` maps a name the markup uses (`"chart.svg"`,
 
 Typst needs no browser: draw diagrams with the Typst packages below, charts
 with Vega-Lite as SVG handed in through `files`. Mermaid and free HTML layouts
-are `office-html-pdf`.
+are `office-html-pdf`, which needs the browser; without it, draw the diagram here
+with `fletcher` (flowcharts) or `timeliney` (Gantt).
 
 ## Rules
 

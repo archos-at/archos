@@ -22,9 +22,10 @@ on with it, and every figure in it is one a run computed.
   `export default async function () { … }`. What it returns comes back as
   `value` (JSON). Nothing is passed in: write the data into the code as
   constants, or read it from a file.
-- Return plain JSON only: an array with a hole or `undefined` in it, a `Date`
-  or a `Decimal` fails the whole run. Turn dates into strings and decimals
-  into numbers; `JSON.parse(JSON.stringify(value))` does both.
+- Return plain JSON only: an array with a hole or `undefined` in it, a `Date`,
+  a `Decimal`, a `Map` or a `Set` fails the whole run. Holes become `null`,
+  dates ISO strings, decimals `toNumber()`, Maps `Object.fromEntries`, Sets
+  `Array.from`.
 - Read and write files only inside that function, with `node:fs/promises`
   (`readFile`, `writeFile`, `readdir`). I/O at module scope fails ("can't run at
   module scope", or "Disallowed operation called within global scope").

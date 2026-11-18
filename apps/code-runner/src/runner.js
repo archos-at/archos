@@ -96,12 +96,12 @@ function json(status, body) {
   return Response.json(body, { status });
 }
 
-function truncate(text) {
+function truncate(text, limit = LIMITS.maxStdioBytes) {
   const value = text ?? "";
   const bytes = new TextEncoder().encode(value);
-  if (bytes.byteLength <= LIMITS.maxStdioBytes) return value;
+  if (bytes.byteLength <= limit) return value;
   const marker = "\n...[truncated]";
-  return decoder.decode(bytes.subarray(0, LIMITS.maxStdioBytes - marker.length)).replace(/�$/, "") + marker;
+  return decoder.decode(bytes.subarray(0, limit - marker.length)).replace(/�$/, "") + marker;
 }
 
 async function sha256(bytes) {
@@ -110,11 +110,13 @@ async function sha256(bytes) {
 
 const VALUE_NOT_JSON = /Workspace code inputs and results (must be JSON-compatible values|must use plain objects)/;
 const VALUE_HINT =
-  "The returned value must be plain JSON: no undefined in an array (exceljs row.values and getSheetValues leave holes for empty cells), no Date, Decimal or other class instance. Return JSON.parse(JSON.stringify(value)), or map holes to null and dates to strings.";
+  "The returned value must be plain JSON: no undefined in an array (exceljs row.values and getSheetValues leave holes for empty cells), no Date, Decimal, Map, Set or other class instance. Map holes to null, dates to ISO strings, decimals with toNumber(), Maps with Object.fromEntries and Sets with Array.from.";
 
-function explained(stderr) {
+function explainedStderr(stderr) {
   const text = stderr ?? "";
-  return VALUE_NOT_JSON.test(text) && !text.includes(VALUE_HINT) ? `${text.trimEnd()}\n${VALUE_HINT}\n` : text;
+  if (!VALUE_NOT_JSON.test(text) || text.includes(VALUE_HINT)) return truncate(text);
+  const hint = `\n${VALUE_HINT}\n`;
+  return truncate(text.trimEnd(), LIMITS.maxStdioBytes - new TextEncoder().encode(hint).byteLength) + hint;
 }
 
 function stripTypes(source) {
@@ -188,10 +190,10 @@ async function execute(ws, run) {
       status: statusOf(result),
       value: result.value === undefined ? null : result.value,
       stdout: truncate(result.stdout),
-      stderr: truncate(explained(result.stderr)),
+      stderr: explainedStderr(result.stderr),
     };
   } catch (error) {
-    return { ...failed, stderr: truncate(explained(error instanceof Error ? error.message : String(error))) };
+    return { ...failed, stderr: explainedStderr(error instanceof Error ? error.message : String(error)) };
   }
 }
 

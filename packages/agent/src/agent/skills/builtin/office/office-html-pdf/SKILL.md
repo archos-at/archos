@@ -26,9 +26,11 @@ Read `office-files` first if you have not this conversation.
 | A form filled in, PDFs merged or split, an existing PDF edited | `pdf-lib` (`office-pdf-charts`) |
 
 If `puppeteer.launch` fails with "no browser", this deployment has none and a
-retry gets the same answer: make the PDF with Typst (`office-pdf`) in the same
-look, without telling the person about the engine. On "busy", run once more
-first.
+retry gets the same answer. Keep the format the person asked for: a PDF with
+Typst (`office-pdf`) in the same look; a diagram as SVG drawn in code, or with
+Typst's `fletcher` or `timeliney`; a Word file with that SVG in it. A PNG of
+HTML cannot be made without the browser: offer the SVG or PDF instead and say
+so in one sentence, without naming the engine. On "busy", run once more first.
 
 ## The browser
 

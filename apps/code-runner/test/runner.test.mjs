@@ -159,8 +159,17 @@ describe("isolation", () => {
       const { body } = await runner.run({ source: `export default () => { ${value} }` });
       assert.equal(body.status, "error");
       assert.match(body.stderr, /JSON-compatible|plain objects/);
-      assert.match(body.stderr, /JSON\.parse\(JSON\.stringify\(value\)\)/);
+      assert.match(body.stderr, /dates to ISO strings, decimals with toNumber\(\)/);
     }
+  });
+
+  test("the plain-JSON hint survives stderr that fills the cap", async () => {
+    const { body } = await runner.run({
+      source: `export default () => { console.error("x".repeat(70000)); const cells = []; cells[2] = 1; return cells; }`,
+    });
+    assert.equal(body.status, "error");
+    assert.ok(Buffer.byteLength(body.stderr) <= 64 * 1024);
+    assert.match(body.stderr, /decimals with toNumber\(\)/);
   });
 
   test("a module that does not parse is status error", async () => {
