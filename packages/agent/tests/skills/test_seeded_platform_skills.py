@@ -454,7 +454,7 @@ def test_every_card_type_with_a_trigger_has_its_craft_in_the_seed():
 
 
 def test_the_card_craft_the_retired_seed_taught_lives_in_the_tool():
-    from agent.cards.catalog import render_card_doctrine
+    from agent.cards.card_doctrine import render_card_doctrine
     from agent.cards.register import _build_tool_description
 
     doctrine = " ".join(render_card_doctrine().split())
@@ -472,10 +472,10 @@ def test_the_card_craft_the_retired_seed_taught_lives_in_the_tool():
 
 
 def test_the_answer_envelope_replaces_the_envelope_cards():
-    from agent.cards.catalog import RETIRED_CARD_TYPES
     from agent.cards.catalog import model_facing_card_types
     from agent.cards.catalog import render_card_catalog
-    from agent.cards.catalog import retired_refusal
+    from agent.cards.retired_cards import RETIRED_CARD_TYPES
+    from agent.cards.retired_cards import retired_refusal
 
     section = _prompt_section("answer_envelope")
     assert "`verdict`" in section and "60 characters" in section

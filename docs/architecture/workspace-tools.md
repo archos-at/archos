@@ -111,7 +111,7 @@ exactly one creator, and the card carries the returned `proposal_id`:
 |---|---|---|---|
 | `file_operation` | `propose_file_change` (`files/register.py`, `files/cards.py`) | `file_operation_proposal` | `operation`, `operations`, `note` |
 | `memory` | `remember` (`agent/memory/register.py`), only when an organization-scoped write is refused and the turn is not restricted | `memory_proposal` | `scope`, `kind`, `content`, `confidence`, `supersedes` |
-| `project_profile` | `register_envelope_card` (`cards/envelope.py`), called by `_register_envelope_cards` in the chat agent's `answer_pipeline.py`, for the model's own `project_profile_patch` card in a turn that is not confined | `project_profile_patch` | `title`, `rationale`, `patch` (the model's `preview` is neither rendered nor recorded) |
+| `project_profile` | `register_envelope_card` (`cards/envelope.py`), called by `_register_envelope_cards` in the chat agent's `envelope_cards.py`, for the model's own `project_profile_patch` card in a turn that is not confined | `project_profile_patch` | `title`, `rationale`, `patch` (the model's `preview` is neither rendered nor recorded) |
 | `operation` | The BFF's MCP server, when `workspace__call` runs a write (`apps/workspace/bff/agent-api/operation-proposals.ts`) | `operation_proposal` | the catalog operation and its input |
 
 The profile card is the odd one: the model composes it in the answer envelope
