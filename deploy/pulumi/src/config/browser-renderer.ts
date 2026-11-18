@@ -8,6 +8,7 @@ export interface BrowserRendererConfig {
   minReplicas: number;
   maxReplicas: number;
   sessionsPerPod: number;
+  cpuRequest: string;
   cpuTargetPercent: number;
   memoryTargetPercent: number;
 }
@@ -28,12 +29,17 @@ export function loadBrowserRenderer(cfg: pulumi.Config, images: ImagesConfig, co
       `grid-oib:browserRendererMaxReplicas (${maxReplicas}) must be >= browserRendererMinReplicas (${minReplicas}).`,
     );
   }
+  const cpuRequest = cfg.get("browserRendererCpuRequest") ?? "500m";
+  if (!/^[1-9]\d*m$/.test(cpuRequest)) {
+    throw new Error(`grid-oib:browserRendererCpuRequest must be millicores such as "200m", not "${cpuRequest}".`);
+  }
   return {
     enabled,
     image: browserRendererImage(images, cfg.get("browserRendererImage")),
     minReplicas,
     maxReplicas,
     sessionsPerPod: positiveInt(cfg, "browserRendererSessionsPerPod", 2),
+    cpuRequest,
     cpuTargetPercent: percent(cfg, "browserRendererCpuTargetPercent", 70),
     memoryTargetPercent: percent(cfg, "browserRendererMemoryTargetPercent", 80),
   };

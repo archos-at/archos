@@ -70,7 +70,9 @@ describe("browser-renderer", () => {
     const off = loadBrowserRenderer(config({}), images, true);
     expect(off.enabled).toBe(false);
     expect(off.image).toBe("ghcr.io/archos-at/browser-renderer:sha-abc");
-    expect([off.minReplicas, off.maxReplicas, off.sessionsPerPod]).toEqual([1, 3, 2]);
+    expect([off.minReplicas, off.maxReplicas, off.sessionsPerPod, off.cpuRequest]).toEqual([1, 3, 2, "500m"]);
+    expect(loadBrowserRenderer(config({ browserRendererCpuRequest: "200m" }), images, true).cpuRequest).toBe("200m");
+    expect(() => loadBrowserRenderer(config({ browserRendererCpuRequest: "0.2" }), images, true)).toThrow(/browserRendererCpuRequest/);
     expect(loadBrowserRenderer(config({ browserRendererImage: "r/x@sha256:1" }), images, true).image).toBe("r/x@sha256:1");
     expect(() => loadBrowserRenderer(config({ browserRendererEnabled: "true" }), images, false)).toThrow(/codeRunnerEnabled/);
     expect(() =>
@@ -91,7 +93,7 @@ describe("browser-renderer", () => {
       privileged: false,
       capabilities: { drop: ["ALL"] },
       readOnlyRootFilesystem: true,
-      seccompProfile: { type: "Unconfined" },
+      seccompProfile: { type: "RuntimeDefault" },
     });
     expect(c.envFrom).toBeUndefined();
     expect(c.env.map((e: { name: string }) => e.name).sort()).toEqual(["BROWSER_RENDERER_SESSIONS", "BROWSER_RENDERER_WORK_DIR", "PORT"]);

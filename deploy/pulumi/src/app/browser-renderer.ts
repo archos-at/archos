@@ -3,6 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
 import { pullPolicyFor } from "../config/images";
 import { commonLabels } from "../platform/namespaces";
+import { hardenedContainerSecurityContext } from "../platform/security";
 import { type RolloutProfile, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { SCALER_COOLDOWN_SECONDS, SCALER_POLLING_SECONDS } from "./keda-scaling";
@@ -34,14 +35,8 @@ export const BROWSER_RENDERER_SCALE_BEHAVIOR = {
   scaleDown: { stabilizationWindowSeconds: 300, policies: [{ type: "Pods", value: 1, periodSeconds: 60 }] },
 } as const;
 
-export function chromiumSandboxSecurityContext(): k8s.types.input.core.v1.SecurityContext {
-  return {
-    allowPrivilegeEscalation: false,
-    privileged: false,
-    capabilities: { drop: ["ALL"] },
-    readOnlyRootFilesystem: true,
-    seccompProfile: { type: "Unconfined" },
-  };
+export function containerSandboxSecurityContext(): k8s.types.input.core.v1.SecurityContext {
+  return { ...hardenedContainerSecurityContext(), readOnlyRootFilesystem: true };
 }
 
 export interface BrowserRenderer {
@@ -89,7 +84,7 @@ export function installBrowserRenderer(
                 name,
                 image,
                 imagePullPolicy: pullPolicyFor(image),
-                securityContext: chromiumSandboxSecurityContext(),
+                securityContext: containerSandboxSecurityContext(),
                 lifecycle: { preStop: { sleep: { seconds: BROWSER_RENDERER_ROLLOUT.endpointDrainSeconds } } },
                 ports: [{ containerPort: port, name: "cdp" }],
                 env: [
@@ -97,7 +92,10 @@ export function installBrowserRenderer(
                   { name: "BROWSER_RENDERER_SESSIONS", value: String(cfg.browserRenderer.sessionsPerPod) },
                   { name: "BROWSER_RENDERER_WORK_DIR", value: `${BROWSER_RENDERER.workDir}/browser-renderer` },
                 ],
-                resources: BROWSER_RENDERER.resources,
+                resources: {
+                  requests: { ...BROWSER_RENDERER.resources.requests, cpu: cfg.browserRenderer.cpuRequest },
+                  limits: BROWSER_RENDERER.resources.limits,
+                },
                 readinessProbe: { httpGet: { path: "/health", port }, periodSeconds: 10 },
                 livenessProbe: {
                   httpGet: { path: "/health", port },

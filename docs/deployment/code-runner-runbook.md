@@ -105,7 +105,8 @@ Every command runs against the stack's namespace, `grid`.
 | `execute-status` `unavailable` with comment `unreachable` | No ready runner pod, or the NetworkPolicy does not admit the caller | Pods and health above; the caller must be the chat tier or `agent-worker` |
 | A run answers `status: error` with `The run used more memory than allowed (768 MiB)`, the log `run stopped` with `reason: memory` | The run passed its slot's memory cap; the slot restarted and the others served on | The script's own doing, nothing to fix on the cluster. Many of them: [Memory per run](../../apps/code-runner/README.md#memory-per-run) |
 | A run answers `status: timeout`, the log `run stopped` with `reason: timeout` | The run passed `timeoutMs` (60 s) plus the 10 s grace; its slot was killed and restarted | Nothing on the cluster |
-| `browser-renderer` pod never becomes ready, its log says `No usable sandbox!` | The node forbids unprivileged user namespaces, which Chromium's sandbox needs | [The browser](#the-browser-puppeteer-in-a-run), step 2. Never `--no-sandbox` |
+| `browser-renderer` pod stays `Pending`, `Insufficient cpu` | No node has the pod's CPU request free (`grid-oib:browserRendererCpuRequest`, 500m unless set; dev sets 200m) | `kubectl describe nodes` for what is free; lower the request for that stack or add a node |
+| `browser-renderer` pod refused, `violates PodSecurity "baseline"` | A security context the namespace forbids, such as `seccompProfile: Unconfined` | Keep `containerSandboxSecurityContext()`; `index-pod-security.spec.ts` names the rule |
 | Runs that launch a browser fail with `This runner has no browser` | `browserRendererEnabled` is off for the stack (`BROWSER_RENDERER_ADDR` unset on the runner) | Expected while it is off: the agent makes the PDF with Typst |
 
 ## Turning it off
@@ -132,27 +133,30 @@ browser" and the `office-html-pdf` skill sends the agent to Typst.
 1. **The image.** As for the code runner (section 1): merge with the flag off, let CI publish
    `ghcr.io/archos-at/browser-renderer:sha-<commit>`, give the package the repository's Write access
    and private visibility, check the tag with `docker manifest inspect`.
-2. **The nodes.** Chromium's sandbox needs unprivileged user namespaces. The renderer container runs
-   `seccompProfile: Unconfined` for that (declared in `deploy/pulumi/src/app/browser-renderer.ts`);
-   the node must also allow them. On an Ubuntu 23.10+ node that is
-   `sysctl kernel.apparmor_restrict_unprivileged_userns=0`, a provider setting outside Pulumi. Where
-   the node forbids them, the pod logs `No usable sandbox!` and never becomes ready: the browser stays
-   off rather than running without its sandbox. Never add `--no-sandbox`.
-3. **Dev.** Add `grid-oib:browserRendererEnabled: "true"` to `Pulumi.dev.yaml`, check
-   `npm run preview` lists only the resources above and the env change on `code-runner`, merge.
-4. **Check it.** `kubectl -n grid get deploy browser-renderer` ready `1/1`;
-   `kubectl -n grid logs deploy/browser-renderer` shows a `browser session ended` line with
-   `"reason":"self-test"` and then `browser renderer listening`. Health from a runner pod, the only
-   pod its NetworkPolicy admits:
+2. **The sandbox.** Chromium runs `--no-sandbox`; the container is the sandbox (why:
+   [threat model](../design/agent-code-execution.md#threat-model)). The container runs as 10042 with
+   `seccompProfile: RuntimeDefault`, every capability dropped and a read-only root (declared in
+   `deploy/pulumi/src/app/browser-renderer.ts`), which Pod Security `baseline` admits, and needs
+   nothing from the nodes. `index-pod-security.spec.ts` checks every pod the program creates against
+   its namespace's level. Never set `Unconfined`: `grid` refuses the pod and `pulumi up` hangs on the
+   rollout.
+3. **Dev.** `grid-oib:browserRendererEnabled: "true"` is in `Pulumi.dev.yaml`. Before merging a change
+   to it, check `npm run preview` lists only the resources above and the env change on `code-runner`.
+   The pod requests 500m CPU unless `grid-oib:browserRendererCpuRequest` says otherwise (dev: 200m): if it stays `Pending` with `Insufficient cpu`, `kubectl describe nodes`
+   shows what is free. Then:
+   `kubectl -n grid get deploy browser-renderer` ready `1/1`; `kubectl -n grid logs deploy/browser-renderer`
+   shows `"reason":"self-test"` and `browser renderer listening`. Health from a runner pod, the only
+   pod its NetworkPolicy admits, answers `ok`:
 
    ```bash
    kubectl -n grid exec deploy/code-runner -- node -e "fetch('http://browser-renderer:9222/health').then((r) => r.text()).then(console.log)"
    ```
 
-   answers `ok`. In a project chat, ask for "einen Ablaufplan Entwurf, Einreichung, Bewilligung als
-   Diagramm und PDF". Expect a PDF and a PNG, and in the renderer's log one `browser session ended`
-   per launch with `refused: 0` unless the page tried the network.
-5. **Prod.** The same line in `Pulumi.prod.yaml`, in exactly this form, which the prod deploy and
+   In a project chat, ask for "einen
+   Ablaufplan Entwurf, Einreichung, Bewilligung als Diagramm und PDF". Expect a PDF and a PNG, and in
+   the renderer's log one `browser session ended` per launch with `refused: 0` unless the page tried
+   the network.
+4. **Prod.** The same line in `Pulumi.prod.yaml`, in exactly this form, which the prod deploy and
    **Promote to prod** read with `sed` to check the image exists:
 
    ```yaml
