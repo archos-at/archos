@@ -45,7 +45,6 @@ apps/workspace/ui/features/cards/section-marks.spec.ts
 apps/workspace/ui/features/chat/components/thread-chrome-touch.spec.ts
 apps/workspace/ui/features/documents/components/files-phone-rules.spec.tsx
 apps/workspace/ui/features/documents/components/mobile-files.spec.ts
-apps/workspace/ui/features/phone-polish.spec.ts
 apps/workspace/ui/features/platform/admin-mobile.spec.ts
 apps/workspace/ui/features/projects/mobile-projects.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
