@@ -25,7 +25,7 @@ function Place({ icon: Icon, label, count, current = false }: { icon: LucideIcon
   )
 }
 
-function MoreMenu({ own }: { own: boolean }): JSX.Element {
+function MoreMenu(): JSX.Element {
   const row = 'text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal'
   const icon = 'text-muted-foreground size-4 shrink-0'
   return (
@@ -45,24 +45,14 @@ function MoreMenu({ own }: { own: boolean }): JSX.Element {
         Filtern und sortieren
       </div>
       <div className={row}>
-        <CheckSquare className={icon} aria-hidden />
-        Mehrere auswählen
-      </div>
-      <div className={row}>
         <FolderPlus className={icon} aria-hidden />
         Ordner anlegen
-      </div>
-      <div className="bg-desk mx-1 my-1.5 h-px" />
-      <div className={row}>
-        <Trash2 className={icon} aria-hidden />
-        Papierkorb
-        {!own && <span className="text-muted-foreground text-meta ml-auto">2</span>}
       </div>
     </div>
   )
 }
 
-export function ShelfHeader({ own, form, moreOpen, crumb }: { own: boolean; form: string; moreOpen: boolean; crumb: string }): JSX.Element {
+export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean }): JSX.Element {
   const search = (
     <div className="border-field-border bg-sheet text-muted-foreground flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm">
       <Search className="size-4 shrink-0" aria-hidden />
@@ -72,18 +62,27 @@ export function ShelfHeader({ own, form, moreOpen, crumb }: { own: boolean; form
   const tools = (
     <div className="relative flex shrink-0 items-center gap-2">
       <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
+        <CheckSquare className="size-4" aria-hidden />
+        Auswählen
+      </span>
+      <span title="Papierkorb" className={`inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
+        <Trash2 className="size-4" aria-hidden />
+        Papierkorb
+        {!own && <span className="text-muted-foreground text-meta font-normal">2</span>}
+      </span>
+      <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
         <Upload className="size-4" aria-hidden />
         Hochladen
       </span>
       <span className={`flex size-9 items-center justify-center rounded-control ${moreOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
         <MoreHorizontal className="size-4" aria-label="Mehr" />
       </span>
-      {moreOpen && <MoreMenu own={own} />}
+      {moreOpen && <MoreMenu />}
     </div>
   )
   const places = (
     <div className="flex items-center gap-6">
-      <Place icon={Folder} label="Ordner" current />
+      <Place icon={Folder} label="Dateien" current />
       {!own && <Place icon={Mail} label="E-Mail-Eingang" count={3} />}
       {!own && <Place icon={ListChecks} label="Offene Punkte" />}
     </div>
@@ -100,11 +99,11 @@ export function ShelfHeader({ own, form, moreOpen, crumb }: { own: boolean; form
       </div>
       {form === 'search' ? (
         <>
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${own ? 'pb-4' : ''}`}>
             {search}
             {tools}
           </div>
-          {places}
+          {!own && places}
         </>
       ) : (
         <div className="flex items-end justify-between gap-6">
@@ -116,5 +115,46 @@ export function ShelfHeader({ own, form, moreOpen, crumb }: { own: boolean; form
         </div>
       )}
     </header>
+  )
+}
+
+const DELETED = [
+  { name: 'Grundriss_EG_Index-A.pdf', where: 'Abgabepläne', who: 'Ihnen', when: 'vor 2 Tagen', left: 'noch 28 Tage' },
+  { name: 'Besprechungsnotiz_alt.pdf', where: 'sonstiges', who: 'Jakob Huber', when: 'vor 9 Tagen', left: 'noch 21 Tage' },
+]
+
+export function TrashWindow(): JSX.Element {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgb(15_14_13_/_0.4)] p-8">
+      <div className="bg-background shadow-lg flex w-full max-w-[680px] flex-col rounded-[16px]">
+        <header className="flex items-start justify-between gap-4 px-6 pb-3 pt-5">
+          <div>
+            <h2 className="text-page-title">Papierkorb</h2>
+            <p className="text-muted-foreground mt-1 text-sm">Gelöschte Dateien der Projektablage. Nach 30 Tagen werden sie endgültig entfernt.</p>
+          </div>
+          <span className="text-muted-foreground text-name mt-1 font-medium">Schließen</span>
+        </header>
+        <div className="border-hairline border-t">
+          {DELETED.map((file) => (
+            <div key={file.name} className="border-hairline flex items-center gap-3 border-b px-6 py-3">
+              <span className="bg-desk flex size-8 shrink-0 items-center justify-center rounded-control">
+                <Folder className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-name truncate">{file.name}</p>
+                <p className="text-muted-foreground text-meta truncate">
+                  Aus „{file.where}“ · gelöscht von {file.who} {file.when} · {file.left}
+                </p>
+              </div>
+              <span className="bg-sheet shadow-press text-name inline-flex h-8 shrink-0 items-center rounded-control px-3 font-medium">Wiederherstellen</span>
+            </div>
+          ))}
+        </div>
+        <footer className="flex items-center justify-between px-6 py-4">
+          <span className="text-muted-foreground text-meta">2 Dateien</span>
+          <span className="text-destructive text-name font-medium">Papierkorb leeren</span>
+        </footer>
+      </div>
+    </div>
   )
 }
