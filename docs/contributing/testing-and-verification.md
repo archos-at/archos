@@ -96,6 +96,12 @@ Then run `task verify:fast` before you push.
 
 ## Traps the task list cannot tell you about
 
+**The core and agent_host suites run on one xdist worker per logical CPU**
+(`XDIST` in `Taskfile.yml`). Much of their wall clock is asyncio waits: on two
+workers agent_host went from 67 s to 44 s and the core suite from about 3m20s to
+2m27s. A test that passes only after another one ran fails under it; fix the
+test, do not drop the flag.
+
 **The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
 process runs many spec files, each in a fresh vm context, instead of one
 process per file (`pool: 'vmForks'` in `apps/workspace/vitest.config.ts`; the
@@ -214,6 +220,16 @@ selection locally, record once with `task be:test:testmon` and then
 `task be:test:affected SUITE=core`. The UI equivalent is
 `task workspace:test:related SHARD=1/1 FILES="src/path/changed.ts"`. Locally `task workspace:verify` runs lint, types, tests and
 build in order instead.
+
+The mechanics behind those tasks, each a reason a flag is there:
+
+- **testmon** keeps one database per suite and never runs under coverage, since it switches itself off under pytest-cov. CI caches a database only from a green run, because a failed test is recorded as failed and re-runs every time. `--testmon-forceselect` is needed because `addopts` carries `-m`, which otherwise switches selection off; exit 5 (nothing selected) is a pass.
+- **pytest-split** deselects after testmon (both `trylast`, split second), so the shards together run exactly the selection, provided they start from the same database. A test missing from `tests/.test_durations` counts at the average, so a stale file unbalances shards and never drops a test. `be:test:durations` records with the ingest tests' server present, because a skipped test is stored at the milliseconds its skip took (on 2026-11-11 that file weighed a third of the suite at nothing), and with `--clean-durations`, without which the file only grows (1,086 of 20,206 entries were gone tests on 2026-11-11).
+- **The packages run with `--dist loadfile`**, so a file's Qdrant collections and module fixtures stay on one worker. The database suites run serially: every test drops and recreates the same tables in one scratch database.
+- **Coverage instrumentation** costs the core suite 30 s (168 s against 138 s, 2026-11-10) for a 65 % gate it clears at 93 %, so the fast paths leave it off.
+- **`be:test:harness`** runs on workers: 16 s serial against 9 s on four (2026-11-10).
+- **The UI shards** each write a blob report to an explicit `--outputFile` named for the shard (blob-1-8.json for the first of eight): CI downloads all of them into one directory with `merge-multiple: true`, where a fixed name would overwrite the rest. The default reporter and, on Actions, the `github-actions` reporter are named beside it, because Vitest adds the latter only when no reporter is named. CI runs them with `COVERAGE=false`, since nothing gates on UI coverage; locally, coverage is collected per shard (a shard loads only its slice of the app) and `workspace:test:merge` stitches it.
+- **`ifc-spatial-py` runs with `--dist loadfile`** too: its modules build their IFC models in module-scoped fixtures.
 
 What decides which jobs run (a pull request against its base, a push against the
 last commit CI passed), when a push reuses its pull request's result, and how

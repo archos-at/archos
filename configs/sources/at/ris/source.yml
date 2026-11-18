@@ -1,13 +1,3 @@
-# Austria's Rechtsinformationssystem (RIS), read through the OGD-RIS API v2.6.
-#
-# One configured `rest` + `ris_xml` source (ADR-0162). Every Austrian value the
-# RIS adapter used to hold in code is here: the API and document hosts, the
-# application -> controller map, the document path segments, the nine
-# Bundesland search parameters and which date parameter each application takes.
-# packages/ris-adapter reads them from this file; its tests hold that the
-# requests it builds are byte-identical to the ones the code built before.
-#
-# Check a change with: .venv/bin/python -m public_sources test at-ris
 id: at-ris
 title: RIS – Rechtsinformationssystem des Bundes (OGD-RIS API v2.6)
 territory: AT
@@ -17,16 +7,11 @@ hosts:
   - data.bka.gv.at
   - www.ris.bka.gv.at
   - ris.bka.gv.at
-# Sites that republish RIS texts (observed in dev answers of 2026-11-10 citing § 50
-# WGarG 2008 from them instead of RIS). Never fetched. A web hit on one is a copy
-# of what RIS holds: withheld where the lookup may run, labelled a copy where not.
 copy_hosts:
   - jusline.at
   - gesetzefinden.at
   - lexfind.at
 data_flow: public_only
-# How a work's identifier (the knowledge records' `identifiers`) is read from a
-# passage's address here: what gives a cited passage its work, and so its role.
 identifiers:
   ris_gesetzesnummer: {query: Gesetzesnummer}
 terms:
@@ -35,11 +20,8 @@ terms:
   attribution: "Quelle: RIS, www.ris.bka.gv.at (CC BY 4.0)"
   checked: 2026-11-06
 monitor:
-  # RIS states no version validator on document pages; the bytes are the signal.
-  # Its change feed is SOAP only (research, country-base-knowledge.md row "Law").
   kind: sha256
   interval_hours: 24
-  # The Bauordnung für Wien's page: a change to the page's shape shows here first.
   probe:
     operation: document
     args: {segment: Landesnormen, reference: LWI40000225}
@@ -47,8 +29,6 @@ monitor:
 access:
   base_url: https://data.bka.gv.at/ris/api/v2.6
   operations:
-    # A search. `paging` is what RisClient.search adds; `terms` is what the
-    # tools build from the model's arguments (ris_adapter.register._build_search_params).
     search:
       path: "{controller[application]}"
       params:
@@ -63,24 +43,18 @@ access:
           when: {application: [LrKons, Lgbl, LgblAuth, Vbl]}
         - {name: "{date_from_param[application]}", value: "{date_from}", group: terms}
         - {name: "{date_to_param[application]}", value: "{date_to}", group: terms}
-        # One provision of a consolidated act (`provision`: its number, `provision_kind`: the locus sign): a
-        # search by an act's title answers every version of every provision, and a large act holds more than
-        # a page (the Bauordnung für Wien: 478 hits, § 81 alone 6; verified live 2026-11-12). A lettered
-        # paragraph (§ 60a) finds nothing this way, and the lookup then searches by the title alone.
         - {name: Abschnitt.Von, value: "{provision}", group: terms, when: {application: [BrKons, LrKons]}}
         - {name: Abschnitt.Bis, value: "{provision}", group: terms, when: {application: [BrKons, LrKons]}}
         - name: Abschnitt.Typ
           value: "{provision_type[provision_kind]}"
           group: terms
           when: {application: [BrKons, LrKons]}
-    # A document of the citizen application, from its number.
     document:
       base_url: https://www.ris.bka.gv.at
       path: "Dokumente/{segment}/{reference}/{reference}.html"
   tables:
     controller:
       values:
-        # Bundesrecht
         BrKons: Bundesrecht
         BgblAuth: Bundesrecht
         BgblPdf: Bundesrecht
@@ -88,13 +62,11 @@ access:
         Begut: Bundesrecht
         RegV: Bundesrecht
         Erv: Bundesrecht
-        # Landesrecht
         LrKons: Landesrecht
         LgblAuth: Landesrecht
         Lgbl: Landesrecht
         LgblNO: Landesrecht
         Vbl: Landesrecht
-        # Judikatur
         Vfgh: Judikatur
         Vwgh: Judikatur
         Normenliste: Judikatur
@@ -111,11 +83,9 @@ access:
         Ubas: Judikatur
         Umse: Judikatur
         Bks: Judikatur
-        # Bezirke, Gemeinden
         Bvb: Bezirke
         Gr: Gemeinden
         GrA: Gemeinden
-        # Sonstige Kundmachungen, Erlässe
         PruefGewO: Sonstige
         Avsv: Sonstige
         Spg: Sonstige
@@ -126,8 +96,6 @@ access:
         Erlaesse: Sonstige
     page_size:
       values: {"10": Ten, "20": Twenty, "50": Fifty, "100": OneHundred}
-    # The Landesrecht filter, one parameter per Bundesland. `fold` finds
-    # "Niederösterreich", "Nieder-Österreich" and "niederoesterreich" alike.
     federal_state:
       normalize: fold
       values:
@@ -140,10 +108,6 @@ access:
         tirol: Bundesland.SucheInTirol
         vorarlberg: Bundesland.SucheInVorarlberg
         wien: Bundesland.SucheInWien
-    # Which parameter a `date_from` becomes: the decision date for case law,
-    # the promulgation date for the authentic federal gazette, and for
-    # consolidated federal law the version in force on that day (point in time).
-    # Consolidated Land law (LrKons) has no such parameter here [verify the OGD API].
     date_from_param:
       values:
         Vfgh: EntscheidungsdatumVon
@@ -164,7 +128,6 @@ access:
         Bks: EntscheidungsdatumVon
         BgblAuth: Kundmachung.Von
         BrKons: Fassung.FassungVom
-    # The kind of provision `Abschnitt.Von`/`Bis` count in, by the locus sign (`lookup.locus.units`).
     provision_type:
       values: {"§": Paragraph, Art: Artikel}
     date_to_param:
@@ -186,7 +149,6 @@ access:
         Umse: EntscheidungsdatumBis
         Bks: EntscheidungsdatumBis
         BgblAuth: Kundmachung.Bis
-    # Citizen-application path segment of a document URL, by application.
     document_segment:
       values:
         BrKons: Bundesnormen
@@ -204,8 +166,6 @@ access:
         Dsk: Dsk
         Gbk: Gbk
         Erlaesse: Erlaesse
-    # The same segment, inferred from a bare document number's prefix.
-    # Checked in this order, so a longer prefix sharing a start goes first.
     document_prefix:
       values:
         NOR: Bundesnormen
@@ -224,14 +184,9 @@ access:
 engine:
   content_selector: "#content"
   drop_selectors: [".sr-only"]
-  # OGD-RIS states this host since 2026-09; it 301s to the public one and is on no allow-list.
   host_rewrites:
     - ["https://ogd.ris.bka.gv.at/", "https://www.ris.bka.gv.at/"]
 
-# How a law lookup reads RIS (public_sources.lookup): the citation grammar of
-# Austrian legal texts, the applications its search offers, the Bundesland
-# filter, and the words the lookup writes back. Code reads these; none of it is
-# in code (the country-as-data plan, step 4).
 lookup:
   language: de
   search: search
@@ -282,10 +237,7 @@ lookup:
       AT-7: Tirol
       AT-8: Vorarlberg
       AT-9: Wien
-    # In the order a question is probed for them.
     choices: [Wien, Niederösterreich, Oberösterreich, Steiermark, Kärnten, Salzburg, Tirol, Vorarlberg, Burgenland]
-    # The project brief's fact line (`federal_state=lower_austria`): it decides alone, so "Wiener Neustadt" never
-    # flips a Lower Austrian project to Wien. A project outside Austria names none.
     fact_keys: [federal_state]
     fact_values:
       vienna: Wien
@@ -305,14 +257,9 @@ lookup:
     - Use `title` only when the user names a specific law ("Bauordnung für Wien", "Garagengesetz").
     - Dates only when the request clearly constrains time (decision periods, version in force at a date).
     - Keep `reasoning` to one short sentence.
-  # The collection id a passage states starts with this (ris/LrKons/Wien); the lanes and the
-  # citation reader know RIS by it, and the shared cache keys share it with the RIS tools.
   namespace: ris
-  # A passage read from a URL or a document number names no application: its collection segment.
   unplaced_collection: kons
-  # A whole-law page or a consolidated document is informational, not the authentic text.
   consolidated_urls: [GeltendeFassung, /Bundesnormen/, /Landesnormen/]
-  # A bare document number (NOR40217157) names its citizen-application segment by its prefix.
   reference:
     argument: reference
     prefix_table: document_prefix

@@ -16,7 +16,10 @@ about what the week meant. Security and severe fixes are written down the same
 way and kept in the repository: the notes are product news, not a bug register.
 
 - **Tool:** [reno](https://docs.openstack.org/reno/latest/), OpenStack's release-note
-  manager. One YAML file per change, under `releasenotes/notes/`.
+  manager. One YAML file per change, under `releasenotes/notes/`. It runs through
+  `uv run --no-project`, outside the project environment: in `[dependency-groups]`
+  it would add a resolver constraint and `uv.lock` churn to every backend install
+  for tooling the product never uses.
 - **Rule:** [AGENTS.md](../../AGENTS.md), the "Change what a customer can notice"
   row. Enforced on every PR by the release-note step of the **Repo checks** job
   in [`ci.yml`](../../.github/workflows/ci.yml), which goes by file, not by what

@@ -167,6 +167,9 @@ models cannot be rewritten per call (their client is built at boot), so a cell s
   block in `configs/config_oib_openrouter.yml` now sets `request_timeout`
   (60–180 s depending on role) and `max_retries: 2`, so an unresponsive
   upstream call can no longer hang a run indefinitely at the HTTP layer.
+  `deep_orchestrator_llm` is the exception at `request_timeout: 600` and
+  `max_retries: 1`: it writes the report, and a 180 s bound ended exactly the
+  long German reports with a generic provider error.
   This is in addition to, not a replacement for, card generation's 30 s
   app-level timeout. `DeepResearcherAgent` additionally gained a wall-clock
   `max_run_seconds` budget (config key, default 2400 s; `0` disables) around
