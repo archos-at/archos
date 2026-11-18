@@ -373,7 +373,8 @@ export const createConversationActions = (
         )
       }
       if (chatSendFn) {
-        chatSendFn(text)
+        if (lastUser?.answerExcerpt) chatSendFn(text, { answerExcerpt: lastUser.answerExcerpt })
+        else chatSendFn(text)
       } else {
         setComposerPrefill(text)
       }

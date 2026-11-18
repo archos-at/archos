@@ -240,10 +240,10 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                     <CardSlotLiveProvider value={controller.live}>
                       <MarkdownSlotProvider render={controller.renderCardSlot}>
                         <div
-                      ref={controller.proseRef}
-                      className={proseClass(controller.ledeClass)}
-                      data-answer-excerpt-source={controller.excerptSourceId}
-                    >
+                          ref={controller.proseRef}
+                          className={proseClass(controller.ledeClass)}
+                          data-answer-excerpt-source={controller.excerptSourceId}
+                        >
                           <MarkdownRenderer
                             content={controller.body}
                             isStreaming={controller.live}

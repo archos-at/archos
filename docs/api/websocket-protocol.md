@@ -614,7 +614,9 @@ turn context gains „Selected part of an earlier answer“ with the text inside
 model to answer about exactly that part. It holds for that turn only: the
 history keeps the question's own text. The page keeps the part on the stored
 user message as `metadata.answerExcerpt` (`{messageId, text}`), which is what
-the bubble quotes after a reload.
+the bubble quotes after a reload and what a resend carries: the retry after a
+failed turn (`retryLastUserMessage`) and „Gründlicher neu beantworten“
+(`RetryThoroughButton`) send the question again with the same part.
 
 ### The review canvas (`focus_region` / `reply_in_thread`)
 

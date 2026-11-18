@@ -410,6 +410,26 @@ describe('a turn that fails mid-answer', () => {
     expect(answerOf(RESULT.message_id)).toBeUndefined()
     expect(send).toHaveBeenCalledWith('Wie lang darf der Fluchtweg sein?')
   })
+
+  it('sends the retried question with the part of the answer it was asked about', () => {
+    ask(answered)
+    const answerExcerpt = { messageId: 'earlier-answer', text: 'Der Fluchtweg darf höchstens 40 m lang sein.' }
+    const conversation = useChatStore.getState().currentConversation!
+    useChatStore.setState({
+      currentConversation: {
+        ...conversation,
+        messages: conversation.messages.map((message) =>
+          message.role === 'user' ? { ...message, answerExcerpt } : message
+        ),
+      },
+    })
+    const send = vi.fn()
+    useChatStore.setState({ chatSendFn: send })
+
+    useChatStore.getState().retryLastUserMessage()
+
+    expect(send).toHaveBeenCalledWith('Wie lang darf der Fluchtweg sein?', { answerExcerpt })
+  })
 })
 
 describe('a question for the asker, then a run', () => {

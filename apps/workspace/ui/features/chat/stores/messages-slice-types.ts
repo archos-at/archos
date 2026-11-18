@@ -14,7 +14,10 @@ import type {
   ErrorCode,
 } from '../types'
 
-export type ChatSendFn = (content: string, options?: { reasoningEffort?: ChatEffort }) => void
+export type ChatSendFn = (
+  content: string,
+  options?: { reasoningEffort?: ChatEffort; answerExcerpt?: AnswerExcerpt }
+) => void
 
 export type MessagesSlice = {
   isStreaming: boolean
