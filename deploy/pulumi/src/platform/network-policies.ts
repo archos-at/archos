@@ -8,11 +8,15 @@ import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
+import { LOG_SHIPPER } from "../config/observability";
+import { HEALTH_PORT, OTLP_GRPC_PORT, OTLP_HTTP_PORT, SHIPPER_OTLP_PORT } from "./collector-config";
+import { METRICS_EXPORT_PORT } from "./otel-collector";
 
 const LANGFUSE_WEB = LANGFUSE.web;
 const LANGFUSE_WORKER = LANGFUSE.worker;
 const CLICKHOUSE = LANGFUSE.clickhouse;
 
+const OTEL_COLLECTOR = "otel-collector";
 const OTEL_AGENT_POD = { podSelector: { matchLabels: { "app.kubernetes.io/name": "otel-agent" } } };
 
 export const LANGFUSE_BACKEND_CALLERS = [...CHAT_TIERS, ...API_TIERS, "agent-worker"] as const;
@@ -62,6 +66,7 @@ export function installNetworkPolicies(
             PUBLIC_SOURCE_FETCHER.name,
             QDRANT.name,
             ...(cfg.mcpGateway.enabled ? [MCP_GATEWAY.name] : []),
+            ...(cfg.posthog.logsEnabled ? [OTEL_COLLECTOR] : []),
           ],
         },
       ],
@@ -71,7 +76,9 @@ export function installNetworkPolicies(
   });
 
   const cnpg = mk("allow-cnpg-operator", {
-    podSelector: {},
+    podSelector: cfg.posthog.logsEnabled
+      ? { matchExpressions: [{ key: "app.kubernetes.io/name", operator: "NotIn", values: [OTEL_COLLECTOR] }] }
+      : {},
     policyTypes: ["Ingress"],
     ingress: [{ from: [nsLabel("cnpg-system")] }],
   });
@@ -294,6 +301,32 @@ export function installNetworkPolicies(
       })
     : undefined;
 
+  const logShipperToCollector = cfg.posthog.logsEnabled
+    ? mk("allow-log-shipper-to-collector", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": "otel-collector" } },
+        policyTypes: ["Ingress"],
+        ingress: [
+          {
+            from: [{ ...nsLabel(LOG_SHIPPER.namespace), podSelector: { matchLabels: { "app.kubernetes.io/name": LOG_SHIPPER.name } } }],
+            ports: [{ protocol: "TCP", port: SHIPPER_OTLP_PORT }],
+          },
+        ],
+      })
+    : undefined;
+
+  const sameNamespaceToCollector = cfg.posthog.logsEnabled
+    ? mk("allow-same-namespace-to-collector", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": OTEL_COLLECTOR } },
+        policyTypes: ["Ingress"],
+        ingress: [
+          {
+            from: [{ podSelector: {} }],
+            ports: [OTLP_GRPC_PORT, OTLP_HTTP_PORT, HEALTH_PORT, METRICS_EXPORT_PORT].map((port) => ({ protocol: "TCP", port })),
+          },
+        ],
+      })
+    : undefined;
+
   const agentToClickhouse =
     cfg.langfuse.enabled && cfg.posthog.metricsEnabled
       ? mk("allow-agent-to-clickhouse-metrics", {
@@ -358,6 +391,8 @@ export function installNetworkPolicies(
     appToQdrant,
     qdrantPeers,
     ...(collectorToQdrant ? [collectorToQdrant] : []),
+    ...(logShipperToCollector ? [logShipperToCollector] : []),
+    ...(sameNamespaceToCollector ? [sameNamespaceToCollector] : []),
     ...(edgeQdrant ? [edgeQdrant] : []),
     ...(agentToClickhouse ? [agentToClickhouse] : []),
     ...(edgeMcpGateway ? [edgeMcpGateway] : []),

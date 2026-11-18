@@ -16,6 +16,7 @@ that neither shows counts as a defect.
 | [`analyst-guide.md`](analyst-guide.md) | You are a business analyst or in the Fachbereich and want to read the data: access, vocabulary, which question is answered where, dashboards, the review queue |
 | [`error-tracking.md`](error-tracking.md) | You want to know where an exception lands (PostHog error tracking, replacing err2issue per ADR-0100), what each runtime sends, and the volume limits |
 | [`langfuse-audit-2026-10.md`](langfuse-audit-2026-10.md) | You want to know what Langfuse offers, what we use, and what is still open |
+| [`debug-a-failed-rollout.md`](debug-a-failed-rollout.md) | A deploy timed out or a pod never became Ready: the `query-logs` filters for its events and its container output |
 | [`metrics.md`](metrics.md) | You want a number over time: what is measured (the application, the cluster, every service), where each metric comes from, and how to add one ([ADR-0119](../adr/0119-every-metric-goes-to-posthog-through-the-collector.md)) |
 | [`querying-product-analytics`](../../skills/querying-product-analytics/SKILL.md) | You or an agent query PostHog: the views `prod_events` and `customer_events` that select production ([`views/`](../../deploy/posthog/views/)), and what the schema does not say. Published in PostHog as the project skill of the same name |
 | [`posthog-events.md`](posthog-events.md) | You are adding or reading a PostHog product event: every browser and server event, its properties and the line that sends it, and the rules each follows |

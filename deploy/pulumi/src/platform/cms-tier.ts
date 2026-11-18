@@ -7,6 +7,7 @@ import { installCmsPostgres } from "../data/cms-pg";
 import { installCms, installCmsNamespace, installCmsNetworkPolicies, installCmsRoute } from "./cms";
 
 export interface CmsTier {
+  namespace: k8s.core.v1.Namespace;
   service: k8s.core.v1.Service;
 }
 
@@ -22,5 +23,5 @@ export function installCmsTier(
   const pull = buildRegistryPullSecret(cfg, provider, CMS.namespace, "cms-registry-pull", [ns]);
   const cms = installCms(cfg, provider, appNamespace, [ns, pg.cluster, deps.bucketInit, ...(pull ? [pull] : [])], pull ? [{ name: PULL_SECRET_NAME }] : []);
   installCmsRoute(cfg, provider, appNamespace, [cms.service, deps.gateway]);
-  return { service: cms.service };
+  return { namespace: ns, service: cms.service };
 }

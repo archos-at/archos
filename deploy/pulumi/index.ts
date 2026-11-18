@@ -4,7 +4,7 @@ import { loadConfig } from './src/config'
 import { backendAutoscaled } from './src/config/chat-tier'
 import { backendImage, frontendImage, webImage } from './src/config/images'
 import { makeProvider } from "./src/platform/providers";
-import { makeAppNamespace } from "./src/platform/namespaces";
+import { appNamespaces, makeAppNamespace } from "./src/platform/namespaces";
 import { installCertManager } from "./src/platform/cert-manager";
 import { installGatewayController, installGatewayResources } from "./src/platform/gateway";
 import { installMetricsServer } from "./src/platform/metrics-server";
@@ -45,6 +45,7 @@ import { installKeda } from "./src/platform/keda";
 import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
 import { installOtelAgent } from "./src/platform/otel-agent";
+import { installLogShipper } from "./src/platform/log-shipper";
 import { installDns, managedRecordNames } from "./src/platform/dns";
 import { inboundMailOutputs, installInboundMail } from "./src/platform/inbound-mail";
 import { installInboundMailZone } from "./src/platform/email-routing";
@@ -301,9 +302,9 @@ const routes = installHttpRoutes(cfg, provider, namespace, [
   web.service,
   ...(rateLimitStore ? [rateLimitStore.service] : []),
 ]);
-if (cfg.cms.enabled) {
-  installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway });
-}
+const cmsTier = cfg.cms.enabled
+  ? installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway })
+  : undefined;
 if (cfg.qdrant.dashboard.enabled) {
   installQdrantDashboard(cfg, provider, namespace, [gatewayResources.gateway, qdrant.service]);
 }
@@ -350,11 +351,16 @@ if (cfg.observability.enabled) {
     {
       langfuseSecretName: langfuse ? langfuse.secret.metadata.name : undefined,
       qdrantMetricsTargets: qdrant.metricsTargets,
+      eventNamespaces: appNamespaces(cfg),
+      eventNamespaceResources: [ns, backgroundWorkNs, ...(cmsTier ? [cmsTier.namespace] : [])],
     },
   );
 
   if (cfg.posthog.metricsEnabled) {
     installOtelAgent(cfg, provider, namespace, [collector.service]);
+  }
+  if (cfg.posthog.logsEnabled) {
+    installLogShipper(cfg, provider, appNamespaces(cfg), [collector.service]);
   }
 }
 
