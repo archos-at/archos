@@ -19,7 +19,10 @@ Deploy 2 ships in three steps, one pull request each, in this order:
 
 A step merges only after prod runs the release before it. One promotion that
 carries an expand and its switch would let the migrate Job switch the database
-while old pods still write the old spelling.
+while old pods still write the old spelling. Deploy 1 is registered as the expand
+`brand-free-stored-names`, and the step that switches declares it in
+`deploy/rollout/switches/`, so CI and the promotion enforce the order
+([`expand-and-switch.md`](expand-and-switch.md)).
 
 The deploy runs the backfills ([`backfills.md`](backfills.md)): the step-1
 scripts are registered in `apps/workspace/backfills/` (`actor-kind`,

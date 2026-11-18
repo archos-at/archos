@@ -106,12 +106,27 @@ describe('publishAsAgent', () => {
 })
 
 describe('a browser cannot be the agent', () => {
+  it('cannot take the agent’s peer id, so it can neither replace the agent in the room nor send it away', async () => {
+    await publishAsAgent('doc_1', 'org_1', AGENT, { op: 'presence', state: 'here' })
+    const room = listen()
+    for (const presence of ['here', 'gone'] as const) {
+      await expect(
+        sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: AGENT_PEER.peerId, presence } })
+      ).rejects.toBeInstanceOf(BadRequestError)
+    }
+    room.release()
+    expect(room.heard).toEqual([])
+    expect((await roomSnapshot('doc_1', 'org_1')).map(({ peerId, kind }) => ({ peerId, kind }))).toEqual([
+      { peerId: AGENT_PEER.peerId, kind: 'agent' },
+    ])
+  })
+
   it('is stamped a person whatever it sends, names nobody it acts for, and cannot send the agent’s vocabulary', async () => {
     const room = listen()
-    await sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: 'agent-conv_42', presence: 'here' } })
+    await sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: 'peer_abcdef12', presence: 'here' } })
     room.release()
     expect(room.heard).toEqual([
-      expect.objectContaining({ peer: { peerId: 'agent-conv_42', userId: 'user_1', name: 'Anna Berger', kind: 'person' } }),
+      expect.objectContaining({ peer: { peerId: 'peer_abcdef12', userId: 'user_1', name: 'Anna Berger', kind: 'person' } }),
     ])
 
     for (const forged of [

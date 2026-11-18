@@ -1,0 +1,4 @@
+{"expires": "drop after release 2026-W50",
+  "what": "ADR-0182 phase 4, deploy 1 (#1758): every stored name readable in its brand-free spelling beside the old one",
+  "commit": "e61c1422f4c679ad4b497f6f7855bd726ab78bc2"
+}

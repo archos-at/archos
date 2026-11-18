@@ -1,8 +1,9 @@
 import { readHeader } from '@/lib/http/legacy-header-names'
+import { clientPeerIdSchema } from '@/lib/realtime/types'
 
 export const ROOM_PEER_HEADER = 'x-room-peer'
 
 export function roomPeerOf(request: Request): string | null {
   const value = readHeader(request.headers, ROOM_PEER_HEADER)
-  return value && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : null
+  return value && clientPeerIdSchema.safeParse(value).success ? value : null
 }
