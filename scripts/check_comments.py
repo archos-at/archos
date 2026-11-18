@@ -53,7 +53,6 @@ TOOL_DIRECTIVES = (
     r"shellcheck (disable|enable|source|shell)=|checkov:skip=|trivy:ignore:"
 )
 CONFIG_DIRECTIVE = re.compile(rf"\s*#\s*({TOOL_DIRECTIVES})")
-CODE_TOOL_DIRECTIVE = re.compile(rf"(#|//|/\*)\s*({TOOL_DIRECTIVES})")
 RELEASE_NOTES = "releasenotes/notes/"
 YAML_BREAK = re.compile(r"\r\n|[\r\n\x85\u2028\u2029]")
 YAML_BLOCK_START = re.compile(r"(^|\s)[|>][-+0-9]*\s*(#.*)?$")
@@ -89,15 +88,11 @@ def script_metadata_lines(source: str) -> set[int]:
     return found
 
 
-def _code_tool_reads(text: str) -> bool:
-    return bool(DIRECTIVE.search(text) or CODE_TOOL_DIRECTIVE.search(text))
-
-
 def prose_comment_count(path: str, source: str) -> int:
     rows = source.split("\n")
     kept = script_metadata_lines(source)
     return sum(
-        1 for number in comment_lines(path, source) if number not in kept and not _code_tool_reads(rows[number - 1])
+        1 for number in comment_lines(path, source) if number not in kept and not DIRECTIVE.search(rows[number - 1])
     )
 
 
@@ -132,7 +127,7 @@ def script_prose_lines(path: str, source: bytes) -> int:
         text = source[comment.start_byte : comment.end_byte].decode("utf-8", "replace")
         (first, start_col), (last, end_col) = comment.start_point, comment.end_point
         alone = not rows[first][:start_col].strip() and not rows[last][end_col:].strip()
-        if alone and not _code_tool_reads(text):
+        if alone and not DIRECTIVE.search(text):
             lines.update(range(first, last + 1))
     return len(lines)
 
