@@ -8,21 +8,56 @@ import { withTenant } from '@/lib/db/tenant-context'
 import type { VerifiedRequestContext } from '@/lib/request-context'
 import { BadRequestError } from '@/lib/api/errors'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
-import { fileAgentFileDraft, replaceAgentFileVersion } from '@/lib/documents/agent-file'
+import { fileAgentFileDraft } from '@/lib/documents/agent-file'
+import { agentDestination } from '@/lib/documents/agent-folder'
+import { reviseWithAgentWork, type AgentWork } from '@/lib/documents/agent-file-revision'
 import { decodeAgentFileBase64 } from '@/lib/documents/agent-file-check'
 import { getAccessibleDocument } from '@/lib/documents/access'
+import { findOpenVersion, findPublishedVersion } from '@/lib/documents/version-repository'
 import { listReviewCandidates, matchReviewCandidate } from '@/lib/documents/reviewers'
-import {
-  replaceVersionContent,
-  toDocumentVersionView,
-  transitionDocumentVersion,
-} from '@/lib/documents/lifecycle'
+import { toDocumentVersionView, transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import {
   internalDocumentVersionRequestSchema,
   type InternalDocumentVersionRequest,
 } from '@/lib/documents/lifecycle-types'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
+
+async function reviseOp(
+  session: AuthorizedSession,
+  request: Request,
+  context: VerifiedRequestContext,
+  input: {
+    documentId: string
+    work: AgentWork
+    ifMatch?: string
+    ownVersionId?: string
+    changeNote?: string
+    own: boolean
+  },
+) {
+  if (!context.projectId) throw new BadRequestError('This request names no project', { reason: 'no-project' })
+  const revised = await reviseWithAgentWork(session, {
+    documentId: input.documentId,
+    projectId: context.projectId,
+    work: input.work,
+    ifMatch: input.ifMatch,
+    ownVersionId: input.ownVersionId,
+    changeNote: input.changeNote,
+    agentFiledOnly: input.own,
+    options: {
+      request,
+      actingHuman: false,
+      origin: { conversationId: context.conversationId, locale: AGENT_REFUSAL_LOCALE },
+    },
+  })
+  return {
+    documentId: revised.document.id,
+    folderId: revised.document.folderId,
+    forked: revised.forked,
+    version: toDocumentVersionView(revised.version),
+  }
+}
 
 async function runOp(
   session: AuthorizedSession,
@@ -38,6 +73,7 @@ async function runOp(
       ref: body.ref,
       title: body.title,
       content: body.content,
+      folderId: await agentDestination(session, body.projectId, { folder: body.folder }),
       request,
       actingHuman: false,
       originConversationId: context.conversationId,
@@ -57,6 +93,10 @@ async function runOp(
       ref: body.ref,
       title: body.title,
       filename: body.filename,
+      folderId: await agentDestination(session, body.projectId, {
+        folder: body.folder,
+        sourceDocumentId: body.sourceDocumentId,
+      }),
       contentType: body.contentType,
       bytes: decodeAgentFileBase64(body.contentBase64),
       request,
@@ -66,43 +106,38 @@ async function runOp(
     return {
       documentId: filed.documentId,
       alreadyFiled: filed.alreadyFiled,
+      folderId: filed.folderId,
       version: toDocumentVersionView(filed.version),
     }
   }
 
-  if (body.op === 'update_file') {
-    const version = await replaceAgentFileVersion(
-      session,
-      body.documentId,
-      body.versionId,
-      { contentType: body.contentType, bytes: decodeAgentFileBase64(body.contentBase64) },
-      body.ifMatch,
-      {
-        request,
-        actingHuman: false,
-        origin: { conversationId: context.conversationId, locale: AGENT_REFUSAL_LOCALE },
-      },
-    )
-    return { documentId: body.documentId, version: toDocumentVersionView(version) }
+  if (body.op === 'status') {
+    const document = await getAccessibleDocument(session, body.documentId)
+    const current =
+      (await findOpenVersion(document.id, session.organizationId)) ??
+      (await findPublishedVersion(document.id, session.organizationId))
+    return { documentId: document.id, version: current ? toDocumentVersionView(current) : null }
+  }
+
+  if (body.op === 'update_file' || body.op === 'revise_file') {
+    const file = { contentType: body.contentType, bytes: decodeAgentFileBase64(body.contentBase64) }
+    return reviseOp(session, request, context, {
+      documentId: body.documentId,
+      work: { kind: 'file', file },
+      ...(body.op === 'update_file'
+        ? { ifMatch: body.ifMatch, ownVersionId: body.versionId, own: true }
+        : { ifMatch: body.ifMatch, ownVersionId: body.versionId, changeNote: body.changeNote, own: false }),
+    })
   }
 
   if (body.op === 'update') {
-    const version = await replaceVersionContent(
-      session,
-      body.documentId,
-      body.versionId,
-      body.content,
-      body.ifMatch,
-      {
-        request,
-        actingHuman: false,
-        origin: {
-          conversationId: context.conversationId,
-          locale: AGENT_REFUSAL_LOCALE,
-        },
-      },
-    )
-    return { documentId: body.documentId, version: toDocumentVersionView(version) }
+    return reviseOp(session, request, context, {
+      documentId: body.documentId,
+      work: { kind: 'markdown', content: body.content },
+      ifMatch: body.ifMatch,
+      ownVersionId: body.versionId,
+      own: true,
+    })
   }
 
   const version = await transitionDocumentVersion(

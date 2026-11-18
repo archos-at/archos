@@ -28,6 +28,7 @@ class RunResult:
     stderr: str = ""
     files: dict[str, bytes] = field(default_factory=dict)
     duration_ms: int = 0
+    deleted: tuple[str, ...] = ()
 
 
 class RunnerUnavailable(Exception):
@@ -58,6 +59,9 @@ def _result(body: dict[str, Any]) -> RunResult:
         stderr=str(body.get("stderr") or ""),
         files=files,
         duration_ms=int(body.get("durationMs") or 0),
+        deleted=tuple(
+            str(path) for path in body.get("deleted") or [] if isinstance(path, str) and path.startswith(WORKSPACE)
+        ),
     )
 
 

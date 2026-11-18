@@ -27,7 +27,8 @@ and answers `200` with
 
 ```json
 { "status": "ok", "value": {}, "stdout": "", "stderr": "",
-  "files": [{ "path": "/workspace/out/rooms.xlsx", "base64": "...", "size": 6342 }], "durationMs": 212 }
+  "files": [{ "path": "/workspace/out/rooms.xlsx", "base64": "...", "size": 6342 }], "deleted": [],
+  "durationMs": 212 }
 ```
 
 - `status` is `ok` when the default export returned, `error` when it threw, the module did not
@@ -40,6 +41,8 @@ and answers `200` with
 - `console.log`/`info` go to `stdout`, `console.warn`/`error` and a thrown error's message to `stderr`.
 - `files` holds only files under `/workspace/` that the run created or changed: each file sent in is
   hashed (SHA-256) before the run and compared after it.
+- `deleted` lists the files sent in that are gone after the run (removed or renamed), sorted. The
+  agent removes them from the conversation's working files.
 - `language` defaults to `js`. `ts` strips types with `sucrase` (`transforms: ["typescript"]`) inside
   the worker before the run; plain JavaScript sent as `ts` passes through unchanged, which is what the
   agent sends. The measured cost is about 2 ms per run.

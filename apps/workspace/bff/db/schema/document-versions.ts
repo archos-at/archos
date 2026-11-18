@@ -55,6 +55,7 @@ export const documentVersions = pgTable(
     publishedBy: text('published_by'),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     reviewComment: text('review_comment'),
+    changeNote: text('change_note'),
     createdBy: text('created_by').notNull(),
     originConversationId: text('origin_conversation_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -5,7 +5,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
-import { fileSlug } from '@/lib/text/latinize'
 import type { Locale } from '@/i18n/config'
 import { recordGeneratedDraft, type FiledAgentDocumentDraft } from './agent-document'
 import { checkAgentFile, refuse } from './agent-file-check'
@@ -43,9 +42,26 @@ export interface FileAgentFileDraftInput extends AgentFileUpload {
 
 const FILENAME_STEM_LENGTH = 120
 
+const NOT_IN_A_FILE_NAME = /[\\/:*?"<>|]/g
+
+const isPrintable = (character: string): boolean => {
+  const code = character.charCodeAt(0)
+  return code >= 0x20 && code !== 0x7f
+}
+
+export function officeFileStem(stem: string): string {
+  const printable = [...stem].filter(isPrintable).join('')
+  return printable
+    .replace(NOT_IN_A_FILE_NAME, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[.\s]+|[.\s]+$/g, '')
+    .slice(0, FILENAME_STEM_LENGTH)
+    .trim()
+}
+
 export function agentFileName(filename: string | undefined, contentType: AgentFileContentType): string | undefined {
   if (filename === undefined) return undefined
-  const base = filename.split(/[\\/]/).pop()?.trim() ?? ''
+  const base = filename.normalize('NFC').split(/[\\/]/).pop()?.trim() ?? ''
   const expected = AGENT_FILE_TYPES[contentType].extension
   const dot = base.lastIndexOf('.')
   const extension = dot > 0 ? base.slice(dot + 1).toLowerCase() : ''
@@ -55,8 +71,8 @@ export function agentFileName(filename: string | undefined, contentType: AgentFi
       { filename, expected },
     )
   }
-  const stem = fileSlug(base.slice(0, dot), { lowercase: false, maxLength: FILENAME_STEM_LENGTH })
-  return `${stem || 'document'}.${expected}`
+  const stem = officeFileStem(base.slice(0, dot))
+  return `${stem || 'Dokument'}.${expected}`
 }
 
 export async function fileAgentFileDraft(input: FileAgentFileDraftInput): Promise<FiledAgentDocumentDraft> {

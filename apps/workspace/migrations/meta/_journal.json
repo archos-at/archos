@@ -1737,6 +1737,13 @@
       "when": 1795600600000,
       "tag": "0247_usage_rollups_ingest",
       "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1795600700000,
+      "tag": "0248_document_version_change_note",
+      "breakpoints": true
     }
   ]
 }

@@ -85,7 +85,7 @@ describe('GET /api/documents/[id]/file', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Type')).toBe('application/pdf')
     expect(response.headers.get('Content-Disposition')).toBe(
-      'inline; filename="Einreichplan Ostfassade.pdf"'
+      `inline; filename="Einreichplan Ostfassade.pdf"; filename*=UTF-8''Einreichplan%20Ostfassade.pdf`
     )
     expect(response.headers.get('Cache-Control')).toBe('private, max-age=300')
   })
@@ -133,12 +133,14 @@ describe('GET /api/documents/[id]/file', () => {
     expect((await call()).status).toBe(415)
   })
 
-  it('strips non-ASCII and quotes from the filename header', async () => {
+  it('keeps the umlauts of the name in filename*, an ASCII fallback beside it, and drops quotes', async () => {
     withRow({ ...PDF_ROW, filename: 'Gebäude"plan.pdf' })
     send.mockResolvedValue({ Body: { transformToWebStream: () => new ReadableStream() } })
 
     const response = await call()
-    expect(response.headers.get('Content-Disposition')).toBe('inline; filename="Geb_ude_plan.pdf"')
+    expect(response.headers.get('Content-Disposition')).toBe(
+      `inline; filename="Geb_udeplan.pdf"; filename*=UTF-8''Geb%C3%A4udeplan.pdf`,
+    )
   })
 
   describe('an office document', () => {
@@ -158,7 +160,9 @@ describe('GET /api/documents/[id]/file', () => {
       const response = await call()
       expect(response.status).toBe(200)
       expect(response.headers.get('Content-Type')).toBe('application/pdf')
-      expect(response.headers.get('Content-Disposition')).toBe('inline; filename="Baubeschreibung.pdf"')
+      expect(response.headers.get('Content-Disposition')).toBe(
+        `inline; filename="Baubeschreibung.pdf"; filename*=UTF-8''Baubeschreibung.pdf`,
+      )
       expect(send.mock.calls[0][0].input.Key).toBe(RENDITION_KEY)
     })
 

@@ -256,16 +256,27 @@ export const conversationsOperations = [
   {
     name: 'conversation-draft-file',
     domain: 'conversations',
-    summary: 'File an unfiled draft into the project',
+    summary: 'File a draft into the project, or update what was filed from it',
     description:
-      'Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project, into ' +
-      '`folderId` under `name` when given, else into the default folder under the title. A same-name ' +
-      'collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.',
+      'Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates ' +
+      'the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person ' +
+      'decides `overChanges`.',
     method: 'POST',
     path: '/api/conversations/[id]/draft/file',
     params: conversationParams,
     body: fileDraftBodySchema,
     load: () => import('@/app/api/conversations/[id]/draft/file/route'),
+  },
+  {
+    name: 'conversation-draft-delete',
+    domain: 'conversations',
+    summary: 'Delete a draft from a conversation',
+    description: 'Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.',
+    method: 'DELETE',
+    path: '/api/conversations/[id]/draft',
+    params: conversationParams,
+    query: draftPreviewQuerySchema,
+    load: () => import('@/app/api/conversations/[id]/draft/route'),
   },
   {
     name: 'answer-feedback-list',

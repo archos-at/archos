@@ -38,6 +38,7 @@ export function version(overrides: Partial<DocumentVersion> = {}): DocumentVersi
     submittedAt: new Date('2026-09-01T00:00:00Z'),
     reviewedBy: null,
     reviewedAt: null,
+    changeNote: null,
     approvedBy: null,
     approvedAt: null,
     publishedBy: null,

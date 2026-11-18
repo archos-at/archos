@@ -220,6 +220,11 @@ async def _drop_all(store: Any, namespace: tuple[str, ...], keep: frozenset[str]
             dropped += key not in (INDEX_KEY, ERASED_KEY)
 
 
+async def is_erased(conversation_id: str) -> bool:
+    store = await draft_store.get_draft_store()
+    return await store.aget(data_namespace(conversation_id), ERASED_KEY) is not None
+
+
 async def delete_conversation_tool_data(conversation_id: str) -> int:
     store = await draft_store.get_draft_store()
     namespace = data_namespace(conversation_id)

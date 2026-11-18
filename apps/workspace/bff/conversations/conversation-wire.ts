@@ -163,6 +163,19 @@ export const fileDraftBodySchema = z
       .max(500)
       .optional()
       .describe('The file name in the project; its extension is set to the draft’s own type. Omit to keep the title.'),
+    as: z
+      .enum(['own', 'revision'])
+      .optional()
+      .describe('`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.'),
+    overChanges: z
+      .boolean()
+      .optional()
+      .describe('Write over a revision a person changed since filing.'),
+    changeNote: z
+      .string()
+      .max(500)
+      .optional()
+      .describe('With `revision`: what changed, one sentence.'),
   })
   .strict()
 
