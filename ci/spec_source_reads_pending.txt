@@ -30,7 +30,6 @@ apps/workspace/tests/db/migrations-journal.test.ts
 apps/workspace/tests/hover-fill.spec.ts
 apps/workspace/tests/lib/boot.test.ts
 apps/workspace/tests/mono-plain-zero.spec.ts
-apps/workspace/ui/features/cards/section-marks.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
 deploy/pulumi/index-deploy-jobs.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
