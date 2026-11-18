@@ -3,7 +3,8 @@
 // PROTOTYPE, not for merge: the project menu and the project overview for the personal-area concept (ticket 81).
 
 import type { JSX } from 'react'
-import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, Search, Settings, X } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, Search, Settings, UserRound, X } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 
 import { PROJECTS } from '../personal-area-rail/prototype'
 
@@ -16,7 +17,13 @@ function ProjectRow({ name, current = false }: { name: string; current?: boolean
   )
 }
 
+export function useFirstRoom(): { Icon: typeof Layers; name: string; line: string; room: boolean } {
+  const room = useSearchParams()?.get('room') === '1'
+  return room ? { Icon: UserRound, name: 'Persönlich', line: 'Nur für Sie, ohne Bindung an ein Projekt', room } : { Icon: Layers, name: 'Projektübergreifend', line: 'Fragen ohne Bindung an ein Projekt', room }
+}
+
 export function ProjectMenu({ form, across = false }: { form: string; across?: boolean }): JSX.Element {
+  const first = useFirstRoom()
   const settings = (
     <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal">
       <Settings className="text-muted-foreground size-4 shrink-0" aria-hidden />
@@ -62,11 +69,11 @@ export function ProjectMenu({ form, across = false }: { form: string; across?: b
         <>
           <div className="bg-desk mb-1.5 flex items-center gap-3 rounded-[10px] p-2.5">
             <span className="bg-sheet shadow-xs flex size-8 shrink-0 items-center justify-center rounded-control">
-              <Layers className="size-4" aria-hidden />
+              <first.Icon className="size-4" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="text-name block font-medium">Projektübergreifend</span>
-              <span className="text-muted-foreground text-meta block">Fragen ohne Bindung an ein Projekt</span>
+              <span className="text-name block font-medium">{first.name}</span>
+              <span className="text-muted-foreground text-meta block">{first.line}</span>
             </span>
             {across && <Check className="size-4 shrink-0" aria-hidden />}
           </div>
@@ -191,12 +198,13 @@ const OVERVIEW = [
 ]
 
 export function AcrossTrigger(): JSX.Element {
+  const first = useFirstRoom()
   return (
     <div className="bg-desk shadow-press flex h-10 w-full items-center gap-2.5 rounded-control pl-1.5 pr-1.5">
       <span className="bg-sheet shadow-xs flex size-7 shrink-0 items-center justify-center rounded-[5px]">
-        <Layers className="size-4" aria-hidden />
+        <first.Icon className="size-4" aria-hidden />
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">Projektübergreifend</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">{first.name}</span>
       <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
     </div>
   )

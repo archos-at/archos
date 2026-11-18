@@ -26,7 +26,7 @@ import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
-import { AcrossTrigger, ProjectMenu, ProjectOverview } from './project-menu'
+import { AcrossTrigger, ProjectMenu, ProjectOverview, useFirstRoom } from './project-menu'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
@@ -65,6 +65,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   const query = useSearchParams()
   const person = query?.get('person') ?? null
   const personOpen = query?.get('pact') ?? null
+  const plain = Boolean(person) || query?.get('room') === '1'
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -83,7 +84,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           <SidebarMenu className="mb-1 gap-0.5">
             <NavRow icon={SquarePen} label="Neuer Chat" active={newChat} />
-            {!(person && own) && <NavRow icon={Folder} label={mine && !person ? 'Meine Ablage' : 'Ablage'} badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && !personOpen && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />}
+            {!(person && own) && <NavRow icon={Folder} label={mine && !plain ? 'Meine Ablage' : 'Ablage'} badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && !personOpen && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />}
             {shelfRows && (
               <ul className="flex flex-col gap-0.5 pt-0.5">
                 {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
@@ -91,7 +92,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
               </ul>
             )}
             {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-            {!(person && own) && <NavRow icon={Zap} label={mine && !person ? 'Meine Automatisierungen' : 'Automatisierung'} active={!personOpen && section === 'automation'} />}
+            {!(person && own) && <NavRow icon={Zap} label={mine && !plain ? 'Meine Automatisierungen' : 'Automatisierung'} active={!personOpen && section === 'automation'} />}
           </SidebarMenu>
           {inbox === 'top' && (
             <SidebarMenu className="mt-1 gap-0.5">
@@ -229,6 +230,7 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
 }
 
 function AutomationPage({ own }: { own: boolean }): JSX.Element {
+  const first = useFirstRoom()
   const [filter, setFilter] = useState<TaskFilter>('all')
   return (
     <>
@@ -236,8 +238,8 @@ function AutomationPage({ own }: { own: boolean }): JSX.Element {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex items-end justify-between gap-4 px-8 pb-4 pt-3">
           <div>
-            <span className="text-muted-foreground text-meta">{own ? 'Projektübergreifend' : PROJECTS[0]!.name}</span>
-            <h1 className="text-page-title">{own ? 'Meine Automatisierungen' : 'Automatisierung'}</h1>
+            <span className="text-muted-foreground text-meta">{own ? first.name : PROJECTS[0]!.name}</span>
+            <h1 className="text-page-title">{own && !first.room ? 'Meine Automatisierungen' : 'Automatisierung'}</h1>
           </div>
           <Who own={own} />
         </header>
@@ -502,12 +504,13 @@ function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JS
 }
 
 function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across, alone = false }: { own: boolean; form: string; moreOpen: boolean; trashOpen: boolean; folder: string | null; query: string | null; across: boolean; alone?: boolean }): JSX.Element {
+  const first = useFirstRoom()
   return (
     <>
       <Rail own={across} section="files" gear="none" mine={alone && own} />
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? (across ? 'Projektübergreifend' : 'Persönlich') : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} />
+        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? (across ? first.name : 'Persönlich') : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} plainTitle={first.room} />
         <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
           {query ? <SearchHits query={query} /> : null}
           {!own && !folder && !query && <UnreadHint count={2} />}

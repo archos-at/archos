@@ -62,7 +62,7 @@ export function Who({ own }: { own: boolean }): JSX.Element {
   )
 }
 
-export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false, alone = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean; alone?: boolean }): JSX.Element {
+export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false, alone = false, plainTitle = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean; alone?: boolean; plainTitle?: boolean }): JSX.Element {
   const search = (
     <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />
@@ -105,7 +105,7 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="text-muted-foreground text-meta">{crumb}</span>
-          <h1 className="text-page-title">{office ?? (alone && own ? 'Meine Ablage' : 'Ablage')}</h1>
+          <h1 className="text-page-title">{office ?? (alone && own && !plainTitle ? 'Meine Ablage' : 'Ablage')}</h1>
         </div>
         {alone && <Who own={own} />}
       </div>
