@@ -33,7 +33,6 @@ apps/workspace/tests/mono-plain-zero.spec.ts
 apps/workspace/ui/components/shell/app-rail-material.spec.ts
 apps/workspace/ui/components/ui/focus-ring.spec.ts
 apps/workspace/ui/components/ui/thread-column.spec.ts
-apps/workspace/ui/components/ui/touch-target.spec.ts
 apps/workspace/ui/features/bim/mobile-chrome.spec.ts
 apps/workspace/ui/features/cards/phone-contracts.spec.tsx
 apps/workspace/ui/features/cards/section-marks.spec.ts
