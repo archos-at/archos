@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: the project menu and the project overview for the personal-area concept (ticket 81).
 
 import type { JSX } from 'react'
-import { Check, ChevronRight, Layers, LayoutGrid, Plus, Search, Settings, X } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, Search, Settings, X } from 'lucide-react'
 
 import { PROJECTS } from '../personal-area-rail/prototype'
 
@@ -16,7 +16,7 @@ function ProjectRow({ name, current = false }: { name: string; current?: boolean
   )
 }
 
-export function ProjectMenu({ form }: { form: string }): JSX.Element {
+export function ProjectMenu({ form, across = false }: { form: string; across?: boolean }): JSX.Element {
   const settings = (
     <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal">
       <Settings className="text-muted-foreground size-4 shrink-0" aria-hidden />
@@ -27,7 +27,7 @@ export function ProjectMenu({ form }: { form: string }): JSX.Element {
   const label = (text: string): JSX.Element => <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1 font-medium">{text}</div>
   const projects = PROJECTS.map((item) => <ProjectRow key={item.id} name={item.name} current={item.id === 'p-1'} />)
   return (
-    <div className="bg-sheet shadow-md absolute left-0 right-0 top-full z-50 mt-1.5 rounded-[16px] p-1.5">
+    <div className={`bg-sheet shadow-md absolute left-0 top-full z-50 mt-1.5 rounded-[16px] p-1.5 ${form === 'gear' ? 'w-[320px]' : 'right-0'}`}>
       {form === 'top' && (
         <>
           <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
@@ -64,10 +64,11 @@ export function ProjectMenu({ form }: { form: string }): JSX.Element {
             <span className="bg-sheet shadow-xs flex size-8 shrink-0 items-center justify-center rounded-control">
               <Layers className="size-4" aria-hidden />
             </span>
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="text-name block font-medium">Projektübergreifend</span>
               <span className="text-muted-foreground text-meta block">Fragen ohne Bindung an ein Projekt</span>
             </span>
+            {across && <Check className="size-4 shrink-0" aria-hidden />}
           </div>
           {form === 'blocks' && (
             <>
@@ -86,13 +87,17 @@ export function ProjectMenu({ form }: { form: string }): JSX.Element {
           {form === 'gear' && (
             <>
               {label('Projekte')}
-              <div className="text-name bg-desk flex h-9 items-center gap-1.5 rounded-control pl-2.5 pr-1 font-normal">
-                <span className="min-w-0 flex-1 truncate">{PROJECTS[0]!.name}</span>
-                <Check className="size-4 shrink-0" aria-hidden />
-                <span title="Einstellungen dieses Projekts" className="bg-sheet shadow-press text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-control">
-                  <Settings className="size-3.5" aria-hidden />
-                </span>
-              </div>
+              {across ? (
+                <ProjectRow name={PROJECTS[0]!.name} />
+              ) : (
+                <div className="text-name bg-desk flex h-9 items-center gap-1.5 rounded-control pl-2.5 pr-1 font-normal">
+                  <span className="min-w-0 flex-1 truncate">{PROJECTS[0]!.name}</span>
+                  <Check className="size-4 shrink-0" aria-hidden />
+                  <span title="Einstellungen dieses Projekts" className="bg-sheet shadow-press text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-control">
+                    <Settings className="size-3.5" aria-hidden />
+                  </span>
+                </div>
+              )}
               {PROJECTS.slice(1).map((item) => (
                 <ProjectRow key={item.id} name={item.name} />
               ))}
@@ -185,6 +190,18 @@ const OVERVIEW = [
   { name: 'Dachausbau Kaiserstraße 12', meta: 'Abgeschlossen' },
 ]
 
+export function AcrossTrigger(): JSX.Element {
+  return (
+    <div className="bg-desk shadow-press flex h-10 w-full items-center gap-2.5 rounded-control pl-1.5 pr-1.5">
+      <span className="bg-sheet shadow-xs flex size-7 shrink-0 items-center justify-center rounded-[5px]">
+        <Layers className="size-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">Projektübergreifend</span>
+      <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
+    </div>
+  )
+}
+
 export function ProjectOverview(): JSX.Element {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgb(15_14_13_/_0.4)] p-8">
@@ -208,7 +225,12 @@ export function ProjectOverview(): JSX.Element {
         <div className="grid grid-cols-3 gap-3">
           {OVERVIEW.map((item) => (
             <div key={item.name} className={`bg-sheet flex h-[92px] flex-col justify-between rounded-[10px] p-3 ${item.current ? 'ring-foreground shadow-sm ring-[1.5px]' : 'shadow-sm'}`}>
-              <span className="text-name font-medium">{item.name}</span>
+              <span className="flex items-start justify-between gap-2">
+                <span className="text-name font-medium">{item.name}</span>
+                <span title="Projekteinstellungen" className="text-muted-foreground hover:bg-desk -mr-1 -mt-1 flex size-7 shrink-0 items-center justify-center rounded-control">
+                  <Settings className="size-4" aria-label="Projekteinstellungen" />
+                </span>
+              </span>
               <span className="text-muted-foreground text-meta">{item.meta}</span>
             </div>
           ))}

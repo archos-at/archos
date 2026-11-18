@@ -25,7 +25,7 @@ import { projectSearchScope } from '@/features/documents/lib/file-shelf'
 import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
-import { ProjectMenu, ProjectOverview } from './project-menu'
+import { AcrossTrigger, ProjectMenu, ProjectOverview } from './project-menu'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, GroupLabel, MoreRow, NavRow, NewChatButton, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
@@ -66,8 +66,8 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
           <SidebarBrand iconRail={false} />
           <div className="relative mt-1 flex items-center gap-1.5">
-            <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
-            {gear === 'menu' && <ProjectMenu form={menuForm} />}
+            {own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}
+            {gear === 'menu' && <ProjectMenu form={menuForm} across={own} />}
             {gear === true && !own && (
               <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
                 <Settings className="size-4" aria-hidden />
@@ -436,12 +436,12 @@ function InOfficeShelf(): JSX.Element {
 }
 
 function Talk({ place, settingsOpen, menu, menuForm, lay }: { place: string; settingsOpen: boolean; menu: string | null; menuForm: string; lay: string }): JSX.Element {
-  const own = place === 'me'
+  const own = place === 'me' || place === 'newme'
   return (
     <>
-      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} />
+      <Rail own={own} openChat={place === 'newme' ? null : own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} />
       {menu === 'overview' && <ProjectOverview />}
-      {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} lay={lay} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
+      {place === 'new' || place === 'temp' || place === 'newme' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} lay={lay} across={place === 'newme'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
   )
 }

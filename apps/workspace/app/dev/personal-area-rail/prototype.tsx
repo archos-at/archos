@@ -496,7 +496,7 @@ function MailHint({ chip = false }: { chip?: boolean }): JSX.Element {
   )
 }
 
-export function NewChatPage({ temporary, infoOpen = false, lay = 'subline' }: { temporary: boolean; infoOpen?: boolean; lay?: string }): JSX.Element {
+export function NewChatPage({ temporary, infoOpen = false, lay = 'subline', across = false }: { temporary: boolean; infoOpen?: boolean; lay?: string; across?: boolean }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-end gap-3 px-8 pb-2 pt-2">
@@ -542,7 +542,7 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'subline' }: { 
             </div>
           )}
           <div className={cn('bg-sheet flex flex-col gap-6 rounded-[16px] px-4 pb-3 pt-4', temporary ? 'border-foreground border border-dashed' : 'shadow-md')}>
-            <span className="text-muted-foreground text-sm">Fragen Sie {PRODUCT} zu diesem Projekt …</span>
+            <span className="text-muted-foreground text-sm">{across ? `Fragen Sie ${PRODUCT}, über alle Ihre Projekte hinweg …` : `Fragen Sie ${PRODUCT} zu diesem Projekt …`}</span>
             <div className="text-muted-foreground flex items-center gap-4 text-xs">
               <span className="inline-flex items-center gap-1.5 underline underline-offset-2">
                 <AtSign className="size-3.5" aria-hidden />
@@ -562,7 +562,7 @@ export function NewChatPage({ temporary, infoOpen = false, lay = 'subline' }: { 
               </span>
             </div>
           </div>
-          {!temporary && lay === 'subline' && (
+          {!temporary && !across && lay === 'subline' && (
             <div className="flex justify-center pt-3">
               <MailHint chip />
             </div>
