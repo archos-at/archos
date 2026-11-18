@@ -50,7 +50,6 @@ deploy/pulumi/index-deploy-jobs.spec.ts
 deploy/pulumi/index-policy.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
 deploy/pulumi/src/app/backend-scaling.spec.ts
-deploy/pulumi/src/app/housekeeping.spec.ts
 deploy/pulumi/src/app/ingest-worker.spec.ts
 deploy/pulumi/src/app/langfuse-api-callers.spec.ts
 deploy/pulumi/src/platform/email-routing.spec.ts

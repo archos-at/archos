@@ -1,33 +1,71 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { describe, it, expect, beforeAll } from "vitest";
+import * as k8s from "@pulumi/kubernetes";
+import * as pulumi from "@pulumi/pulumi";
+import { baseStackConfig } from "../test-support/stack-config";
 
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
+const CRONJOB = "kubernetes:batch/v1:CronJob";
+const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
-const jobsRoutes = read("apps", "agent-host", "src", "agent_host", "routes", "jobs.py");
-const workers = read("deploy", "pulumi", "src", "app", "workers.ts");
-const composeClock = read("apps", "workspace", "workers", "housekeeping-clock.js");
-const appConfig = read("deploy", "pulumi", "src", "app", "config.ts");
+pulumi.runtime.setMocks(
+  {
+    newResource: (args: pulumi.runtime.MockResourceArgs) => {
+      RESOURCES.push({ type: args.type, name: args.name, inputs: args.inputs });
+      return { id: `${args.name}-id`, state: { ...args.inputs, metadata: args.inputs.metadata ?? { name: args.name } } };
+    },
+    call: () => ({}),
+  },
+  "grid-oib",
+  "test",
+  false,
+);
 
-const names = (source: string, pattern: RegExp): string[] => [...source.matchAll(pattern)].map((m) => m[1]).sort();
+const API_HOUSEKEEPING = "http://api:8000/v1/maintenance/housekeeping/";
+const HOUSEKEEPING_ROUTES = ["base-corpus", "chat-checkpoints", "ghost-jobs", "job-events"];
+
+function resolve<T>(value: pulumi.Input<T>): Promise<T> {
+  return new Promise((done) => pulumi.output(value).apply((v) => done(v as T)));
+}
+
+type Sweep = { name: string; url: string };
+let sweeps: Sweep[] = [];
 
 describe("the backend housekeeping CronJobs", () => {
-  it("schedule exactly the housekeeping routes the backend registers", () => {
-    const registered = names(jobsRoutes, /"\/v1\/maintenance\/housekeeping\/([a-z-]+)"/g);
-    const scheduled = names(workers, /route: "([a-z-]+)"/g);
-    expect(registered.length).toBe(4);
-    expect(scheduled).toEqual(registered);
+  beforeAll(async () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:observabilityEnabled": "false" });
+    const { loadConfig } = await import("../config");
+    const { buildSecrets } = await import("./config");
+    const { installWorkers } = await import("./workers");
+
+    const cfg = loadConfig();
+    const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
+    const wiring = {
+      cfg,
+      namespace: "grid",
+      provider,
+      redisUrl: pulumi.output("redis://dragonfly:6379"),
+      seaweedInternalEndpoint: pulumi.output("http://seaweedfs:8333"),
+      seaweedPublicEndpoint: pulumi.output("https://s3.example.test"),
+      qdrantUrl: pulumi.output("http://qdrant.grid.svc.cluster.local:6333"),
+      dsn: () => pulumi.output("postgresql://x"),
+      imagePullSecrets: [],
+    };
+    const secrets = buildSecrets(wiring as never);
+    const workers = installWorkers(wiring as never, cfg, secrets, []);
+    await Promise.all(workers.housekeeping.map((job) => new Promise((done) => job.id.apply(done))));
+
+    for (const r of RESOURCES.filter((r) => r.type === CRONJOB && r.name.startsWith("housekeeping-"))) {
+      const spec = await resolve<any>(r.inputs.spec);
+      const env: Array<{ name: string; value?: string }> = spec.jobTemplate.spec.template.spec.containers[0].env;
+      sweeps.push({ name: r.name, url: env.find((e) => e.name === "SWEEP_URL")?.value ?? "" });
+    }
+  }, 120_000);
+
+  it("run one CronJob for each of the four housekeeping routes", () => {
+    expect(sweeps).toHaveLength(HOUSEKEEPING_ROUTES.length);
+    expect(sweeps.map((s) => s.url.slice(API_HOUSEKEEPING.length)).sort()).toEqual(HOUSEKEEPING_ROUTES);
   });
 
-  it("call the api role, which is the one that registers the routes", () => {
-    expect(workers).toContain("`${BACKEND_URL}/v1/maintenance/housekeeping/${route}`");
-    expect(appConfig).toContain("export const BACKEND_URL = `http://${API_TIER}:${PORT.backend}`;");
-  });
-
-  it("are matched by the Compose clock, which calls the same routes where there are no CronJobs", () => {
-    const registered = names(jobsRoutes, /"\/v1\/maintenance\/housekeeping\/([a-z-]+)"/g);
-    const clocked = names(composeClock, /route: '([a-z-]+)'/g);
-    expect(clocked).toEqual(registered);
+  it("call each route on the api role", () => {
+    for (const sweep of sweeps) expect(sweep.url, sweep.name).toMatch(/^http:\/\/api:8000\/v1\/maintenance\/housekeeping\/[a-z-]+$/);
   });
 });
