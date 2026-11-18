@@ -73,7 +73,6 @@
   "packages/agent/src/agent/common/turn_admission.py": 1,
   "packages/agent/src/agent/common/unlisted_citations.py": 1,
   "packages/agent/src/agent/common/workspace_records.py": 4,
-  "packages/agent/src/agent/core/agent.py": 1,
   "packages/agent/src/agent/core/answer_pipeline.py": 1,
   "packages/agent/src/agent/core/clarify.py": 1,
   "packages/agent/src/agent/core/conversation.py": 1,
