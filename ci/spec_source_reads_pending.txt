@@ -54,7 +54,6 @@ deploy/pulumi/src/app/compose-roles.spec.ts
 deploy/pulumi/src/app/config.spec.ts
 deploy/pulumi/src/app/housekeeping.spec.ts
 deploy/pulumi/src/app/ingest-worker.spec.ts
-deploy/pulumi/src/app/knowledge-carry-job.spec.ts
 deploy/pulumi/src/app/langfuse-api-callers.spec.ts
 deploy/pulumi/src/app/model-keys.spec.ts
 deploy/pulumi/src/app/web.spec.ts
