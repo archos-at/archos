@@ -173,10 +173,14 @@ describe("request bodies", () => {
 
 test("stop returns only once every slot's workerd has exited, so its storage can be removed", async () => {
   const runner = await startRunner({ slots: 2 });
-  await bothSlotsServe(runner);
-  const pids = runner.slots.map((slot) => slot.pid);
-  assert.ok(pids.every((pid) => pid !== null));
-  await runner.stop();
+  let pids;
+  try {
+    await bothSlotsServe(runner);
+    pids = runner.slots.map((slot) => slot.pid);
+    assert.ok(pids.every((pid) => pid !== null));
+  } finally {
+    await runner.stop();
+  }
   const alive = pids.filter((pid) => {
     try {
       process.kill(pid, 0);
@@ -186,4 +190,21 @@ test("stop returns only once every slot's workerd has exited, so its storage can
     }
   });
   assert.deepEqual(alive, []);
+});
+
+test("stop during a slot's restart returns, and leaves neither the old nor the new workerd running", async () => {
+  const runner = await startRunner({ slots: 1 });
+  const [slot] = runner.slots;
+  const before = slot.pid;
+  let after;
+  try {
+    process.kill(before, "SIGKILL");
+    await until(() => slot.pid !== before && slot.pid !== null, 10_000, "the slot began its restart");
+    after = slot.pid;
+  } finally {
+    const started = Date.now();
+    await runner.stop();
+    measured["stop during a restart"] = Date.now() - started;
+  }
+  for (const pid of [before, after]) assert.throws(() => process.kill(pid, 0));
 });

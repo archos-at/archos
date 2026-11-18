@@ -11,6 +11,7 @@ const READY_TIMEOUT_MS = 30_000;
 const RESTART_BACKOFF_MS = { first: 250, max: 30_000 };
 const CRASH_LOOP_MS = 10_000;
 const STOP_GRACE_MS = 5_000;
+const HEALTH_TIMEOUT_MS = 2_000;
 const STDERR_TAIL_BYTES = 8192;
 const OUT_OF_MEMORY = /out of memory|heap limit|allocation failed|bad_alloc/i;
 
@@ -36,7 +37,7 @@ export function collector(declaredLength) {
   };
 }
 
-function call(socketPath, method, path, body) {
+function call(socketPath, method, path, body, timeoutMs) {
   return new Promise((resolve, reject) => {
     const req = request({ socketPath, method, path, headers: body ? { "content-type": "application/json", "content-length": body.length } : {} }, (res) => {
       const body = collector(res.headers["content-length"]);
@@ -45,6 +46,7 @@ function call(socketPath, method, path, body) {
       res.on("error", reject);
     });
     req.on("error", reject);
+    if (timeoutMs) req.setTimeout(timeoutMs, () => req.destroy(new Error(`${method} ${path} took longer than ${timeoutMs} ms`)));
     req.end(body);
   });
 }
@@ -109,6 +111,7 @@ export class Slot {
   async start() {
     await rm(this.socket, { force: true });
     await mkdir(this.storage, { recursive: true });
+    if (this.#stopped) return;
     const browser = this.browserAddr ? [`--external-addr=browser-renderer=${this.browserAddr}`] : [];
     const args = ["serve", "--experimental", this.config, `--socket-addr=http=unix:${this.socket}`, `--directory-path=run-storage=${this.storage}`, ...browser];
     const env = { ...process.env, BROWSER_RENDERER_ADDR: this.browserAddr ?? "" };
@@ -124,8 +127,8 @@ export class Slot {
     });
     child.on("exit", (code, signal) => this.#exited(child, code, signal));
     const deadline = Date.now() + READY_TIMEOUT_MS;
-    while (Date.now() < deadline && this.#child === child) {
-      const health = await call(this.socket, "GET", "/health").catch(() => null);
+    while (Date.now() < deadline && this.#child === child && !this.#stopped) {
+      const health = await call(this.socket, "GET", "/health", undefined, HEALTH_TIMEOUT_MS).catch(() => null);
       if (health?.status === 200) {
         this.baselineBytes = this.memoryBytes() ?? 0;
         this.#ready = true;
@@ -133,6 +136,7 @@ export class Slot {
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+    if (this.#stopped) return;
     if (this.#child === child) child.kill("SIGKILL");
     throw new Error(`workerd slot ${this.index} did not become ready`);
   }
