@@ -31,12 +31,6 @@ export function installLogShipper(
   readNamespaces: string[],
   dependsOn: pulumi.Resource[],
 ): LogShipper {
-  if (readNamespaces.includes(LOG_SHIPPER.namespace)) {
-    throw new Error(
-      `grid-oib:namespace must not be "${LOG_SHIPPER.namespace}": the log shipper owns that namespace, ` +
-        "with an admission level the app namespace must not share.",
-    );
-  }
   const labels = commonLabels(COMPONENT);
   const namespace = new k8s.core.v1.Namespace(
     "observability-ns",

@@ -4,6 +4,7 @@ import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-conf
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import type { CollectorConfig } from "./collector-config";
 import { LOG_SHIPPER } from "../config/observability";
+import { loadConfig } from "../config";
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
@@ -251,7 +252,8 @@ describe("with PostHog logs off", () => {
 });
 
 describe("an app namespace named like the shipper's", () => {
-  it("is refused, since the two would fight over one Namespace's admission level", async () => {
-    await expect(deploy({ "grid-oib:namespace": "observability" })).rejects.toThrow(/must not be "observability"/);
-  }, 120_000);
+  it("is refused when the config is read, before any Namespace is registered", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:namespace": "observability" });
+    expect(() => loadConfig()).toThrow(/must not be "observability"/);
+  });
 });

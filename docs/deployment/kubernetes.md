@@ -2577,7 +2577,7 @@ call gateway and agent:
   (`prometheus/pods`), and sends both to the gateway. It holds no credential.
 - **`otel-logs`** (`deploy/pulumi/src/platform/log-shipper.ts`), a DaemonSet on
   every node in its own namespace `observability`, deployed with PostHog logs
-  on. It tails the container logs of the app namespaces and sends them to the
+  on (`grid-oib:namespace` may not be `observability`; `loadConfig` refuses it). It tails the container logs of the app namespaces and sends them to the
   gateway (below, "Container logs and Kubernetes events"). It holds no PostHog
   token; it mounts a Kubernetes service-account token, to read pod metadata.
 
