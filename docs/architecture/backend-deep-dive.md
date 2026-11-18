@@ -394,7 +394,7 @@ backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
   no row.
 - **Rehydrate.** A reload knows its turn and sends `attach{after_seq: 0}`; a turn
   the stream no longer holds is read from the persisted row
-  (`sessions-store.restoreSessionState`).
+  (`session-navigation.restoreSessionState`).
 
 ## 3. The card pipeline
 
@@ -1588,7 +1588,7 @@ same thing.
 | Question | Mechanism |
 |---|---|
 | "What is this model of?" | Retrieval over the ingested digest — a document-shaped question. |
-| "How many external walls on the ground floor?" | `lib/bim/query.ts` → SQL over `bim_elements`. A `COUNT(*)` with a `WHERE`; an LLM summing forty thousand elements from retrieved prose is a fact turned into a guess. |
+| "How many external walls on the ground floor?" | `lib/bim/element-filter-sql.ts` and `lib/bim/aggregate-sql.ts` → SQL over `bim_elements`. A `COUNT(*)` with a `WHERE`; an LLM summing forty thousand elements from retrieved prose is a fact turned into a guess. |
 
 The agent reaches the second through the `ifc_query` tool
 (`packages/agent/src/agent/tools/bim/register.py`), which posts to
@@ -2071,7 +2071,7 @@ The agent can now persist curated findings across turns. Full design:
   `project` (requires `projectId`) or `organization` (org-wide, requires
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
-  (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
+  (`apps/workspace/bff/projects/memory-recall-digest.ts`) merges org-wide +
   project items (active only; the pinned ones, then the ones recalled for
   this turn's question, bounded) and tags each line with
   scope/kind/confidence/verification. A signed-in chat turn does not get the

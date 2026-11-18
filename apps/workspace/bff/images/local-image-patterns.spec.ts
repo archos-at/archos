@@ -3,7 +3,7 @@
  */
 
 import { hasLocalMatch } from 'next/dist/shared/lib/match-local-pattern'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { nextConfig } from '../../next.config'
 import { buildDocumentImageUrl } from './signed-image-url'
@@ -12,7 +12,7 @@ import { isOptimizerEligible, LOCAL_IMAGE_PATTERNS } from './optimizable'
 const configuredPatterns = nextConfig.images?.localPatterns
 
 beforeAll(() => {
-  process.env.INTERNAL_API_TOKEN = 'test-secret-for-local-pattern-check'
+  vi.stubEnv('INTERNAL_API_TOKEN', 'test-secret-for-local-pattern-check')
 })
 
 describe('images.localPatterns admits the URLs we actually render', () => {

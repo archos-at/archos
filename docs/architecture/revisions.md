@@ -217,7 +217,7 @@ the document again. A link only a person makes has to survive that.
 |---|---|---|
 | Archive (`archiveDocument`, `lib/documents/version-content.ts`) | An un-archive, which re-reads the index (the row and every version stay; the BFF has no un-archive yet) | nothing (`permanent: false`) |
 | Folder to the bin (`purgeChunksOf`, `lib/projects/folder-bin.ts`) | Restore from the bin (`restore_folder_bin` job) | nothing |
-| Publish purges the replaced version (`purgeSupersededChunks`, `lib/documents/lifecycle.ts`) | The publish re-reads under the same name | nothing |
+| Publish purges the replaced version (`purgeSupersededChunks`, `lib/documents/version-ingest.ts`) | The publish re-reads under the same name | nothing |
 | Delete, Archiv delete, the bin's final purge (`eraseProjectDocument`, `lib/office-shelf/service.ts`) | Nothing | `permanent: true` |
 | Move to another collection (`moveDocument`, `lib/projects/collection-placement.ts`) | Nothing in the old collection: Fassungen share one collection, so its links end there | `permanent: true` |
 
@@ -369,7 +369,7 @@ name, each labelled as what it is.
   orphaned silently. With no open mark nobody is told, and the Fassung is still
   claimed, so a later re-read does not announce it to everyone. A batch opened
   by the browser or an agent is always `all`: only a server-side caller sets
-  the column. The `upload` transition's own announcement (`lifecycle.ts`)
+  the column. The `upload` transition's own announcement (`version-effects.ts`)
   carries no audience; for a person's upload it says nothing, because the new
   bytes are held until screened, and the settle hook is the one that tells.
   The agent's notice of a cross-name Fassung is not people being told and does

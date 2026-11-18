@@ -83,7 +83,7 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const tenant = await import('@/lib/db/tenant-context')
     withTenant = tenant.withTenant
     withPlatformAccess = tenant.withPlatformAccess

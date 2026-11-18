@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agent.tools.bim import register
 
-QUERY_TS = Path(__file__).resolve().parents[5] / "apps" / "workspace" / "bff" / "bim" / "query.ts"
+QUERY_TS = Path(__file__).resolve().parents[5] / "apps" / "workspace" / "bff" / "bim" / "query-schema.ts"
 
 
 def _const_list(source: str, name: str) -> set[str]:

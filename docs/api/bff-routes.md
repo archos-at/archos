@@ -287,7 +287,7 @@ from a second path.
 
 | `GET` | `/api/documents/{id}/versions/reviewers` | Required | Who this document's next version may be sent to: every member holding **`project:edit`**, minus the reader. The reviewer picker's list, and the list `POST /api/internal/document-versions` resolves the agent's `reviewer` NAME against. `project:edit` and not `project:view` on purpose — being able to open a project does not make somebody able to release a Brandschutzkonzept, and a picker built on the assignment candidates would offer people whose Freigabe the approve transition then refuses. | — | `{ candidates: { userId, name, email }[] }` |
 
-Source: `apps/workspace/app/api/documents/[id]/versions/**`, `apps/workspace/app/api/documents/[id]/archive/route.ts`, `apps/workspace/bff/documents/lifecycle.ts`, `apps/workspace/bff/documents/version-content.ts`, `apps/workspace/bff/documents/reviewers.ts`.
+Source: `apps/workspace/app/api/documents/[id]/versions/**`, `apps/workspace/app/api/documents/[id]/archive/route.ts`, `apps/workspace/bff/documents/lifecycle.ts`, `apps/workspace/bff/documents/version-content.ts`, `apps/workspace/bff/documents/version-creation.ts`, `apps/workspace/bff/documents/version-effects.ts`, `apps/workspace/bff/documents/version-ingest.ts`, `apps/workspace/bff/documents/version-queries.ts`, `apps/workspace/bff/documents/version-transition-rules.ts`, `apps/workspace/bff/documents/reviewers.ts`.
 
 Document upload stores files in SeaweedFS at key `{orgId}/{projectId}/{documentId}/{filename}`. Presigned URLs expire after `SEAWEED_PRESIGNED_URL_TTL_SECONDS` (default 600s). Ingestion is best-effort: on the first upload a failed backend dispatch marks the document `failed` with an `errorMessage`; `POST /api/documents/{id}/reingest` lets the user retry that dispatch from the Files workspace.
 
@@ -502,7 +502,7 @@ had is untouched, so a client that has never heard of either key keeps working.
 | Shape | Means |
 |---|---|
 | `filed: { … }` | The document exists. `alreadyFiled` distinguishes the fetch that created the row from the re-reads that follow — a report is fetched again every time its tab is opened, and filing is idempotent per run. |
-| `filingQueued: true` | A job holds the report and has not finished. The promise is being kept; reading the report again after a moment answers `filed`. Carried through the adapter (`deep-research-client.ts`) like `filingFailed`; no reader of the run block uses it yet. |
+| `filingQueued: true` | A job holds the report and has not finished. The promise is being kept; reading the report again after a moment answers `filed`. Carried through the adapter (`deep-research-job-requests.ts`) like `filingFailed`; no reader of the run block uses it yet. |
 | `filingFailed: true` | A filing was attempted for this report and did not land: storage admission refused the bytes (`admitOrDiscard`, quota), the audit write failed (in which case the document is un-filed again, row and object both), or the caller does not hold both `project:documents:write` and `project:documents:generate` on the project — or filing is switched off for the organization (the per-org `agent-authored-documents` flag). **No reason travels.** A quota refusal, a revoked permission and an object store that is down are one fact to this reader — the document is not there — and the messages that separate them name buckets and limits, which belong in the server log that already has them. |
 | neither key | No promise was made: this is not a report request, there is no report yet, no session (which is also the scheduled-run guard — a cron run has no live principal whose permission could authorize a write, design decision 10), or no project could be resolved, meaning neither a `projectId` on the request nor a reachable `active_project_id` preference to fall back on. |
 
@@ -511,7 +511,7 @@ starts („Der fertige Bericht wird in diesem Projekt unter ‚Berichte' abgeleg
 A reader shown a plain success who then found nothing in Berichte had no way to
 learn why — the only record was a server log. **The client reads it**: the chat
 adapter carries `filingFailed` through the report boundary
-(`adapters/api/deep-research-client.ts`, which REBUILDS the body, so a key it
+(`adapters/api/deep-research-job-requests.ts`, which REBUILDS the body, so a key it
 does not name is a key no caller sees), the hooks record it on the run's success
 banner, and the banner prints one muted line taking the promise back
 (`deepResearch.success.filingFailedLine`) — no reason, no colour, no error
@@ -813,7 +813,7 @@ bytes — to every member of the organization.
 ### The query contract
 
 `POST /api/bim/models/{modelId}/query` takes a discriminated union on `op`
-(`lib/bim/query.ts`, validated with zod before anything reaches SQL):
+(`lib/bim/query-schema.ts`, validated with zod before anything reaches SQL):
 
 | `op` | Answers |
 |---|---|

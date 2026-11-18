@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
 
 const modules = srcEntries()
-  .filter((entry) => /\.tsx?$/.test(entry) && !/\.(spec|test)\.tsx?$/.test(entry))
+  .filter((entry) => /\.tsx?$/.test(entry) && !/\.(spec|test|fixtures?)\.tsx?$/.test(entry))
   .filter((entry) => !entry.includes('test-utils') && !entry.startsWith('app/dev'))
   .map((entry) => ({ path: entry.split('\\').join('/'), code: readFileSync(srcPath(entry), 'utf8') }))
   .reduce<{ path: string; code: string }[]>((units, module) => {
@@ -27,7 +27,10 @@ const ANNOUNCED_ELSEWHERE: Record<string, string> = {
   'lib/office-shelf/repository.ts': 'the Archiv delete; `lib/office-shelf/service.ts` announces it',
   'lib/projects/folder-bin-repository.ts': 'binning and restoring; `lib/projects/folder-bin.ts` announces them after their transaction',
   'lib/projects/cleanup-repository.ts': 'the empty holder folder; `lib/projects/cleanup-service.ts` announces it',
-  'lib/documents/version-repository.ts': 'a version’s state, its bytes and archiving; `lib/documents/lifecycle.ts` and `lib/documents/version-content.ts` announce them',
+  'lib/documents/version-repository/content-swap.ts': 'a version’s state, its bytes and archiving; `lib/documents/lifecycle.ts` and `lib/documents/version-content.ts` announce them',
+  'lib/documents/version-repository/document-lifecycle.ts': 'a version’s state, its bytes and archiving; `lib/documents/lifecycle.ts` and `lib/documents/version-content.ts` announce them',
+  'lib/documents/version-repository/insert.ts': 'a version’s state, its bytes and archiving; `lib/documents/lifecycle.ts` and `lib/documents/version-content.ts` announce them',
+  'lib/documents/version-repository/state-swap.ts': 'a version’s state, its bytes and archiving; `lib/documents/lifecycle.ts` and `lib/documents/version-content.ts` announce them',
   'lib/documents/placement-repository.ts': 'which collection a document is indexed in; nothing a listing shows',
   'lib/projects/folder-derived-repository.ts': 'a derived report’s source marker; nothing a listing shows',
   'lib/session-documents/repository.ts': 'chat attachments, which are on no shelf',

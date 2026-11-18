@@ -587,7 +587,7 @@ the run's message (`metadata.run_ledger`, read back sanitised by the message
 mapper); if that ledger is not terminal it reads
 `GET /api/projects/[id]/runs/[runId]?include=stream` for `backendJobId`, opens the stream
 through the same-origin proxy (`/api/jobs/async/job/[jobId]/stream`, the SSE
-client in `apps/workspace/ui/adapters/api/deep-research-client.ts`) with **no**
+client in `apps/workspace/ui/adapters/api/deep-research-stream.ts`) with **no**
 `last_event_id`, so the replay runs from the first flush and the newest snapshot
 lands last, and wires only `onLedger`. Every snapshot goes through
 `sanitizeRunLedger` and **replaces** what is held, unless its `updatedAt` is older

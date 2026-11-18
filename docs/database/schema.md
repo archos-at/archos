@@ -449,7 +449,7 @@ both wrote the same object key. Now:
 
 - the number is allocated INSIDE the inserting transaction, under a
   per-document advisory lock (`allocateVersionNumber`,
-  `lib/documents/version-repository.ts`, key `document_versions:<document id>`).
+  `lib/documents/version-repository/insert.ts`, key `document_versions:<document id>`).
   Neither insert accepts a number from its caller; the type does not have the
   field;
 - the object key is unique per WRITE, not per number: `…/doc/<id>/v<n>/<write
@@ -594,7 +594,7 @@ boundary, so it is deliberately not in that list.
 One review round on one version. A submit opens a round (`outcome = 'requested'`);
 an approval, a request for changes or a rejection decides it. Written in the
 transaction that swaps the version's `state` (`compareAndSwapVersionState`,
-`lib/documents/version-repository.ts`), so a round and the state it describes
+`lib/documents/version-repository/state-swap.ts`), so a round and the state it describes
 cannot disagree.
 
 | Column | Type | Constraints | Notes |
@@ -1514,7 +1514,7 @@ exists. The audit trail holds the event under its own retention.
 | `id` | `uuid` | PK, `gen_random_uuid()` | The event's idempotency key, `document.quarantined:<id>` |
 | `organization_id` | `text` | NOT NULL | RLS: `organization_id = current_org()` |
 | `document_id` | `uuid` | NOT NULL | No FK: a reviewer may delete the file before the decision reaches the trail. The retention, not the document, ends the row |
-| `job_id` | `text` | UNIQUE with `document_id` (`document_quarantine_decisions_dispatch_key`) | The ingest job whose gate decided: one dispatch, one decision. NULL only when the row carried no job (the backend's file list said quarantined). A row that carries a job takes a failure only from that job, never from the file list, whose failed entry under the name may be an earlier dispatch's (`attributableFailure`, `lib/documents/reconcile-status.ts`) |
+| `job_id` | `text` | UNIQUE with `document_id` (`document_quarantine_decisions_dispatch_key`) | The ingest job whose gate decided: one dispatch, one decision. NULL only when the row carried no job (the backend's file list said quarantined). A row that carries a job takes a failure only from that job, never from the file list, whose failed entry under the name may be an earlier dispatch's (`attributableFailure`, `apps/workspace/bff/documents/reconcile-status/ingest-resolution.ts`) |
 | `decided_at` | `timestamptz` | NOT NULL, `now()` | The event's `occurredAt` |
 | `scope` | `text` | NOT NULL, CHECK `project`/`office_shelf`/`session` | |
 | `project_id` | `uuid` | | CHECK `(scope = 'project') = (project_id IS NOT NULL)` |
@@ -2265,7 +2265,7 @@ Indexes: `uniq_inbox_items_recipient_group`;
 the migration and not declared in the schema file — matching the badge
 predicate exactly (`archived_at IS NULL AND inert_at IS NULL AND (read_at IS NULL
 OR (actionable AND resolved_at IS NULL))`). Keep the predicate and
-`pendingPredicate()` in `lib/inbox/repository.ts` in step, or the badge silently
+`pendingPredicate()` in `lib/inbox/inbox-item-queries.ts` in step, or the badge silently
 stops using its index.
 
 ### mention_requests
@@ -2389,9 +2389,10 @@ any query the layer emits and was dropped in 0036.
 Deliberately **no** `organization_id`: the parent model's column is the truth
 and the RLS policy joins it, per the child-table rule in ADR-0041. The join is
 asserted against a live Postgres in `src/lib/bim/query.integration.spec.ts`,
-which runs under `task db:test:rls` — as is the agreement between the
-TypeScript `buildSearchKeys` and 0038's SQL backfill, which are two
-implementations of the same map.
+which runs under `task db:test:rls`. The write path is asserted against the
+TypeScript `buildSearchKeys` in `query.search-keys.integration.spec.ts`. No spec
+asserts that 0038's SQL backfill agrees with it: a spec may not read the
+migration's SQL, so that agreement is unverified.
 
 ### `bim_check_confirmations`
 

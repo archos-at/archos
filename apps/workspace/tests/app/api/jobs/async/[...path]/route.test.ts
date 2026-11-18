@@ -58,12 +58,12 @@ function getHeader(init: RequestInit | undefined, name: string): string | undefi
 describe('/api/jobs/async/[...path]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
   })
 
   describe('GET', () => {
     it('forwards scope header for stream requests', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
@@ -99,7 +99,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('uses anonymous session when auth is disabled', async () => {
-      process.env.REQUIRE_AUTH = 'false'
+      vi.stubEnv('REQUIRE_AUTH', 'false')
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 's_conv-1'],
         scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 's_conv-1', shelf: 'session' }],
@@ -128,7 +128,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('refuses to submit research in a closed project, and forwards nothing (ADR-0090)', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['proj_proj-1'],
@@ -155,7 +155,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('returns 404 when project access is missing', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
       const fetchMock = vi.fn()
@@ -173,7 +173,7 @@ describe('/api/jobs/async/[...path]', () => {
 
   describe('POST', () => {
     it('refuses a deep-research submit from a session whose organization lacks the flag', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue({ ...baseSession, featureFlags: [] })
       const fetchMock = vi.fn()
       global.fetch = fetchMock
@@ -191,7 +191,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('refuses an anonymous deep-research submit — an entitlement is off where nobody signs in', async () => {
-      process.env.REQUIRE_AUTH = 'false'
+      vi.stubEnv('REQUIRE_AUTH', 'false')
       const fetchMock = vi.fn()
       global.fetch = fetchMock
 
@@ -207,7 +207,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('forwards scope header from body', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
@@ -244,7 +244,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('returns 404 when project access is missing', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
       const fetchMock = vi.fn()
@@ -263,7 +263,7 @@ describe('/api/jobs/async/[...path]', () => {
 
   describe('DELETE', () => {
     it('forwards scope header from query params', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1'],
@@ -299,7 +299,7 @@ describe('/api/jobs/async/[...path]', () => {
     })
 
     it('returns 404 when project access is missing', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
       const fetchMock = vi.fn()

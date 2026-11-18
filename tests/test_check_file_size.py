@@ -36,6 +36,11 @@ def add(repo: Path, path: str, text: str) -> None:
     subprocess.run(["git", "add", path], cwd=repo, check=True)
 
 
+def baseline(repo: Path, files: dict[str, int] | None = None, functions: dict[str, int] | None = None) -> None:
+    data = {"files": files or {}, "functions": functions or {}}
+    (repo / "ci" / "size_baseline.json").write_text(json.dumps(data), encoding="utf-8")
+
+
 def lines(count: int) -> str:
     return "".join(f"x{n} = {n}\n" for n in range(count))
 
@@ -65,7 +70,7 @@ def test_a_new_function_over_the_limit_fails_with_its_qualified_name(checker, re
 
 def test_a_baselined_file_may_stay_but_not_grow(checker, repo, capsys):
     add(repo, "src/big.py", lines(700))
-    checker.main(["--rebaseline"])
+    baseline(repo, {"src/big.py": 700})
     assert checker.main([]) == 0
 
     add(repo, "src/big.py", lines(701))
@@ -76,7 +81,7 @@ def test_a_baselined_file_may_stay_but_not_grow(checker, repo, capsys):
 
 def test_a_baselined_function_may_not_grow(checker, repo, capsys):
     add(repo, "src/job.py", function("run_job", 100))
-    checker.main(["--rebaseline"])
+    baseline(repo, functions={"src/job.py::run_job": 100})
 
     add(repo, "src/job.py", function("run_job", 101))
 
@@ -87,7 +92,7 @@ def test_a_baselined_function_may_not_grow(checker, repo, capsys):
 def test_a_shrink_asks_for_the_baseline_to_follow_and_update_only_lowers_it(checker, repo, capsys):
     add(repo, "src/big.py", lines(700))
     add(repo, "src/split.py", lines(650))
-    checker.main(["--rebaseline"])
+    baseline(repo, {"src/big.py": 700, "src/split.py": 650})
     add(repo, "src/big.py", lines(680))
     add(repo, "src/split.py", lines(100))
     add(repo, "src/new.py", lines(601))
@@ -104,7 +109,7 @@ def test_a_shrink_asks_for_the_baseline_to_follow_and_update_only_lowers_it(chec
 def test_a_second_definition_under_one_name_is_held_to_its_own_count(checker, repo, capsys):
     getter = method("@property", "p", 81)
     add(repo, "src/a.py", f"class A:\n{getter}{method('@p.setter', 'p', 70)}")
-    checker.main(["--rebaseline"])
+    baseline(repo, functions={"src/a.py::A.p": 81, "src/a.py::A.p#2": 70})
 
     add(repo, "src/a.py", f"class A:\n{getter}{method('@p.setter', 'p', 75)}")
 
@@ -193,21 +198,60 @@ def test_a_function_is_measured_without_its_docstring(checker):
 
 
 def test_an_added_comment_does_not_grow_a_baselined_file(checker, repo):
-    add(repo, "src/big.ts", "const a = 1\n" * 700)
-    checker.main(["--rebaseline"])
+    add(repo, "src/big.py", lines(700))
+    baseline(repo, {"src/big.py": 700})
 
-    add(repo, "src/big.ts", "/**\n * Why this file is like this.\n */\n// and a line\n" + "const a = 1\n" * 700)
+    add(repo, "src/big.py", '"""Why this file is like this."""\n# and a line\n' + lines(700))
+
+    assert checker.main([]) == 0
+
+
+def test_an_added_import_does_not_grow_a_file_at_the_limit(checker, repo):
+    add(repo, "src/full.ts", "const a = 1\n" * 600)
+
+    add(repo, "src/full.ts", "import { b } from './b'\nimport {\n  c,\n} from './c'\n" + "const a = 1\n" * 600)
 
     assert checker.main([]) == 0
 
 
-def test_an_added_import_does_not_grow_a_baselined_file(checker, repo):
+def test_a_typescript_entry_in_the_baseline_fails_and_names_the_split(checker, repo, capsys):
     add(repo, "src/big.ts", "const a = 1\n" * 700)
-    checker.main(["--rebaseline"])
+    baseline(repo, {"src/big.ts": 700})
 
-    add(repo, "src/big.ts", "import { b } from './b'\nimport {\n  c,\n} from './c'\n" + "const a = 1\n" * 700)
+    assert checker.main([]) == 1
+    err = capsys.readouterr().err
+    assert "src/big.ts: TypeScript and JavaScript have no size baseline. Split the file under 600 lines" in err
+    assert "src/big.ts: 700 lines, over the 600-line file limit" in err
 
-    assert checker.main([]) == 0
+
+def test_rebaseline_refuses_to_add_an_entry(checker, repo, capsys):
+    add(repo, "src/new.py", lines(700))
+    add(repo, "src/new.ts", "const a = 1\n" * 700)
+
+    assert checker.main(["--rebaseline"]) == 1
+    err = capsys.readouterr().err
+    assert "src/new.py: 700 lines, and no moved entry accounts for it. Split it." in err
+    assert "src/new.ts: 700 lines. TypeScript and JavaScript take no baseline entry: split it." in err
+    assert not (repo / "ci" / "size_baseline.json").exists()
+
+
+def test_rebaseline_refuses_to_raise_an_entry(checker, repo, capsys):
+    add(repo, "src/big.py", lines(701))
+    baseline(repo, {"src/big.py": 700})
+
+    assert checker.main(["--rebaseline"]) == 1
+    assert "src/big.py: grew from 700 to 701 lines" in capsys.readouterr().err
+
+
+def test_rebaseline_re_keys_a_moved_file_and_function(checker, repo):
+    add(repo, "src/pkg/big.py", lines(650) + function("run", 70))
+    baseline(repo, {"pkg/big.py": 720}, {"pkg/big.py::run": 70})
+
+    assert checker.main(["--rebaseline"]) == 0
+    assert json.loads((repo / "ci" / "size_baseline.json").read_text()) == {
+        "files": {"src/pkg/big.py": 720},
+        "functions": {"src/pkg/big.py::run": 70},
+    }
 
 
 def test_generated_test_and_copy_files_are_not_checked(checker):
@@ -216,6 +260,7 @@ def test_generated_test_and_copy_files_are_not_checked(checker):
         "apps/workspace/ui/adapters/api/wire-v2.generated.ts",
         "apps/workspace/ui/features/chat/ChatArea.spec.tsx",
         "apps/workspace/purger/index.spec.mjs",
+        "apps/workspace/tests/test-utils/work-list-scenes.ts",
         "packages/agent/tests/test_runner.py",
         "apps/workspace/app/dev/_fixtures/stream-frames.ts",
         "apps/workspace/i18n/dictionaries/de/chat.ts",

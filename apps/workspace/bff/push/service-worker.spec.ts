@@ -3,16 +3,13 @@
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { runInNewContext } from 'node:vm'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 
 const SW_PATH = join(process.cwd(), 'public', 'sw.js')
-const SOURCE = readFileSync(SW_PATH, 'utf8')
 const sw = createRequire(import.meta.url)(SW_PATH) as {
   INBOX_TAG: string
   LEGACY_NAMES: { close: string; navigate: string; tag: string }
@@ -22,11 +19,16 @@ const sw = createRequire(import.meta.url)(SW_PATH) as {
   notificationsToClose: <T extends { tag: string }>(n: T[], r: unknown) => T[]
   parseMessage: (text: string | null) => { title: string; body: string; url: string; tag: string; itemId: string }
   pickWindow: (windows: unknown[], origin: string) => unknown
+  register: (scope: object) => void
   safeTarget: (url: unknown, origin: string) => string
   urlBase64ToBytes: (value: string) => Uint8Array
 }
 const parse = sw.parseMessage
 const ORIGIN = 'https://app.example.test'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('the payload the server sends', () => {
   it('becomes a notification with its words, address and tag', () => {
@@ -149,19 +151,11 @@ function boot(options: { windows?: unknown[]; fetchImpl?: (url: string, init?: R
       pushManager: { subscribe: vi.fn() },
     },
   }
-  const sandbox: Record<string, unknown> = {
-    self: scope,
-    atob: (value: string) => Buffer.from(value, 'base64').toString('binary'),
-    Uint8Array,
-    JSON,
-    Promise,
-    setTimeout,
-    fetch: async (url: string, init?: Record<string, unknown>) => {
-      fetchCalls.push({ url, init })
-      return options.fetchImpl ? options.fetchImpl(url, init) : { ok: false }
-    },
-  }
-  runInNewContext(SOURCE, sandbox)
+  vi.stubGlobal('fetch', async (url: string, init?: Record<string, unknown>) => {
+    fetchCalls.push({ url, init })
+    return options.fetchImpl ? options.fetchImpl(url, init) : { ok: false }
+  })
+  sw.register(scope)
   const fire = async (type: string, event: Record<string, unknown>) => {
     let pending: Promise<unknown> = Promise.resolve()
     listeners[type]?.({ ...event, waitUntil: (promise: Promise<unknown>) => (pending = promise) })
@@ -171,14 +165,33 @@ function boot(options: { windows?: unknown[]; fetchImpl?: (url: string, init?: R
 }
 
 describe('the registered worker', () => {
-  it('has no fetch handler and never touches a cache', () => {
-    const { listeners } = boot()
+  it('has no fetch handler and never touches a cache', async () => {
+    const touched: string[] = []
+    vi.stubGlobal(
+      'caches',
+      new Proxy(
+        {},
+        {
+          get: (_target, name) => {
+            touched.push(String(name))
+            return () => undefined
+          },
+        }
+      )
+    )
+    const { listeners, fire, notifications } = boot()
+    notifications.push({ tag: 'a', close: vi.fn() })
+    await fire('install', {})
+    await fire('activate', {})
+    await fire('push', { data: null })
+    await fire('message', { data: { type: 'close-notifications', all: true } })
+    await fire('notificationclick', { notification: { close: vi.fn(), data: { url: '/app/inbox', itemId: 'item-1' } } })
+    await fire('pushsubscriptionchange', {})
     expect(Object.keys(listeners).sort()).toEqual(
       ['activate', 'install', 'message', 'notificationclick', 'push', 'pushsubscriptionchange'].sort()
     )
     expect(listeners.fetch).toBeUndefined()
-    expect(SOURCE).not.toMatch(/\bcaches\b/)
-    expect(SOURCE).not.toMatch(/CacheStorage|cache\.put|cache\.add|\.match\(/)
+    expect(touched).toEqual([])
   })
 
   it('shows the notification for a push', async () => {

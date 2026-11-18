@@ -228,7 +228,7 @@ where the actual defect was.
 | Scoring, decay, reinforcement | `apps/workspace/bff/knowledge/recall-scoring.ts` |
 | Consolidation primitives (Jaccard, polarity) | `apps/workspace/bff/knowledge/consolidation.ts` |
 | Bounded injection-safe digests | `apps/workspace/bff/knowledge/digest-format.ts` |
-| Memory recall + semantic dedup | `apps/workspace/bff/projects/memory-service.ts` |
+| Memory recall + semantic dedup | `apps/workspace/bff/projects/memory-recall-digest.ts` (recall), `apps/workspace/bff/projects/memory-matching.ts` (semantic dedup) |
 | Lesson semantic matching | `apps/workspace/bff/platform-lessons/repository.ts` |
 | Backend embedding endpoint | `apps/agent-host/src/agent_host/routes/note_embeddings.py` |
 | Cosine in SQL + columns | `apps/workspace/migrations/0069_semantic_notes.sql` |

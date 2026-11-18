@@ -77,20 +77,20 @@ compare-and-swap on the expected status (`updateDocumentAnnotation`): a
 conflicting move returns 409, and the canvas re-reads.
 
 Every read ANDs `documentVisibleTo(reader)`, and the repository functions are
-registered in `lib/documents/document-visibility.spec.ts`. A held upload's
+registered in `apps/workspace/bff/documents/document-visibility.spec.ts`. A held upload's
 marks are as invisible as the upload.
 
 **What a listing says about them.** Every listing row (`toListedDocuments`,
-`lib/documents/shelf-listing.ts`, so a project's Dateien, the Archiv and the
+`apps/workspace/bff/documents/shelf-listing.ts`, so a project's Dateien, the Archiv and the
 by-name reads alike) carries `marks: { open, proposed, forYou }`: how many of
 the document's marks are open, how many are the agent's proposals nobody decided
 on (both live, `isLive`, on every Fassung, and counted apart: „offen“ means the
 office's own open marks wherever it is said, as Offene Punkte, the Protokoll
 and the Postfach say it), and how many of the open ones have the reader as
-Zuständige (`isForReader`, `lib/annotations/types.ts`: the review's „Für Sie“
+Zuständige (`isForReader`, `apps/workspace/bff/annotations/types.ts`: the review's „Für Sie“
 filter is the same predicate, so its Offen count is this number), or `null`
 when none is live. `tallyLiveMarks`
-(`lib/annotations/repository.ts`) counts a whole page in ONE grouped query,
+(`apps/workspace/bff/annotations/repository.ts`) counts a whole page in ONE grouped query,
 bounded by the page's ids, that joins `documents` behind the listing's own
 `documentVisibleTo(reader)`. A proposal that names the reader is not theirs
 yet: only the person who takes it over makes it so. The count comes with the
@@ -105,7 +105,7 @@ marks })`, and the preview host patches the open file too): the review's
 does not already hold is sent, so a reader who resolves all five marks and
 closes the review sees no „5 offen“ left behind. The review's `load` reads
 `loading`, never `ready`, until the list of the document it is now for has
-answered (`listedFor` in `use-document-review.ts`): a pane reused for
+answered (`listedFor` in `use-annotation-list.ts`): a pane reused for
 another document otherwise counted the last one's marks under the new id for
 one render. Dateien draws it as
 `OpenMarksChip` (`features/documents/components/open-marks-chip.tsx`), the
@@ -183,7 +183,7 @@ word of a mark or a name ([`posthog-events.md`](../observability/posthog-events.
 
 **Who may do what.** Every right is a permission on the document, asked through
 the shelf's rule (`getAccessibleDocument` for the session, and for other people
-`mayOpenDocument` / `mayWriteDocument` in `lib/documents/may-open.ts`), never a
+`mayOpenDocument` / `mayWriteDocument` in `apps/workspace/bff/documents/may-open.ts`), never a
 role name:
 
 | Who | May |
@@ -198,7 +198,7 @@ turns every inbox row anchored on it inert, leaves a hole in the numbering a
 Protokoll cites, and for a carried mark cuts the link that carries the point
 on. So even its author deletes a mark only while nobody but the author and
 the agent has written in its thread, and while it neither went on to another
-document nor came from one (`deleteRefusalOf`, `lib/annotations/service.ts`;
+document nor came from one (`deleteRefusalOf`, `apps/workspace/bff/annotations/annotation-access.ts`;
 the rule undo always kept, below, now kept for every delete). Otherwise
 `DELETE` is `409` with `details.reason` `mark-discussed` or `mark-carried`.
 The view says it before anyone tries: `canDelete` is false and
@@ -221,7 +221,7 @@ quarantine, as `findDocumentForSession` does for a session.
 `features/documents/components/review/` holds the canvas. `document-review.tsx`
 is the document opened full screen:
 
-- marks drawn on the PDF pages (`review-page-layer.tsx`);
+- marks drawn on the PDF pages (`review-page-layer/page-marks.tsx`);
 - the open thread beside its mark (`thread-card.tsx`), on the side a whole card fits in pixels, else under the mark (`placeCard`); on a phone in a sheet from the bottom edge. On the sheet a card keeps inside the free stage, the canvas less the toolbars and chips at its foot (`review-stage.ts`): beside its mark it moves up as it grows, under its mark it gets shorter, and past the stage's height its thread scrolls inside it, never the reply field. A new line at the end of the thread (a reply, the agent at work, its answer) is scrolled into view for a reader at the end or one who just sent into it (`use-follow-end.ts`; a jump under reduced motion);
 - the list (`review-panel.tsx`), where the agent's proposals lead the open marks as a group you can walk through („Durchgehen": the card says „1/3", J or „Weiter" goes on, and taking one over or dismissing it moves to the next);
 - the tools, leading the viewer's own pill at the foot; on a touch screen a row of their own above it, each with its name. The first review a browser opens spells every tool out with its key (`TOOLS_INTRO_KEY`), folded after the first mark or by its ×. A tool in hand says what it does next at the top of the canvas.
@@ -332,7 +332,7 @@ session's user id the app keeps (`useChatStore`'s `currentUserId`), so
 „Für Sie“, its counts and „Mir zuweisen“ work while the room is down.
 
 **„Für Sie“** is one predicate on both surfaces (`isForReader`,
-`lib/annotations/types.ts`): the marks the reader is Zuständige of, and that are
+`apps/workspace/bff/annotations/types.ts`): the marks the reader is Zuständige of, and that are
 the office's (the agent's proposal naming them is not theirs until somebody takes
 it over). Who set a mark does not count: a mark set for a colleague is the
 colleague's. The list's filter shows those under Offen and Erledigt alike, and
@@ -360,7 +360,7 @@ leave out rows folded on `MARKS_SET_GROUP_ANCHOR`), and it is read while the
 review of the document is open: when it opens, and on each `inbox.changed`
 nudge while it stays open, so fifteen marks a colleague sets while the reader
 looks at the document are read as they arrive (`watchMarksSetNews` in
-`use-document-review.ts`, called by the review's open effect and let go when
+`use-unread-review-marks.ts`, called by the review's open effect and let go when
 it closes; `markMarksSetRead`, `POST /api/inbox/read { resourceType:
 'document', resourceId, marksSet: true }`, which narrows
 `markResourceItemsRead` to those rows in the types the reader may see). It
@@ -387,7 +387,7 @@ reader lands where they left rather than in Dateien. When that page, query
 and all, is the entry one step back in this tab, closing is `router.back()`: a
 replace left the Postfach in history twice, and its sheet, whose close is Back,
 came back after the first. The tab's history answers that, not the return
-trail: `backLandsOn` in `lib/navigation/history-step.ts` reads the entry before
+trail: `backLandsOn` in `apps/workspace/bff/navigation/history-step.ts` reads the entry before
 `navigation.currentEntry` off the Navigation API, which sees each
 `replaceState`, and compares path and query with `back` (parameters in any
 order, the hash aside). The trail keeps paths only and cuts itself back on a
@@ -398,7 +398,7 @@ a browser without the API) the entry is replaced with `back`. A link from one
 review to another („Übernommen aus …“, „Weiter in …“) replaces its entry
 too, as walking the marks does, so the review it opens has the page the first
 was reached from right behind it and closes there in one step. `back` is
-only ever a path of this app (`appReturnPath`, `lib/utils/same-origin-path.ts`:
+only ever a path of this app (`appReturnPath`, `apps/workspace/bff/utils/same-origin-path.ts`:
 no scheme, no other origin, no `//`, no backslash or control character, under
 `/app/`); anything else is dropped as if it were absent. A reload stays
 in the review, and the Files reconciler (`use-preview-channel.ts`) drops them
@@ -422,12 +422,12 @@ who is in the document with the review's own `Presence`, without following.
 
 A reply in a thread can be wrong: a typo, a wrong name after „@“, an answer
 on the wrong mark. Its author has „Bearbeiten“ and „Löschen“ in the reply's
-own menu (`ReplyEntry` in `thread-card.tsx`): the composer takes the reply's
+own menu (`ReplyEntry` in `thread-card/reply-entry.tsx`): the composer takes the reply's
 place with its words and whom it mentions, as a mark is reworded, and a delete
 is confirmed, as a mark's is (`ConfirmDialog`). An edited reply says
 „bearbeitet“ beside its time (`editedAt`). Both go through
 `PATCH`/`DELETE …/replies/{replyId}` (`editReply` and `deleteOwnReply` in
-`lib/annotations/service.ts`, the typed client's `editReply` and
+`apps/workspace/bff/annotations/annotation-replies.ts`, the typed client's `editReply` and
 `deleteReply`), and tell the room, which re-reads.
 
 The server refuses, and the menu is not offered:
@@ -490,7 +490,7 @@ are listed and drawn only as ghosts (above), and the people working on them are 
 check (`document.new_revision`, [`revisions.md`](revisions.md#notifications)).
 A mark that still holds goes on with the new Fassung: „Auf aktuelle Fassung
 übernehmen“ in its card's first line, for whoever may edit an open mark
-(`carryToCurrent`, `lib/annotations/service.ts`). It keeps its place on the
+(`carryToCurrent`, `apps/workspace/bff/annotations/annotation-carry.ts`). It keeps its place on the
 page: a position never changes under someone who read it, so a mark that no
 longer fits is resolved and set again instead.
 
@@ -505,8 +505,8 @@ longer fits is resolved and set again instead.
   (`CARRY_AT_ONCE`, `inPool`); a mark moved in place takes its PATCH's
   answer, and nothing is read again.
 - **Under another name** (Index B confirmed as replaced by Index C, `supersededBy`
-  in `lib/documents/revision-links.ts`; through a chain, its end, read only through
-  documents the carrier may open, `lib/annotations/carry.ts`: a link the shelf
+  in `apps/workspace/bff/documents/revision-links.ts`; through a chain, its end, read only through
+  documents the carrier may open, `apps/workspace/bff/annotations/carry.ts`: a link the shelf
   shows into a document the carrier cannot open, a closed folder, ends the walk
   at the last one they can) the mark cannot
   move. B's number is what a Protokoll and a Jour fixe named; its thread is
@@ -533,7 +533,7 @@ longer fits is resolved and set again instead.
 What the review offers is what the server would do. Each mark of a list or a
 write's answer carries `carryTarget`: the document this reader's carry lands
 on, named as they see it, or null where the carry would be refused or do
-nothing (`carryWayOf` and `carryTargetOf`, `lib/annotations/service.ts`): a
+nothing (`carryWayOf` and `carryTargetOf`, `apps/workspace/bff/annotations/annotation-views.ts`): a
 mark that is not open, a reader who may not write its document, a mark on the
 current Fassung of a document nothing replaces; across, a replacing document
 the reader may not write, and a mark the agent works. The target is the end of the
@@ -599,7 +599,7 @@ the room hears it, and a carried mark names its source on the mark itself.
 The draft card and a thread's reply box are the chat's composer for mentions,
 gesture for gesture (`review/composer.tsx`): „@“ opens the chat's own picker
 (`MentionPicker`), a pick writes „@Anna Berger“ into the text and records whom
-it means (`lib/mentions/mention-text.ts`), and what is sent is
+it means (`apps/workspace/bff/mentions/mention-text.ts`), and what is sent is
 reconciled against the text at the last moment, so a name deleted while
 editing mentions nobody and a name typed by hand never did. The rows are the
 people who may open the document, read from the assignment candidates
@@ -618,7 +618,7 @@ same picker.
 
 The server keeps a mention only while its token stands in the text, the name is
 the directory's, and the person may open the document
-(`lib/annotations/mentions.ts`); the agent by its product name, and only in a
+(`apps/workspace/bff/annotations/mentions.ts`); the agent by its product name, and only in a
 reply, never in a mark's own text. Where the organization has collaboration
 off (the gate the candidates route and the chat keep), a text mentions nobody
 but the agent. A dropped mention
@@ -668,10 +668,10 @@ the way a design tool shows its collaborators:
 
 | What | How it shows | Where |
 |---|---|---|
-| A colleague's pointer | the arrow in their colour, their name on a tag; after 8 s at rest it quiets and the tag folds down to a dot with their initial (`CURSOR_IDLE_MS`, one timer per pointer). Under the open card, never over it. In the file preview, the arrow alone: no tag, no chat, no name on a mark or a box being drawn | `review-page-layer.tsx`, `components/ui/live-cursor.tsx` |
+| A colleague's pointer | the arrow in their colour, their name on a tag; after 8 s at rest it quiets and the tag folds down to a dot with their initial (`CURSOR_IDLE_MS`, one timer per pointer). Under the open card, never over it. In the file preview, the arrow alone: no tag, no chat, no name on a mark or a box being drawn | `review-page-layer/peer-pointer.tsx`, `review-peer-state.ts` (`CURSOR_IDLE_MS`), `components/ui/live-cursor.tsx` |
 | Cursor chat | „/" opens a field at the reader's pointer, the toolbar's button centred above the toolbars, always inside the canvas; every key shows beside it for the room as typed; Enter keeps the line 4 s, Esc takes it away. A colleague's chat keeps their name above the words. Nothing is stored | `cursor-chat.tsx` |
 | The mark a colleague has open | a ring round the pin (an outline round a region) in their colour, with their first name at its top-right; „Anna +1" for several; a person whose own pointer is within 48 px of the mark is not named twice (`selectionTagged`); never the reader's own tabs, never the agent | `peerSelections`, `PeerSelection` |
-| A box being dragged out | dashed in their colour, with their first name over its top-right corner; beside the box when the box is narrower than the name, so the name never lies over a pin next to it (`draftTagPlace`) | `review-page-layer.tsx` |
+| A box being dragged out | dashed in their colour, with their first name over its top-right corner; beside the box when the box is narrower than the name, so the name never lies over a pin next to it (`draftTagPlace`) | `review-page-layer/page-company.tsx`, `review-overlay-geometry.ts` |
 | A colleague out of view | a chip at the edge that leads to them („Lena · Seite 2"), decided by whether their point is on screen (`peerSide`); a click jumps there; the face's tooltip names the page. Never over the open card: the card keeps out of the foot, and a row that would still lie over it steps aside (`covers`) | `Elsewhere` in `document-review.tsx` |
 | The agent | its own pointer, always led by its name („{productName} · Fluchtweg · für Anna"), quieting once it is parked with nothing in hand (`agentResting`); the box it reads glows while it reads it (`look` sends the `look` op for a workspace document, from the canvas or the chat: presence and a `reading` activity) | `AgentCursor`, `tools/canvas/presence.py` `show_reading` |
 
@@ -701,8 +701,8 @@ enough for 4.5:1 on every hue of the ring, and the words on it are solid white.
 The transport is the shared realtime channel layer; see ADR 0110 for why it is
 our own thin layer over Dragonfly rather than a library.
 
-What a tab sends is bounded per person and per document (`lib/realtime/send.ts`),
-from two budgets in `lib/limits/rules.js`. Motion, the pointer and the scroll,
+What a tab sends is bounded per person and per document (`apps/workspace/bff/realtime/send.ts`),
+from two budgets in `apps/workspace/bff/limits/rules.js`. Motion, the pointer and the scroll,
 spends `ROOM_LIMIT`; a claim, presence and the selected mark, spends
 `ROOM_CLAIM_LIMIT`. A burst of motion can therefore never refuse the presence
 refresh that keeps a person in everyone's roster. When the server refuses motion
@@ -725,7 +725,7 @@ The agent reaches marks in two ways.
 `look` (`packages/agent/src/agent/tools/look/`, ADR-0128), a tool of its own bound in every
 context, renders the page or a box on it and makes the box glow here. The turn sends `leave` when it ends, so the agent's cursor goes with it.
 
-- A tool may name a document (`document`: a file name from the turn's inventory, or an id); the name is resolved against the inventory and its id read from `GET /api/internal/document-file` with the envelope echoed. Without one it acts on the document open on the canvas (`focus_document_id`), then on the conversation's *subject*. The server checks a named document against the asker's access and the turn's signed scope (`lib/annotations/agent.ts`).
+- A tool may name a document (`document`: a file name from the turn's inventory, or an id); the name is resolved against the inventory and its id read from `GET /api/internal/document-file` with the envelope echoed. Without one it acts on the document open on the canvas (`focus_document_id`), then on the conversation's *subject*. The server checks a named document against the asker's access and the turn's signed scope (`apps/workspace/bff/annotations/agent.ts`).
 - With no document named and no subject, the tool gets a typed 422 and asks which document is meant.
 - A reply, a proposal, a highlight and a labelled pointer are seen by everyone who opens the document, so a conversation that drew on a restricted folder or another project may write none of them (`tools/canvas/policy.py`).
 - A held upload reaches no model.
@@ -737,7 +737,7 @@ The product decision: there is no difference between what the agent does and wha
 a person does, with light reporting. When the person ASKS, the agent may do on a
 document's Anmerkungen everything that person may do, under that person's own
 rights, because every op runs as the asker's pinned session through the same
-service functions the person's own routes use (`lib/annotations/agent.ts`):
+service functions the person's own routes use (`apps/workspace/bff/annotations/agent.ts`):
 
 | Asked for | Op | Runs | Recorded as |
 |---|---|---|---|
@@ -749,7 +749,7 @@ Findings the agent makes on its own initiative, including a whole-document revie
 the person did not itemise, stay proposals (`propose`). So do the marks of a
 notice of a new Fassung (ADR-0130), which a job proposes through this same
 function, as the person who made the Fassung, recorded against a message in
-their thread about the document (`lib/revision-notice/job.ts`). The tool descriptions
+their thread about the document (`apps/workspace/bff/revision-notice/job.ts`). The tool descriptions
 say when to use which: `open=true` only when the person asked for exactly that
 mark; `update` only when they asked for that change to that mark; `delete`
 only on explicit request.
@@ -822,9 +822,9 @@ restricted folders in scope, so its own research cannot keep the reply out.
 Whether the browser or the server sends that turn is the next section's.
 
 The canvas asks in the person's own thread about the document, `POST
-/api/documents/{id}/thread` (`lib/annotations/document-thread.ts`): its id is
+/api/documents/{id}/thread` (`apps/workspace/bff/annotations/document-thread.ts`): its id is
 uuid5 of the document and the person, created with the document as its subject
-on first use, the construction `lib/tasks/task-thread.ts` uses. The canvas, the
+on first use, the construction `apps/workspace/bff/tasks/task-thread.ts` uses. The canvas, the
 chat and a wake of the agent by the person's reply agree on it without a lookup;
 the per-tab id the canvas used to keep in session storage is gone.
 
@@ -841,7 +841,7 @@ events wake it, and only these, by a rule people can read (ADR-0036):
 | A person takes over or dismisses the agent's mark | never | |
 | A person rewords or deletes their reply | never: the wake was the posting's (above, „A reply its author takes back or rewords“) | |
 
-`lib/annotations/wake.ts` decides; the service enqueues the wake **in the
+`apps/workspace/bff/annotations/wake.ts` decides; the service enqueues the wake **in the
 write's own transaction** (`insertAnnotationReply` / `updateDocumentAnnotation`
 take a hook that runs in it), so a reply that rolls back leaves no wake. The
 wake's id is uuid5 of the event (`wake-ids.ts`), which is its `agent_wakes`
@@ -849,14 +849,14 @@ row, its `bff_job_queue` job (`piloti_wake`) and the turn id: one event wakes
 the agent at most once.
 
 **Who it runs as.** The person whose act is the event: the replier, or the
-person who delegated. The job (`lib/annotations/wake-job.ts`) asks everything
+person who delegated. The job (`apps/workspace/bff/annotations/wake-job.ts`) asks everything
 again when it runs, because the queue can hold it: the person's pinned session
 of today (`resolvePinnedRequesterSession`), the organization's switch, their
 right to write the document, the mark, the caps. It writes the trigger into the
 person's thread as a question row („Anna Berger in Anmerkung 4: „…““), resolves
-the turn context for that session and thread (`lib/turns/turn-context.ts`,
+the turn context for that session and thread (`apps/workspace/bff/turns/turn-context.ts`,
 which refuses a spent budget), and opens the chat socket as an internal caller
-with the signed envelope and `X-Chat-Mode: headless` (`lib/turns/headless-turn.ts`).
+with the signed envelope and `X-Chat-Mode: headless` (`apps/workspace/bff/turns/headless-turn.ts`).
 The `user_message` carries `trigger`, `if_idle`, the mark's region with its
 `annotation_id`, and `reply_in_thread`. The contract:
 [`websocket-protocol.md`](../api/websocket-protocol.md#a-turn-an-event-woke-trigger--if_idle).
@@ -892,7 +892,7 @@ reads the agent's work off the server. The inbox has no agent to ask, so a
 Rückfrage answered from there would reach nobody: its row leads to the
 Prüfansicht instead (`answerIn: 'review'`, below).
 
-**The agent's work is the server's to say** (`lib/annotations/agent-work.ts`).
+**The agent's work is the server's to say** (`apps/workspace/bff/annotations/agent-work.ts`).
 Every mark's view carries `pilotiWork`, read off its newest wake, so everyone
 in the room reads the same line, after a reload too:
 
@@ -997,7 +997,7 @@ in the Postfach, and reaches the devices a person turned notifications on for
 (ADR-0112, by category). The registry also states each type's mail policy
 (`annotation.mentioned` and `piloti.asks_you` an hour unread,
 `annotation.assigned_to_you` two hours), but no sender exists yet
-(`lib/inbox/delivery.ts`, ADR-0035): today nothing about a mark is mailed.
+(`apps/workspace/bff/inbox/delivery.ts`, ADR-0035): today nothing about a mark is mailed.
 Those policies take effect the day the sender ships.
 
 **Many rows at once are one notification.** A row folds its own occurrences
@@ -1005,7 +1005,7 @@ Those policies take effect the day the sender ships.
 row per mark instead: the morning's Frist reminders, „Alle übernehmen“ handing
 every mark over again on the replacing document, a person handing out marks
 one after another. `annotation.assigned_to_you` therefore folds its pushes per
-person across marks (`fold` in its push policy, `lib/push/fold.ts`): every
+person across marks (`fold` in its push policy, `apps/workspace/bff/push/fold.ts`): every
 job of it waits `BURST_HOLD_MS` (5 s), a burst is the person's rows of the
 type each within 5 s of the next (a row read meanwhile still links it), and
 only the newest row's job sends, one counted notification for the rows still
@@ -1018,7 +1018,7 @@ opens the Postfach, which lists them, and names no item; a burst of one is
 told in its row's own words. Each burst's notification has its own tag, so a
 later burst stands beside it. A row stamped in the milliseconds before the
 newest job reads, and committed after, can start a burst of its own that
-tells the earlier rows again (`lib/push/fold.ts`). The inbox rows stay one
+tells the earlier rows again (`apps/workspace/bff/push/fold.ts`). The inbox rows stay one
 per mark.
 
 `annotation.activity` folds the same way, so a colleague resolving fifteen of
@@ -1098,7 +1098,7 @@ news until a person takes it over. Taking it over (`proposed → open`, or
 reopening a dismissed proposal nobody stood behind, the moves that set
 `accepted_by`) tells them then, as a mark the agent set for whoever took it over
 (`created_piloti`, folded with the marks the agent set for them; `traceChange` in
-`lib/annotations/service.ts`), less its Zuständige, who hears
+`apps/workspace/bff/annotations/annotation-notifications.ts`), less its Zuständige, who hears
 `annotation.assigned_to_you`.
 
 `piloti.work_done` names what woke the agent as its variant; a delegation's end
@@ -1121,7 +1121,7 @@ filter in that address (`filter=unread|all|archived`, „Für mich“ unwritten,
 The row offers only what the reader can do, and the server says what that is:
 every request on a mark (`annotation.assigned_to_you`, `piloti.asks_you`,
 `annotation.mentioned`) carries `answerIn` (`InboxItemView`, decided in
-`lib/inbox/service.ts` with `canWriteDocument`, once per document on the page):
+`apps/workspace/bff/inbox/inbox-answer-places.ts` with `canWriteDocument`, once per document on the page):
 
 | `answerIn` | When | The row offers |
 |---|---|---|
@@ -1140,7 +1140,7 @@ says so and names whom the server did not keep; a failure keeps the words in
 the box and says the row's own failure. Sent or let go, the box gives the focus
 back to „Antworten“ (`useFocusBackOnClose`, `review/focus-return.ts`).
 
-Both writes go through the annotations' own client (`lib/annotations/client.ts`),
+Both writes go through the annotations' own client (`apps/workspace/bff/annotations/client.ts`),
 the same writes the thread makes, so the settle rules above apply unchanged,
 and the service checks the write again. An answer from the row that still
 comes back `wake: 'off'` (a Rückfrage reached through another row) says that
@@ -1153,7 +1153,7 @@ or for `piloti.asks_you` the agent („{productName} hat eine Rückfrage an Sie 
 „Jemand“ for the agent's question.
 
 Opening a mark reads its news. When a mark stays selected in the review for
-`MARK_NEWS_SETTLE_MS` (`features/documents/hooks/use-document-review.ts`), the
+`MARK_NEWS_SETTLE_MS` (`features/documents/hooks/use-unread-review-marks.ts`), the
 reader's informational items anchored on it are read through
 `POST /api/inbox/read { resourceType: 'document', resourceId, anchorId }`; a
 mark stepped past with J/K is not, and only a mark whose dot says it has news
@@ -1198,7 +1198,7 @@ link to it or a quote from it. A „15 Anmerkungen gesetzt“ row anchored on it
 counts one less instead (above). Every inert write also sets the row's count
 to 0, so a row revived later counts only what revived it.
 
-A proposal the agent made (`piloti.proposal_waiting`, `lib/proposals/attention.ts`)
+A proposal the agent made (`piloti.proposal_waiting`, `apps/workspace/bff/proposals/attention.ts`)
 is worded by what it changes, stored as its `variant`: a file operation by its
 verb („{productName} schlägt eine Umbenennung vor“), a note („{productName} möchte sich eine
 Notiz merken“), a change to the project context. Its excerpt names the files,
@@ -1226,7 +1226,7 @@ unread waits for the ADR-0035 sender, like every other mail.
   A failed post retries in an hour, but never past the office's midnight: a
   retry that would fall on the next day waits for its 06:45 instead.
 - **Where it runs.** The route (`enqueueDueReminders`,
-  `lib/annotations/due-reminders.ts`) finds the organizations with marks due
+  `apps/workspace/bff/annotations/due-reminders.ts`) finds the organizations with marks due
   (one grouped read under the platform scope, `listOrganizationsWithDueMarks`)
   and enqueues one `annotation_due_reminders` job per organization on the BFF
   job queue (ADR-0079), inside `withTenant` for its own lane, so one office's
@@ -1396,10 +1396,10 @@ office's calendar (Europe/Vienna).
 
 **How the three files are made.** The Protokoll is built once as the answer
 export's `DocBlock`s and handed to the renderers that already exist: `renderDocx`
-(`lib/answer-export/docx.ts`), `BlocksDocument` (`lib/pdf/blocks-to-pdf.tsx`,
+(`apps/workspace/bff/answer-export/docx.ts`), `BlocksDocument` (`apps/workspace/bff/pdf/blocks-to-pdf.tsx`,
 with its cover page), and `blocksToMarkdown` in `export.ts`, the only new
 writer, which escapes what a person typed so it stays text
-(`lib/text/markdown-escape.ts`, shared with the E-Mail-Verlauf renderer). No dependency was
+(`apps/workspace/bff/text/markdown-escape.ts`, shared with the E-Mail-Verlauf renderer). No dependency was
 added. A PDF whose layout cost passes `MAX_MARKDOWN_PDF_CHARS` is refused (422)
 before react-pdf blocks the event loop; Word and Markdown have no such bound.
 There is no thumbnail of the marked place: the BFF has no page rasterizer, so
@@ -1430,7 +1430,7 @@ can bookmark, and the Dateien tab stays lit on a phone. The rail carries no
 counts but the Postfach's, so the page has no count in the navigation.
 
 **What is listed** (`GET /api/projects/[id]/annotations`,
-`listProjectAnnotations` in `lib/annotations/project-marks.ts`). The project
+`listProjectAnnotations` in `apps/workspace/bff/annotations/project-marks.ts`). The project
 gate first (`requireProjectAccess(…, 'project:view')`, as the Dateien listing
 asks it). Then one query (`listProjectAnnotationPage`,
 `project-repository.ts`) joins `documents` and narrows them exactly as the
@@ -1453,7 +1453,7 @@ the cursor carries the last row's keys as Postgres wrote them, opaque on the
 wire and refused (400) when it is not one the service wrote.
 
 **One view.** Each row is the view a document's own list carries: the list
-projection (`documentAnnotationViews` in `service.ts`, which
+projection (`documentAnnotationViews` in `annotation-views.ts`, which
 `listAnnotations` uses too) runs per document of the page, with what this
 reader may do on that document (`canWriteDocument`, so `canEdit`,
 `canDelete` and `carryTarget` are that document's), plus `documentName`. The
@@ -1490,7 +1490,7 @@ document Protokoll's own `entryBlocks` under a heading per document; the files
 come from the same `renderProtocol`. Past 1000 marks
 (`PROJECT_PROTOCOL_MAX_MARKS`) it is refused (422 `too-many-marks`) rather
 than cut. The download goes the document Protokoll's way (`downloadFetched`
-in `lib/browser-download.ts`, which `ReviewExportMenu` and the answer's Word
+in `apps/workspace/bff/browser-download.ts`, which `ReviewExportMenu` and the answer's Word
 export use too). Each export is the audit event `project.annotations.exported`,
 with the filters and the counts and never a name or a word of the marks; a
 download is also the browser's `report_exported` with `kind: 'open_points'`
@@ -1560,9 +1560,9 @@ it, and the project is not closed (`protocolFiling`, `file-preview-pane.tsx`).
 
 - The chat-hosted canvas (the review open over the chat) still asks an @agent reply in the chat's conversation, under the chat's own message id, when wakes are off; only the standalone canvas uses the reply's turn id.
 - The „Woken by“ prompt block names the person the turn runs for. A woken turn has no access token, so the name comes from the signed envelope's `requester`, which the wake job mints from the pinned session (`resolvePerson`; `turn.context.user_info_for`). `author_name` on the message only attributes the turn in the transcript. A woken turn whose person WorkOS cannot name still reads „A person“.
-- Which agent reply a wake wrote is derived, not stored (`lib/annotations/wake-attribution.ts`): a wake of the same person on the same mark that began before the reply and had not ended before it. The thread shows it as „Geweckt durch …“ under the reply's byline.
+- Which agent reply a wake wrote is derived, not stored (`apps/workspace/bff/annotations/wake-attribution.ts`): a wake of the same person on the same mark that began before the reply and had not ended before it. The thread shows it as „Geweckt durch …“ under the reply's byline.
 
-- The canvas runs its own small turn client next to the chat's turn driver in `use-websocket-chat.ts`. That driver should become one shared module that both use.
+- The canvas runs its own small turn client next to the chat's turn driver in `turn-driver.ts`. That driver should become one shared module that both use.
 - A box asked about on the canvas is still this tab's: its answer lives in the tab until kept, and a reload loses the card (the conversation keeps the answer). The next step is the primitive the thread now has: an ask as a server-side request on the document (a wake with an `asked` trigger), run headless, its state on the room, the tab attaching to its turn to stream it.
 - Over the chat, a canvas question whose server reads no box is not told so (`onDegraded` is the stand-alone canvas client's).
 - The Python side posts to internal routes through several near-identical helpers.

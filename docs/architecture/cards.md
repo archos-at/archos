@@ -296,7 +296,7 @@ the caveat has to travel with it.
 The four data cards go one step further: their payload is a file name, a
 GlobalId or a pair of revisions **and nothing else**, and the component fetches
 the figures from the model when it renders
-(`features/cards/components/IfcDataCards.tsx`). The agent therefore cannot
+(`features/cards/components/ifc-data-cards/`). The agent therefore cannot
 state a floor area, get a fire rating wrong or invent a delta, because it never
 supplies one — the worst it can do is point at the wrong table, which is visible
 immediately. That also keeps a card honest after the fact: re-open a

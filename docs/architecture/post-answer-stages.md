@@ -1519,7 +1519,7 @@ The mechanics exist. `FadeIn distance={6}` is what wraps every card today
 answer is still streaming, and may not appear if the reader has already typed
 into the composer. The first would move text mid-read; the second replaces the
 reader's own intention with a suggestion. `composerDrafts` is already in the store
-(`stores/messages-store.ts:63`) and is the check.
+(`stores/messages-slice-types.ts:20`) and is the check.
 
 And the reason there is a floor under the whole problem: **the reader loses
 nothing if it never arrives.** That is the design's licence to be casual about

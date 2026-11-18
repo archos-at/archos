@@ -317,7 +317,7 @@ each large one reduced to its type, description and field names with the
 (a dot path, array items stepped through) and returns just that subtree, layered
 again if it is still large. The result carries `layered: true` and `field`.
 
-The meta-tools are written once, `metaToolsFor` in `discovery.ts`, per caller:
+The meta-tools are written once, `metaToolsFor` in `discovery-meta-tools.ts`, per caller:
 the domain list is the office door's (never `platform`), and the agent's
 `call-operation` says a write comes back as a proposal. The agent's client reads its variant from
 `packages/agent/src/agent/tools/workspace/meta_tools.json`, which `meta-tools.spec.ts`
@@ -821,7 +821,7 @@ sequenceDiagram
 | Who gets it | An outside agent on an office door whose client can draw it: on the 2026-07-28 era, one whose request capabilities name `io.modelcontextprotocol/ui` with `text/html;profile=mcp-app` (read off each request's `_meta` before the SDK serves it); on the 2025 era, which carries no capabilities, every outside client, as before. Not the agent (it draws its own cards and never decides a proposal), not the platform door | `declaresMcpApps`, `appHostOf`, `offersAppViews`, `isAppToolFor` |
 | A model's own decision | `proposal-apply` and `proposal-dismiss` carry `personDecides`: an outside agent's call is put to the person first through elicitation, like a destructive write, on a 2026-07-28 client that declares form elicitation; elsewhere it runs as before | `confirmation.ts` |
 | Telemetry | A press is `agent_operation_called` / `agent-tool-call` with `decision_source: app` from a client that declared MCP Apps, `app-unverified` from one that declared nothing (the 2025 era); either is the host's word, not a signed answer like `elicitation`. The decision is the proposal's (`piloti.proposal.decided`, the decider the person) | `telemetry.ts` |
-| The view's data | For a caller offered the views, `structuredContent` of `proposal-get` and the buttons' operations is never dropped for length; only the text is capped. Every other caller gets the usual cap | `VIEW_DATA_OPERATIONS` in `discovery.ts`, `offersAppViews` in `app-host.ts` |
+| The view's data | For a caller offered the views, `structuredContent` of `proposal-get` and the buttons' operations is never dropped for length; only the text is capped. Every other caller gets the usual cap | `VIEW_DATA_OPERATIONS` in `discovery-results.ts`, `offersAppViews` in `app-host.ts` |
 
 **The view** draws the catalog card for the proposal's kind (`operation`,
 `file_operation`, `memory`) through `A2uiCard` with the chat's own receipts;
@@ -1296,7 +1296,7 @@ What the agent knows before its first call, and how it reports
 - **The work report** (`kind: work`): an operations turn ends with what it
   proposed (with the proposal ids), what is blocked and on whom, and what is
   next, drawn after the prose.
-- **German requests on the server.** `discovery.ts` ranks with
+- **German requests on the server.** `discovery-search.ts` ranks with
   `operationScorer` (`lib/text/operation-search.ts`): both sides folded, so a
   German query no longer breaks at its umlauts, and the office's words mapped to
   the catalog's (`operation-search-vocabulary.json`). A term matches itself and

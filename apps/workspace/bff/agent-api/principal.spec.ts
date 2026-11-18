@@ -72,10 +72,10 @@ function challengeOf(result: AgentPrincipal | AuthChallenge): AuthChallenge {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
-  process.env.MCP_RESOURCE_URL = RESOURCE
-  delete process.env.MCP_FORMER_ORIGINS
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', DOMAIN)
+  vi.stubEnv('MCP_RESOURCE_URL', RESOURCE)
+  vi.stubEnv('MCP_FORMER_ORIGINS', undefined)
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
 })
@@ -180,7 +180,7 @@ describe('external agent (bearer token)', () => {
       })
 
     beforeEach(() => {
-      process.env.MCP_FORMER_ORIGINS = FORMER
+      vi.stubEnv('MCP_FORMER_ORIGINS', FORMER)
     })
 
     it('takes a token an old connector holds for the former host, on either host', async () => {
@@ -210,7 +210,7 @@ describe('external agent (bearer token)', () => {
     })
 
     it('ignores an entry that is not an origin, and a host it was not told about', async () => {
-      process.env.MCP_FORMER_ORIGINS = `not a url, ftp://x.test, ${FORMER}/ignored-path`
+      vi.stubEnv('MCP_FORMER_ORIGINS', `not a url, ftp://x.test, ${FORMER}/ignored-path`)
       expect(isChallenge(await resolvePrincipal(onFormerHost('/api/mcp', await token({}, { aud: `${FORMER}/api/mcp` })), { jwks }))).toBe(false)
       const stray = await token({}, { aud: 'https://app.elsewhere.test/api/mcp' })
       expect(isChallenge(await resolvePrincipal(bearer(stray), { jwks }))).toBe(true)
@@ -263,7 +263,7 @@ describe('external agent (bearer token)', () => {
   })
 
   it('answers 503 while the deployment has no AuthKit domain', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const { response } = challengeOf(await resolvePrincipal(bearer(await token()), { jwks }))
     expect(response.status).toBe(503)
   })

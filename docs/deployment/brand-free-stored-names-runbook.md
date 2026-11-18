@@ -58,7 +58,8 @@ psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
 
 - **Deploy 1:** migration 0242. The checks on `document_annotations.author_kind`,
   `document_annotation_replies.author_kind` and `proposed_changes.proposed_by_kind`
-  accept both values. `isAgentKind` / `is_agent_kind` answer either value.
+  accept both values, under brand-free constraint names. `isAgentKind` /
+  `is_agent_kind` answer either value.
 - **Switch (step 1):** every writer writes `AGENT_KIND`. The agent's room peer is
   `agent-<conversation>`, and the wake audit's `by` is `'agent'`.
 - **Backfill:** `actor-kind.sql`, three batched `UPDATE`s. No serializer to an
