@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { FileDraftCard } from './FileDraftCard'
+import { filingBody, fileThroughDialog, openSaveDialog, stubFetch } from './draft-filing.fixtures'
 
 const setCardDecision = vi.fn()
 const setComposerPrefill = vi.fn()
@@ -48,14 +49,12 @@ const XLSX = {
   messageId: 'msg-1',
 }
 
-const filedResponse = (folderName = 'Berichte') =>
-  vi.fn(() =>
-    Promise.resolve({
-      ok: true,
-      status: 201,
-      json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'draft', alreadyFiled: false, folderName }),
-    }),
-  )
+const filedResponse = (folderName: string | null = 'Berichte') => () =>
+  Promise.resolve({
+    ok: true,
+    status: 201,
+    json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'draft', alreadyFiled: false, folderName }),
+  })
 
 describe('FileDraftCard — a file a script made', () => {
   beforeEach(() => {
@@ -160,18 +159,22 @@ describe('FileDraftCard — filing', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('files the file on one press, then says where it lies and offers the project', async () => {
-    const fetchMock = filedResponse()
-    vi.stubGlobal('fetch', fetchMock)
+  it('files the file through the save dialog, then says where it lies and offers the project', async () => {
+    stubFetch(filedResponse('Berichte'))
     const user = userEvent.setup()
     render(<FileDraftCard {...XLSX} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
     await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed as a draft in “Berichte”'))
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('/api/conversations/conv-1/draft/file')
-    expect(JSON.parse(String(init.body))).toEqual({ path: XLSX.path, title: XLSX.title, force: false })
+    expect(fetch).toHaveBeenCalledWith('/api/conversations/conv-1/draft/file', expect.objectContaining({ method: 'POST' }))
+    expect(filingBody()).toEqual({
+      path: XLSX.path,
+      title: XLSX.title,
+      force: false,
+      folderId: null,
+      name: 'Flächenaufstellung Top 4.xlsx',
+    })
     expect(setCardDecision).toHaveBeenCalled()
     expect(screen.getByText('In the project')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open in the project' })).toHaveAttribute('href', expect.stringContaining('doc-1'))
@@ -202,17 +205,47 @@ describe('FileDraftCard — filing', () => {
     expect(openFiledDocument).toHaveBeenCalledWith({ documentId: 'doc-1', projectId: 'proj-1' })
   })
 
-  it('says honestly when filing failed', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve({ ok: false, status: 502, json: async () => ({ error: 'upstream' }) })),
-    )
+  it('says honestly when filing failed, in the dialog that is still open', async () => {
+    stubFetch(() => Promise.resolve({ ok: false, status: 502, json: async () => ({ error: 'upstream' }) }))
     const user = userEvent.setup()
     render(<FileDraftCard {...XLSX} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Filing failed. Please try again.')
+    expect(await screen.findByTestId('save-to-project-error')).toHaveTextContent('Filing failed. Please try again.')
+    expect(screen.getByTestId('save-to-project')).toBeInTheDocument()
+  })
+
+  it('files into the folder and under the name the person chose, and says so on the card', async () => {
+    stubFetch(filedResponse('Protokolle'))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await openSaveDialog(user)
+    expect(screen.getByTestId('save-to-project-extension')).toHaveTextContent('.xlsx')
+    expect(screen.getByTestId('save-to-project-name')).toHaveValue('Flächenaufstellung Top 4')
+    await user.click(screen.getByRole('button', { name: 'Open folder “Planung”' }))
+    await user.click(screen.getByRole('button', { name: 'Open folder “Protokolle”' }))
+    await user.clear(screen.getByTestId('save-to-project-name'))
+    await user.type(screen.getByTestId('save-to-project-name'), 'Flächen EG{Enter}')
+
+    await waitFor(() =>
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed as a draft in “Protokolle”'),
+    )
+    expect(filingBody()).toMatchObject({ folderId: 'f-prot', name: 'Flächen EG.xlsx' })
+    expect(screen.queryByTestId('save-to-project')).not.toBeInTheDocument()
+  })
+
+  it('names the project root when the file went there', async () => {
+    stubFetch(filedResponse(null))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed as a draft in “All Files”'),
+    )
   })
 
   it('offers no filing for a CSV, says why, and asks for Excel instead', async () => {

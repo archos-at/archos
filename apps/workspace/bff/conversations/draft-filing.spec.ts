@@ -45,6 +45,10 @@ vi.mock('@/lib/conversations/draft-file', () => ({
   readConversationDraftBytes: vi.fn(),
 }))
 
+vi.mock('@/lib/projects/folder-service', () => ({
+  findProjectFolder: vi.fn(async (_projectId: string, folderId: string) => ({ id: folderId, name: 'Berichte' })),
+}))
+
 import { findConversationInOrg } from '@/lib/conversations/repository'
 import { readConversationDraft } from '@/lib/conversations/draft-preview'
 import {
@@ -100,6 +104,7 @@ beforeEach(() => {
     documentId: DOC,
     version: { id: VERSION, state: 'draft' } as DocumentVersion,
     alreadyFiled: false,
+    folderId: null,
   })
 })
 
@@ -211,6 +216,7 @@ describe('fileConversationDraft — a file a script made', () => {
       documentId: DOC,
       version: { id: VERSION, state: 'draft' } as DocumentVersion,
       alreadyFiled: false,
+      folderId: 'folder-1',
     })
   })
 

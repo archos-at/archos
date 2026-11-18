@@ -11,14 +11,21 @@ export const POST = apiRoute<Params>(
     return fileConversationDraft(
       session,
       params.id,
-      { path: body.path, title: body.title, force: body.force, locale: await getLocale() },
+      {
+        path: body.path,
+        title: body.title,
+        name: body.name,
+        folderId: body.folderId,
+        force: body.force,
+        locale: await getLocale(),
+      },
       request,
     )
   },
   {
     authz: {
       enforcedBy:
-        'fileConversationDraft (requireResourceAccess on the conversation, fileAgentDocumentDraft gates on the project and refuses an open destination for a thread that drew on a restricted folder)',
+        'fileConversationDraft (requireResourceAccess on the conversation, fileGeneratedDocument gates on the project and on write access to the chosen folder, refuses a folder of another project, and refuses an open destination for a thread that drew on a restricted folder)',
     },
     status: 201,
   },

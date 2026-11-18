@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ConversationConfinedError, ForbiddenError } from '@/lib/api/errors'
+import { ConversationConfinedError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { folderReadOnlyError, requireFolderWrite } from '@/lib/authz/folder-access'
 import { makeProject } from '@/test-utils/db-fixtures'
 import { GENERATED_DOCUMENT_PRODUCERS, fileGeneratedDocument } from './generated'
@@ -17,10 +17,12 @@ const {
   findProjectInOrg,
   getOrCreateProjectFolderByName,
   findRootProjectFolderByName,
+  findProjectFolder,
   findDocumentAuthoredByRef,
   recordedRestrictedFolders,
   listProjectFolderTree,
 } = vi.hoisted(() => ({
+  findProjectFolder: vi.fn(),
   s3Send: vi.fn(),
   ensureTenantBucketChecked: vi.fn(),
   admitOrDiscard: vi.fn(),
@@ -52,7 +54,11 @@ vi.mock('@/lib/storage/admission', () => ({ admitOrDiscard }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEventOrThrow }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg }))
-vi.mock('@/lib/projects/folder-service', () => ({ getOrCreateProjectFolderByName, findRootProjectFolderByName }))
+vi.mock('@/lib/projects/folder-service', () => ({
+  getOrCreateProjectFolderByName,
+  findRootProjectFolderByName,
+  findProjectFolder,
+}))
 vi.mock('@/lib/conversations/restricted-use', () => ({
   recordedRestrictedFolders,
   recordedSourceProjects: async () => [],
@@ -276,5 +282,64 @@ describe('filing into a folder the commissioning person may only read (ADR-0088)
     await fileReadOnly()
     expect(requireFolderWrite).toHaveBeenNthCalledWith(1, SESSION, 'proj-1', [null])
     expect(requireFolderWrite).toHaveBeenNthCalledWith(2, SESSION, 'proj-1', [FOLDER.id])
+  })
+})
+
+describe('filing into a folder the person chose', () => {
+  const PROTOKOLLE = { ...FOLDER, id: 'folder-protokolle', name: 'Protokolle', path: 'Planung/Protokolle' }
+  const fileInto = (folderId: string | null) => fileGeneratedDocument(filingInput({ ref: 'ref-chosen', folderId }))
+
+  beforeEach(() => {
+    findProjectFolder.mockImplementation(async (_projectId: string, folderId: string) =>
+      folderId === PROTOKOLLE.id ? PROTOKOLLE : null,
+    )
+  })
+
+  it('files into the chosen folder, under its path, and never creates Berichte', async () => {
+    const filed = await fileInto(PROTOKOLLE.id)
+
+    expect(filed.folderId).toBe(PROTOKOLLE.id)
+    expect(findProjectFolder).toHaveBeenCalledWith('proj-1', PROTOKOLLE.id, 'org-1')
+    expect(requireFolderWrite).toHaveBeenCalledWith(SESSION, 'proj-1', [PROTOKOLLE.id])
+    expect(getOrCreateProjectFolderByName).not.toHaveBeenCalled()
+    expect(admitOrDiscard.mock.calls[0][2]).toMatchObject({ folderId: PROTOKOLLE.id })
+    expect(admitOrDiscard.mock.calls[0][1]).toContain('Planung/Protokolle')
+  })
+
+  it('files at the project root for null, checked as the root', async () => {
+    const filed = await fileInto(null)
+
+    expect(filed.folderId).toBeNull()
+    expect(requireFolderWrite).toHaveBeenCalledWith(SESSION, 'proj-1', [null])
+    expect(getOrCreateProjectFolderByName).not.toHaveBeenCalled()
+    expect(admitOrDiscard.mock.calls[0][2]).toMatchObject({ folderId: null })
+  })
+
+  it('refuses a folder of another project with 404, before anything is rendered or written', async () => {
+    await expect(fileInto('folder-of-another-project')).rejects.toBeInstanceOf(NotFoundError)
+
+    expect(findProjectFolder).toHaveBeenCalledWith('proj-1', 'folder-of-another-project', 'org-1')
+    expect(render).not.toHaveBeenCalled()
+    expect(s3Send).not.toHaveBeenCalled()
+    expect(admitOrDiscard).not.toHaveBeenCalled()
+  })
+
+  it('refuses a chosen folder the person may only read, before anything is rendered or written', async () => {
+    vi.mocked(requireFolderWrite).mockRejectedValueOnce(folderReadOnlyError())
+
+    await expect(fileInto(PROTOKOLLE.id)).rejects.toBeInstanceOf(ForbiddenError)
+    expect(requireFolderWrite).toHaveBeenCalledWith(SESSION, 'proj-1', [PROTOKOLLE.id])
+    expect(render).not.toHaveBeenCalled()
+    expect(admitOrDiscard).not.toHaveBeenCalled()
+  })
+
+  it('still requires the generate permission for a chosen folder', async () => {
+    requireProjectAccess.mockImplementation(async (_s: unknown, _p: string, permission: string | readonly string[]) => {
+      if (permission === 'project:documents:generate') throw new ForbiddenError('project:documents:generate required')
+      return { role: 'editor' }
+    })
+
+    await expect(fileInto(PROTOKOLLE.id)).rejects.toBeInstanceOf(ForbiddenError)
+    expect(admitOrDiscard).not.toHaveBeenCalled()
   })
 })

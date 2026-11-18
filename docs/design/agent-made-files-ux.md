@@ -23,9 +23,22 @@ like a file, not like a chat message:
   under it: the file is labelled as an AI draft before anyone opens it.
 - **Three actions.** „Öffnen“ shows every page in the document viewer the rest
   of the app uses. „Herunterladen“ gives the original file. „Ins Projekt
-  ablegen“ is the one ink press.
+  ablegen“ is the one ink press, and it asks where and under what name first
+  (below).
+- **Where it goes, and what it is called.** „Ins Projekt ablegen“ opens a
+  small save dialog, a simplified Windows „Speichern unter“: the name on top,
+  prefilled with the card's title, its extension („.xlsx“, „.md“ for a
+  Markdown draft) beside the field and not editable away; under it „Ablegen
+  in“ with the path as a breadcrumb („Alle Dateien › 02 Einreichung“) and the
+  folders that lie there, one press to open one. The file goes where the
+  reader stands, the project root included. „Neuer Ordner“ makes a folder
+  where the reader stands and steps into it. A folder the reader may only read
+  is marked „Nur lesen“, can be opened to reach a folder inside it, and keeps
+  „Ablegen“ locked with the reason. On a phone it is the bottom sheet every
+  dialog becomes.
 - **After filing, the project is the truth.** The card says „Im Projekt“ and
-  „Liegt als Entwurf in „Berichte““, offers „Im Projekt öffnen“ and „Zur
+  „Liegt als Entwurf in „Protokolle““ (the folder chosen; „Alle Dateien“ for
+  the root), offers „Im Projekt öffnen“ and „Zur
   Freigabe einreichen“, and then shows the review state („In Prüfung“). The
   conversation's copy steps back: no second download of bytes that are not the
   filed, AI-marked ones.
@@ -67,7 +80,24 @@ its glyph and code, never by a Word blue or an Excel green.
   with the output check and the AI marking), in the person's session. An SVG the
   store kept as text goes the same way. CSV, JSON, HTML and other text are
   refused with `422 not-fileable` before anything is read. The answer names the
-  folder (`Berichte`).
+  folder it went to (`folderId`, `folderName`; `null` for the root).
+- **The chosen folder and name.** The route takes `folderId` (`null` for the
+  root; left out, the default `Berichte` as before, which is what the agent's
+  own `file_draft` still does) and `name`. `fileGeneratedDocument` refuses a
+  folder that is not on this project's shelf with 404 and checks
+  `requireFolderWrite` on the chosen folder (or the root) before anything is
+  rendered. The name loses control characters and slashes, and its extension is
+  set to the draft's real type (`filedExtension`: a Markdown or text draft files
+  as `.md`), so „Plan.docx“ for a workbook files as „Plan.docx.xlsx“; an empty
+  name is a 400. The same-name check (409, then `force`) looks in the chosen
+  folder only; without a folder it stays project-wide. „Trotzdem ablegen“
+  repeats the chosen folder and name.
+- **The dialog is shared.** `SaveToProjectDialog`
+  (`ui/features/documents/save-to-project.ts`) takes a project, a file name and
+  its extension and answers `{ folderId, folderLabel, name }`; it loads the
+  project's folders itself, or takes them as `knownFolders` from a caller that
+  has them. Nothing in it knows the chat, so an upload or an export can use it.
+  Examples on `/dev/save-to-project`.
 - **One card per path per turn.** `emit_draft_card` replaces the turn's earlier
   card for the same path.
 - Both routes are operations (`conversation-draft-download`,
