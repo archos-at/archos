@@ -98,11 +98,10 @@ def needs_covered_after_record():
 
 class TestTheRunnerContract:
     def test_it_declares_its_state_and_writes_no_report(self):
-        from agent_host.jobs.agent_run import _get_agent_state_class
         from agent_host.jobs.report_passes import _produces_report
 
         agent = _agent(ScriptedModel([AIMessage(content="x")]))
-        assert _get_agent_state_class(agent) is IntakeAgentState
+        assert type(agent).state_model is IntakeAgentState
         assert _produces_report(ProjectIntakeAgent) is False
 
     def test_the_runner_constructs_it_the_way_it_constructs_every_agent(self):
