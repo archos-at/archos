@@ -1,10 +1,7 @@
 ---
 name: office-pdf-charts
 description: >
-  Use when the person wants a PDF made, filled, merged or split, the text of a
-  PDF read, or a chart: a Planliste as PDF, an authority's form filled in, a
-  bar or line chart of costs or areas as SVG. Read `office-files` first for the
-  run contract.
+  Filling, merging or reading a PDF, or drawing a chart? Code that works here.
 metadata:
   agents: researcher
   title: PDF und Diagramm erstellen
@@ -12,7 +9,7 @@ metadata:
 
 # A PDF, a chart
 
-Read `office-files` first if you have not this conversation.
+Read `execute` first if you have not this conversation.
 
 ## A PDF with `pdf-lib`
 

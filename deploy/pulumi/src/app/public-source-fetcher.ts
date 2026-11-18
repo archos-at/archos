@@ -23,7 +23,7 @@ export const PUBLIC_SOURCE_FETCHER = {
   privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96"],
   resources: {
     // The server idles at about 65 MiB (measured 2026-11-10); two PDF readers at 1 GiB each fit the limit.
-    requests: { cpu: "100m", memory: "1Gi" },
+    requests: { cpu: "1000m", memory: "1Gi" },
     limits: { cpu: "1000m", memory: "2560Mi" },
   },
 } as const;

@@ -285,7 +285,7 @@ async def _inject_memory_header(state: Any, request: JobRequest) -> str | None:
     return digest
 
 
-def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
+def trace_metadata(request: JobRequest, run: RunContext, agent_cls: type) -> tuple[Any, Any]:
     from nat.data_models.intermediate_step import TraceMetadata
 
     trace_hex = f"{run.trace_id:032x}"
@@ -294,7 +294,7 @@ def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
             "workflow_run_id": request.job_id,
             "workflow_trace_id": trace_hex,
             "conversation_id": request.parent_conversation_id,
-            "agent": request.agent_class_path,
+            "agent": f"{agent_cls.__module__}.{agent_cls.__qualname__}",
             "parent_workflow_run_id": request.parent_workflow_run_id,
             "parent_workflow_name": request.parent_function_name,
         }

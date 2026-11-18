@@ -28,15 +28,14 @@ export const RetryThoroughButton: FC<RetryThoroughButtonProps> = ({ messageId, c
   const projectId = useChatStore((s) => s.projectId)
   const { state } = useAnswerFeedback(messageId, conversationId, projectId)
   const send = useChatStore((s) => s.chatSendFn)
-  const question = useChatStore((s) => {
+  const asked = useChatStore((s) => {
     const messages = s.currentConversation?.messages ?? []
     const at = messages.findIndex((m) => m.id === messageId)
     if (at < 0) return null
-    const asked = messages
-      .slice(0, at)
-      .findLast((m) => m.messageType === 'user' || m.role === 'user')
-    return asked?.content?.trim() || null
+    return messages.slice(0, at).findLast((m) => m.messageType === 'user' || m.role === 'user') ?? null
   })
+  const question = asked?.content?.trim() || null
+  const answerExcerpt = asked?.answerExcerpt
   const ranAt = useChatStore(
     (s) => s.currentConversation?.messages.find((m) => m.id === messageId)?.reasoningEffort
   )
@@ -56,8 +55,8 @@ export const RetryThoroughButton: FC<RetryThoroughButtonProps> = ({ messageId, c
   const handleClick = useCallback(() => {
     if (!send || !question || !target) return
     capturePosthog('answer_retry_thorough', { message_id: messageId, original_effort: original })
-    send(question, { reasoningEffort: target })
-  }, [send, question, target, messageId, original])
+    send(question, answerExcerpt ? { reasoningEffort: target, answerExcerpt } : { reasoningEffort: target })
+  }, [send, question, answerExcerpt, target, messageId, original])
 
   if (!visible) return null
 

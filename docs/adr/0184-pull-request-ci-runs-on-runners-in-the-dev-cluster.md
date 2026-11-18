@@ -160,13 +160,13 @@ neither a privileged pod nor a Kubernetes credential where a pull request's code
 **Rolling it out.** Each step is a person's, in this order:
 
 1. Make the repository private (an organisation admin).
-2. Dispatch `CI runner image` on `develop`; make the `ci-runner` package public (it carries no
-   secret) or give the scale set a pull secret; set the digest from the run's summary as
-   `grid-oib:ciRunnersImage` in `Pulumi.dev.yaml`.
-3. Create a GitHub App on the organisation, installed on this repository, with Actions and
+2. Create a GitHub App on the organisation, installed on this repository, with Actions and
    Administration read/write. Set `ciRunnersGithubAppId`, `ciRunnersGithubAppInstallationId`
    and, as a secret, `ciRunnersGithubAppPrivateKey`. Optionally add a CI worker group and set
    `ciRunnersNodeGroup`.
+3. Dispatch `CI runner image` on `develop`; make the `ci-runner` package public (it carries no
+   secret) or give the scale set a pull secret; set the digest from the run's summary as
+   `grid-oib:ciRunnersImage` in `Pulumi.dev.yaml`.
 4. Set `ciRunnersEnabled: true` and deploy dev. The scale set appears under Settings →
    Actions → Runners.
 5. Set the repository variable `CI_RUNNER=dev-cluster`. Unset it to move back.

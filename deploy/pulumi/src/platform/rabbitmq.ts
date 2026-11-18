@@ -16,7 +16,7 @@ export const RABBITMQ = {
   cluster: "hatchet-rabbitmq",
   podLabel: { "background-work/component": "rabbitmq" } as Record<string, string>,
   replicas: 3,
-  resources: { requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
+  resources: { requests: { cpu: "270m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
   amqpPort: 5672,
   managementPort: 15672,
   metricsPort: 15692,

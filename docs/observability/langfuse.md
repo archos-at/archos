@@ -73,6 +73,7 @@ Trace metadata on the root:
 | `question_language`, `question_language_confidence`, `answer_language_instructed` | the language py3langid calls the person's newest message (ISO 639-1, or `undetermined` for one too short to call), its probability, and whether the turn context ended with the line telling the model to answer in it: only for a confident call that is not German (`common/question_language.py`, recorded by `agent.run`). A turn answered in German with `answer_language_instructed: true` is the model ignoring the line |
 | `steer_count` | on a turn the asker steered: how many of their notes (`steer`, typed while the turn ran) it has read so far, recorded by the agent node each time it reads one (`turn_steering._announce_steer`). With the tag `steered` |
 | `thread_reply` | on a turn asked to answer in an Anmerkung's thread (`reply_in_thread`): `replied` (the model called `canvas__reply` on that mark), `skipped` (it did not, so the socket posts the answer in the thread after the turn, `agent.turn.annotation_reply`), or `skipped_withheld` (it did not, and the conversation drew on a restricted folder, so nothing is posted). Recorded when the turn leaves the canvas (`settle_thread_reply`). The fallback's own post runs after the trace closes and is not an observation; this value is what keeps a model that stops replying in threads visible |
+| `answer_excerpt_chars` | on a turn asked about a selected part of an earlier answer (`user_message.answer_excerpt`): the length of that part, recorded by `conversation_register._finished`. Absent on every other turn |
 | `focus_region_viewed` | on a turn with a box only: whether a region view (`look` with `region`) ran, read off the turn's image budget (`conversation_register._finished`). `false` is a turn that answered about a drawing it never looked at |
 
 Tags, the trace list's fast filter: `outcome:<…>`, `route:<…>`,
@@ -155,12 +156,13 @@ with its real start and end, and the turn gets the tag `feature:execute`. Its
 input: the run's ordinal in the turn (`run`), the script's `code_chars` and
 `code_sha256` (16 hex characters: the same script twice is the same hash),
 whether named documents were passed (`documents`) and how many
-(`documents_named`), the `input_files` and `input_bytes` sent (the working
-directory plus those documents) and `timeout_s`. Its output: `status` (`ok`,
+(`documents_named`), how many tool results were handed over (`data_named`),
+the `input_files` and `input_bytes` sent (the working directory plus those
+documents and results) and `timeout_s`. Its output: `status` (`ok`,
 `error`, `timeout`, `unavailable`, `refused`), `reason` on an unavailable or
 refused run (`no_runner`, `unreachable`, `busy`, `http_error`;
 `no_conversation`, `no_envelope`, `unresolved`, `base_corpus`, `too_large`,
-`unreadable`), the runner's own `runner_ms` beside the tool's `wall_ms` (the
+`unreadable`, `unknown_data`, `too_many_data`), the runner's own `runner_ms` beside the tool's `wall_ms` (the
 difference is reading the documents, the busy retries and keeping the files),
 `files_kept`, `files_new` (not in the working directory before), `kept_bytes`,
 `file_types` (the extensions), `files_refused` (over the conversation's cap)
@@ -360,7 +362,7 @@ a name is written but not declared, or declared but not listed here.
 | `work-proposals-unfiled` | numeric | agent | on a work turn only: the report's `proposed` lines whose `ref` named no proposal this turn's workspace writes filed, dropped before the person saw them (`envelope_gates.drop_unfiled_proposals`). Above zero is a turn that claimed a proposal it did not make |
 | `thread-answered-in-place` | boolean | agent, when the turn leaves the canvas | on a turn asked to answer in an Anmerkung's thread: true when the model replied there itself (`canvas__reply`), false when it did not and the socket posts the answer for it. No score when the turn may not post there (`thread_reply` = `skipped_withheld`). The false rate is how often the prompt is ignored, which the fallback otherwise hides |
 | `execute-status` | categorical | agent, the `execute` tool | per run (item `run:<n>`): `ok`, `error` (the script threw, or the runner refused the request), `timeout`, `unavailable` (no runner configured, unreachable, busy past its retries, another HTTP answer), `refused` (nothing sent: no conversation, a named document that could not be resolved or read, over 50 MB). The comment is the `reason` of an unavailable or refused run. The share `error` is the run error rate; the step `execute.run` holds the first stderr line |
-| `execute-runs-to-file` | numeric ≥ 1 | agent, the `execute` tool | on a run that kept at least one file: the runs the turn made since its last run that kept one, this run included. 1 is a file on the first try; its mean is the tries until a file, the signal for the `office-files` skill and the runner's libraries |
+| `execute-runs-to-file` | numeric ≥ 1 | agent, the `execute` tool | on a run that kept at least one file: the runs the turn made since its last run that kept one, this run included. 1 is a file on the first try; its mean is the tries until a file, the signal for the `execute` skill and the runner's libraries |
 | `execute-files-made` | numeric ≥ 0 | agent, the `execute` tool | on every run that reached the runner: the files it kept that were new to the working directory (a rewritten file is not counted again). Zero is a measurement |
 | `execute-files-filed` | numeric 0–1 | agent, `file_draft` | 1 when `file_draft` files a run's file into the project for the first time (item: the path's hash), on the filing turn's trace, which may be later than the turn that made it. Summed over a period against the sum of `execute-files-made`, the share of made files that reached the project |
 | `review-correctness` | categorical | reviewer, in the queue | `correct`, `partly_correct`, `incorrect` |

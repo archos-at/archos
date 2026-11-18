@@ -325,6 +325,7 @@ export function useAgentResponseController({
   )
 
   const inert = live || failed
+  const excerptSourceId = readOnly || inert || retracted ? undefined : messageId
   const actionsContent = inert ? '' : content
   const actionsBody = inert ? '' : body
   const actionsDocuments = inert ? NO_DOCUMENTS : documents
@@ -641,6 +642,7 @@ export function useAgentResponseController({
     kindLabel,
     hasFeedback,
     inert,
+    excerptSourceId,
     variant,
   }
 }

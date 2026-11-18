@@ -55,6 +55,7 @@ const MessageRendererComponent: FC<MessageRendererProps> = ({
           grouped={grouped}
           mentions={message.mentions}
           currentUserId={currentUserId}
+          answerExcerpt={message.answerExcerpt?.text}
         />
       )
 

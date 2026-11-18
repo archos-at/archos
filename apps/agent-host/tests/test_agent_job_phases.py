@@ -31,7 +31,7 @@ def _request(**overrides: Any) -> JobRequest:
         "config_file_path": "config.yml",
         "job_id": "job-1",
         "input_text": "Wie hoch darf das Gebäude sein?",
-        "agent_class_path": "pkg.Agent",
+        "agent_type": "deep_researcher",
         "agent_config_name": "deep_research_agent",
     }
     return JobRequest(**{**base, **overrides})
@@ -81,7 +81,7 @@ def _payload(**overrides: Any) -> dict[str, Any]:
         "config_file_path": "config.yml",
         "job_id": "job-1",
         "input_text": "q",
-        "agent_class_path": "pkg.Agent",
+        "agent_type": "deep_researcher",
         "agent_config_name": "deep_research_agent",
         **overrides,
     }
@@ -299,7 +299,9 @@ async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatc
 
     monkeypatch.setattr("nat.runtime.loader.load_config", lambda _path: SimpleNamespace(workflow=None))
     monkeypatch.setattr("nat.builder.workflow_builder.WorkflowBuilder.from_config", from_config)
-    monkeypatch.setattr(agent_job, "_load_agent_class", lambda _path: type("Agent", (), {}))
+    monkeypatch.setattr(
+        agent_job, "get_agent_config", lambda _type: SimpleNamespace(load=lambda: type("Agent", (), {}))
+    )
     monkeypatch.setattr(agent_job, "prepare_models", models)
     monkeypatch.setattr(agent_job, "prepare_tools", tools)
     monkeypatch.setattr(agent_job, "_create_agent_instance", lambda **kwargs: object())
@@ -388,8 +390,8 @@ async def test_persist_hands_the_skip_to_the_report_passes_so_no_reflection_mode
 def test_the_workflow_span_says_the_conversation_is_temporary_and_only_then():
     run = SimpleNamespace(trace_id=1)
     temporary = _request(usage_context={"temporary_conversation": True})
-    workflow, _ = agent_job_setup.trace_metadata(temporary, run)
+    workflow, _ = agent_job_setup.trace_metadata(temporary, run, object)
     assert workflow.provided_metadata["temporary_conversation"] is True
 
-    workflow, _ = agent_job_setup.trace_metadata(_request(usage_context={"identity": {}}), run)
+    workflow, _ = agent_job_setup.trace_metadata(_request(usage_context={"identity": {}}), run, object)
     assert "temporary_conversation" not in workflow.provided_metadata

@@ -29,7 +29,7 @@ import {
   type CanvasFocusRegion,
 } from '../lib/canvas-bridge'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
-import type { ChatMessage, Conversation, PendingInteraction } from '../types'
+import type { AnswerExcerpt, ChatMessage, Conversation, PendingInteraction } from '../types'
 import { createTurnDriver, type ConnectionFailure, type DriverHooks, type TurnDriver, type UserMessage } from '../lib/turn-driver'
 import { createDriverPool, type DriverPool } from '../lib/turn-driver-pool'
 import type { TurnView } from '@/lib/turns/turn-fold'
@@ -356,7 +356,8 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
       dataSourcesForMessage: string[] | null,
       conversationId: string | undefined,
       reasoningEffort?: ChatEffort,
-      asked?: CanvasFocus
+      asked?: CanvasFocus,
+      answerExcerpt?: AnswerExcerpt
     ): boolean => {
       const canvas = asked ?? openCanvasFocus() ?? undefined
       if (!conversationId) {
@@ -391,6 +392,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         reasoning_effort: effort,
         ...(posthogSessionId ? { posthog_session_id: posthogSessionId } : {}),
         ...(clientTools.length ? { client_tools: clientTools } : {}),
+        ...(answerExcerpt ? { answer_excerpt: answerExcerpt.text } : {}),
       }
       afterTemporarySettled(conversationId, () => ensureDriver(conversationId).ask(question))
       return true
@@ -428,6 +430,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
               metadata: {
                 enabledDataSources: dataSourcesForMessage,
                 ...(messageFiles.length > 0 ? { messageFiles } : {}),
+                ...(options.answerExcerpt ? { answerExcerpt: options.answerExcerpt } : {}),
               },
               createdAt: new Date().toISOString(),
               mentions: mentions.map((mention) => ({ targetId: mention.targetId })),
@@ -454,6 +457,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         messageType: 'user',
         enabledDataSources: dataSourcesForMessage,
         messageFiles: messageFiles.length > 0 ? messageFiles : undefined,
+        ...(options.answerExcerpt ? { answerExcerpt: options.answerExcerpt } : {}),
         mentions: mentions.map((mention) => ({ ...mention })),
         addressees: ruling,
       })
@@ -463,7 +467,15 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         return { ok: true, addressees: ruling }
       }
 
-      const started = openAgentTurn(messageId, content, dataSourcesOnWire, conversationId, options.reasoningEffort)
+      const started = openAgentTurn(
+        messageId,
+        content,
+        dataSourcesOnWire,
+        conversationId,
+        options.reasoningEffort,
+        undefined,
+        options.answerExcerpt
+      )
       return { ok: started, addressees: ruling }
     },
     [addErrorCard, collectSendMetadata, deliverAsContext, openAgentTurn]
@@ -476,7 +488,11 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         return sendRuledMessage(content, options ?? {})
       }
       const { dataSourcesForMessage, dataSourcesOnWire, messageFiles } = collectSendMetadata()
-      const message = addUserMessage(content, { enabledDataSources: dataSourcesForMessage, messageFiles })
+      const message = addUserMessage(content, {
+        enabledDataSources: dataSourcesForMessage,
+        messageFiles,
+        answerExcerpt: options?.answerExcerpt,
+      })
       const conversationId = useChatStore.getState().currentConversation?.id
       return openAgentTurn(
         message.id,
@@ -484,7 +500,8 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         dataSourcesOnWire,
         conversationId,
         options?.reasoningEffort,
-        options?.canvas
+        options?.canvas,
+        options?.answerExcerpt
       )
     },
     [addUserMessage, collectSendMetadata, openAgentTurn, sendRuledMessage]

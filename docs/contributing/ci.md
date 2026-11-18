@@ -112,13 +112,13 @@ light run always runs in full.
 | Workspace tests (`workspace-test`) | workspace tier: pushes, and `ci:full` PRs unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
 | Agent to engine tests (`agent-engine`) | backend or packages tier, except on a light pull request run | the root environment plus the IFC engine as `apps/agent-host/Dockerfile` installs it, and every suite that otherwise skips without the engine (`importorskip("ifc_spatial…")`): `test_question_battery.py` and three more. Fails when its one report holds no test or a skipped one; an expected failure counts as run, here and in `hatchet`, which shares the check (`ci/hatchet_engine.sh require-ran`). `tests/test_ci_workflows.py` fails when a gated suite is not named here. The install floats on purpose, like the image's: a new release of a dependency can turn this red with no commit, on every full run in these tiers and on `publish`. The image built next would carry that release, which is how ifcopenshell 0.9 got there unnoticed. Green proves only what these suites call, not that the engine works on that release |
-| Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*` |
+| Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*`, and in the same `packages` job `task browser:test` and `task runner:test` (the browser renderer's and the code runner's own suites) |
 | Code runner end to end (`runner-e2e`) | `runner_e2e` tier: the code runner, the agent's `tools/execute/` and `tools/documents/`, the office skills, their test | the root venv and the runner's Node toolchain in one job; `task runner:e2e` starts the real runner and drives the agent's `execute` and `file_draft` tools against it (about 20 s after install). The task builds first, so a missing toolchain fails rather than skips |
 | Hatchet engine tests (`hatchet`) | pushes and `ci:full` PRs, `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
 | Image build (`image`) | `ci:full` PRs that change an image's inputs (a push builds in `image-push`) | builds it, read-only token, no push. For the UI this IS the production build check: `workspace:build` is not run separately |
 | Image build + push (`image-push`) | pushes, image not in GHCR | builds and pushes `inputs-<hash>` and the layer cache |
-| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on every image `ci/image_inputs.py` lists (backend, frontend, web, cms, code-runner), and `latest` on `develop` |
+| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on every image `ci/image_inputs.py` lists (backend, frontend, web, cms, code-runner, browser-renderer), and `latest` on `develop` |
 | `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green `ci:full` PR, records the tested tree for reuse |
 
 One more workflow runs on a push to `develop` and is not CI:
@@ -188,15 +188,15 @@ The contract, end to end:
    An image tag of that kind claims nothing about any commit.
 2. Only when every check on the push has passed does `publish` put
    `sha-<commit>` on **every** image in `IMAGES` of `ci/image_inputs.py`: backend, frontend,
-   web, `cms` and `code-runner`. A commit CI failed has no `sha-` tag.
+   web, `cms`, `code-runner` and `browser-renderer`. A commit CI failed has no `sha-` tag.
 3. `CI OK` needs `publish`, so a push run concludes `success` only with the
    tags in place.
 4. `deploy.yml` runs on `workflow_run` of CI, for a successful **push** run of
    this repository on `develop`, and pins every service to
    `sha-<commit>`. No polling, no per-service guessing.
 5. A prod promotion pins any `develop` commit CI passed. All of them have every
-   image. The CMS and the code runner are optional: `verify-image-tag.sh` checks
-   them only where the stack turns them on (`cmsEnabled`, `codeRunnerEnabled`), and
+   image. The CMS, the code runner and the browser renderer are optional: `verify-image-tag.sh` checks
+   them only where the stack turns them on (`cmsEnabled`, `codeRunnerEnabled`, `browserRendererEnabled`), and
    a rollback to a commit from before one had an image keeps the one deployed.
 
 What this replaced, and why it had to go: Publish Images rebuilt each image

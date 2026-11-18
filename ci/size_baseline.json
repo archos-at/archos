@@ -7,7 +7,7 @@
     "packages/agent/src/agent/common/content_screen.py": 640,
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/provider_limiter.py": 621,
-    "packages/agent/src/agent/common/wire_v2.py": 1001,
+    "packages/agent/src/agent/common/wire_v2.py": 979,
     "packages/agent/src/agent/core/answer_pipeline.py": 670,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 760,
     "packages/agent/src/agent/tools/bim/register.py": 686,

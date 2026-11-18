@@ -1,59 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import * as pulumi from "@pulumi/pulumi";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { load } from "js-yaml";
-import { LEGACY_PROJECT } from "./src/names";
-import { SIGNING_KEYS } from "./src/test-support/app-zone-config";
-import { baseStackConfig } from "./src/test-support/stack-config";
+import { type PlannedResource, mockDevStack, planDevStack } from "./src/test-support/dev-stack";
 
-type Resource = { type: string; name: string; inputs: Record<string, any> };
+type Resource = PlannedResource;
 
-const ZONE_NAMES: Record<string, string> = {
-  "66de14f8d07a729634f5d230418bb907": "piloti.at", // pragma: allowlist secret (public zone id)
-  "31df51fbdd7ea2d7ef63bcaab9a09559": "archos.tech", // pragma: allowlist secret (public zone id)
-};
-const RESOURCES: Resource[] = [];
-
-pulumi.runtime.setMocks(
-  {
-    newResource: (args: pulumi.runtime.MockResourceArgs) => {
-      RESOURCES.push({ type: args.type, name: args.name, inputs: args.inputs });
-      return { id: `${args.name}-id`, state: { ...args.inputs, metadata: args.inputs.metadata ?? { name: args.name } } };
-    },
-    call: (args: pulumi.runtime.MockCallArgs) => {
-      if (args.token === "cloudflare:index/getZone:getZone") {
-        return { id: args.inputs.zoneId, name: ZONE_NAMES[args.inputs.zoneId as string], account: { id: "account-1", name: "Office" } };
-      }
-      if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
-        return { results: [{ name: args.inputs.name?.exact ?? "", content: "route1.mx.cloudflare.net", type: "MX" }] };
-      }
-      return {};
-    },
-  },
-  LEGACY_PROJECT,
-  "dev",
-  false,
-);
-
-function devStackConfig(): Record<string, string> {
-  const file = load(readFileSync(join(__dirname, "Pulumi.dev.yaml"), "utf8")) as { config: Record<string, unknown> };
-  return { ...baseStackConfig(), ...Object.fromEntries(
-    Object.entries(file.config).map(([key, value]) => [
-      key,
-      value && typeof value === "object" && "secure" in value
-        ? "placeholder-secret-value"
-        : typeof value === "string"
-          ? value
-          : JSON.stringify(value),
-    ]),
-  ),
-    [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
-    [`${LEGACY_PROJECT}:otelOidcClientSecret`]: "placeholder-secret-value",
-    [`${LEGACY_PROJECT}:cloudflareApiToken`]: "placeholder-secret-value",
-    [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: SIGNING_KEYS,
-  };
-}
+const RESOURCES: Resource[] = mockDevStack();
 
 type Workload = { kind: string; name: string; spec: Record<string, any> };
 
@@ -124,9 +76,7 @@ function violations(w: Workload): string[] {
 
 describe("the dev stack's plan against the policy pack's mandatory workload rules", () => {
   beforeAll(async () => {
-    pulumi.runtime.setAllConfig(devStackConfig());
-    await import("./index");
-    await new Promise((r) => setTimeout(r, 200));
+    await planDevStack();
   });
 
   it("builds the workloads", () => {
