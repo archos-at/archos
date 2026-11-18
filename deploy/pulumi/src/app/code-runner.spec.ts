@@ -111,7 +111,7 @@ describe("code-runner", () => {
     expect(c.image).toBe(defaults.codeRunner.image);
     expect(pod.automountServiceAccountToken).toBe(false);
     expect(pod.enableServiceLinks).toBe(false);
-    expect(pod.securityContext).toMatchObject({ runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 });
+    expect(pod.securityContext).toMatchObject({ runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001 });
     expect(c.securityContext).toEqual({
       allowPrivilegeEscalation: false,
       privileged: false,

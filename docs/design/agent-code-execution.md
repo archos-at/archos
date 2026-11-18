@@ -303,7 +303,7 @@ the Hatchet backlog trigger below waits until background runs exist.
 |---|---|---|
 | Run time | 60 s default, 180 s maximum | Office files take well under a second (*measured*); this is a ceiling against loops |
 | Memory per run | 128 MB | Cloudflare Workers' own per-isolate limit; enough for the tested files |
-| Concurrent runs per pod | 8 | Worst case: 70 MB for workerd + 8 × (128 MB per isolate + 50 MB of inputs and `/workspace/` files held for it) ≈ 1.5 GB, inside a 2 GiB limit. The measured peak (925 MB for 20 runs) is typical use, not the budget |
+| Concurrent runs per pod | 4 (`CODE_RUNNER_SLOTS`) | Each run has its own workerd process, because self-hosted workerd does not enforce a CPU limit and one endless loop would freeze every run in a shared process. Worst case: 4 × (190 MB per process after a run + 128 MB isolate + 50 MB of inputs and `/workspace/` files) ≈ 1.5 GB, inside a 2 GiB limit; KEDA adds pods for more |
 | Concurrent runs per organization | 4 | One office cannot starve the others |
 | Inputs per run | 50 MB in total, `/workspace/` files included | Drawings and scans stay with the services built for them. Inside the isolate the same bytes count toward its 128 MB |
 | Output files | all checked before the card | The output check is not optional |

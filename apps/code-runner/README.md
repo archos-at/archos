@@ -49,7 +49,7 @@ and answers `200` with
 | Limit | Value | Where |
 |---|---|---|
 | Run time | 60 s default, 180 s maximum | `src/limits.js`, passed to `CodemodeBackend` as `defaultTimeoutMs`, `maxTimeoutMs`, `maxCpuMs` |
-| Runs in flight per process | 8 (`CODE_RUNNER_SLOTS`) | `bin/server.mjs` |
+| Runs in flight per process | 4 (`CODE_RUNNER_SLOTS`) | `bin/server.mjs` |
 | Source | 1 MiB | `src/request.js` |
 | Inputs (source, `input`, files) | 50 MB | `src/request.js`; the front refuses a body over 72 MiB before parsing |
 | Returned files | 50 MB in total, else `status: error` and no files | `src/runner.js` |
@@ -109,7 +109,7 @@ then bundles `src/worker.js` with those modules inlined as text into `dist/worke
 | Environment variable | Default | Meaning |
 |---|---|---|
 | `PORT`, `HOST` | `8080`, `0.0.0.0` | where the front listens |
-| `CODE_RUNNER_SLOTS` | `8` | workerd processes, so runs in flight |
+| `CODE_RUNNER_SLOTS` | `4` | workerd processes, so runs in flight |
 | `CODE_RUNNER_STORAGE_DIR` | `/run/code-runner/do` | Durable Object storage; mount memory here |
 
 ## Measured

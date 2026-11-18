@@ -797,7 +797,7 @@ mounts a memory-backed `emptyDir` at `CODE_RUNNER_STORAGE_DIR`. It reads no plat
 |----------|----------|---------|-------------|
 | `PORT` | No | `8080` | Where the front listens for `GET /health` and `POST /run`. The Service and the probes use 8080. |
 | `HOST` | No | `0.0.0.0` | The address the front binds. |
-| `CODE_RUNNER_SLOTS` | No | `8` | workerd processes, one run each, so the runs in flight per pod; a ninth concurrent run answers `503 busy`. Each slot holds about 134 MB idle and 190 MB after a run, so size the pod's memory limit for the slots, or lower this and add replicas. |
+| `CODE_RUNNER_SLOTS` | No | `4` | workerd processes, one run each, so the runs in flight per pod; a fifth concurrent run answers `503 busy`. Each slot holds about 134 MB idle and 190 MB after a run, so size the pod's memory limit for the slots, or lower this and add replicas. |
 | `CODE_RUNNER_STORAGE_DIR` | No | `/run/code-runner/do` | The Durable Object storage, one subdirectory per slot. Mount memory here (`emptyDir`, `medium: Memory`): a run's input and output files pass through it. |
 
 ## Renamed variables

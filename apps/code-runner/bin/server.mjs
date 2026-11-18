@@ -128,7 +128,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const server = await startServer({
     port: Number(process.env.PORT ?? 8080),
     host: process.env.HOST ?? "0.0.0.0",
-    slots: Number(process.env.CODE_RUNNER_SLOTS ?? 8),
+    slots: Number(process.env.CODE_RUNNER_SLOTS ?? 4),
     storage: process.env.CODE_RUNNER_STORAGE_DIR ?? "/run/code-runner/do",
   });
   console.log(JSON.stringify({ message: "code runner listening", port: server.port }));

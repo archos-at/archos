@@ -14,7 +14,7 @@ type EnvVar = k8s.types.input.core.v1.EnvVar;
 export const CODE_RUNNER = {
   name: "code-runner",
   port: 8080,
-  uid: 1000,
+  uid: 1001,
   callers: [...CHAT_TIERS, "agent-worker"] as const,
   workDir: "/run/code-runner/do",
   workDirSizeLimit: "1Gi",
