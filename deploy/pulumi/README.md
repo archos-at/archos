@@ -56,7 +56,7 @@ pulumi stack init prod
 # values.pulumiConfig as fn::secret), or one key at a time with
 #   esc env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:<key> "<value>" --secret
 # Staging (dev) and prod keep EVERY secret in ESC: for them, run each line below
-# as that `esc env set` (the stack files' headers list them in that form). A
+# as that `esc env set`. A
 # `pulumi config set --secret` writes ciphertext into the committed stack file
 # instead, and stack config wins over ESC, so on those stacks it shadows the
 # ESC value. The lines below are for a scratch stack without ESC:

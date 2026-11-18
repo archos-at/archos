@@ -167,6 +167,11 @@ naming rule.
 Ruff, line length 120, Python 3.14. New tools use `@register_function` with a
 `FunctionBaseConfig` subclass.
 
+What runs on the runner's own `python3` (3.12 on ubuntu-24.04) or through
+`uv run --no-project`, CI's scripts, the hook checkers and the release-note tool,
+is formatted for py312 (`[tool.ruff.per-file-target-version]`): on py314 Ruff
+writes `except A, B:` (PEP 758), a SyntaxError on 3.12.
+
 ### Shape of a function
 
 The agent tier grew to nineteen thousand lines with functions that ran two
