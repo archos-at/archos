@@ -14,7 +14,6 @@ apps/workspace/bff/documents/ingest-document-type-contract.spec.ts
 apps/workspace/bff/documents/ingest-mail-contract.spec.ts
 apps/workspace/bff/documents/ingest-priority-contract.spec.ts
 apps/workspace/bff/documents/status-batch-contract.spec.ts
-apps/workspace/bff/documents/storage-key-lookup.spec.ts
 apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/bff/knowledge/doc-class.spec.ts
 apps/workspace/bff/langfuse/golden-run-score.spec.ts
