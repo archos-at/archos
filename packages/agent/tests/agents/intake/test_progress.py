@@ -5,9 +5,9 @@ from types import SimpleNamespace
 from agent_testing.intake import JOB
 from langchain_core.messages import ToolMessage
 
+from agent.agents.intake.progress import report_progress
 from agent.agents.intake.reading import IntakeToolMiddleware
-from agent.agents.intake.tools import IntakeSession
-from agent.agents.intake.tools import report_progress
+from agent.agents.intake.session import IntakeSession
 
 
 def _request(name: str) -> SimpleNamespace:
