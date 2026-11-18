@@ -128,6 +128,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
+            "de": "Sobald Sie eine von {productName} erstellte Datei oder einen Entwurf ablegen, ist die Datei bzw. der Entwurf im Projekt und von Ihnen wie Ihr eigener Upload freigegeben; {productName} kann sich in späteren Antworten darauf beziehen, gekennzeichnet als von {productName} erstellt."
+          }
+        },
+        {
           "section": "fixes",
           "area": "answers",
           "text": {

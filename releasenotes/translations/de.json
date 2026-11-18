@@ -340,6 +340,10 @@
     "de": "Eine neben dem Chat geöffnete Datei zeigt jetzt unter ihrem Namen Format, Seitenanzahl und Größe an; bei PDFs werden Seitenzahl und Zoom über den Seiten eingeblendet. So sehen Sie, worauf sich Ihre Frage bezieht, bevor Sie sie stellen."
   },
   {
+    "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
+    "de": "Sobald Sie eine von {productName} erstellte Datei oder einen Entwurf ablegen, ist die Datei bzw. der Entwurf im Projekt und von Ihnen wie Ihr eigener Upload freigegeben; {productName} kann sich in späteren Antworten darauf beziehen, gekennzeichnet als von {productName} erstellt."
+  },
+  {
     "en": "A file that Piloti cannot load now fails, with a reason that says so.",
     "de": "Eine Datei, die Piloti nicht laden kann, schlägt jetzt mit einer Begründung fehl, die genau das benennt."
   },
