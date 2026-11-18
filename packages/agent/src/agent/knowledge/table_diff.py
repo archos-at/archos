@@ -23,7 +23,7 @@ _CELL_SPLIT = re.compile(r"(?<!\\)\|")
 _SEPARATOR_ROW = re.compile(r"^\|(?:\s*:?-{3,}:?\s*\|)+$")
 _SPACE = re.compile(r"\s+")
 _NUMBER = re.compile(r"^([+-]?\d+(?:[.,]\d+)*)\s*(.*)$")
-_ROW_RANGE = re.compile(r"^(?:.*:\s*)?Zeilen?\s+\d+(?:-\d+)?$")
+_ROW_RANGE = re.compile(r"^(?:(?P<sheet>.*):\s*)?Zeilen?\s+\d+(?:-\d+)?$")
 _LEADING_ZERO = re.compile(r"^[+-]?0\d")
 _DOT_GROUPS = re.compile(r"^[+-]?\d{1,3}(?:\.\d{3})+$")
 
@@ -134,12 +134,21 @@ def _place(chunk: TableChunk) -> str:
     return f"{locator}, {page_text}"
 
 
+def _sheet(chunk: TableChunk) -> str:
+    rows = _ROW_RANGE.match(chunk.locator.strip())
+    named = (rows.group("sheet") or "").strip() if rows else ""
+    page = chunk.page.strip()
+    return named or ("" if page.isdigit() else page)
+
+
 def _label(chunk: TableChunk) -> str:
-    place = _place(chunk)
+    sheet = _sheet(chunk)
+    if sheet:
+        return f"„{sheet}“"
     if _ROW_RANGE.match(chunk.locator.strip()):
         page = chunk.page.strip()
-        return (f"page {page}" if page.isdigit() else f"„{page}“") if page else "table"
-    return place
+        return f"page {page}" if page else "table"
+    return _place(chunk)
 
 
 def _column_names(header: list[str], width: int) -> list[str]:
@@ -147,15 +156,16 @@ def _column_names(header: list[str], width: int) -> list[str]:
     return [name or f"column {index}" for index, name in enumerate(padded, start=1)]
 
 
-def _scope(chunk: TableChunk) -> str:
-    page, locator = chunk.page.strip(), chunk.locator.strip()
-    if page and not page.isdigit():
-        return page
-    return "" if _ROW_RANGE.match(locator) else locator
+def _scope(chunk: TableChunk) -> tuple[str, str] | None:
+    sheet = _sheet(chunk)
+    if sheet:
+        return "sheet", sheet
+    locator = chunk.locator.strip()
+    return None if not locator or _ROW_RANGE.match(locator) else ("caption", locator)
 
 
 def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
-    tables: dict[tuple[str, tuple[str, ...]], _Table] = {}
+    tables: dict[tuple[tuple[str, str] | None, tuple[str, ...]], _Table] = {}
     for chunk in chunks:
         lines = [line.strip() for line in chunk.text.splitlines() if line.lstrip().startswith("|")]
         if len(lines) < 2 or not _SEPARATOR_ROW.match(lines[1].replace(" ", "")):
@@ -167,7 +177,7 @@ def parse_tables(chunks: Sequence[TableChunk]) -> list[_Table]:
         table = tables.setdefault(
             (scope, tuple(_fold(name) for name in header)), _Table(name=_label(chunk), header=header)
         )
-        if not scope:
+        if scope is None:
             table.pages.append(chunk.page.strip())
         table.rows.extend(_filled_rows(rows[2:], width, _place(chunk)))
     return [table for table in tables.values() if table.rows]
@@ -240,21 +250,22 @@ def _key_column(first: _Table, second: _Table, shared: list[tuple[str, int, int]
     return best[1] if best else None
 
 
-def _number(value: str) -> tuple[Decimal, str] | None:
+def _number(value: str) -> tuple[Decimal, str, str] | None:
     match = _NUMBER.match(value.strip())
     if not match:
         return None
     digits = match.group(1)
     if _LEADING_ZERO.match(digits):
         return None
-    if "," in digits:
+    mark = "," if "," in digits else "."
+    if mark == ",":
         digits = digits.replace(".", "").replace(",", ".")
     elif _DOT_GROUPS.match(digits):
         if digits.count(".") == 1:
             return None
         digits = digits.replace(".", "")
     try:
-        return Decimal(digits), _fold(match.group(2))
+        return Decimal(digits), _fold(match.group(2)), mark if "." in digits else ""
     except InvalidOperation:
         return None
 
@@ -263,7 +274,10 @@ def same_cell(first: str, second: str) -> bool:
     if _fold(first) == _fold(second):
         return True
     one, two = _number(first), _number(second)
-    return one is not None and two is not None and one == two
+    if one is None or two is None or one[:2] != two[:2]:
+        return False
+    written_two_ways = bool(one[1]) or one[2] != two[2]
+    return written_two_ways or one[0].as_tuple().exponent == two[0].as_tuple().exponent
 
 
 def _clip(text: str, limit: int = MAX_CELL_CHARS) -> str:

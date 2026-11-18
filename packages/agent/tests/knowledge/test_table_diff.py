@@ -126,6 +126,29 @@ class TestAListOverSeveralPages:
         assert len(diff_tables(first, first).tables) == 2
 
 
+class TestSheetsNamedWithDigits:
+    def test_each_sheet_is_its_own_table_matched_by_its_key(self) -> None:
+        rooms = [["1.01", "Wohnen", "20"], ["1.02", "Bad", "5"]]
+        first = [_sheet(rooms, sheet="2025"), _sheet(rooms, sheet="2026")]
+        second = [_sheet(rooms, sheet="2025"), _sheet(list(reversed(rooms)), sheet="2026")]
+
+        diff = diff_tables(first, second)
+
+        assert [(t.first_label, t.second_label, t.key_column) for t in diff.tables] == [
+            ("„2025“", "„2025“", "Nr."),
+            ("„2026“", "„2026“", "Nr."),
+        ]
+        assert not diff.differs and [t.equal_rows for t in diff.tables] == [2, 2]
+
+    def test_a_sheet_only_one_file_has_is_named_as_a_sheet(self) -> None:
+        rooms = [["1.01", "Wohnen", "20"]]
+        other = _sheet([["T1", "Tür", "EI2 30"]], header=["Pos.", "Bauteil", "Klasse"], sheet="2")
+
+        diff = diff_tables([_sheet(rooms, sheet="1"), other], [_sheet(rooms, sheet="1")])
+
+        assert diff.unpaired_first == ("„2“",)
+
+
 class TestCells:
     def test_the_same_number_written_two_ways_is_no_deviation(self) -> None:
         assert same_cell("12,50 m²", "12.5 m²")
@@ -145,6 +168,13 @@ class TestCells:
     def test_a_code_with_a_leading_zero_is_no_number(self) -> None:
         assert not same_cell("01", "1")
         assert same_cell("0,50", "0.5")
+
+    def test_a_trailing_zero_is_ignored_only_with_a_unit_or_another_decimal_mark(self) -> None:
+        assert not same_cell("0.1", "0.10")
+        assert not same_cell("1.1", "1.10")
+        assert same_cell("12.50 m²", "12.5 m²")
+        assert same_cell("12,50", "12.5")
+        assert same_cell("12", "12,0")
 
     def test_an_escaped_pipe_stays_inside_its_cell(self) -> None:
         rows = [["1.01", "Wohnen \\| Essen", "23,40"]]
