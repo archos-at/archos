@@ -1,30 +1,11 @@
 name: Claude Code
 
-# Interactive Claude Code agent. Mention `@claude` in an issue, a PR comment, a
-# PR review, or a review comment and it picks up the thread, reads the repo
-# (CLAUDE.md -> AGENTS.md) and answers or pushes commits to the PR branch.
-#
-# Requires the Claude GitHub App (https://github.com/apps/claude) installed on
-# this repo, plus a `CLAUDE_CODE_OAUTH_TOKEN` repository secret. Pro/Max
-# subscribers generate that token by running `claude setup-token` locally — no
-# Claude API key or console billing needed. (API-key users would instead set
-# `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` below.)
-#
-# Trigger gating happens twice: the job-level `if` avoids spinning a runner for
-# every comment on the repo, and the action itself re-checks the trigger phrase.
-#
-# Not on review comments or reviews: GitHub cannot filter a trigger by body, so
-# every CodeRabbit inline comment started a run whose job was skipped, about 20
-# "Respond to @claude" checks on one pull request. Mention @claude in the pull
-# request's conversation instead.
 on:
   issue_comment:
     types: [created]
   issues:
     types: [opened, assigned]
 
-# `contents: write` + `pull-requests: write` let Claude push to a PR branch and
-# reply; `id-token: write` is used by the action for OIDC-backed token exchange.
 permissions:
   contents: write
   pull-requests: write
@@ -39,8 +20,6 @@ concurrency:
 jobs:
   claude:
     name: Respond to @claude
-    # Only run when the triggering text actually mentions @claude. Without this
-    # every comment in the repo would start a (billable) runner.
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
@@ -49,13 +28,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history so Claude can inspect the branch it is working on.
           fetch-depth: 0
 
       - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # No `prompt`: the action runs in interactive mode and takes its
-          # instructions from the comment that mentioned it.
           claude_args: |
             --max-turns 25
