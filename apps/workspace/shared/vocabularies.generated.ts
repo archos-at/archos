@@ -14,3 +14,24 @@ export const SOURCE_PROTOCOLS = ["rest", "http_eli", "web_document", "ogc"] as c
 
 /** A source record's formats: the keys of `ENGINES` in `packages/public-sources/src/public_sources/engines`. */
 export const SOURCE_FORMATS = ["ris_xml", "akn", "html_statute", "geojson", "pdf_document"] as const
+
+/** The document types a person may file a document as: `DOCUMENT_TYPE_TAGS` in `packages/agent/src/agent/knowledge/document_classification.py`. */
+export const DOCUMENT_TYPE_TAGS = ["Bebauungsplan", "Flächenwidmungsplan", "Grundriss", "Schnitt", "Ansicht", "Detail", "Gutachten", "Bescheid", "Norm/Richtlinie", "Vertrag", "correspondence", "Foto", "Sonstiges"] as const
+
+/** The classes of a base-knowledge document, in order: `DOCUMENT_CLASSES` in `packages/agent/src/agent/knowledge/doc_class_vocabulary.py`. */
+export const DOCUMENT_CLASSES = ["oib_guideline", "oib_guide", "oib_explanatory_note", "oib_definitions", "oib_reference", "oib_amendment", "external_standard", "law", "other"] as const
+
+/** Each document class's German label: `DOCUMENT_CLASS_LABELS` in `packages/agent/src/agent/knowledge/doc_class_vocabulary.py`. */
+export const DOCUMENT_CLASS_LABELS = {"oib_guideline": "OIB-Richtlinie", "oib_guide": "OIB-Leitfaden", "oib_explanatory_note": "OIB-Erläuterung", "oib_definitions": "OIB-Begriffsbestimmungen", "oib_reference": "OIB-Referenzdokument", "oib_amendment": "OIB-Änderungsdokument", "external_standard": "Norm (ÖNORM u.a.)", "law": "Gesetz / Bauordnung", "other": "Sonstiges Basisdokument"} as const
+
+/** The class of a document nobody classified: `DEFAULT_DOC_CLASS` in `packages/agent/src/agent/knowledge/doc_class_vocabulary.py`. */
+export const DEFAULT_DOC_CLASS = "other" as const
+
+/** The keys stored before the English names, each with its current class: `LEGACY_DOC_CLASSES` in `packages/agent/src/agent/knowledge/doc_class_vocabulary.py`. */
+export const LEGACY_DOC_CLASSES = {"oib_richtlinie": "oib_guideline", "oib_leitfaden": "oib_guide", "oib_erlaeuterung": "oib_explanatory_note", "oib_begriffe": "oib_definitions", "oib_referenz": "oib_reference", "oib_aenderung": "oib_amendment", "norm_extern": "external_standard", "gesetz": "law", "sonstiges": "other"} as const
+
+/** The prefixes of an office shelf's collection, the target name first and the stored one after it: `OFFICE_SHELF_COLLECTION_PREFIXES` in `packages/agent/src/agent/common/source_kinds.py`. */
+export const OFFICE_SHELF_COLLECTION_PREFIXES = ["office_shelf_", "archiv_"] as const
+
+/** Each builtin skill's name before the English names, with its current name: `LEGACY_SKILL_NAMES` in `packages/agent/src/agent/skills/legacy_names.py`. */
+export const LEGACY_SKILL_NAMES = {"einreichcheck": "submission-check", "brandschutz": "fire-safety", "bestand": "existing-building", "nutzungssicherheit": "safety-in-use", "gebaeudeklasse": "building-class", "waermeschutz": "thermal-protection", "bebauung": "plot-development", "pruefbericht-writer": "inspection-report-writer"} as const
