@@ -47,7 +47,6 @@ apps/workspace/ui/features/documents/components/files-phone-rules.spec.tsx
 apps/workspace/ui/features/documents/components/mobile-files.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
 deploy/pulumi/index-deploy-jobs.spec.ts
-deploy/pulumi/index-policy.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
 deploy/pulumi/src/app/backend-scaling.spec.ts
 deploy/pulumi/src/provider-budget.spec.ts

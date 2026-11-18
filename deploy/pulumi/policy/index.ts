@@ -1,5 +1,6 @@
 import * as k8s from "@pulumi/kubernetes";
 import { PolicyPack, ReportViolation, validateResourceOfType } from "@pulumi/policy";
+import { UPSTREAM_SOAK_EXEMPT } from "./exemptions";
 
 type PodSpec = k8s.types.output.core.v1.PodSpec;
 type Container = k8s.types.output.core.v1.Container;
@@ -30,11 +31,6 @@ function containersOf(pod: PodSpec | undefined): Container[] {
 
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
-const UPSTREAM_SOAK_EXEMPT: Record<string, string> = {
-  "rabbitmq-cluster-operator":
-    "Reconciles RabbitmqCluster objects and serves nothing (deploy/pulumi/src/platform/rabbitmq.ts); " +
-    "the brokers keep serving while it restarts.",
-};
 
 function isImmutableRef(image: string): boolean {
   if (image.includes("@sha256:")) return true;
