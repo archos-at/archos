@@ -7,14 +7,23 @@ needed:
 - **Kubernetes events** from the app namespaces (`grid`, `background-work`,
   `cms`): probe failures, `BackOff`, `FailedScheduling`, `FailedMount`, image
   pull errors, OOM kills. Service `k8s-events`.
-- **Container stdout/stderr** of every container in those namespaces that has no
-  OTLP SDK of its own: the CMS, the website, the Jobs (`migrate` and the rest),
-  Hatchet, Gotenberg. Service = the container name, so the CMS is `cms`.
+- **Container stdout/stderr** of the containers in those namespaces that have no
+  OTLP SDK of their own: the CMS, the website, the Jobs (`migrate` and the rest),
+  Hatchet, Gotenberg. Service = the container name, so the CMS is `cms`. The
+  data stores are left out as too noisy (postgres, pgbouncer, dragonfly, qdrant,
+  clickhouse, the seaweedfs containers, langfuse, rabbitmq: `LOG_SHIPPER.noisyContainers`
+  in `deploy/pulumi/src/config/observability.ts`); read those with `kubectl logs`.
 
 The SDK services (`api`, `chat`, `frontend` and the other OTLP-instrumented
 tiers) are not read from stdout: they already send their WARN+ logs, with the
 text withheld. Their crash before the SDK starts shows as events (`BackOff`,
 `Unhealthy`), not as lines.
+
+The shipper reads a file from where it stands when the shipper starts, so a line
+written while no shipper ran on that node (its first start, or a restart) is
+not in PostHog. When the rows stop short of the crash, read the pod itself:
+`kubectl logs -n <namespace> <pod> --previous` for the container that crashed,
+without `--previous` for one still running.
 
 ## Recipe
 
@@ -45,14 +54,17 @@ filters). Always add `deployment.environment.name` (`dev` or `prod`).
    ```json
    { "query": {
        "filterGroup": [
-         { "key": "k8s.pod.name", "type": "log_resource_attribute", "operator": "exact", "value": "cms-7d9f8c6b5-x2x9q" }
+         { "key": "k8s.pod.name", "type": "log_resource_attribute", "operator": "exact", "value": "cms-7d9f8c6b5-x2x9q" },
+         { "key": "deployment.environment.name", "type": "log_resource_attribute", "operator": "exact", "value": "dev" }
        ],
        "orderBy": "earliest",
        "dateRange": { "date_from": "-1h" } } }
    ```
 
-   Not sure of the pod name? Filter `k8s.deployment.name` (container lines) or
-   `k8s.object.name` with `starts_with` (events) instead.
+   Not sure of the pod name? Take it from the events (`k8s.object.name`), or
+   filter `k8s.pod.name` with `starts_with` and the workload's name.
+   `k8s.deployment.name` is on most container lines, but not on a new pod's
+   first lines when they come before the shipper has learned of the pod.
 
 ## What is kept, and what it costs
 
@@ -61,8 +73,10 @@ keeps 10% of info lines (`LOG_SHIPPER.infoSamplePercent`). A line has no level
 of its own, so the shipper reads one from the text (`LEVEL_PATTERNS` in
 `deploy/pulumi/src/platform/log-shipper.ts`); an unrecognised stderr line counts
 as warn, so a crash's stack trace survives. Lines longer than 16 KiB are cut.
-Normal events are kept as info rows, Warning events as warn rows; deletions
-(an event aging out) are dropped.
+Each row is one watch notification: an event that repeats arrives again with its
+count raised (`k8s.event.count`), so count rows by reason, not as distinct
+events. Normal events are info rows, Warning events warn rows; deletions (an
+event aging out) are dropped.
 
 Estimated volume (not measured, from the workloads and CronJob schedules): about
 9,000 events a day, most of them the Normal events of `housekeeping-ghost-jobs`

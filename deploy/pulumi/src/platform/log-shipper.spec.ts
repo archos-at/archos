@@ -85,12 +85,12 @@ describe("container logs, with PostHog logs on (the default)", () => {
   it("parses CRI lines, stamps the pod's workload, and sends them to the gateway in the app namespace", () => {
     const filelog = shipper.receivers["filelog/pods"] as { operators: Array<{ type: string }>; max_log_size: string };
     expect(filelog.operators).toEqual([{ type: "container", id: "container-parser", add_metadata_from_filepath: true }]);
-    expect(filelog.max_log_size).toBe(LOG_SHIPPER.maxLineSize);
+    expect(filelog.max_log_size).toBe("16KiB");
     expect(shipper.processors.k8sattributes).toMatchObject({
       filter: { node_from_env_var: "K8S_NODE_NAME" },
       extract: { metadata: expect.arrayContaining(["k8s.deployment.name"]) },
     });
-    expect(shipper.exporters["otlp_http/gateway"]).toMatchObject({ endpoint: "http://otel-collector.grid.svc:4318" });
+    expect(shipper.exporters["otlp_http/gateway"]).toMatchObject({ endpoint: "http://otel-collector.grid.svc:4319" });
     expect(shipper.service.pipelines).toEqual({
       "logs/pods": pipeline(["otlp_http/gateway"], {
         receivers: ["filelog/pods"],
@@ -173,7 +173,7 @@ describe("container logs, with PostHog logs on (the default)", () => {
             podSelector: { matchLabels: { "app.kubernetes.io/name": "otel-logs" } },
           },
         ],
-        ports: [{ protocol: "TCP", port: 4318 }],
+        ports: [{ protocol: "TCP", port: 4319 }],
       },
     ]);
   });
@@ -227,11 +227,17 @@ describe("Kubernetes events, with PostHog logs on", () => {
     expect(spec.template.spec.serviceAccountName).toBe("otel-collector");
   });
 
-  it("ships the shipper's container lines on their own pipeline, beside the SDK logs and not through their redaction", () => {
+  it("takes the shipper's lines on a port of their own, so no SDK can claim to be the shipper", async () => {
+    expect(gateway.receivers["otlp/shipper"]).toEqual({ protocols: { http: { endpoint: "0.0.0.0:4319" } } });
     expect(gateway.service.pipelines["logs/containers"]).toEqual(
-      pipeline(["otlp_http/posthog"], { processors: ["filter/container_logs_only", "resource/logs_environment"] }),
+      pipeline(["otlp_http/posthog"], {
+        receivers: ["otlp/shipper"],
+        processors: ["resource/container_source", "resource/logs_environment"],
+      }),
     );
-    expect(gateway.service.pipelines["logs/posthog"].processors[1]).toBe("filter/sdk_logs_only");
+    expect(gateway.service.pipelines["logs/posthog"].receivers).toEqual(["otlp"]);
+    const service = await resolve<any>(find("kubernetes:core/v1:Service", "otel-collector").inputs.spec);
+    expect(service.ports).toContainEqual({ port: 4319, targetPort: 4319, name: "otlp-shipper" });
   });
 });
 
@@ -241,5 +247,11 @@ describe("with PostHog logs off", () => {
     expect(RESOURCES.some((r) => r.name === "otel-logs" || r.name === "observability-ns")).toBe(false);
     expect(RESOURCES.some((r) => r.type === `${RBAC}:Role` && r.name.startsWith("otel-collector-events-"))).toBe(false);
     expect((await collectorConfig("otel-collector")).receivers).not.toHaveProperty("k8sobjects/events");
+  }, 120_000);
+});
+
+describe("an app namespace named like the shipper's", () => {
+  it("is refused, since the two would fight over one Namespace's admission level", async () => {
+    await expect(deploy({ "grid-oib:namespace": "observability" })).rejects.toThrow(/must not be "observability"/);
   }, 120_000);
 });

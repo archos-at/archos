@@ -89,12 +89,7 @@ describe("PostHog logs in the collector, enabled", () => {
     const { processors, service } = parseCollectorConfig(collector);
     expect(service.pipelines["logs/posthog"]).toEqual(
       pipeline(["otlp_http/posthog"], {
-        processors: [
-          "filter/sdk_logs_only",
-          "filter/warn_and_above",
-          "transform/posthog_redact",
-          "resource/logs_environment",
-        ],
+        processors: ["filter/warn_and_above", "transform/posthog_redact", "resource/logs_environment"],
       }),
     );
     expect(processors["resource/logs_environment"]).toMatchObject({

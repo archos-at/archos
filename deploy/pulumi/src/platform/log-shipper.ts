@@ -6,7 +6,13 @@ import { commonLabels } from "./namespaces";
 import { ROLLOUT, gracefulShutdown, secretChecksum, secretChecksumAnnotations } from "./rollout";
 import { POD_METADATA_RULES, installCollectorIdentity } from "./collector-identity";
 import { hardenedContainerSecurityContext } from "./security";
-import { CollectorFragment, HEALTH_PORT, composeCollectorConfig, renderCollectorConfig } from "./collector-config";
+import {
+  CollectorFragment,
+  HEALTH_PORT,
+  SHIPPER_OTLP_PORT,
+  composeCollectorConfig,
+  renderCollectorConfig,
+} from "./collector-config";
 import { GATEWAY_EXPORTER, toGateway } from "./otel-agent";
 
 const COMPONENT = LOG_SHIPPER.name;
@@ -25,6 +31,12 @@ export function installLogShipper(
   readNamespaces: string[],
   dependsOn: pulumi.Resource[],
 ): LogShipper {
+  if (readNamespaces.includes(LOG_SHIPPER.namespace)) {
+    throw new Error(
+      `grid-oib:namespace must not be "${LOG_SHIPPER.namespace}": the log shipper owns that namespace, ` +
+        "with an admission level the app namespace must not share.",
+    );
+  }
   const labels = commonLabels(COMPONENT);
   const namespace = new k8s.core.v1.Namespace(
     "observability-ns",
@@ -44,7 +56,7 @@ export function installLogShipper(
   const ns = namespace.metadata.name;
   const identity = installCollectorIdentity(COMPONENT, POD_METADATA_RULES, provider, ns);
   const config = renderCollectorConfig(
-    composeCollectorConfig([podLogs(readNamespaces), toGateway(`otel-collector.${cfg.namespace}.svc`)], {
+    composeCollectorConfig([podLogs(readNamespaces), toGateway(`otel-collector.${cfg.namespace}.svc`, SHIPPER_OTLP_PORT)], {
       otlpReceiver: false,
     }),
   );
@@ -132,10 +144,12 @@ export function podLogGlobs(readNamespaces: string[]): { include: string[]; excl
 const ottl = (pattern: string) => JSON.stringify(pattern);
 const bodyMatches = (pattern: string) => `IsString(log.body) and IsMatch(log.body, ${ottl(pattern)})`;
 
+const LEVEL_PREFIX = String.raw`^[^a-z]{0,48}?\[?`;
+
 export const LEVEL_PATTERNS = {
-  debug: String.raw`(?i)level"?[=:]\s*"?(debug|trace)\b|\b(DEBUG|TRACE)\b|"level":\s*(10|20)\b`,
-  warn: String.raw`(?i)level"?[=:]\s*"?warn|\bWARN(ING)?\b|"level":\s*40\b`,
-  error: String.raw`(?i)level"?[=:]\s*"?(error|fatal|crit|panic)|\b(ERROR|FATAL|CRITICAL|PANIC)\b|Traceback|Exception\b|Error:|panic:|"level":\s*(50|60)\b`,
+  debug: String.raw`(?i:level"?[=:]\s*"?(debug|trace)\b)|${LEVEL_PREFIX}(DEBUG|TRACE)\b|"level":\s*(10|20)\b`,
+  warn: String.raw`(?i:level"?[=:]\s*"?warn)|${LEVEL_PREFIX}WARN(ING)?\b|"level":\s*40\b`,
+  error: String.raw`(?i:level"?[=:]\s*"?(error|fatal|crit|panic))|\b(ERROR|FATAL|CRITICAL|PANIC)\b|Traceback|Exception\b|Error:|panic:|"level":\s*(50|60)\b`,
 };
 
 export function podLogs(readNamespaces: string[]): CollectorFragment {
@@ -148,8 +162,10 @@ export function podLogs(readNamespaces: string[]): CollectorFragment {
         start_at: "end",
         include_file_path: true,
         include_file_name: false,
-        max_log_size: LOG_SHIPPER.maxLineSize,
-        operators: [{ type: "container", id: "container-parser", add_metadata_from_filepath: true }],
+        max_log_size: `${LOG_SHIPPER.maxLineBytes / 1024}KiB`,
+        operators: [
+          { type: "container", id: "container-parser", add_metadata_from_filepath: true },
+        ],
       },
     },
     processors: {
@@ -167,6 +183,7 @@ export function podLogs(readNamespaces: string[]): CollectorFragment {
             context: "log",
             statements: [
               `delete_key(log.attributes, "log.file.path")`,
+              `set(log.body, Substring(log.body, 0, ${LOG_SHIPPER.maxLineBytes})) where IsString(log.body) and Len(log.body) > ${LOG_SHIPPER.maxLineBytes}`,
               `set(log.severity_number, ${SEVERITY}_INFO)`,
               `set(log.severity_number, ${SEVERITY}_WARN) where log.attributes["log.iostream"] == "stderr"`,
               `set(log.severity_number, ${SEVERITY}_DEBUG) where ${bodyMatches(LEVEL_PATTERNS.debug)}`,

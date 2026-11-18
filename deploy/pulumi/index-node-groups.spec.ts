@@ -120,7 +120,7 @@ describe("worker-group placement with prod's knobs", () => {
 
   it("runs the per-node agent and the log shipper on every node, whatever its group", () => {
     const daemonSets = RESOURCES.filter((r) => r.type.endsWith("apps/v1:DaemonSet")).map((r) => `DaemonSet/${r.name}`);
-    expect(daemonSets).toEqual(["DaemonSet/otel-agent", "DaemonSet/otel-logs"]);
+    expect(daemonSets.sort()).toEqual(["DaemonSet/otel-agent", "DaemonSet/otel-logs"]);
     for (const name of ["otel-agent", "otel-logs"]) {
       expect(nodeSelectors()).not.toHaveProperty(`DaemonSet/${name}`);
       const pod = podOf("kubernetes:apps/v1:DaemonSet", name) as unknown as { spec: { tolerations: unknown[] } };

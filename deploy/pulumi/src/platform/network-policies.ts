@@ -9,7 +9,7 @@ import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
 import { LOG_SHIPPER } from "../config/observability";
-import { OTLP_HTTP_PORT } from "./collector-config";
+import { SHIPPER_OTLP_PORT } from "./collector-config";
 
 const LANGFUSE_WEB = LANGFUSE.web;
 const LANGFUSE_WORKER = LANGFUSE.worker;
@@ -303,7 +303,7 @@ export function installNetworkPolicies(
         ingress: [
           {
             from: [{ ...nsLabel(LOG_SHIPPER.namespace), podSelector: { matchLabels: { "app.kubernetes.io/name": LOG_SHIPPER.name } } }],
-            ports: [{ protocol: "TCP", port: OTLP_HTTP_PORT }],
+            ports: [{ protocol: "TCP", port: SHIPPER_OTLP_PORT }],
           },
         ],
       })

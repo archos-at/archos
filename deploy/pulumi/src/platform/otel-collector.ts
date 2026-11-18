@@ -30,6 +30,7 @@ import {
   OTLP_GRPC_PORT,
   OTLP_HTTP_PORT,
   OTLP_RECEIVER,
+  SHIPPER_OTLP_PORT,
   boundedDelivery,
   composeCollectorConfig,
   renderCollectorConfig,
@@ -147,6 +148,7 @@ export function installOtelCollector(
                 ports: [
                   { containerPort: OTLP_GRPC_PORT, name: "otlp-grpc" },
                   { containerPort: OTLP_HTTP_PORT, name: "otlp-http" },
+                  ...(cfg.posthog.logsEnabled ? [{ containerPort: SHIPPER_OTLP_PORT, name: "otlp-shipper" }] : []),
                   { containerPort: HEALTH_PORT, name: "health" },
                   ...(qdrantMetricsTargets ? [{ containerPort: METRICS_EXPORT_PORT, name: "metrics" }] : []),
                 ],
@@ -199,6 +201,9 @@ export function installOtelCollector(
         ports: [
           { port: OTLP_GRPC_PORT, targetPort: OTLP_GRPC_PORT, name: "otlp-grpc" },
           { port: OTLP_HTTP_PORT, targetPort: OTLP_HTTP_PORT, name: "otlp-http" },
+          ...(cfg.posthog.logsEnabled
+            ? [{ port: SHIPPER_OTLP_PORT, targetPort: SHIPPER_OTLP_PORT, name: "otlp-shipper" }]
+            : []),
           ...(qdrantMetricsTargets
             ? [{ port: METRICS_EXPORT_PORT, targetPort: METRICS_EXPORT_PORT, name: "metrics" }]
             : []),
@@ -308,12 +313,9 @@ export const POSTHOG_LOG_REDACTION = {
   ],
 };
 
-const FROM_SHIPPER = `resource.attributes["${LOG_SOURCE_ATTRIBUTE}"] != nil`;
-
 export function posthogLogs(host: string, projectToken: string, environment: string): CollectorFragment {
   return {
     processors: {
-      "filter/sdk_logs_only": { error_mode: "ignore", log_conditions: [FROM_SHIPPER] },
       "resource/logs_environment": {
         attributes: [{ key: "deployment.environment.name", value: environment, action: "insert" }],
       },
@@ -334,30 +336,29 @@ export function posthogLogs(host: string, projectToken: string, environment: str
     pipelines: {
       "logs/posthog": {
         receivers: [OTLP_RECEIVER],
-        processors: [
-          "filter/sdk_logs_only",
-          "filter/warn_and_above",
-          "transform/posthog_redact",
-          "resource/logs_environment",
-        ],
+        processors: ["filter/warn_and_above", "transform/posthog_redact", "resource/logs_environment"],
         exporters: ["otlp_http/posthog"],
       },
     },
   };
 }
 
+export const SHIPPER_RECEIVER = "otlp/shipper";
+
 export function containerLogs(): CollectorFragment {
   return {
+    receivers: {
+      [SHIPPER_RECEIVER]: { protocols: { http: { endpoint: `0.0.0.0:${SHIPPER_OTLP_PORT}` } } },
+    },
     processors: {
-      "filter/container_logs_only": {
-        error_mode: "ignore",
-        log_conditions: [`resource.attributes["${LOG_SOURCE_ATTRIBUTE}"] != "${LOG_SOURCE.container}"`],
+      "resource/container_source": {
+        attributes: [{ key: LOG_SOURCE_ATTRIBUTE, value: LOG_SOURCE.container, action: "upsert" }],
       },
     },
     pipelines: {
       "logs/containers": {
-        receivers: [OTLP_RECEIVER],
-        processors: ["filter/container_logs_only", "resource/logs_environment"],
+        receivers: [SHIPPER_RECEIVER],
+        processors: ["resource/container_source", "resource/logs_environment"],
         exporters: ["otlp_http/posthog"],
       },
     },
@@ -389,7 +390,9 @@ export function kubernetesEvents(namespaces: string[]): CollectorFragment {
               `set(log.attributes["k8s.namespace.name"], ${EVENT}["regarding"]["namespace"])`,
               `set(log.attributes["k8s.event.reason"], ${EVENT}["reason"])`,
               `set(log.attributes["k8s.event.type"], ${EVENT}["type"])`,
-              `set(log.attributes["k8s.event.count"], ${EVENT}["deprecatedCount"])`,
+              `set(log.attributes["k8s.event.count"], 1)`,
+              `set(log.attributes["k8s.event.count"], ${EVENT}["deprecatedCount"]) where ${EVENT}["deprecatedCount"] != nil`,
+              `set(log.attributes["k8s.event.count"], ${EVENT}["series"]["count"]) where ${EVENT}["series"] != nil`,
               `set(log.attributes["k8s.event.reporter"], ${EVENT}["reportingController"])`,
               `set(log.attributes["k8s.object.kind"], ${EVENT}["regarding"]["kind"])`,
               `set(log.attributes["k8s.object.name"], ${EVENT}["regarding"]["name"])`,

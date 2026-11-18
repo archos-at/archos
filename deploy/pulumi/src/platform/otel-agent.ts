@@ -160,11 +160,11 @@ export function annotatedPods(): CollectorFragment {
   };
 }
 
-export function toGateway(host = "otel-collector"): CollectorFragment {
+export function toGateway(host = "otel-collector", port = OTLP_HTTP_PORT): CollectorFragment {
   return {
     exporters: {
       [GATEWAY_EXPORTER]: {
-        endpoint: `http://${host}:${OTLP_HTTP_PORT}`,
+        endpoint: `http://${host}:${port}`,
         compression: "gzip",
         ...boundedDelivery(500),
       },

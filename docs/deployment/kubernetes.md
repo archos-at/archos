@@ -2578,8 +2578,8 @@ call gateway and agent:
 - **`otel-logs`** (`deploy/pulumi/src/platform/log-shipper.ts`), a DaemonSet on
   every node in its own namespace `observability`, deployed with PostHog logs
   on. It tails the container logs of the app namespaces and sends them to the
-  gateway (below, "Container logs and Kubernetes events"). It holds no
-  credential.
+  gateway (below, "Container logs and Kubernetes events"). It holds no PostHog
+  token; it mounts a Kubernetes service-account token, to read pod metadata.
 
 The config each one runs is composed from one fragment per consumer or source
 (`collector-config.ts`), which also holds the invariants every collector
@@ -2665,8 +2665,8 @@ pipelines, so a failed rollout can be read in PostHog
 
 | Pipeline | Source | What it keeps |
 |---|---|---|
-| `logs/containers` | OTLP from `otel-logs`, marked `collector.log.source=container` (the SDK pipeline drops marked rows, `filter/sdk_logs_only`, so nothing is shipped twice and SDK text stays withheld) | the line as written. The shipper's `filelog/pods` reads `/var/log/pods/<ns>_*` for `appNamespaces(cfg)` only, skips the OTLP-instrumented containers (`LOG_SHIPPER.otlpInstrumentedContainers`; `log-shipper.spec.ts` fails if a container with `OTEL_EXPORTER_OTLP_ENDPOINT` is missing from it), the collectors and the noisy stores; the `container` parser and `k8sattributes` stamp `k8s.namespace.name`, `k8s.pod.name`, `k8s.container.name`, `k8s.deployment.name`, and `service.name` is the container name. Debug dropped, warn and above kept, info sampled at 10%, lines cut at 16 KiB |
-| `logs/k8s_events` | `k8sobjects/events` on the gateway: a watch on `events.k8s.io` events in the app namespaces | one row per event (Warning as warn, Normal as info), body the note, attributes `k8s.event.reason`, `k8s.event.type`, `k8s.object.kind`, `k8s.object.name`; `service.name` `k8s-events`, `k8s.pod.name` on the resource for a pod's events. Deletions dropped |
+| `logs/containers` | OTLP from `otel-logs` on a port of its own, 4319 (`otlp/shipper`), which marks every row `collector.log.source=container`; the SDK pipeline reads only 4318, so an SDK row goes through the redaction whatever it claims to be | the line as written. The shipper's `filelog/pods` reads `/var/log/pods/<ns>_*` for `appNamespaces(cfg)` only, skips the OTLP-instrumented containers (`LOG_SHIPPER.otlpInstrumentedContainers`; `log-shipper.spec.ts` fails if a container with `OTEL_EXPORTER_OTLP_ENDPOINT` is missing from it), the collectors and the noisy stores; the `container` parser and `k8sattributes` stamp `k8s.namespace.name`, `k8s.pod.name`, `k8s.container.name`, `k8s.deployment.name`, and `service.name` is the container name. Debug dropped, warn and above kept, info sampled at 10%, lines cut at 16 KiB after CRI recombination. `k8s.deployment.name` is best effort: a new pod's first lines can come before `k8sattributes` has seen the pod, and carry the path's pod name only |
+| `logs/k8s_events` | `k8sobjects/events` on the gateway: a watch on `events.k8s.io` events in the app namespaces | one row per watch notification, so an event that repeats comes again with its count raised (`k8s.event.count`, from `series.count`) (Warning as warn, Normal as info), body the note, attributes `k8s.event.reason`, `k8s.event.type`, `k8s.object.kind`, `k8s.object.name`; `service.name` `k8s-events`, `k8s.pod.name` on the resource for a pod's events. Deletions dropped |
 
 Excluding the instrumented containers rather than filtering their stdout keeps
 the redaction whole (their stdout carries office text) and costs only their
@@ -2677,7 +2677,7 @@ warns at `baseline`, and the pod itself runs as UID 10001 with no capabilities,
 a read-only root, and group 0 only to read the kubelet's `0640 root:root` files.
 It reads pod metadata through a ClusterRole of get/list/watch on pods,
 namespaces and replicasets; `allow-log-shipper-to-collector` lets it through the
-app namespace's default-deny to port 4318. The events are read by the gateway
+app namespace's default-deny to port 4319. The events are read by the gateway
 alone, which is one replica (a second would ship every event twice; a surge
 rollout overlaps for seconds), through a Role of get/list/watch on events in
 each app namespace, bound to `otel-collector`.

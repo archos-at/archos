@@ -96,7 +96,11 @@ describe("PostHog metrics, on by default", () => {
 
 describe("PostHog metrics, switched off", () => {
   it("leaves the gateway with no metrics exporter, no cluster-wide identity, and OTLP metrics into nop", async () => {
-    const { collector } = await deploy({ "grid-oib:posthogMetricsEnabled": "false" });
+    const { collector, pod } = await deploy({
+      "grid-oib:posthogMetricsEnabled": "false",
+      "grid-oib:posthogLogsEnabled": "true",
+    });
+    expect(pod.automountServiceAccountToken).toBe(true);
     expect(collector.exporters).not.toHaveProperty("otlp_http/posthog_metrics");
     expect(collector.receivers).not.toHaveProperty("k8s_cluster");
     expect(collector.service.pipelines.metrics).toEqual(pipeline(["nop"]));

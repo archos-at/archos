@@ -52,7 +52,7 @@ export const LOG_SHIPPER = {
   name: "otel-logs",
   namespace: "observability",
   podLogDir: "/var/log/pods",
-  maxLineSize: "16KiB",
+  maxLineBytes: 16 * 1024,
   infoSamplePercent: 10,
   otlpInstrumentedContainers: [
     "agent-worker",

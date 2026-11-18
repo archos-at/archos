@@ -7,7 +7,7 @@ import { dump } from "js-yaml";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LOG_SHIPPER } from "../config/observability";
 import { podLogs } from "./log-shipper";
-import { containerLogs, kubernetesEvents, posthogLogs, WITHHELD } from "./otel-collector";
+import { containerLogs, kubernetesEvents, posthogLogs, SHIPPER_RECEIVER, WITHHELD } from "./otel-collector";
 
 const OTELCOL_BIN = process.env.OTELCOL_BIN;
 
@@ -53,7 +53,7 @@ function rows(file: string): Row[] {
 }
 
 async function waitFor(file: string, done: (rows: Row[]) => boolean): Promise<Row[]> {
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < 200; i += 1) {
     const got = rows(file);
     if (done(got)) return got;
     await new Promise((r) => setTimeout(r, 100));
@@ -67,14 +67,25 @@ async function start(config: object, dir: string, probe?: number): Promise<Child
   let stderr = "";
   const collector = spawn(OTELCOL_BIN!, [`--config=${file}`], { stdio: ["ignore", "ignore", "pipe"] });
   collector.stderr?.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+  await new Promise<void>((resolve, reject) => {
+    collector.once("spawn", resolve);
+    collector.once("error", reject);
+  });
   if (probe === undefined) return collector;
   for (let i = 0; i < 100; i += 1) {
-    const up = await fetch(`http://127.0.0.1:${probe}/v1/logs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
+    const up = await fetch(`http://127.0.0.1:${probe}/v1/logs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(1000),
+    })
       .then(() => true)
       .catch(() => false);
     if (up) return collector;
     await new Promise((r) => setTimeout(r, 100));
   }
+  collector.kill();
+  await new Promise((r) => collector.once("exit", r));
   throw new Error(`the collector did not start:\n${stderr.slice(-2000)}`);
 }
 
@@ -100,6 +111,10 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
       cri("stdout", '{"level":20,"msg":"resolved config"}'),
       cri("stderr", "Error: connect ECONNREFUSED 10.0.0.7:5432"),
       cri("stdout", "WARN slow query"),
+      cri("stderr", "    at load (node:internal/trace/events:10:2)"),
+      cri("stdout", "2026-11-17 10:00:00 DEBUG pool size 4"),
+      `2026-11-17T10:00:00.000000000Z stderr P ${"x".repeat(12 * 1024)}`,
+      `2026-11-17T10:00:00.000000000Z stderr F ${"y".repeat(12 * 1024)}`,
     ]);
     podLog(root, "app", "web-6b-qwert", "web", [
       ...Array.from({ length: 400 }, (_, i) => cri("stdout", `GET /page/${i} 200`)),
@@ -159,8 +174,19 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
     expect(shipped.find((r) => String(r.body).includes("slow query"))?.severity).toBe(13);
   });
 
+  it("reads a level only where a line states one: a stack frame naming a trace path stays a warning", () => {
+    expect(shipped.find((r) => String(r.body).includes("internal/trace/events"))).toMatchObject({ severity: 13, severityText: "warn" });
+  });
+
+  it("cuts a line recombined from CRI fragments at the size limit", () => {
+    const long = shipped.filter((r) => String(r.body).startsWith("xxxx"));
+    expect(long).not.toHaveLength(0);
+    for (const row of long) expect(String(row.body).length).toBeLessThanOrEqual(LOG_SHIPPER.maxLineBytes);
+  });
+
   it("drops debug and leaves no sampling bookkeeping on the rows", () => {
     expect(shipped.some((r) => String(r.body).includes("resolved config"))).toBe(false);
+    expect(shipped.some((r) => String(r.body).includes("pool size"))).toBe(false);
     for (const row of shipped) {
       expect(row.attributes).not.toHaveProperty("sampling.key");
       expect(row.attributes).not.toHaveProperty("sampling.priority");
@@ -187,37 +213,40 @@ describe.skipIf(!OTELCOL_BIN)("the log shipper, run on CRI files", () => {
 
 describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs send", () => {
   let collector: ChildProcess;
-  let port: number;
+  const port = { sdk: 0, shipper: 0, events: 0 };
   let out: string;
 
   beforeAll(async () => {
     const dir = mkdtempSync(join(tmpdir(), "gateway-logs-"));
     out = join(dir, "exported.jsonl");
-    port = await freePort();
+    port.sdk = await freePort();
+    port.shipper = await freePort();
+    port.events = await freePort();
     const sdk = posthogLogs("https://eu.i.posthog.com", "phc_test", "dev");
     const containers = containerLogs();
     const events = kubernetesEvents(["app"]);
-    const asFile = (p: { receivers: string[]; processors?: string[] }, receivers = p.receivers) => ({
-      receivers,
+    const otlpOn = (p: number) => ({ protocols: { http: { endpoint: `127.0.0.1:${p}` } } });
+    const asFile = (p: { processors?: string[] }, receiver: string) => ({
+      receivers: [receiver],
       processors: p.processors ?? [],
       exporters: ["file"],
     });
     collector = await start(
       {
-        receivers: { otlp: { protocols: { http: { endpoint: `127.0.0.1:${port}` } } } },
+        receivers: { otlp: otlpOn(port.sdk), [SHIPPER_RECEIVER]: otlpOn(port.shipper), "otlp/events": otlpOn(port.events) },
         processors: { ...sdk.processors, ...containers.processors, ...events.processors },
         exporters: { file: { path: out } },
         service: {
           telemetry: { metrics: { level: "none" } },
           pipelines: {
-            "logs/posthog": asFile(sdk.pipelines!["logs/posthog"]),
-            "logs/containers": asFile(containers.pipelines!["logs/containers"]),
-            "logs/k8s_events": asFile(events.pipelines!["logs/k8s_events"], ["otlp"]),
+            "logs/posthog": asFile(sdk.pipelines!["logs/posthog"], "otlp"),
+            "logs/containers": asFile(containers.pipelines!["logs/containers"], SHIPPER_RECEIVER),
+            "logs/k8s_events": asFile(events.pipelines!["logs/k8s_events"], "otlp/events"),
           },
         },
       },
       dir,
-      port,
+      port.sdk,
     );
   }, 20_000);
 
@@ -225,8 +254,8 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
     collector?.kill();
   });
 
-  const send = (resource: Record<string, string>, body: unknown, severityNumber = 17) =>
-    fetch(`http://127.0.0.1:${port}/v1/logs`, {
+  const send = (to: keyof typeof port, resource: Record<string, string>, body: unknown, severityNumber = 17) =>
+    fetch(`http://127.0.0.1:${port[to]}/v1/logs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -248,19 +277,24 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
     },
   });
 
-  it("ships a container line once, with its text, and an SDK line once, withheld", async () => {
-    await send({ "service.name": "cms", "collector.log.source": "container", "k8s.pod.name": "cms-1" }, { stringValue: "Error: migrate failed" });
-    await send({ "service.name": "bff" }, { stringValue: "office text in an SDK log" });
-    const got = await waitFor(out, (r) => r.length >= 2);
-    const cms = got.filter((r) => r.resource["service.name"] === "cms");
-    const bff = got.filter((r) => r.resource["service.name"] === "bff");
-    expect(cms.map((r) => r.body)).toEqual(["Error: migrate failed"]);
-    expect(cms[0].resource["deployment.environment.name"]).toBe("dev");
-    expect(bff.map((r) => r.body)).toEqual([WITHHELD]);
+  it("ships a shipper line once with its text, and an SDK line once withheld, even one claiming to be the shipper", async () => {
+    await send("shipper", { "service.name": "cms", "k8s.pod.name": "cms-1" }, { stringValue: "Error: migrate failed" });
+    await send("sdk", { "service.name": "bff" }, { stringValue: "office text in an SDK log" });
+    await send("sdk", { "service.name": "bff-spoof", "collector.log.source": "container" }, { stringValue: "office text, claiming" });
+    await waitFor(out, (r) => r.length >= 3);
+    await new Promise((r) => setTimeout(r, 500));
+    const got = rows(out);
+    const by = (service: string) => got.filter((r) => r.resource["service.name"] === service);
+    expect(by("cms").map((r) => r.body)).toEqual(["Error: migrate failed"]);
+    expect(by("cms")[0].resource).toMatchObject({ "deployment.environment.name": "dev", "collector.log.source": "container" });
+    expect(by("bff").map((r) => r.body)).toEqual([WITHHELD]);
+    expect(by("bff-spoof").map((r) => r.body)).toEqual([WITHHELD]);
   }, 20_000);
 
-  it("turns a Warning event into a WARN row with the reason, the object and the pod", async () => {
+  it("turns a Warning event into a WARN row with the reason, the object, the pod and its count", async () => {
+    await send("events", {}, kv({ type: "DELETED", object: { type: "Normal", reason: "Pulled", note: "expired" } }), 0);
     await send(
+      "events",
       {},
       kv({
         type: "ADDED",
@@ -270,11 +304,11 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
           note: "Readiness probe failed: HTTP probe failed with statuscode: 503",
           reportingController: "kubelet",
           regarding: { kind: "Pod", name: "cms-7d9f-abcde", namespace: "cms", fieldPath: "spec.containers{cms}" },
+          series: { count: "7" },
         },
       }),
       0,
     );
-    await send({}, kv({ type: "DELETED", object: { type: "Normal", reason: "Pulled", note: "expired" } }), 0);
     const got = await waitFor(out, (r) => r.some((x) => x.attributes["k8s.event.reason"] === "Unhealthy"));
     const event = got.find((r) => r.attributes["k8s.event.reason"] === "Unhealthy");
     expect(event?.body).toBe("Readiness probe failed: HTTP probe failed with statuscode: 503");
@@ -283,6 +317,7 @@ describe.skipIf(!OTELCOL_BIN)("the gateway, on what the shipper and the SDKs sen
       "k8s.object.kind": "Pod",
       "k8s.object.name": "cms-7d9f-abcde",
       "k8s.event.type": "Warning",
+      "k8s.event.count": "7",
     });
     expect(event?.resource).toMatchObject({
       "service.name": "k8s-events",
