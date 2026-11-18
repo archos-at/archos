@@ -12,6 +12,7 @@ interface Entry {
   from: string
   where?: string
   project: string | null
+  ago: string
   due?: { label: string; tone: 'late' | 'soon' | 'plain' }
 }
 
@@ -26,21 +27,25 @@ const KIND: Record<Entry['kind'], { icon: LucideIcon; label: string }> = {
 const A = 'Volksschule Am Hang'
 const B = 'Wohnanlage Linzer Straße'
 const ENTRIES: Entry[] = [
-  { kind: 'task', waiting: true, title: 'Brüstungshöhe im 2. OG unter 1,00 m.', from: 'Ihnen zugewiesen', where: 'Schnitt A-A', project: A, due: { label: 'Überfällig', tone: 'late' } },
-  { kind: 'question', waiting: true, title: 'Gilt für die Brüstung die Höhe ab Fertigfußboden oder ab Rohdecke?', from: 'Der Agent fragt Sie', where: 'Schnitt A-A', project: A },
-  { kind: 'task', waiting: true, title: 'Fluchtwegbreite im Gang nachweisen.', from: 'Ihnen zugewiesen', where: 'Grundriss EG', project: B, due: { label: 'Bald fällig', tone: 'soon' } },
-  { kind: 'task', waiting: true, title: 'Brandschutztür T30 zum Stiegenhaus fehlt in der Legende.', from: 'Von Anna Weber', where: 'Grundriss EG', project: B, due: { label: '24. Okt.', tone: 'plain' } },
-  { kind: 'mention', waiting: true, title: 'Passt die Brüstungshöhe im Zimmer 1 zur Einreichung?', from: 'Jakob Huber hat Sie erwähnt', where: 'Grundriss EG', project: B },
-  { kind: 'proposal', waiting: true, title: 'Neuer Ablageort für 5 Dateien', from: 'Vorschlag des Agenten', where: 'Ablage', project: B },
-  { kind: 'question', waiting: true, title: 'Reicht das Nutzungsbudget für diesen Monat?', from: 'Anna Weber bittet um Ihre Einschätzung', where: 'Chat', project: null },
-  { kind: 'news', waiting: false, title: 'Neue Fassung von „Grundriss EG Index B“ hochgeladen', from: 'Sabine Gruber', where: '4 offene Anmerkungen', project: B },
-  { kind: 'news', waiting: false, title: 'Anmerkung 3 in „Schnitt A-A“ wurde erledigt', from: 'Jakob Huber', project: A },
-  { kind: 'news', waiting: false, title: 'Das Nutzungsbudget ist zu 80 % aufgebraucht', from: 'Ihr Büro', project: null },
-  { kind: 'news', waiting: false, title: 'Maria Huber hat Feedback gesendet', from: 'Maria Huber', project: null },
+  { kind: 'task', waiting: true, title: 'Brüstungshöhe im 2. OG unter 1,00 m.', from: 'Ihnen zugewiesen', where: 'Schnitt A-A', project: A, due: { label: 'Überfällig', tone: 'late' }, ago: 'vor 3 Min.' },
+  { kind: 'question', waiting: true, title: 'Gilt für die Brüstung die Höhe ab Fertigfußboden oder ab Rohdecke?', from: 'Der Agent fragt Sie', where: 'Schnitt A-A', project: A, ago: 'vor 5 Min.' },
+  { kind: 'task', waiting: true, title: 'Fluchtwegbreite im Gang nachweisen.', from: 'Ihnen zugewiesen', where: 'Grundriss EG', project: B, due: { label: 'Bald fällig', tone: 'soon' }, ago: 'vor 12 Min.' },
+  { kind: 'task', waiting: true, title: 'Brandschutztür T30 zum Stiegenhaus fehlt in der Legende.', from: 'Von Anna Weber', where: 'Grundriss EG', project: B, due: { label: '24. Okt.', tone: 'plain' }, ago: 'vor 1 Std.' },
+  { kind: 'mention', waiting: true, title: 'Passt die Brüstungshöhe im Zimmer 1 zur Einreichung?', from: 'Jakob Huber hat Sie erwähnt', where: 'Grundriss EG', project: B, ago: 'vor 2 Std.' },
+  { kind: 'proposal', waiting: true, title: 'Neuer Ablageort für 5 Dateien', from: 'Vorschlag des Agenten', where: 'Ablage', project: B, ago: 'gestern' },
+  { kind: 'question', waiting: true, title: 'Reicht das Nutzungsbudget für diesen Monat?', from: 'Anna Weber bittet um Ihre Einschätzung', where: 'Chat', project: null, ago: 'vor 20 Min.' },
+  { kind: 'news', waiting: false, title: 'Neue Fassung von „Grundriss EG Index B“ hochgeladen', from: 'Sabine Gruber', where: '4 offene Anmerkungen', project: B, ago: 'vor 9 Min.' },
+  { kind: 'news', waiting: false, title: 'Anmerkung 3 in „Schnitt A-A“ wurde erledigt', from: 'Jakob Huber', project: A, ago: 'vor 40 Min.' },
+  { kind: 'news', waiting: false, title: 'Das Nutzungsbudget ist zu 80 % aufgebraucht', from: 'Ihr Büro', project: null, ago: 'vor 3 Std.' },
+  { kind: 'news', waiting: false, title: 'Maria Huber hat Feedback gesendet', from: 'Maria Huber', project: null, ago: 'gestern' },
 ]
 
 const TONE = { late: 'bg-[rgb(193_74_56_/_0.12)] text-destructive', soon: 'bg-[#f6ecd6] text-[#8a5a00]', plain: 'bg-desk text-muted-foreground' }
 const NO_PROJECT = 'Ohne Projekt'
+
+const ORDER = ['Min.', 'Std.', 'gestern']
+const age = (entry: Entry): number => ORDER.findIndex((unit) => entry.ago.includes(unit)) * 1000 + (Number.parseInt(entry.ago.replace(/\D/g, ''), 10) || 0)
+const newestFirst = (entries: Entry[]): Entry[] => [...entries].sort((x, y) => age(x) - age(y))
 
 function Row({ entry }: { entry: Entry }): JSX.Element {
   const Icon = KIND[entry.kind].icon
@@ -55,20 +60,20 @@ function Row({ entry }: { entry: Entry }): JSX.Element {
           {entry.due && <span className={`text-meta shrink-0 rounded-full px-2 py-0.5 font-medium ${TONE[entry.due.tone]}`}>{entry.due.label}</span>}
         </div>
         <p className="text-muted-foreground text-meta mt-0.5 truncate">{[entry.from, entry.where].filter(Boolean).join(' · ')}</p>
+        <p className="text-muted-foreground text-meta mt-1 flex items-center gap-2">
+          <span className="bg-desk text-foreground min-w-0 truncate rounded-[4px] px-1.5 py-px">{entry.project ?? NO_PROJECT}</span>
+          <span className="ml-auto shrink-0">{entry.ago}</span>
+        </p>
       </div>
     </div>
   )
 }
 
-function Groups({ entries }: { entries: Entry[] }): JSX.Element {
-  const names = [...new Set(entries.map((entry) => entry.project ?? NO_PROJECT))].sort((x, y) => Number(x === NO_PROJECT) - Number(y === NO_PROJECT))
+function Rows({ entries }: { entries: Entry[] }): JSX.Element {
   return (
     <>
-      {names.map((name) => (
-        <div key={name}>
-          <h4 className="text-muted-foreground text-meta px-4 pb-1 pt-3 font-medium">{name}</h4>
-          {entries.filter((entry) => (entry.project ?? NO_PROJECT) === name).map((entry) => <Row key={entry.title} entry={entry} />)}
-        </div>
+      {newestFirst(entries).map((entry) => (
+        <Row key={entry.title} entry={entry} />
       ))}
     </>
   )
@@ -82,7 +87,7 @@ function Part({ title, note, entries }: { title: string; note?: string; entries:
         <span className="text-muted-foreground font-normal">{entries.length}</span>
         {note && <span className="text-destructive text-meta font-medium">{note}</span>}
       </h3>
-      <Groups entries={entries} />
+      <Rows entries={entries} />
     </section>
   )
 }
@@ -136,7 +141,7 @@ export function InboxAll(): JSX.Element {
           </div>
         </div>
         <div className="border-hairline min-h-0 flex-1 overflow-hidden border-t">
-          <Groups entries={ENTRIES} />
+          <Rows entries={ENTRIES} />
         </div>
       </div>
     </div>
