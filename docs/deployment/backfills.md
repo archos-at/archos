@@ -55,7 +55,9 @@ retry), and so the deploy: a failed `before-readers` backfill stops the rollout
 before any new reader starts; a failed `after-switch` one leaves the release
 rolled out and the deploy red.
 
-Each run logs JSON lines, which reach PostHog Logs through the log shipper:
+Each run logs JSON lines, which reach PostHog Logs through the log shipper. The
+shipper keeps every line of an `app-backfill-*` pod; it samples other info lines
+at 10%:
 
 ```json
 {"event":"backfill.count","backfill":"inbox-types","phase":"after-switch","store":"inbox_items.type","before":185,"written":185,"after":0}

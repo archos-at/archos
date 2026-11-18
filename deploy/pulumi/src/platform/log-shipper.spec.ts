@@ -4,6 +4,7 @@ import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-conf
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import type { CollectorConfig } from "./collector-config";
 import { LOG_SHIPPER } from "../config/observability";
+import { BACKFILL_POD } from "../constants";
 import { loadConfig } from "../config";
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
@@ -118,6 +119,13 @@ describe("container logs, with PostHog logs on (the default)", () => {
     const statements = (shipper.processors["transform/pod_logs"] as any).log_statements.flatMap((s: any) => s.statements);
     expect(statements).toContain(
       'set(log.attributes["sampling.priority"], 100) where log.severity_number >= SEVERITY_NUMBER_WARN',
+    );
+  });
+
+  it("keeps every line of a backfill pod, whose counts the deploy reads, out of the sampler", () => {
+    const statements = (shipper.processors["transform/pod_logs"] as any).log_statements.flatMap((s: any) => s.statements);
+    expect(statements).toContain(
+      `set(log.attributes["sampling.priority"], 100) where IsMatch(resource.attributes["k8s.pod.name"], "^${BACKFILL_POD}-")`,
     );
   });
 

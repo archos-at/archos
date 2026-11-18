@@ -427,7 +427,10 @@ jobs:
             exit 0
           fi
           . ci/git_auth.sh
-          git fetch -q --filter=blob:none --unshallow origin
+          # reno's lint, two steps up, already unshallows the clone when the notes changed.
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch -q --filter=blob:none --unshallow origin
+          fi
           git fetch -q --filter=blob:none origin prod:refs/remotes/origin/prod
           python3 ci/expand_switch.py pr "$BASE_SHA" "$HEAD_SHA" origin/prod
 
