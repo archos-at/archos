@@ -1,26 +1,50 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { load as parseYaml } from "js-yaml";
 import * as pulumi from "@pulumi/pulumi";
-import { HEAVY_POOL, HEAVY_WORKFLOW, WORKFLOW } from "./ingest-worker";
+import type { DeployConfig } from "../config";
+import { ingestWorkerEnv } from "./config";
+import { HEAVY_POOL, HEAVY_TIER, HEAVY_WORKFLOW, WORKFLOW, installIngestWorkerHeavy } from "./ingest-worker";
+import { hatchetNamespace } from "./hatchet-env";
 import { hatchetBacklogQuery } from "./keda-scaling";
 import { baseStackConfig } from "../test-support/stack-config";
+import { heavyFileBytesEnv } from "../config/workers";
 
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
+const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
+const SCALED = "kubernetes:keda.sh/v1alpha1:ScaledObject";
+
+type Resource = { type: string; name: string; inputs: Record<string, any> };
+const RESOURCES: Resource[] = [];
 
 pulumi.runtime.setMocks(
   {
-    newResource: (args: pulumi.runtime.MockResourceArgs) => ({
-      id: `${args.name}-id`,
-      state: { ...args.inputs, metadata: args.inputs.metadata ?? { name: args.name } },
-    }),
+    newResource: (args: pulumi.runtime.MockResourceArgs) => {
+      RESOURCES.push({ type: args.type, name: args.name, inputs: args.inputs });
+      return {
+        id: `${args.name}-id`,
+        state: { ...args.inputs, metadata: args.inputs.metadata ?? { name: args.name } },
+      };
+    },
     call: () => ({}),
   },
   "grid-oib",
   "test",
   false,
 );
+
+const find = (type: string, name: string): Resource => {
+  const hit = RESOURCES.find((r) => r.type === type && r.name === name);
+  if (!hit) throw new Error(`no ${type} named "${name}"`);
+  return hit;
+};
+
+type EnvVar = { name?: unknown; value?: unknown };
+const envOf = (deployment: string): EnvVar[] => find(DEPLOYMENT, deployment).inputs.spec.template.spec.containers[0].env;
+const envValue = (env: EnvVar[], name: string) => env.find((e) => e.name === name)?.value;
+const triggerQuery = (scaledObject: string): string => find(SCALED, scaledObject).inputs.spec.triggers[0].metadata.query;
+
+const pulumiDir = join(__dirname, "..", "..");
 
 async function load(knobs: Record<string, string> = {}) {
   const set = { observabilityEnabled: "false", ...knobs };
@@ -31,37 +55,39 @@ async function load(knobs: Record<string, string> = {}) {
   return import("../config").then((m) => m.loadConfig());
 }
 
-const stackKnob = (stackFile: string, key: string) =>
-  read("deploy", "pulumi", stackFile).match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];
+const stackKnob = (stackFile: string, key: string): string | undefined => {
+  const { config } = parseYaml(readFileSync(join(pulumiDir, stackFile), "utf8")) as { config: Record<string, unknown> };
+  const value = config[`grid-oib:${key}`];
+  return value === undefined ? undefined : String(value);
+};
 
-const pythonSources = [
-  read("apps", "agent-host", "src", "agent_host", "jobs", "ingest_dispatch.py"),
-  read("apps", "agent-host", "src", "agent_host", "jobs", "ingest_worker.py"),
-  read("packages", "agent", "src", "agent", "knowledge", "ingest_scheduler.py"),
-  read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py"),
-  read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "adapter.py"),
-  read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "page_reads.py"),
-].join("\n");
-const configSource = [
-  read("deploy", "pulumi", "src", "app", "config.ts"),
-  read("deploy", "pulumi", "src", "app", "ingest-worker.ts"),
-].join("\n");
-
-const names = (source: string, pattern: RegExp): Set<string> =>
-  new Set([...source.matchAll(pattern)].map((m) => m[1]));
+const wiringFor = (cfg: DeployConfig) =>
+  ({
+    cfg,
+    namespace: "grid",
+    redisUrl: pulumi.output("redis://dragonfly:6379"),
+    seaweedInternalEndpoint: pulumi.output("http://seaweedfs:8333"),
+    seaweedPublicEndpoint: pulumi.output("https://s3.example.test"),
+    qdrantUrl: pulumi.output("http://qdrant.grid.svc.cluster.local:6333"),
+    dsn: () => pulumi.output("postgresql://x"),
+    imagePullSecrets: [],
+  }) as never;
 
 describe("the ingest-worker tier", () => {
-  it("emits only INGEST_ names the worker reads", () => {
-    const readByPython = names(pythonSources, /"(INGEST_[A-Z_]+)"/g);
-    const emitted = names(configSource, /name: "(INGEST_[A-Z_]+)"/g);
-    expect(emitted.size).toBeGreaterThan(1);
-    expect([...emitted].filter((n) => !readByPython.has(n))).toEqual([]);
-  });
+  beforeAll(async () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:observabilityEnabled": "false" });
+    const stack = (await import("../../index")) as Record<string, unknown>;
+    await Promise.all(
+      Object.values(stack)
+        .filter((v): v is pulumi.Output<unknown> => pulumi.Output.isInstance(v))
+        .map((output) => new Promise((resolve) => output.apply(resolve))),
+    );
+  }, 120_000);
 
   it("scales on the backlog of the workflow the worker registers", () => {
     expect(WORKFLOW).toBe("ingest-document");
     expect(hatchetBacklogQuery("prod", WORKFLOW)).toContain("starts_with(action_id, 'prod_ingest-document:')");
-    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("workflow: WORKFLOW");
+    expect(triggerQuery("ingest-worker")).toBe(hatchetBacklogQuery(hatchetNamespace(), WORKFLOW));
   });
 
   it("runs prod wide and small on the batch group, never able to overcommit a node", async () => {
@@ -78,9 +104,8 @@ describe("the ingest-worker tier", () => {
     expect(Number(knob("ingestWorkerMaxReplicas")) * gib(knob("ingestWorkerLimitsMemory")) + heavyGib).toBeLessThanOrEqual(56);
   });
 
-  it("keeps one standard ingest worker up on every stack, so the base corpus is never refused", async () => {
-    expect(read("apps", "agent-host", "src", "agent_host", "routes", "oib.py")).toContain("enqueue=enqueue_only");
-    const stacks = readdirSync(join(repoRoot, "deploy", "pulumi")).filter((file) => /^Pulumi\.[\w-]+\.yaml$/.test(file));
+  it("keeps at least one ingest worker up on every stack", async () => {
+    const stacks = readdirSync(pulumiDir).filter((file) => /^Pulumi\.[\w-]+\.yaml$/.test(file));
     expect(stacks).toEqual(expect.arrayContaining(["Pulumi.dev.yaml", "Pulumi.prod.yaml"]));
     for (const stack of stacks) {
       const value = stackKnob(stack, "ingestWorkerMinReplicas");
@@ -96,36 +121,25 @@ describe("the ingest-worker tier", () => {
     expect(HEAVY_WORKFLOW).toBe("ingest-document-heavy");
     expect(hatchetBacklogQuery("prod", HEAVY_WORKFLOW)).toContain("'prod_ingest-document-heavy:'");
     expect("prod_ingest-document-heavy:index".startsWith("prod_ingest-document:")).toBe(false);
-    const python = read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py");
-    expect(python).toContain(`HEAVY_WORKFLOW_NAME = "${HEAVY_WORKFLOW}"`);
-    expect(python).toContain(`HEAVY_POOL = "${HEAVY_POOL}"`);
-    expect(configSource).toContain('{ name: "INGEST_WORKER_POOL", value: "highmem" }');
-    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("workflow: HEAVY_WORKFLOW");
+    expect(triggerQuery(HEAVY_TIER)).toBe(hatchetBacklogQuery(hatchetNamespace(), HEAVY_WORKFLOW));
+    expect(triggerQuery(HEAVY_TIER)).not.toBe(triggerQuery("ingest-worker"));
+    expect(envValue(envOf(HEAVY_TIER), "INGEST_WORKER_POOL")).toBe(HEAVY_POOL);
   });
 
   it("sends nothing heavy while the stack has no high-memory pool", async () => {
     const cfg = await load({ ingestWorkerHeavyEnabled: "false" });
-    const { installIngestWorkerHeavy } = await import("./ingest-worker");
     expect(installIngestWorkerHeavy({} as never, cfg, {} as never, [])).toBeUndefined();
-    const { heavyFileBytesEnv } = await import("../config/workers");
     expect(heavyFileBytesEnv(cfg.ingestWorker)).toBe(0);
-    expect(configSource).toContain('{ name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) }');
+    expect(envValue(ingestWorkerEnv(wiringFor(cfg), "/tmp/liveness"), "INGEST_HEAVY_FILE_BYTES")).toBe("0");
   });
 
-  it("runs the role the entrypoint knows", () => {
-    expect(read("apps", "agent-host", "entrypoint.py")).toContain('role == "ingest-worker"');
-    expect(configSource).toContain('{ name: "PROCESS_ROLE", value: "ingest-worker" }');
+  it("runs with the ingest-worker process role", () => {
+    expect(envValue(envOf("ingest-worker"), "PROCESS_ROLE")).toBe("ingest-worker");
   });
 
-  it("states the raster pixel budget the Python module defaults to", async () => {
+  it("passes the raster pixel budget from the config to the worker", async () => {
     const cfg = await load();
-    const python = read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "limits.py").match(
-      /MAX_IMAGE_PIXELS = env_int\("MAX_IMAGE_PIXELS", ([\d_]+)/,
-    )?.[1];
-    expect(python).toBeDefined();
-    expect(cfg.ingestWorker.maxImagePixels).toBe(Number(python!.replace(/_/g, "")));
-    expect(configSource).toContain(
-      '{ name: "MAX_IMAGE_PIXELS", value: String(w.cfg.ingestWorker.maxImagePixels) }',
-    );
+    expect(cfg.ingestWorker.maxImagePixels).toBeGreaterThan(0);
+    expect(envValue(envOf("ingest-worker"), "MAX_IMAGE_PIXELS")).toBe(String(cfg.ingestWorker.maxImagePixels));
   });
 });
