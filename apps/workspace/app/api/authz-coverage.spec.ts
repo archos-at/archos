@@ -4,9 +4,10 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, relative } from 'node:path'
+import { calleeName, parseSource, ts } from '@/test-utils/source-ast'
 
 const API_DIR = dirname(fileURLToPath(import.meta.url))
 
@@ -20,7 +21,12 @@ function findRouteFiles(dir: string): string[] {
   return found
 }
 
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const
+const HTTP_METHODS: readonly string[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+const FACTORIES: readonly string[] = ['apiRoute', 'platformApiRoute', 'internalApiRoute', 'publicApiRoute']
+const POSTURE_KEY = new Map<string, string>([
+  ['apiRoute', 'authz'],
+  ['publicApiRoute', 'why'],
+])
 
 const HAND_ROLLED: Record<string, string> = {
   'v1/[...path]/route.ts':
@@ -41,6 +47,11 @@ const HAND_ROLLED: Record<string, string> = {
     'the sign-in entry point behind /?sign-in (the landing site’s Anmelden target). It runs BEFORE a session exists — it mints the AuthKit authorization redirect and its PKCE cookie, which only a Route Handler may write — so no session-based posture can apply.',
 }
 
+interface Handler {
+  method: string
+  initializer: ts.Expression | undefined
+}
+
 interface RouteFacts {
   file: string
   method: string
@@ -48,40 +59,55 @@ interface RouteFacts {
   declaresAuthz: boolean
 }
 
-function collectRoutes(): RouteFacts[] {
-  const files = findRouteFiles(API_DIR)
-  const facts: RouteFacts[] = []
-  for (const absolute of files) {
-    const file = relative(API_DIR, absolute).replace(/\\/g, '/')
-    const source = readFileSync(absolute, 'utf8')
-    for (const method of HTTP_METHODS) {
-      const viaConst = new RegExp(`export const ${method}\\s*=`).test(source)
-      const viaFunction = new RegExp(`export async function ${method}\\s*\\(`).test(source)
-      if (!viaConst && !viaFunction) continue
-      const viaFactory = new RegExp(
-        `export const ${method}\\s*=\\s*(apiRoute|platformApiRoute|internalApiRoute|publicApiRoute)`
-      ).exec(source)
-
-      const start =
-        source.indexOf(`export const ${method}`) >= 0
-          ? source.indexOf(`export const ${method}`)
-          : source.indexOf(`export async function ${method}`)
-      const rest = source.slice(start + 1)
-      const nextExport = rest.search(/\nexport (const [A-Z]+|async function [A-Z]+)/)
-      const segment = nextExport >= 0 ? rest.slice(0, nextExport) : rest
-
-      facts.push({
-        file,
-        method,
-        factory: viaFactory?.[1] ?? null,
-        declaresAuthz: /\bauthz:\s*\{/.test(segment) || /\bwhy:\s*['"]/.test(segment),
-      })
+function exportedHandlers(source: ts.SourceFile): Handler[] {
+  return source.statements.flatMap((statement): Handler[] => {
+    const exported = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      : false
+    if (!exported) return []
+    if (ts.isVariableStatement(statement)) {
+      return statement.declarationList.declarations.flatMap((declaration): Handler[] =>
+        ts.isIdentifier(declaration.name) && HTTP_METHODS.includes(declaration.name.text)
+          ? [{ method: declaration.name.text, initializer: declaration.initializer }]
+          : []
+      )
     }
-  }
-  return facts
+    if (ts.isFunctionDeclaration(statement) && statement.name && HTTP_METHODS.includes(statement.name.text)) {
+      return [{ method: statement.name.text, initializer: undefined }]
+    }
+    return []
+  })
 }
 
-const ROUTES = collectRoutes()
+function hasProperty(object: ts.ObjectLiteralExpression, key: string): boolean {
+  return object.properties.some(
+    (property) =>
+      !ts.isSpreadAssignment(property) &&
+      property.name !== undefined &&
+      ts.isIdentifier(property.name) &&
+      property.name.text === key
+  )
+}
+
+function routesIn(absolute: string): RouteFacts[] {
+  const file = relative(API_DIR, absolute).replace(/\\/g, '/')
+  return exportedHandlers(parseSource(absolute)).map(({ method, initializer }) => {
+    const call = initializer && ts.isCallExpression(initializer) ? initializer : undefined
+    const name = call ? calleeName(call) : undefined
+    const factory = name !== undefined && FACTORIES.includes(name) ? name : null
+    const key = factory ? POSTURE_KEY.get(factory) : undefined
+    const options = call?.arguments[1]
+    return {
+      file,
+      method,
+      factory,
+      declaresAuthz:
+        key !== undefined && options !== undefined && ts.isObjectLiteralExpression(options) && hasProperty(options, key),
+    }
+  })
+}
+
+const ROUTES: RouteFacts[] = findRouteFiles(API_DIR).flatMap(routesIn)
 
 describe('API authorization coverage', () => {
   it('finds the route surface (guards against a broken glob silently passing)', () => {
