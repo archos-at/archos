@@ -466,7 +466,26 @@ function TemporaryToggle({ on }: { on: boolean }): JSX.Element {
   )
 }
 
-export function NewChatPage({ temporary, infoOpen = false }: { temporary: boolean; infoOpen?: boolean }): JSX.Element {
+function OnlyYouBadge({ quiet = false }: { quiet?: boolean }): JSX.Element {
+  return (
+    <span className={cn('inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full text-xs font-medium', quiet ? 'px-0' : 'bg-desk px-2.5')}>
+      <LockKeyhole className="size-3.5" aria-hidden />
+      Nur Sie
+    </span>
+  )
+}
+
+function MailHint({ chip = false }: { chip?: boolean }): JSX.Element {
+  return (
+    <span className={cn('inline-flex items-center gap-2 text-xs', chip ? 'bg-sheet shadow-press h-8 rounded-full px-3' : 'text-muted-foreground')}>
+      <Mail className="size-3.5" aria-hidden />
+      6 E-Mails warten auf Ablage
+      <span className="text-foreground font-medium underline underline-offset-2">Ansehen</span>
+    </span>
+  )
+}
+
+export function NewChatPage({ temporary, infoOpen = false, lay = 'greeting' }: { temporary: boolean; infoOpen?: boolean; lay?: string }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-end gap-3 px-8 pb-2 pt-2">
@@ -483,28 +502,36 @@ export function NewChatPage({ temporary, infoOpen = false }: { temporary: boolea
           ) : (
             <>
               <h1 className="text-page-title">Guten Morgen, Anna.</h1>
-              <div className="relative">
-                <span className={cn('inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium', infoOpen ? 'bg-selected' : 'bg-desk')}>
+              {lay === 'subline' && (
+                <p className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
                   <LockKeyhole className="size-3.5" aria-hidden />
-                  Nur Sie
-                </span>
-                {infoOpen && (
-                  <div className="bg-sheet shadow-md absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 rounded-[16px] p-4 text-left">
-                    <p className="text-name">Nur Sie sehen diesen Chat.</p>
-                    <p className="text-muted-foreground mt-1.5 text-xs leading-5">Weder Kolleg:innen noch die Administrator:innen Ihres Büros können ihn lesen. Ihr Büro sieht, wie viele Punkte Sie verbrauchen, nie wofür. Andere sehen den Chat erst, wenn Sie ihn teilen.</p>
+                  Nur Sie sehen diesen Chat.
+                </p>
+              )}
+              {lay === 'greeting' && (
+                <>
+                  <div className="relative">
+                    <OnlyYouBadge />
+                    {infoOpen && (
+                      <div className="bg-sheet shadow-md absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 rounded-[16px] p-4 text-left">
+                        <p className="text-name">Nur Sie sehen diesen Chat.</p>
+                        <p className="text-muted-foreground mt-1.5 text-xs leading-5">Weder Kolleg:innen noch die Administrator:innen Ihres Büros können ihn lesen. Ihr Büro sieht, wie viele Punkte Sie verbrauchen, nie wofür. Andere sehen den Chat erst, wenn Sie ihn teilen.</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <span className="bg-sheet shadow-press text-name inline-flex h-9 items-center gap-2 rounded-[10px] px-3 font-normal">
-                <Mail className="text-muted-foreground size-4" aria-hidden />
-                6 E-Mails warten auf Ablage
-                <span className="text-muted-foreground">·</span>
-                <span className="font-medium underline underline-offset-2">Ansehen</span>
-              </span>
+                  <MailHint chip />
+                </>
+              )}
             </>
           )}
         </div>
         <div className="w-full max-w-[720px]">
+          {!temporary && lay === 'above' && (
+            <div className="flex items-center justify-between px-1 pb-2">
+              <OnlyYouBadge quiet />
+              <MailHint />
+            </div>
+          )}
           <div className={cn('bg-sheet flex flex-col gap-6 rounded-[16px] px-4 pb-3 pt-4', temporary ? 'border-foreground border border-dashed' : 'shadow-md')}>
             <span className="text-muted-foreground text-sm">Fragen Sie {PRODUCT} zu diesem Projekt …</span>
             <div className="text-muted-foreground flex items-center gap-4 text-xs">
@@ -512,9 +539,12 @@ export function NewChatPage({ temporary, infoOpen = false }: { temporary: boolea
                 <AtSign className="size-3.5" aria-hidden />
                 Kollegin oder Kollegen erwähnen
               </span>
-              <span className="text-foreground ml-auto inline-flex items-center gap-1 font-medium">
-                Mittel
-                <ChevronDown className="size-3.5" aria-hidden />
+              <span className="text-foreground ml-auto inline-flex items-center gap-4">
+                {!temporary && lay === 'inside' && <OnlyYouBadge />}
+                <span className="inline-flex items-center gap-1 font-medium">
+                  Mittel
+                  <ChevronDown className="size-3.5" aria-hidden />
+                </span>
               </span>
               <Paperclip className="text-foreground size-4" aria-hidden />
               <Mic className="text-foreground size-4" aria-hidden />
@@ -523,6 +553,11 @@ export function NewChatPage({ temporary, infoOpen = false }: { temporary: boolea
               </span>
             </div>
           </div>
+          {!temporary && lay === 'subline' && (
+            <div className="flex justify-center pt-3">
+              <MailHint chip />
+            </div>
+          )}
           <p className="text-muted-foreground text-meta pt-2 text-center">{PRODUCT} ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.</p>
         </div>
       </div>

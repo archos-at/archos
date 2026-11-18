@@ -138,7 +138,7 @@ function ProjectMenu({ form }: { form: string }): JSX.Element {
   )
 }
 
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'top' }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'top', shelfCount = 0 }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -156,7 +156,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           <SidebarMenu className="mb-6 gap-0.5">
-            <NavRow icon={Folder} label="Ablage" within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+            <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
             {shelfRows && (
               <ul className="flex flex-col gap-0.5 pt-0.5">
                 {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
@@ -514,12 +514,12 @@ function InOfficeShelf(): JSX.Element {
   )
 }
 
-function Talk({ place, settingsOpen, menu, menuForm }: { place: string; settingsOpen: boolean; menu: string | null; menuForm: string }): JSX.Element {
+function Talk({ place, settingsOpen, menu, menuForm, lay }: { place: string; settingsOpen: boolean; menu: string | null; menuForm: string; lay: string }): JSX.Element {
   const own = place === 'me'
   return (
     <>
-      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} />
-      {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
+      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} />
+      {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} lay={lay} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
   )
 }
@@ -529,7 +529,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'top'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'top'} lay={params?.get('lay') ?? 'greeting'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
