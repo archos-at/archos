@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production --ignore-scripts
 
-FROM ghcr.io/puppeteer/puppeteer:25.16.0@sha256:956a72e3d523c76606efaad23392fbe33950370189f749715222c7427f57392b AS renderer
+FROM ghcr.io/puppeteer/puppeteer:25.18.1@sha256:e94e5de180f0488aceebda0e8c32404075c089ec2ac8e9f2f4ec47034a049126 AS renderer
 USER root
 WORKDIR /app
 RUN set -eu; \
