@@ -3,7 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { backendAutoscaled } from '../config/chat-tier'
 import { CLAMAV } from "../clamav-constants";
-import { EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
+import { BACKFILL_POD, EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
@@ -29,6 +29,7 @@ export const QDRANT_CALLERS = [
   "ingest-worker-heavy",
   QDRANT.snapshotJob,
   QDRANT.opsLabel,
+  BACKFILL_POD,
 ] as const;
 
 export function installNetworkPolicies(

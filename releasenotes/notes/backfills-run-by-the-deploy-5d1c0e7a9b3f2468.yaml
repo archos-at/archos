@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    Stored-data backfills registered in apps/workspace/backfills/ now run on
+    every deploy, in the Jobs app-backfill-before and app-backfill-after, and a
+    count left above 0 fails the deploy. Nobody runs them with kubectl any
+    more; the counts are in PostHog Logs as backfill.count lines.
