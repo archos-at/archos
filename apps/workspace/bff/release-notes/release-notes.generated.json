@@ -73,6 +73,14 @@
         },
         {
           "section": "features",
+          "area": "administration",
+          "text": {
+            "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
+            "de": "Das Lesen hochgeladener Dokumente belastet Ihr Tages- und Monatslimit nicht mehr: Dafür steht Ihnen monatlich ein eigenes Kontingent in dreifacher Höhe Ihres Monatslimits zur Verfügung, das unter Verbrauch & Budgets separat angezeigt wird. Ein großer Upload zu Projektbeginn lässt Ihr Tageslimit nun für Ihre Fragen unangetastet."
+          }
+        },
+        {
+          "section": "features",
           "area": "answers",
           "text": {
             "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",

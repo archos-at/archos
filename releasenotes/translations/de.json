@@ -3404,6 +3404,10 @@
     "de": "Das Lesen eines hochgeladenen Dokuments zählt jetzt zu den Ausgaben Ihres Büros und wird dem Projekt und der hochladenden Person zugeordnet. Bisher fehlten in den Ausgaben alle Kosten eines Uploads, und Uploads, die gerade laufen, werden nicht durch ein Budget gestoppt."
   },
   {
+    "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
+    "de": "Das Lesen hochgeladener Dokumente belastet Ihr Tages- und Monatslimit nicht mehr: Dafür steht Ihnen monatlich ein eigenes Kontingent in dreifacher Höhe Ihres Monatslimits zur Verfügung, das unter Verbrauch & Budgets separat angezeigt wird. Ein großer Upload zu Projektbeginn lässt Ihr Tageslimit nun für Ihre Fragen unangetastet."
+  },
+  {
     "en": "Refreshing a project's search or restoring a folder from the Papierkorb does not take a file out of quarantine. A release does.",
     "de": "Das Auffrischen der Suche eines Projekts oder das Wiederherstellen eines Ordners aus dem Papierkorb holt eine Datei nicht aus der Quarantäne. Das tut nur eine Freigabe."
   },
