@@ -5172,6 +5172,10 @@
     "de": "Wenn Sie ein Rechteck zeichnen und Piloti dazu befragen, antwortet Piloti wieder zu diesem Rechteck. Eine Frage mit @Piloti in einer Anmerkung wird im zugehörigen Thread beantwortet. Alle sehen im Thread, wenn Piloti daran arbeitet – auch nach dem Neuladen. Kann Piloti nicht antworten, steht im Thread, warum."
   },
   {
+    "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+    "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
+  },
+  {
     "en": "When you mention Piloti in an annotation's thread, or hand an open annotation to Piloti, your inbox tells you when it is done or when it has a question for you. Taking an annotation back from Piloti stops the work.",
     "de": "Wenn Sie Piloti im Thread einer Anmerkung erwähnen oder Piloti eine offene Anmerkung übergeben, informiert Sie Ihre Inbox, sobald die Aufgabe erledigt ist oder Piloti eine Rückfrage hat. Wenn Sie eine Anmerkung von Piloti zurücknehmen, wird die Arbeit gestoppt."
   },

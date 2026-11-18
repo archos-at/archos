@@ -72,6 +72,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+            "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
+          }
+        },
+        {
           "section": "fixes",
           "area": "documents",
           "text": {
