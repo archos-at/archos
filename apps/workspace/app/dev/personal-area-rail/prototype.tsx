@@ -10,8 +10,6 @@ import {
   AtSign,
   Bell,
   ChevronDown,
-  BookMarked,
-  ChevronRight,
   Folder,
   FolderInput,
   FolderLock,
