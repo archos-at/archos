@@ -75,6 +75,7 @@ const client = vi.hoisted(() => ({
   list: vi.fn().mockResolvedValue([]),
   get: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue(undefined),
+  delete: vi.fn().mockResolvedValue(undefined),
   listMessages: vi.fn().mockResolvedValue([]),
   createMessage: vi.fn().mockResolvedValue(undefined),
   updateMessageProvenance: vi.fn().mockResolvedValue(undefined),
@@ -410,7 +411,8 @@ describe('switching conversations mid-turn', () => {
   })
 
   it('closes the left conversation’s socket when nothing runs in it', () => {
-    const { rerender } = open(conversationOf(CONVERSATION, [questionOf('question-1')]))
+    const answer: ChatMessage = { ...questionOf('answer-1'), role: 'assistant', messageType: 'agent_response', content: '40 m.' }
+    const { rerender } = open(conversationOf(CONVERSATION, [questionOf('question-1'), answer]))
     const first = socket()
     leave()
     rerender()
