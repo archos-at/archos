@@ -34,9 +34,10 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 
 ## Quick start
 
-Staging (`dev`) and `prod` keep every secret in their Pulumi ESC environment
+Staging (`dev`) and `prod` keep their secrets in their Pulumi ESC environment
 (`grid-oib/<stack>`, imported by the stack file's `environment:` block), and
-the committed `Pulumi.<stack>.yaml` holds only non-secret config. Stack config
+the committed `Pulumi.<stack>.yaml` holds non-secret config, apart from the two
+`dev` exceptions named below. Stack config
 wins over ESC on a conflict, so never run `pulumi config set --secret` on these
 two stacks: it writes ciphertext into the committed file and shadows the ESC
 value. Set each secret with `pulumi env set`, or edit them together with
