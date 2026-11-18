@@ -215,7 +215,7 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
                 <span
                   className={cn(
                     'min-w-0 flex-1 text-sm max-sm:line-clamp-2 max-sm:break-words sm:truncate',
-                    session.activity === 'answered' && 'font-medium'
+                    (session.activity === 'answered' || session.activity === 'failed') && 'font-medium'
                   )}
                   title={displayTitle}
                 >

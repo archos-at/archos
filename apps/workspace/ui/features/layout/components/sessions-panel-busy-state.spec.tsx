@@ -69,7 +69,7 @@ describe('SessionsPanel - several chats at once', () => {
     expect(onNewSession).toHaveBeenCalledOnce()
   })
 
-  test('each row says what its chat is doing: working, waiting for an answer, answer ready', () => {
+  test('each row says what its chat is doing: working, waiting for an answer, answer ready, answer failed', () => {
     render(
       <SessionsPanel
         sessions={[
@@ -77,6 +77,7 @@ describe('SessionsPanel - several chats at once', () => {
           session('session-2', 'Stellplätze', 'waiting'),
           session('session-3', 'Abstandsflächen', 'answered'),
           session('session-4', 'Brandschutz'),
+          session('session-5', 'Barrierefreiheit', 'failed'),
         ]}
         selectedSessionId="session-4"
       />
@@ -85,6 +86,7 @@ describe('SessionsPanel - several chats at once', () => {
     expect(screen.getByRole('button', { name: 'Chat: Fluchtwege — Working on this chat' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Chat: Stellplätze — Waiting for your answer' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Chat: Abstandsflächen — Answer ready' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chat: Barrierefreiheit — Answer failed' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Chat: Brandschutz' })).toBeInTheDocument()
   })
 })

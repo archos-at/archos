@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { CircleCheck, FileCheck2, Loader2, MessageCircleQuestion, MessageSquare } from 'lucide-react'
+import { CircleAlert, CircleCheck, FileCheck2, Loader2, MessageCircleQuestion, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Session } from '../../types'
 
@@ -16,6 +16,10 @@ export const SessionStatusIcon: FC<{ session: Session }> = ({ session }) => {
 
   if (session.activity === 'answered') {
     return <CircleCheck className={cn(base, 'text-success')} aria-hidden="true" />
+  }
+
+  if (session.activity === 'failed') {
+    return <CircleAlert className={cn(base, 'text-destructive')} aria-hidden="true" />
   }
 
   if (session.hasCompletedReport) {

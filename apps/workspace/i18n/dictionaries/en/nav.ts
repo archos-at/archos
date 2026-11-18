@@ -7,6 +7,7 @@ export const nav = {
   chatWorking: '(working)',
   chatWaiting: '(waiting for your answer)',
   chatAnswered: '(answer ready)',
+  chatFailed: '(answer failed)',
   temporaryChatTitle: '{title} (temporary chat: nothing from it is kept)',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',

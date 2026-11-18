@@ -56,7 +56,7 @@ export const createTurnActions = (
       const conversation = conversations.get(view.conversationId)
       if (!conversation) continue
       if (view.phase !== 'running' && previous?.phase === 'running') {
-        unseenAnswers = withUnseenAnswer({ ...state, unseenAnswers }, conversation.id)
+        unseenAnswers = withUnseenAnswer({ ...state, unseenAnswers }, conversation.id, view.phase === 'failed' ? 'failed' : 'answered')
       }
       const answerDurationMs =
         state.currentUserMessageId === view.turnId && state.currentTurnStartedAt !== null
@@ -178,7 +178,7 @@ export const createTurnActions = (
         set(
           {
             turns: { ...get().turns, [turnId]: failed },
-            ...(marked.phase === 'running' && { unseenAnswers: withUnseenAnswer(get(), marked.conversationId) }),
+            ...(marked.phase === 'running' && { unseenAnswers: withUnseenAnswer(get(), marked.conversationId, 'failed') }),
           },
           false,
           'failTurn:mark'

@@ -1,4 +1,5 @@
 import type { TurnView } from '@/lib/turns/turn-fold'
+import type { UnseenEnd } from '@/lib/turns/conversation-activity'
 import type { ComposerPrefill } from '../types'
 import type { ChatSendFn, MessagesStateCreator } from './messages-slice-types'
 import { createTurnActions } from './turn-actions'
@@ -16,7 +17,7 @@ export const initialMessagesState = {
   currentUserMessageId: null as string | null,
   currentTurnStartedAt: null as number | null,
   turns: {} as Record<string, TurnView>,
-  unseenAnswers: {} as Record<string, true>,
+  unseenAnswers: {} as Record<string, UnseenEnd>,
   projectId: null as string | null,
   composerPrefill: null as ComposerPrefill | null,
   composerSubject: null,

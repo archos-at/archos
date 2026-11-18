@@ -5,6 +5,7 @@ import { useLayoutStore } from '@/features/layout/store'
 import { withErrorMessage } from './connection-errors'
 import { errorConcernsTheThread, getErrorMeta } from '../lib/error-registry'
 import { mergeRemoteMessages } from '../lib/remote-message-merge'
+import { withUnseenAnswer } from '../lib/turn-selectors'
 import {
   createNewConversation,
   generateTitle,
@@ -256,11 +257,14 @@ export const createConversationActions = (
       }
 
       set(
-        withConversation(get(), {
-          ...owner,
-          messages: withErrorMessage(owner.messages, errorMessage),
-          updatedAt: new Date(),
-        }),
+        {
+          ...withConversation(get(), {
+            ...owner,
+            messages: withErrorMessage(owner.messages, errorMessage),
+            updatedAt: new Date(),
+          }),
+          unseenAnswers: withUnseenAnswer(get(), owner.id, 'failed'),
+        },
         false,
         'addErrorCard'
       )
@@ -294,30 +298,23 @@ export const createConversationActions = (
       )
     },
 
-    dismissConnectionErrors: () => {
+    dismissConnectionErrors: (conversationId?: string) => {
       const { currentConversation, conversations } = get()
-      if (!currentConversation) return
+      const owner =
+        conversationId === undefined || conversationId === currentConversation?.id
+          ? currentConversation
+          : conversations.find((conversation) => conversation.id === conversationId)
+      if (!owner) return
 
-      const updatedMessages = currentConversation.messages.filter(
+      const updatedMessages = owner.messages.filter(
         (msg) =>
           !(msg.messageType === 'error' && msg.errorData?.errorCode?.startsWith('connection.'))
       )
 
-      if (updatedMessages.length === currentConversation.messages.length) return
-
-      const updatedConversation: Conversation = {
-        ...currentConversation,
-        messages: updatedMessages,
-        updatedAt: new Date(),
-      }
-
-      const updatedConversations = updateConversationInList(conversations, updatedConversation)
+      if (updatedMessages.length === owner.messages.length) return
 
       set(
-        {
-          currentConversation: updatedConversation,
-          conversations: updatedConversations,
-        },
+        withConversation(get(), { ...owner, messages: updatedMessages, updatedAt: new Date() }),
         false,
         'dismissConnectionErrors'
       )

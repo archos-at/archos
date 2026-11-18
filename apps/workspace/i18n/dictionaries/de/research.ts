@@ -274,6 +274,7 @@ export const research: typeof en.research = {
     reportCompleted: 'Bericht fertig',
     sessionWaiting: 'Wartet auf Ihre Antwort',
     answerReady: 'Antwort fertig',
+    answerFailed: 'Antwort fehlgeschlagen',
     chatSession: 'Chat',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',

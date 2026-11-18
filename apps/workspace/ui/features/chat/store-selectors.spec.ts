@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useChatStore, selectHasRecoverableConnectionError } from './store'
 import type { Conversation, ChatMessage } from './types'
+import { runningTurnIn } from './lib/turn-selectors'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
 
 describe('ChatStore - Session Busy Selectors', () => {
@@ -37,17 +38,20 @@ describe('ChatStore - Session Busy Selectors', () => {
     })
   })
 
-  describe('isSessionBusy', () => {
+  describe('which chat is answering', () => {
+    const answering = (conversationId: string): boolean =>
+      runningTurnIn(useChatStore.getState().turns, conversationId) !== undefined
+
     it('returns false when session has no active operations', () => {
       useChatStore.setState({ conversations: [conversation('session-1')], currentConversation: null })
-      expect(useChatStore.getState().isSessionBusy('session-1')).toBe(false)
+      expect(answering('session-1')).toBe(false)
     })
 
     it('is true for the open chat while its turn runs', () => {
       const conv = conversation('session-1')
       useChatStore.setState({ conversations: [conv], currentConversation: conv })
       useChatStore.getState().beginTurn('session-1', 'turn-1')
-      expect(useChatStore.getState().isSessionBusy('session-1')).toBe(true)
+      expect(answering('session-1')).toBe(true)
     })
 
     it('is true for a chat that answers in the background, and only for that one', () => {
@@ -55,19 +59,19 @@ describe('ChatStore - Session Busy Selectors', () => {
       const other = conversation('session-other')
       useChatStore.setState({ conversations: [current, other], currentConversation: current })
       useChatStore.getState().beginTurn('session-other', 'turn-1')
-      expect(useChatStore.getState().isSessionBusy('session-other')).toBe(true)
-      expect(useChatStore.getState().isSessionBusy('session-current')).toBe(false)
+      expect(answering('session-other')).toBe(true)
+      expect(answering('session-current')).toBe(false)
       expect(useChatStore.getState().isStreaming).toBe(false)
     })
 
     it('does not count a live run as busy: the run is a message with its own stop', () => {
       const conv = conversation('session-1', [liveRunMessage])
       useChatStore.setState({ conversations: [conv], currentConversation: null })
-      expect(useChatStore.getState().isSessionBusy('session-1')).toBe(false)
+      expect(answering('session-1')).toBe(false)
     })
 
     it('handles a session not found in the conversations list', () => {
-      expect(useChatStore.getState().isSessionBusy('missing')).toBe(false)
+      expect(answering('missing')).toBe(false)
     })
   })
 

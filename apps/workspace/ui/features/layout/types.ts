@@ -49,5 +49,5 @@ export interface Session {
   hasCompletedReport?: boolean
   contentLocked?: boolean
   temporary?: boolean
-  activity?: 'working' | 'waiting' | 'answered' | null
+  activity?: 'working' | 'waiting' | 'answered' | 'failed' | null
 }

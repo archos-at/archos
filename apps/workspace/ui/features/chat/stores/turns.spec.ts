@@ -530,14 +530,14 @@ describe('a turn in a chat the reader left', () => {
     expect(useChatStore.getState().pendingInteraction).toMatchObject({ turnId })
   })
 
-  it('is marked as answered when it fails, and its error card lands in its own thread', async () => {
+  it('is marked as failed, not as answered, when it fails, and its error card lands in its own thread', async () => {
     ask(answered)
     useChatStore.getState().applyTurnEvents(upTo(answered, 9))
     leave()
 
     endFailedTurn(useChatStore.getState().turns[TURN]!, { code: 'agent.no_response' })
 
-    expect(activity(CONVERSATION)).toBe('answered')
+    expect(activity(CONVERSATION)).toBe('failed')
     await vi.waitFor(() =>
       expect(left(CONVERSATION).messages.at(-1)).toMatchObject({ errorData: { errorCode: 'agent.no_response' } })
     )

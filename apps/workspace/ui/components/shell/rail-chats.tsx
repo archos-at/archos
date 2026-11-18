@@ -3,7 +3,7 @@
 import type { JSX } from 'react'
 import { createContext, useCallback, useContext, useEffect, useId, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, Loader2, MessageCircleDashed, MessageCircleQuestion } from 'lucide-react'
+import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import { useTranslations } from '@/i18n'
@@ -18,7 +18,7 @@ export interface RailChat {
   href: string
   current: boolean
   temporary?: boolean
-  activity?: 'working' | 'waiting' | 'answered' | null
+  activity?: 'working' | 'waiting' | 'answered' | 'failed' | null
 }
 
 export interface RailChats {
@@ -64,7 +64,7 @@ function useRecentChatsCollapsed(): [boolean, () => void] {
   return [collapsed, toggle]
 }
 
-const ACTIVITY_LABEL = { working: 'chatWorking', waiting: 'chatWaiting', answered: 'chatAnswered' } as const
+const ACTIVITY_LABEL = { working: 'chatWorking', waiting: 'chatWaiting', answered: 'chatAnswered', failed: 'chatFailed' } as const
 
 function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX.Element | null {
   const t = useTranslations(navCopy)
@@ -75,6 +75,7 @@ function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX
       {activity === 'working' && <Loader2 className={cn(mark, 'text-accent-primary animate-spin motion-reduce:animate-none')} aria-hidden data-testid="rail-chat-working" />}
       {activity === 'waiting' && <MessageCircleQuestion className={cn(mark, 'text-accent-primary')} aria-hidden data-testid="rail-chat-waiting" />}
       {activity === 'answered' && <span className="bg-primary relative ml-auto size-2 shrink-0 rounded-full" aria-hidden data-testid="rail-chat-answered" />}
+      {activity === 'failed' && <CircleAlert className={cn(mark, 'text-destructive')} aria-hidden data-testid="rail-chat-failed" />}
       <span className="sr-only">{t(ACTIVITY_LABEL[activity])}</span>
     </>
   )
@@ -122,7 +123,7 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
               {chat.current && (
                 <motion.span layoutId={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
               )}
-              <span className={cn('relative truncate', chat.activity === 'answered' && 'text-foreground font-medium')}>{chat.title}</span>
+              <span className={cn('relative truncate', (chat.activity === 'answered' || chat.activity === 'failed') && 'text-foreground font-medium')}>{chat.title}</span>
               <RailChatActivity activity={chat.activity} />
               {chat.temporary && (
                 <>

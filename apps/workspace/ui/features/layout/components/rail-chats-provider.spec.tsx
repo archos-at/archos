@@ -112,7 +112,7 @@ describe('RailChatsProvider', () => {
   })
 
   test('a row carries what its chat is doing, so the rail can show it from any page', () => {
-    useChatStore.setState({ turns: {}, unseenAnswers: { c2: true } })
+    useChatStore.setState({ turns: {}, unseenAnswers: { c2: 'answered' } })
     useChatStore.getState().beginTurn('c4', 'turn-1')
     show('/app/projects/p1/files')
     const activityOf = (id: string) => captured?.items.find((item) => item.id === id)?.activity

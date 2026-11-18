@@ -89,6 +89,7 @@ vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: cli
 
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { useChatStore } from '../store'
+import { runningTurnIn } from '../lib/turn-selectors'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import { ACK_TIMEOUT_MS, DELTA_FLUSH_MS, useWebSocketChat } from './use-websocket-chat'
@@ -128,6 +129,8 @@ const deliver = (events: WireEvent[]) =>
 const sentOf = (type: ClientMessage['type']) =>
   socket().sent.filter((message) => (message as { type: string }).type === type) as Record<string, unknown>[]
 const messages = () => useChatStore.getState().currentConversation!.messages
+const answering = (conversationId: string): boolean =>
+  runningTurnIn(useChatStore.getState().turns, conversationId) !== undefined
 
 const open = (conversation: Conversation) => {
   useChatStore.setState({ conversations: [conversation], currentConversation: conversation })
@@ -390,13 +393,13 @@ describe('switching conversations mid-turn', () => {
     expect(first.close).not.toHaveBeenCalled()
     expect(socket().options.conversationId).toBe('conv-b')
     expect(useChatStore.getState()).toMatchObject({ isStreaming: false, unseenAnswers: {} })
-    expect(useChatStore.getState().isSessionBusy(CONVERSATION)).toBe(true)
+    expect(answering(CONVERSATION)).toBe(true)
 
     act(() => {
       for (const event of answered.filter((event) => event.seq > 9)) first.options.onEvent(event)
     })
-    expect(useChatStore.getState().isSessionBusy(CONVERSATION)).toBe(false)
-    expect(useChatStore.getState().unseenAnswers).toEqual({ [CONVERSATION]: true })
+    expect(answering(CONVERSATION)).toBe(false)
+    expect(useChatStore.getState().unseenAnswers).toEqual({ [CONVERSATION]: 'answered' })
     const answer = left().messages.find((message) => message.messageType === 'agent_response')!
     expect(answer.content.length).toBeGreaterThan(0)
     expect(answer.isStreaming).toBeFalsy()
@@ -481,7 +484,7 @@ describe('switching conversations mid-turn', () => {
 
       await vi.waitFor(() => expect(useChatStore.getState().turns[TURN]).toBeUndefined())
       expect(left().messages.find((message) => message.id === ANSWER_ID)?.content).toBe(STORED)
-      expect(useChatStore.getState().isSessionBusy(CONVERSATION)).toBe(false)
+      expect(answering(CONVERSATION)).toBe(false)
       expect(useChatStore.getState().currentConversation!.messages).toEqual([])
       expect(first.close).toHaveBeenCalled()
     })
@@ -523,6 +526,26 @@ describe('switching conversations mid-turn', () => {
     })
   })
 
+  it('leaves the open chat’s connection card alone when a left conversation’s socket opens', async () => {
+    const { rerender } = openTurn(answered)
+    deliver(answered.filter((event) => event.seq <= 9))
+    const first = socket()
+    leave()
+    rerender()
+    status('failed')
+    const card = () => messages().find((message) => message.errorData?.errorCode === 'connection.failed')
+    await vi.waitFor(() => expect(card()).toBeDefined())
+
+    act(() => {
+      first.open = true
+      first.options.onStatus?.('open')
+    })
+    expect(card()).toBeDefined()
+
+    status('open')
+    expect(card()).toBeUndefined()
+  })
+
   it('puts the card for a refused question in the chat it was asked in, not the one on screen', async () => {
     const { result, rerender } = open(conversationOf(CONVERSATION))
     act(() => void result.current.sendMessage('Wie lang darf der Fluchtweg sein?'))
@@ -541,6 +564,7 @@ describe('switching conversations mid-turn', () => {
       expect(left().messages.at(-1)).toMatchObject({ errorData: { errorCode: 'agent.response_failed' } })
     )
     expect(useChatStore.getState().currentConversation!.messages).toEqual([])
+    expect(useChatStore.getState().unseenAnswers).toEqual({ [CONVERSATION]: 'failed' })
   })
 })
 

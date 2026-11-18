@@ -6,7 +6,7 @@ import { discardSessionDocumentsResources } from '@/features/documents/discard-s
 import { isAwaitingServerMessages } from './chat-storage'
 import { hasLiveRun, hasNoUserChatMessages } from '../lib/session-activity'
 import { conversationMatchesProject, isHiddenJobConversation } from '../lib/project-scope'
-import { runningTurnIn, turnStateFor } from './messages-store'
+import { turnStateFor } from './messages-store'
 import { withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createNewConversation } from './new-conversation'
 import { hydratingConversationIds } from './session-server-sync'
@@ -72,7 +72,6 @@ export const createSessionNavigationSlice: StateCreator<
     | 'ensureSession'
     | 'selectConversation'
     | 'restoreSessionState'
-    | 'isSessionBusy'
     | 'hasAnyBusySession'
   >
 > = (set, get) => ({
@@ -270,10 +269,6 @@ export const createSessionNavigationSlice: StateCreator<
           ? last.promptParentId
           : undefined
     if (turnId) set({ resumableTurn: { conversationId: conversation.id, turnId } }, false, 'restoreSessionState:resumable')
-  },
-
-  isSessionBusy: (conversationId: string) => {
-    return runningTurnIn(get().turns, conversationId) !== undefined
   },
 
   hasAnyBusySession: () => Object.values(get().turns).some((view) => view.phase === 'running'),

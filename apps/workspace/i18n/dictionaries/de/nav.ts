@@ -9,6 +9,7 @@ export const nav: typeof en.nav = {
   chatWorking: '(arbeitet)',
   chatWaiting: '(wartet auf Ihre Antwort)',
   chatAnswered: '(Antwort fertig)',
+  chatFailed: '(Antwort fehlgeschlagen)',
   temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',

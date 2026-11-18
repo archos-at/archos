@@ -56,7 +56,6 @@ export type SessionsSlice = {
     options?: { quiet?: boolean }
   ) => Promise<RecoveryOutcome>
   _awaitServerAnswer: (conversationId: string, afterUserMessageId: string) => Promise<RecoveryOutcome>
-  isSessionBusy: (conversationId: string) => boolean
   hasAnyBusySession: () => boolean
   _ensureConversationExists: () => Promise<void>
   _appendMessage: (message: ChatMessage, conversationId?: string) => Promise<void>

@@ -169,7 +169,7 @@ export const createTurnDriver = (conversationId: string, projectId: string | und
 
   const opened = (): void => {
     invalidateHealthCache()
-    store().dismissConnectionErrors()
+    store().dismissConnectionErrors(conversationId)
     for (const message of unacknowledged.values()) socket.send(message)
     for (const message of waiting.splice(0)) deliver(message)
   }

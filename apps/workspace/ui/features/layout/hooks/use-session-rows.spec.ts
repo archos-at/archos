@@ -98,7 +98,7 @@ describe('useSessionRows', () => {
     expect(result.current[1]).toBe(olderBefore)
   })
 
-  test('a row says what its chat is doing: working, waiting for an answer, answer ready, then nothing once opened', () => {
+  test('a row says what its chat is doing: working, waiting for an answer, answer failed or ready, then nothing once opened', () => {
     useChatStore.setState({ turns: {}, unseenAnswers: {} })
     const { result } = renderHook(() => useSessionRows())
     const activityOf = (id: string) => result.current.find((row) => row.id === id)!.activity
@@ -117,6 +117,9 @@ describe('useSessionRows', () => {
     expect(activityOf('older')).toBe('waiting')
 
     act(() => useChatStore.getState().failTurn('turn-1'))
+    expect(activityOf('older')).toBe('failed')
+
+    act(() => useChatStore.setState({ unseenAnswers: { older: 'answered' } }))
     expect(activityOf('older')).toBe('answered')
 
     act(() => useChatStore.getState().selectConversation('older'))

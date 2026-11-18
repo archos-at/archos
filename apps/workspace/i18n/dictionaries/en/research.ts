@@ -267,6 +267,7 @@ export const research = {
     reportCompleted: 'Report ready',
     sessionWaiting: 'Waiting for your answer',
     answerReady: 'Answer ready',
+    answerFailed: 'Answer failed',
     chatSession: 'Chat',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
