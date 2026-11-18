@@ -26,3 +26,4 @@ apps/workspace/app/manifest.spec.ts
 apps/workspace/tests/one-edge.spec.ts
 apps/workspace/ui/components/ui/avatar-identity.spec.ts
 apps/workspace/ui/components/ui/breakpoints.spec.ts
+apps/workspace/ui/components/ui/section-label.spec.tsx
