@@ -70,11 +70,9 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
         <CheckSquare className="size-4" aria-hidden />
         Auswählen
       </span>
-      {!office && (
-        <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
-          <Trash2 className="size-4" aria-label="Papierkorb" />
-        </span>
-      )}
+      <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
+        <Trash2 className="size-4" aria-label="Papierkorb" />
+      </span>
       <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
         <Upload className="size-4" aria-hidden />
         Hochladen
