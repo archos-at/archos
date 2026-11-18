@@ -13519,11 +13519,25 @@
     }
   },
   "tool:chat:execute": {
-    "description": "Runs a JavaScript or TypeScript module you write in a sandbox with no network, and keeps the files it writes. Use it to make real files (Word, Excel, PowerPoint, PDF, charts) and to calculate exactly. Read the `office-files` skill first: it lists the libraries and how to write a file well. `code` is `export default async function () { … }`; its return value comes back as `value` and must be plain JSON. /drafts/ is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/ (the report names each path). Files written under /workspace/ are kept in /drafts/. Errors come back on stderr: fix and run again, at most three times per file.",
+    "description": "Runs a JavaScript or TypeScript module you write in a sandbox with no network, and keeps the files it writes. Use it to make real files (Word, Excel, PowerPoint, PDF, charts) and to calculate exactly. Read the `office-files` skill first: it lists the libraries and how to write a file well. `code` is `export default async function () { … }`; its return value comes back as `value` and must be plain JSON. /drafts/ is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/ (the report names each path). `data` takes the references other tools name on their 'Data for execute:' line (e.g. [\"r3\"]) and puts each result, exact and with its provenance, read-only at /workspace/in/<tool>-<ref>.json: compute on that instead of typing figures into the code. Files written under /workspace/ are kept in /drafts/. Errors come back on stderr: fix and run again, at most three times per file.",
     "schema": {
       "properties": {
         "code": {
           "type": "string"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "documents": {
           "anyOf": [

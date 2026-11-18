@@ -872,7 +872,7 @@ class TestWhatTheTraceRecords:
         assert _clipped(list(range(20)), 20, "storeys") is None
 
     def test_the_model_handle_is_stable_and_not_the_name(self):
-        from agent.tools.bim.register import _model_handle
+        from agent.tools.bim.trace import model_handle as _model_handle
 
         assert _model_handle("Haus-Mayr_Landstrasser-Hauptstr-12_V3.ifc") == _model_handle(
             "Haus-Mayr_Landstrasser-Hauptstr-12_V3.ifc"

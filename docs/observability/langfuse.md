@@ -155,12 +155,13 @@ with its real start and end, and the turn gets the tag `feature:execute`. Its
 input: the run's ordinal in the turn (`run`), the script's `code_chars` and
 `code_sha256` (16 hex characters: the same script twice is the same hash),
 whether named documents were passed (`documents`) and how many
-(`documents_named`), the `input_files` and `input_bytes` sent (the working
-directory plus those documents) and `timeout_s`. Its output: `status` (`ok`,
+(`documents_named`), how many tool results were handed over (`data_named`),
+the `input_files` and `input_bytes` sent (the working directory plus those
+documents and results) and `timeout_s`. Its output: `status` (`ok`,
 `error`, `timeout`, `unavailable`, `refused`), `reason` on an unavailable or
 refused run (`no_runner`, `unreachable`, `busy`, `http_error`;
 `no_conversation`, `no_envelope`, `unresolved`, `base_corpus`, `too_large`,
-`unreadable`), the runner's own `runner_ms` beside the tool's `wall_ms` (the
+`unreadable`, `unknown_data`, `too_many_data`), the runner's own `runner_ms` beside the tool's `wall_ms` (the
 difference is reading the documents, the busy retries and keeping the files),
 `files_kept`, `files_new` (not in the working directory before), `kept_bytes`,
 `file_types` (the extensions), `files_refused` (over the conversation's cap)

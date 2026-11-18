@@ -20,6 +20,7 @@ from agent.tools.documents.draft_store import modernize_draft_path
 from agent.tools.documents.draft_store import path_refusal
 from agent.tools.documents.draft_store import stored_bytes
 from agent.tools.documents.draft_store import stored_size
+from agent.tools.execute.tool_data import delete_conversation_tool_data
 
 from .internal_auth import _require_internal_token
 
@@ -133,6 +134,7 @@ def add_draft_routes(router: APIRouter) -> None:
         _require_internal_token(request)
         try:
             await delete_conversation_drafts(conversation_id)
+            await delete_conversation_tool_data(conversation_id)
         except Exception:
             logger.exception("Failed to drop the working directory of conversation %s", conversation_id)
             raise HTTPException(status_code=500, detail="Failed to delete drafts")

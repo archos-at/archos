@@ -20,8 +20,8 @@ on with it, and every figure in it is one a run computed.
 
 - `code` is an ES module whose default export does the work:
   `export default async function () { … }`. What it returns comes back as
-  `value` (JSON). Nothing is passed in: write the data into the code as
-  constants, or read it from a file.
+  `value` (JSON). Nothing is passed in: read the data from a file, and write
+  into the code only the few figures the person typed.
 - Return plain JSON only: an array with a hole or `undefined` in it, a `Date`,
   a `Decimal`, a `Map` or a `Set` fails the whole run. Holes become `null`,
   dates ISO strings, decimals `toNumber()`, Maps `Object.fromEntries`, Sets
@@ -40,6 +40,10 @@ on with it, and every figure in it is one a run computed.
   `documents read:` line names every path. Anything written under
   `/workspace/in/` is dropped, and the report says so: write a changed copy to
   `/workspace/<Name>.<ext>`.
+- A result another tool named on its `Data for execute: r3 (…)` line is passed
+  with `data: ["r3"]` and read with `JSON.parse(await readFile(path, "utf8"))`
+  from the path the `data read:` line names; its rows are under `result`, its
+  provenance and model beside them. Never retype a tool's figures into code.
 - No network, no `fetch`, no npm, no shell, no Python, no LibreOffice: only the
   libraries below. TypeScript types are stripped, so plain JavaScript and
   TypeScript both run.
