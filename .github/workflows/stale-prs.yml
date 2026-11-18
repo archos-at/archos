@@ -1,0 +1,51 @@
+name: Close idle pull requests
+
+# A pull request nobody has touched for 7 days gets the `stale` label and a
+# comment; 3 days later, still untouched, it is closed. Any push, comment,
+# review or label change counts as a touch and takes the label off again.
+# Closing is reversible: reopen it, or give it `keep-open` to exempt it.
+#
+# Only pull requests opened on or after start-date are judged, so the backlog
+# that existed when this landed is left for a person to sort. Dependabot's
+# pull requests (label `dependencies`) are left alone: Dependabot supersedes and
+# closes its own, and a closed one tells it to skip that version. Issues are
+# never touched.
+on:
+  schedule:
+    - cron: "41 4 * * *" # daily 04:41 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: stale-prs
+  cancel-in-progress: false
+
+jobs:
+  close:
+    name: Close idle pull requests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # label, comment, close
+      issues: write # labels on a pull request go through the issues API
+    steps:
+      - uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10.4.0
+        with:
+          start-date: "2026-11-18T00:00:00Z"
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          days-before-pr-stale: 7
+          days-before-pr-close: 3
+          stale-pr-label: stale
+          exempt-pr-labels: keep-open,dependencies
+          remove-pr-stale-when-updated: true
+          delete-branch: false
+          stale-pr-message: >
+            No activity for 7 days. This pull request closes in 3 days unless it
+            gets a push, a comment or a review. Add the `keep-open` label to
+            exempt it.
+          close-pr-message: >
+            Closed after 10 days without activity. Reopen it to pick it up again;
+            the branch is kept.
+          operations-per-run: 100

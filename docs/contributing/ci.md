@@ -16,6 +16,7 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
 | Merge Dependabot's minor and patch updates once `CI OK` passes | Dependabot pull requests | `dependabot-auto-merge.yml` | `CI OK`, through auto-merge ([setup](testing-and-verification.md)) |
+| Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; `keep-open` and Dependabot exempt) | daily | `stale-prs.yml` | No |
 
 Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
