@@ -55,7 +55,10 @@ const ROUTES: Record<string, RouteDisposition> = {
   'v1/[...path]/route.ts': { exempt: 'proxy of the allowlisted JSON endpoints of the agent service (lib/proxy/v1-allowlist); no file bytes.' },
   'knowledge-base/documents/[fileName]/route.ts': { exempt: 'the platform’s shared knowledge base (norms), served from the agent service; not an organization’s document.' },
   'platform/knowledge/documents/[fileName]/route.ts': { exempt: 'the platform operator’s read of the same shared knowledge base, released or not; not an organization’s document.' },
-  'internal/document-file/route.ts': { exempt: 'agent service only: tells it where an object is; it fetches the object itself for a turn.' },
+  'internal/document-file/route.ts': {
+    exempt:
+      'agent service only: tells it where an object is; it fetches the object itself for a turn. An execute run copies those bytes into its working directory unlogged; the open decision is in docs/design/agent-code-execution.md.',
+  },
   'internal/bim/source/route.ts': { exempt: 'agent service only: a presigned IFC for the model tool.' },
   'internal/document-versions/[versionId]/content/route.ts': { exempt: 'agent service only: opens a turn’s subject into its working directory.' },
 }

@@ -19,7 +19,10 @@ Deploy 2 ships in three steps, one pull request each, in this order:
 
 A step merges only after prod runs the release before it. One promotion that
 carries an expand and its switch would let the migrate Job switch the database
-while old pods still write the old spelling.
+while old pods still write the old spelling. Deploy 1 is registered as the expand
+`brand-free-stored-names`, and the step that switches declares it in
+`deploy/rollout/switches/`, so CI and the promotion enforce the order
+([`expand-and-switch.md`](expand-and-switch.md)).
 
 The deploy runs the backfills ([`backfills.md`](backfills.md)): the step-1
 scripts are registered in `apps/workspace/backfills/` (`actor-kind`,
@@ -99,29 +102,49 @@ payloads / messages, and lane is messages / citation events.
 
 ## 5. Document namespace `piloti/` → `generated/`
 
-Today the namespace is the join key between a document row and its vectors,
-the purge deletes by it, and readers take the prefix to mean "agent-written".
-Step 3 starts only after step 2 has moved the join and the purge to
-`document_id`. Step 3 also moves each prefix check to the actor kind, or to a
-column that says who wrote the document, so the prefix means nothing afterwards.
+The namespace was the join key between a document row and its vectors, the
+purge deleted by it, and readers took the prefix to mean "agent-written". Step 2
+moved the join and the purge to `document_id`. Step 3 moves the last readers to
+the producer, so the prefix means nothing, and then renames it.
 
-- **Deploy 1:** migration 0243. The live-name index covers both prefixes. Every
-  reader treats either prefix as agent-written (`AGENT_DOCUMENT_NAMESPACES`,
-  `bff/documents/legacy-agent-namespace.ts`, `common/legacy_document_namespace.py`).
-- **Dry run:** count `documents.filename LIKE 'piloti/%'` (N) and `LIKE 'generated/%'`
-  (must be 0). Count `filename`, `superseded_by`, `revision_suggestion` and
-  `change_basis` in `document_metadata` and `document_revision_retained`. Check
-  `max(length(filename))` against those columns' 512 limit, since the new prefix
-  is three characters longer. In each Qdrant collection, count `file_name`
-  values starting `piloti/` per name.
-- **Backfill A** (Postgres, one transaction):
-  `UPDATE … SET <col> = regexp_replace(<col>, '^piloti/', 'generated/') WHERE <col> LIKE 'piloti/%'`
-  for `documents.filename` and the four columns of each metadata table.
-- **Backfill B** (Qdrant, after A commits): per collection, set `file_name` to the
-  new name on every point whose `file_name` equals an old one (`set_file_payloads`).
-- **Verify:** no `piloti/` left in either store, and the counts equal the dry run's.
-- **Switch:** `agentDocumentFilename` writes `generated/`.
-- **Rollback:** reverse in the opposite order.
+- **Deploy 1:** migration 0243. The live-name index covers both prefixes.
+- **Data check** (2026-11-18, read-only): every row under `piloti/` is an
+  `agent_document`, and every `agent_document` is under `piloti/`. Prod: 6 rows,
+  none published, longest name 118. Dev: 8 rows, 2 published, longest name 107.
+  No row under `generated/`. `document_metadata`, `document_revision_retained`
+  (in the `jobs` database) and Qdrant hold no `piloti/` name on either. The
+  `agent_file` producer (#1782, after the check) files under the namespace too.
+- **Switch (step 3):** "may be indexed" is `authored_by_producer` in
+  `NAMESPACED_AGENT_PRODUCERS` (`agent_document`, `agent_file`)
+  (`isNamespacedAgentDocument`, `bff/documents/agent-namespace.ts`) in
+  `collectionFileRef`, publishing, re-dispatch and the permits lookup. Migration
+  0246 moves the live-name index to the same test; its down file restores 0243.
+  `agentDocumentFilename` writes `generated/`. Python's `estate_paths` strips
+  either prefix until the contract.
+- **Backfill A** runs itself: the deploy's `app-backfill-after` Job, once every
+  workload runs the switch. `apps/workspace/backfills/agent-document-namespace/`
+  renames on the app database (`documents` of those two producers,
+  `permit_records`, `document_quarantine_decisions`), and
+  `agent-document-namespace-metadata/` (`"database": "jobs"`, run as the
+  backend's direct connection, which owns those tables) renames the key,
+  `superseded_by` and the names inside `revision_suggestion` of both metadata
+  tables. Each dry run counts what its apply rewrites; a count above 0 after the
+  apply fails the deploy.
+- **Qdrant:** run the read-only step-3 Qdrant check. A point still under a
+  `piloti/` name belongs to a published document that was indexed before the
+  rename: re-index that document, which writes its passages under the new name
+  and deletes the old ones by `document_id`. Do this before the weekly vector
+  reconcile sweep, which deletes passages whose name no row carries.
+- **Verify:** the Job logs `backfill.done` with `after` 0 for both, and the
+  Qdrant check shows no `piloti/` point.
+- **Rollback:** reverting the release leaves the renamed rows readable, because
+  the readers of the release before already accept `generated/` (deploy 1).
+  Migration 0246's down file restores the prefix rule of 0243.
+
+| Step | Environment | Dry run before | Backfill run | Dry run after |
+|---|---|---|---|---|
+| 3 (namespace) | dev | 8 `agent_document` rows under `piloti/`, 0 else | not run | not run |
+| 3 (namespace) | prod | 6 `agent_document` rows under `piloti/`, 0 else | not run | not run |
 
 ## 6. Qdrant payload `grid_document_id` → `document_id`, lane `office_piloti` → `office_agent`
 

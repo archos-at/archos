@@ -47,7 +47,9 @@ def _deploy_sequence(command: list[str]) -> list[int]:
 
 
 def _count_lines(out: str, mode: str) -> list[dict]:
-    lines = [json.loads(line) for line in out.splitlines() if line.startswith("{")]
+    raw = [line for line in out.splitlines() if line.startswith("{")]
+    assert all(line.startswith('{"event":"backfill.count",') for line in raw), raw
+    lines = [json.loads(line) for line in raw]
     return [line for line in lines if line.get("event") == "backfill.count" and line.get("mode") == mode]
 
 

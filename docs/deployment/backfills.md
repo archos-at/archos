@@ -26,6 +26,7 @@ first line):
 |---|---|
 | `kind` | `sql`: two files beside the manifest. `dryRun` returns one row per store, `store` and `rows`, read-only. `apply` rewrites, as the database owner, outside a transaction (a `DO` block may `COMMIT` per batch). `qdrant`: `command`, the dry run's argv in the backend image (the repository is under `/app`); `command --apply` writes; `command --check` is a dry run that exits 1 while anything is left. |
 | `phase` | `before-readers`: after the migrations and before any workload that reads Postgres or Qdrant rolls out, for a copy the new readers need (the Qdrant `document_id`). `after-switch`: once every app Deployment and StatefulSet has rolled out, for a rewrite of what the old writers still wrote (the step-1 renames). |
+| `database` | `sql` only, optional. `app` (the default): the app database, as the owner the migrate Job uses. `jobs`: the Python backend's database, as its direct connection (`LISTEN_DB_URL`), the role that created its tables; a `jobs` backfill skips a table the backend has not created yet. |
 | `expires` | `drop after release YYYY-Www`: the contract deletes the directory with the legacy readers. |
 
 Every backfill is idempotent: on dev and prod every registered backfill runs on
@@ -39,7 +40,8 @@ Pulumi creates one Job per phase that has a backfill
 container, in name order, so they run one after another:
 
 - **SQL** in `postgres:17-alpine`, as the owner the migrate Job uses
-  (`APP_MIGRATION_DATABASE_URL`), with `statement_timeout=0` and
+  (`APP_MIGRATION_DATABASE_URL`), or for `"database": "jobs"` as the backend's
+  direct connection under the same variable name, with `statement_timeout=0` and
   `lock_timeout=30s`, through [`run-sql.sh`](../../apps/workspace/backfills/run-sql.sh):
   dry run, apply, dry run again.
 - **Qdrant** in the backend image with `QDRANT_URL` and `QDRANT_API_KEY`:
@@ -53,7 +55,9 @@ retry), and so the deploy: a failed `before-readers` backfill stops the rollout
 before any new reader starts; a failed `after-switch` one leaves the release
 rolled out and the deploy red.
 
-Each run logs JSON lines, which reach PostHog Logs through the log shipper:
+Each run logs JSON lines, which reach PostHog Logs through the log shipper. The
+shipper keeps every line of an `app-backfill-*` pod; it samples other info lines
+at 10%:
 
 ```json
 {"event":"backfill.count","backfill":"inbox-types","phase":"after-switch","store":"inbox_items.type","before":185,"written":185,"after":0}
@@ -61,7 +65,8 @@ Each run logs JSON lines, which reach PostHog Logs through the log shipper:
 ```
 
 A Qdrant backfill logs one `backfill.count` line per collection and step, with
-`mode` `dry-run`, `apply` or `check`. `backfill.failed` names what was left.
+`mode` `dry-run`, `apply` or `check`, in the same compact JSON, so one search for
+`"event":"backfill.` finds every line. `backfill.failed` names what was left.
 
 ## What CI checks
 

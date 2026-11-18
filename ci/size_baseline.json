@@ -1,9 +1,8 @@
 {
   "files": {
-    "apps/agent-host/src/agent_host/chat_socket.py": 1263,
     "apps/agent-host/src/agent_host/jobs/callbacks.py": 842,
     "apps/agent-host/src/agent_host/jobs/runner.py": 837,
-    "apps/agent-host/src/agent_host/models/requests.py": 736,
+    "apps/agent-host/src/agent_host/models/requests.py": 724,
     "packages/agent/src/agent/agents/intake/tools.py": 634,
     "packages/agent/src/agent/cards/catalog.py": 701,
     "packages/agent/src/agent/cards/surface_documents.py": 650,

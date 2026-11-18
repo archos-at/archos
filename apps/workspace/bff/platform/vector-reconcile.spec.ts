@@ -55,7 +55,13 @@ describe('reconcileOrphanedVectors: the project facts half', () => {
 
 const fetchMock = vi.fn()
 
-type Row = { collectionName: string; filename: string; authoredBy: string; publishedVersionId?: string | null }
+type Row = {
+  collectionName: string
+  filename: string
+  authoredBy: string
+  authoredByProducer?: string | null
+  publishedVersionId?: string | null
+}
 
 function stubRows(rows: Row[], now: Row[] = rows) {
   const from = () =>
@@ -114,7 +120,9 @@ describe('reconcileOrphanedVectors', () => {
 
   it('keeps the passages of a published agent document, which its row owns', async () => {
     const published = agentDocumentFilename('doc_1', 'Brandschutzkonzept.md')
-    stubRows([{ collectionName: 'proj_a', filename: published, authoredBy: 'agent', publishedVersionId: 'ver_1' }])
+    stubRows([
+      { collectionName: 'proj_a', filename: published, authoredBy: 'agent', authoredByProducer: 'agent_document', publishedVersionId: 'ver_1' },
+    ])
     fetchMock.mockResolvedValueOnce(listResponse([published, 'geloescht.pdf']))
     fetchMock.mockResolvedValueOnce(deleteResponse(3))
 
@@ -127,8 +135,8 @@ describe('reconcileOrphanedVectors', () => {
   it('keeps a document that was published between the scan and the re-read before the delete', async () => {
     const filename = agentDocumentFilename('doc_2', 'Entwurf.md')
     stubRows(
-      [{ collectionName: 'proj_a', filename, authoredBy: 'agent' }],
-      [{ collectionName: 'proj_a', filename, authoredBy: 'agent', publishedVersionId: 'ver_1' }],
+      [{ collectionName: 'proj_a', filename, authoredBy: 'agent', authoredByProducer: 'agent_document' }],
+      [{ collectionName: 'proj_a', filename, authoredBy: 'agent', authoredByProducer: 'agent_document', publishedVersionId: 'ver_1' }],
     )
     fetchMock.mockResolvedValueOnce(listResponse([filename]))
 

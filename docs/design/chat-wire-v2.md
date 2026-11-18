@@ -364,7 +364,7 @@ still open after the deploy refused a hello that names `accepts` (its socket
 ends `outdated`) and a `RUN_FINISHED` whose result has `reasoning_effort` (the
 turn never ends). So for that one release the server withheld both behind
 `WIRE_V2_ADDITIVE_FIELDS`, off by default (`STAGED_SERVER_FIELDS`,
-`agent_host/chat_socket.py`). Every bundle since parses leniently, so the flag is
+`agent_host/chat_wire.py`). Every bundle since parses leniently, so the flag is
 now on by default; `off` is the rollback. A new tab works without the two
 fields: with no `accepts` it sends no `shown`, so a Stop stores everything
 streamed so far; a Stop that crossed the finished answer is still cut by the
@@ -487,7 +487,7 @@ affinity, the header stripping, the teardown classification and both limiters ar
 unchanged. `install_reconnectable_handler()` and its import-time call in
 `plugin.py:74` are deleted, and so are the three module assignments.
 
-**The handler** is `agent_host/chat_socket.py`, and `websocket_reconnect.py` is
+**The handler** is `agent_host/chat_socket.py`, split into the `chat_*` modules beside it (`chat_auth`, `chat_wire`, `chat_turn`, `chat_fencing`, `chat_loops`, `chat_registry`, `chat_run`), and `websocket_reconnect.py` is
 deleted. It does not subclass or compose `WebSocketMessageHandler`: nothing of
 that run loop is still wanted.
 

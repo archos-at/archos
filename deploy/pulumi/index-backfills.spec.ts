@@ -89,8 +89,8 @@ describe("the backfill Jobs around the rollout", () => {
     }
   });
 
-  it("runs SQL as the database owner the migrate Job uses, never the runtime role", () => {
-    const sql = loadBackfills().filter((b) => b.kind === "sql");
+  it("runs app-database SQL as the database owner the migrate Job uses, never the runtime role", () => {
+    const sql = loadBackfills().filter((b) => b.kind === "sql" && b.database === "app");
     expect(sql.length).toBeGreaterThan(0);
     const migrateEnv = podOf(job("app-migrate")).containers[0].env ?? [];
     for (const b of sql) {
@@ -99,6 +99,19 @@ describe("the backfill Jobs around the rollout", () => {
       expect(urls).toEqual(migrateEnv.filter((e) => /DATABASE_URL$/.test(e.name)));
       expect(container.env?.find((e) => e.name === "PGOPTIONS")?.value).toBe(BACKFILL_SESSION);
       expect(container.command.slice(0, 4)).toEqual(["sh", "/backfills/run-sql.sh", b.name, b.phase]);
+    }
+  });
+
+  it("runs jobs-database SQL as the backend's own direct connection, which owns its tables", () => {
+    const jobs = loadBackfills().filter((b) => b.kind === "sql" && b.database === "jobs");
+    expect(jobs.map((b) => b.name)).toContain("agent-document-namespace-metadata");
+    for (const b of jobs) {
+      const container = podOf(job(b.phase === "after-switch" ? AFTER : BEFORE)).initContainers!.find((c) => c.name === b.name)!;
+      const urls = (container.env ?? []).filter((e) => /DATABASE_URL$/.test(e.name));
+      expect(urls).toEqual([
+        { name: "APP_MIGRATION_DATABASE_URL", valueFrom: { secretKeyRef: expect.objectContaining({ key: "LISTEN_DB_URL" }) } },
+      ]);
+      expect(container.env?.find((e) => e.name === "PGOPTIONS")?.value).toBe(BACKFILL_SESSION);
     }
   });
 

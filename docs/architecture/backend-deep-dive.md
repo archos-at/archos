@@ -60,7 +60,7 @@ Browser WebSocket
     neutrally as "Assistant" (getDisplayName in intermediate-step-parser.ts),
     not "Research Agent" — a greeting is not a research run.
   → the turn's wire bodies, stamped and sent by the chat socket (wire v2, ADR-0068)
-      apps/agent-host/src/agent_host/chat_socket.py
+      apps/agent-host/src/agent_host/chat_wire.py, apps/agent-host/src/agent_host/chat_socket.py
   → the UI's turn socket and fold (docs/api/websocket-protocol.md, "The client")
   → apps/workspace/ui/features/layout/components/ChatArea.tsx → AgentResponse.tsx
 ```
@@ -79,7 +79,7 @@ The turn ends with `RUN_FINISHED`, whose `result` is a typed `TurnResult`
 confidence and its reason, and the run hand-off `run: {run_id, run_message_id}`
 (ADR-0062; the text is then empty, because the run's block is the narration).
 It is authoritative, and it is what the socket persists
-(`chat_socket.persist_turn_result`). No field is lifted by name any more.
+(`chat_turn.persist_turn_result`). No field is lifted by name any more.
 
 **Transparency extras (WP-A).** A family of optional, additive "why did the turn
 behave this way?" signals are fields of the same `TurnResult`, which
@@ -312,7 +312,7 @@ Key pieces:
 
 A turn can outlive its socket: the browser tab sleeps, the network blips, or a
 token rotation forces a reconnect while a long answer is still generating. The
-backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
+backend pieces live in `chat_socket.py` and its `chat_*` siblings, and in `conversation_bus.py`; the design is
 `docs/design/chat-wire-v2.md` §c/§d.
 
 - **One socket, one conversation.** Every client message names its

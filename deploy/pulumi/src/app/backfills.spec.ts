@@ -63,6 +63,17 @@ describe("the backfill registry", () => {
     expect(() => loadBackfills(registry({ x: { manifest: sql(), files: { "dry-run.sql": "" } } }))).toThrow(/apply must name/);
   });
 
+  it("runs SQL against the app database unless the manifest names the jobs database", () => {
+    const dir = registry({
+      app: { manifest: sql(), files: SQL_FILES },
+      jobs: { manifest: sql(',\n  "database": "jobs"'), files: SQL_FILES },
+    });
+    expect(loadBackfills(dir).map((b) => (b.kind === "sql" ? b.database : null))).toEqual(["app", "jobs"]);
+    expect(() =>
+      loadBackfills(registry({ x: { manifest: sql(',\n  "database": "checkpoints"'), files: SQL_FILES } })),
+    ).toThrow(/database must be/);
+  });
+
   it("refuses a Qdrant backfill without a command", () => {
     const manifest = `{"expires": "${MARKER}",\n  "kind": "qdrant",\n  "phase": "before-readers",\n  "command": []\n}\n`;
     expect(() => loadBackfills(registry({ x: { manifest } }))).toThrow(/command/);

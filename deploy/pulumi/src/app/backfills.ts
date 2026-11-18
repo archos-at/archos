@@ -10,7 +10,7 @@ import { onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext, hardenedJobSecurityContext } from "../platform/security";
 import { BACKFILL_POD, BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
 import { AppSecrets, AppWiring, backendQdrantEnv } from "./config";
-import { migrationEnv } from "./job-env";
+import { backfillDatabaseEnv } from "./job-env";
 
 type Container = k8s.types.input.core.v1.Container;
 
@@ -24,6 +24,8 @@ export const BACKFILL_JOB: Record<BackfillPhase, string> = {
 };
 export const BACKFILL_SESSION = "-c statement_timeout=0 -c lock_timeout=30s";
 export const BACKFILL_DEADLINE_MINUTES = 60;
+export const BACKFILL_DATABASES = ["app", "jobs"] as const;
+export type BackfillDatabase = (typeof BACKFILL_DATABASES)[number];
 
 const PSQL_IMAGE = "postgres:17-alpine";
 const MOUNT = "/backfills";
@@ -37,6 +39,7 @@ interface Common {
 }
 export interface SqlBackfill extends Common {
   kind: "sql";
+  database: BackfillDatabase;
   dryRun: string;
   apply: string;
 }
@@ -72,7 +75,17 @@ function readManifest(dir: string, name: string): Backfill {
         invalid(name, `${key} must name a .sql file beside backfill.json, got ${JSON.stringify(file)}`);
       }
     }
-    return { ...common, kind, dryRun: raw.dryRun as string, apply: raw.apply as string };
+    const database = raw.database ?? "app";
+    if (!BACKFILL_DATABASES.includes(database as BackfillDatabase)) {
+      invalid(name, `database must be one of ${BACKFILL_DATABASES.join(", ")}, got ${JSON.stringify(database)}`);
+    }
+    return {
+      ...common,
+      kind,
+      database: database as BackfillDatabase,
+      dryRun: raw.dryRun as string,
+      apply: raw.apply as string,
+    };
   }
   if (kind === "qdrant") {
     const { command } = raw;
@@ -108,7 +121,7 @@ function sqlContainer(b: SqlBackfill): Container {
     image: PSQL_IMAGE,
     securityContext: hardenedJobSecurityContext(),
     resources: BOOTSTRAP_JOB_RESOURCES,
-    env: [...migrationEnv(), { name: "PGOPTIONS", value: BACKFILL_SESSION }],
+    env: [...backfillDatabaseEnv(b.database), { name: "PGOPTIONS", value: BACKFILL_SESSION }],
     command: [
       "sh",
       `${MOUNT}/${SQL_RUNNER}`,

@@ -26,7 +26,8 @@ pulumi.runtime.setMocks(
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 const route = read("apps", "agent-host", "src", "agent_host", "routes", "chat_occupancy.py");
-const chatSocket = read("apps", "agent-host", "src", "agent_host", "chat_socket.py");
+const chatTurn = read("apps", "agent-host", "src", "agent_host", "chat_turn.py");
+const chatFencing = read("apps", "agent-host", "src", "agent_host", "chat_fencing.py");
 
 function find(type: string, name: string) {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
@@ -174,7 +175,7 @@ describe("the chat tier's scale-out", () => {
 
     expect(drain).toBe(cfg.backend.drainSeconds);
     expect(grace).toBeGreaterThan(drain + 10); // the preStop endpoint drain comes out of the same budget
-    const deadline = Number(chatSocket.match(/CHAT_TURN_DEADLINE_SECONDS", "(\d+)"/)?.[1]);
+    const deadline = Number(chatTurn.match(/CHAT_TURN_DEADLINE_SECONDS", "(\d+)"/)?.[1]);
     expect(deadline).toBeGreaterThan(0);
     expect(drain).toBeGreaterThanOrEqual(deadline);
   });
@@ -182,7 +183,7 @@ describe("the chat tier's scale-out", () => {
   it("hands both tiers the one affinity flag, in the spelling each reads", () => {
     expect(backendEnvNames.CHAT_AFFINITY).toBe("0");
     expect(frontendEnvNames.CHAT_AFFINITY).toBe("0");
-    expect(chatSocket).toContain('"CHAT_AFFINITY"');
+    expect(chatFencing).toContain('"CHAT_AFFINITY"');
     expect(read("apps", "workspace", "server.js")).toContain("CHAT_AFFINITY");
   });
 
