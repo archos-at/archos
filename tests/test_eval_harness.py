@@ -14,7 +14,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
 import fixture_bff  # noqa: E402
 import north_star_eval  # noqa: E402
-import suite  # noqa: E402
+import suite_fixtures  # noqa: E402
 import turn_input  # noqa: E402
 from jsonschema import Draft202012Validator  # noqa: E402
 
@@ -96,7 +96,7 @@ class TestTheDrawnBoxOnTheTurn:
             turn_input.message_fields({"id": "ns-x", "box": "given", "region": [0, 0, 0.1, 0.1], "gold": []})
 
     def test_the_suites_visual_run_carries_the_box(self):
-        source = (REPO_ROOT / "scripts/turn_census/suite.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "scripts/turn_census/suite_fixtures.py").read_text(encoding="utf-8")
         assert "**turn_input.env_for(question)" in source
 
 
@@ -108,7 +108,7 @@ def bff(tmp_path):
 
 
 def _envelope(bff, conversation: str) -> SignedEnvelope:
-    header, signature = suite.precedent_envelope(OFFICE, conversation, TOKEN, {"id": "project-x"})
+    header, signature = suite_fixtures.precedent_envelope(OFFICE, conversation, TOKEN, {"id": "project-x"})
     return SignedEnvelope(header=header, signature=signature)
 
 
@@ -211,6 +211,7 @@ class TestTheFixtureRecordsProposedMarks:
         assert fixture_bff.marks_proposed(bff.log_path, "conv-1") == []
 
     def test_the_files_run_carries_the_upload_trigger_and_reads_the_marks(self):
-        source = (REPO_ROOT / "scripts/turn_census/suite.py").read_text(encoding="utf-8")
-        assert source.count("**turn_input.env_for(question)") == 2
-        assert "marks_proposed(requests, record.stem)" in source
+        fixtures = (REPO_ROOT / "scripts/turn_census/suite_fixtures.py").read_text(encoding="utf-8")
+        observation = (REPO_ROOT / "scripts/turn_census/turn_observation.py").read_text(encoding="utf-8")
+        assert fixtures.count("**turn_input.env_for(question)") == 2
+        assert "marks_proposed(requests, record.stem)" in observation

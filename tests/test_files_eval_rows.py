@@ -11,7 +11,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 import files_eval  # noqa: E402
 import fixture_files  # noqa: E402
 import judge  # noqa: E402
+import run_record  # noqa: E402
 import suite  # noqa: E402
+import turn_observation  # noqa: E402
 
 ROWS = files_eval.load_questions()
 PROJECT = fixture_files.load_project()
@@ -514,13 +516,13 @@ class TestTheSuiteReadsTheSet:
         log.write_text("")
         question = next(row for row in ROWS if row["id"] == "pf-exact-term")
 
-        run = suite.observe(question, 1, record, log)
+        run = turn_observation.observe(question, 1, record, log)
 
         assert run.tool_args == [{"name": "knowledge_search", "arguments": {"query": "Fluchtweg", "match": "exact"}}]
         assert run.checks["must:knowledge_search(match=['exact', 'regex'])"] is True
 
     def test_the_report_names_the_arm_and_the_rows_waiting(self):
-        run = suite.Run(question_id="pf-orient-project", run=1, research_calls=2, wall_s=9.0)
+        run = run_record.Run(question_id="pf-orient-project", run=1, research_calls=2, wall_s=9.0)
         run.tool_args = [{"name": "list_files", "arguments": {}}]
         run.checks = {"any:list_files": True}
         run.cost_usd, run.input_tokens, run.output_tokens = 0.0123, 4000, 300
@@ -539,7 +541,7 @@ class TestTheSuiteReadsTheSet:
     def test_a_saved_files_report_is_re_read_with_the_set_chosen(self, tmp_path):
         import json
 
-        run = suite.Run(question_id="pf-orient-project", run=1, error="timed out")
+        run = run_record.Run(question_id="pf-orient-project", run=1, error="timed out")
         meta = {"set": "files", "arm": "both", "stamp": None, "commit": "x", "started": "-"}
         results = {
             "meta": {**meta, "runs_per_question": 1, "overrides": []},

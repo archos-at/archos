@@ -10,11 +10,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
 import compare  # noqa: E402
+import run_record  # noqa: E402
 import suite  # noqa: E402
+import turn_observation  # noqa: E402
 
 
 def _run(question_id: str, **fields) -> dict:
-    return suite.asdict(suite.Run(question_id=question_id, run=fields.pop("run", 1), **fields))
+    return suite.asdict(run_record.Run(question_id=question_id, run=fields.pop("run", 1), **fields))
 
 
 def _results(path: Path, runs: list[dict], **meta) -> Path:
@@ -92,7 +94,7 @@ class TestCost:
             {"usage": {"input_tokens": 10}},
             {"req": {"input": "ping"}},
         ]
-        assert suite.turn_cost(rows) == (0.0025, 1)
+        assert turn_observation.turn_cost(rows) == (0.0025, 1)
 
     def test_observe_records_the_cost(self, tmp_path):
         url = "https://openrouter.ai/api/v1/responses"
@@ -104,13 +106,13 @@ class TestCost:
         record = tmp_path / "turn.jsonl"
         record.write_text("\n".join(json.dumps(row) for row in rows))
         (tmp_path / "turn.log").write_text("")
-        run = suite.observe({"id": "q", "question": "?"}, 1, record, tmp_path / "turn.log")
+        run = turn_observation.observe({"id": "q", "question": "?"}, 1, record, tmp_path / "turn.log")
         assert run.cost_usd == 0.004 and run.cost_missing == 0
 
     def test_a_results_json_from_before_the_capture_still_loads(self):
         old = _run("a")
         del old["cost_usd"], old["cost_missing"]
-        assert suite.Run(**old).cost_usd is None
+        assert run_record.Run(**old).cost_usd is None
 
 
 class TestLoadingAndPairing:
@@ -190,7 +192,7 @@ class TestTheArmsRun:
         def fake_run_set(questions, args, stamp, meta):
             seen.append((args.arm, stamp, args.override))
             assert args.out == tmp_path / "after" / args.arm
-            return [suite.Run(question_id="pf-orient-project", run=1, checks={"mentions:x": True}, cost_usd=0.01)]
+            return [run_record.Run(question_id="pf-orient-project", run=1, checks={"mentions:x": True}, cost_usd=0.01)]
 
         monkeypatch.setattr(suite, "_preflight", lambda *a, **k: 0)
         monkeypatch.setattr(fixture_files, "seed_problem", lambda: None)
