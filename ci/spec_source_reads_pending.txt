@@ -32,7 +32,6 @@ apps/workspace/tests/lib/boot.test.ts
 apps/workspace/tests/mono-plain-zero.spec.ts
 apps/workspace/ui/features/cards/phone-contracts.spec.tsx
 apps/workspace/ui/features/cards/section-marks.spec.ts
-apps/workspace/ui/features/documents/components/mobile-files.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
 deploy/pulumi/index-deploy-jobs.spec.ts
 deploy/pulumi/index-workos-authz.spec.ts
