@@ -1,0 +1,89 @@
+{
+  "libraries": [
+    {
+      "name": "docx",
+      "version": "9.15.3",
+      "license": "MIT",
+      "purpose": "Word (.docx) documents: paragraphs, headings, tables, sections."
+    },
+    {
+      "name": "exceljs",
+      "version": "4.4.0",
+      "license": "MIT",
+      "purpose": "Excel (.xlsx) workbooks: sheets, styles, formulas such as SUM; reading and writing."
+    },
+    {
+      "name": "pdf-lib",
+      "version": "1.17.1",
+      "license": "MIT",
+      "purpose": "Create and modify PDF files: pages, text, merge, split, form fields."
+    },
+    {
+      "name": "unpdf",
+      "version": "2.1.0",
+      "license": "MIT",
+      "purpose": "Extract text from PDF files (a serverless build of PDF.js)."
+    },
+    {
+      "name": "mathjs",
+      "version": "15.2.0",
+      "license": "Apache-2.0",
+      "purpose": "Math with units, matrices, fractions and big numbers; expression evaluation without eval."
+    },
+    {
+      "name": "papaparse",
+      "version": "5.7.1",
+      "license": "MIT",
+      "purpose": "Parse and write CSV."
+    },
+    {
+      "name": "date-fns",
+      "version": "4.4.0",
+      "license": "MIT",
+      "purpose": "Date arithmetic and formatting."
+    },
+    {
+      "name": "jszip",
+      "version": "3.10.2",
+      "license": "MIT",
+      "license_note": "Dual-licensed MIT OR GPL-3.0-or-later; taken under MIT.",
+      "purpose": "Read and write ZIP archives (and the parts of an Office file)."
+    },
+    {
+      "name": "vega",
+      "version": "6.4.0",
+      "license": "BSD-3-Clause",
+      "purpose": "Chart rendering to SVG. In an isolate: vega.parse(spec, null, { ast: true }) and new vega.View(..., { expr: expressionInterpreter, renderer: 'none' })."
+    },
+    {
+      "name": "vega-lite",
+      "version": "6.5.0",
+      "license": "BSD-3-Clause",
+      "purpose": "Concise chart specifications, compiled to a Vega spec."
+    },
+    {
+      "name": "vega-interpreter",
+      "version": "2.3.2",
+      "license": "BSD-3-Clause",
+      "purpose": "Evaluates Vega expressions without eval or new Function, which the isolate forbids."
+    },
+    {
+      "name": "pptxgenjs",
+      "version": "4.0.1",
+      "license": "MIT",
+      "purpose": "PowerPoint (.pptx) presentations: slides, text, tables, shapes."
+    },
+    {
+      "name": "marked",
+      "version": "18.1.3",
+      "license": "MIT",
+      "purpose": "Markdown to HTML."
+    },
+    {
+      "name": "decimal.js",
+      "version": "10.6.0",
+      "license": "MIT",
+      "purpose": "Exact decimal arithmetic for areas and money."
+    }
+  ]
+}
