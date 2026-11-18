@@ -150,7 +150,7 @@ The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
 run by the `comments` pre-commit hook on the files you commit and by CI's
 **Repo checks** job on all of them. It counts what
 `scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
-comment, and Python docstrings. On 2026-11-16, when it arrived, the tree held
+comment, and Python docstrings. It reads YAML and TOML too: a line that starts with `#` outside a string counts, a tool directive (`yaml-language-server:`, `nosemgrep`, `pragma`) does not. On 2026-11-16, when it arrived, the tree held
 323,379 such lines in 7,452 files over the allowance; the audit that removes
 them is planned in the brand-free sweep.
 
