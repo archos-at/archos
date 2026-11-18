@@ -53,10 +53,19 @@ Start here; each row names the code and the page that owns its detail.
    (`unique_input_path` in `run.py`). A document named twice is sent once. The report's
    `documents read:` line names each document's path. Each tool result named in `data` (at most 10)
    goes in beside them, read-only, as JSON ([Tool results as data](#tool-results-as-data)).
+   Only the working files the code names by their `/workspace/` path are sent, or all of them when
+   it lists the directory; the report names the ones left out. A document past the tenth is named as
+   not loaded, and a single file over 32 MiB is refused by name before anything runs.
 4. The runner gives the run a free slot, a fresh Durable Object and a fresh isolate, runs the module
    with a 60 s limit (180 s maximum), and returns the module's value, stdout, stderr and only the files
    it created or changed under `/workspace/`.
-5. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
+5. The runner also lists the files sent in that the run removed (`deleted`); the tool drops them from
+   the working directory, and their card says the draft was deleted. An overwritten file keeps its one
+   earlier version, counted against the 25 MB once; the card of an earlier answer reads its own
+   version (`&v=`) and offers „Vorige Fassung wiederherstellen“. A file written under the file name of
+   a document the run read records it (`derived_from`), so the card can offer it as that document's
+   next Fassung.
+6. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
    that would take the conversation's files past 25 MB, and answers with the status, value, output and
    the files kept. An input the script changed, or a file it wrote under `/workspace/in/`, is dropped,
    and the report says so on a `not kept:` line. The agent may fix and run again, at most three times
@@ -207,7 +216,7 @@ four measured documents, to be revisited with production peaks.
 The working directory is the draft store the Markdown drafts already used: a LangGraph store on the
 agent's checkpoint database, namespaced by conversation. A file a run writes is kept as text when it
 has a text suffix and is at most 64 KB, otherwise as base64; together a conversation's files take at
-most 25 MB (Markdown drafts keep their own 256 KB cap). A binary file cannot be edited with
+most 25 MB (Markdown drafts keep their own 256 KB cap, which a run's small text files do not count against). A binary file cannot be edited with
 `edit_file`. The directory is deleted with its conversation (the agent host's drafts route).
 
 **A run's file is kept unchecked.** The output check (`agent-file-check.ts`) runs at filing only, so
@@ -236,9 +245,29 @@ before) with the bytes. The BFF:
 - **marks it as made by AI** in its own bytes (`agent-file-marking.ts`: OOXML custom properties, XMP
   in PDF, PNG and SVG), and files it as a generated draft (producer `agent_file`) under the person's
   session;
-- **replaces** a draft only when the agent filed it with `create_file` and the type is the same.
+- **writes the next version** of a document the agent filed (`update_file`): into its open draft, or,
+  once it was approved or published, into a new draft Fassung (`openDraftForRevision`), always with the
+  same type (`bff/documents/agent-file-revision.ts`). When a person changed the document since the
+  draft was filed (`ifMatch`), it answers 409 `changed-in-project` with the Fassung's number, and the
+  agent asks the person: over it (`file_as="over_changes"`) or a separate file;
+- **makes the next Fassung of a project document** the run read (`revise_file`), only when the person
+  asked for it, with its Änderungsvermerk (`document_versions.change_note`, migration 0248), under the
+  person's write access to that document and with the AI marking in the bytes;
+- **resolves a folder** the agent names (`folder`, by name or path; an unknown one is refused with the
+  folders that exist, `agent-folder.ts`); without one, a file made from a project document goes where
+  that document lies, any other into `Berichte`.
 
-The agent's `file_draft` files into the default folder `Berichte`. The person files the same draft
+One filing truth: the draft keeps the document, version, hash and state it was filed as, and the draft
+version it was filed at. The agent's `file_draft` writes them, and a filing from the card writes them
+back through the agent host (`PUT /v1/drafts/{id}/filing`), so the card and the agent see the same
+document. A card whose draft changed since says „Seit dem Ablegen geändert“. A run that works on a filed
+draft a person changed in the project says so in its report (the internal `status` op).
+
+A filed file keeps its name as the office wrote it (umlauts, ß and spaces; only `/\:*?"<>|` and control
+characters go); its storage key is an ASCII slug on its own, and a download names the plain file name,
+without its `generated/<id>/` namespace, in `filename*`.
+
+The agent's `file_draft` files into the default folder `Berichte` unless it names one. The person files the same draft
 from its card („Ins Projekt ablegen“), choosing folder and name; that path goes through
 `bff/conversations/draft-filing.ts` into the same `fileAgentFileDraft`, with the same check and
 marking ([Filing, in the chat](agent-made-files-ux.md#what-this-change-ships)).
