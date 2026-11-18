@@ -23,7 +23,6 @@ apps/workspace/i18n/aggregate-imports.spec.ts
 apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
 apps/workspace/tests/brand-literals.spec.ts
-apps/workspace/tests/db/migrations-journal.test.ts
 apps/workspace/tests/hover-fill.spec.ts
 apps/workspace/tests/lib/boot.test.ts
 apps/workspace/tests/mono-plain-zero.spec.ts

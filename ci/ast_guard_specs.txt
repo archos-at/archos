@@ -25,6 +25,7 @@ apps/workspace/app/api/authz-coverage.spec.ts
 apps/workspace/app/manifest.spec.ts
 apps/workspace/bff/base-knowledge/wire/vocab.spec.ts
 apps/workspace/bff/db/schema/document-annotations.spec.ts
+apps/workspace/tests/db/migrations-journal.test.ts
 apps/workspace/tests/one-edge.spec.ts
 apps/workspace/ui/components/ui/avatar-identity.spec.ts
 apps/workspace/ui/components/ui/breakpoints.spec.ts
