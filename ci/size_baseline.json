@@ -1,6 +1,5 @@
 {
   "files": {
-    "apps/agent-host/src/agent_host/models/requests.py": 724,
     "packages/agent/src/agent/common/norm_registry.py": 660,
     "packages/agent/src/agent/common/wire_v2.py": 979,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 760,
