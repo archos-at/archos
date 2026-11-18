@@ -110,7 +110,7 @@ function pdfObjectTexts(bytes: Uint8Array, text: string): string[] {
     } catch {
       continue
     }
-    if (!/\/Type\s*\/ObjStm\b/.test(dictionary)) continue
+    if (!/\/Type\s*\/ObjStm\b/.test(decodeName(dictionary))) continue
     const keyword = /^\s*stream(\r\n|\n|\r)/.exec(text.slice(opening + dictionary.length, opening + dictionary.length + 16))
     const length = /\/Length\s+(\d+)(?!\s+\d+\s+R)/.exec(dictionary)
     if (!keyword || !length) throw new PdfMetadataError('an object stream has no readable data')

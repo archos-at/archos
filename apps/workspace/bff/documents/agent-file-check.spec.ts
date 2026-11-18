@@ -258,6 +258,13 @@ describe('PDF: nothing that runs or reaches out', () => {
     expect(refusalOf(() => checkAgentFile(objectStreamPdf(extra), 'application/pdf'))).toBe(refusal)
   })
 
+  it('opens an object stream whose /ObjStm type is spelled with # escapes', () => {
+    const text = Buffer.from(objectStreamPdf(' /OpenAction << /S /JavaScript /JS (x) >>')).toString('latin1')
+    const escaped = text.replace('/Type /ObjStm /N', '/Type/O#62jStm/N')
+    expect(escaped).not.toBe(text)
+    expect(refusalOf(() => checkAgentFile(latin1(escaped), 'application/pdf'))).toBe('active-content')
+  })
+
   it('accepts a link the reader clicks', () => {
     expect(refusalOf(() => checkAgentFile(classicPdf(' /OpenAction << /S /URI /URI (https://x.example) >>'), 'application/pdf'))).toBe(
       'accepted',
