@@ -11,6 +11,7 @@ from agent.common.status_keys import KEY_ACTION_ANNOTATIONS_REPLY
 from agent.common.status_keys import KEY_ACTION_ANNOTATIONS_SET
 from agent.common.status_keys import KEY_ACTION_ANNOTATIONS_UPDATE
 from agent.common.status_keys import KEY_ACTION_CARD
+from agent.common.status_keys import KEY_ACTION_CODE_RUN
 from agent.common.status_keys import KEY_ACTION_DRAFT_EDIT
 from agent.common.status_keys import KEY_ACTION_DRAFT_FILED
 from agent.common.status_keys import KEY_ACTION_DRAFT_LIST
@@ -64,6 +65,7 @@ _ACTION_KEYS = {
     "edit_file": KEY_ACTION_DRAFT_EDIT,
     "propose_file_change": KEY_ACTION_FILE_PROPOSAL,
     "file_draft": KEY_ACTION_DRAFT_FILED,
+    "execute": KEY_ACTION_CODE_RUN,
     "create_task": KEY_ACTION_TASK_CREATED,
     "marks": KEY_ACTION_ANNOTATIONS_READ,
     "mark": KEY_ACTION_ANNOTATIONS_PROPOSE,

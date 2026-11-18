@@ -1202,6 +1202,7 @@ export const chat: typeof en.chat = {
           draftEdit: 'Entwurf wird überarbeitet …',
           fileProposal: 'Vorschlag für Ihre Ablage wird vorbereitet …',
           draftFiled: 'Entwurf wird im Projekt abgelegt …',
+          codeRun: 'Rechnet und erstellt Dateien …',
           draftSubmitted: 'Entwurf wird zur Freigabe eingereicht …',
           taskCreated: 'Aufgabe wird angelegt …',
           annotationsRead: 'Anmerkungen werden gelesen …',

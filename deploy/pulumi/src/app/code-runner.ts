@@ -15,12 +15,10 @@ export const CODE_RUNNER = {
   name: "code-runner",
   port: 8080,
   uid: 1000,
-  // The api tier runs only the agent's read tools (routes/internal_tools.py), never `execute`.
   callers: [...CHAT_TIERS, "agent-worker"] as const,
   workDir: "/run/code-runner/do",
   workDirSizeLimit: "1Gi",
   tmpSizeLimit: "64Mi",
-  // Idle workerd 67-70 MB (measured 2026-11-12) + 8 runs x (128 MB isolate + 50 MB inputs) ≈ 1.5 GB.
   resources: {
     requests: { cpu: "1", memory: "1Gi" },
     limits: { cpu: "2", memory: "2Gi" },

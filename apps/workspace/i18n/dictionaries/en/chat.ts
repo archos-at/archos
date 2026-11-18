@@ -1200,6 +1200,7 @@ export const chat = {
           draftEdit: 'Revising the draft …',
           fileProposal: 'Preparing a suggestion for your files …',
           draftFiled: 'Filing the draft in the project …',
+          codeRun: 'Calculating and making files …',
           draftSubmitted: 'Sending the draft for approval …',
           taskCreated: 'Creating the task …',
           annotationsRead: 'Reading the annotations …',

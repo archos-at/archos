@@ -162,9 +162,6 @@ config:
   # Drain budget for in-flight research jobs on shutdown (see Pulumi.prod.yaml).
   # Shorter on staging: faster deploys matter more than saving a staging job.
   grid-oib:agentWorkerDrainSeconds: "180"
-  # ── Code runner (the agent's `execute` tool, docs/design/agent-code-execution.md) ──
-  # Off (`codeRunnerEnabled`, default false) until CI publishes the code-runner image.
-  # One pod on staging; prod keeps the default floor of two so a restart never stops every run.
   grid-oib:codeRunnerMinReplicas: "1"
   grid-oib:codeRunnerMaxReplicas: "3"
   # ── Ingestion tier (ADR-0076) ── never below one pod: the base corpus hands its jobs to

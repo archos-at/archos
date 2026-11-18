@@ -236,8 +236,6 @@ export function installNetworkPolicies(
       })
     : undefined;
 
-  // The runner of untrusted code: reached by the agent tiers alone, and reaching
-  // nothing, not even DNS (docs/design/agent-code-execution.md, Isolation).
   const codeRunner = cfg.codeRunner.enabled
     ? mk("code-runner-agent-only", {
         podSelector: { matchLabels: { "app.kubernetes.io/name": CODE_RUNNER.name } },

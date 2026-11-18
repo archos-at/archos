@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 import unicodedata
 from dataclasses import dataclass
 from dataclasses import field
+from datetime import UTC
+from datetime import datetime
 
 from deepagents.backends.protocol import EditResult
 from deepagents.backends.protocol import WriteResult
@@ -24,6 +27,10 @@ DRAFT_ROOT = "/drafts/"
 LEGACY_DRAFT_ROOT = "/entwuerfe/"
 
 MAX_DRAFT_BYTES = 256 * 1024
+
+MAX_RUN_FILE_BYTES = 25 * 1024 * 1024
+
+BASE64 = "base64"
 
 VERSION_KEY = "grid_draft_version"
 
@@ -77,6 +84,12 @@ class DraftUsage:
     version: int
     filing: dict[str, str] = field(default_factory=dict)
     filed_at_version: int = 0
+    encoding: str = "utf-8"
+    file_bytes: int = 0
+
+    @property
+    def is_binary(self) -> bool:
+        return self.encoding == BASE64
 
     @property
     def filed_unchanged(self) -> bool:
@@ -98,18 +111,32 @@ def filing_record(body: dict) -> dict[str, str]:
     }
 
 
+def stored_size(value: dict) -> int:
+    raw = value.get("content")
+    text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
+    if value.get("encoding") == BASE64:
+        return len(base64.b64decode(text)) if text else 0
+    return draft_bytes(text)
+
+
 def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
     total = 0
+    file_bytes = 0
     content: str | None = None
     version = 0
+    encoding = "utf-8"
     filing: dict[str, str] = {}
     filed_at_version = 0
     for item in items:
         raw = item.value.get("content")
         text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
-        total += draft_bytes(text)
+        size = stored_size(item.value)
+        file_bytes += size
+        if item.value.get("encoding") != BASE64:
+            total += size
         if str(item.key) == file_path:
             content = text
+            encoding = str(item.value.get("encoding") or "utf-8")
             version = int(item.value.get(VERSION_KEY) or 0)
             filing = filing_from_value(item.value)
             filed_at_version = int(item.value.get(FILED_AT_DRAFT_VERSION_KEY) or 0)
@@ -119,7 +146,29 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
         version=version,
         filing=filing,
         filed_at_version=filed_at_version,
+        encoding=encoding,
+        file_bytes=file_bytes,
     )
+
+
+RUN_TEXT_SUFFIXES = (".md", ".txt", ".csv", ".json", ".svg", ".html", ".xml", ".js", ".mjs", ".ts")
+
+MAX_RUN_TEXT_BYTES = 64 * 1024
+
+
+def stored_bytes(value: dict) -> bytes:
+    raw = value.get("content")
+    text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
+    return base64.b64decode(text) if value.get("encoding") == BASE64 else text.encode("utf-8")
+
+
+def run_file_value(file_path: str, data: bytes) -> dict:
+    if file_path.lower().endswith(RUN_TEXT_SUFFIXES) and len(data) <= MAX_RUN_TEXT_BYTES:
+        try:
+            return {"content": normalize_draft_text(data.decode("utf-8")), "encoding": "utf-8"}
+        except UnicodeDecodeError:
+            pass
+    return {"content": base64.b64encode(data).decode("ascii"), "encoding": BASE64}
 
 
 def path_refusal(file_path: str) -> str | None:
@@ -186,6 +235,11 @@ def edit_refusal(
         return refusal
     if usage.content is None:
         return None
+    if usage.is_binary:
+        return (
+            f"Cannot edit {file_path} because it is a binary file a script wrote. "
+            "Change it by running a script with `execute` that reads it and writes it again."
+        )
     occurrences = usage.content.count(old_string) if replace_all else 1
     growth = occurrences * (draft_bytes(new_string) - draft_bytes(old_string))
     return ceiling_refusal(usage.total_bytes + growth, file_path)
@@ -317,6 +371,53 @@ class DraftBackend(StoreBackend):
         if result.error is None:
             await self._arecord(file_path, usage.version + 1, usage.filing)
         return result
+
+    async def afiles(self) -> list[tuple[str, bytes]]:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        files: list[tuple[str, bytes]] = []
+        offset = 0
+        while True:
+            page = await store.asearch(namespace, limit=_PAGE_SIZE, offset=offset)
+            files.extend((str(item.key), stored_bytes(item.value)) for item in page)
+            if len(page) < _PAGE_SIZE:
+                break
+            offset += _PAGE_SIZE
+        return files
+
+    async def aread_bytes(self, file_path: str) -> tuple[bytes, DraftUsage] | None:
+        usage = await self.ausage(file_path)
+        if usage.content is None:
+            return None
+        data = base64.b64decode(usage.content) if usage.is_binary else usage.content.encode("utf-8")
+        return data, usage
+
+    async def awrite_run_file(self, file_path: str, data: bytes, *, previous_size: int) -> str | None:
+        refusal = path_refusal(file_path) or _root_write_refusal(file_path)
+        if refusal is not None:
+            return refusal
+        usage = await self.ausage(file_path)
+        projected = usage.file_bytes - previous_size + len(data)
+        if projected > MAX_RUN_FILE_BYTES:
+            return (
+                f"Cannot keep {file_path} because this conversation's files would exceed "
+                f"{MAX_RUN_FILE_BYTES // (1024 * 1024)} MB. Write fewer or smaller files."
+            )
+        store = self._get_store()
+        namespace = self._get_namespace()
+        existing = await store.aget(namespace, file_path)
+        kept = dict(existing.value) if existing is not None else {}
+        now = datetime.now(UTC).isoformat()
+        value = {
+            **kept,
+            **run_file_value(file_path, data),
+            "created_at": kept.get("created_at", now),
+            "modified_at": now,
+            VERSION_KEY: usage.version + 1,
+        }
+        await store.aput(namespace, file_path, value)
+        emit_draft_card(path=file_path, content="", version=usage.version + 1, filing=usage.filing, size=len(data))
+        return None
 
 
 async def _build_store(dsn: str) -> BaseStore:

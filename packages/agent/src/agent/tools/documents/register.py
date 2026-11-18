@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import logging
 import re
@@ -27,6 +28,7 @@ from .draft_store import get_draft_backend
 from .draft_store import modernize_draft_path
 from .filing import FilingError
 from .filing import post_document_version
+from .media_types import file_content_type
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,15 @@ def filing_reference(conversation_id: str, path: str) -> str:
     return f"{raw[: MAX_REF_CHARS - len(suffix)]}{suffix}"
 
 
+def _file_bytes(usage: DraftUsage) -> str:
+    content = usage.content or ""
+    return content if usage.is_binary else base64.b64encode(content.encode("utf-8")).decode("ascii")
+
+
+def _card_size(usage: DraftUsage) -> int | None:
+    return len(base64.b64decode(usage.content or "")) if usage.is_binary else None
+
+
 class _Refused(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -126,6 +137,11 @@ async def _draft(path: str) -> tuple[DraftBackend, DraftUsage]:
     usage = await backend.ausage(path)
     if usage.content is None:
         raise _Refused(f"Error: There is no draft at `{path}`. Use `ls` to see what the draft is really called.")
+    if not path.lower().endswith(".md") and file_content_type(path) is None:
+        raise _Refused(
+            f"Error: `{path}` cannot be filed: only Markdown drafts and .docx, .xlsx, .pptx, .pdf, .svg or .png "
+            "files go into the project. Convert it with execute first (a CSV into .xlsx, for example)."
+        )
     return backend, usage
 
 
@@ -154,37 +170,48 @@ async def _post(
         raise _Refused(failure.format(error=exc)) from exc
 
 
+def _create_payload(path: str, usage: DraftUsage, title: str) -> dict[str, Any]:
+    common = {
+        "projectId": project_context.get_project_id_from_context(),
+        "ref": filing_reference(_conversation_id(), path),
+        "title": title,
+    }
+    kind = file_content_type(path)
+    if kind is None:
+        return {"op": "create", **common, "content": usage.content or ""}
+    return {
+        "op": "create_file",
+        **common,
+        "filename": path.rsplit("/", 1)[-1],
+        "contentType": kind,
+        "contentBase64": _file_bytes(usage),
+    }
+
+
 async def _create(path: str, usage: DraftUsage, title: str, envelope: SignedEnvelope) -> dict[str, str]:
-    body = await _post(
-        {
-            "op": "create",
-            "projectId": project_context.get_project_id_from_context(),
-            "ref": filing_reference(_conversation_id(), path),
-            "title": title,
-            "content": usage.content or "",
-        },
-        envelope,
-    )
+    body = await _post(_create_payload(path, usage, title), envelope)
     filing = filing_record(body)
     if not body.get("alreadyFiled"):
         return filing
     if filing[FILED_STATE_KEY] not in REPLACEABLE_STATES:
         raise _Refused(_ALREADY_SUBMITTED)
-    return await _update(usage, filing, envelope)
+    return await _update(path, usage, filing, envelope)
 
 
-async def _update(usage: DraftUsage, filing: dict[str, str], envelope: SignedEnvelope) -> dict[str, str]:
-    body = await _post(
-        {
-            "op": "update",
-            "documentId": filing[FILED_DOCUMENT_KEY],
-            "versionId": filing[FILED_VERSION_KEY],
-            "content": usage.content or "",
-            "ifMatch": filing[FILED_HASH_KEY],
-        },
-        envelope,
-        conflict=_NOT_REPLACEABLE_NOW,
-    )
+def _update_payload(path: str, usage: DraftUsage, filing: dict[str, str]) -> dict[str, Any]:
+    common = {
+        "documentId": filing[FILED_DOCUMENT_KEY],
+        "versionId": filing[FILED_VERSION_KEY],
+        "ifMatch": filing[FILED_HASH_KEY],
+    }
+    kind = file_content_type(path)
+    if kind is None:
+        return {"op": "update", **common, "content": usage.content or ""}
+    return {"op": "update_file", **common, "contentType": kind, "contentBase64": _file_bytes(usage)}
+
+
+async def _update(path: str, usage: DraftUsage, filing: dict[str, str], envelope: SignedEnvelope) -> dict[str, str]:
+    body = await _post(_update_payload(path, usage, filing), envelope, conflict=_NOT_REPLACEABLE_NOW)
     return filing_record(body)
 
 
@@ -227,8 +254,8 @@ _REVIEWER_WITHOUT_SUBMIT = (
 class FileDraftConfig(FunctionBaseConfig, name="file_draft"): ...
 
 
-async def _refile(usage: DraftUsage, envelope: SignedEnvelope) -> dict[str, str]:
-    return await _update(usage, usage.filing, envelope)
+async def _refile(path: str, usage: DraftUsage, envelope: SignedEnvelope) -> dict[str, str]:
+    return await _update(path, usage, usage.filing, envelope)
 
 
 def _submit_payload(filing: dict[str, str], reviewer: str) -> dict[str, Any]:
@@ -280,7 +307,9 @@ async def _submit_unchanged(
     backend: DraftBackend, path: str, usage: DraftUsage, reviewer: str, envelope: SignedEnvelope
 ) -> str:
     submitted = await _submit(backend, path, usage.filing, reviewer, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
-    emit_draft_card(path=path, content=usage.content or "", version=usage.version or 1, filing=submitted)
+    emit_draft_card(
+        path=path, content=usage.content or "", version=usage.version or 1, filing=submitted, size=_card_size(usage)
+    )
     return (
         f"Submitted for approval {_whom(reviewer)}: „{draft_title(path, usage.content or '')}“ is now waiting "
         f"for review by a person. {_STILL_A_DRAFT}"
@@ -300,14 +329,21 @@ async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
 
     chosen = " ".join((title or "").split())[:MAX_TITLE_CHARS] or draft_title(path, usage.content or "")
     filing = (
-        await _refile(usage, envelope)
+        await _refile(path, usage, envelope)
         if usage.filing.get(FILED_DOCUMENT_KEY)
         else await _create(path, usage, chosen, envelope)
     )
     await backend.arecord_filing(path, filing, draft_version=usage.version)
 
     def _card(record: dict[str, str]) -> None:
-        emit_draft_card(path=path, content=usage.content or "", version=usage.version or 1, filing=record, title=chosen)
+        emit_draft_card(
+            path=path,
+            content=usage.content or "",
+            version=usage.version or 1,
+            filing=record,
+            title=chosen,
+            size=_card_size(usage),
+        )
 
     if not submit:
         _card(filing)
