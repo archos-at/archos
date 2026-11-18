@@ -2,6 +2,8 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { logicalName, objectName } from "../names";
+import { BACKGROUND_WORK } from "../config/background-work";
+import { CMS } from "../config/cms";
 
 export function makeAppNamespace(
   cfg: DeployConfig,
@@ -28,4 +30,8 @@ export function commonLabels(component: string): pulumi.Input<{ [k: string]: str
     "app.kubernetes.io/part-of": objectName("partOf"),
     "app.kubernetes.io/managed-by": "pulumi",
   };
+}
+
+export function appNamespaces(cfg: DeployConfig): string[] {
+  return [cfg.namespace, BACKGROUND_WORK.namespace, ...(cfg.cms.enabled ? [CMS.namespace] : [])];
 }

@@ -8,6 +8,8 @@ import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
+import { LOG_SHIPPER } from "../config/observability";
+import { SHIPPER_OTLP_PORT } from "./collector-config";
 
 const LANGFUSE_WEB = LANGFUSE.web;
 const LANGFUSE_WORKER = LANGFUSE.worker;
@@ -294,6 +296,19 @@ export function installNetworkPolicies(
       })
     : undefined;
 
+  const logShipperToCollector = cfg.posthog.logsEnabled
+    ? mk("allow-log-shipper-to-collector", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": "otel-collector" } },
+        policyTypes: ["Ingress"],
+        ingress: [
+          {
+            from: [{ ...nsLabel(LOG_SHIPPER.namespace), podSelector: { matchLabels: { "app.kubernetes.io/name": LOG_SHIPPER.name } } }],
+            ports: [{ protocol: "TCP", port: SHIPPER_OTLP_PORT }],
+          },
+        ],
+      })
+    : undefined;
+
   const agentToClickhouse =
     cfg.langfuse.enabled && cfg.posthog.metricsEnabled
       ? mk("allow-agent-to-clickhouse-metrics", {
@@ -358,6 +373,7 @@ export function installNetworkPolicies(
     appToQdrant,
     qdrantPeers,
     ...(collectorToQdrant ? [collectorToQdrant] : []),
+    ...(logShipperToCollector ? [logShipperToCollector] : []),
     ...(edgeQdrant ? [edgeQdrant] : []),
     ...(agentToClickhouse ? [agentToClickhouse] : []),
     ...(edgeMcpGateway ? [edgeMcpGateway] : []),
