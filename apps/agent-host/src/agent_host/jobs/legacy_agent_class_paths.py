@@ -10,12 +10,6 @@ LEGACY_AGENT_CLASS_PATHS = {
     "agent.agents.intake.agent.ProjectIntakeAgent": "project_intake",
 }
 
-CLASS_PATH_OF = {
-    "deep_researcher": "agent.agents.deep_researcher.agent.DeepResearcherAgent",
-    "researcher": "agent.core.agent.ChatAgent",
-    "project_intake": "agent.agents.intake.agent.ProjectIntakeAgent",
-}
-
 
 def agent_type_of(agent_class_path: str) -> str:
     try:

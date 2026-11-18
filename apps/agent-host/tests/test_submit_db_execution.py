@@ -6,7 +6,7 @@ import json
 from agent_host.jobs.agent_job import run_agent_job
 from agent_host.jobs.submit import _build_run_agent_payload
 
-UNKNOWN_TO_THE_PREVIOUS_WORKER = {"agent_type"}  # drop after release 2026-W50
+LEGACY_PARAMETERS = {"agent_class_path"}  # drop after release 2026-W50
 
 
 def _sample_payload():
@@ -38,15 +38,15 @@ def _sample_payload():
 
 def test_payload_keys_match_run_agent_job_signature():
     payload = _sample_payload()
-    params = set(inspect.signature(run_agent_job).parameters) - UNKNOWN_TO_THE_PREVIOUS_WORKER
+    params = set(inspect.signature(run_agent_job).parameters) - LEGACY_PARAMETERS
     assert set(payload.keys()) == params
 
 
-def test_a_worker_on_the_previous_image_can_run_the_payload():
+def test_the_payload_names_the_agent_by_its_registry_key():
     payload = _sample_payload()
 
-    assert "agent_type" not in payload
-    assert payload["agent_class_path"] == "agent.agents.deep_researcher.agent.DeepResearcherAgent"
+    assert payload["agent_type"] == "deep_researcher"
+    assert "agent_class_path" not in payload
 
 
 def test_payload_is_json_serializable():
