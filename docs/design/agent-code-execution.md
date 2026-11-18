@@ -41,7 +41,7 @@ Start here; each row names the code and the page that owns its detail.
 ## One run
 
 1. The model calls `execute(code, documents, data)`. The description says JavaScript module, no network,
-   and "read the `office-files` skill first".
+   and "read the `execute` skill first".
 2. The tool takes the conversation's lock: one run at a time per conversation, so two calls in one
    response never write back from the same snapshot. Runs of different conversations run side by side.
 3. It sends every file of the working directory (`/drafts/x` becomes `/workspace/x`) and the bytes of
@@ -245,7 +245,7 @@ marking ([Filing, in the chat](agent-made-files-ux.md#what-this-change-ships)).
 
 ## The office skills
 
-The builtin collection `office` holds `office-files` (the entry point: the run contract, libraries,
+The builtin collection `office` holds `execute` (the entry point: the run contract, libraries,
 the office's number and date formats, exact calculation, reading the file back, filing) and
 `office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst),
 `office-pdf-charts` and `office-html-pdf` (HTML and CSS to PDF, Mermaid, screenshots, through the

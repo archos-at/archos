@@ -19,7 +19,7 @@ EXPECTED = {
     ("oib", "hygiene"),
     ("oib", "safety-in-use"),
     ("oib", "thermal-protection"),
-    ("office", "office-files"),
+    ("office", "execute"),
     ("office", "office-word"),
     ("office", "office-excel"),
     ("office", "office-powerpoint"),

@@ -1,10 +1,8 @@
 ---
 name: office-excel
 description: >
-  Use when the person wants an Excel workbook (.xlsx) written or filled: a
-  Flächenaufstellung, a Raumbuch, a cost table, a Planliste, the office's own
-  Excel template; or wants the figures read out of one. Read `office-files`
-  first for the run contract.
+  Making, filling or reading an Excel file? The mistakes that make Excel
+  repair it, and code that works.
 metadata:
   agents: researcher
   title: Excel-Tabelle erstellen
@@ -12,7 +10,7 @@ metadata:
 
 # An Excel workbook
 
-`exceljs` writes, reads and fills workbooks. Read `office-files` first if you
+`exceljs` writes, reads and fills workbooks. Read `execute` first if you
 have not this conversation.
 
 ## Writing a sheet
