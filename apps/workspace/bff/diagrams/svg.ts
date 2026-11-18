@@ -65,13 +65,6 @@ import {
   type DiagramSourceKind,
 } from './diagram-sources'
 
-/**
- * Every way a submitted diagram can be refused.
- *
- * A tuple for the same reason the vocabularies are: the route maps these to a
- * message in both locales, and a member that exists in one place and not the
- * other is how a user ends up reading `undefined`.
- */
 export const DIAGRAM_SVG_REJECTIONS = [
   'empty',
   'too-large',
@@ -98,7 +91,6 @@ export interface SvgAttribute {
 export interface SvgElement {
   readonly kind: 'element'
   readonly name: string
-  /** In source order, so serialisation is deterministic and diffable. */
   readonly attributes: readonly SvgAttribute[]
   readonly children: readonly SvgNode[]
 }
@@ -110,23 +102,11 @@ export interface SvgTextNode {
 
 export type SvgNode = SvgElement | SvgTextNode
 
-/**
- * A content-free census of a parsed diagram, for the failure log.
- *
- * The diagram-PDF crash (err2issue #589, React minified #31) arrived with the
- * drawing's SHAPE as the only suspect and no way to recover it: the tree
- * holds tenant content and is never logged. Tag frequencies name the
- * construct the renderer choked on (a `<tspan>` nesting, an `<a>`-wrapped
- * label), the depth and node count name the size — and no text content leaves
- * the process.
- */
 export interface SvgCensus {
   nodes: number
   elements: number
   textChars: number
-  /** Deepest element, counting the root as 1 (same unit as `MAX_DIAGRAM_SVG_DEPTH`). */
   depth: number
-  /** Element counts by tag name, in first-seen order. */
   tags: Record<string, number>
 }
 
@@ -154,7 +134,6 @@ export function censusSvg(root: SvgElement): SvgCensus {
 export class DiagramSvgError extends Error {
   constructor(
     readonly rejection: DiagramSvgRejection,
-    /** What exactly tripped it — an element or attribute name, never the input. */
     readonly detail: string,
   ) {
     super(`${rejection}: ${detail}`)
@@ -162,40 +141,12 @@ export class DiagramSvgError extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// What may appear
-// ---------------------------------------------------------------------------
-
-/**
- * Elements refused BY NAME, case-insensitively, ahead of the allow-list.
- *
- * They would all fall through to `unsupported-element` anyway — the allow-list
- * is what actually stops them. They are named here so the refusal a client
- * reads says what it found, and so that a test asserting "a `<script>` is
- * rejected" is asserting the rule rather than an accident of the allow-list.
- *
- * Case-insensitive because the XML parser here is case-SENSITIVE (`clipPath`
- * and `clippath` are different elements to XML) while a browser recovering from
- * a content-type sniff is not. Matching loosely here costs nothing and closes
- * the gap between the two readings.
- */
 const REFUSED_ELEMENTS: ReadonlyMap<string, DiagramSvgRejection> = new Map([
   ['script', 'script-element'],
   ['foreignobject', 'foreign-object'],
   ['style', 'style-element'],
 ])
 
-/**
- * What any element may carry: the presentation set, plus `id`.
- *
- * Deliberately the intersection of "SVG paints with it" and "either the preview
- * or `@react-pdf/renderer` can act on it". An attribute nothing downstream
- * reads is bytes in a stored file whose effect no reader will ever see.
- *
- * `id` is in here because it is not decoration in a self-contained file: it is
- * the target of every `url(#…)` a marker, a gradient or a clip path resolves
- * through. Dropping it would strip the arrowheads off a flowchart.
- */
 const COMMON_ATTRIBUTES: ReadonlySet<string> = new Set([
   'fill',
   'fill-opacity',
@@ -225,14 +176,6 @@ const COMMON_ATTRIBUTES: ReadonlySet<string> = new Set([
   'id',
 ])
 
-/**
- * The geometry each element is allowed to state, on top of the presentation set.
- *
- * Membership of this map IS the element allow-list: an element with no entry is
- * refused. Keeping the two facts in one table is deliberate — an allow-list and
- * an attribute table that live apart drift, and the drift direction is always
- * "element allowed, attributes forgotten", which silently strips geometry.
- */
 const ELEMENT_GEOMETRY: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['svg', new Set(['xmlns', 'viewBox', 'width', 'height', 'preserveAspectRatio'])],
   ['g', new Set<string>()],
@@ -265,42 +208,15 @@ const ELEMENT_GEOMETRY: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['linearGradient', new Set(['x1', 'y1', 'x2', 'y2', 'gradientUnits', 'gradientTransform'])],
   ['radialGradient', new Set(['cx', 'cy', 'r', 'fx', 'fy', 'gradientUnits', 'gradientTransform'])],
   ['stop', new Set(['offset', 'stop-color', 'stop-opacity'])],
-  // Accepted from a client so that a submission carrying one is not REFUSED —
-  // it is discarded and replaced by `withDiagramSource`, because the source
-  // recorded in a filed diagram must be the one the server validated against
-  // its own cap and not a second copy the client could make disagree with it.
-  // Its attributes are handled separately in `keptAttributes`.
-  //
-  // **Only as a direct child of the root**, which is the one position this
-  // module ever writes one in — see {@link refuseUnsupportedElements}. Membership
-  // of this map alone used to mean "at any depth", and `withDiagramSource`
-  // filters only the ROOT's children, so a `<g><metadata
-  // data-grid-diagram-source="mermaid">…` carried 200 KiB of client text into a
-  // stored file against a 32 KiB source cap the server thought it had enforced.
   ['metadata', new Set<string>()],
 ])
 
-/**
- * The element that carries the diagram's own source, written by this module
- * and never accepted from a client — see {@link withDiagramSource}.
- */
 const METADATA_ELEMENT = 'metadata'
-const METADATA_KIND_ATTRIBUTE = 'data-grid-diagram-source'
+const METADATA_KIND_ATTRIBUTE = 'data-diagram-source'
+export const STORED_METADATA_KIND_ATTRIBUTE = 'data-grid-diagram-source'
 
-/**
- * The two elements that carry the AI marking — see {@link withDiagramMarking}.
- *
- * They are already in {@link ELEMENT_GEOMETRY} with no attributes of their own,
- * which is the whole reason they were chosen: the marking survives the
- * re-serialisation without widening the allow-list by one element or one
- * attribute, on a file this product serves back to browsers.
- */
 const MARKING_TITLE_ELEMENT = 'title'
 const MARKING_DESC_ELEMENT = 'desc'
-
-// ---------------------------------------------------------------------------
-// Scanning
-// ---------------------------------------------------------------------------
 
 const NAME_START = /[A-Za-z_]/
 const NAME_CHAR = /[A-Za-z0-9_.:-]/
@@ -337,7 +253,6 @@ class Scanner {
     while (!this.done && /\s/.test(this.peek())) this.index += 1
   }
 
-  /** Read up to (not past) `terminator`; throws rather than running off the end. */
   readUntil(terminator: string, detail: string): string {
     const at = this.input.indexOf(terminator, this.index)
     if (at === -1) throw new DiagramSvgError('malformed-xml', detail)
@@ -354,14 +269,6 @@ class Scanner {
   }
 }
 
-/**
- * The five named entities XML defines, plus numeric references.
- *
- * Nothing else resolves, and there is no way to declare anything else, because
- * `<!` is refused wherever it can appear. An unknown `&name;` is therefore not
- * a lookup failure — it is a document this parser cannot claim to understand,
- * and claiming to understand it is how a sanitiser gets bypassed.
- */
 const NAMED_ENTITIES: ReadonlyMap<string, string> = new Map([
   ['amp', '&'],
   ['lt', '<'],
@@ -391,7 +298,6 @@ function decodeEntities(raw: string, detail: string): string {
   })
 }
 
-/** `<!-- … -->` is skipped; every other `<!` construct is refused. */
 function skipTrivia(scanner: Scanner): void {
   for (;;) {
     scanner.skipWhitespace()
@@ -402,17 +308,9 @@ function skipTrivia(scanner: Scanner): void {
       continue
     }
     if (scanner.startsWith('<!')) {
-      // `<!DOCTYPE`, `<!ENTITY`, `<![CDATA[` — the first two are how an XML
-      // document declares its own expansions, which is the whole of XXE and
-      // billion-laughs. CDATA is refused with them rather than supported,
-      // because a renderer that emits CDATA is emitting something this
-      // pipeline has no element for anyway.
       throw new DiagramSvgError('doctype-or-entity', scanner.take(10))
     }
     if (scanner.startsWith('<?')) {
-      // The XML declaration is legal only at the very start, which
-      // `parseDiagramSvg` handles; anywhere else a processing instruction is
-      // an instruction to a processor we do not have.
       throw new DiagramSvgError('malformed-xml', 'processing instruction')
     }
     return
@@ -433,20 +331,6 @@ function parseAttributeValue(scanner: Scanner, elementName: string, attributeNam
   return decodeEntities(raw, `${elementName}/@${attributeName}`)
 }
 
-/**
- * Read one element and everything inside it.
- *
- * `depth` is what stops a hostile input here rather than in the runtime: this
- * function recurses once per level of nesting, and so do the three walks after
- * it, so a document that is trivially small in BYTES can still exhaust the
- * stack. Depth 5000 is ~35 KB — 3% of the 1 MiB budget — and threw a bare
- * `RangeError`, which is not a `DiagramSvgError` and therefore reached the route
- * as an untranslated 500 on a request the caller was promised a named 400 for.
- * See {@link MAX_DIAGRAM_SVG_DEPTH} for the measurement behind the number.
- *
- * The check is BEFORE the recursion and before any work on the child, because
- * the point is to not do the work.
- */
 function parseElement(scanner: Scanner, depth: number): SvgElement {
   if (depth > MAX_DIAGRAM_SVG_DEPTH) {
     throw new DiagramSvgError('too-deep', `nested deeper than ${MAX_DIAGRAM_SVG_DEPTH}`)
@@ -548,29 +432,13 @@ function flattenStyleAttribute(elementName: string, style: string): SvgAttribute
   return attributes
 }
 
-/**
- * The two attribute rules that REFUSE rather than drop.
- *
- * Everything else unrecognised is dropped by the serialiser, because an unknown
- * attribute is decoration this pipeline cannot act on. These two are different:
- * they are the ones whose presence says the file is trying to reach outside
- * itself or to run, and a diagram that does either is not a diagram this
- * product will file, whatever else is in it.
- */
 function refuseDangerousAttribute(elementName: string, attributeName: string, value: string): void {
   const lower = attributeName.toLowerCase()
 
-  // `onload`, `onclick`, `onmouseover`, … — inert in an <img> but not in an
-  // <object>, an <iframe>, or a direct navigation to the stored object, and
-  // the storage layer cannot promise which of those a future surface uses.
   if (lower.startsWith('on')) {
     throw new DiagramSvgError('event-handler-attribute', `${elementName}/@${attributeName}`)
   }
 
-  // Any namespace prefix: `href`, `xlink:href`, `xhtml:href`. A fragment is the
-  // only reference a self-contained file can make; everything else is a fetch
-  // performed by whoever opens the file, in their session, from a host this
-  // product did not choose.
   if (lower === 'href' || lower.endsWith(':href')) {
     if (!value.startsWith('#')) {
       throw new DiagramSvgError('external-reference', `${elementName}/@${attributeName}`)
@@ -578,9 +446,6 @@ function refuseDangerousAttribute(elementName: string, attributeName: string, va
     return
   }
 
-  // `fill="url(https://…)"`, `clip-path="url(//evil)"`, `filter="url(data:…)"`.
-  // The functional-IRI form is how a reference hides in a value rather than in
-  // a name, so the check is on the VALUE and applies to every attribute.
   for (const match of value.matchAll(/url\(\s*(['"]?)([^)'"]*)\1\s*\)/gi)) {
     const target = match[2].trim()
     if (!target.startsWith('#')) {
@@ -588,50 +453,25 @@ function refuseDangerousAttribute(elementName: string, attributeName: string, va
     }
   }
 
-  // A scheme in a value that is not a functional IRI — `javascript:`, `data:`.
-  // Presentation attributes never legitimately carry one.
   if (/^\s*(javascript|data|vbscript)\s*:/i.test(value)) {
     throw new DiagramSvgError('external-reference', `${elementName}/@${attributeName}: scheme`)
   }
 }
 
-/**
- * Walk the tree and refuse any element outside {@link ELEMENT_GEOMETRY}.
- *
- * Refused rather than dropped, and that asymmetry with attributes is the point:
- * an element carries geometry, so dropping one files a diagram that is missing
- * part of the picture and says nothing about it. An office cannot audit what it
- * cannot see is absent.
- */
 function refuseUnsupportedElements(node: SvgNode, depth: number): void {
   if (node.kind === 'text') return
   if (!ELEMENT_GEOMETRY.has(node.name)) {
     throw new DiagramSvgError('unsupported-element', node.name)
   }
-  // `<metadata>` is allow-listed for ONE position: the one this module writes it
-  // in, as a direct child of the root, where `withDiagramSource` can throw the
-  // client's copy away and put the server-validated source there instead. Deeper
-  // than that it is refused rather than dropped, because a nested one is not a
-  // decoration this pipeline can ignore — `keptAttributes` carries
-  // `data-grid-diagram-source` wherever it appears, so a `<g><metadata
-  // data-grid-diagram-source="mermaid">…` was serialised into the stored file
-  // with 200 KiB of text the 32 KiB per-kind source cap never saw. A file
-  // claiming two sources is a file whose reader cannot tell which one the server
-  // stood behind.
   if (node.name === METADATA_ELEMENT && depth !== 1) {
     throw new DiagramSvgError('unsupported-element', `${METADATA_ELEMENT} below the root`)
   }
   for (const child of node.children) refuseUnsupportedElements(child, depth + 1)
 }
 
-// ---------------------------------------------------------------------------
-// Parse
-// ---------------------------------------------------------------------------
-
 export interface DiagramSvgViewport {
   readonly width: number
   readonly height: number
-  /** The `viewBox` as authored, forwarded to the PDF unchanged. */
   readonly viewBox: string
 }
 
@@ -644,8 +484,6 @@ const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
 
 function toLength(raw: string | undefined): number | null {
   if (raw === undefined) return null
-  // `width="640px"` and `width="640"` are the same drawing; a percentage is not
-  // a length this pipeline can resolve, because there is no containing block.
   const trimmed = raw.trim().replace(/px$/i, '')
   if (!NUMBER.test(trimmed)) return null
   const value = Number.parseFloat(trimmed)
@@ -656,16 +494,6 @@ export function attributeOf(element: SvgElement, name: string): string | undefin
   return element.attributes.find((attribute) => attribute.name === name)?.value
 }
 
-/**
- * Read the drawing's own coordinate system.
- *
- * A viewport is REQUIRED, and not because SVG requires one — a browser will
- * happily render a `<svg>` with neither `viewBox` nor size by inventing 300×150.
- * The PDF cannot: `@react-pdf/renderer` needs a box to fit the drawing into, and
- * a guessed one crops the diagram in the artifact that gets attached to a
- * submission while the preview looks right. Refusing here is the only place the
- * two can be made to agree.
- */
 function readViewport(root: SvgElement): DiagramSvgViewport {
   const viewBox = attributeOf(root, 'viewBox')?.trim()
   if (viewBox) {
@@ -683,12 +511,6 @@ function readViewport(root: SvgElement): DiagramSvgViewport {
   return { width, height, viewBox: `0 0 ${width} ${height}` }
 }
 
-/**
- * Parse a diagram SVG, or throw a {@link DiagramSvgError} naming the rule.
- *
- * Size is checked FIRST and in bytes, because everything after it is work done
- * on the caller's behalf on an input whose length the caller chose.
- */
 export function parseDiagramSvg(input: string): ParsedDiagramSvg {
   const bytes = new TextEncoder().encode(input).byteLength
   if (bytes === 0) throw new DiagramSvgError('empty', 'no bytes')
@@ -715,10 +537,6 @@ export function parseDiagramSvg(input: string): ParsedDiagramSvg {
   return { root, viewport: readViewport(root) }
 }
 
-// ---------------------------------------------------------------------------
-// Serialise
-// ---------------------------------------------------------------------------
-
 function escapeText(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -729,14 +547,11 @@ function escapeAttribute(value: string): string {
 
 function keptAttributes(element: SvgElement): readonly SvgAttribute[] {
   if (element.name === METADATA_ELEMENT) {
-    return element.attributes.filter((attribute) => attribute.name === METADATA_KIND_ATTRIBUTE)
+    const kind = diagramKindOf(element)
+    return kind === undefined ? [] : [{ name: METADATA_KIND_ATTRIBUTE, value: kind }]
   }
   const geometry = ELEMENT_GEOMETRY.get(element.name)
   if (!geometry) return []
-  // Last value for a name wins. Two can exist because a `style` attribute is
-  // flattened into attributes in place, so `fill="red" style="fill:blue"`
-  // arrives here as two `fill`s — and a serialised element with a repeated
-  // attribute is not well-formed XML, so this is correctness and not tidiness.
   const byName = new Map<string, SvgAttribute>()
   for (const attribute of element.attributes) {
     if (geometry.has(attribute.name) || COMMON_ATTRIBUTES.has(attribute.name)) {
@@ -763,21 +578,12 @@ function serializeNode(node: SvgNode, out: string[]): void {
   out.push(`</${node.name}>`)
 }
 
-/**
- * Write the tree back out, from the allow-list.
- *
- * The client's bytes are never what is stored. Anything this file did not
- * recognise is simply not written — so a `style="…"`, a `data-*`, an `aria-*`
- * or an attribute invented after this was written cannot reach the stored
- * object even if the deny-list above never heard of it.
- */
 export function serializeDiagramSvg(root: SvgElement): string {
   const out: string[] = ['<?xml version="1.0" encoding="UTF-8"?>']
   serializeNode(withXmlns(root), out)
   return out.join('')
 }
 
-/** A standalone `.svg` file that omits the namespace is not an SVG to a parser. */
 function withXmlns(root: SvgElement): SvgElement {
   if (attributeOf(root, 'xmlns')) return root
   return {
@@ -786,26 +592,6 @@ function withXmlns(root: SvgElement): SvgElement {
   }
 }
 
-/**
- * Put the diagram's own source inside the diagram.
- *
- * **This is where the source lives, and the reason is portability.** The
- * alternatives were a second `documents` row (a `.mmd` file an architect never
- * asked for, with its own quota charge, its own `Zuweisen` and its own deletion
- * — two rows nobody can tell apart six months later), a new column on
- * `documents` (a migration for a value that then does not survive the file being
- * downloaded), and the audit event's metadata (a compliance record is not a
- * store you regenerate artefacts from). The source has to travel WITH the
- * artifact, because the person who needs to regenerate or hand-edit the diagram
- * is the person who has the file — possibly a year later, possibly outside this
- * product entirely.
- *
- * `<metadata>` is the element SVG defines for exactly this, it is not rendered
- * by anything, and excalidraw's own exporter already uses the same trick to make
- * its SVGs re-importable. Any `<metadata>` the client sent is DISCARDED first:
- * the source recorded here is the one the server validated against its own cap,
- * not a second copy the client could have made disagree with it.
- */
 export function withDiagramSource(root: SvgElement, kind: DiagramSourceKind, source: string): SvgElement {
   const metadata: SvgElement = {
     kind: 'element',
@@ -813,99 +599,15 @@ export function withDiagramSource(root: SvgElement, kind: DiagramSourceKind, sou
     attributes: [{ name: METADATA_KIND_ATTRIBUTE, value: kind }],
     children: [{ kind: 'text', text: source }],
   }
-  // Filtering the ROOT's children is enough, and only because
-  // `refuseUnsupportedElements` refuses a `<metadata>` anywhere else. When it
-  // did not, this filter was the whole of the "discarded" promise above and a
-  // nested one walked straight past it into the stored file.
   const rest = root.children.filter((child) => !(child.kind === 'element' && child.name === METADATA_ELEMENT))
   return { ...root, children: [metadata, ...rest] }
 }
 
-/**
- * Say, inside the file, that a machine drew it.
- *
- * ## The problem this fixes
- *
- * A filed diagram used to carry NO marking of any kind in its bytes. The grey
- * „Von Piloti erstellt" byline is chrome — it lives in the Files pane and stops
- * at the download button — and the PDF sibling prints a footer line, but the
- * `.svg` a person drags onto their desktop, embeds in a Word document or mails
- * to a colleague said nothing at all about who drew it. That is the exact
- * artifact the marking exists for.
- *
- * ## Why `<title>` and `<desc>`, and not the four other candidates
- *
- * **They survive.** This module stores bytes it writes from an allow-list, so
- * the only markings that count are the ones the serialiser writes back out.
- * `title` and `desc` are already in {@link ELEMENT_GEOMETRY} with an empty
- * attribute set, and text children are serialised verbatim — so the marking
- * round-trips with the allow-list WIDENED BY NOTHING. On a file the product
- * serves back to browsers, a marking that costs no new element and no new
- * attribute is worth more than a more expressive one that costs both.
- *
- * **`<title>` is the accessible name.** The first `<title>` child of the root
- * IS the SVG's name to a browser tooltip, to a screen reader, and to a page
- * embedding it. So the human sentence — the same localized line the PDF prints
- * in its footer, resolved by the route — reaches a person who has only the
- * file.
- *
- * **`<desc>` carries the machine vocabulary.** The same `AIGenerated=true;
- * AIGenerator=Piloti; …` string the PDF puts in `Keywords` and the `.docx` puts
- * in typed custom properties, so ONE detector expression finds a machine-written
- * document in all three formats (`@/lib/ai-provenance`).
- *
- * Rejected, each for a concrete reason rather than a preference:
- *
- *   - **RDF/XMP inside `<metadata>`** — the "correct" answer in the abstract,
- *     and unreachable here. `<rdf:RDF>`, `<cc:Work>`, `<dc:creator>` are all
- *     outside {@link ELEMENT_GEOMETRY}, so `refuseUnsupportedElements` REFUSES
- *     the submission rather than stripping the block; admitting it means
- *     allow-listing a namespaced element tree. And `<metadata>` is already
- *     spoken for: {@link withDiagramSource} reserves it for the one source the
- *     server validated, and `keptAttributes` deliberately drops every attribute
- *     on it but one.
- *   - **A visible `<text>` footer.** It is the marking a sighted person meets
- *     without hovering, and SVG cannot lay it out: `<text>` does not wrap, the
- *     marking sentence is ~180 characters, and mermaid sizes its `viewBox`
- *     tightly to the drawing — so the line either runs off the picture or the
- *     server has to rewrite the viewBox and hand-break the sentence with guessed
- *     glyph widths. It would also reach the PDF, which renders from this same
- *     tree, and print a second marking under the one `renderDiagramPdf` already
- *     draws. The visible half of the marking belongs on the artifact with a page
- *     and a layout engine, and that is the artifact a Behörde receives.
- *   - **A `data-*` attribute on the root.** `keptAttributes` drops it: `svg`'s
- *     geometry set does not list it, which is the serialiser working as designed.
- *   - **The filename.** Renaming a file is one keystroke and a marking that a
- *     rename removes is not a marking.
- *
- * Neither element is paint, so `svg-to-pdf.tsx` maps both to `null` and the PDF
- * is unaffected: it carries its own footer line and its own `Keywords`.
- *
- * ## What is replaced
- *
- * Any `<title>` or `<desc>` the client put at the ROOT, and only at the root —
- * the same rule and the same reason `withDiagramSource` applies to
- * `<metadata>`: what the file says about ITSELF is the server's statement, not
- * a claim the submitting browser gets to make. Titles and descriptions nested
- * inside the drawing are the diagram's own labels and are left alone.
- */
 export interface DiagramMarking {
-  /**
-   * What a person is told, in their locale. Becomes the SVG's accessible name.
-   *
-   * Resolved by the route, exactly as the PDF's footer line is, because a
-   * renderer that reaches for a dictionary renders one language for every
-   * office.
-   */
   readonly notice: string
-  /**
-   * The machine-readable marking, in the vocabulary `@/lib/ai-provenance`
-   * defines and `fileGeneratedDocument` verifies against the stored bytes.
-   */
   readonly provenance: string
 }
 
-/** Put the marking on the root. See {@link DiagramMarking} for why these two elements. */
 export function withDiagramMarking(root: SvgElement, marking: DiagramMarking): SvgElement {
   const element = (name: string, text: string): SvgElement => ({
     kind: 'element',
@@ -920,9 +622,6 @@ export function withDiagramMarking(root: SvgElement, marking: DiagramMarking): S
         (child.name === MARKING_TITLE_ELEMENT || child.name === MARKING_DESC_ELEMENT)
       ),
   )
-  // `<title>` FIRST: SVG names an element after its first `<title>` child, so a
-  // marking that came second would be present in the file and absent from every
-  // surface that reads the file's name.
   return {
     ...root,
     children: [
@@ -933,21 +632,23 @@ export function withDiagramMarking(root: SvgElement, marking: DiagramMarking): S
   }
 }
 
-/** Read a source back out of a filed diagram — the regeneration path. */
+function diagramKindOf(metadata: SvgElement): string | undefined {
+  return (
+    attributeOf(metadata, METADATA_KIND_ATTRIBUTE) ??
+    attributeOf(metadata, STORED_METADATA_KIND_ATTRIBUTE)
+  )
+}
+
 export function diagramSourceOf(root: SvgElement): { kind: string; source: string } | null {
   for (const child of root.children) {
     if (child.kind !== 'element' || child.name !== METADATA_ELEMENT) continue
-    const kind = child.attributes.find((a) => a.name === METADATA_KIND_ATTRIBUTE)?.value
+    const kind = diagramKindOf(child)
     if (!kind) continue
     const source = child.children.map((node) => (node.kind === 'text' ? node.text : '')).join('')
     return { kind, source }
   }
   return null
 }
-
-// ---------------------------------------------------------------------------
-// The one call a route makes
-// ---------------------------------------------------------------------------
 
 export interface DiagramSubmission {
   readonly svg: string
@@ -956,33 +657,11 @@ export interface DiagramSubmission {
 }
 
 export interface AcceptedDiagram {
-  /** The bytes to store: written by this module, never copied from the client. */
   readonly svg: string
-  /**
-   * The drawing, for the PDF sibling to redraw.
-   *
-   * WITHOUT the marking elements, deliberately. The PDF carries its own footer
-   * line and its own `Keywords`, and `<title>`/`<desc>` are not paint — so
-   * putting them in the tree the PDF walks would add nothing there and make
-   * `svg-to-pdf.tsx` responsible for skipping them.
-   */
   readonly root: SvgElement
   readonly viewport: DiagramSvgViewport
 }
 
-/**
- * Validate a submitted diagram and produce the SVG that will be stored.
- *
- * Throws {@link DiagramSvgError}; the route turns the rejection into a 400 with
- * a message in the reader's locale. It does not return a result union because
- * every caller here wants the same thing — refuse loudly — and a union would
- * put the burden of remembering that on each of them.
- *
- * The marking is a REQUIRED second argument rather than something a caller may
- * add afterwards: `svg` is the bytes that get stored, and this module is the
- * only thing that writes them, so "the stored bytes say a machine drew this" is
- * true by construction here instead of being one more thing a caller keeps.
- */
 export function acceptDiagram(submission: DiagramSubmission, marking: DiagramMarking): AcceptedDiagram {
   const sourceBytes = new TextEncoder().encode(submission.source).byteLength
   const limit = DIAGRAM_SOURCE_FACTS[submission.sourceKind].maxSourceBytes

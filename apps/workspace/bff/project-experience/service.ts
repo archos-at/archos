@@ -1,23 +1,3 @@
-/**
- * What a closed project knows about itself (docs/design/closed-project-experience.md):
- * the closing extraction has the backend read the project's own documents once,
- * and writes what it finds as suggestions a person confirms. Fingerprint values
- * land as profile assumptions (`agent_suggested`, `unconfirmed`, with the
- * structured `evidence` and the first of it as the human reason); decisions land
- * as memory rows (`distillation`, `source_grounded`).
- *
- * Authorization is the caller's `requireProjectAccess` (`project:memory:write` or `project:edit`),
- * which refuses a closed project: the write has to happen while it is active.
- * The BFF checks every value against the vocabulary and drops anything without
- * evidence, so one stray token cannot fail the whole profile patch.
- *
- * What it writes is unrestricted (every member reads the profile, and the
- * memory rows carry no folder restriction), so it may come only from files
- * every member may open: the BFF names them (`extractableFileNames`), the
- * backend reads no other, and evidence naming any other file is dropped here
- * before anything is written, whatever the backend answered.
- */
-
 import 'server-only'
 import { NotFoundError } from '@/lib/api/errors'
 import { getBackendUrl } from '@/lib/backend-proxy'
@@ -48,22 +28,11 @@ import {
 import { extractableFileNames } from './readable-files'
 import { experienceVocabulary } from './vocabulary'
 
-/**
- * Three model calls over at most 24 000 characters. Kept under the ~100 s the
- * edge proxy gives a request (profile-service.ts): past it the dialog sees a
- * 504 while the write would still land, so a slower extraction is abandoned
- * here and the person asks again.
- */
 const EXTRACTION_TIMEOUT_MS = 90_000
 
 const UNAVAILABLE: ProjectExperienceResult = { suggested: 0, drafted: 0, documentsRead: [], error: 'backend_unavailable' }
 const NO_DOCUMENTS: ProjectExperienceResult = { suggested: 0, drafted: 0, documentsRead: [], error: 'no_documents' }
 
-/**
- * The items whose evidence names a file the extraction was allowed to read,
- * each with only that evidence. One left with none is dropped: an
- * unrestricted suggestion must not rest on a file not every member may open.
- */
 function readFrom<Item extends { evidence: ExperienceEvidence[] }>(items: Item[], readable: ReadonlySet<string>): Item[] {
   return items.flatMap((item) => {
     const evidence = item.evidence.filter((entry) => readable.has(entry.fileName))
@@ -71,7 +40,6 @@ function readFrom<Item extends { evidence: ExperienceEvidence[] }>(items: Item[]
   })
 }
 
-/** Keys a person answered, flat or per building: `construction_method@bldg1` confirms `construction_method`. */
 function confirmedFactKeys(profile: ProjectProfile): Set<string> {
   return new Set(
     Object.entries(profile.facts)
@@ -80,7 +48,6 @@ function confirmedFactKeys(profile: ProjectProfile): Set<string> {
   )
 }
 
-/** One fingerprint value as the profile stores it, or null when it is not an allowed token. */
 function storedValue(key: string, entry: ExperienceVocabularyEntry, value: string | string[]): ProjectPrimitiveValue | null {
   const tokens = typeof value === 'string' ? [value] : value
   const allowed = new Set(entry.options.map((option) => option.token))
@@ -88,7 +55,6 @@ function storedValue(key: string, entry: ExperienceVocabularyEntry, value: strin
   if (entry.multiple) return [...new Set(tokens)]
   const token = tokens.length === 1 ? tokens[0] : undefined
   if (token === undefined) return null
-  // The Gebäudeklasse is a number in the profile, as the intake derives it.
   return key === 'building_class' ? Number(token) : token
 }
 
@@ -96,17 +62,11 @@ function entryOf(vocabulary: ExperienceVocabulary, key: string): ExperienceVocab
   return Object.entries(vocabulary).find(([name]) => name === key)?.[1]
 }
 
-/** The page as the backend reports it (`"3"`, or empty when the document has none), as a 1-based number. */
 function pageOf(page: string): number | null {
   const first = Number.parseInt(page, 10)
   return Number.isInteger(first) && first >= 1 ? first : null
 }
 
-/**
- * Where a value was read, as the profile stores it: the quote masked against the
- * office's „Sensible Daten" policy (ADR-0086) like a memory note, since the
- * profile is read by every member and rides every turn.
- */
 async function evidenceOf(organizationId: string, evidence: ExperienceEvidence) {
   return documentEvidence(
     { fileName: evidence.fileName, page: pageOf(evidence.page), quote: evidence.quote },
@@ -114,11 +74,6 @@ async function evidenceOf(organizationId: string, evidence: ExperienceEvidence) 
   )
 }
 
-/**
- * The assumption operations for the fingerprint values the extraction found:
- * one per key, skipping a key a person confirmed, a key the vocabulary does not
- * know, a value outside the vocabulary and a value without a quote.
- */
 async function fingerprintOperations(
   organizationId: string,
   fingerprint: ExperienceFingerprintItem[],
@@ -151,7 +106,6 @@ async function fingerprintOperations(
   return [...operations.values()]
 }
 
-/** The project's active decisions and constraints, as the pen must not draft them again. */
 async function knownDecisionsOf(projectId: string, organizationId: string): Promise<string[]> {
   const items = await listProjectMemory(projectId, { organizationId })
   return items
@@ -160,7 +114,6 @@ async function knownDecisionsOf(projectId: string, organizationId: string): Prom
     .map((item) => item.content.slice(0, EXPERIENCE_KNOWN_DECISION_MAX_CHARS))
 }
 
-/** Store each decision that names its evidence; one without is not source-grounded and is dropped. */
 async function writeDecisions(projectId: string, decisions: ExperienceDecision[]): Promise<number> {
   let drafted = 0
   for (const decision of decisions) {
@@ -178,11 +131,6 @@ async function writeDecisions(projectId: string, decisions: ExperienceDecision[]
   return drafted
 }
 
-/**
- * One call to the backend's extractor. Null when it could not be reached, did
- * not answer 200, or answered something that is not the contract: all three
- * leave the project untouched.
- */
 async function askBackend(body: ExperienceRequest): Promise<ExperienceResponse | null> {
   let response: Response
   try {
@@ -217,16 +165,10 @@ async function askBackend(body: ExperienceRequest): Promise<ExperienceResponse |
   return parsed.data
 }
 
-/**
- * Read the project's own documents and write what they say as suggestions:
- * fingerprint values as profile assumptions, decisions as memory rows. Nothing
- * is confirmed here; a person does that.
- */
 export async function extractProjectExperience(
   session: AuthorizedSession,
   projectId: string
 ): Promise<ProjectExperienceResult> {
-  // As the memory routes beside it: the memory permission or the project-edit umbrella.
   await requireProjectAccess(session, projectId, ['project:memory:write', 'project:edit'])
   const project = await findProjectInOrg(projectId, session.organizationId)
   if (!project) throw new NotFoundError()

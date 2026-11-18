@@ -1,23 +1,11 @@
-/**
- * Piloti checks a new document against the project's others (ADR-0130, second
- * slice): the pure half. The ids, the fixed instruction the headless turn is
- * given, and the words left in the person's thread. No I/O, so every rule is
- * tested without a database or a model; `./job.ts` runs it.
- */
-
 import { v5 as uuidv5 } from 'uuid'
 import type { AnnotationRecord } from '@/lib/annotations/repository'
 
-/** Findings one check reports at most: the turn is told the same number. */
 export const MAX_FINDINGS = 4
-/** How long the job waits between two looks for the turn's answer. */
 export const POLL_SECONDS = 30
-/** How often it looks before it gives up: about 30 minutes, longer than any turn runs. */
 export const MAX_WAITS = 60
 
-/** `DOCUMENT_CHECK_DAILY_LIMIT`: checks one organization may start per day; 0 switches them off. */
 export const DEFAULT_DAILY_LIMIT = 25
-/** `DOCUMENT_CHECK_MAX_BATCH`: a settle batch announcing more documents than this (a bulk import) is not checked. */
 export const DEFAULT_MAX_BATCH = 10
 
 function nonNegativeInt(raw: string | undefined, fallback: number): number {
@@ -33,24 +21,16 @@ export const documentCheckMaxBatch = (env: Record<string, string | undefined> = 
 
 const hex = (value: string) => value.replace(/-/g, '_')
 
-/** One check per document version: also the job id, the turn id and the user message's id. */
 export function documentCheckId(documentId: string, versionKey: string): string {
   return uuidv5(`grid:document-check:${documentId}:${versionKey}`, uuidv5.URL)
 }
 
-/** The check's own private conversation: derived, so a retried slice finds it instead of making another. */
 export const documentCheckConversationId = (checkId: string): string => `s_${hex(checkId)}`
 
-/** The message left in the person's thread about the document: derived, so a retry writes nothing twice. */
 export function documentCheckMessageId(checkId: string): string {
   return uuidv5(`grid:document-check-message:${checkId}`, uuidv5.URL)
 }
 
-/**
- * The fixed instruction of the turn. English, because an agent reads it. It
- * names the outcome (marks only where documents disagree, otherwise silence)
- * and the rules of a turn nobody watches: nothing is asked, nothing is opened.
- */
 export function checkInstruction(document: { id: string; name: string }): string {
   return [
     `A new document was just uploaded to this project and indexed: "${document.name}" (document id ${document.id}).`,
@@ -68,7 +48,6 @@ const clip = (text: string, max: number): string => {
   return one.length <= max ? one : `${one.slice(0, max - 1).trimEnd()}…`
 }
 
-/** The message in the person's thread about the document: what was checked and what disagreed. German. Pure. */
 export function checkMessage(input: {
   documentName: string
   marks: ReadonlyArray<Pick<AnnotationRecord, 'page' | 'body'>>
@@ -84,7 +63,6 @@ export function checkMessage(input: {
   ].join('\n')
 }
 
-/** The first finding, as the inbox row's excerpt. Pure. */
 export function checkExcerpt(marks: ReadonlyArray<Pick<AnnotationRecord, 'page' | 'body'>>): string | null {
   const first = marks[0]
   return first ? clip(`S. ${first.page}: ${first.body}`, 200) : null

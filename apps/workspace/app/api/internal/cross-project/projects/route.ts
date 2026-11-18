@@ -1,14 +1,3 @@
-/**
- * INTERNAL — list and find the projects in reach of the conversation's audience
- * (ADR-0094): name, status, address, period. The agent's `project_lookup` tool
- * (`action: find`) is the caller; the acting person is the envelope's, as a
- * pinned session.
- *
- * `POST` `CrossProjectListRequest` → `CrossProjectListResponse`
- * (`lib/cross-project/types.ts`). An audience changed mid-lookup is refused (409
- * `CROSS_PROJECT_AUDIENCE_CHANGED`).
- */
-
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'
 import { crossProjectCaller, listLookupProjects } from '@/lib/cross-project/service'

@@ -79,9 +79,9 @@ TOOLS: dict[str, tuple[str, str]] = {
     "ris_lookup": ("external", "the Austrian legal information system"),
     "law_lookup": ("external", "a public law source, read through its source record"),
     "tavily_web_search": ("external", "the web"),
-    "research_agent": ("agent", "Piloti; admits every tool round in its tools node"),
+    "research_agent": ("agent", "the agent; admits every tool round in its tools node"),
     "research_workflow": ("agent", "wraps research_agent"),
-    "chat_deepresearcher_agent": ("agent", "the chat workflow around Piloti"),
+    "chat_deepresearcher_agent": ("agent", "the chat workflow around the agent"),
     "deep_research_agent": ("agent", "a restricted collection is never signed into a run's scope (ADR-0087)"),
     "deep_research_workflow": ("agent", "wraps deep_research_agent"),
     "project_intake_agent": (

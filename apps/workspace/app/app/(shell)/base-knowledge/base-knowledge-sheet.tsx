@@ -1,16 +1,3 @@
-/**
- * Grundlagen des Büros, presented as a page sheet (ADR-0024, ADR-0163): the
- * office's standards, commentaries and directives as a place of their own,
- * beside the Büroablage they are filed in.
- *
- * One component behind both arrivals, as the Büroablage's: the intercepted
- * overlay (`(shell)/@overlay/(.)base-knowledge`) and the real
- * `/app/base-knowledge` page. Any member reads; uploading, confirming, checking
- * and removing take `org:office_shelf:manage`, decided by each route. Both
- * arrivals are not found while the office lacks the `office-standards`
- * entitlement, as its routes are.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { withPageSession } from '@/lib/auth/require-auth'

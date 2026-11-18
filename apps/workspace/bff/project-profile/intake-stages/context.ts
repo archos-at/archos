@@ -1,5 +1,3 @@
-/** Stage G, Projektkontext: the project context. */
-
 import type { ProjectIntakeStage } from '../intake-types'
 
 export const CONTEXT_STAGE: ProjectIntakeStage = {
@@ -10,8 +8,6 @@ export const CONTEXT_STAGE: ProjectIntakeStage = {
     'Geführter Freitext: alles, was der Assistent über die Zahlen hinaus wissen sollte. Alle Felder optional — je mehr Kontext, desto besser.',
   questions: [
     {
-      // v1.0's G1 + G2; the legacy `context_plot` text is bridged
-      // into this field. G5 + G6 merged into G4 the same way.
       id: 'G1',
       core: true,
       label: 'Projektbeschreibung, Entwurfsidee & Umfeld',

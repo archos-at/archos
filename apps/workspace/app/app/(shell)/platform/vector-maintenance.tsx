@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Platform maintenance: the orphaned-vector sweep.
- *
- * The only control in the product that deletes from the shared vector store,
- * across every organization at once. The operator who reaches for it is
- * already confused (retrieval cites something the catalog says does not
- * exist), so the card explains what reconciling does, when it is needed and
- * what it never touches, and keeps the run's counts on screen until the page
- * is left. Nothing records a run, so a reload loses them.
- *
- * The anatomy (confirm, abortable request, result tables, read-only gate) is
- * the shared `MaintenanceActionCard`; this file is the endpoint, the copy and
- * how to read a `VectorReconcileResult`.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { Brush } from 'lucide-react'
@@ -28,7 +13,6 @@ import {
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
-/** Mirrors `VectorReconcileResult` in `@/lib/platform/vector-reconcile`. */
 export interface ReconcileResult {
   collectionsScanned: number
   orphansFound: number
@@ -37,14 +21,8 @@ export interface ReconcileResult {
   failures: { collectionName: string; error: string }[]
 }
 
-/**
- * A sweep that has not answered in this long is not going to. Aborting only
- * releases the UI; the server-side sweep may still complete, which the failure
- * copy says.
- */
 const RECONCILE_TIMEOUT_MS = 120_000
 
-/** A BFF older than this panel (rolling deploy) may omit `failures` or `summariesForgotten`. */
 function parseReconcile(body: unknown): ReconcileResult {
   const raw = (body ?? {}) as Partial<ReconcileResult>
   return {
@@ -57,7 +35,6 @@ function parseReconcile(body: unknown): ReconcileResult {
 }
 
 export interface VectorMaintenanceProps {
-  /** Seeds the last-run panel, for the dev preview and tests only. */
   initialResult?: ReconcileResult | null
 }
 

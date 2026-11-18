@@ -1,25 +1,3 @@
-"""
-Knowledge Layer - Universal RAG interfaces and schemas.
-
-This module defines the abstractions for knowledge ingestion and retrieval. The one
-production backend, llamaindex (ADR-0072), implements them, and so do the fakes the
-tests register; both output data conforming to these schemas.
-
-Architecture:
-    packages/agent/src/agent/knowledge/      # Core abstractions
-    ├── schema.py                # Data models (Chunk, RetrievalResult, etc.)
-    ├── base.py                  # Abstract interfaces (BaseRetriever, BaseIngestor)
-    └── factory.py               # Registry + factory pattern
-
-    packages/knowledge-layer/src/ # Backend implementations
-    ├── ingest/                  # Reading a file: LlamaIndex readers and chunking, OpenRouter embeddings
-    ├── search/                  # Finding passages: the retriever, fusion, rerank, the requery judge
-    └── vector_store/            # The vector store (ADR-0115): every chunk, every read
-
-Usage:
-    from agent.knowledge import Chunk, BaseRetriever, get_retriever
-"""
-
 from .base import BaseIngestor
 from .base import BaseRetriever
 from .factory import clear_active_ingestor
@@ -89,7 +67,6 @@ from .schema import JobState
 from .schema import RetrievalResult
 
 __all__ = [
-    # Schema
     "AvailableDocument",
     "Chunk",
     "ContentType",
@@ -97,23 +74,18 @@ __all__ = [
     "IngestionJobStatus",
     "JobState",
     "RetrievalResult",
-    # Base classes
     "BaseRetriever",
     "BaseIngestor",
-    # Factory
     "get_retriever",
     "get_ingestor",
     "register_retriever",
     "register_ingestor",
-    # Active ingestor (for Knowledge API)
     "get_active_ingestor",
     "set_active_ingestor",
     "clear_active_ingestor",
-    # Active retriever (for Knowledge API — document search)
     "get_active_retriever",
     "set_active_retriever",
     "clear_active_retriever",
-    # Summary Registry (SQLAlchemy-backed, backend-agnostic)
     "configure_summary_db",
     "register_summary",
     "unregister_summary",

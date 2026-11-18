@@ -1,11 +1,3 @@
-/**
- * Propose records into a draft change request (ADR-0165, ADR-0170): up to 200
- * cited records of any type, validated by the kit first. Each record gets its
- * result; `dryRun` returns them and writes nothing; a proposal with problems is
- * refused whole (422, an RFC 9457 problem carrying every record's result). The
- * same proposal again changes nothing (`unchanged`).
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

@@ -1,10 +1,3 @@
-/**
- * Attach an uploaded PDF to a manifestation of a draft change request
- * (ADR-0165, "Texts are attached in the request"). Multipart: `file`, and
- * `manifestationKey`. The file goes into the base corpus, where nobody reads
- * it until the request is published, and the manifestation names it.
- */
-
 import { parseFormData } from '@/lib/api/handler'
 import { BadRequestError, UnprocessableError } from '@/lib/api/errors'
 import { platformApiRoute } from '@/lib/api/platform-handler'

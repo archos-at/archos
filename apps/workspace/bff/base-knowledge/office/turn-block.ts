@@ -1,30 +1,9 @@
-/**
- * The office's base knowledge as the agent reads it in a turn (ADR-0163): one
- * bounded line per confirmed entry, under a header that says how far each kind
- * binds. English, because the agent reads it; titles, designations, editions
- * and authority names are the office's own domain data. Pure.
- *
- * What the lines make true in an answer:
- * - an office copy of a norm the platform only lists is found by its file name
- *   and cited with its edition, for this office only (nobody else's turn has it);
- * - a commentary is interpretation, never the source of a requirement;
- * - a directive applies only when its authority decides for the project's
- *   territory, and an unknown authority is said, not guessed;
- * - every line carries its last check, and an overdue one says so;
- * - a licensed copy whose licence is not attested for AI processing, confirmed
- *   or still a proposal, is named with its file as held and LISTED ONLY, NOT
- *   READ (design §4.7, ADR-0164), so the answer can say the office holds it and
- *   why it may not read it, instead of guessing.
- */
-
 import type { BaseKnowledgeEntry } from '../wire'
 import type { ListedEdition, PlatformDirective } from '../platform'
 import { directiveApplicability, type ProjectTerritory } from './authority'
 
-/** Most entries the block carries; the rest are named by count. */
 export const MAX_TURN_ENTRIES = 40
 
-/** Longest line. */
 export const MAX_TURN_LINE_CHARS = 400
 
 export const BASE_KNOWLEDGE_HEADER =
@@ -87,7 +66,6 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
 
 const UNATTESTED = 'LISTED ONLY, NOT READ: its licence is not attested for AI processing; say so, and do not quote or paraphrase it'
 
-/** A licensed copy still a proposal: its text stays unread until a person confirms it, so it is named and never read. */
 function unreadLine(entry: BaseKnowledgeEntry): string {
   const { values } = entry
   const name = values.designation ? `${values.designation} „${values.title}“` : `„${values.title}“`
@@ -95,7 +73,6 @@ function unreadLine(entry: BaseKnowledgeEntry): string {
   return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
 }
 
-/** A norm the platform lists that the office holds no copy of: named, never quoted. */
 function listedLine(listed: ListedEdition): string {
   const text = listed.hasText ? 'the platform holds its text' : 'NO TEXT held: say it is listed but its text is not available („gelistet, kein Text“)'
   const name = `${listed.designation} „${listed.title}“`
@@ -103,12 +80,6 @@ function listedLine(listed: ListedEdition): string {
   return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
-/**
- * A platform authority directive that is not excluded for the project. One
- * whose authority is not competent where the project is never reaches here
- * (`directiveVerdict` in `platform.ts`, by the competence rulesets): MA 37's
- * directives stay out of a Graz turn.
- */
 function directiveLine(directive: PlatformDirective): string {
   const name = directive.designation ? `${directive.designation} „${directive.title}“` : `„${directive.title}“`
   const of = directive.authorities.join(', ') || 'no authority recorded'
@@ -121,7 +92,6 @@ function directiveLine(directive: PlatformDirective): string {
   return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
-/** The block, or null when the office holds no confirmed entry and the platform has nothing for the turn. */
 export function renderBaseKnowledgeBlock(
   entries: readonly BaseKnowledgeEntry[],
   project: ProjectTerritory,

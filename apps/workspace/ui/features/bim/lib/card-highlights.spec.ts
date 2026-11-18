@@ -81,8 +81,8 @@ describe('matchToFilter', () => {
 
 describe('cardHighlightSpecs', () => {
   it('passes an id list straight through', () => {
-    expect(cardHighlightSpecs([{ global_ids: ['0Grid1'], label: 'T-14', status: 'fail' }])).toEqual([
-      { globalIds: ['0Grid1'], label: 'T-14', status: 'fail' },
+    expect(cardHighlightSpecs([{ global_ids: ['0Fixt1'], label: 'T-14', status: 'fail' }])).toEqual([
+      { globalIds: ['0Fixt1'], label: 'T-14', status: 'fail' },
     ])
   })
 
@@ -93,7 +93,7 @@ describe('cardHighlightSpecs', () => {
   })
 
   it('defaults an unrecognised status to neutral rather than to a verdict', () => {
-    const [spec] = cardHighlightSpecs([{ global_ids: ['0Grid1'], label: 'x', status: 'kaputt' }])
+    const [spec] = cardHighlightSpecs([{ global_ids: ['0Fixt1'], label: 'x', status: 'kaputt' }])
     expect(spec.status).toBe('info')
   })
 
@@ -105,17 +105,17 @@ describe('cardHighlightSpecs', () => {
   it('drops a group with no label, and keeps the rest', () => {
     expect(
       cardHighlightSpecs([
-        { global_ids: ['0Grid1'], status: 'fail' },
-        { global_ids: ['0Grid2'], label: 'keep', status: 'pass' },
+        { global_ids: ['0Fixt1'], status: 'fail' },
+        { global_ids: ['0Fixt2'], label: 'keep', status: 'pass' },
       ])
-    ).toEqual([{ globalIds: ['0Grid2'], label: 'keep', status: 'pass' }])
+    ).toEqual([{ globalIds: ['0Fixt2'], label: 'keep', status: 'pass' }])
   })
 
   it('prefers the id list when a malformed card carries both', () => {
     expect(
       cardHighlightSpecs([
-        { global_ids: ['0Grid1'], match: { ifc_types: ['IfcWall'] }, label: 'x', status: 'info' },
+        { global_ids: ['0Fixt1'], match: { ifc_types: ['IfcWall'] }, label: 'x', status: 'info' },
       ])
-    ).toEqual([{ globalIds: ['0Grid1'], label: 'x', status: 'info' }])
+    ).toEqual([{ globalIds: ['0Fixt1'], label: 'x', status: 'info' }])
   })
 })

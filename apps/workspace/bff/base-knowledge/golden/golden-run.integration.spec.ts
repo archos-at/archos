@@ -121,7 +121,7 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     run = await import('./run')

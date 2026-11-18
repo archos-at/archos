@@ -206,7 +206,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     ).map((row) => row.kind)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant

@@ -13,7 +13,6 @@ from jsonschema import Draft202012Validator
 from jsonschema import FormatChecker
 
 import agent.project_context as pc
-from agent.agents.piloti.answer_pipeline import _register_envelope_cards
 from agent.cards.catalog import render_card_details
 from agent.cards.envelope import REFUSED_CONFINED
 from agent.cards.envelope import register_envelope_card
@@ -24,6 +23,7 @@ from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 from agent.common import bff_http
 from agent.common.answer_envelope import AnswerMeta
+from agent.core.answer_pipeline import _register_envelope_cards
 from agent.knowledge import scoping
 from agent.turn.response import answer_message_id
 

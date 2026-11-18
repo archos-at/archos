@@ -190,7 +190,7 @@ describe('selectMarks', () => {
     ])
   })
 
-  it('sets apart what Piloti proposed and nobody took over, only when asked, and by scope', () => {
+  it('sets apart what the agent proposed and nobody took over, only when asked, and by scope', () => {
     expect(numbers(selectMarks(ANNOTATIONS, { ...OPTIONS, includeProposals: true }).proposals)).toEqual([6])
     const all = selectMarks(ANNOTATIONS, { ...OPTIONS, scope: 'all', includeProposals: true })
     expect(numbers(all.proposals)).toEqual([6, 7])
@@ -224,7 +224,7 @@ describe('the Protokoll', () => {
     expect(md.indexOf('Nr. 4 ·')).toBeLessThan(md.indexOf('Nr. 5 ·'))
   })
 
-  it("names whom Piloti wrote a reply for, and who stands behind a mark Piloti set", () => {
+  it("names whom the agent wrote a reply for, and who stands behind a mark the agent set", () => {
     const md = markdownOf()
     expect(md).toContain(`- **${PRODUCT_NAME} · für Anna Berger · 09.10.2026:** Erledigt: im Schnitt B-B mit 1,25 m kotiert.`)
     expect(md).toContain(`*von ${PRODUCT_NAME} gesetzt · für Anna Berger · 07.10.2026*`)

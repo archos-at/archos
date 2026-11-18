@@ -1,9 +1,3 @@
-/**
- * A project's changes to the office's sensitive-data name terms (migration
- * 0157, ADR-0086). One row per project at most; every query names the
- * organization and runs in its tenant context.
- */
-
 import 'server-only'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -11,7 +5,6 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { projectUploadScreening } from '@/lib/db/schema/project-upload-screening'
 import type { ProjectScreeningOverride } from './project-policy'
 
-/** The project's override, or null when it changes nothing. */
 export async function findProjectScreeningOverride(
   organizationId: string,
   projectId: string
@@ -35,7 +28,6 @@ export async function findProjectScreeningOverride(
   return row ? { addedNameTerms: [...row.addedNameTerms], removedNameTerms: [...row.removedNameTerms] } : null
 }
 
-/** Store the project's override; an empty one removes the row, so „no row" stays „unchanged". */
 export async function saveProjectScreeningOverride(
   organizationId: string,
   projectId: string,

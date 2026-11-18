@@ -176,7 +176,6 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = ({
     if (!force) setConflict(null)
     setIsFiling(true)
     try {
-      // Filed in the reader's own session, so the project's permissions apply to the filing.
       const result = await fileConversationDraft(conversationId, { path, title, force })
       setFiledDoc({ documentId: result.documentId, versionId: result.versionId })
       setConflict(null)

@@ -1,8 +1,3 @@
-/*
- * Shared Node helpers for the riso scripts (setup, new, export, check, verify):
- * where things live, the pinned kit, the works and their JOBS tables, and the
- * manifest the app reads. No browser here; sharp only through loadSharp().
- */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -35,7 +30,6 @@ export const DESTS = {
     root: APP,
     art: path.join(APP, 'public', 'art'),
     manifest: path.join(APP, 'bff', 'art', 'art.json'),
-    // The app's source is split by job (ADR-0145 row 9), not held under one src/.
     srcs: ['app', 'ui', 'bff', 'i18n', 'shared', 'types', 'utils'].map((dir) => path.join(APP, dir)),
   },
 };
@@ -144,7 +138,6 @@ export function evaluateWork(work) {
   return {
     jobs: JSON.parse(JSON.stringify(riso.jobs)),
     formats: JSON.parse(JSON.stringify(vm.runInContext('FORMATS', ctx))),
-    // A work's own look (Riso.run({ look })) overrides the series inks and paper.
     ink: vm.runInContext('({ INK: { ...INK, ...LOOK.ink }, INK_DRUM })', ctx),
     paper: vm.runInContext('LOOK.paper || PAPER', ctx),
   };

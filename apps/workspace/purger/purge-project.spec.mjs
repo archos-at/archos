@@ -64,8 +64,6 @@ function makeTx({
     if (text.startsWith('SELECT') && text.includes('FROM projects')) {
       return Promise.resolve(projectRow ? [projectRow] : [])
     }
-    // Before the `conversations` branch: this statement names that table too,
-    // inside its subquery.
     if (text.includes('FROM documents') && text.includes("scope = 'session'")) {
       return Promise.resolve(sessionDocumentRows)
     }
@@ -149,7 +147,6 @@ describe('purgeProject', () => {
 
     expect(deps.fetchImpl).toHaveBeenCalled()
     expect(deps.deleteStoragePrefix).toHaveBeenCalledWith('documents', 'org/org1/project/p1/')
-    // A half-sent mail import is not an object; the sweep aborts it too (ADR-0085).
     const bucketRead = executed.find((step) => step.text.startsWith('SELECT DISTINCT storage_bucket'))
     expect(bucketRead.text).toContain('FROM mail_imports')
     expect(deps.abortMultipartUploads).toHaveBeenCalledWith('documents', 'org/org1/project/p1/')
@@ -191,23 +188,12 @@ describe('purgeProject', () => {
       code: LEGAL_HOLD_CODE,
     })
 
-    // No destructive step ran: no backend call, no SeaweedFS delete, no WorkOS
-    // delete, no `app` row deletes.
     expect(deps.fetchImpl).not.toHaveBeenCalled()
     expect(deps.deleteStoragePrefix).not.toHaveBeenCalled()
     expect(deps.workos.authorization.deleteResourceByExternalId).not.toHaveBeenCalled()
     expect(executed.some((q) => q.text.startsWith('DELETE'))).toBe(false)
   })
 
-  // Per-organization buckets (ADR-0043). An organization that predates the flip
-  // has objects in the shared bucket AND in its own, so a purge that visits only
-  // one of them leaves half the tenant's files behind while deleting the rows
-  // that named them — an erasure that reports success and did not happen.
-  //
-  // The list comes from the DOCUMENT ROWS, not from re-deriving the bucket name.
-  // That is the same principle the column exists for: the bucket is recorded so
-  // nothing has to recompute it, and the purge is the one place where a naming
-  // disagreement would be invisible.
   it('sweeps every bucket the project documents actually recorded', async () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -224,9 +210,6 @@ describe('purgeProject', () => {
     ])
   })
 
-  // A project that only ever received mail (ADR-0137) has no document row to
-  // name its bucket: the staged mail and the kept originals name it on their
-  // own rows, and the bucket read asks them in the same query.
   it('sweeps the buckets a project\'s mail and kept originals recorded', async () => {
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -246,9 +229,6 @@ describe('purgeProject', () => {
     ])
   })
 
-  // The shared bucket is unconditional: NULL means shared (migration 0033), so
-  // a project whose documents all predate the column records nothing, and the
-  // sweep must still reach them.
   it('always sweeps the shared bucket, even when no row records one', async () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -264,7 +244,6 @@ describe('purgeProject', () => {
     ])
   })
 
-  // Two documents in the same bucket must not produce two sweeps of it.
   it('visits each bucket once', async () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -281,31 +260,20 @@ describe('purgeProject', () => {
     expect(deps.deleteStoragePrefix.mock.calls).toHaveLength(2)
   })
 
-  // A hold placed mid-sweep. The hold check used to run once before the loop, so
-  // once the first bucket's sweep had started the erasure continued through every
-  // remaining bucket regardless — which is exactly what a legal hold exists to
-  // stop. The loop now re-checks per bucket, so the second sweep never happens.
   it('stops between buckets when a hold appears mid-sweep', async () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [],
       documentBucketRows: [{ storage_bucket: 'org-org1-abcdef123456' }],
-      // Checks 1 and 2 are the pre-flight and post-backend ones; 3 guards the
-      // first bucket, 4 the second. Placing the hold at 4 lets one sweep run.
       holdOnCheck: { 4: [{ held: true }] },
     })
 
     const deps = makeDeps()
     await expect(purgeProject(tx, entry, deps)).rejects.toMatchObject({ code: 'LEGAL_HOLD_ACTIVE' })
     expect(deps.deleteStoragePrefix.mock.calls).toHaveLength(1)
-    // And nothing downstream ran, so the pointers still name the surviving bytes.
     expect(deps.workos.authorization.deleteResourceByExternalId).not.toHaveBeenCalled()
   })
 
-  // The prefix delete throws on a partial failure so the queue row retries. That
-  // guarantee has to survive the loop: if the SECOND bucket cannot be cleared,
-  // the purge must still fail, or the pointers get deleted while the objects
-  // remain.
   it('fails the purge when a later bucket cannot be cleared', async () => {
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -323,8 +291,6 @@ describe('purgeProject', () => {
     expect(executed.some((q) => q.text.startsWith('DELETE'))).toBe(false)
   })
 
-  // The chats' Langfuse traces (ADR-0044). Found by session id = conversation id,
-  // so the ids must be read before step 4 deletes the rows that hold them.
   it('deletes the Langfuse traces of every chat of the project, before any row is deleted', async () => {
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -364,8 +330,6 @@ describe('purgeProject', () => {
   })
 
   it('re-checks the hold before each chat’s trace erasure, so a hold placed part way stops the rest', async () => {
-    // Hold checks: 1 before any step; then one per chat. The hold appears on
-    // the check before the second chat.
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [{ id: 's_a' }, { id: 's_b' }],
@@ -434,9 +398,6 @@ describe('session attachments', () => {
       (call) => JSON.parse(call[1].body).collection_name,
     )
     expect(collections).toEqual(['proj_abc', 's_c1', 's_c2'])
-    // Every backend call happened before the first `app` row delete: the
-    // rows are what name these collections, so losing them first would leave
-    // nothing to retry from.
     expect(executed.filter((q) => q.text.startsWith('DELETE'))).not.toHaveLength(0)
   })
 
@@ -453,10 +414,7 @@ describe('session attachments', () => {
     await purgeProject(tx, sessionEntry, deps)
 
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
-      // The project's own prefix, in the shared bucket (no project document row
-      // records another one).
       ['documents', 'org/org1/project/p1/'],
-      // …and the chat's prefix, which shares no ancestor with it.
       ['documents', 'org/org1/session/s_c1/'],
       ['org-org1-abcdef123456', 'org/org1/session/s_c1/'],
     ])
@@ -476,10 +434,6 @@ describe('session attachments', () => {
     expect(deps.fetchImpl).toHaveBeenCalledTimes(1)
   })
 
-  // The backend answers 200 with `status: "failed"` when the collection existed
-  // and the delete returned falsy. Treated as success, that is an orphaned
-  // collection of private chat content reported as an erasure — and the rows
-  // that name it would be gone one statement later.
   it('aborts the purge, rows intact, when a chat collection cannot be erased', async () => {
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -521,8 +475,6 @@ describe('session attachments', () => {
     expect(executed.some((q) => q.text.startsWith('DELETE'))).toBe(false)
   })
 
-  // Same discipline as the collaboration deletes below: the conversation set is
-  // a SUBQUERY, so the statement binds one parameter whatever the chat count.
   it('reads the attachments through a subquery, not N bound conversation ids', async () => {
     const conversationRows = Array.from({ length: 70_000 }, (_, i) => ({ id: `s_c${i}` }))
     const { tx, expansions, executed } = makeTx({
@@ -542,8 +494,6 @@ describe('session attachments', () => {
     expect(read.text).toContain('IN (SELECT id FROM conversations WHERE project_id = $)')
   })
 
-  // A legal hold placed after the project's own collection went, but before the
-  // chats' collections do. The erasure must stop where the hold arrived.
   it('stops before a chat collection when a hold appears mid-purge', async () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
@@ -551,7 +501,6 @@ describe('session attachments', () => {
       sessionDocumentRows: [
         { conversation_id: 's_c1', collection_name: 's_c1', storage_bucket: null },
       ],
-      // 1 is the pre-flight check; 2 guards the first session collection.
       holdOnCheck: { 2: [{ held: true }] },
     })
     const deps = makeDeps()
@@ -559,14 +508,10 @@ describe('session attachments', () => {
     await expect(purgeProject(tx, sessionEntry, deps)).rejects.toMatchObject({
       code: LEGAL_HOLD_CODE,
     })
-    // The project's own collection was already purged; the chat's was not.
     expect(deps.fetchImpl).toHaveBeenCalledTimes(1)
   })
 })
 
-// ADR-0087: a restricted folder's documents live in their own collection,
-// `<project collection>_r<12 hex>`. Purging only the project's collection left the
-// one set of chunks a restriction exists for readable after the project was gone.
 describe('restricted folder collections', () => {
   const RESTRICTED_A = 'proj_abc_r0123456789ab'
   const RESTRICTED_B = 'proj_abc_rfedcba987654'
@@ -629,7 +574,6 @@ describe('restricted folder collections', () => {
   })
 
   it('stops before a restricted collection when a hold appears mid-purge', async () => {
-    // 1 is the pre-flight check; 2 guards the first restricted collection.
     const { tx } = restrictedTx({ holdOnCheck: { 2: [{ held: true }] } })
     const deps = makeDeps()
 
@@ -653,11 +597,6 @@ describe('restricted folder collections', () => {
 
 describe('collaboration rows', () => {
   it('purges grants, mention requests and inbox items BEFORE the conversations they point at', async () => {
-    // Those three tables address their target as a polymorphic
-    // (resource_type, resource_id) pair with no foreign key, so nothing about
-    // them cascades. Deleting the conversations first orphaned every one of
-    // them permanently — leaving redacted rows in people's inboxes for a
-    // project that no longer exists.
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_p1' },
       conversationRows: [{ id: 'c1' }, { id: 'c2' }],
@@ -672,8 +611,6 @@ describe('collaboration rows', () => {
     expect(table('mention_requests')).toBeGreaterThanOrEqual(0)
     expect(table('resource_shares')).toBeGreaterThanOrEqual(0)
     expect(table('resource_assignments')).toBeGreaterThanOrEqual(0)
-    // `DELETE FROM conversations`, not `FROM conversations`: the collaboration
-    // statements now name that table too, inside their subquery.
     for (const name of [
       'inbox_items',
       'mention_requests',
@@ -685,27 +622,6 @@ describe('collaboration rows', () => {
   })
 
   it('expresses the conversation set as a subquery, not as N bound parameters', async () => {
-    /*
-      What this pins: with 70_000 conversations — past Postgres's hard 65535
-      parameters per statement — each collaboration delete still binds exactly
-      ONE value (the project id) and reads its target set from the conversations
-      table. The old form (`IN ${tx(conversationIds)}`) bound one parameter per
-      id, so the statement was refused with MAX_PARAMETERS_EXCEEDED *after* the
-      Chroma collection, the SeaweedFS objects and the WorkOS resource were
-      already destroyed — leaving the queue row stuck in 'purging' (the header's
-      point: status, not a lock, is what prevents re-claim) with no retry that
-      could ever succeed.
-
-      What it CANNOT prove: nothing here talks to Postgres. The mock resolves
-      every statement to `[]` and never expands anything, so the old code RAN
-      green against it at any conversation count — the bug was invisible to this
-      file, not caught by it. Hence the assertions are on the SHAPE of the
-      statement (one bound value, a subquery in the text, no `tx(array)` call)
-      rather than on an outcome: shape is all a mock can witness. That the
-      subquery selects the same rows the id list did, that 65535 is the real
-      limit, and that the delete ORDER is right against the live schema are facts
-      only an integration test against a real database can establish.
-    */
     const conversationRows = Array.from({ length: 70_000 }, (_, i) => ({ id: `c${i}` }))
     const { tx, executed, expansions } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_p1' },
@@ -714,7 +630,6 @@ describe('collaboration rows', () => {
 
     await purgeProject(tx, entry, makeDeps())
 
-    // No `tx(array)` anywhere: that call is the parameter expansion itself.
     expect(expansions).toEqual([])
 
     const conversationDeletes = executed.filter(
@@ -747,12 +662,6 @@ describe('collaboration rows', () => {
   })
 
   it('still issues the collaboration deletes when the gathered snapshot was empty', async () => {
-    // An empty snapshot does not mean the project is empty when the deletes run:
-    // conversation creation checks access and inserts as two separate steps, so a
-    // request that passed the check before the soft delete can commit its insert
-    // after our SELECT. Skipping the three statements on an empty snapshot would
-    // leave that conversation's grants, mention requests and inbox items behind
-    // while `DELETE FROM conversations` below removed the row they point at.
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_p1' },
       conversationRows: [],

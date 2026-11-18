@@ -1,39 +1,15 @@
-/**
- * A lifecycle: the states one record can be in and every move between them,
- * declared once (ADR-0179). The shape is a statechart's (`id`, `initial`,
- * `states[state].on[event] = target`, `type: 'final'`), the one SCXML and
- * XState use, so the config is readable by anyone who knows either, draws in
- * their tools unchanged ({@link Lifecycle.statechart}) and is checked against
- * XState's own interpreter in `define-lifecycle.spec.ts`.
- *
- * It is a table and no runtime: a record's state lives in its row (or its
- * store), and a move is the writer's compare-and-set against
- * {@link Lifecycle.sourcesOf}. Nothing here holds state, runs effects or
- * schedules anything; work that takes time runs on the workflow engine
- * (ADR-0150), and its steps are not lifecycle states.
- *
- * Pure and dependency-free, so the server, the browser and a script read the
- * same answer.
- */
-
 interface StateNode<S extends string, E extends string> {
-  /** The moves out of this state: the event that asks for it, and the state it lands in. */
   readonly on?: { readonly [K in E]?: S }
-  /** No move leaves a final state. */
   readonly type?: 'final'
 }
 
 export interface LifecycleConfig<S extends string, E extends string> {
-  /** The record's name, one word per concept (`project`, `root-sort-run`). */
   readonly id: string
-  /** The state a record is born in. */
   readonly initial: NoInfer<S>
-  /** Further states a record may be born in, when a writer creates it past `initial`. */
   readonly bornAs?: readonly NoInfer<S>[]
   readonly states: { readonly [K in S]: StateNode<NoInfer<S>, E> }
 }
 
-/** One legal move. */
 export interface LifecycleMove<S extends string, E extends string> {
   readonly from: S
   readonly event: E
@@ -43,38 +19,22 @@ export interface LifecycleMove<S extends string, E extends string> {
 export interface Lifecycle<S extends string, E extends string> {
   readonly id: string
   readonly initial: S
-  /** Every state a record may be born in, `initial` first. */
   readonly birthStates: readonly S[]
-  /** Every state, in the order declared. */
   readonly states: readonly S[]
   readonly events: readonly E[]
-  /** Every legal move, in the order declared. */
   readonly moves: readonly LifecycleMove<S, E>[]
-  /** The states no move leaves. */
   readonly finalStates: readonly S[]
-  /** The states a move still leaves: what "open", "live" or "in work" means for this record. */
   readonly liveStates: readonly S[]
   isState(value: unknown): value is S
   isFinal(state: S): boolean
-  /** Whether some move leads from `from` to `to`. A state never moves to itself. */
   canTransition(from: S, to: S): boolean
-  /** The state `event` leads to from `from`, or null when that move does not exist. */
   next(from: S, event: E): S | null
-  /** The events a record in `from` accepts. */
   eventsFrom(from: S): readonly E[]
-  /** The states `event` may be asked in: what a writer's UPDATE matches on. */
   sourcesOf(event: E): readonly S[]
-  /** The states that may become `to`, by any event. */
   statesThatMayBecome(to: S): readonly S[]
-  /** The config as a statechart: `createMachine(lifecycle.statechart())` in XState, or any SCXML-shaped tool. */
   statechart(): { id: string; initial: S; states: Record<S, { on?: Partial<Record<E, S>>; type?: 'final' }> }
 }
 
-/**
- * Declare a lifecycle. Refuses, at module load, a config that cannot be a
- * machine: a move into a state that is not declared, a final state with a move
- * out, or a state nothing can reach.
- */
 export function defineLifecycle<S extends string, E extends string>(config: LifecycleConfig<S, E>): Lifecycle<S, E> {
   const states = Object.keys(config.states) as S[]
   const nodeOf = (state: S): StateNode<S, E> => config.states[state]

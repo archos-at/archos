@@ -1,130 +1,54 @@
 'use client'
 
-/**
- * Platform → maintenance: the base corpus's indexing, across every country.
- *
- * A text enters the corpus only inside a change request of its country
- * (Platform → Länder), so nothing here adds or deletes one. What is left is the
- * upkeep that has no country: is each file indexed (four numbers, then the
- * table with its state, its country and its request), and the two actions that
- * redo the indexing, Sync and Re-index. Both cost money (every page goes
- * through OCR, VLM captioning and embedding again), so both ask first and say
- * what they cover. A row's detail sheet keeps the title and Dokumentart edits.
- * Read-only platform staff see the corpus and none of the write controls.
- */
-
-import { SortableHead } from '@/components/ui/sortable-head'
-import { Fragment, type JSX } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import {
-  AlertTriangle,
-  BookOpenCheck,
-  FileText,
-  Lock,
-  MoreHorizontal,
-  RefreshCw,
-  RotateCcw,
-} from 'lucide-react'
-import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useCallback, useMemo, useState, type JSX } from 'react'
+import { BookOpenCheck, FileText, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { DataToolbar } from '@/components/ui/data-toolbar'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Pagination } from '@/components/ui/pagination'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Spinner } from '@/components/ui/spinner'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  DocClassChip,
-  KnowledgeStateBadge,
-  useDocClassLabel,
-} from '@/features/platform/components/knowledge-atoms'
-import { CorpusGroupRow, PlacementLine, useCorpusPlacement } from '@/features/platform/components/corpus-placement'
+import { CorpusJobDialogs } from '@/features/platform/components/base-knowledge/corpus-job-dialogs'
+import { KnowledgeFileTable } from '@/features/platform/components/base-knowledge/file-table'
+import { KnowledgeFileToolbar } from '@/features/platform/components/base-knowledge/file-toolbar'
+import { useCorpusPlacement } from '@/features/platform/components/corpus-placement'
 import { KnowledgeDocumentSheet } from '@/features/platform/components/knowledge-document-sheet'
-import { KnowledgeSummary } from '@/features/platform/components/knowledge-summary'
 import { useIngestWatch } from '@/features/platform/components/knowledge-ingest-watch'
+import { KnowledgeSummary } from '@/features/platform/components/knowledge-summary'
 import { SectionCard } from '@/features/platform/components/section-card'
+import { useKnowledgeBaseStatus } from '@/features/platform/hooks/use-knowledge-base-status'
+import { useKnowledgeCorpusJobs } from '@/features/platform/hooks/use-knowledge-corpus-jobs'
+import { useKnowledgeFileEdits } from '@/features/platform/hooks/use-knowledge-file-edits'
+import {
+  ALL,
+  REINGESTABLE_STATES,
+  filterAndSortKnowledgeFiles,
+  type SortDir,
+  type SortKey,
+  type StateFilter,
+  type TypeFilter,
+} from '@/features/platform/lib/knowledge-file-filter'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { PdfViewerDialog } from '@/features/knowledge/components/pdf-viewer-dialog'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
-import {
-  DOC_CLASSES,
-  isOibBinding,
-  resolveDocClass,
-  type DocClass,
-} from '@/lib/knowledge/doc-class'
-import type {
-  KnowledgeBaseStatus,
-  KnowledgeFile,
-  KnowledgeFileState,
-} from '@/lib/knowledge/service'
-
-/** Sorting a status column alphabetically is useless; sort it by urgency. */
-const STATE_ORDER: KnowledgeFileState[] = [
-  'failed',
-  'inconsistent',
-  'stale',
-  'pending',
-  'ingested',
-  'removed',
-]
-
-/** States that need the owner to act: re-index, or remove. */
-const ATTENTION_STATES: ReadonlySet<KnowledgeFileState> = new Set([
-  'failed',
-  'inconsistent',
-  'stale',
-  'removed',
-])
-/** States a re-index can fix. A removed file has no source left to re-read. */
-const REINGESTABLE_STATES: ReadonlySet<KnowledgeFileState> = new Set([
-  'failed',
-  'inconsistent',
-  'stale',
-])
-
-/** How many names a confirm dialog lists before it says "and N more". */
-const CONFIRM_LIST_MAX = 5
-
-const PAGE_SIZE = 10
-const ALL = 'all'
-
-type SortKey = 'document' | 'class' | 'state' | 'chunks'
-type SortDir = 'asc' | 'desc'
-type TypeFilter = typeof ALL | 'binding' | 'other' | DocClass
-type StateFilter = typeof ALL | 'issues' | 'pending'
+import { DOC_CLASSES, resolveDocClass, type DocClass } from '@/lib/knowledge/doc-class'
 
 export function BaseKnowledge(): JSX.Element {
   const t = useTranslations(platformCopy)
-  const { locale } = useLocale()
-  const docClassLabel = useDocClassLabel()
   const canManage = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite) // the corpus routes' permission
   const placement = useCorpusPlacement() // which country, edition and change request each file belongs to
 
-  const [status, setStatus] = useState<KnowledgeBaseStatus | null>(null)
-  // Set only when there is nothing on screen to keep; a failed REFRESH keeps
-  // the last good list and says so in a toast.
-  const [hasError, setHasError] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const {
+    status,
+    hasError,
+    setHasError,
+    isRefreshing,
+    fetchStatus,
+    applyStatus,
+    load,
+    files,
+    setDocClassOverrides,
+    setDisplayTitleOverrides,
+  } = useKnowledgeBaseStatus()
+  const ingest = useIngestWatch(fetchStatus, applyStatus, files)
 
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL)
@@ -134,260 +58,30 @@ export function BaseKnowledge(): JSX.Element {
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<string[]>([])
 
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false)
-  const [isReingesting, setIsReingesting] = useState(false)
-  // The confirm dialog holds a SNAPSHOT of its targets, taken when it opens,
-  // so a poll that changes the list does not change what it asks about.
-  const [pendingReingest, setPendingReingest] = useState<string[]>([])
+  const {
+    isSyncing,
+    syncConfirmOpen,
+    setSyncConfirmOpen,
+    isReingesting,
+    pendingReingest,
+    setPendingReingest,
+    handleSync,
+    handleReingest,
+  } = useKnowledgeCorpusJobs({ load, ingest, setSelected })
+  const { handleReclassify, handleBulkReclassify, handleRename } = useKnowledgeFileEdits({
+    load,
+    selected,
+    setSelected,
+    setDocClassOverrides,
+    setDisplayTitleOverrides,
+  })
 
-  // Optimistic edits, applied over the fetched status until a refetch confirms them.
-  const [docClassOverrides, setDocClassOverrides] = useState<Record<string, DocClass>>({})
-  const [displayTitleOverrides, setDisplayTitleOverrides] = useState<Record<string, string>>({})
-
-  // The NAME, not the row, so an edit or a poll shows in the open sheet.
   const [detailName, setDetailName] = useState<string | null>(null)
   const [viewerFile, setViewerFile] = useState<string | null>(null)
-
-  const hasDataRef = useRef(false)
-  const loadSeqRef = useRef(0)
-
-  const fetchStatus = useCallback(async (): Promise<KnowledgeBaseStatus> => {
-    const res = await fetch('/api/platform/knowledge/documents')
-    if (!res.ok) throw new Error(`Failed to load knowledge base (${res.status})`)
-    return (await res.json()) as KnowledgeBaseStatus
-  }, [])
-
-  const applyStatus = useCallback((next: KnowledgeBaseStatus) => {
-    hasDataRef.current = true
-    setStatus(next)
-    setHasError(false)
-    // Drop any optimistic override the backend now agrees with.
-    setDocClassOverrides((prev) => {
-      if (Object.keys(prev).length === 0) return prev
-      const byName = new Map(next.files.map((f) => [f.fileName, f]))
-      const remaining: Record<string, DocClass> = {}
-      for (const [name, cls] of Object.entries(prev)) {
-        if (byName.get(name)?.docClass !== cls) remaining[name] = cls
-      }
-      return remaining
-    })
-  }, [])
-
-  const load = useCallback(async (): Promise<void> => {
-    // Only the newest request may write: a slow answer to an earlier load must
-    // not overwrite a later one.
-    const seq = ++loadSeqRef.current
-    setIsRefreshing(true)
-    try {
-      const next = await fetchStatus()
-      if (seq === loadSeqRef.current) applyStatus(next)
-    } catch {
-      if (seq !== loadSeqRef.current) return
-      if (hasDataRef.current) toast.error(t('knowledge.refreshFailed'))
-      else setHasError(true)
-    } finally {
-      if (seq === loadSeqRef.current) setIsRefreshing(false)
-    }
-  }, [applyStatus, fetchStatus, t])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  // An answer arriving after unmount is dropped.
-  useEffect(
-    () => () => {
-      loadSeqRef.current += 1
-    },
-    []
-  )
-
-  // Files with any optimistic doc_class / display-title edit applied.
-  const files = useMemo<KnowledgeFile[]>(() => {
-    const all = status?.files ?? []
-    if (
-      Object.keys(docClassOverrides).length === 0 &&
-      Object.keys(displayTitleOverrides).length === 0
-    ) {
-      return all
-    }
-    return all.map((f) => {
-      let next = f
-      if (docClassOverrides[f.fileName]) next = { ...next, docClass: docClassOverrides[f.fileName] }
-      // An empty override means "cleared": the reload brings the derived default.
-      if (f.fileName in displayTitleOverrides) {
-        next = { ...next, displayTitle: displayTitleOverrides[f.fileName] || null }
-      }
-      return next
-    })
-  }, [status, docClassOverrides, displayTitleOverrides])
-
-  const ingest = useIngestWatch(fetchStatus, applyStatus, files)
-
-  const handleSync = useCallback(() => {
-    // A full sync can take minutes, so the dialog closes and the toolbar
-    // carries the running state instead of a locked modal.
-    setSyncConfirmOpen(false)
-    setIsSyncing(true)
-    fetch('/api/platform/knowledge/sync', { method: 'POST' })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`Sync failed (${r.status})`)
-        const body = (await r.json()) as { filesAdded?: number; filesTotal?: number }
-        toast.success(
-          t('knowledge.syncDone', { added: body.filesAdded ?? 0, total: body.filesTotal ?? 0 })
-        )
-      })
-      .catch(() => toast.error(t('knowledge.syncFailed')))
-      .finally(() => {
-        setIsSyncing(false)
-        void load()
-      })
-  }, [load, t])
-
-  /**
-   * Rebuild the chunks of the confirmed documents. Distinct from Sync, which
-   * gates on each PDF's sha256 and does nothing for an unchanged file; this is
-   * the remedy after a change to how chunks are BUILT. The backend queues and
-   * returns; each document reads `pending` until its chunks exist again.
-   */
-  const handleReingest = useCallback(() => {
-    const names = [...pendingReingest]
-    setPendingReingest([])
-    if (names.length === 0) return
-    setIsReingesting(true)
-    fetch('/api/platform/knowledge/reingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileNames: names }),
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`Re-ingest failed (${r.status})`)
-        const body = (await r.json()) as { queued?: unknown }
-        const queued = Array.isArray(body.queued) ? body.queued.map(String) : []
-        if (queued.length === 0) {
-          // Nothing started: the selection stays, the admin may want to retry.
-          toast.error(t('knowledgeAdmin.bulkReingestNothing'))
-          return
-        }
-        toast.success(t('knowledgeAdmin.bulkReingestDone', { count: queued.length }))
-        setSelected((prev) => prev.filter((name) => !names.includes(name)))
-        ingest.watch(queued)
-      })
-      .catch(() => toast.error(t('knowledgeAdmin.bulkReingestFailed')))
-      .finally(() => {
-        setIsReingesting(false)
-        void load()
-      })
-  }, [ingest, load, pendingReingest, t])
-
-  /** PATCH one document's Dokumentart, optimistically, reverting on failure. */
-  const patchDocClass = useCallback(
-    async (fileName: string, nextClass: DocClass): Promise<boolean> => {
-      setDocClassOverrides((prev) => ({ ...prev, [fileName]: nextClass }))
-      try {
-        const res = await fetch(
-          `/api/platform/knowledge/documents/${encodeURIComponent(fileName)}/doc-class`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ doc_class: nextClass }),
-          }
-        )
-        if (!res.ok) throw new Error(`Reclassify failed (${res.status})`)
-        return true
-      } catch {
-        setDocClassOverrides((prev) => {
-          const next = { ...prev }
-          delete next[fileName]
-          return next
-        })
-        return false
-      }
-    },
-    []
-  )
-
-  const handleReclassify = useCallback(
-    (file: KnowledgeFile, nextClass: DocClass) => {
-      if (nextClass === resolveDocClass(file.docClass)) return
-      void patchDocClass(file.fileName, nextClass).then(async (ok) => {
-        if (!ok) {
-          toast.error(t('knowledge.docClassUpdateFailed', { name: file.fileName }))
-          return
-        }
-        toast.success(
-          t('knowledge.docClassUpdated', { name: file.fileName, label: docClassLabel(nextClass) })
-        )
-        await load()
-      })
-    },
-    [docClassLabel, patchDocClass, load, t]
-  )
-
-  const handleBulkReclassify = useCallback(
-    (nextClass: DocClass) => {
-      const names = [...selected]
-      if (names.length === 0) return
-      void Promise.all(names.map((name) => patchDocClass(name, nextClass))).then(
-        async (results) => {
-          const failed = results.filter((ok) => !ok).length
-          const succeeded = results.length - failed
-          if (succeeded > 0) {
-            toast.success(
-              t('knowledgeAdmin.bulkReclassifyDone', {
-                count: succeeded,
-                label: docClassLabel(nextClass),
-              })
-            )
-          }
-          if (failed > 0) toast.error(t('knowledgeAdmin.bulkReclassifyFailed', { count: failed }))
-          setSelected([])
-          await load()
-        }
-      )
-    },
-    [docClassLabel, selected, patchDocClass, load, t]
-  )
-
-  const handleRename = useCallback(
-    (file: KnowledgeFile, draft: string) => {
-      const nextTitle = draft.trim()
-      if (nextTitle === (file.displayTitle ?? '').trim()) return
-      const clear = () =>
-        setDisplayTitleOverrides((prev) => {
-          const next = { ...prev }
-          delete next[file.fileName]
-          return next
-        })
-      // Optimistic; an empty draft clears the override so the default returns.
-      setDisplayTitleOverrides((prev) => ({ ...prev, [file.fileName]: nextTitle }))
-      fetch(
-        `/api/platform/knowledge/documents/${encodeURIComponent(file.fileName)}/display-title`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ display_title: nextTitle }),
-        }
-      )
-        .then(async (r) => {
-          if (!r.ok) throw new Error(`Rename failed (${r.status})`)
-          toast.success(t('knowledge.displayTitleUpdated', { name: file.fileName }))
-          await load()
-          clear()
-        })
-        .catch(() => {
-          clear()
-          toast.error(t('knowledge.displayTitleUpdateFailed', { name: file.fileName }))
-        })
-    },
-    [load, t]
-  )
 
   const byName = useMemo(() => new Map(files.map((f) => [f.fileName, f])), [files])
   const detailFile = detailName ? (byName.get(detailName) ?? null) : null
 
-  // The Dokumentart filter offers the classes actually present, with counts.
   const presentClasses = useMemo(() => {
     const counts = new Map<DocClass, number>()
     for (const f of files) {
@@ -405,52 +99,15 @@ export function BaseKnowledge(): JSX.Element {
     [files]
   )
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    const matched = files.filter((f) => {
-      if (typeFilter === 'binding' && !isOibBinding(f.docClass)) return false
-      if (typeFilter === 'other' && isOibBinding(f.docClass)) return false
-      if (typeFilter !== ALL && typeFilter !== 'binding' && typeFilter !== 'other') {
-        if (resolveDocClass(f.docClass) !== typeFilter) return false
-      }
-      if (stateFilter === 'issues' && !ATTENTION_STATES.has(f.state)) return false
-      if (stateFilter === 'pending' && f.state !== 'pending') return false
-      if (needle && !`${f.fileName} ${f.displayTitle ?? ''}`.toLowerCase().includes(needle))
-        return false
-      return true
-    })
-
-    const direction = sortDir === 'asc' ? 1 : -1
-    const rank = (f: KnowledgeFile): number | string => {
-      switch (sortKey) {
-        case 'document':
-          return (f.displayTitle ?? f.fileName).toLowerCase()
-        // Canonical DOC_CLASSES order puts the binding OIB classes first.
-        case 'class':
-          return DOC_CLASSES.indexOf(resolveDocClass(f.docClass))
-        case 'state':
-          return STATE_ORDER.indexOf(f.state)
-        case 'chunks':
-          return f.chunkCount
-      }
-    }
-    return [...matched].sort((a, b) => {
-      // By country first: a file is the text of one country's record, and the table says which.
-      const group = placement.compare(a.fileName, b.fileName)
-      if (group !== 0) return group
-      const left = rank(a)
-      const right = rank(b)
-      if (left < right) return -1 * direction
-      if (left > right) return 1 * direction
-      return a.fileName.localeCompare(b.fileName)
-    })
-  }, [files, query, typeFilter, stateFilter, sortKey, sortDir, placement])
-
-  // A filter change can strand the viewport past the end of the result set.
-  const safeOffset = offset >= filtered.length ? 0 : offset
-  const page = filtered.slice(safeOffset, safeOffset + PAGE_SIZE)
-  const allOnPageSelected = page.length > 0 && page.every((f) => selected.includes(f.fileName))
-  const someOnPageSelected = page.some((f) => selected.includes(f.fileName))
+  const filtered = useMemo(
+    () =>
+      filterAndSortKnowledgeFiles(
+        files,
+        { query, typeFilter, stateFilter, sortKey, sortDir },
+        placement
+      ),
+    [files, query, typeFilter, stateFilter, sortKey, sortDir, placement]
+  )
 
   const toggleSort = useCallback(
     (key: SortKey) => {
@@ -472,75 +129,12 @@ export function BaseKnowledge(): JSX.Element {
     setOffset(0)
   }
 
-  const isBusy = isSyncing
   const hasDocuments = files.length > 0
-  // The empty state must not swallow in-flight indexing progress.
   const showEmpty =
     !hasDocuments &&
     ingest.items.length === 0 &&
     !ingest.timedOut &&
     ingest.missing.length === 0
-
-  const sortableHead = (key: SortKey, label: string, className?: string) => (
-    <SortableHead
-      label={label}
-      ariaLabel={t('knowledgeAdmin.sortBy', { column: label })}
-      active={sortKey === key}
-      direction={sortDir}
-      onSort={() => toggleSort(key)}
-      className={className}
-    />
-  )
-
-  const overflowEntries: ActionMenuEntry[] = [
-    {
-      type: 'item',
-      id: 'sync',
-      label: t('knowledge.sync'),
-      icon: RefreshCw,
-      disabled: isBusy,
-      onSelect: () => setSyncConfirmOpen(true),
-      testId: 'knowledge-sync',
-    },
-    {
-      type: 'item',
-      id: 'reingest-issues',
-      label: `${t('knowledgeAdmin.reingestIssues')} (${reingestable.length.toLocaleString(locale)})`,
-      icon: RotateCcw,
-      disabled: reingestable.length === 0 || isReingesting,
-      onSelect: () => setPendingReingest(reingestable),
-      testId: 'knowledge-reingest-issues',
-    },
-  ]
-
-  const toolbarActions = canManage ? (
-    <>
-      {isSyncing || isReingesting ? (
-        <span
-          className="text-muted-foreground flex items-center gap-1.5 text-xs"
-          aria-live="polite"
-        >
-          <Spinner size="xs" aria-hidden />
-          {isSyncing ? t('knowledge.syncing') : t('knowledgeAdmin.bulkReingestBusy')}
-        </span>
-      ) : null}
-      <ActionMenu
-        mode="dropdown"
-        entries={overflowEntries}
-        contentClassName="w-64"
-        trigger={
-          <Button
-            variant="secondary"
-            size="sm"
-            className="w-8 px-0"
-            aria-label={t('knowledgeAdmin.moreActions')}
-          >
-            <MoreHorizontal className="size-4" aria-hidden />
-          </Button>
-        }
-      />
-    </>
-  ) : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -574,105 +168,24 @@ export function BaseKnowledge(): JSX.Element {
       >
         <div className="flex flex-col gap-4">
           {hasDocuments ? (
-            <DataToolbar
-              searchValue={query}
-              onSearchChange={(value) => {
-                setQuery(value)
-                setOffset(0)
-              }}
-              searchPlaceholder={t('knowledge.search')}
-              searchLabel={t('knowledgeAdmin.searchLabel')}
-              clearLabel={t('knowledgeAdmin.searchClear')}
-              selectedCount={canManage ? selected.length : 0}
-              selectionLabel={(count) => t('knowledgeAdmin.selectedCount', { count })}
-              onClearSelection={() => setSelected([])}
-              clearSelectionLabel={t('knowledgeAdmin.clearSelection')}
-              selectionActions={
-                <>
-                  <Select
-                    value=""
-                    onValueChange={(value) => handleBulkReclassify(value as DocClass)}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      className="w-52 [&>span]:min-w-0 [&>span]:truncate"
-                      aria-label={t('knowledgeAdmin.bulkReclassify')}
-                    >
-                      <SelectValue placeholder={t('knowledgeAdmin.bulkReclassify')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DOC_CLASSES.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {docClassLabel(option)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPendingReingest([...selected])}
-                    loading={isReingesting}
-                  >
-                    {isReingesting ? null : <RotateCcw className="size-3.5" aria-hidden />}
-                    {isReingesting
-                      ? t('knowledgeAdmin.bulkReingestBusy')
-                      : t('knowledgeAdmin.bulkReingest')}
-                  </Button>
-                </>
-              }
-              filters={
-                <>
-                  <Select
-                    value={typeFilter}
-                    onValueChange={(value) => {
-                      setTypeFilter(value as TypeFilter)
-                      setOffset(0)
-                    }}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      className="min-w-40 flex-1 sm:w-48 sm:flex-none [&>span]:min-w-0 [&>span]:truncate"
-                      aria-label={t('knowledgeAdmin.typeFilterLabel')}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL}>{t('knowledge.docClassFilterAll')}</SelectItem>
-                      {/* The binding-vs-other split, as two entries of the type filter. */}
-                      <SelectItem value="binding">{t('knowledge.bindingTitle')}</SelectItem>
-                      <SelectItem value="other">{t('knowledge.otherTitle')}</SelectItem>
-                      <SelectSeparator />
-                      {presentClasses.map(({ cls, count }) => (
-                        <SelectItem key={cls} value={cls}>
-                          {docClassLabel(cls)} ({count.toLocaleString(locale)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={stateFilter}
-                    onValueChange={(value) => {
-                      setStateFilter(value as StateFilter)
-                      setOffset(0)
-                    }}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      className="min-w-36 flex-1 sm:w-40 sm:flex-none"
-                      aria-label={t('knowledgeAdmin.stateFilterLabel')}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL}>{t('knowledgeAdmin.stateAll')}</SelectItem>
-                      <SelectItem value="issues">{t('knowledgeAdmin.stateIssues')}</SelectItem>
-                      <SelectItem value="pending">{t('knowledgeAdmin.statePending')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </>
-              }
-              actions={toolbarActions}
+            <KnowledgeFileToolbar
+              canManage={canManage}
+              query={query}
+              setQuery={setQuery}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
+              stateFilter={stateFilter}
+              setStateFilter={setStateFilter}
+              setOffset={setOffset}
+              selected={selected}
+              setSelected={setSelected}
+              presentClasses={presentClasses}
+              isSyncing={isSyncing}
+              isReingesting={isReingesting}
+              reingestable={reingestable}
+              setPendingReingest={setPendingReingest}
+              setSyncConfirmOpen={setSyncConfirmOpen}
+              onBulkReclassify={handleBulkReclassify}
             />
           ) : null}
 
@@ -688,134 +201,19 @@ export function BaseKnowledge(): JSX.Element {
               }
             />
           ) : (
-            <>
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {canManage ? (
-                        <TableHead className="w-10">
-                          <Checkbox
-                            // A partial page selection reads as indeterminate, not as nothing.
-                            checked={
-                              allOnPageSelected
-                                ? true
-                                : someOnPageSelected
-                                  ? 'indeterminate'
-                                  : false
-                            }
-                            aria-label={t('knowledgeAdmin.selectAll')}
-                            onCheckedChange={(checked) =>
-                              setSelected((prev) => {
-                                const names = page.map((f) => f.fileName)
-                                return checked
-                                  ? [...new Set([...prev, ...names])]
-                                  : prev.filter((name) => !names.includes(name))
-                              })
-                            }
-                          />
-                        </TableHead>
-                      ) : null}
-                      {sortableHead('document', t('knowledgeAdmin.colDocument'))}
-                      {sortableHead('class', t('knowledgeAdmin.colType'), 'max-sm:hidden')}
-                      {sortableHead('state', t('knowledgeAdmin.colState'), 'max-sm:hidden')}
-                      {sortableHead('chunks', t('knowledgeAdmin.colChunks'), 'text-right max-sm:hidden')}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {page.map((file, index) => {
-                      const isSelected = selected.includes(file.fileName)
-                      const group = placement.groupOf(file.fileName)
-                      const opensGroup = placement.loaded && (index === 0 || placement.groupOf(page[index - 1]!.fileName) !== group)
-                      return (
-                        <Fragment key={file.fileName}>
-                        {opensGroup ? <CorpusGroupRow group={group} colSpan={canManage ? 5 : 4} /> : null}
-                        <TableRow
-                          data-state={isSelected ? 'selected' : undefined}
-                          className="cursor-pointer"
-                          onClick={() => setDetailName(file.fileName)}
-                        >
-                          {canManage ? (
-                            <TableCell onClick={(event) => event.stopPropagation()}>
-                              <Checkbox
-                                checked={isSelected}
-                                aria-label={t('knowledgeAdmin.selectRow', { name: file.fileName })}
-                                onCheckedChange={(checked) =>
-                                  setSelected((prev) =>
-                                    checked
-                                      ? [...prev, file.fileName]
-                                      : prev.filter((name) => name !== file.fileName)
-                                  )
-                                }
-                              />
-                            </TableCell>
-                          ) : null}
-                          {/* `max-w-0` + `w-full` is what makes `truncate` bite in an
-                              auto-layout table: a plain `max-w` on a cell is ignored, so
-                              the title used to stretch the column past the card edge and
-                              push Dokumentart and Status out of sight. From `sm` the cap
-                              is the 22rem it always was. */}
-                          <TableCell className="w-full max-w-0 sm:w-auto sm:max-w-[22rem]">
-                            <button
-                              type="button"
-                              className="pointer-coarse:min-h-11 focus-visible:ring-ring/60 block w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2"
-                              aria-label={t('knowledgeAdmin.openDetail', { name: file.fileName })}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                setDetailName(file.fileName)
-                              }}
-                            >
-                              <span className="text-foreground block truncate text-sm font-medium">
-                                {file.displayTitle ?? file.fileName}
-                              </span>
-                              {file.displayTitle && file.displayTitle !== file.fileName ? (
-                                <span className="text-muted-foreground block truncate text-xs">
-                                  {file.fileName}
-                                </span>
-                              ) : null}
-                              {/* The Dokumentart and Status columns are hidden on a
-                                  phone; their chips ride under the title instead, so
-                                  the title has the card's width. */}
-                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
-                                <DocClassChip docClass={file.docClass} />
-                                <KnowledgeStateBadge state={file.state} />
-                              </span>
-                            </button>
-                            <PlacementLine placement={placement.of(file.fileName)} />
-                          </TableCell>
-                          <TableCell className="max-sm:hidden">
-                            <DocClassChip docClass={file.docClass} />
-                          </TableCell>
-                          <TableCell className="max-sm:hidden">
-                            <KnowledgeStateBadge state={file.state} hint="tooltip" />
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-right text-sm tabular-nums max-sm:hidden">
-                            {file.chunkCount > 0 ? file.chunkCount.toLocaleString(locale) : '–'}
-                          </TableCell>
-                        </TableRow>
-                        </Fragment>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <Pagination
-                offset={safeOffset}
-                pageSize={PAGE_SIZE}
-                total={filtered.length}
-                onOffsetChange={setOffset}
-                rangeLabel={(from, to, total) =>
-                  t('knowledgeAdmin.range', {
-                    from: from.toLocaleString(locale),
-                    to: to.toLocaleString(locale),
-                    total: total.toLocaleString(locale),
-                  })
-                }
-                previousLabel={t('knowledgeAdmin.previous')}
-                nextLabel={t('knowledgeAdmin.next')}
-              />
-            </>
+            <KnowledgeFileTable
+              canManage={canManage}
+              filtered={filtered}
+              offset={offset}
+              selected={selected}
+              setSelected={setSelected}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onToggleSort={toggleSort}
+              onOpenDetail={setDetailName}
+              onOffsetChange={setOffset}
+              placement={placement}
+            />
           )}
         </div>
       </SectionCard>
@@ -827,7 +225,6 @@ export function BaseKnowledge(): JSX.Element {
         onRename={handleRename}
         onReclassify={handleReclassify}
         onView={(file) => {
-          // Close the sheet first: stacking two modal focus traps strands keyboard users.
           setDetailName(null)
           setViewerFile(file.fileName)
         }}
@@ -841,76 +238,14 @@ export function BaseKnowledge(): JSX.Element {
         />
       ) : null}
 
-      <ConfirmDialog
-        open={pendingReingest.length > 0}
-        onOpenChange={(open) => {
-          if (!open) setPendingReingest([])
-        }}
-        title={t('knowledgeAdmin.reingestConfirmTitle', { count: pendingReingest.length })}
-        description={t('knowledgeAdmin.reingestConfirmDescription')}
-        confirmLabel={t('knowledgeAdmin.reingestConfirmCta', { count: pendingReingest.length })}
-        cancelLabel={t('knowledge.deleteCancel')}
-        tone="warning"
-        icon={RotateCcw}
-        onConfirm={handleReingest}
-        pending={false}
-        confirmTestId="knowledge-reingest-confirm"
-      >
-        <div className="flex flex-col gap-3">
-          <NameList names={pendingReingest} />
-          <CostNote>{t('knowledgeAdmin.reingestConfirmCost')}</CostNote>
-        </div>
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={syncConfirmOpen}
-        onOpenChange={setSyncConfirmOpen}
-        title={t('knowledgeAdmin.syncConfirmTitle')}
-        description={t('knowledgeAdmin.syncConfirmDescription')}
-        confirmLabel={t('knowledgeAdmin.syncConfirmCta')}
-        cancelLabel={t('knowledge.deleteCancel')}
-        tone="warning"
-        icon={RefreshCw}
-        onConfirm={handleSync}
-        pending={false}
-        confirmTestId="knowledge-sync-confirm"
-      >
-        <CostNote>{t('knowledgeAdmin.syncConfirmCost')}</CostNote>
-      </ConfirmDialog>
+      <CorpusJobDialogs
+        pendingReingest={pendingReingest}
+        setPendingReingest={setPendingReingest}
+        onReingest={handleReingest}
+        syncConfirmOpen={syncConfirmOpen}
+        setSyncConfirmOpen={setSyncConfirmOpen}
+        onSync={handleSync}
+      />
     </div>
-  )
-}
-
-/**
- * The four numbers that answer "is the base corpus healthy?". Skeletons of the
- * same box on the first load; nothing when the load failed (the card below
- * carries the error and the retry).
- */
-/** The targets of a bulk confirm, by name, capped with "and N more". */
-function NameList({ names }: { names: readonly string[] }): JSX.Element {
-  const t = useTranslations(platformCopy)
-  const shown = names.slice(0, CONFIRM_LIST_MAX)
-  const rest = names.length - shown.length
-  return (
-    <ul className="flex flex-col gap-0.5" data-testid="confirm-name-list">
-      {shown.map((name) => (
-        <li key={name} className="text-foreground truncate font-mono text-xs">
-          {name}
-        </li>
-      ))}
-      {rest > 0 ? (
-        <li className="text-xs">{t('knowledgeAdmin.reingestConfirmMore', { count: rest })}</li>
-      ) : null}
-    </ul>
-  )
-}
-
-/** What a confirmed action costs, stated before the click. */
-function CostNote({ children }: { children: string }): JSX.Element {
-  return (
-    <Alert variant="warning">
-      <AlertTriangle aria-hidden />
-      <AlertDescription>{children}</AlertDescription>
-    </Alert>
   )
 }

@@ -1,11 +1,3 @@
-/**
- * English dictionary — the canonical shape.
- *
- * Every other locale must structurally match this object (enforced by the
- * `Dictionary` type in ../index.ts). Each namespace lives in its own file so
- * feature work can extend a namespace without touching unrelated strings.
- */
-
 import { common } from './common'
 import { nav } from './nav'
 import { profile } from './profile'

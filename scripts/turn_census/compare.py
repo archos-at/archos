@@ -1,19 +1,3 @@
-"""What a set of answer-suite runs cost and got right, and how two sets differ: the before/after report.
-
-``suite.py --compare <a> <b>`` reads two runs, each a ``results.json`` or the directory ``--arm all``
-writes (one subdirectory per arm), and renders Markdown fit for a PR: per arm, accuracy, rounds, tool
-calls, tokens and cost per answer and latency, then the change from ``a`` to ``b``, then the rows whose
-outcome moved. ``--arm all`` writes the same table over its three arms (``arms.md``).
-
-Pure: it reads the rows of ``results.json`` as dicts, so it needs no model, no corpus and no suite.
-
-**Accuracy** is the share of finished runs whose ANSWER checks all held: what the reader got (a value
-named, a claim left out, a judged meaning, a proposal filed). The process checks (which tool, how many
-rounds, an envelope) are left out of it and counted in "all checks": an arm that unbinds a tool fails
-that tool's check by construction, and an accuracy that counted it would only restate the arm. A run
-with an error has no checks; it is counted under errors, not as a wrong answer.
-"""
-
 from __future__ import annotations
 
 import json
@@ -23,16 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-#: Check kinds (the key before its first colon) about how the turn worked, not what it answered.
 PROCESS_CHECKS = frozenset({"must", "any", "must_not", "no_repeat", "rounds", "envelope", "looked_up", "no_lookup"})
-#: The arm order a report lists them in; any other label sorts after.
 ARM_ORDER = ("semantic", "grep", "hybrid")
 
 
 @dataclass
 class Measured:
-    """One results.json: its label (the arm, or the set), its meta and its runs as stored."""
-
     label: str
     meta: dict[str, Any]
     runs: list[dict[str, Any]]
@@ -40,12 +20,10 @@ class Measured:
 
 
 def check_kind(key: str) -> str:
-    """``mentions:Index B`` → ``mentions``; ``rounds<=2`` → ``rounds``."""
     return "rounds" if key.startswith("rounds<=") else key.split(":", 1)[0]
 
 
 def correct(run: dict[str, Any]) -> bool | None:
-    """Whether every answer check of the run held; None when it has none (an error, or a process-only row)."""
     answer = [held for key, held in (run.get("checks") or {}).items() if check_kind(key) not in PROCESS_CHECKS]
     return all(answer) if answer and not run.get("error") else None
 
@@ -55,7 +33,6 @@ def _mean(values: list[float]) -> float | None:
 
 
 def totals(runs: Iterable[dict[str, Any]]) -> dict[str, Any]:
-    """The numbers a report row shows, over the runs given. Per answer means a mean over finished runs."""
     runs = list(runs)
     ok = [run for run in runs if not run.get("error")]
     graded = [verdict for run in ok if (verdict := correct(run)) is not None]
@@ -77,9 +54,6 @@ def totals(runs: Iterable[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-# --- reading runs ------------------------------------------------------------------
-
-
 def _label(meta: dict[str, Any], fallback: str) -> str:
     arm = meta.get("arm")
     if arm:
@@ -99,7 +73,6 @@ def _read(path: Path) -> Measured:
 
 
 def load(path: Path) -> list[Measured]:
-    """The runs at ``path``: a results.json, a directory holding one, or an ``--arm all`` directory of arms."""
     if path.is_file():
         return [_read(path)]
     if (path / "results.json").is_file():
@@ -111,14 +84,11 @@ def load(path: Path) -> list[Measured]:
 
 
 def pairs(before: list[Measured], after: list[Measured]) -> list[tuple[Measured, Measured]]:
-    """Which run of ``after`` compares with which of ``before``: one with one, else arm with arm."""
     if len(before) == 1 and len(after) == 1:
         return [(before[0], after[0])]
     by_label = {m.label: m for m in before}
     return [(by_label[m.label], m) for m in after if m.label in by_label]
 
-
-# --- rendering ---------------------------------------------------------------------
 
 HEADER = (
     "| Run | Runs | Errors | Accuracy | All checks | Rounds | Tool calls | Input tok/answer "
@@ -142,7 +112,6 @@ def _cost(value: float | None) -> str:
 
 
 def line(label: str, t: dict[str, Any]) -> str:
-    """One table row of :data:`HEADER`."""
     cost = _cost(t["cost_usd"]) + (f" ({t['cost_missing']} calls uncosted)" if t["cost_missing"] else "")
     return (
         f"| {label} | {t['runs']} | {t['errors']} | {_share(t['accuracy'], t['graded'])} | {_share(t['all_checks'])} "
@@ -158,13 +127,11 @@ def _diff(now: float | None, then: float | None, fmt: str) -> str:
 
 
 def delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, float | None]:
-    """``after`` minus ``before`` for the numbers a comparison is about (accuracy in points of share)."""
     keys = ("accuracy", "all_checks", "rounds", "tool_calls", "input_tokens", "output_tokens", "cost_usd", "wall_s")
     return {key: None if after[key] is None or before[key] is None else after[key] - before[key] for key in keys}
 
 
 def delta_line(label: str, before: dict[str, Any], after: dict[str, Any]) -> str:
-    """The change from ``before`` to ``after`` as a row of :data:`HEADER`: accuracy in percentage points."""
     d = delta(before, after)
 
     def points(value: float | None) -> str:
@@ -183,7 +150,6 @@ def delta_line(label: str, before: dict[str, Any], after: dict[str, Any]) -> str
 
 
 def by_row(runs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """:func:`totals` per question, in the order the rows first ran."""
     grouped: dict[str, list[dict[str, Any]]] = {}
     for run in runs:
         grouped.setdefault(str(run.get("question_id")), []).append(run)
@@ -199,7 +165,6 @@ def _cell(t: dict[str, Any] | None) -> str:
 
 
 def row_matrix(measured: list[Measured]) -> list[str]:
-    """Per row and run: answers correct of graded, mean rounds, mean input tokens."""
     rows = [by_row(m.runs) for m in measured]
     ids = list(dict.fromkeys(row for table in rows for row in table))
     head = "| Row | " + " | ".join(m.label for m in measured) + " |"
@@ -211,7 +176,6 @@ def row_matrix(measured: list[Measured]) -> list[str]:
 
 
 def changed_rows(before: Measured, after: Measured) -> list[str]:
-    """The rows whose accuracy moved, or whose mean rounds moved by a half or more."""
     then, now = by_row(before.runs), by_row(after.runs)
     lines = []
     for row, t in now.items():
@@ -236,7 +200,6 @@ def _source(m: Measured) -> str:
 
 
 def arms_report(measured: list[Measured]) -> str:
-    """One run's arms side by side: the totals table and the per-row matrix."""
     lines = [
         "# Answer suite by arm",
         "",
@@ -258,7 +221,6 @@ def arms_report(measured: list[Measured]) -> str:
 
 
 def compare_report(before: list[Measured], after: list[Measured]) -> str:
-    """Two runs, arm by arm: each side's totals, the change, and the rows whose outcome moved."""
     matched = pairs(before, after)
     if not matched:
         raise ValueError(f"the two runs share no arm: {[m.label for m in before]} vs {[m.label for m in after]}")

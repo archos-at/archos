@@ -1,11 +1,6 @@
 const DEFAULT_FILENAME = 'report'
 const MAX_LENGTH = 100
 
-/**
- * Strips characters that are invalid in filenames across OS platforms,
- * collapses whitespace into hyphens, and truncates to a safe length.
- * Returns a fallback name when the result would be empty.
- */
 export function sanitizeFilename(title: string): string {
   return (
     title

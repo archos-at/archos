@@ -1,10 +1,3 @@
-"""Project profile summary generation endpoint.
-
-Calls an OpenAI-compatible chat completions endpoint to produce a concise
-one-sentence project summary from the structured profile prompt view text
-sent by the UI's ``/api/projects/[id]/generate-summary`` BFF route.
-"""
-
 import asyncio
 import logging
 import os
@@ -34,33 +27,10 @@ SYSTEM_PROMPT = (
 
 
 def _llm_settings(organization_id: str | None = None, *, data_policy: DataPolicy | None = None) -> ResolvedCredential:
-    """Resolve the endpoint (model, key, base URL, data policy) for the summary LLM call.
-
-    Goes through the shared credential resolver so this route reaches the org's
-    BYOK credential and ZDR policy like every other LLM call, then the same env
-    chain as before: ``SUMMARY_LLM_*`` → generic ``LLM_*`` → the OpenRouter/OpenAI
-    default used by ``config_oib_openrouter.yml`` (without which every summary
-    silently degrades to ""). Model + base URL keep their two-level env fallback;
-    the resolver adds BYOK (org key + base, model unchanged) and provider
-    inference on top. Fail-open for the key: a BYOK miss falls back to the env
-    chain. Callers send their body through ``request_body``.
-
-    ``data_policy`` is for the cross-tenant routes sharing this resolver
-    (feedback digest, lesson distill): see ``resolve_llm_credential``.
-    """
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
-    # `read_api_key_env`, not `os.getenv`: docker compose `env_file` does not
-    # interpolate `${VAR}` references, so `OPENROUTER_API_KEY=${OPENROUTER_API_KEY}`
-    # arrives as a literal placeholder — truthy, but not a key. Reading it raw
-    # selected the OpenRouter endpoint below while the resolver (which normalizes
-    # the same way) treated the key as unset and fell back to `LLM_API_KEY`,
-    # sending another provider's key to openrouter.ai.
     openrouter_key = read_api_key_env("OPENROUTER_API_KEY")
-    # Mirrors the boot floor in config_oib_openrouter.yml. NOTE: this route is
-    # not an AgentGroup, so it resolves outside `platform_model_defaults` — the
-    # platform default set under Platform → Models does not reach it.
     default_model = "openai/gpt-6-luna" if openrouter_key else "gpt-4o-mini"
     default_base = "https://openrouter.ai/api/v1" if openrouter_key else "https://api.openai.com/v1"
 
@@ -81,7 +51,6 @@ def _llm_settings(organization_id: str | None = None, *, data_policy: DataPolicy
 
 
 def add_generate_summary_routes(router: APIRouter) -> None:
-    """Register the generate-summary endpoint."""
 
     @router.post(
         "/v1/generate-summary",
@@ -95,8 +64,6 @@ def add_generate_summary_routes(router: APIRouter) -> None:
     )
     async def generate_summary(
         request: GenerateSummaryRequest,
-        # Forwarded by the BFF (profile-service) so this route can reach the
-        # org's BYOK LLM credential; absent for anonymous/direct callers.
         x_grid_organization_id: str | None = Header(default=None),
     ) -> GenerateSummaryResponse:
         profile_text = request.profile_text.strip()
@@ -105,13 +72,10 @@ def add_generate_summary_routes(router: APIRouter) -> None:
 
         cred = await asyncio.to_thread(_llm_settings, x_grid_organization_id)
         if not cred.api_key:
-            # No credentials resolved — do not send a request that is guaranteed
-            # to fail (401/403). Surface a diagnosable code instead.
             return GenerateSummaryResponse(summary="", error="llm_not_configured")
 
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {cred.api_key}"}
 
-        # Mirrors consistency_check.py so both endpoints localise identically.
         language = "German" if request.locale.lower().startswith("de") else "English"
         user_content = f"Write the summary in {language}.\n\n{profile_text}"
 

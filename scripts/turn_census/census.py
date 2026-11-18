@@ -1,21 +1,3 @@
-"""Turn census: run one chat question through the real agent and count what it cost.
-
-Every model call the turn makes — research rounds, the turn decision, passage
-verdicts, the requery judge, reranks, embeddings — as the provider billed it:
-input tokens, cached tokens, output, seconds. The number the turns audit
-(`docs/audit/turns-per-answer-audit-2026-09.md`) reconstructed by
-hand, measured.
-
-Needs what a local turn needs: OPENROUTER_API_KEY, and the corpus ingested
-into the Qdrant at QDRANT_URL (`suite.py --ingest`, which queues the ingest jobs and runs them in its own process,
-after uploading the OIB PDFs with scripts/upload_oib_corpus.py). Every run costs
-real model calls.
-
-    python scripts/turn_census/census.py "Was weißt du über die OIB 2?" --runs 3
-    python scripts/turn_census/census.py --report /tmp/census/run1.jsonl
-    python scripts/turn_census/census.py "…" --override llms.research_llm.reasoning_effort low
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -32,20 +14,16 @@ from local_fetcher import fetcher_env  # a sibling script, not a package
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 CONFIG = ROOT / "configs" / "config_oib_openrouter.yml"
-#: Seconds to wait after the answer for the post-answer stages to be recorded.
 _TAIL_SECONDS = 20
 _TIMEOUT_SECONDS = 600
-#: What a run's log ends with when the census killed it for time; read back by the suite.
 TIMED_OUT = "census: timed out"
 
 
 def timed_out(log_text: str) -> bool:
-    """Whether the census killed this run for time, by the marker it wrote in the log."""
     return TIMED_OUT in log_text
 
 
 def kind(entry: dict) -> str:
-    """What a recorded call was for: ``research``, ``probe``, ``decision``, ``verdict``, ``aux-llm``, …"""
     path = entry["url"].split("openrouter.ai")[-1]
     req = entry.get("req") or {}
     if path.endswith("/decisions"):
@@ -58,7 +36,6 @@ def kind(entry: dict) -> str:
 
 
 def records(path: Path) -> list[dict]:
-    """The recorder's lines: none when the run made no model call, and a line the kill cut short is skipped."""
     if not path.exists():
         return []
     rows = []
@@ -72,14 +49,12 @@ def records(path: Path) -> list[dict]:
 
 
 def ensure_key() -> bool:
-    """OPENROUTER_API_KEY, or the OPENROUTER_KEY some environments carry instead (docs/contributing/gotchas.md)."""
     if not os.environ.get("OPENROUTER_API_KEY") and os.environ.get("OPENROUTER_KEY"):
         os.environ["OPENROUTER_API_KEY"] = os.environ["OPENROUTER_KEY"]
     return bool(os.environ.get("OPENROUTER_API_KEY"))
 
 
 def summarize(path: Path) -> dict:
-    """One run's calls, grouped by kind, with the billed tokens and wall time."""
     rows = sorted(records(path), key=lambda r: r["t_start"])
     kinds: dict[str, dict] = {}
     research: list[dict] = []
@@ -94,7 +69,6 @@ def summarize(path: Path) -> dict:
         bucket["seconds"] += row["t_end"] - row["t_start"]
         if call == "research":
             research.append({"input": tokens_in, "cached": details.get("cached_tokens") or 0})
-    # The call that ends last need not start last: quote patches and checks overlap.
     wall = max(row["t_end"] for row in rows) - rows[0]["t_start"] if rows else 0.0
     return {"kinds": kinds, "research": research, "wall_seconds": round(wall, 1)}
 
@@ -111,66 +85,36 @@ _SHIM_LOCK = threading.Lock()
 
 
 def run_stamp() -> str:
-    """Unique per process: the conversation id keys the local checkpointer, and
-    two runs sharing one would answer the second with the first's history."""
     return f"{time.strftime('%H%M%S')}-{os.getpid()}"
 
 
-# The agent-runtime plugin a run loads from ``frontends/``: installed editable from ONE
-# checkout like the workspace packages, and loaded by every ``nat run`` through their entry
-# points. From a worktree of another commit the main checkout's ``agent_host`` met
-# the worktree's ``agent`` and every turn died (``Unknown field name
-# front_end``), reported as a 0.0 s run.
 FRONTEND_PACKAGES = {"agent_host": "apps/agent-host/src/agent_host"}
 
 
 def source_packages() -> dict[str, Path]:
-    """Each package a run imports besides ``agent``, by import name, and the directory it imports from.
-
-    Every Python workspace member (``[tool.uv.workspace]`` in the root
-    ``pyproject.toml``; their package dirs are called ``src``) and the
-    agent-runtime plugins under ``frontends/`` (``FRONTEND_PACKAGES``).
-    """
     import tomllib
 
     packages: dict[str, Path] = {}
     members = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["uv"]["workspace"]["members"]
-    for pyproject in sorted(ROOT / member / "pyproject.toml" for member in members):
-        setuptools = tomllib.loads(pyproject.read_text()).get("tool", {}).get("setuptools", {})
-        for name, relative in setuptools.get("package-dir", {}).items():
-            # The agent's `{"": "src"}` maps the whole source root; `tree_pythonpath` puts it on the path itself.
-            if name:
-                packages[name] = (pyproject.parent / relative).resolve()
+    for member in sorted(members):
+        for init in sorted((ROOT / member / "src").glob("*/__init__.py")):
+            if init.parent.name != "agent":
+                packages[init.parent.name] = init.parent.resolve()
     for name, relative in FRONTEND_PACKAGES.items():
         packages[name] = (ROOT / relative).resolve()
     return packages
 
 
 def tree_pythonpath(out: Path) -> str:
-    """A PYTHONPATH that imports THIS checkout's code, whatever the venv installed.
-
-    The venv installs ``agent``, the workspace packages under ``packages/`` and the
-    ``frontends/`` plugins editable from ONE checkout. From a ``git worktree`` without its own venv, a run used to
-    import the main checkout's code while the report named the worktree's
-    commit. So ``packages/agent/src/`` goes first, and each workspace package is linked under
-    its import name (their package dirs are called ``src``), ahead of the
-    inherited path. The recorder's directory stays first.
-    """
     import hashlib
 
-    # One per checkout: two suites or censuses from different worktrees
-    # sharing an --out would otherwise re-point each other's links.
     shim = out / f".tree-{hashlib.sha256(str(ROOT.resolve()).encode()).hexdigest()[:10]}"
-    # The suite's workers call this at once: linking is serialised, and a link
-    # that already points at the right package is left alone.
     with _SHIM_LOCK:
         shim.mkdir(parents=True, exist_ok=True)
         for name, target in source_packages().items():
             link = shim / name
             if link.is_symlink() and link.resolve() == target:
                 continue
-            # Built beside and renamed over: another process never sees
-            # the link missing, and never trips on a half-made one.
             staged = shim / f".{name}.{os.getpid()}"
             staged.unlink(missing_ok=True)
             staged.symlink_to(target, target_is_directory=True)
@@ -180,12 +124,6 @@ def tree_pythonpath(out: Path) -> str:
 
 
 def run_python() -> str:
-    """The interpreter every run uses: this checkout's venv when it has one, else the one running the script.
-
-    One choice for the run and for whatever asks in its place what the run
-    would import (``suite.foreign_imports``): asking another interpreter
-    answered for a venv the runs never used.
-    """
     venv = ROOT / ".venv" / "bin" / "python"
     return str(venv) if venv.exists() else sys.executable
 
@@ -198,30 +136,19 @@ def run_once(
     extra_env: dict[str, str] | None = None,
     name: str | None = None,
 ) -> Path:
-    """One `nat run` of the question with the recorder loaded; the JSONL it wrote.
-
-    ``extra_env`` is added to the run's environment: the precedent eval hands
-    each run its own signed envelope and the fixture BFF's address through it.
-    ``name`` names the recording when it is not the conversation's: an earlier
-    turn of a conversation the workspace eval asks several turns in.
-    """
     record = out / f"{name or conversation_id}.jsonl"
     log = out / f"{name or conversation_id}.log"
     record.unlink(missing_ok=True)
     env = {**os.environ, **fetcher_env(run_python(), ROOT), **(extra_env or {}), "REC_OUT": str(record)}
     env["PYTHONPATH"] = tree_pythonpath(out)
-    # -P: no working directory on sys.path, as the `nat` console script has none.
     nat = [run_python(), "-P", "-m", "nat.cli.main"]
     cmd = [*nat, "run", "--config_file", str(CONFIG), "--input", question, "--conversation_id", conversation_id]
     for key, value in overrides or []:
         cmd += ["--override", key, value]
     with log.open("w") as sink:
-        # Its own process group, so the kill reaches whatever `nat run` started.
         proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
         deadline = time.time() + _TIMEOUT_SECONDS
         answered = False
-        # `nat run` does not exit after answering (background exporters), so
-        # the answer line is the end of the turn, plus a tail for the stages.
         while time.time() < deadline and proc.poll() is None:
             time.sleep(2)
             if "Workflow Result" in log.read_text(errors="replace"):
@@ -236,7 +163,6 @@ def run_once(
 
 
 def _stop(proc: subprocess.Popen) -> None:
-    """Kill the run's process group and reap it, so no zombie outlives the run."""
     import signal
 
     try:
@@ -250,7 +176,9 @@ def _stop(proc: subprocess.Popen) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Turn census: run one chat question through the real agent and count what it cost."
+    )
     parser.add_argument("question", nargs="?")
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--out", type=Path, default=Path("/tmp/turn_census"))

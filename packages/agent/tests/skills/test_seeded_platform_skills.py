@@ -112,8 +112,8 @@ def test_the_generic_card_seed_carries_the_craft_the_tool_no_longer_states():
 
 
 CHAT_PROMPT_FILES = (
-    REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md",
-    REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/piloti.j2",
+    REPO_ROOT / "packages/agent/src/agent/core/prompts/chat_static.md",
+    REPO_ROOT / "packages/agent/src/agent/core/prompts/system.j2",
 )
 DEEP_WRITER_PROMPT = REPO_ROOT / "packages/agent/src/agent/agents/deep_researcher/prompts/writer.j2"
 DEEP_AGENT = REPO_ROOT / "packages/agent/src/agent/agents/deep_researcher/agent.py"
@@ -126,7 +126,7 @@ def _chat_prompt_text() -> str:
 def _prompt_section(name: str) -> str:
     prompt = _chat_prompt_text()
     match = re.search(rf"<{name}>.*?</{name}>", prompt, re.DOTALL)
-    assert match is not None, f"Piloti's prompt no longer has a <{name}> section"
+    assert match is not None, f"The agent's prompt no longer has a <{name}> section"
     return match.group(0)
 
 
@@ -219,7 +219,7 @@ def test_the_voice_seed_teaches_the_three_cases_a_shape_rule_does_not_settle():
 def test_the_notation_rule_and_the_prompt_formatting_rule_stay_on_their_own_questions():
     prompt = _chat_prompt_text()
     match = re.search(r"<formatting>.*?</formatting>", prompt, re.DOTALL)
-    assert match is not None, "Piloti's prompt no longer has a <formatting> section"
+    assert match is not None, "The agent's prompt no longer has a <formatting> section"
     formatting = match.group(0)
     body = _unwrapped(_effective_row("piloti-voice")["body"])
 
@@ -462,8 +462,8 @@ def test_the_card_craft_the_retired_seed_taught_lives_in_the_tool():
     assert "never a second operand" in doctrine
     assert "delete the cards mentally" in _build_tool_description().lower()
 
-    from agent.agents.piloti.prompt import bundled_static_block
-    from agent.agents.piloti.prompt import render_static_block
+    from agent.core.prompt import bundled_static_block
+    from agent.core.prompt import render_static_block
 
     system = render_static_block(bundled_static_block().text)
     assert "[[card:N]]" in system

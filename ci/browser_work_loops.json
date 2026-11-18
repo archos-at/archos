@@ -3,7 +3,7 @@
     "count": 1,
     "reason": "dev preview of the upload tray: a simulated batch of two uploads in the browser, no server work behind it"
   },
-  "ui/features/bim/hooks/use-bim-model.ts": {
+  "ui/features/bim/lib/walk-bim-elements.ts": {
     "count": 1,
     "reason": "reads the element pages of one BIM model, six requests in flight; a read walk, not a run. ADR-0121 debt if the walk stays in the browser"
   },

@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The page as a reconnect reads it: hidden or offline is away, and visible,
- * online again or restored from the back/forward cache is a resume.
- */
 import { describe, expect, it, vi } from 'vitest'
 import {
   ALWAYS_ACTIVE,
@@ -51,7 +47,6 @@ describe('browserPageLifecycle', () => {
     doc.dispatchEvent(new Event('visibilitychange'))
     expect(suspend).toHaveBeenCalledTimes(2)
 
-    // Visible, still offline: nothing to resume yet.
     doc.visibilityState = 'visible'
     doc.dispatchEvent(new Event('visibilitychange'))
     expect(resume).not.toHaveBeenCalled()
@@ -87,7 +82,6 @@ describe('browserPageLifecycle', () => {
     const suspend = vi.fn()
     const page = browserPageLifecycle(globals)
     page.subscribe({ resume, suspend })
-    // Frozen in the cache, whatever `visibilityState` still says.
     win.dispatchEvent(pagehide(true))
     expect(suspend).toHaveBeenCalledOnce()
     expect(page.visible).toBe(false)

@@ -1,132 +1,3 @@
-"""The content screen: an office's terms and number detectors, found and masked in text. Pure.
-
-One matcher for every place Piloti checks text against the office's „Sensible
-Daten" policy (ADR-0086):
-
-* the ingest job's content gate (``knowledge_layer.ingest.screening``) turns
-  the spans into a quarantine verdict before the first model call;
-* the chat socket (``agent_host.chat_socket``) replaces them with a placeholder
-  before the agent sees a message or its history keeps one.
-
-The browser runs a TypeScript twin (``apps/workspace/bff/upload-screening/content-screen.ts``)
-before a chat message leaves it. Both implementations read the ONE shared fixture,
-``tests/fixtures/content_screen_cases.json`` at the repository root, so the same
-text gives the same spans, the same masked text and the same findings on both
-sides. The twins agree by construction rather than by luck: neither uses its
-runtime's own idea of whitespace, case folding or digits, and the detectors are
-the same small parsers on both sides, not two regex dialects.
-
-It lives in ``agent.common`` because both Python consumers already import
-from here, while importing anything under ``knowledge_layer.ingest`` loads
-LlamaIndex (seconds) into a process that only wants a regex.
-
-Characters
-----------
-* **Whitespace** is :data:`WHITESPACE`, Unicode's ``White_Space`` property,
-  listed. Not ``str.isspace`` (which adds U+001C-U+001F) and not JavaScript's
-  ``\\s`` (which adds U+FEFF and drops U+0085).
-* **A word character** is a letter or a number (general category ``L*`` or ``N*``).
-* **A digit** is any Unicode decimal digit (``Nd``), read as its value: a number
-  typed in fullwidth or Arabic-Indic digits is still that number.
-
-Reading
--------
-Extracted text carries what nobody printed: a soft hyphen or a zero-width space
-inside a word, a hyphen where a line was broken. Every rule runs on the text as
-a person reads it (:func:`_read`): :data:`IGNORABLE` characters left out, and a
-hyphen with a letter or digit before it and, after ONE line break, a letter or
-digit, joined (``Gehalts-`` + line break + ``abrechnung`` is ``Gehaltsabrechnung``,
-``05-`` + line break + ``32`` is ``0532``). When the line after the break
-starts with a capital, the word is a compound written with its hyphen
-(``Büro-`` + line break + ``Honorar`` reads ``Büro-Honorar``): only the break
-goes, so ``Honorar`` still starts a word. A dash with a space before it and a
-hyphen before a blank line are left alone. A match is given back as a span of
-the ORIGINAL text, the invisible characters inside it included, so masking
-removes them with the rest.
-
-An invisible character joins a word, but may also have stood where a space
-would: two numbers printed against each other. Where one was left out between
-digits, a number's boundary still holds there (an IBAN is not "followed by a
-digit", a social-security number may start), and a card is tried with its run
-cut there as well as joined.
-
-Term matching
--------------
-Both sides are folded the same way: Unicode NFKC, the default lowercase mapping,
-final sigma as sigma, then the German transliterations (ä→ae, ö→oe, ü→ue, ß→ss),
-so ``Gehaltsübersicht``, ``GEHALTSÜBERSICHT`` and ``Gehaltsuebersicht`` are one term.
-Lowercase, not ``casefold``: JavaScript has the first and not the second.
-The fold runs per CLUSTER (a character and the combining marks after it), which
-is what lets a span found in the folded text be mapped back to the characters
-it came from, and makes a decomposed ``ü`` (some PDFs, some keyboards) fold like
-the composed one.
-
-A term matches at a WORD START and may run on: ``Honorar`` matches
-``Honorarvereinbarung`` and ``Honorare``, because German builds its compounds by
-appending. It does NOT match inside a word (``Ehrenhonorar``): a term whose first
-character is preceded by a LETTER in the reading is part of a different word.
-A digit before it does not make a compound: ``2024Honorar`` and ``Pos.3Honorar``
-are a label glued to the word, and match. A multi-word term matches across any
-run of whitespace, line breaks included. A single-word term of eight or more
-characters (folded) still matches with one space or hyphen inside it, where each
-part keeps at least three (``Gehalts abrechnung``, ``Gehalts-Abrechnung``; not
-``Ge-haltsabrechnung``): people split long compounds, and short terms would join
-across words. A term's span runs to the end of the word it starts, so masking
-``Honorar`` hides ``Honorarvereinbarung`` whole.
-
-Detectors
----------
-Only checksum-valid matches count, so a text full of order numbers is not
-flagged for looking like one. The checksum is the precision gate; the shapes
-around it are wide, because a number a person types is not printed by a bank,
-and a label may stand right against it (``SV-Nr1237010180``, ``IBAN:AT61…``,
-``…3201BIC``): a number is cut off by a DIGIT next to it, not by a letter.
-
-* ``iban``: a registered country code (:data:`IBAN_LENGTHS`, which also fixes
-  the length), in either case, two check digits, then the account, in groups of
-  four, in groups of two, or unbroken. A separator may stand after the country code and between
-  groups: a run of whitespace (line breaks too) or one ``-`` or ``.``. Mod 97.
-* ``at_svnr``: four digits, then the birth date DDMMYY, optionally separated
-  from it (whitespace, ``-``, ``.`` or ``/``), optionally with the date's own
-  parts separated by one and the same separator. The check digit, the first
-  digit and the date must hold, no ``:`` may follow (a time), and an unbroken
-  number needs a social-security label on the page
-  (:mod:`agent.common.svnr_numbers`): a timestamp and a customer number pass the
-  checksum too.
-* ``credit_card``: digit groups joined by spaces, ``-`` or ``.`` (not a tab:
-  that is a table cell). Somewhere in such a run, consecutive groups that have a
-  card's layout (one unbroken number of 13-19 digits, 4-4-4-4 with a last group
-  of 1-4, 4-6-5 for Amex or 4-6-4 for Diners), start in a card network's
-  issuer range and pass Luhn are a card (:mod:`agent.common.card_numbers`). An
-  UNBROKEN number counts only with a card's word within reach of it
-  (``Kreditkarte``, ``Visa``, ``CVC``): order, article and meter numbers are
-  printed unbroken, and one in thirty of them passes the checksum. A position before
-  it or an expiry date or security code after it are not part of it. Groups of
-  four beside it make it a piece of a longer number printed in fours, which gets
-  no sliding window, except that the last group may be the security code.
-  A card wrapped at a line end (one line break between two groups) is found in
-  the strictest layout only, four groups of four, and only where no card of the
-  run itself stands: a table's rows of numbers are not one card.
-* The digits of a recognised IBAN are never also reported as a card or a
-  social-security number.
-
-What is reported never carries a matched value: a detector's ``sample`` is
-MASKED (``AT61 •••• •••• •••• 3201``), because it is stored on a job status and
-shown to people who may not see the value.
-
-Masking
--------
-:func:`mask_text` replaces every span with its placeholder (:data:`PLACEHOLDERS`).
-Placeholders are protected: no term or detector match that overlaps one counts,
-so masking a masked text is a no-op, even for an office whose list contains
-„IBAN" or „Kartennummer". Masking repeats until nothing is left to mask, because
-removing one number can expose another that its digits were hiding (a card
-printed straight after an IBAN reads as part of its run).
-
-Rules see words and number shapes, not meaning: masking a term hides the word,
-not the figures around it („Honorar: 12.400 €" keeps the amount).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -173,20 +44,14 @@ from agent.common.svnr_numbers import valid_at_svnr
 logger = logging.getLogger(__name__)
 
 Detector = Literal["iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id"]
-#: Detectors in the order their findings are reported.
 DETECTORS: tuple[str, ...] = ("iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
-#: Bounds the request model enforces too (``agent_host.models.requests.ScreeningPolicy``).
 MAX_TERMS = 200
 MIN_TERM_CHARS = 2
 MAX_TERM_CHARS = 80
 
-#: What a masked sample hides a group of characters behind.
 MASK = "••••"
 
-#: What a masked span is replaced with, by rule kind. Domain data, in German,
-#: defined here once: the TypeScript twin and the shared fixture are held to it.
-#: None of them may match a term or a detector (they are protected regions).
 PLACEHOLDERS: dict[str, str] = {
     "iban": "[IBAN entfernt]",
     "at_svnr": "[SV-Nummer entfernt]",
@@ -199,9 +64,6 @@ PLACEHOLDERS: dict[str, str] = {
 _PLACEHOLDER_RE = re.compile("|".join(re.escape(placeholder) for placeholder in PLACEHOLDERS.values()))
 
 
-# ------------------------------------------------------------------- characters
-# WHITESPACE, the digit and separator readers: agent.common.screen_chars.
-
 _SPACE_RUN = re.compile(f"[{WHITESPACE}]+")
 
 _FOLD_TABLE = str.maketrans({"ς": "σ", "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -211,46 +73,26 @@ def _split_words(text: str) -> list[str]:
     return [word for word in _SPACE_RUN.split(text) if word]
 
 
-# --------------------------------------------------------------------- reading
-
-#: Characters that print as nothing and sit inside words in extracted text: the
-#: soft hyphen, the zero-width space, non-joiner and joiner, the word joiner and
-#: the byte-order mark. A reading leaves them out.
 IGNORABLE = "\u00ad\u200b\u200c\u200d\u2060\ufeff"
-#: Hyphens a line may be broken at; with a letter or digit on both sides of the break they are not part of the text.
 _BREAK_HYPHENS = "-\u2010\u2011"
 
 
-#: Where a reading may differ from the text: an invisible character, or a hyphen that may break a line.
 _DROP_SITE = re.compile(f"[{_BREAK_HYPHENS}{IGNORABLE}]")  # the ASCII hyphen first: not a range
 
 
 @dataclass(frozen=True)
 class _Reading:
-    """The text as a person reads it, and for each of its characters where it stands in the original.
-
-    ``soft`` holds the reading's indices where an invisible character was left
-    out right before. It joins a word (``Gehalts`` + soft hyphen + ``abrechnung``)
-    but may also have stood where a space would (two numbers printed against
-    each other), so a number's boundary treats it as one: the IBAN before it is
-    not "followed by a digit", and a card is tried with its groups split there
-    as well as joined.
-    """
-
     text: str
-    #: Original index of each reading character; ``None`` when the reading is the text itself.
     starts: list[int] | None = None
     soft: frozenset[int] = frozenset()
 
     def original(self, start: int, end: int) -> tuple[int, int]:
-        """The original span of the reading's ``start``..``end``."""
         if self.starts is None:
             return start, end
         return self.starts[start], self.starts[end - 1] + 1
 
 
 def _line_break_at(text: str, index: int) -> int:
-    """``index`` moved past one line break (``\\r\\n`` is one); unchanged when none stands there."""
     if text.startswith("\r\n", index):
         return index + 2
     return index + 1 if index < len(text) and text[index] in _LINE_BREAKS else index
@@ -263,14 +105,6 @@ def _skip(text: str, index: int, chars: str) -> int:
 
 
 def _hyphenation_end(text: str, index: int, before: str) -> int:
-    """Where a hyphen at ``index`` that breaks a word across lines ends, counting the break; ``index`` when it is none.
-
-    ``Gehalts-`` + line break + ``abrechnung`` and ``05-`` + line break + ``32``
-    are one word and one number. ``before`` is the character the reading has
-    just before the hyphen. One line break only: a blank line is a paragraph,
-    and a hyphen with a space before it is a dash. Invisible characters around
-    the break do not count.
-    """
     if not before or not _is_word_char(before):
         return index
     cursor = _skip(text, index + 1, _HORIZONTAL_SPACE + IGNORABLE)
@@ -282,12 +116,6 @@ def _hyphenation_end(text: str, index: int, before: str) -> int:
 
 
 def _read(text: str) -> _Reading:
-    """``text`` without invisible characters and hyphenation breaks; every rule runs on this. Pure.
-
-    Only the places a reading can differ (:data:`_DROP_SITE`) are looked at;
-    the text between them is copied whole, and a text with none is its own
-    reading.
-    """
     if not _DROP_SITE.search(text):
         return _Reading(text)
     parts: list[str] = []
@@ -315,19 +143,13 @@ def _read(text: str) -> _Reading:
         starts.append(index)
         before = text[index]
         if end > index:
-            # A capital after the break is a compound written with its hyphen
-            # (``Büro-`` + line break + ``Honorar``): only the break goes.
             cursor = end
     parts.append(text[cursor:])
     starts.extend(range(cursor, len(text)))
     return _Reading("".join(parts), starts, frozenset(soft))
 
 
-# ------------------------------------------------------------------------- fold
-
-
 def _clusters(text: str) -> Iterator[tuple[int, int]]:
-    """``(start, end)`` of each character with the combining marks that follow it."""
     start = 0
     for index in range(1, len(text) + 1):
         if index == len(text) or not _is_mark(text[index]):
@@ -340,14 +162,11 @@ def _fold_cluster(cluster: str) -> str:
 
 
 def fold(text: str) -> str:
-    """The form both a term and the text are compared in. Pure."""
     return "".join(_fold_cluster(text[start:end]) for start, end in _clusters(text))
 
 
 @dataclass(frozen=True)
 class _Folded:
-    """A text's fold, and for each folded character the original cluster it came from."""
-
     text: str
     starts: list[int]
     ends: list[int]
@@ -369,21 +188,14 @@ def _term_words(term: str) -> tuple[str, ...]:
     return tuple(_split_words(fold(term)))
 
 
-# ------------------------------------------------------------------------ rules
-
-
 @dataclass(frozen=True)
 class ScreeningRules:
-    """The terms and detectors a text is screened against. Build with ``build`` or ``from_config``."""
-
     terms: tuple[str, ...] = ()
     detectors: tuple[str, ...] = ()
-    #: One per term, same order: the term's folded words, matched literally.
     patterns: tuple[tuple[str, ...], ...] = field(default=(), repr=False, compare=False)
 
     @classmethod
     def build(cls, terms: Iterable[str], detectors: Iterable[str]) -> ScreeningRules | None:
-        """Rules from already-typed values, normalised; ``None`` when nothing is left to check."""
         kept_terms = _normalised_terms(terms)
         wanted = set(detectors)
         kept_detectors = tuple(name for name in DETECTORS if name in wanted)
@@ -394,12 +206,6 @@ class ScreeningRules:
 
     @classmethod
     def from_config(cls, raw: object) -> ScreeningRules | None:
-        """A ``{content_terms, detectors}`` mapping as rules; ``None`` when absent, empty or malformed.
-
-        Never raises: the ingest job reads it from a queue row that passed the
-        request model on the way in, so a malformed one is a damaged row, and
-        it is logged rather than allowed to fail every file of the job.
-        """
         if raw is None:
             return None
         if not isinstance(raw, Mapping):
@@ -416,29 +222,16 @@ class ScreeningRules:
         return cls.build(terms, detectors)
 
 
-#: The rules a chat message is screened with when the office's policy could not
-#: be had: every detector, no terms. A privacy control fails closed, and the
-#: detectors need no list to be right.
 DETECTORS_ONLY: ScreeningRules = ScreeningRules(detectors=DETECTORS)
 
 
 def screening_config_unusable(raw: object) -> bool:
-    """Whether a job carries a screening policy that cannot be applied: malformed, or no rule this build knows.
-
-    :meth:`ScreeningRules.from_config` reads both as "not screened", which is
-    right for a chat message's fallback but wrong for an upload: the office
-    asked for its files to be checked, and a file read without the check would
-    reach a model. The ingest job fails such a file instead
-    (``screening_unavailable``), so it is held, not read. Absent or empty is not
-    unusable: that job is simply not screened (the OIB corpus sync).
-    """
     if raw is None or (isinstance(raw, Mapping) and not raw.get("content_terms") and not raw.get("detectors")):
         return False
     return not is_screening_config(raw) or ScreeningRules.from_config(raw) is None
 
 
 def is_screening_config(raw: object) -> bool:
-    """Whether ``raw`` has the ``{content_terms?, detectors?}`` shape: a mapping of string lists."""
     if not isinstance(raw, Mapping):
         return False
     terms = raw.get("content_terms") or []
@@ -451,7 +244,6 @@ def _is_str_list(value: object) -> bool:
 
 
 def _normalised_terms(terms: Iterable[str]) -> tuple[str, ...]:
-    """Stripped, in bounds, first spelling of each folded form kept, at most ``MAX_TERMS``."""
     kept: dict[str, str] = {}
     for term in terms:
         stripped = " ".join(_split_words(term))
@@ -460,13 +252,6 @@ def _normalised_terms(terms: Iterable[str]) -> tuple[str, ...]:
     return tuple(kept.values())[:MAX_TERMS]
 
 
-# --------------------------------------------------------------------- detectors
-
-#: Every country that issues IBANs, and the one length its IBANs have: the SWIFT
-#: IBAN registry, plus the countries that issue IBANs outside it (French
-#: territories, several African states), as ``schwifty`` 2026.7.3 lists them. A
-#: country not listed here issues no IBAN, so a candidate from it is not one.
-#: The TypeScript twin and the shared fixture hold the same table.
 IBAN_LENGTHS: dict[str, int] = {
     "AD": 24, "AE": 23, "AL": 28, "AO": 25, "AT": 20, "AX": 18, "AZ": 28, "BA": 20, "BE": 16, "BF": 28,
     "BG": 22, "BH": 22, "BI": 27, "BJ": 28, "BL": 27, "BR": 29, "BY": 28, "CF": 27, "CG": 27, "CH": 21,
@@ -483,22 +268,13 @@ IBAN_LENGTHS: dict[str, int] = {
     "UA": 29, "VA": 22, "VG": 24, "WF": 27, "XK": 20, "YE": 30, "YT": 27,
 }  # fmt: skip
 
-#: Where an IBAN may start: an ASCII letter followed by one, not right after a
-#: digit. A label may stand against it (``IBAN:AT61``, ``SWIFTAT61``): the country
-#: fixes the length and the check digits decide, so the boundary adds no precision.
-#: The parse is :func:`_iban_at`.
 _IBAN_START = re.compile(r"(?<!\d)[A-Za-z](?=[A-Za-z])")
 _IBAN_AT = re.compile(r"[A-Za-z](?=[A-Za-z])")
-#: Where a social-security number may start: a digit not right after another.
 _SVNR_START = re.compile(r"(?<!\d)\d")
 _SVNR_AT = re.compile(r"\d")
 _SVNR_MARKS = "-./"
-#: What may join the groups of a card number: spaces, never a tab (a tab is a
-#: table cell), one ``-`` or ``.``.
 _CARD_SPACE = "".join(char for char in _HORIZONTAL_SPACE if char != "\t")
-#: A maximal run of digit groups joined like that: where a card may be printed.
 _CARD_RUN = re.compile(rf"\d(?:(?:[{_CARD_SPACE}]+|[-.])?\d)*")
-#: The same, where ONE line break may also join two groups: a card wrapped at a line end.
 _WRAPPED_CARD_RUN = re.compile(
     rf"\d(?:(?:[{_CARD_SPACE}]+|[-.]|[{_CARD_SPACE}]*(?:\r\n|[{_LINE_BREAKS}])[{_CARD_SPACE}]*)?\d)*"
 )
@@ -506,7 +282,6 @@ _DIGIT_GROUP = re.compile(r"\d+")
 
 
 def valid_iban(compact: str) -> bool:
-    """ISO 13616: a registered country, its registered length, and mod 97 == 1. Pure."""
     if IBAN_LENGTHS.get(compact[:2]) != len(compact) or not (compact.isascii() and compact.isalnum()):
         return False
     rearranged = compact[4:] + compact[:4]
@@ -515,19 +290,10 @@ def valid_iban(compact: str) -> bool:
 
 
 def _iban_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
-    """The IBAN printed at ``start``: its compact form and where it ends; ``None`` when there is none.
-
-    The country fixes the length, so the parse reads exactly that many
-    characters and stops: what follows (``EUR``, a card number, the next IBAN)
-    is never part of it, but a digit right after it makes it a longer number,
-    unless an invisible character stood between (``soft``). A separator may
-    stand after the country code and before each group of four, or of two.
-    """
     return _iban_in_groups(text, start, soft, 4) or _iban_in_groups(text, start, soft, 2)
 
 
 def _iban_in_groups(text: str, start: int, soft: frozenset[int], width: int) -> tuple[str, int] | None:
-    """:func:`_iban_at` for an IBAN printed in groups of ``width`` (four, or two), or unbroken."""
     country = text[start : start + 2].upper()
     length = IBAN_LENGTHS.get(country)
     if length is None:
@@ -549,7 +315,6 @@ def _iban_in_groups(text: str, start: int, soft: frozenset[int], width: int) -> 
 
 
 def _iban_char(text: str, index: int, *, digits_only: bool) -> str | None:
-    """The IBAN character at ``index``: a digit as ASCII, or (past the check digits) an ASCII letter upper-cased."""
     digit = _digit_at(text, index)
     if digit is not None or digits_only or index >= len(text):
         return digit
@@ -558,18 +323,11 @@ def _iban_char(text: str, index: int, *, digits_only: bool) -> str | None:
 
 
 def mask_iban(compact: str) -> str:
-    """Country and check digits, then masked groups, then the last four."""
     hidden = math.ceil(max(len(compact) - 8, 0) / 4)
     return " ".join([compact[:4], *([MASK] * hidden), compact[-4:]])
 
 
 def _svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
-    """The social-security number printed at ``start``: its ten digits and where it ends.
-
-    ``SSSS DDMMYY``, with or without a separator after the serial; the date's
-    own parts are either all joined (``010180``) or all separated (``01 01 80``,
-    ``01.01.80``).
-    """
     day_at = _skip_separator(text, start + 4, _SVNR_MARKS)
     month_at = _skip_separator(text, day_at + 2, _SVNR_MARKS)
     split = month_at != day_at + 2
@@ -589,34 +347,25 @@ def _svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | N
 
 
 def _separator_kind(text: str, start: int, end: int) -> str:
-    """What joins two parts of a number: ``""``, ``" "`` for any whitespace, or the mark itself."""
     return "" if start == end else (" " if text[start] in WHITESPACE else text[start])
 
 
 def _page_says(text: str, labels: tuple[str, ...]) -> bool:
-    """Whether one of ``labels`` stands anywhere in ``text``, at a word start."""
     return has_word(fold(text), labels, _is_letter)
 
 
 def _digit_groups(run: str) -> list[tuple[str, int, int]]:
-    """The digit groups of a run as (ASCII digits, start, end)."""
     return [(_digits_at(run, m.start(), len(m.group())) or "", m.start(), m.end()) for m in _DIGIT_GROUP.finditer(run)]
 
 
 def _cut_runs(run: str, cuts: list[int]) -> Iterator[list[tuple[str, int, int]]]:
-    """The run cut into runs of its own at ``cuts``, each as its digit groups (offsets stay those of ``run``)."""
     bounds = [0, *cuts, len(run)]
     for a, b in zip(bounds, bounds[1:], strict=False):
         yield [(digits, start + a, end + a) for digits, start, end in _digit_groups(run[a:b])]
 
 
-# ------------------------------------------------------------------------- spans
-
-
 @dataclass(frozen=True)
 class Span:
-    """One match: where it is, which rule found it, and a masked sample. ``find_spans`` gives original offsets."""
-
     kind: str
     start: int
     end: int
@@ -625,14 +374,12 @@ class Span:
 
 
 def _starts(text: str, soft: frozenset[int], start: re.Pattern[str], at: re.Pattern[str]) -> list[int]:
-    """Where a number may start: where ``start`` finds it, and right after an invisible character between digits."""
     found = [match.start() for match in start.finditer(text)]
     extra = [i for i in soft if 0 < i < len(text) and _digit_at(text, i - 1) is not None and at.match(text, i)]
     return sorted({*found, *extra}) if extra else found
 
 
 def _iban_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
-    """Every IBAN, in one pass: each start is parsed on its own, and the scan resumes after a match."""
     resume = 0
     for start in _starts(text, soft, _IBAN_START, _IBAN_AT):
         if start < resume:
@@ -655,12 +402,6 @@ def _svnr_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
 
 
 def _card_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
-    """Cards in each run of digit groups, then cards wrapped at one line end.
-
-    Where an invisible character stood between digits, a run is tried cut there
-    too. A wrapped card is found only in the strictest layout (four groups of
-    four) and only where no card of the first pass stands.
-    """
     found = sorted(_unwrapped_cards(text, soft), key=lambda card: card[1])
     found += [card for card in _wrapped_cards(text) if not _overlaps_card(card, found)]
     for digits, start, end in sorted(found, key=lambda card: card[1]):
@@ -687,14 +428,12 @@ def _unwrapped_cards(text: str, soft: frozenset[int]) -> Iterator[tuple[str, int
 
 
 def _cards_said(text: str, offset: int, groups: list[tuple[str, int, int]]) -> Iterator[tuple[str, int, int]]:
-    """The cards among a run's groups (``cards_in``), an unbroken one only with a card's word beside it."""
     for digits, start, end, unbroken in cards_in(groups):
         if not unbroken or _has_card_context(text, offset + start, offset + end):
             yield digits, start, end
 
 
 def _has_card_context(text: str, start: int, end: int) -> bool:
-    """Whether a card's word (``card_numbers.CARD_CONTEXT_WORDS``) stands within reach of ``text[start:end]``."""
     begin, stop = context_window(text, start, end, _is_letter)
     near = fold(text[begin:stop])
     return has_word(near, CARD_CONTEXT_WORDS, _is_letter) or _page_says(text, CARD_PAGE_LABELS)
@@ -726,7 +465,6 @@ def _de_svnr_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
 
 
 def _de_tax_id_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
-    """Tax identification numbers, only on a page that names one: eleven digits are often something else."""
     if not _page_says(text, TAX_ID_LABELS):
         return
     resume = 0
@@ -748,28 +486,18 @@ _DETECTOR_SPANS = {
 }
 
 
-#: A single-word term this long (folded) still matches with one space or hyphen inside it…
 _SPLIT_TERM_MIN = 8
-#: …where each part keeps at least this many characters.
 _TERM_FRAGMENT = 3
-#: What may split such a term: a space, or one hyphen (folded text keeps U+2010 for U+2011).
 _TERM_JOINERS = " -\u2010\u2011"
 
 
 def _word_end(text: str, end: int) -> int:
-    """``end`` moved over the rest of the word it is in: letters, digits and their combining marks."""
     while end < len(text) and unicodedata.category(text[end])[0] in "LNM":
         end += 1
     return end
 
 
 def _starts_a_word(folded: _Folded, text: str, index: int) -> bool:
-    """Whether folded ``index`` begins a cluster that no LETTER precedes in the text the rules read.
-
-    A letter before it makes it part of another word (``Ehrenhonorar``); a digit
-    does not (``2024Honorar``, ``Pos.3Honorar``): a number glued to a word is a
-    label, not a compound.
-    """
     if index == 0:
         return True
     previous = folded.starts[index - 1]
@@ -777,7 +505,6 @@ def _starts_a_word(folded: _Folded, text: str, index: int) -> bool:
 
 
 def _words_end(folded: str, start: int, words: tuple[str, ...]) -> int:
-    """Where ``words`` end when they stand at ``start`` with whitespace between them; -1 when they do not."""
     cursor = start
     for position, word in enumerate(words):
         gap = cursor
@@ -790,11 +517,6 @@ def _words_end(folded: str, start: int, words: tuple[str, ...]) -> int:
 
 
 def _word_end_split(folded: str, start: int, word: str) -> int:
-    """Where ``word`` ends at ``start`` when one space or hyphen may stand inside it; -1 when it does not.
-
-    The separator may split the word only where each part keeps at least
-    :data:`_TERM_FRAGMENT` characters (``Gehalts-abrechnung``, ``Gehalts abrechnung``).
-    """
     cursor = start
     split = False
     for position, char in enumerate(word):
@@ -810,7 +532,6 @@ def _word_end_split(folded: str, start: int, word: str) -> int:
 
 
 def _long_term_matches(folded: _Folded, text: str, word: str) -> Iterator[tuple[int, int]]:
-    """:func:`_term_matches` for one word of :data:`_SPLIT_TERM_MIN` or more characters, which may be split once."""
     anchor = word[:_TERM_FRAGMENT]
     index = folded.text.find(anchor)
     while index != -1:
@@ -823,7 +544,6 @@ def _long_term_matches(folded: _Folded, text: str, word: str) -> Iterator[tuple[
 
 
 def _term_matches(folded: _Folded, text: str, words: tuple[str, ...]) -> Iterator[tuple[int, int]]:
-    """``(start, end)`` in the folded text of each match of a term, leftmost first and not overlapping."""
     if not words:
         return
     if len(words) == 1 and len(words[0]) >= _SPLIT_TERM_MIN:
@@ -849,14 +569,6 @@ def _term_spans(text: str, rules: ScreeningRules) -> Iterator[Span]:
 
 
 def find_spans(text: str, rules: ScreeningRules) -> list[Span]:
-    """Every match of every rule in ``text``, in rule order, then by position. Pure.
-
-    The rules read the text as a person does (:func:`_read`), and each span is
-    given back in the ORIGINAL text. Overlapping matches are all kept (each is a
-    match of its own rule), except that digits inside a recognised IBAN are not
-    also a card or a social-security number; a match that overlaps a placeholder
-    is dropped, because a placeholder is what an earlier mask left behind.
-    """
     if not text:
         return []
     protected = [(match.start(), match.end()) for match in _PLACEHOLDER_RE.finditer(text)]
@@ -874,7 +586,6 @@ def _in_original(span: Span, reading: _Reading) -> Span:
 
 
 def _outside_ibans(spans: list[Span]) -> list[Span]:
-    """``spans`` without the card and social-security matches that lie inside an IBAN's own digits."""
     ibans = sorted((span for span in spans if span.kind == "iban"), key=lambda span: span.start)
     starts = [iban.start for iban in ibans]
 
@@ -885,7 +596,6 @@ def _outside_ibans(spans: list[Span]) -> list[Span]:
     return [span for span in spans if span.kind not in _NUMBER_KINDS or not inside(span)]
 
 
-#: The detectors whose digits an IBAN can hold: never reported inside one.
 _NUMBER_KINDS = ("at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 
@@ -893,13 +603,8 @@ def _overlaps_any(span: Span, regions: list[tuple[int, int]]) -> bool:
     return any(span.start < end and start < span.end for start, end in regions)
 
 
-# ------------------------------------------------------------------------ masking
-
-
 @dataclass(frozen=True)
 class Finding:
-    """What a mask removed, per rule: the term or detector and how often, never a matched value."""
-
     kind: str
     count: int
     term: str | None = None
@@ -917,8 +622,6 @@ class Finding:
 
 @dataclass(frozen=True)
 class MaskedText:
-    """A text with every match replaced by its placeholder, and what was found."""
-
     text: str
     findings: tuple[Finding, ...] = ()
 
@@ -928,7 +631,6 @@ class MaskedText:
 
 
 def _merged(spans: list[Span]) -> list[Span]:
-    """Spans by position, overlapping ones joined; a joined span keeps the first one's kind."""
     out: list[Span] = []
     for span in sorted(spans, key=lambda s: (s.start, -s.end)):
         if out and span.start < out[-1].end:
@@ -951,7 +653,6 @@ def _replaced(text: str, spans: list[Span]) -> str:
 
 
 def _findings(spans: list[Span], rules: ScreeningRules) -> tuple[Finding, ...]:
-    """One finding per rule that matched: terms in the rules' order, then detectors; the first sample found."""
     by_rule: dict[tuple[str, str | None], list[Span]] = {}
     for span in spans:
         by_rule.setdefault((span.kind, span.term), []).append(span)
@@ -965,15 +666,6 @@ def _findings(spans: list[Span], rules: ScreeningRules) -> tuple[Finding, ...]:
 
 
 def mask_text(text: str, rules: ScreeningRules | None) -> MaskedText:
-    """``text`` with every term and detector match replaced by its placeholder. Pure.
-
-    ``None`` rules mask nothing. Idempotent: the result's text, masked again,
-    is itself with no findings, because the loop runs until a pass finds
-    nothing; there is no pass limit that could leave a match behind. It ends:
-    every pass replaces at least one character outside a placeholder with a
-    placeholder, placeholders never overlap (each is bracketed and holds no
-    bracket), so the characters outside them strictly decrease.
-    """
     if rules is None or not text:
         return MaskedText(text)
     found: list[Span] = []
@@ -987,5 +679,4 @@ def mask_text(text: str, rules: ScreeningRules | None) -> MaskedText:
 
 
 def findings_summary(findings: Iterable[Finding]) -> str:
-    """The finding kinds and counts, for a log line: no term, no sample, no value."""
     return ", ".join(f"{finding.kind}={finding.count}" for finding in findings)

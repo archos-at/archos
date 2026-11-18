@@ -1,28 +1,3 @@
-/**
- * The E-Mail-Eingang as a person (or an agent acting as one) reads and decides
- * it (ADR-0137, DECISION §6 "Decide", §7). The routes under
- * `/api/projects/[id]/inbound-mails` are thin adapters over this module.
- *
- * What it guarantees:
- *
- * - **Who.** Every function asks `access.ts` first: the office's
- *   `inbound-mail` entitlement and `project:documents:write` (C1); a refusal is
- *   a 404. Filing asks write on every target folder too (C2).
- * - **What a reader is shown.** Metadata, masked: the subject runs through the
- *   office's content check (`maskText`) for every reader, the text only through
- *   {@link getInboundMailText}, masked the same way, and candidates are the
- *   viewer's (`candidates.ts`). No bytes leave except through the two content
- *   functions, and those only after a clean scan (RT-S3).
- * - **What a decision is.** Rows in `inbound_mail_decisions`, written with the
- *   claims and the filing job in one transaction, compare-and-set against the
- *   mail the person read (`ifMatch`, C3). The request files nothing: the job
- *   does, as the person, from those rows (`file-job.ts`). It answers 202.
- * - **How it reached us.** `via` is read from the call, never from the body:
- *   the app, an outside agent acting as the person, or an agent's card the
- *   person accepted (`actingProposalId`). A card carries no acknowledgement
- *   and no release (RT-S5).
- */
-
 import 'server-only'
 import { v5 as uuidv5 } from 'uuid'
 import { actingProposalId, actingReaderIsAgent, currentActingSession } from '@/lib/agent-api/acting-session'
@@ -58,21 +33,14 @@ import { scoreMailDecision } from './suggest-scores'
 import { threadGroupsOf } from './thread-groups'
 import { groupParts, loadMailViews, mailViews, masked, maskRulesFor, summaryView } from './mail-views'
 
-/** How long a claim on a part holds before the sweep hands it back (D8: the proposals' apply claim, reused). */
 export const FILING_CLAIM_MS = 5 * 60 * 1000
 
 const DAY_MS = 86_400_000
 
-/** The job id of the filing job one request queues: uuid5 of its first decision, so a retried enqueue is no second job. */
 export function filingJobId(firstDecisionId: string): string {
   return uuidv5(`grid:inbound-mail:file:${firstDecisionId}`, uuidv5.URL)
 }
 
-/**
- * How the decision in flight reached us (`inbound_mail_decisions.via`), from
- * the call itself: an agent's card the person accepted, an outside agent acting
- * as the person, or the app. Never from the body, which an agent writes.
- */
 export function decisionActor(session: AuthorizedSession): DecisionActor {
   const proposalId = actingProposalId()
   if (proposalId) return { decidedBy: session.userId, via: 'agent_proposal', proposalId }
@@ -80,11 +48,6 @@ export function decisionActor(session: AuthorizedSession): DecisionActor {
   return { decidedBy: session.userId, via: 'app', proposalId: null }
 }
 
-// ---------------------------------------------------------------------------
-// Reads
-// ---------------------------------------------------------------------------
-
-/** One page of the project's E-Mail-Eingang (`inbound-mail-list`): waiting or handled mail, newest first. */
 export async function listInboundMails(
   session: AuthorizedSession,
   projectId: string,
@@ -111,26 +74,18 @@ export async function listInboundMails(
   }
 }
 
-/** A mail of the project the reviewer may read, or 404. */
 async function requireMail(projectId: string, mailId: string): Promise<InboundMailRow> {
   const mail = await findProjectMail(projectId, mailId)
   if (!mail) throw new NotFoundError('Mail not found')
   return mail
 }
 
-/** One held mail (`inbound-mail-get`): headers, labels, parts and the viewer's candidates. Never its text. */
 export async function getInboundMail(session: AuthorizedSession, projectId: string, mailId: string): Promise<InboundMailView> {
   const { closed } = await requireMailReviewer(session, projectId)
   const [view] = await mailViews(session, projectId, [await requireMail(projectId, mailId)], closed)
   return view as InboundMailView
 }
 
-/**
- * The text of a held mail (`inbound-mail-text-get`, D7): the sender's own text
- * and the quoted blocks, every finding of the office's content check masked,
- * for every reader. Not offered to the agent (the exposure config); outside agents
- * and people read it masked.
- */
 export async function getInboundMailText(session: AuthorizedSession, projectId: string, mailId: string): Promise<InboundMailTextView> {
   await requireMailReviewer(session, projectId)
   const mail = await requireMail(projectId, mailId)
@@ -143,7 +98,6 @@ export async function getInboundMailText(session: AuthorizedSession, projectId: 
   const own = maskText(read.ownText, rules)
   const quoted = read.quoted.map((block) => ({ header: maskText(block.header, rules), text: maskText(block.text, rules) }))
   const anyMasked = own.findings.length > 0 || quoted.some((block) => block.header.findings.length + block.text.findings.length > 0)
-  // Read off the masked quotes, so the name shown is masked as the text it came from.
   const forwardedFrom = forwardedOrigin(masked(mail.subject, rules), {
     quoted: quoted.map((block) => ({ header: block.header.text, text: block.text.text })),
   })
@@ -165,10 +119,8 @@ export async function getInboundMailText(session: AuthorizedSession, projectId: 
   }
 }
 
-/** The media types a held attachment is served as; anything else is `application/octet-stream`. */
 const SERVED_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
-/** The headers every held byte is served with: never sniffed, never run, never cached, always a download. */
 export function heldBytesHeaders(contentType: string, filename: string): Record<string, string> {
   return {
     'Content-Type': contentType,
@@ -179,12 +131,6 @@ export function heldBytesHeaders(contentType: string, filename: string): Record<
   }
 }
 
-/**
- * The bytes of one held attachment (`inbound-mail-part-content-get`), for the
- * person's preview and download: only after a clean scan (409
- * `scan_not_clean` otherwise, RT-S3), served so a browser never runs them, and
- * audited (`inbound_mail.part_read`). Not offered to the agent.
- */
 export async function readInboundMailPart(
   session: AuthorizedSession,
   projectId: string,
@@ -197,7 +143,6 @@ export async function readInboundMailPart(
   if (!part) throw new NotFoundError('Part not found')
   if (part.scanStatus !== 'clean') throw refusal('scan_not_clean', 'This attachment has no clean scan', { partId })
   if (!part.storageKey) throw refusal('gone', 'The bytes of this attachment are no longer held', { partId })
-  // Kept past its erasure only for a legal hold: evidence for people, never bytes for an agent.
   if (actingReaderIsAgent() && (part.erasureDeferredAt || mail.erasureDeferredAt)) {
     throw refusal('legal_hold', 'This attachment is kept under a legal hold and is not sent to an agent', { partId })
   }
@@ -215,13 +160,6 @@ export async function readInboundMailPart(
   return new Response(new Blob([new Uint8Array(bytes)]), { status: 200, headers: heldBytesHeaders(type, part.filename ?? `attachment-${part.position}`) })
 }
 
-/**
- * The original `.eml` of a held mail (`inbound-mail-original-get`), scanned
- * whole on this request (`ScanMail`), served only on a clean answer (409
- * `original_not_clean` otherwise) and audited (`inbound_mail.original_read`).
- * Evidence: no agent door offers it (withheld, `evidence`). The copy warns
- * that a mail program loads remote images.
- */
 export async function readInboundMailOriginal(session: AuthorizedSession, projectId: string, mailId: string): Promise<Response> {
   await requireMailReviewer(session, projectId)
   const mail = await requireMail(projectId, mailId)
@@ -247,17 +185,6 @@ export async function readInboundMailOriginal(session: AuthorizedSession, projec
   return new Response(new Blob([new Uint8Array(bytes)]), { status: 200, headers: heldBytesHeaders('message/rfc822', `mail-${mail.id}.eml`) })
 }
 
-// ---------------------------------------------------------------------------
-// Decisions
-// ---------------------------------------------------------------------------
-
-/**
- * After a decision committed: the trail, the live hint, the notices. The
- * project's `waiting` and `expiring` rows settle once nothing they count waits
- * (`settleProjectNotices`, by what the project holds, not by this mail, which
- * may not be the row's anchor), and a failed filing of these mails is no
- * longer anyone's to do: they were just decided again.
- */
 async function afterDecisions(
   session: AuthorizedSession,
   projectId: string,
@@ -271,11 +198,6 @@ async function afterDecisions(
   await settleHeld(session.organizationId, mailIds)
 }
 
-/**
- * Tell each dismissed mail's member sender its outcome (D9), when this
- * dismissal ended it: nothing of it waits or is being filed any more. A mail
- * part of which was filed before reads as filed.
- */
 async function tellDismissed(session: AuthorizedSession, mails: readonly InboundMailRow[], written: DecisionsWritten): Promise<void> {
   const decided = mails.filter((mail) => written.decisions.some((row) => row.mailId === mail.id))
   const states = await partStatesOf(decided.map((mail) => mail.id))
@@ -295,7 +217,6 @@ async function tellDismissed(session: AuthorizedSession, mails: readonly Inbound
   }
 }
 
-/** The rows a request's decisions are checked against, loaded once (`DecisionContext`). */
 export async function decisionContext(
   session: AuthorizedSession,
   projectId: string,
@@ -331,7 +252,6 @@ export async function decisionContext(
   }
 }
 
-/** The PostHog bucket of how long a mail waited, never the exact time. */
 export function hoursWaitingBucket(receivedAt: Date | string, now: number): string {
   const hours = (now - new Date(receivedAt).getTime()) / 3_600_000
   if (hours < 1) return 'lt_1h'
@@ -340,13 +260,6 @@ export function hoursWaitingBucket(receivedAt: Date | string, now: number): stri
   return 'gte_7d'
 }
 
-/**
- * Decide up to 20 mails (`inbound-mail-file`, D26): file the named parts,
- * dismiss every other waiting part. Checks every rule of C2 for every mail
- * before anything is written, then writes the decisions, the claims and the
- * filing job in one transaction (C3), and answers 202 with the mails as they
- * stand now. The filing job files each part as this person.
- */
 export async function fileInboundMails(
   session: AuthorizedSession,
   projectId: string,
@@ -400,7 +313,6 @@ export async function fileInboundMails(
   for (const plan of plans) {
     const mail = mails.find((candidate) => candidate.id === plan.mailId)
     const message = plan.files.find((row) => row.threadAction)
-    // Scored against the parts as they were before this decision (D21, §10).
     const suggestionFollowed = mail
       ? scoreMailDecision({
           organizationId: session.organizationId,
@@ -422,7 +334,6 @@ export async function fileInboundMails(
         suggestion_followed: suggestionFollowed,
         thread_action: message?.threadAction ?? null,
         hours_waiting_bucket: mail ? hoursWaitingBucket(mail.receivedAt, now) : null,
-        // Whether filing a mail posing as someone ever happens (it should not: the detail makes it a stop).
         risk_level: mail ? senderRiskLevel(senderFactsOf(mail)) : null,
         via: context.actor.via,
       },
@@ -433,11 +344,6 @@ export async function fileInboundMails(
   return { mails: await mailViews(session, projectId, fresh, closed), filingJobId: jobId }
 }
 
-/**
- * Dismiss every waiting part of these mails (`inbound-mail-dismiss`),
- * restorable for seven days. Possible in a closed project. A mail with nothing
- * waiting is left as it is, so dismissing twice changes nothing.
- */
 export async function dismissInboundMails(
   session: AuthorizedSession,
   projectId: string,
@@ -445,7 +351,6 @@ export async function dismissInboundMails(
 ): Promise<{ mails: InboundMailView[] }> {
   const { closed } = await requireMailReviewer(session, projectId)
   const mails = await Promise.all(body.mailIds.map((mailId) => requireMail(projectId, mailId)))
-  // The parts before the dismissal: each suggestion they carried is scored as not followed.
   const before = groupParts(await findMailParts(body.mailIds))
   const actor = decisionActor(session)
   const written = await dismissMails(projectId, body.mailIds, actor)
@@ -481,13 +386,6 @@ export async function dismissInboundMails(
   return { mails: await mailViews(session, projectId, fresh, closed) }
 }
 
-/**
- * Restore a mail's dismissed or expired parts within their seven days
- * (`inbound-mail-restore`, D8): they wait again, and an expired mail waits at
- * least seven more days. Idempotent: a second call finds nothing to restore and
- * answers the mail as it is. Refused (`not_restorable`) when nothing of the
- * mail can come back and nothing waits.
- */
 export async function restoreInboundMail(session: AuthorizedSession, projectId: string, mailId: string): Promise<InboundMailView> {
   const { closed } = await requireMailReviewer(session, projectId)
   const mail = await requireMail(projectId, mailId)

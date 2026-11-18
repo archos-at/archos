@@ -12,6 +12,7 @@ import type { DocumentReview } from '../hooks/use-document-review'
 import { MarkBody } from './review/mark-body'
 import { markInk } from './review/review-page-layer'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 const OPEN_DELAY_MS = 130
 const CLOSE_DELAY_MS = 220
@@ -51,7 +52,7 @@ export function InlineMarkPeek({
     (annotation) => annotation.id === shownId && annotation.page === page && annotation.onCurrentRevision
   )
   if (!canHover || !mark) return null
-  const author = mark.authorKind === 'piloti' ? PRODUCT_NAME : mark.createdByName
+  const author = isAgentKind(mark.authorKind) ? PRODUCT_NAME : mark.createdByName
   return (
     <Popover open onOpenChange={(open) => !open && setShownId(null)}>
       <PopoverAnchor asChild>

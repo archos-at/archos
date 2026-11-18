@@ -1,5 +1,3 @@
-"""Compartment areas: the floor area one fire compartment encloses, and the caveats that come with a declared zone."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -14,50 +12,8 @@ from .envelope import computed
 from .envelope import undecidable
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# compartment_area — what a Brandabschnitt is measured on
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def compartment_area(model: SpatialModel, storey_or_space_ids: str | Sequence[str]) -> Answer[dict[str, Any]]:
-    """The floor area of a group of spaces taken together, in m².
-
-    Takes one id or a list of them, and each may be:
-
-      - an **``IfcZone`` or ``IfcGroup``** — the export's OWN declaration of what
-        belongs together. When one is passed the grouping is ``declared``, and
-        the answer says so: a declared compartment is the architect's statement
-        and outranks anything this library would assemble from a storey.
-      - an **``IfcBuildingStorey``** — every space aggregated into or contained
-        in it. Convenient and *not* the same thing: a storey is not a
-        Brandabschnitt, and the caveat says so every time.
-      - an **``IfcSpace``** — itself.
-
-    ## Why the constituents travel with the sum
-
-    A single number is unauditable. Each space comes back with its own area and
-    the provenance of that area, so a reviewer who thinks the total is wrong can
-    point at the one room that is wrong. It also makes the two ways the sum can
-    lie visible:
-
-      - **double counting.** The same space reached twice — passed directly and
-        again through its storey — is de-duplicated by GlobalId and the drop is
-        reported. This is exact, not heuristic.
-      - **overlap.** Two space bodies that overlap in plan at the same height
-        are one room modelled twice, and their areas add up to more floor than
-        the building has. The overlapping area is measured with shapely and
-        reported; it is NOT subtracted, because which of the two rooms is the
-        spurious one is not something geometry can decide.
-
-    Spaces at *different* heights are never treated as overlapping: a
-    Brandabschnitt over two storeys is measured as the sum of both floors, and
-    unioning their footprints in plan would halve it.
-
-    ## No threshold
-
-    OIB Richtlinie 2 names a maximum Brandabschnittsfläche. That number is a
-    fact about the clause and appears nowhere here; this returns square metres.
-    """
     ids = [storey_or_space_ids] if isinstance(storey_or_space_ids, str) else list(storey_or_space_ids)
     method = f"compartmentArea([{', '.join(ids)}])"
     if not ids:
@@ -184,11 +140,6 @@ def compartment_area(model: SpatialModel, storey_or_space_ids: str | Sequence[st
         "overlaps": overlaps,
         "deklarierteZonen": _declared_zones(model),
     }
-    # `computed`, always, even when the GROUPING is the architect's own IfcZone:
-    # the envelope carries one provenance and the number is the sum of measured
-    # areas. That the grouping was declared is stated in `grouping[].deklariert`
-    # and in the caveat, where it can be read as what it is — a statement about
-    # which rooms belong together, not about how large they are.
     return computed(
         value,
         unit="m²",
@@ -200,14 +151,10 @@ def compartment_area(model: SpatialModel, storey_or_space_ids: str | Sequence[st
 
 
 def _resolve_group(model: SpatialModel, subject: Any) -> tuple[list[Any] | None, str, bool]:
-    """The spaces behind one id, how they were reached, and whether that is declared."""
     kind = model.kind_of(subject)
     if kind == "space":
         return [subject], "Raum unmittelbar übergeben", True
     if subject.is_a("IfcGroup"):
-        # `IfcZone` is a subtype of `IfcGroup`, so both arrive here. Only the
-        # spaces are taken: a zone may legitimately group other zones and
-        # elements, and an IfcWall inside a zone is not floor area.
         members = [
             member
             for rel in (getattr(subject, "IsGroupedBy", []) or [])
@@ -218,11 +165,6 @@ def _resolve_group(model: SpatialModel, subject: Any) -> tuple[list[Any] | None,
     if kind == "storey":
         spaces = [space for space in model.file.by_type("IfcSpace") if _storey_id(model, space) == subject.GlobalId]
         return spaces, "alle Räume dieses Geschoßes (IfcRelAggregates / IfcRelContainedInSpatialStructure)", True
-    # A building or a site is deliberately NOT accepted. "Alle Räume des
-    # Gebäudes" is a plausible-looking call that produces the Brutto-Grundfläche
-    # of the whole house under the name of a Brandabschnitt, and the answer would
-    # carry no sign of the substitution. The caller has to name the storeys or
-    # the zone it means.
     return None, "", False
 
 
@@ -232,14 +174,6 @@ def _storey_id(model: SpatialModel, space: Any) -> str | None:
 
 
 def _plan_overlaps(model: SpatialModel, spaces: Sequence[Any]) -> list[dict[str, Any]]:
-    """Pairs of spaces that occupy the same plan area at the same height.
-
-    Only pairs whose Z ranges actually overlap are tested. Two rooms stacked on
-    different storeys share their whole footprint in plan and are not double
-    counting — a Brandabschnitt spanning two floors is the sum of both — so a
-    plan-only union would silently halve exactly the compartment this operator
-    is asked about most.
-    """
     import shapely
     import shapely.ops
 
@@ -282,12 +216,6 @@ def _plan_overlaps(model: SpatialModel, spaces: Sequence[Any]) -> list[dict[str,
 
 
 def _declared_zones(model: SpatialModel) -> list[dict[str, Any]]:
-    """Every zone or group this file declares over spaces, with its members.
-
-    Reported on every answer, even when the caller asked about a storey. If the
-    export states its own compartments, that statement is worth more than a
-    storey-shaped guess and the caller should be told it exists.
-    """
     out: list[dict[str, Any]] = []
     for ifc_type in ("IfcZone", "IfcGroup"):
         try:

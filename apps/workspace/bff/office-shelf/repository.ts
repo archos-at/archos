@@ -1,14 +1,3 @@
-/**
- * Archiv repository — the only module that queries the `documents` table for
- * the org-wide Archiv domain (rows with `scope = 'office_shelf'`, `project_id` NULL).
- *
- * Repository rules (docs/architecture/bff-service-architecture.md):
- *   - drizzle only; no HTTP, no auth, no SeaweedFS/backend calls.
- *   - Every query is scoped by `organizationId` in the SQL WHERE clause — the
- *     Archiv is a per-tenant store, so tenancy is enforced here, not in JS.
- *   - List queries are always bounded (`limit`).
- */
-
 import 'server-only'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -24,10 +13,6 @@ import {
 import { OFFICE_SHELF } from '@/lib/documents/shelf'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
 
-/**
- * One page of a folder level of the Archiv, in the reader's order - the shared
- * level read (`listDocumentLevelPage`, ADR-0102) on the Archiv shelf.
- */
 export function listOfficeShelfDocumentLevel(
   organizationId: string,
   options: Parameters<typeof listDocumentLevelPage>[2],
@@ -35,11 +20,6 @@ export function listOfficeShelfDocumentLevel(
   return listDocumentLevelPage(OFFICE_SHELF, organizationId, options)
 }
 
-/**
- * The Archiv rows named `filenames` — the semantic search's join and the
- * by-name resolve, which must reach a document whatever page of the listing it
- * would sit on. Bounded by its input (`filenameLookupWhere`).
- */
 export function findOfficeShelfDocumentsByFilenames(
   organizationId: string,
   filenames: readonly string[],
@@ -48,10 +28,6 @@ export function findOfficeShelfDocumentsByFilenames(
   return findDocumentsByFilenames(OFFICE_SHELF, organizationId, filenames, options)
 }
 
-/**
- * The Archiv documents answering to any of `names` — the upload planner's
- * name probe, matched the way the upload will match (`probeDocumentNames`).
- */
 export function findOfficeShelfDocumentsByNames(
   organizationId: string,
   names: readonly string[],
@@ -60,7 +36,6 @@ export function findOfficeShelfDocumentsByNames(
   return findDocumentsByNames(OFFICE_SHELF, organizationId, names, options)
 }
 
-/** Load one Archiv document by id, scoped to its organization, as `reader` may see it (ADR-0086). */
 export async function findOfficeShelfDocument(
   documentId: string,
   organizationId: string,
@@ -82,18 +57,6 @@ export async function findOfficeShelfDocument(
   return row ?? null
 }
 
-/**
- * Recording an Archiv document goes through `insertDocumentWithinQuota`
- * (`@/lib/storage/repository`), which applies the organization's quota in the
- * same transaction as the insert.
- *
- * `insertOfficeShelfDocument` is gone for the reason given in
- * `documents/repository.ts`: a second, ungated insert is how a ceiling stops
- * being one. The caller now states `scope: 'office_shelf'` and `projectId: null`
- * itself — those defaults were the only thing this function added.
- */
-
-/** Hard-delete an Archiv row (the DB record; SeaweedFS + backend cleanup live in the service). */
 export async function deleteOfficeShelfDocument(documentId: string, organizationId: string): Promise<void> {
   const db = getDb()
   await db

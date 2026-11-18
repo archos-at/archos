@@ -24,7 +24,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
 import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import {
-  INBOX_TYPE_PRESENTATION,
+  inboxTypePresentation,
   isMarkAnchored,
   UNKNOWN_TYPE_PRESENTATION,
   type InboxItemView,
@@ -93,7 +93,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
   const tFiles = useTranslations(filesCopy)
   const { locale } = useLocale()
 
-  const presentation = INBOX_TYPE_PRESENTATION[item.type] ?? UNKNOWN_TYPE_PRESENTATION
+  const presentation = inboxTypePresentation(item.type) ?? UNKNOWN_TYPE_PRESENTATION
 
   const documentProjectId =
     item.resourceType === 'document' ? projectIdFromDocumentHref(item.href) : null
@@ -187,7 +187,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
   const chatName = item.subject ?? t('inbox.untitledConversation')
   const place =
     item.resourceType === 'conversation' &&
-    presentation.icon !== 'piloti' &&
+    presentation.icon !== 'agent' &&
     !redacted &&
     !title.includes(chatName) &&
     !(showBody && body?.includes(chatName))
@@ -228,7 +228,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
             discouraged, design-language.md). It no longer touches the avatar:
             the ring it wore merged the two into one smudge. */}
         <AttentionDot show={unread} className="absolute left-3 top-[1.1rem] size-2 ring-0" />
-        {/* Who it is from, in one material: a person's face, Piloti's glyph,
+        {/* Who it is from, in one material: a person's face, the agent's glyph,
             or the type's glyph for a system row, all on the same neutral
             ground. The tinted wells and the glyph badges in the avatars'
             corners made a rainbow of small marks down the list; what a row
@@ -446,7 +446,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
             {/* The row itself opens the mark (its stretched link), so a button
                 saying „Zur Anmerkung“ was the row's own click drawn a second
                 time, in ink, on every row about a mark. It stays where it IS
-                the action: Piloti's question answered in the Prüfansicht. */}
+                the action: the agent's question answered in the Prüfansicht. */}
             {answerInReview && item.href && (
               <Button asChild variant="ghost" size="icon" className="relative z-10 size-8 text-muted-foreground hover:text-foreground pointer-coarse:hidden">
                 <Link

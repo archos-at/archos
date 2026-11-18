@@ -1,35 +1,4 @@
-/**
- * Copy of the privacy policy, both locales. `{name}` is the brand name, filled by
- * `withName`. `{legalEntity}`, `{street}`, `{postalCode}`, `{city}` are filled from
- * identity, and `{email}` and `{dsb}` become links, all by the view. Text and labels only.
- *
- * The analytics rows describe exactly what `runtime/web-analytics.mjs` configures
- * (PostHog EU, cookieless until consent, `opt_in_capturing` on "Accept", replay
- * with every input and text masked, Do Not Track honoured) and what the PostHog
- * project is set to (read 2026-10-29: IP addresses discarded, replay kept 30
- * days and recorded only on its triggers, cookieless server hash mode to be
- * "stateful"). The storage keys are the ones posthog-js writes (README,
- * "Analytics"). Change them together.
- *
- * "(vormals Piloti)" / "(formerly Piloti)" is deliberate (owner decision D23):
- * the former name, once, for legal continuity. It is the one place it may stay.
- *
- * A row with `when: 'linkedin'` is shown only while a LinkedIn URL is set
- * (`src/lib/social.ts`).
- *
- * TODO(owner): three values could not be read from configuration and are worded
- * without a number until legal review fills them in:
- * 1. Server log retention ("Aufruf der Website"): deploy/ configures no access-log
- *    retention for the website; confirm what the hosting provider and the cluster
- *    keep, and for how long.
- * 2. Analytics retention ("Reichweitenmessung"): the PostHog plan's retention
- *    for events is not readable without billing access. The app's own notice
- *    says 12 months for its events; confirm and align both.
- * 3. Enquiries ("Kontakt- und Demoanfragen"): no deletion period is defined
- *    for the sales inbox.
- * Also for legal review: legitimate interest as the basis for the cookieless
- * counting before a choice.
- */
+// The analytics rows match the PostHog project as read 2026-10-29: IP addresses discarded, replay kept 30 days on triggers only.
 const de = {
   meta: {
     title: 'Datenschutz',

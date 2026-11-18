@@ -5,15 +5,6 @@ import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import type { CollectorConfig } from "./collector-config";
 import { loadConfig } from '../config'
 
-/**
- * Every metric to PostHog Metrics, through the gateway collector.
- *
- * What goes wrong here is quiet. A metrics pipeline missing a source drops that
- * source with no error anywhere; series without the stack's name mix dev into
- * prod in the one project; a gateway that reads the API without an identity
- * gets 403 on every watch, logs it, and reports no workloads.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
@@ -104,13 +95,21 @@ describe("PostHog metrics, on by default", () => {
 });
 
 describe("PostHog metrics, switched off", () => {
-  it("leaves the gateway with no metrics exporter, no API identity, and OTLP metrics into nop", async () => {
-    const { collector, pod } = await deploy({ "grid-oib:posthogMetricsEnabled": "false" });
+  it("leaves the gateway with no metrics exporter, no cluster-wide identity, and OTLP metrics into nop", async () => {
+    const { collector, pod } = await deploy({
+      "grid-oib:posthogMetricsEnabled": "false",
+      "grid-oib:posthogLogsEnabled": "true",
+    });
+    expect(pod.automountServiceAccountToken).toBe(true);
     expect(collector.exporters).not.toHaveProperty("otlp_http/posthog_metrics");
     expect(collector.receivers).not.toHaveProperty("k8s_cluster");
     expect(collector.service.pipelines.metrics).toEqual(pipeline(["nop"]));
-    expect(pod.automountServiceAccountToken).toBe(false);
     expect(has("kubernetes:rbac.authorization.k8s.io/v1:ClusterRole", "otel-collector")).toBe(false);
+  }, 120_000);
+
+  it("gives the gateway no API identity at all once PostHog logs are off too", async () => {
+    const { pod } = await deploy({ "grid-oib:posthogMetricsEnabled": "false", "grid-oib:posthogLogsEnabled": "false" });
+    expect(pod.automountServiceAccountToken).toBe(false);
   }, 120_000);
 
   it("is read by loadConfig as needing host, token and the collector, like the logs", () => {

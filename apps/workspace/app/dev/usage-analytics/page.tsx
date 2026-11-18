@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the usage-analytics opt-out card on the profile page: the
- * REAL `UsageAnalyticsSettings`, marked available. No PostHog runs here, so the
- * switch only moves its own state; what it calls on the SDK is pinned by the
- * component spec. 404s outside development (see `../layout.tsx`).
- *
- *   /dev/usage-analytics            German (the product's primary language)
- *   /dev/usage-analytics?lang=en    English
- */
-
 import { Suspense, type JSX } from 'react'
 import { useSearchParams } from 'next/navigation'
 

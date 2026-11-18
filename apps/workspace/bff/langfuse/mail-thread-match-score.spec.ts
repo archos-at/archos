@@ -105,6 +105,12 @@ describe('the batch', () => {
     })
   })
 
+  it('tags the trace with the deployment’s host', () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
+    const [trace] = mailThreadMatchBatch(record(), ['e1', 'e2'])?.batch ?? []
+    expect(trace?.body).toMatchObject({ tags: expect.arrayContaining(['feature:inbound-mail', 'app_host:app.example.test']) })
+  })
+
   it('derives both ids from the text part, so a second decision overwrites', () => {
     expect(mailThreadMatchIds('part-1')).toEqual(mailThreadMatchIds('part-1'))
     expect(mailThreadMatchIds('part-1').traceId).not.toBe(mailThreadMatchIds('part-2').traceId)

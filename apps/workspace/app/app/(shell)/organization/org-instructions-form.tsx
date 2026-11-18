@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Organisation → Anweisungen: the standing instruction block the whole
- * organization's turns carry.
- *
- * Its own card, and its own PUT (`/api/organization/instructions`), rather than
- * a field on the settings form beside it. Two reasons, and the second is the
- * one that matters:
- *
- *   - it is a different row with a different bound and a different write
- *     (`organization_instructions`, migration 0087), not a key in the settings
- *     bag; and
- *   - it is the only control on this page that changes what Piloti SAYS. A
- *     display name and a default language are chrome. This is an instruction
- *     every answer in the organization is written under, and it deserves to be
- *     read as one rather than tabbed past between a name field and a language
- *     picker.
- *
- * The counter is live and counts DOWN from the cap the server enforces
- * (`ORG_INSTRUCTIONS_MAX_CHARS`), because a bound somebody only discovers by
- * being refused is a bound they will discover with a paragraph already written.
- * Over the cap the editor refuses to save and says so; it does not silently
- * truncate, since an instruction cut mid-sentence says something its author
- * never wrote.
- */
-
 import { type FC, useCallback, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -40,7 +15,6 @@ import { ORG_INSTRUCTIONS_MAX_CHARS } from '@/lib/org-instructions/constants'
 import { cn } from '@/lib/utils'
 
 interface OrgInstructionsFormProps {
-  /** What the organization has stored, or null when it has written none. */
   initialInstructions: string | null
 }
 
@@ -51,7 +25,6 @@ export const OrgInstructionsForm: FC<OrgInstructionsFormProps> = ({ initialInstr
   const [text, setText] = useState(initialInstructions ?? '')
   const [baseline, setBaseline] = useState(initialInstructions ?? '')
   const [saving, setSaving] = useState(false)
-  // Whether this session wrote what the box now holds: the Save reports it.
   const [savedHere, setSavedHere] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
 
@@ -71,8 +44,6 @@ export const OrgInstructionsForm: FC<OrgInstructionsFormProps> = ({ initialInstr
         if (!res.ok) throw new Error(`Save failed (${res.status})`)
         setBaseline(next.trim())
         setText(next)
-        // A clear is confirmed by the empty box it leaves; a save by the Save
-        // button turning into „Gespeichert". Neither needs a toast.
         setSavedHere(next.trim() !== '')
       } catch {
         toast.error(t('instructions.saveError'))
@@ -91,11 +62,6 @@ export const OrgInstructionsForm: FC<OrgInstructionsFormProps> = ({ initialInstr
           id="org-instructions"
           value={text}
           rows={8}
-          // The atom sizes to its content, which is right for a few lines and
-          // wrong for a pasted house-style guide: past the cap the box would
-          // grow until Save and the counter were off the bottom of the screen,
-          // exactly when the reader needs to see both. Bounded and scrolling
-          // instead.
           className="max-h-72 overflow-y-auto"
           aria-invalid={overCap || undefined}
           aria-describedby="org-instructions-counter"

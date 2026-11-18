@@ -1,18 +1,3 @@
-/**
- * The SQL of collection placement (ADR-0087, ADR-0017): reading the rows that
- * can be in the wrong collection, re-pointing one, and the hand-off of a moved
- * row's re-read to the `placement_reingest` job. The decisions are
- * `lib/projects/collection-placement.ts`'s; it lives here because it authors a
- * document status, and every status writer sits where `document-status.spec.ts`
- * scans.
- *
- * The hand-off is a mark on the row, not a list in the job: a row placement
- * re-pointed sits at `processing` with `metadata.placementReingest`, and the
- * job takes marked rows of its project until none are left. So a job of the
- * project that is already queued serves rows marked after it was enqueued, and
- * the job's state is nothing but the project it walks.
- */
-
 import 'server-only'
 import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -51,25 +36,16 @@ const placementColumns = {
   storageBucket: documents.storageBucket,
 }
 
-/** Candidate rows one page of the scan reads. Every page is read; this bounds memory, not coverage. */
 export const PLACEMENT_PAGE = 500
 
 const marked = () => sql`${documents.metadata} ->> ${PLACEMENT_REINGEST_MARKER}::text IS NOT NULL`
 
-/** Whether a row as read is one placement moved and whose re-read the job has not taken yet. */
 export function awaitsPlacementReingest(row: Pick<PlacementRow, 'status' | 'metadata'>): boolean {
   if (row.status !== 'processing') return false
   const metadata = row.metadata
   return typeof metadata === 'object' && metadata !== null && PLACEMENT_REINGEST_MARKER in metadata
 }
 
-/**
- * One page of the rows that can be in the wrong collection, after `afterId`:
- * those outside the project's own collection (filed under a restriction, or
- * left there by one since lifted), and those filed under a restricted folder.
- * Everything else is where it belongs by construction, so a project of ten
- * thousand open documents is not read to move none.
- */
 export async function listPlacementRows(
   organizationId: string,
   projectId: string,
@@ -100,16 +76,6 @@ export async function listPlacementRows(
   )
 }
 
-/**
- * Re-point one row, guarded on the collection it was read with. False when it
- * moved meanwhile, or the name is taken there.
- *
- * `reingest` hands the row's re-read to the `placement_reingest` job in the
- * same statement: `processing`, marked, with the previous ingest and queue job
- * ids dropped so nothing reads the old job's outcome as this one's. A row read
- * as waiting for that job is re-pointed only while it still waits, so the job
- * taking it and placement moving it again exclude each other.
- */
 export async function repointPlacementRow(
   organizationId: string,
   row: PlacementRow,
@@ -141,8 +107,6 @@ export async function repointPlacementRow(
     )
     return updated.length > 0
   } catch (error) {
-    // `uniq_documents_live_name_per_collection`: the target already holds a
-    // live document of this name. Left where it is, and reported.
     console.warn(`[placement] could not move document ${row.id} to ${target}:`, error)
     return false
   }
@@ -175,13 +139,6 @@ function awaitingInProject(organizationId: string, projectId: string) {
   )
 }
 
-/**
- * Take up to `limit` of the project's rows waiting for their re-read, removing
- * the mark in the same statement. A row is taken once: two workers on the same
- * project skip each other's rows, and a slice that dies after taking leaves its
- * rows at `processing` with no mark, for the stranded-row sweep
- * (`documents/stuck-processing.ts`) once this job is gone.
- */
 export async function takeAwaitingPlacementReingest(
   organizationId: string,
   projectId: string,
@@ -204,11 +161,6 @@ export async function takeAwaitingPlacementReingest(
   )
 }
 
-/**
- * Name the job that will re-read the project's waiting rows on each of them
- * (`metadata.bffJobId`), so the stranded-row sweep leaves them alone while that
- * job is queued or running and recovers them if it dies or ends without them.
- */
 export async function tagAwaitingPlacementReingest(
   organizationId: string,
   projectId: string,

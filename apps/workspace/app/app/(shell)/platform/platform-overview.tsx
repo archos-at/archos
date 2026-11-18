@@ -1,38 +1,8 @@
 'use client'
 
-/**
- * Platform owner's cross-organization overview (ADR-0016), in reading order:
- * the headline figures, the 30-day cost trend, the organization directory with
- * per-org cost and revenue from the usage ledger, the price list (ADR-0053),
- * and the WorkOS Users Management widget scoped to the GRID Platform
- * organization.
- *
- * Money here is USD as OpenRouter charges it — cost — and what the tenants are
- * charged for it at the price list — revenue. No currency conversion anywhere:
- * a hand-set rate is nobody's actual charge. The tenants themselves never see
- * either figure; their surfaces are in credits.
- *
- * Loading has two shapes. The FIRST load has nothing to show and draws
- * skeletons shaped like the page. Every later load (a retry, or the reload the
- * price list asks for after a save) keeps the figures on screen: swapping the
- * tree for skeletons unmounted the price-list card in the middle of its own
- * save. A reload that fails says so above the figures, because silently keeping
- * them would present stale numbers as current.
- *
- * The headline row and the directory size themselves by their CONTAINER, not the
- * viewport: inside the platform shell the content column sits beside a rail and
- * is far narrower than the window, so a viewport breakpoint put five tiles into
- * 720px and a seven-column table into a card that could hold five.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WorkOsWidgets, UsersManagement } from '@workos-inc/widgets'
-// The WorkOS widgets are Radix Themes components and render unstyled without
-// this sheet. It is not a global restyle: every rule in it is scoped to
-// `.radix-themes` / `.rt-*` / `[data-radius]`, and what it puts on `:root` is
-// Radix's own `--gray-1`…`--yellow-12` scales, which no token or class of ours
-// reads. Checked against the installed sheet before keeping the import here.
 import '@radix-ui/themes/styles.css'
 import Link from 'next/link'
 import { Building2, SearchX } from 'lucide-react'
@@ -70,21 +40,16 @@ import { PlatformOrgBudgetDialog } from './platform-org-budget-dialog'
 import { SortableHead, type SortDirection } from '@/components/ui/sortable-head'
 
 interface SpendWindowDto {
-  /** USD as OpenRouter charged it, whoever's key it was. */
   costUsd: number
-  /** The share billed to a tenant's own key — not the platform's cost. */
   ownKeyCostUsd: number
   priceUsd: number
   credits: number
   tokens: number
   events: number
-  /** Of the platform's cost, what document ingestion spent: VLM, OCR, embeddings. */
   ingestCostUsd?: number
-  /** Of the platform's cost, what voice dictation spent. Never billed to anyone. */
   dictationCostUsd?: number
 }
 
-/** What OpenRouter charged the PLATFORM: everything that was not a tenant's own key. */
 const platformCost = (spend: SpendWindowDto): number => spend.costUsd - spend.ownKeyCostUsd
 
 interface PlatformOrganizationDto {
@@ -109,10 +74,6 @@ const PAGE_SIZE = 10
 
 type SortKey = 'name' | 'projects' | 'day' | 'month' | 'revenue' | 'created'
 
-/**
- * Where each column starts when it is first clicked. Money and counts are
- * interesting at the top end, names and dates at the natural reading end.
- */
 const INITIAL_DIRECTION: Record<SortKey, SortDirection> = {
   name: 'asc',
   projects: 'desc',
@@ -144,16 +105,9 @@ const compareBy = (
   }
 }
 
-/** Joins the optional parts of a hint, or nothing at all when none apply. */
 const joinHint = (parts: Array<string | undefined>): string | undefined =>
   parts.filter(Boolean).join(' · ') || undefined
 
-/**
- * Columns the directory drops as its container narrows, widest first, so the
- * comparison a reader came for (cost and revenue this month) survives to the
- * phone: below `@lg` revenue moves under the month's cost and the allowance
- * action under the name, so the table fits without scrolling.
- */
 const COLUMN_VISIBILITY = {
   day: 'hidden @lg:table-cell',
   revenue: 'hidden @lg:table-cell',
@@ -172,8 +126,6 @@ export const PlatformOverview: FC = () => {
   const request = useRef(0)
 
   const load = useCallback(async () => {
-    // Only the newest request may write: a slow first load must not land on
-    // top of the reload a save asked for after it.
     const id = ++request.current
     setLoading(true)
     try {
@@ -196,8 +148,6 @@ export const PlatformOverview: FC = () => {
 
   const retry = (): void => void load()
 
-  // Failed with nothing to show: one retryable error, never a skeleton that
-  // spins forever, and never titled with the page's own name.
   if (!overview && error) {
     return (
       <LoadErrorAlert
@@ -257,13 +207,12 @@ export const PlatformOverview: FC = () => {
             from the next request on, so the overview reloads them, in place. */}
         <PlatformPricingCard onSaved={retry} />
 
-        {/* Platform team — WorkOS widget scoped to the GRID Platform org */}
+        {/* Platform team — WorkOS widget scoped to the platform org */}
         <SectionCard
           title={t('team.title')}
           description={t('team.description')}
           testId="platform-team"
           action={
-            /* Platform trail: break-glass + platform-org admin events. */
             <AuditLogButton
               endpoint="/api/platform/audit-portal"
               label={t('team.auditLogs')}
@@ -300,11 +249,6 @@ const LoadErrorAlert: FC<{
   )
 }
 
-/**
- * Six tracks so the row divides cleanly at every width: two counts and three
- * amounts read as 2 + 2 + 1 (the last spanning) on a phone, 2 + 3 in a
- * mid-width column, and one row of five once the container has room.
- */
 const KPI_GRID = 'grid grid-cols-2 gap-3 @lg:grid-cols-6 @4xl:grid-cols-5'
 const KPI_COUNT = '@lg:col-span-3 @4xl:col-span-1'
 const KPI_AMOUNT = '@lg:col-span-2 @4xl:col-span-1'
@@ -325,7 +269,6 @@ const OverviewSkeleton: FC = () => (
   </div>
 )
 
-/** A figure never wraps: a tile that cannot hold it truncates, it does not break. */
 const Figure: FC<{ children: ReactNode }> = ({ children }) => (
   <span className="block truncate whitespace-nowrap">{children}</span>
 )
@@ -339,8 +282,6 @@ const HeadlineFigures: FC<{ overview: OverviewDto; refreshing: boolean }> = ({
   const { totals } = overview
   const monthMargin = totals.month.priceUsd - platformCost(totals.month)
 
-  // Ingestion and voice dictation are part of the cost, not on top of it: say
-  // how much of it each was.
   const shareHint = (spend: SpendWindowDto): string | undefined =>
     joinHint([
       (spend.ingestCostUsd ?? 0) > 0
@@ -361,8 +302,6 @@ const HeadlineFigures: FC<{ overview: OverviewDto; refreshing: boolean }> = ({
           className={KPI_COUNT}
           label={t('stats.organizations')}
           value={<Figure>{formatCount(totals.organizations, locale)}</Figure>}
-          // A bare "100+" reads as a typo. Say what actually happened: the
-          // directory stopped at a page boundary and more organizations exist.
           hint={
             overview.organizationsCapped
               ? t('overview.cappedTile', { count: totals.organizations })
@@ -384,8 +323,6 @@ const HeadlineFigures: FC<{ overview: OverviewDto; refreshing: boolean }> = ({
           className={KPI_AMOUNT}
           label={t('stats.costMonth')}
           value={<Figure>{usd(platformCost(totals.month), locale)}</Figure>}
-          // The request count is in the hint, not a tooltip: a tooltip cannot be
-          // reached on touch. Cost on tenants' own keys is theirs; say it was left out.
           hint={joinHint([
             t('stats.requestsMonth', {
               count: totals.month.events,
@@ -401,8 +338,6 @@ const HeadlineFigures: FC<{ overview: OverviewDto; refreshing: boolean }> = ({
           className={cn(KPI_AMOUNT, 'col-span-2')}
           label={t('stats.revenueMonth')}
           value={<Figure>{usd(totals.month.priceUsd, locale)}</Figure>}
-          // Revenue minus cost, in the same unit, is the number a price list
-          // exists for. Under revenue rather than its own tile: it is derived.
           hint={t('stats.marginHint', { margin: usd(monthMargin, locale) })}
         />
       </div>
@@ -417,8 +352,6 @@ const OrganizationDirectory: FC<{ overview: OverviewDto }> = ({ overview }) => {
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
   const [budgetOrganization, setBudgetOrganization] = useState<PlatformOrganizationDto | null>(null)
-  // Mirrors the backend's own ordering, so the first render matches what the
-  // service already sorted for us.
   const [sortKey, setSortKey] = useState<SortKey>('revenue')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
@@ -428,7 +361,6 @@ const OrganizationDirectory: FC<{ overview: OverviewDto }> = ({ overview }) => {
     const rows = organizations.filter((org) => org.name.toLowerCase().includes(needle))
     return rows.sort((a, b) => {
       const ordered = compareBy(a, b, sortKey, locale) * (sortDirection === 'asc' ? 1 : -1)
-      // Equal spend is common (zero), so fall back to a stable, readable order.
       return ordered || a.name.localeCompare(b.name, locale)
     })
   }, [organizations, query, sortKey, sortDirection, locale])
@@ -438,13 +370,9 @@ const OrganizationDirectory: FC<{ overview: OverviewDto }> = ({ overview }) => {
       key === sortKey ? (sortDirection === 'asc' ? 'desc' : 'asc') : INITIAL_DIRECTION[key]
     )
     setSortKey(key)
-    // Re-ordering under a reader parked on page three would show them rows they
-    // never asked for; start the new order at its top.
     setOffset(0)
   }
 
-  // Search and sort reset the offset, but a reload does not: clamp on read so a
-  // reload that returns fewer rows falls back to page one instead of nothing.
   const safeOffset = offset < visible.length ? offset : 0
   const page = visible.slice(safeOffset, safeOffset + PAGE_SIZE)
 

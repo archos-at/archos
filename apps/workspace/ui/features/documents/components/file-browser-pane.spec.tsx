@@ -502,8 +502,8 @@ describe('FileBrowserPane — search zero-match', () => {
 
 describe('FileBrowserPane — a filter emptied the level', () => {
   const notice = {
-    title: 'Piloti hat hier noch nichts abgelegt',
-    description: 'Hier erscheinen die Dateien, die Piloti selbst erstellt hat.',
+    title: 'Der Agent hat hier noch nichts abgelegt',
+    description: 'Hier erscheinen die Dateien, die der Agent selbst erstellt hat.',
     onClear: vi.fn(),
   }
 

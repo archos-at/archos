@@ -1,6 +1,6 @@
 # Vision: The Collaborative Project Workspace (internal-team)
 
-> **Read with [VISION.md](../../VISION.md).** This sketch predates it and is revised by [agentic-workspace-architecture.md](agentic-workspace-architecture.md). Where it calls Piloti a compliance workspace, the vision's frame holds: the workspace for architects, building law as one capability.
+> **Read with [VISION.md](../../VISION.md).** This sketch predates it and is revised by [agentic-workspace-architecture.md](agentic-workspace-architecture.md). Where it calls the product a compliance workspace, the vision's frame holds: the workspace for architects, building law as one capability.
 
 > Forward-looking product sketch — **not scoped for implementation.** Captured so
 > the thinking isn't lost. Sibling to `cross-project-rag-vision.md`.
@@ -15,16 +15,16 @@
 
 ## Thesis
 
-The next evolution of Piloti is not "cloud storage with comments." It is a
+The next evolution of the product is not "cloud storage with comments." It is a
 **project workspace** for the team: a project's files, building model and tasks sit
-in one place, and a **compliance board** over the applicable OIB standards Piloti
+in one place, and a **compliance board** over the applicable OIB standards the app
 already derives is the first lens on them. Files are the *evidence* underneath,
 joined to standards by a first-class link. Collaboration is what makes
 it multiplayer; the compliance board + the agent-as-reviewer is the wedge.
 
 ## Why not file-first
 
-File-first competes with Dropbox / Drive / Bau-doc tools on features Piloti will
+File-first competes with Dropbox / Drive / Bau-doc tools on features the app will
 lose. Leading with the compliance board answers the firm's real anxiety — *"will
 this Einreichung pass, on what, who owns it, where's the evidence"* — which no
 generic tool does. Files stay the spine underneath: the board is a lens over them, not a replacement.

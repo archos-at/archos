@@ -1,24 +1,3 @@
-/**
- * The typed client for the document-lifecycle API (ADR-0055).
- *
- * ## Why a client module and not `fetch` at each call site
- *
- * ADR-0055 says every workspace primitive is an HTTP route with a typed client,
- * and that the UI, the agent's tools, the task runner and any later integration
- * are equal clients of it. A client is what makes "equal" mean something: the
- * paths, the verbs and the response shapes are written once, so a second
- * consumer cannot quietly disagree with the first about what `POST …/changes`
- * expects — and the route handlers' own specs drive the real handlers through
- * these functions, so the contract is exercised rather than described.
- *
- * Responses are PARSED with the zod schemas from `./lifecycle-types`, not cast.
- * A cast makes the compiler agree with an assumption; a parse makes the runtime
- * disagree with a wrong one, which is what a client is for when the server it
- * talks to may be a deploy ahead.
- *
- * No `server-only` and no drizzle: the browser imports this.
- */
-
 import {
   documentArchiveResponseSchema,
   documentVersionDiffResponseSchema,
@@ -30,22 +9,10 @@ import {
   type DocumentVersionView,
 } from './lifecycle-types'
 
-/**
- * How a request is made. Injected rather than closed over, so a route spec can
- * hand in a function that calls the real handler and a browser gets `fetch`.
- */
 export type LifecycleFetch = (path: string, init?: RequestInit) => Promise<Response>
 
 const defaultFetch: LifecycleFetch = (path, init) => fetch(path, init)
 
-/**
- * A request the API refused, carrying the status and the body's own code.
- *
- * A typed error rather than a thrown `Response`, because every caller needs the
- * same three facts — what happened, what the server called it, and whether it is
- * worth retrying — and reading them off a `Response` at each call site is how
- * one consumer ends up treating a 409 as a 500.
- */
 export class DocumentLifecycleError extends Error {
   constructor(
     readonly status: number,
@@ -106,11 +73,6 @@ export interface DocumentLifecycleClient {
     comment?: string,
     ifMatch?: string,
   ): Promise<DocumentVersionView>
-  /**
-   * `delegateRevision` is the reviewer's third action: the version moves to
-   * `changes_requested` either way, and with it set Piloti is additionally asked
-   * to produce the next draft (`openRevisionTask`).
-   */
   requestChanges(
     documentId: string,
     versionId: string,
@@ -129,7 +91,6 @@ export interface DocumentLifecycleClient {
   diff(documentId: string, from: string, to: string): Promise<DocumentVersionDiffResponse>
 }
 
-/** The routes of §2, as functions. One base path, spelled once. */
 export function createDocumentLifecycleClient(
   run: LifecycleFetch = defaultFetch,
 ): DocumentLifecycleClient {
@@ -158,11 +119,6 @@ export function createDocumentLifecycleClient(
       ),
 
     submit: (documentId, versionId, reviewerUserIds = [], options = {}) => {
-      // The Auftragssatz rides when the caller states one; the Frist rides
-      // when it is non-empty. An empty date input (`''`) is "no Frist", not
-      // an invalid one — omitting it keeps the wire exactly what it was for
-      // every caller that predates the order, while a present-but-empty order
-      // is sent as-is so the schema refuses it with a 400.
       const body: { reviewerUserIds: string[]; orderMessage?: string; dueAt?: string } = {
         reviewerUserIds: [...reviewerUserIds],
       }
@@ -186,11 +142,6 @@ export function createDocumentLifecycleClient(
       request(
         run,
         `${version(documentId, versionId)}/changes`,
-        // Omitted rather than sent as `false`: the schema is `.strict()` and an
-        // absent optional is the same decision as a false one, so the wire stays
-        // exactly what it was for every caller that does not use the third action.
-        // `ifMatch` rides the same way: absent when the caller holds no STAND,
-        // present when it does, so old callers keep working and stale ones 409.
         json({
           comment,
           ...(delegateRevision ? { delegateRevision: true } : {}),
@@ -225,14 +176,8 @@ export function createDocumentLifecycleClient(
   }
 }
 
-/** The browser's instance. A route spec builds its own over the real handlers. */
 export const documentLifecycleClient = createDocumentLifecycleClient()
 
-/**
- * Where one version's BYTES are served (`GET …/file?versionId=`): a
- * link for a tab or an `<a download>`, not a fetch, so it is a URL builder and
- * not a client method. Only a published or superseded version answers.
- */
 export function versionFileUrl(
   documentId: string,
   versionId: string,

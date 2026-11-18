@@ -7,6 +7,7 @@ and file layout: read the guide in `node_modules/next/dist/docs/` before writing
 code, and heed its deprecation notices.
 
 Each rule in full, with its reason: [`workspace-rules.md`](../../docs/architecture/workspace-rules.md).
+For how the UI looks, [`design-language.md`](../../docs/design/design-language.md) wins over any design skill.
 
 - Declare `authz` on every `app/api` route's factory (`@/lib/api/handler`). `authz-coverage.spec.ts`.
 - Check a permission, never a role name, through `bff/authz/decide.ts` or its gates. Review.
@@ -18,8 +19,7 @@ Each rule in full, with its reason: [`workspace-rules.md`](../../docs/architectu
 - A query on `documents`, or on one document's facts, ANDs `documentVisibleTo(reader)` into
   its own WHERE. `documents/document-visibility.spec.ts`.
 - Only `bff/agent-api/dispatch.ts` calls `runAsActingSession`. `acting-session.spec.ts`.
-- Reach the Python backend through `getBackendUrl` and `internalServiceHeaders`.
-  `internal-auth.spec.ts`, `backend-url.spec.ts`.
+- Reach the Python backend through `getBackendUrl` and `internalServiceHeaders`. `internal-auth.spec.ts`, `backend-url.spec.ts`.
 - Coerce a raw `sql<T>` result at the repository (`new Date(row.x)`). Nothing checks it.
 - Translate through the namespace's module (`@/i18n/namespaces/<ns>`), never the whole
   dictionary. `aggregate-imports.spec.ts`.

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the composer's „Sensible Daten" notice (ADR-0086, "Chat
- * messages are screened too"). Renders the REAL notice over the REAL matcher
- * with Piloti's suggested list, no backend:
- *
- *  - the agreed mock: one IBAN;
- *  - a message with a content term, an IBAN and a social-security number;
- *  - two IBANs (a count, no sample);
- *  - a live box: type, press the button, see what the composer would say.
- *
- * The buttons only say which was pressed; the composer owns the send. Not linked from
- * anywhere and 404s outside development.
- */
-
 import { useState, type JSX } from 'react'
 import { notFound } from 'next/navigation'
 

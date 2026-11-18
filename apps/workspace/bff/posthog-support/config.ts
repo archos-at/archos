@@ -1,21 +1,8 @@
-/**
- * Read the PostHog Support configuration from the server environment.
- *
- * Server only: the result carries the personal API key. `null` means Support
- * is not configured in this deployment, and the platform page shows the local
- * feedback log alone.
- */
-
 import 'server-only'
 import { posthogUiHost } from '@/lib/analytics/posthog-config'
 import { configuredAppOrigin } from '@/lib/app-origin'
 import type { PosthogSupportConfig } from './types'
 
-/**
- * `NEXT_PUBLIC_POSTHOG_HOST` is the ingestion host the widget endpoint lives
- * on; the app host for the private API and ticket links is derived from it the
- * way the browser SDK derives `ui_host`.
- */
 export function posthogSupportConfigFromEnv(
   env: Record<string, string | undefined>
 ): PosthogSupportConfig | null {

@@ -1,32 +1,4 @@
-/**
- * The answer-feedback export as an Excel workbook: the file a person opens.
- *
- * Built with `exceljs` (MIT, pure JavaScript, no native toolchain): writing a
- * valid .xlsx is a ZIP of SpreadsheetML parts with shared strings, styles and
- * date serials, which is somebody else's domain. The CSV beside it stays our
- * own twenty lines, because a CSV is not.
- *
- * Four sheets, in the order a reader needs them:
- *   1. the votes — one row per vote, typed cells (dates are dates, numbers are
- *      numbers, yes/no is 1/0 so it sums), header frozen, autofilter on, long
- *      text wrapped, the two link columns as hyperlinks;
- *   2. the weeks — per organization and ISO week, with the denominator a rate
- *      needs (answers, rated answers) and the rate itself;
- *   3. the overview — what this file is: when, which range, which
- *      organizations and projects, every rating filter by name, which of them
- *      the weekly sheet could not apply and why, the totals over the whole
- *      set, whether a cap cut it, and the caveats a number from it must be
- *      quoted with;
- *   4. the columns — a data dictionary generated from the same definitions.
- *
- * A text cell is written as a string value, never a formula, so the formula
- * neutralising the CSV needs does not apply here: Excel does not evaluate a
- * string cell that starts with `=`.
- */
-
 import 'server-only'
-// The default import: exceljs is CommonJS, and Node's ESM loader cannot see its
-// named exports, so `{ Workbook }` breaks the jobs bundle (`dist-jobs/slice.mjs`).
 import ExcelJS from 'exceljs'
 
 type Workbook = ExcelJS.Workbook
@@ -44,10 +16,8 @@ import {
 } from './export-columns'
 import type { FeedbackExport, NamedScopeEntry } from './export-service'
 
-/** Excel refuses a cell longer than this; the text is cut and says so. */
 export const XLSX_MAX_CELL_CHARS = 32_767
 
-/** Number formats per column format. Dates render in UTC: exceljs writes the instant's UTC serial. */
 const NUM_FMT: Partial<Record<ExportFormat, string>> = {
   datetime: 'yyyy-mm-dd hh:mm:ss',
   date: 'yyyy-mm-dd',
@@ -62,7 +32,6 @@ const NUM_FMT: Partial<Record<ExportFormat, string>> = {
 const LINK_FONT = { color: { argb: 'FF1F5FBF' }, underline: true } as const
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF1F4' } } as const
 
-/** A value as a workbook cell. Links are handled by the caller, which knows the label. */
 function cellValue(value: ExportCell): string | number | Date | null {
   if (value === null || value === undefined) return null
   if (typeof value === 'boolean') return value ? 1 : 0
@@ -74,7 +43,6 @@ function cellValue(value: ExportCell): string | number | Date | null {
   return value as string | number | Date
 }
 
-/** A typed table: header row, frozen and filterable, one row per record. */
 function addTable<Row>(
   workbook: Workbook,
   name: string,
@@ -112,18 +80,15 @@ function addTable<Row>(
   return sheet
 }
 
-/** A list of labels as one phrase: `Brandschutz oder Statik`. */
 function anyOf(values: readonly string[], dictionary: Dictionary): string {
   return values.join(dictionary.feedbackExport.overview.filterOr)
 }
 
-/** The scope's organizations or projects by name, or "all". */
 function describeNamed(entries: readonly NamedScopeEntry[], dictionary: Dictionary): string {
   if (entries.length === 0) return dictionary.feedbackExport.overview.scopeEverything
   return entries.map((entry) => entry.name ?? entry.id).join('; ')
 }
 
-/** Every ratings filter the file was read with, in the reader's words. */
 export function describeRatingsFilters(data: Pick<FeedbackExport, 'query'>, dictionary: Dictionary): string {
   const words = dictionary.feedbackExport.overview
   const labels = dictionary.platform.answerFeedback
@@ -154,7 +119,6 @@ export function describeRatingsFilters(data: Pick<FeedbackExport, 'query'>, dict
   return parts.length ? parts.join(' · ') : words.filterNone
 }
 
-/** What the weekly sheet applied, and what it could not and why. */
 function describeWeeklyFilters(data: FeedbackExport, dictionary: Dictionary): string {
   const words = dictionary.feedbackExport.overview
   if (data.weeksIgnored.length === 0) return words.weeksAllApplied
@@ -162,7 +126,6 @@ function describeWeeklyFilters(data: FeedbackExport, dictionary: Dictionary): st
   return interpolate(words.weeksIgnored, { filters })
 }
 
-/** What this file is, and how far to trust a number from it. */
 function addOverview(workbook: Workbook, data: FeedbackExport, dictionary: Dictionary): void {
   const words = dictionary.feedbackExport.overview
   const sheet = workbook.addWorksheet(dictionary.feedbackExport.sheets.overview)
@@ -219,7 +182,6 @@ function addOverview(workbook: Workbook, data: FeedbackExport, dictionary: Dicti
   }
 }
 
-/** The data dictionary: every column of both tables, from the definitions the tables were built from. */
 function addColumnsSheet(workbook: Workbook, dictionary: Dictionary): void {
   const words = dictionary.feedbackExport
   const sheet = workbook.addWorksheet(words.sheets.columns, { views: [{ state: 'frozen', ySplit: 1 }] })
@@ -253,7 +215,6 @@ function addColumnsSheet(workbook: Workbook, dictionary: Dictionary): void {
   section(words.sheets.weeks, FEEDBACK_WEEKLY_COLUMNS)
 }
 
-/** The whole workbook, as the bytes of an .xlsx file. */
 export async function renderFeedbackWorkbook(data: FeedbackExport, dictionary: Dictionary): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
   workbook.creator = PRODUCT_NAME

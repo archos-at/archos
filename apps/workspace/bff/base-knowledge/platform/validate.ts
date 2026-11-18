@@ -1,47 +1,3 @@
-/**
- * The validation kit (ADR-0165, ADR-0170, design §4.6), run on every proposal,
- * by `platform-knowledge-validate` and again on submit: a proposal that fails a
- * check is not written. Pure.
- *
- * - KC-1: every record a proposal names exists (in the batch or released or
- *   drafted on the platform) with the type it must have; a record keeps its
- *   type and its country; a territory belongs to the request's country; no
- *   record is proposed twice in one batch. A manifestation's `corpusFile` is a
- *   file the base corpus holds, so a publish never names a text that is not
- *   there (ADR-0165, "Texts are attached in the request"). The corpus is the
- *   api tier's, so that answer is handed in like KC-7's (`checkedOutside`).
- *   A golden case states at least one thing an answer is held to, names each
- *   must-not once, and names an edition and a territory that exist.
- * - KC-3: intervals are ordered, and no two editions of one work are in force
- *   on the same day: two in one batch, or a new one beside one already on the
- *   platform (the as-of resolver refuses that as ambiguous, so it is refused
- *   here first).
- * - KC-5: a ruleset's, a transition's and an edition scope's own examples hold on the evaluator.
- * - KC-7: a source record parses as its access type and engine read it, and
- *   every recorded fixture passes with no live call (ADR-0174). The api tier
- *   runs it, so its problems are handed in (`checkedOutside`); an api tier that
- *   cannot answer is a problem, never a pass.
- * - KC-6: every record cites at least one capture of its change request, and
- *   every quote it gives is found in that capture's stored text, is long
- *   enough to say something, and one names what the record claims (its name,
- *   designation or label). Whoever proposed it, a person or an agent: an agent
- *   cannot verify a page it made up, because the capture is the page the
- *   product fetched (or the text an operator pasted, which the reviewer must
- *   check against its source).
- *
- * Each problem is an RFC 9457 problem's member (`type`, `code`, `detail`) with
- * the record it is about and an RFC 6901 `pointer` into that record, so an
- * agent repairs the field and resends the batch with the same keys.
- *
- * A warning is not a check: {@link releaseWarnings} names what a request would
- * release that nothing refuses and a reviewer weighs before approving or
- * publishing it (the country's own territory stating no coverage).
- *
- * The rest of the kit (anchors, hosts, level obligations, instruction-like
- * text) needs sources and packs that arrive later; until then a reviewer
- * checks those claim by claim.
- */
-
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
 import { failingExamples } from '../rulesets/decision-table'
 import type { DecisionTable } from '../wire/ruleset'
@@ -50,15 +6,12 @@ import { normalizeForQuote, quoteFound, quoteLongEnough } from './quote'
 import { proposalKey, recordIdOf, referencesOf } from './records'
 import type { ProposedRecord, RevisionView } from './wire'
 
-/** A platform record that already exists: its type and country. */
 export interface KnownRecord {
   type: KnowledgeRecordType
   countryId: string
 }
 
-/** A capture of the change request, as KC-6 reads it. */
 export interface KnownCapture {
-  /** The text the quote is looked for in; null when the capture holds none (a binary file). */
   text: string | null
   basis: 'fetched' | 'operator_supplied'
 }
@@ -66,10 +19,8 @@ export interface KnownCapture {
 export const KIT_CHECKS = ['KC-1', 'KC-3', 'KC-5', 'KC-6', 'KC-7'] as const
 export type KitCheck = (typeof KIT_CHECKS)[number]
 
-/** Where each check is described: one problem type per check, as RFC 9457 asks. */
 export const KIT_PROBLEM_TYPE_BASE = 'urn:problem-type:knowledge-check:'
 
-/** What an agent does about each check, in one line. */
 export const KIT_HINTS: Readonly<Record<KitCheck, string>> = {
   'KC-1': 'Propose the named record in this batch, import the territory first, or fix the key.',
   'KC-3': 'Order the dates, and end one edition of a work before the next begins.',
@@ -86,28 +37,22 @@ export const KIT_HINTS: Readonly<Record<KitCheck, string>> = {
 export interface Problem {
   type: string
   code: KitCheck
-  /** The proposal's key (or a territory's id) the problem is about. */
   key: string
   recordId: string
-  /** RFC 6901 JSON Pointer into the record: `/citations/0/quote`, `/workKey`. */
   pointer: string
   detail: string
   hint: string
-  /** The record's position in the proposed batch; absent when a stored request is validated. */
   index?: number
 }
 
-/** A problem of the kit about `record`: for checks that run outside this module (KC-7, a text's file); `hint` when the check's own does not fit. */
 export function kitProblem(code: KitCheck, record: ProposedRecord, pointer: string, detail: string, hint?: string): Problem {
   return { ...problem(code, record, pointer, detail), ...(hint ? { hint } : {}) }
 }
 
-/** Whether a check that runs outside this module (on the api tier) must have answered for `record`. */
 export function checkedOutsideKit(record: ProposedRecord): boolean {
   return record.type === 'source' || (record.type === 'manifestation' && record.corpusFile !== null)
 }
 
-/** Unknown fails closed: a record the api tier did not check is a problem, never a pass. */
 function uncheckedProblem(record: ProposedRecord): Problem {
   return record.type === 'source'
     ? problem('KC-7', record, '', 'was not checked; run the proposal again.')
@@ -144,7 +89,6 @@ function intervalProblems(record: ProposedRecord): Problem[] {
   return []
 }
 
-/** An edition already on the platform (at its head), with its work and dates: what a proposal must not overlap. */
 export interface DatedPlatformEdition {
   id: string
   workId: string
@@ -152,20 +96,11 @@ export interface DatedPlatformEdition {
   inForceTo: string | null
 }
 
-/** Two half-open intervals share a day: one ending on the day the other begins does not. */
 const overlaps = (a: { from: string; to: string | null }, b: { from: string; to: string | null }) =>
   a.from < (b.to ?? '9999-12-31') && b.from < (a.to ?? '9999-12-31')
 
-/** `earlier` ends the day before `later` begins: a source's printed last day entered as the exclusive end. */
 const oneDayApart = (earlier: { to: string | null }, later: { from: string }) => earlier.to !== null && dayAfter(earlier.to) === later.from
 
-/**
- * Editions of one work in force on the same day (intervals are half-open), or
- * one day apart, which is the last day in force copied as the end:
- * two proposed in one batch, or one proposed beside one already on the
- * platform. A batch that re-proposes the existing edition (closing its
- * `inForceTo`) is compared against its new dates, not its old ones.
- */
 function overlapProblems(records: readonly ProposedRecord[], existing: readonly DatedPlatformEdition[]): [number, Problem][] {
   const proposed = records.flatMap((record, index) =>
     record.type === 'edition' && record.inForceFrom
@@ -210,7 +145,6 @@ function exampleProblems(record: ProposedRecord): Problem[] {
   })
 }
 
-/** The territories a record names, which must exist. */
 export function namedTerritories(record: ProposedRecord): string[] {
   return namedTerritoryFields(record).map(([territoryId]) => territoryId)
 }
@@ -233,7 +167,6 @@ function namedTerritoryFields(record: ProposedRecord): [string, string][] {
   return []
 }
 
-/** The field a reference is named by, for the pointer. */
 const REFERENCE_FIELD: Readonly<Record<string, string>> = {
   edition: '/workKey',
   manifestation: '/editionKey',
@@ -242,12 +175,6 @@ const REFERENCE_FIELD: Readonly<Record<string, string>> = {
   golden_case: '/expected/edition/editionKey',
 }
 
-/**
- * What a record claims to be, which one of its quotes must name: a territory's
- * or an authority's name, a work's designation (else its title), an edition's
- * label as the masthead prints it. A manifestation and a ruleset name nothing
- * a page prints by that name; their quotes are held to the length alone.
- */
 export function claimedLabel(record: ProposedRecord): string | null {
   if (record.type === 'territory' || record.type === 'authority') return record.name
   if (record.type === 'work') return record.designation ?? record.title
@@ -255,7 +182,6 @@ export function claimedLabel(record: ProposedRecord): string | null {
   return null
 }
 
-/** KC-6: the record cites a capture of its request, every quote is in that capture, and one names what the record claims. */
 export function citationProblems(record: ProposedRecord, captures: ReadonlyMap<string, KnownCapture>): Problem[] {
   const problems: Problem[] = []
   if (!record.citations.some((citation) => citation.captureId)) {
@@ -294,12 +220,6 @@ function quoteProblems(
   return []
 }
 
-/**
- * A golden case states something an answer can be held to (an expected value, an edition, a citation or a
- * must-not), and names each must-not once: a case with nothing to check would pass whatever the answer said.
- * Its site may lie in another country (a question the office's law does not cover), so its territory is only
- * held to exist.
- */
 function goldenCaseProblems(record: ProposedRecord): Problem[] {
   if (record.type !== 'golden_case') return []
   const { values, edition, citations } = record.expected
@@ -368,7 +288,6 @@ export function validateProposal(
   return problems.flatMap((own, index) => own.map((found) => ({ ...found, index })))
 }
 
-/** What a request would release that no check refuses, and a reviewer weighs before approving or publishing it. */
 export interface ReleaseWarning {
   code: 'country_states_no_coverage'
   recordId: string
@@ -378,14 +297,6 @@ export interface ReleaseWarning {
 export const NO_COVERAGE_WARNING =
   'the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one'
 
-/**
- * The request's warnings, from each record's newest revision in it. A country whose own territory record
- * (`id === countryId`) states no `coverageLevel` leaves a site in it at gate `none` (`context/resolve.ts`
- * `coverageAt`, the nearest territory on the chain that states one) unless a region on its chain states one:
- * its law is read, and no edition binds. Silent when a territory of the request states coverage, since the
- * region may then be the one that answers. A union states none by design (it never lends its coverage to a
- * member). Pure.
- */
 export function releaseWarnings(
   countryId: string,
   revisions: readonly (Pick<RevisionView, 'type' | 'recordId'> & { claims: readonly { path: string; value: unknown }[] })[],

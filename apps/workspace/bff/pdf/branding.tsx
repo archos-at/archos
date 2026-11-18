@@ -1,116 +1,42 @@
-/**
- * The chrome around an exported document: the wordmark, the cover, the running
- * header and the page footer.
- *
- * ## Why a document needs chrome at all
- *
- * A PDF is the one artefact of this product that is read with the product
- * closed. It gets forwarded to a Behörde, printed into a Befund folder and
- * opened again two years later by somebody who was never a user. Body text
- * alone cannot answer the three questions that reader has — what is this, who
- * made it, and is a page missing — so the chrome answers them on every sheet:
- * the wordmark says what produced it, the title says what it is, and
- * `N / total` says whether the stack is complete.
- *
- * ## Why the icon's glyph is redrawn instead of embedded
- *
- * `public/` carries no raster logo, and `components/brand/logo.tsx` is a client
- * component whose `<svg>` is styled with Tailwind and `currentColor` — neither
- * of which exists in react-pdf. So the glyph is redrawn from the same path data
- * (`BRAND_MARK` in `lib/brand.ts`) with react-pdf's SVG primitives, which keeps it a vector (it stays crisp when
- * the document is printed at any size) and keeps the renderer free of assets it
- * would have to fetch at render time.
- */
-
 import React from 'react'
 import { Path, StyleSheet, Svg, View } from '@react-pdf/renderer'
 
-// See printable-text.tsx — the wrapper, not the library's `Text`.
 import { Text } from './printable-text'
 import { wordmarkFontStyle } from './fonts'
 import { BRAND_MARK, PRODUCT_NAME } from '@/lib/brand'
 import { PDF_PAGE, PDF_THEME, PDF_TYPE } from './theme'
 
-/** The document's header facts — the small label/value lines under the title. */
 export interface CoverFact {
   label: string
   value: string
-  /**
-   * Set for a value that is TRANSCRIBED rather than read — a run id, a
-   * reference number. The design language's rule ("monospace for identifiers")
-   * exists because a proportional font makes `l`/`1` and `O`/`0` the reader's
-   * problem at exactly the moment they are copying the thing into a ticket.
-   */
   mono?: boolean
 }
 
-/**
- * The branded lines a generated document carries, already resolved and already
- * in the reader's language.
- *
- * Structural on purpose: `lib/documents/branding.ts` owns the WORDS and the
- * organization override that can change them, and its `DocumentBranding`
- * satisfies this type without either module importing the other. That keeps the
- * copy out of the renderer — which is the whole point of that module — without
- * making a PDF component depend on the database read that resolves it.
- *
- * Optional as a whole, never in part. A document either carries branding or it
- * does not: a browser export of prose the reader has already read is not a file
- * Piloti filed on somebody's behalf, and stamping it would make the stamp mean
- * nothing (the same argument `MarkdownPdfOptions.marking` makes for the
- * marking).
- */
 export interface DocumentChrome {
-  /** „Erstellt mit Piloti für …" — printed once, at the top of the cover body. */
   headerLine: string
-  /** Two or three sentences: what this is, who drafted it, who carries it. */
   prose: string
-  /** One sentence about what the document is not. */
   disclaimer: string
-  /** The line that repeats at the foot of every page. */
   footerLine: string
-  /**
-   * The Art. 50(1) AI Act disclosure, printed under the header line: an AI
-   * system wrote this, for which office. Not the overridable branding copy
-   * (`DocumentBranding.aiDisclosure`); optional only for chrome built elsewhere.
-   */
   aiDisclosure?: string
 }
 
 export interface CoverInfo {
-  /** The document's own name. Never empty: the caller resolves a fallback. */
   title: string
-  /** Project, date, and anything else the source of the document stated. */
   facts: CoverFact[]
-  /** The branding, when this document is one Piloti produced. */
   chrome?: DocumentChrome
-  /**
-   * The AI marking, when the document is machine-authored.
-   *
-   * Above the facts and below the title band, because a reader who stops after
-   * the cover has still been told what they are holding — and because the facts
-   * are what the document CLAIMS, while this is a statement about how much of
-   * it to trust.
-   */
   notice?: { title: string; body: string }
 }
 
 const styles = StyleSheet.create({
-  // ---- the wordmark --------------------------------------------------------
   lockup: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   wordmark: {
-    // The brand's logo tracking, -0.02em, as points at the small sizes the
-    // lockup is drawn at (the face itself is set in `BrandLockup`).
     letterSpacing: -0.2,
   },
 
-  // ---- cover ---------------------------------------------------------------
   coverPage: {
-    // No page padding: the ink band is full-bleed, and a band that stops short
-    // of the trim reads as a mistake rather than as a design.
     padding: 0,
     fontFamily: 'Helvetica',
     backgroundColor: PDF_THEME.paper,
@@ -120,8 +46,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: PDF_PAGE.margin,
     paddingTop: 64,
     paddingBottom: 52,
-    // A fixed height rather than a hugged one, so a one-line title and a
-    // four-line title produce the same cover rather than two different ones.
     height: 320,
     justifyContent: 'space-between',
   },
@@ -136,9 +60,6 @@ const styles = StyleSheet.create({
     paddingTop: 44,
     flexGrow: 1,
   },
-  // The marking. A ruled block rather than a filled one: the cover is already
-  // the loudest page in the document, and a second filled area competes with
-  // the title band instead of being read before the facts.
   coverNotice: {
     borderLeftWidth: 3,
     borderLeftColor: PDF_THEME.ink,
@@ -176,26 +97,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontSize: PDF_TYPE.body - 1,
   },
-  // The branding header line. Above the marking and the facts, and set in the
-  // same subtle chrome type as the running header, because it answers the same
-  // question that header answers — what made this, and for whom.
   coverHeaderLine: {
     fontSize: PDF_TYPE.chrome,
     color: PDF_THEME.subtle,
     marginBottom: 22,
   },
-  // The Art. 50(1) line, under the header line and in the body's ink: it is a
-  // statement to the reader, not chrome to read past.
   coverDisclosure: {
     fontSize: PDF_TYPE.chrome,
     color: PDF_THEME.ink,
     marginTop: -14,
     marginBottom: 22,
   },
-  // The prose block. Under the facts rather than over them: the facts say what
-  // the document is ABOUT, and this says what the document IS — which is the
-  // sentence a reader wants last, on their way to deciding whether to forward
-  // it.
   coverProse: {
     marginTop: 26,
     paddingTop: 12,
@@ -229,7 +141,6 @@ const styles = StyleSheet.create({
     backgroundColor: PDF_THEME.accent,
   },
 
-  // ---- running header ------------------------------------------------------
   header: {
     position: 'absolute',
     top: PDF_PAGE.headerTop,
@@ -246,12 +157,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: PDF_TYPE.chrome,
     color: PDF_THEME.subtle,
-    // Bounded so a long title cannot push the wordmark off its own header.
     maxWidth: '62%',
     textAlign: 'right',
   },
 
-  // ---- page footer ---------------------------------------------------------
   footer: {
     position: 'absolute',
     bottom: PDF_PAGE.footerBottom,
@@ -277,26 +186,15 @@ const styles = StyleSheet.create({
   },
 })
 
-/**
- * The app icon's glyph, the product name's initial, `size` tall, in one
- * colour. It never stands beside the wordmark (the design system's logo is the
- * word alone); the cover's foot carries it on its own.
- */
 export const BrandMark: React.FC<{ size: number; color: string }> = ({ size, color }) => (
   <Svg width={size * BRAND_MARK.aspect} height={size} viewBox={BRAND_MARK.viewBox}>
     <Path d={BRAND_MARK.path} fill={color} />
   </Svg>
 )
 
-/**
- * The wordmark: the product's name in capitals in the logo face. The design
- * system's logo is the word alone, with no mark beside it. Drawn at three sizes
- * in one document (cover, header, footer).
- */
 export const BrandLockup: React.FC<{
   size: number
   color: string
-  /** Wordmark size; defaults to `size`. */
   fontSize?: number
 }> = ({ size, color, fontSize }) => (
   <View style={styles.lockup}>
@@ -306,14 +204,6 @@ export const BrandLockup: React.FC<{
   </View>
 )
 
-/**
- * The running header. `fixed` so it is drawn once per page by the layout engine
- * rather than once per block by us.
- *
- * The title is repeated here and not only on the cover on purpose: a single
- * sheet pulled out of a folder has to identify itself, and the cover is the one
- * page that never travels with it.
- */
 export const RunningHeader: React.FC<{ title: string }> = ({ title }) => (
   <View style={styles.header} fixed>
     <BrandLockup size={9} color={PDF_THEME.ink} />
@@ -321,15 +211,6 @@ export const RunningHeader: React.FC<{ title: string }> = ({ title }) => (
   </View>
 )
 
-/**
- * The page footer: what produced this, and where the reader is in it.
- *
- * The right-hand side is `N / total` rather than a translated "Page N of M".
- * Every other word in an exported document comes out of the dictionary so the
- * file arrives in the language the answer was read in; a numeral needs no
- * dictionary and therefore cannot be the one English string in a German
- * document.
- */
 export const PageFooter: React.FC<{ line?: string }> = ({ line }) => (
   <View style={styles.footer} fixed>
     <BrandLockup size={8} color={PDF_THEME.subtle} />
@@ -344,17 +225,9 @@ export const PageFooter: React.FC<{ line?: string }> = ({ line }) => (
   </View>
 )
 
-/** Long titles set smaller, so the cover never has to hyphenate a name. */
 const coverTitleSize = (title: string): number =>
   title.length > PDF_TYPE.coverTitleBreak ? PDF_TYPE.coverTitleLong : PDF_TYPE.coverTitle
 
-/**
- * The cover's contents.
- *
- * Returned as a fragment rather than as a `Page` so the caller owns the page
- * element — react-pdf resolves `size` and `style` on `Page` only, and a cover
- * that carried its own would silently disagree with the body pages.
- */
 export const CoverContent: React.FC<{ cover: CoverInfo }> = ({ cover }) => (
   <>
     <View style={styles.band}>

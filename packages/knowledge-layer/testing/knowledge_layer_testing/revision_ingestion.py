@@ -1,7 +1,3 @@
-"""The revision suites' end-to-end harness: a summary model that answers by prompt
-kind, a temp metadata store and a live ingestor on a real Qdrant.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -14,8 +10,6 @@ from langchain_core.messages import AIMessage
 
 
 class _Model:
-    """A summary model that answers by the kind of prompt it is given, and remembers them."""
-
     def __init__(self, judge='{"of": null, "confidence": 0.0, "reason": ""}', change="- Stiege nach Norden verschoben"):
         self.judge = judge
         self.change = change

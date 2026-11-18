@@ -1,18 +1,4 @@
 import 'server-only'
-/**
- * The audit trail of the E-Mail-Eingang's decisions (ADR-0137, `lib/audit/schemas.mjs`).
- *
- * A decision row IS the record of what a person decided about a held mail, so
- * its line in the trail is owed, not best effort: each decision is sent under
- * a fixed idempotency key with the time it was decided, and marked
- * `audited_at` only once WorkOS took it. One that could not be sent stays
- * `audited_at IS NULL`, and the sweep sends it again (sweep 11, which also
- * runs before any decision may be deleted, RT-S8). The same function serves
- * the request that decided, the follow job and the sweep.
- *
- * Every key is an id, a code or a flag: never a sender, a subject, a file name
- * or an address (the trail outlives the scrub of a settled mail).
- */
 
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
@@ -20,7 +6,6 @@ import type { InboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import type { EndedFollow, ProjectFollowEnd } from './repository'
 import { findPartKinds, markDecisionsAudited } from './repository'
 
-/** The metadata of one decision's line: ids, codes and the person's acknowledgements. Absent values are left out. */
 export function decisionMetadata(
   decision: InboundMailDecisionRow,
   partKind: 'message' | 'attachment' | undefined,
@@ -47,11 +32,6 @@ export function decisionMetadata(
   }
 }
 
-/**
- * Send each decision to the trail and mark the ones it took. Never throws: a
- * line that failed stays owed for the sweep, and the decision itself stands.
- * Whether every line was taken.
- */
 export async function auditDecisions(decisions: readonly InboundMailDecisionRow[]): Promise<boolean> {
   if (decisions.length === 0) return true
   const kinds = await findPartKinds(decisions.map((decision) => decision.partId)).catch(() => new Map<string, 'message' | 'attachment'>())
@@ -77,18 +57,11 @@ export async function auditDecisions(decisions: readonly InboundMailDecisionRow[
   try {
     await markDecisionsAudited(taken)
   } catch (error) {
-    // Unmarked lines are sent again under the same key; WorkOS answers the repeat with the first event.
     console.warn('[inbound-mail] could not mark decisions audited; the sweep sends them again', error)
   }
   return taken.length === decisions.length
 }
 
-/**
- * The lines for the follows that ended for a whole project at once, as the
- * person who caused it: an address change (D31: replacing or switching off the
- * address ends every follow on the project) or the project's close. After
- * commit, best effort: the follow rows say it already.
- */
 export function auditFollowsEnded(
   organizationId: string,
   projectId: string,

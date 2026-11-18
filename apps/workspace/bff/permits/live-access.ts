@@ -1,18 +1,3 @@
-/**
- * Who may be served a permit record, judged from where its document is NOW.
- *
- * A record's stored restriction is a snapshot of the collection the document
- * sat in when it was read, and the collection only follows a folder change
- * once placement has run: a move or a new access list updates `folder_id`
- * first, placement may skip a document whose ingest is in flight, moves at
- * most a batch per call, and a failed purge leaves a document in place. In
- * that window the snapshot says "open" for a document that no longer is.
- * So the access is decided as the document hits beside it are decided
- * (`hiddenFolderIds` in `documents/semantic-search.ts`): from the document's live
- * `folder_id` against the project's folder tree, and the restriction the
- * hand-out records and the agent's admission reads is the live one too.
- */
-
 import 'server-only'
 import {
   folderTree,
@@ -23,16 +8,8 @@ import {
 } from '@/lib/authz/folder-access'
 import { canonicalRestriction } from '@/lib/projects/memory-service'
 
-/** One project's folders as a reader may be served a permit from them. */
 export interface LiveFolderAccess {
-  /**
-   * The folders whose documents' records this reader may be served; null when
-   * the project has no restricted and no binned folder, so every folder is.
-   * A folder not listed (one created since, a binned one, one restricted to
-   * others) is not served: the safe direction.
-   */
   visibleFolderIds: string[] | null
-  /** The folders restricting a document filed in `folderId` now, canonical; null for an open one. */
   restrictionOf(folderId: string | null): string[] | null
 }
 
@@ -48,12 +25,6 @@ function deletedOnPath(tree: FolderTree, folderId: string): boolean {
   return false
 }
 
-/**
- * The pure half: given the project's folder tree and the restricted folders
- * the reader is cleared for, which folders are served and what restricts each.
- * A folder is served when nothing on its path is in the Papierkorb and every
- * folder restricting it is one the reader is cleared for.
- */
 export function liveFolderAccessOf(folders: readonly AccessFolder[] | null, readableFolderIds: readonly string[]): LiveFolderAccess {
   if (!folders) return OPEN
   const tree = folderTree(folders)
@@ -68,7 +39,6 @@ export function liveFolderAccessOf(folders: readonly AccessFolder[] | null, read
   }
 }
 
-/** {@link liveFolderAccessOf} for one project, its tree read now. */
 export async function liveFolderAccess(
   organizationId: string,
   projectId: string,

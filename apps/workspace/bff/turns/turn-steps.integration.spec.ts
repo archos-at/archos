@@ -59,7 +59,7 @@ describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     as = (organizationId, run) => context.withTenant({ organizationId, userId: null }, run)
     withPlatformAccess = context.withPlatformAccess

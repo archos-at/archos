@@ -1,5 +1,3 @@
-"""HTML template and render helper for single-run tokenomics reports. No project imports."""
-
 from __future__ import annotations
 
 import json
@@ -763,7 +761,5 @@ _HTML = build_html(
 
 
 def render_html(report_data: dict) -> str:
-    # Escape "<" so user-supplied strings (e.g. a query containing
-    # "</script>") cannot terminate the inline <script> block.
     data_json = json.dumps(report_data, ensure_ascii=False).replace("<", "\\u003c")
     return _HTML.replace("__REPORT_DATA_JSON__", data_json)

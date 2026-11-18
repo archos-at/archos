@@ -1,11 +1,3 @@
-/**
- * Legal pages layout — public, unauthenticated shell for `/legal/[slug]`.
- *
- * A quiet reading column under the brand mark with a way back home; the
- * pages themselves are prose documents (Impressum, privacy policy, terms,
- * AI transparency, subprocessors) rendered from `@/lib/legal`.
- */
-
 import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { Logo } from '@/components/brand/logo'

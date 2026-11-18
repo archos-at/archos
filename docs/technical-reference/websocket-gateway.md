@@ -93,7 +93,7 @@ The client is `createTurnSocket` (`apps/workspace/ui/adapters/api/turn-socket.ts
 - **Liveness.** While a turn runs the server sends `heartbeat{every_ms}`;
   three beats of silence and the socket is dropped and reopened, and a turn
   silent on two sockets in a row is ended. Nothing is watched after the
-  terminal. Before `RUN_STARTED` the driver (`use-websocket-chat.ts`) watches
+  terminal. Before `RUN_STARTED` the driver (`turn-driver.ts`) watches
   instead: a question has 15 s to be answered before the socket is reopened,
   and a second miss ends it with an error card.
 

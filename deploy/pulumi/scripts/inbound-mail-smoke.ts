@@ -1,51 +1,3 @@
-/**
- * Project mail launch gates G0–G9 (DECISION §8, ADR-0138), as one operator
- * tool: what can be checked from a laptop is checked, and what needs a person
- * at a mail client or the Cloudflare dashboard is printed as exact steps.
- *
- * Run it after the promote that set `inboundMailDomain` with
- * `inboundMailPaused: true` (owner gate O4), before the unpause, and again
- * after any `compatibilityDate` bump (G8). Record each run in
- * `docs/deployment/kubernetes.md` §3c.
- *
- *   cd deploy/pulumi
- *   bun scripts/inbound-mail-smoke.ts plan            # every gate, nothing sent (the default)
- *   bun scripts/inbound-mail-smoke.ts g0              # G0: both MX sets, subaddressing, the rules, DMARC, the test mail (read-only)
- *   bun scripts/inbound-mail-smoke.ts cloudflare      # G7 + the deployed edge, read-only
- *   bun scripts/inbound-mail-smoke.ts signed --run    # G3 (and G4 with --expect-paused)
- *   bun scripts/inbound-mail-smoke.ts malware --run   # G6, the parts a request can drive
- *   bun scripts/inbound-mail-smoke.ts dkim-share <dir|mbox>...   # G9, offline
- *
- * Inputs (environment, never flags, for what is secret):
- *
- *   CLOUDFLARE_API_TOKEN       read access to the zone's Email Routing and DNS,
- *                              and to the account's Workers scripts and Email Routing addresses
- *   INBOUND_MAIL_ZONE_ID       the zone the mail domain lives in
- *   INBOUND_MAIL_ACCOUNT_ID    the account that owns the Worker
- *   INBOUND_MAIL_DOMAIN        the receiving domain, e.g. inbox.example.org
- *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default: the program's,
- *                              DEFAULT_INBOUND_MAIL_LOCAL_PART in src/config/inbound-mail.ts)
- *   INBOUND_MAIL_APEX_MX       `g0` only: the apex's MX hosts as they must stay, or `none`
- *   INBOUND_MAIL_DMARC         `g0` only: the `_dmarc.<apex>` record the stack sets (optional)
- *   INBOUND_MAIL_WORKER        the script name, inbound-mail-<stack> (the stack output
- *                              `inboundMailWorker` without its " (paused)" suffix)
- *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.example.org, the origin of WORKOS_REDIRECT_URI
- *   INBOUND_MAIL_TEST_ADDRESS  a project address of the TEST office (never a customer's),
- *                              project+<slug>.<token>@<domain>
- *   INBOUND_MAIL_KEY_ID        the keyid the Worker signs with (`inboundMailSigningKeyId`)
- *   INBOUND_MAIL_SIGNING_KEY   its base64 secret, from `pulumi config get --show-secrets`
- *
- * What it sends: `signed` and `malware` post signed messages straight to the
- * BFF, past Cloudflare, so they test the BFF and the edge, not the Worker
- * (G1, G2 and G5 do that, through real mail). Each accepted probe is a held
- * mail waiting in the test project's mail inbox, subject `[smoke] …`; dismiss them
- * afterwards. Nothing is sent without `--run`. The tool never writes to
- * Cloudflare: the throwaway Worker of G2 is set up by hand, as printed.
- *
- * Exit status: 0 when every automated check of the command passed, 1 when one
- * failed, 2 on a usage error. Manual gates are never reported as passed.
- */
-
 import { createHash, randomBytes } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -72,23 +24,14 @@ const CONTRACT = JSON.parse(
 
 const MiB = 1024 * 1024;
 
-/** The EICAR test string (eicar.org): every scanner reports it, and it is harmless. */
 export const EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
-// ── Pure parts (exported for the spec) ─────────────────────────────────────
-
-/** One attachment of a probe message. */
 export interface Attachment {
   name: string;
   contentType: string;
   bytes: Uint8Array;
 }
 
-/**
- * An RFC 5322 message with a text part and base64 attachments, CRLF line
- * endings. The Message-ID is fresh per call, so a re-run is never answered as
- * a duplicate.
- */
 export function buildMessage(args: { to: string; subject: string; text: string; attachments?: Attachment[] }): Buffer {
   const boundary = `smoke-${randomBytes(12).toString("hex")}`;
   const lines = [
@@ -120,10 +63,8 @@ export function buildMessage(args: { to: string; subject: string; text: string; 
   return Buffer.from(lines.join("\r\n"));
 }
 
-/** A message of exactly `size` bytes: `buildMessage` with a filler attachment trimmed to fit. */
 export function messageOfSize(to: string, subject: string, size: number): Buffer {
   const empty = buildMessage({ to, subject, text: "Size probe.", attachments: [] });
-  // base64 is 4/3 of the input plus a CRLF per 76 characters; aim below, then pad the text.
   let raw = Math.max(0, Math.floor(((size - empty.byteLength - 400) * 3 * 76) / (4 * 78)));
   for (;;) {
     const attachment = { name: "filler.bin", contentType: "application/octet-stream", bytes: randomBytes(raw) };
@@ -136,7 +77,6 @@ export function messageOfSize(to: string, subject: string, size: number): Buffer
   }
 }
 
-/** The headers of a request signed as the Worker signs it, by the library the BFF verifies with. */
 export async function signedHeaders(args: {
   url: string;
   body: Uint8Array;
@@ -166,7 +106,6 @@ export async function signedHeaders(args: {
   return Object.fromEntries(Object.entries(signed.headers).map(([name, value]) => [name.toLowerCase(), String(value)]));
 }
 
-/** What G9 counts per message. */
 export interface DkimVerdict {
   hasResults: boolean;
   dkimPass: boolean;
@@ -174,21 +113,14 @@ export interface DkimVerdict {
   dmarcPass: boolean;
 }
 
-/** Second-level labels under which registrations sit one level deeper (`gv.at`, `co.uk`). */
 const SECOND_LEVEL = new Set(["ac", "co", "com", "edu", "gov", "gv", "net", "or", "org"]);
 
-/**
- * The organizational domain, approximately: the last two labels, or three
- * under a known second-level label. No Public Suffix List, because G9 sets
- * expectations and is not a verdict; the BFF's alignment is mailauth's.
- */
 export function organizationalDomain(domain: string): string {
   const labels = domain.toLowerCase().replace(/\.$/, "").split(".");
   const take = labels.length >= 3 && SECOND_LEVEL.has(labels[labels.length - 2]) ? 3 : 2;
   return labels.slice(-take).join(".");
 }
 
-/** Unfolded header fields of a raw message, names lowercased, in order. */
 export function headerFields(raw: string): Array<[string, string]> {
   const head = raw.split(/\r?\n\r?\n/, 1)[0] ?? "";
   const fields: Array<[string, string]> = [];
@@ -202,12 +134,6 @@ export function headerFields(raw: string): Array<[string, string]> {
   return fields;
 }
 
-/**
- * G9 for one message: the TOPMOST `Authentication-Results` (the one the
- * receiving server added; lower ones are the sender's to forge), whether it
- * holds a `dkim=pass`, whether one of those signed for the From domain's
- * organizational domain (relaxed alignment, RFC 7489 §3.1.1), and `dmarc=pass`.
- */
 export function dkimVerdict(raw: string): DkimVerdict {
   const fields = headerFields(raw);
   const results = fields.find(([name]) => name === "authentication-results")?.[1];
@@ -231,15 +157,12 @@ export function dkimVerdict(raw: string): DkimVerdict {
   };
 }
 
-/** Messages of an mbox file (`From ` separator lines, mboxrd quoting undone). */
 export function splitMbox(text: string): string[] {
   return text
     .split(/^From .*\r?\n/m)
     .filter((part) => part.trim() !== "")
     .map((part) => part.replace(/^>(>*From )/gm, "$1"));
 }
-
-// ── The gates ──────────────────────────────────────────────────────────────
 
 interface Check {
   gate: string;
@@ -265,7 +188,6 @@ function env(name: string): string {
   return value;
 }
 
-/** The manual steps, printed by `plan`, one line each. */
 const MANUAL: Array<[string, string]> = [
   [
     "G0",
@@ -370,8 +292,6 @@ async function checkCloudflare(): Promise<void> {
     observability?: { enabled?: boolean; logs?: { enabled?: boolean; invocation_logs?: boolean } };
     bindings?: Array<{ name: string; type: string; text?: string }>;
   };
-  // The Worker's own delivery line is kept (`inbound-mail.ts`, since 2026-11);
-  // invocation logs, which record the envelope sender and recipient, never are.
   const invocationLogs = settings.observability?.enabled === true && settings.observability.logs?.invocation_logs !== false;
   record("G0", "Workers invocation logs off", invocationLogs ? "fail" : "pass", JSON.stringify(settings.observability));
   record("G8", "compatibility date", "info", `${settings.compatibility_date}; after a bump, G1 and G2 again`);
@@ -391,10 +311,8 @@ async function checkCloudflare(): Promise<void> {
   record("G4", "Worker pause", "info", `PAUSED=${paused ?? "?"}`);
 }
 
-/** POST `body` to the signed route; `headers` as given. */
 async function post(headers: Record<string, string>, body: Uint8Array): Promise<Response> {
   const url = new URL(CONTRACT.path, env("INBOUND_MAIL_APP_ORIGIN")).href;
-  // fetch sets Content-Length from the fixed-length body itself.
   const sent = Object.fromEntries(Object.entries(headers).filter(([name]) => name !== "content-length"));
   return fetch(url, { method: "POST", headers: sent, body: new Uint8Array(body), redirect: "manual", signal: AbortSignal.timeout(120_000) });
 }
@@ -418,13 +336,6 @@ async function reason(response: Response): Promise<string> {
   return `${response.status}${verdict ? ` ${CONTRACT.verdictHeader}: ${verdict}` : ""} ${text.slice(0, 160)}`;
 }
 
-/**
- * A signed request whose body stops short of its Content-Length, sent on a
- * raw TLS socket (fetch cannot lie about a length). The BFF answers 503
- * `body-truncated` when it sees the stream end early; when the edge holds
- * the request until its timeout instead, nothing reaches the BFF. Either is
- * a pass; a 2xx is a fail.
- */
 async function truncatedPost(body: Buffer): Promise<string> {
   const url = new URL(CONTRACT.path, env("INBOUND_MAIL_APP_ORIGIN"));
   const headers = await signedHeaders({
@@ -441,7 +352,6 @@ async function truncatedPost(body: Buffer): Promise<string> {
       for (const [name, value] of Object.entries(headers)) head.push(`${name}: ${value}`);
       socket.write(`${head.join("\r\n")}\r\n\r\n`);
       socket.write(body.subarray(0, body.byteLength - 4096));
-      // Half-close: the request ends here, 4 KiB short.
       socket.end();
     });
     let answer = "";
@@ -501,8 +411,6 @@ async function malwareGates(): Promise<void> {
   const eicarAnswer = await signedPost(eicar);
   record("G6", "EICAR mail is held (for the scanner)", eicarAnswer.status === 202 ? "pass" : "fail", await reason(eicarAnswer));
 
-  // 200 MiB of zeros, 200 KiB compressed: past StreamMaxLength and the
-  // per-file limits, which `AlertExceedsMax` must report rather than pass.
   const bomb = gzipSync(Buffer.alloc(200 * MiB), { level: 9 });
   const bombMessage = buildMessage({
     to,

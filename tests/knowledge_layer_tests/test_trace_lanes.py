@@ -3,9 +3,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.search import _trace_lanes_for_chunks
 from knowledge_layer.search import format_results
-from knowledge_layer.search.trace_lanes import _trace_lanes_for_chunks
 
+from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 from agent.common.wire_v2 import TraceLane
 from agent.common.wire_v2 import TraceLaneSource
@@ -174,7 +175,7 @@ def test_a_published_agent_document_gets_its_own_lane_inside_the_office_kind():
             )
         ]
     )
-    assert (lane.key, lane.label, lane.kind) == ("office_piloti", AGENT_AUTHORED_LANE_LABEL, "office")
+    assert (lane.key, lane.label, lane.kind) == (AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL, "office")
 
 
 def test_the_fan_out_carries_the_provenance_as_data_not_as_a_sentence():

@@ -1,164 +1,54 @@
 'use client'
 
 import type { JSX } from 'react'
-import { type FC, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { BookOpen, CheckCircle2, ChevronDown, FileText, XCircle } from 'lucide-react'
 
 import {
   AnimatePresence,
-  fadeRise,
   motion,
   motionBase,
   motionEntrance,
   motionInstant,
   motionQuick,
   motionQuickExit,
-  staggerMaxSteps,
-  staggerStepSeconds,
 } from '@/components/motion'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Item, ItemList } from '@/components/ui/item'
+import { ItemList } from '@/components/ui/item'
 import { StageTrack, type StageTrackTone } from '@/components/ui/stage-track'
-import { AuthorityTag } from '@/features/chat/components/AuthorityTag'
-import { formatElapsed } from '@/features/chat/hooks/use-elapsed-seconds'
-import { documentFilesHref } from '@/features/documents/lib/document-question'
 import { SourceSignalChip } from '@/features/layout/components/SourceSignalChip'
+import { documentFilesHref } from '@/features/documents/lib/document-question'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
-import { useLocale, useTranslations, type Translator } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import { runsCopy } from '@/i18n/namespaces/runs'
-import { formatDurationElapsed } from '@/lib/format'
-import {
-  RUN_PHASES,
-  type RunLedger,
-  type RunLedgerDoc,
-  type RunPhase,
-  type RunStatus,
-  type RunStep,
-} from '@/lib/runs/run-ledger-types'
+import { RUN_PHASES, type RunStatus } from '@/lib/runs/run-ledger-types'
 import {
   activePhase,
-  completedBefore,
-  elapsedMs,
   basisReceipt,
   isLiveStatus,
-  phaseDurationMs,
   phaseState,
   runDisplayStatus,
   runTallies,
   stepsInPhase,
-  type RunTallies,
 } from '@/lib/runs/run-vocabulary'
 import { cn } from '@/lib/utils'
 import { Quote } from '@/components/ui/quote'
-import { useRunClock } from '../hooks/use-run-clock'
 import { landingDelays, type LandingDelays } from '../lib/choreography'
 import { docProvenance } from '../lib/doc-provenance'
+import { completedBeforeLabel, statusLine } from '../lib/run-status-lines'
 import { RunStatusGlyph } from './RunStatusGlyph'
 import { isZdrPolicyRefusal } from '@/lib/model-config/zdr-refusal'
 import { useCurrentProject } from '@/features/projects/lib/current-project'
+import { PhaseActs } from './run-block/run-phase-acts'
+import { RoundRow } from './run-block/run-round-row'
+import { RunElapsed } from './run-block/run-elapsed'
+import { WRAPPING_CHIP } from './run-block/run-doc-chip'
+import type { RunBlockProps } from './run-block/run-block-props'
 
-export interface RunBlockReview {
-  decision: 'accepted' | 'rejected'
-  by?: string | null
-  reason?: string | null
-}
-
-export interface RunBlockProps {
-  ledger: RunLedger
-  title?: string | null
-  projectId?: string | null
-  filesToProject?: boolean
-  review?: RunBlockReview | null
-  live?: boolean
-  connection?: 'live' | 'reconnecting' | 'lost' | null
-  defaultOpen?: boolean
-  onAnswer?: () => void
-  onRetry?: () => void
-  onCancel?: (() => void | Promise<void>) | null
-  onWriteNow?: (() => void | Promise<void>) | null
-  onAddDocument?: (() => void) | null
-  addDocumentFailure?: string | null
-  onOpenDocument?: ((doc: RunLedgerDoc) => void) | null
-  onContinue?: (() => void | Promise<void>) | null
-  reviewHref?: string | null
-  reportHref?: string | null
-  className?: string
-}
-
-const Sep: FC = () => (
-  <span aria-hidden className="text-muted-foreground/50">
-    {' · '}
-  </span>
-)
-
-function talliesLabel(t: Translator, tallies: RunTallies): string {
-  return [
-    tallies.rounds > 0 ? t('tallies.rounds', { count: tallies.rounds }) : null,
-    tallies.docs > 0 ? t('tallies.docs', { count: tallies.docs }) : null,
-    (tallies.findings ?? 0) > 0 ? t('tallies.findings', { count: tallies.findings ?? 0 }) : null,
-  ]
-    .filter((clause): clause is string => clause !== null)
-    .join(' · ')
-}
-
-function clauses(...parts: (string | null)[]): string {
-  return parts.filter((part): part is string => !!part).join(' · ')
-}
-
-function statusLine(
-  t: Translator,
-  ledger: RunLedger,
-  status: RunStatus,
-  tallies: RunTallies,
-  filesToProject: boolean
-): string {
-  switch (status) {
-    case 'created':
-      return clauses(t('status.created'), filesToProject ? t('line.filing') : null)
-    case 'running': {
-      const phase = activePhase(ledger)
-      return clauses(
-        phase ? t(`phase.${phase}`) : t('status.running'),
-        talliesLabel(t, tallies) || null
-      )
-    }
-    case 'waiting':
-      return clauses(t('status.waiting'), t('line.waiting'))
-    case 'done':
-      return clauses(
-        t('status.done'),
-        ledger.result?.fileId ? t('line.doneFiled') : t('line.doneInline')
-      )
-    case 'failed':
-      return t('line.failed', { reason: ledger.error?.reason ?? '' })
-    case 'cancelled':
-      return clauses(t('status.cancelled'), t('line.cancelled'))
-    case 'interrupted':
-      return clauses(t('status.interrupted'), t('line.interrupted'))
-  }
-}
-
-function completedBeforeLabel(
-  t: Translator,
-  ledger: RunLedger,
-  tallies: RunTallies
-): string | null {
-  const phases = completedBefore(ledger)
-  if (phases.length === 0) return null
-  const named = phases.map((phase) => {
-    const label = t(`phase.${phase}`)
-    if (phase !== 'researching' || (tallies.rounds === 0 && tallies.docs === 0)) return label
-    return t('completedBeforeTallies', {
-      phase: label,
-      rounds: t('tallies.rounds', { count: tallies.rounds }),
-      docs: t('tallies.docs', { count: tallies.docs }),
-    })
-  })
-  return t('completedBefore', { phases: named.join(', ') })
-}
+export type { RunBlockProps, RunBlockReview } from './run-block/run-block-props'
 
 function trackTone(status: RunStatus): StageTrackTone {
   switch (status) {
@@ -172,219 +62,6 @@ function trackTone(status: RunStatus): StageTrackTone {
     default:
       return 'moving'
   }
-}
-
-const DocChip: FC<{ doc: RunLedgerDoc; reduced: boolean }> = ({ doc, reduced }) => {
-  const t = useTranslations(runsCopy)
-  const { tint, authority } = docProvenance(doc)
-  const name = doc.title ?? doc.name
-  const loci = doc.loci.join(' · ')
-  return (
-    <SourceSignalChip
-      signal={tint}
-      className={cn(
-        'duration-quick max-w-full transition-opacity ease-out motion-reduce:transition-none',
-        WRAPPING_CHIP,
-        doc.repeat && 'opacity-75'
-      )}
-      title={loci ? `${name} · ${loci}` : name}
-    >
-      {authority && (
-        <>
-          <AuthorityTag>{authority}</AuthorityTag>{' '}
-        </>
-      )}
-      {name}
-      {loci && <span className="opacity-70"> · {loci}</span>}
-      {/* A mark that lands on a chip already on screen crossfades in; one the
-          chip mounted with is simply there. */}
-      <AnimatePresence initial={false}>
-        {doc.repeat && (
-          <motion.span
-            key="repeat"
-            className="italic"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.7 }}
-            exit={{ opacity: 0 }}
-            transition={reduced ? motionInstant : motionQuick}
-          >
-            {' · '}
-            {t('step.repeat')}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </SourceSignalChip>
-  )
-}
-
-const WRAPPING_CHIP =
-  'h-auto min-h-6 items-start overflow-visible! whitespace-normal! text-clip! rounded-xl py-0.5 text-left ' +
-  '[&>svg]:mt-[3px] [&>span]:overflow-visible! [&>span]:whitespace-normal! [&>span]:text-clip! [&>span]:[overflow-wrap:anywhere]'
-
-const FADE = { hidden: { opacity: 0 }, visible: { opacity: 1 } }
-
-const RoundRow: FC<{ step: RunStep; index: number; reduced: boolean }> = ({
-  step,
-  index,
-  reduced,
-}) => {
-  const t = useTranslations(runsCopy)
-  const intent = step.intent.trim() || t('step.fallback', { n: index + 1 })
-  const chipDelay = (position: number): number =>
-    Math.min(position, staggerMaxSteps) * staggerStepSeconds
-  const afterChips = (Math.min(step.docs.length, staggerMaxSteps) + 1) * staggerStepSeconds
-  const fadeAfter = (delay: number) => (reduced ? motionInstant : { ...motionQuick, delay })
-  return (
-    <Item as="li" className="flex-col items-stretch gap-1 px-3 py-2 hover:bg-transparent" asChild>
-      <motion.li
-        data-testid="run-step"
-        variants={fadeRise}
-        initial="hidden"
-        animate="visible"
-        transition={reduced ? motionInstant : motionEntrance}
-      >
-        <p className="text-foreground text-xs leading-snug">
-          <span className="font-medium tabular-nums">{t('step.round', { n: index + 1 })}</span>
-          <Sep />
-          {intent}
-        </p>
-        {step.docs.length > 0 && (
-          <div className="flex flex-wrap gap-1" role="list">
-            {step.docs.map((doc, position) => (
-              <motion.span
-                role="listitem"
-                key={doc.name}
-                className="inline-flex max-w-full"
-                variants={FADE}
-                transition={fadeAfter(chipDelay(position))}
-              >
-                <DocChip doc={doc} reduced={reduced} />
-              </motion.span>
-            ))}
-          </div>
-        )}
-        {step.findings && step.findings.length > 0 && (
-          <motion.ul
-            className="text-foreground text-xs leading-relaxed"
-            data-testid="run-findings"
-            variants={FADE}
-            transition={fadeAfter(afterChips)}
-            aria-label={t('step.findings')}
-          >
-            {step.findings.map((finding) => (
-              <li key={finding} className="flex gap-1.5">
-                <span aria-hidden="true" className="text-muted-foreground">
-                  ·
-                </span>
-                <span>{finding}</span>
-              </li>
-            ))}
-          </motion.ul>
-        )}
-        {step.openPoints && step.openPoints.length > 0 && (
-          <motion.p
-            className="text-muted-foreground text-xs leading-relaxed"
-            data-testid="run-open-points"
-            variants={FADE}
-            transition={fadeAfter(afterChips)}
-          >
-            <span className="font-medium">{t('step.openPoints')}</span>{' '}
-            {step.openPoints.join(' · ')}
-          </motion.p>
-        )}
-      </motion.li>
-    </Item>
-  )
-}
-
-function doneLine(t: Translator, phase: RunPhase, tallies: RunTallies): string | null {
-  switch (phase) {
-    case 'planning':
-      return t('phaseLine.planning')
-    case 'researching':
-      return talliesLabel(t, tallies) || null
-    case 'checking':
-      return t('phaseLine.checking')
-    case 'writing':
-      return t('phaseLine.writing')
-    case 'filed':
-      return null
-  }
-}
-
-function liveLine(t: Translator, phase: RunPhase): string | null {
-  if (phase === 'checking') return t('phaseLine.checkingLive')
-  if (phase === 'writing') return t('phaseLine.writingLive')
-  return null
-}
-
-const PhaseActs: FC<{
-  ledger: RunLedger
-  live: boolean
-  tallies: RunTallies
-}> = ({ ledger, live, tallies }) => {
-  const t = useTranslations(runsCopy)
-  const now = useRunClock(live)
-  const { locale } = useLocale()
-  const rows = RUN_PHASES.flatMap((phase) => {
-    const state = phaseState(ledger, phase)
-    if (state === 'pending') return []
-    if (phase === 'researching' && stepsInPhase(ledger, phase).length > 0) return []
-    if (state === 'active') {
-      const line = live ? liveLine(t, phase) : null
-      return line ? [{ phase, line, duration: null as number | null }] : []
-    }
-    const line = doneLine(t, phase, tallies)
-    const duration = phaseDurationMs(ledger, phase, now ?? 0)
-    if (!line && duration === null) return []
-    return [{ phase, line, duration }]
-  })
-  if (rows.length === 0) return null
-  return (
-    <dl
-      className="border-border flex flex-col gap-0.5 border-t px-3 py-2"
-      data-testid="run-phase-acts"
-    >
-      {rows.map(({ phase, line, duration }) => (
-        <div
-          key={phase}
-          className="text-muted-foreground flex gap-1.5 text-xs"
-          data-phase={phase}
-        >
-          <dt className="shrink-0 font-medium">{t(`phase.${phase}`)}</dt>
-          <dd className="min-w-0 break-words">
-            {line}
-            {duration !== null && (
-              <>
-                {line && <Sep />}
-                <span className="whitespace-nowrap tabular-nums">
-                  {formatDurationElapsed(duration / 1000, locale)}
-                </span>
-              </>
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-const RunElapsed: FC<{ ledger: RunLedger; live: boolean }> = ({ ledger, live }) => {
-  const t = useTranslations(runsCopy)
-  const now = useRunClock(live)
-  const elapsedSeconds =
-    ledger.finishedAt || now !== null ? Math.floor(elapsedMs(ledger, now ?? 0) / 1000) : 0
-  if (elapsedSeconds <= 0) return null
-  const elapsed = formatElapsed(elapsedSeconds)
-  return (
-    <span
-      className="text-muted-foreground text-xs tabular-nums"
-      aria-label={t('block.elapsedAria', { elapsed })}
-      data-testid="run-elapsed"
-    >
-      {elapsed}
-    </span>
-  )
 }
 
 export function RunBlock({

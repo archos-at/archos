@@ -88,7 +88,6 @@ Reach for the narrow task rather than the whole gate:
 | UI lint (oxlint; why not ESLint or Biome: [lint-evaluation.md](lint-evaluation.md)), and the module seams (dependency-cruiser: [module-seams.md](module-seams.md)) | `task workspace:lint` |
 | Backend lint (ruff), and the package seams (import-linter: [module-seams.md](module-seams.md)) | `task be:lint` |
 | Backend tests | `task be:test`, or `task be:test:api` for the plugin suite |
-| The Chroma exporter and the move off Chroma (`deploy/migration/`, `vector_store/import_vectors.py`) | `task be:test:migration`, in its own `chromadb` environment; nothing else imports `chromadb` ([`deploy/migration/README.md`](../../deploy/migration/README.md#tests)) |
 | Pulumi and the policy pack | `task infra:types` |
 | The public website (`apps/website`) and the riso kit | `task website:verify` |
 | A page behind a session, in the real app (click through, capture, Playwright) | `task local:up`, then `task local:session -- anna` ([local-stack.md](local-stack.md)) |
@@ -159,18 +158,13 @@ resolves `agent` from whatever the venv has installed, possibly another
 worktree, and validates the wrong code while appearing to pass. `pyproject.toml`'s
 `pythonpath` puts `packages/agent/src/` first, so a bare `pytest` is safe as well as the Taskfile.
 
-**The claim queues, kept until the cutover to Hatchet drains them (ADR-0150),
-are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
-`packages/agent/tests/common/test_claim_queue.py` and
-`tests/knowledge_layer_tests/test_ingest_queue.py` run every scenario on
-SQLite, which ranks in Python, and on Postgres, which runs production's claim
-SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
-dirty set, budget, manifests, the build over a collection) run on both too, through the
-`database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
-metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
-add-column path on a table from before the columns, and the read-back), and the research
-cutover (`apps/agent-host/tests/test_research_cutover.py`: a row it holds is skipped by the
-old claim's `FOR UPDATE SKIP LOCKED` and by a second cutover). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
+**The folder card builder's suites run on Postgres too, through `task
+be:test:postgres` in CI's Backend job.** `packages/agent/tests/knowledge/folder_cards/`
+(dirty set, budget, manifests, the build over a collection) runs every scenario on
+SQLite and on Postgres, through the `database_url` and `agent_db` fixtures in its
+`conftest.py`, and so does the metadata store's mail records
+(`packages/agent/tests/knowledge/test_mail_facts.py`: the add-column path on a table
+from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
 reuses `scripts/rls-test-db.sh --exec` for a throwaway cluster and names a
 scratch database in it. Each file carries an `TEST_POSTGRES_REQUIRED` guard,
 set in CI, that fails instead of skipping. A new suite with a Postgres parameter
@@ -266,13 +260,13 @@ needed job succeeded or was skipped by the path filter.
 ## The live turn-shape eval
 
 ADR-0052 deleted the intent router, so two things that used to be code are now
-Piloti's reading of its own prompt: a greeting or a question
-about the assistant answers without calling a search tool, and a commissioned
+the agent's reading of its own prompt: a greeting or a question
+about the agent answers without calling a search tool, and a commissioned
 report („erstelle mir einen vollständigen Prüfbericht …") escalates to deep
 research before it retrieves anything.
 [`evals/turn-shapes/test_turn_shapes_live.py`](../../evals/turn-shapes/test_turn_shapes_live.py)
 pins both, plus a control question that must still search. It runs the real
-agent on the real prompt against Piloti's own model through OpenRouter, with
+agent on the real prompt against the agent's own model through OpenRouter, with
 stub tools in place of retrieval, and reads the trace from the turn's own
 transcript (every tool call the model asked for), so the assertion is on the
 trace rather than on the prose.
@@ -940,7 +934,7 @@ measured on 2026-09-24, and the effort A/B:
 
 ### The workspace set
 
-**The workspace set** (`-- --set workspace`, ADR-0123) asks Piloti for office
+**The workspace set** (`-- --set workspace`, ADR-0123) asks the agent for office
 work through its MCP door: reads, writes that must come back as proposals with
 the right input, two writes in one turn, an ambiguous target it must ask about,
 German and English, and follow-up turns in one conversation (a row's `turns`
@@ -948,10 +942,10 @@ run in order; the checkpointer carries the history between processes). Each
 run sits in the current project of a fixture office
 (`apps/workspace/tests/fixtures/workspace/office.json`) as an admin, with a
 signed envelope. `scripts/turn_census/fixture_workspace.py` serves the door from
-the catalog production shows Piloti (`catalog.json`, written by
+the catalog production shows the agent (`catalog.json`, written by
 `workspace-eval.fixture.spec.ts`) and the turn context with the WORKSPACE block
 the production renderer writes (`rendered.json`); a follow-up turn's block lists
-what the run filed, as production would. A search ranks as `discovery.ts` does
+what the run filed, as production would. A search ranks as `discovery-search.ts` does
 (`lib/text/operation-search.ts`); `tests/test_workspace_eval.py` holds the
 Python mirror to lists the TypeScript wrote. The questions are `tests/fixtures/workspace/workspace_questions.yaml`;
 the checks (`reads`, `proposes`, `uses`, `no_write`, `no_workspace`, `no_repeat`, the

@@ -41,12 +41,12 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/documents/repository/lookup.ts#listDocumentIdsForProject':
     "The sharing registry's `listIdsInProject`: a leaver's grants go on every document of the project, held ones included.",
   'lib/sharing/repository.ts#deleteOrphanedGrants': 'Orphan sweep: NOT EXISTS over every row, or a held document loses its grants.',
-  'lib/inbox/repository.ts#deleteOrphanedInboxItems': 'Orphan sweep: NOT EXISTS over every row, or a held document loses its inbox rows.',
-  'lib/inbox/repository.ts#projectScopePredicate':
+  'lib/inbox/inbox-item-writes.ts#deleteOrphanedInboxItems': 'Orphan sweep: NOT EXISTS over every row, or a held document loses its inbox rows.',
+  'lib/inbox/inbox-item-queries.ts#projectScopePredicate':
     "Narrows the recipient's own inbox rows to one project; the row exists either way and is redacted at read time by its target's access check.",
   'lib/mentions/repository.ts#deleteOrphanedMentionRequests':
     'Orphan sweep: NOT EXISTS over every row, or a held document loses its mention requests.',
-  'lib/documents/version-repository.ts#keyIsUnnamed':
+  'lib/documents/version-repository/content-swap.ts#keyIsUnnamed':
     "Whether any row still names an object before it is deleted: a held row's object must not be.",
   'lib/projects/cleanup-repository.ts#deleteEmptyCreatedFolder':
     'Undo of a clean-out: removes a folder only when NO document is filed in it, held ones included.',
@@ -69,7 +69,7 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/projects/folder-bin-repository.ts#listRestoringDocumentPage':
     'The `restore_folder_bin` job re-dispatches the rows its restore stamped; a quarantined row is never stamped. Rows to a job.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom':
-    "Piloti's own reports drawn from a purged folder: the purge marks every one of them, and none of them is an upload.",
+    "The agent's own reports drawn from a purged folder: the purge marks every one of them, and none of them is an upload.",
   'lib/authz/folder-access-repository.ts#listProjectDocumentCollections':
     'Which retrieval collections a project uses, for folder access decisions. Collection names, never a document.',
   'lib/authz/folder-access-repository.ts#countIfcDocumentsInFolders':
@@ -92,42 +92,42 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
     'A correlated count beside the thread document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
   'lib/inbound-mail/review-read-repository.ts#findCandidateDocuments|documentVersions':
     'A correlated count beside the document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
-  'lib/documents/version-repository.ts#listDocumentVersions|documentVersions':
+  'lib/documents/version-repository/lookup.ts#listDocumentVersions|documentVersions':
     'The version list and the last refusers, after `getAccessibleDocument` / `findDocumentForSession` read the document.',
-  'lib/documents/version-repository.ts#findDocumentVersion|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findDocumentVersion|documentVersions':
     'A version of a document the transition, the view or the content read loaded through its reader first.',
-  'lib/documents/version-repository.ts#listReviewQueue|documentVersions':
+  'lib/documents/version-repository/review-queue.ts#listReviewQueue|documentVersions':
     "The review queue's own cursor reads the submission time of the version the previous page ended on; the page itself joins `documents` behind `documentVisibleTo`.",
-  'lib/documents/version-repository.ts#findPreviousVersion|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findPreviousVersion|documentVersions':
     "The version before the one a transition just moved, of the document that transition read.",
-  'lib/documents/version-repository.ts#findDocumentVersionInOrg|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findDocumentVersionInOrg|documentVersions':
     "`readVersionForService` reads the version's document through SCREENED_ONLY before it returns a byte.",
-  'lib/documents/version-repository.ts#findPublishedVersion|documentVersions': 'The fork, after `getAccessibleDocument(…, "write")`.',
-  'lib/documents/version-repository.ts#findOpenVersion|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findPublishedVersion|documentVersions': 'The fork, after `getAccessibleDocument(…, "write")`.',
+  'lib/documents/version-repository/lookup.ts#findOpenVersion|documentVersions':
     'The fork, the status read and the filing paths, each after reading the document (or writing it a moment ago).',
-  'lib/documents/version-repository.ts#listDocumentVersionSummaries|documentVersions':
+  'lib/documents/version-repository/lookup.ts#listDocumentVersionSummaries|documentVersions':
     'Annotates rows a listing already narrowed by its reader; ids in, never a project id.',
-  'lib/documents/version-repository.ts#listDocumentVersionObjects|documentVersions':
+  'lib/documents/version-repository/lookup.ts#listDocumentVersionObjects|documentVersions':
     "Erasing a document's objects, after the delete authorized the document.",
-  'lib/documents/version-repository.ts#nextVersionNumber|documentVersions': 'The key of an upload that is replacing this document. A number, no fact.',
-  'lib/documents/version-repository.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
+  'lib/documents/version-repository/lookup.ts#nextVersionNumber|documentVersions': 'The key of an upload that is replacing this document. A number, no fact.',
+  'lib/documents/version-repository/insert.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom|documentVersions':
-    "Piloti's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
+    "The agent's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
   'lib/storage/repository.ts#versionOverheadByScope|documentVersions': 'Quota: version bytes, every row.',
   'lib/storage/repository.ts#versionOverheadBytes|documentVersions': 'Quota: version bytes, every row.',
 
-  'lib/bim/repository.ts#elementScope|bimModels':
+  'lib/bim/element-queries.ts#elementScope|bimModels':
     "The tenant half of every element query's WHERE, on a model id `getAccessibleModel` or `runBimQuery` already read.",
-  'lib/bim/repository.ts#listBimElements|bimElements': 'Elements of a model read through its reader (`getAccessibleModel`, `resolveInternalModel`).',
-  'lib/bim/repository.ts#findBimElement|bimElements': 'One element of a model read through its reader.',
-  'lib/bim/repository.ts#findBimElementsByGlobalIds|bimElements': 'Elements of a model read through its reader.',
-  'lib/bim/repository.ts#aggregateBimElements|bimElements': 'Counts over a model read through its reader.',
-  'lib/bim/repository.ts#listBimPropertyCatalog|bimModels': 'The tenant check of a model read through its reader.',
-  'lib/bim/repository.ts#listBimPropertyCatalog|bimElements': 'Property names of a model read through its reader.',
-  'lib/bim/repository.ts#loadBimElementsForComparison|bimElements': 'Two revisions, each read through its reader first.',
-  'lib/bim/repository.ts#loadBimRuleInputs|bimModels': 'The rule projection of a model read through its reader.',
-  'lib/bim/repository.ts#loadBimElementsForSchedule|bimElements': 'Elements of a model read through its reader.',
-  'lib/bim/repository.ts#countBimElementsByType|bimElements': 'Counts over a model read through its reader.',
+  'lib/bim/element-queries.ts#listBimElements|bimElements': 'Elements of a model read through its reader (`getAccessibleModel`, `resolveInternalModel`).',
+  'lib/bim/element-queries.ts#findBimElement|bimElements': 'One element of a model read through its reader.',
+  'lib/bim/element-queries.ts#findBimElementsByGlobalIds|bimElements': 'Elements of a model read through its reader.',
+  'lib/bim/element-aggregation.ts#aggregateBimElements|bimElements': 'Counts over a model read through its reader.',
+  'lib/bim/property-catalog.ts#listBimPropertyCatalog|bimModels': 'The tenant check of a model read through its reader.',
+  'lib/bim/property-catalog.ts#listBimPropertyCatalog|bimElements': 'Property names of a model read through its reader.',
+  'lib/bim/element-loading.ts#loadBimElementsForComparison|bimElements': 'Two revisions, each read through its reader first.',
+  'lib/bim/rule-inputs-storage.ts#loadBimRuleInputs|bimModels': 'The rule projection of a model read through its reader.',
+  'lib/bim/element-loading.ts#loadBimElementsForSchedule|bimElements': 'Elements of a model read through its reader.',
+  'lib/bim/element-aggregation.ts#countBimElementsByType|bimElements': 'Counts over a model read through its reader.',
 
   'lib/assignments/repository.ts#listAssignmentsForResources|resourceAssignments':
     'Ids from `requireResourceAccess` (which reads a document through the sharing registry) or from a listing its reader narrowed.',
@@ -200,7 +200,7 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   },
   'lib/documents/repository/lookup-by-ref.ts#findDocumentAuthoredByRef': {
     makes: ['internal:identity'],
-    why: "Idempotency of Piloti's filing by its run reference, which a unique index answers over every row.",
+    why: "Idempotency of the agent's filing by its run reference, which a unique index answers over every row.",
   },
   'lib/inbound-mail/review-read-repository.ts#findDocumentIdByStoredName': {
     makes: ['internal:identity'],
@@ -244,15 +244,15 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   },
   'lib/documents/agent-document.ts#fileAgentDocumentDraft': {
     makes: ['internal:just-written'],
-    why: "Reads back Piloti's own document it just filed.",
+    why: "Reads back the agent's own document it just filed.",
   },
   'lib/documents/research-report.ts#openReviewRound': {
     makes: ['internal:just-written'],
-    why: "Reads back Piloti's report it just filed, to open its review.",
+    why: "Reads back the agent's report it just filed, to open its review.",
   },
   'lib/tasks/service.ts#fileResultFor': {
     makes: ['internal:just-written'],
-    why: "Reads back the task result it just filed as Piloti's document.",
+    why: "Reads back the task result it just filed as the agent's document.",
   },
 }
 
@@ -292,7 +292,7 @@ function sourceFiles(dir?: string, found: string[] = []): string[] {
     if (entry.isDirectory()) {
       if (entry.name === 'node_modules' || entry.name === 'mocks' || entry.name === 'test-utils') continue
       sourceFiles(full, found)
-    } else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test)\.tsx?$/.test(entry.name)) {
+    } else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test|fixtures?)\.tsx?$/.test(entry.name)) {
       found.push(full)
     }
   }
@@ -318,7 +318,7 @@ function documentRelations(): Set<string> {
   const names = new Set<string>()
   const dir = srcPath('lib/db/schema')
   for (const file of readdirSync(dir)) {
-    if (!file.endsWith('.ts') || file.endsWith('.spec.ts')) continue
+    if (!file.endsWith('.ts') || /\.(spec|fixtures?)\.ts$/.test(file)) continue
     const tree = ts.createSourceFile(file, readFileSync(join(dir, file), 'utf8'), ts.ScriptTarget.Latest, true)
     const visit = (node: ts.Node) => {
       if (

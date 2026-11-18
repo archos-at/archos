@@ -1,22 +1,9 @@
 'use client'
 
-/**
- * A faked proposals API for the `/dev` previews of the proposal receipts.
- *
- * `/dev` has no backend, and a receipt that finds no `GET /api/proposals/<id>`
- * draws its failure state, which is not the state under review. This answers the
- * three person routes (`GET …/[id]`, `POST …/apply`, `POST …/dismiss`) and the
- * project profile read from memory, with the real response shape
- * (`proposalResponseSchema` parses it), so a click on a preview moves the
- * proposal exactly as the server would: applied, with a result per item, and
- * who decided it. Every other request goes to the real `fetch`.
- *
- * Previews only; installed by the page that shows a receipt, removed with it.
- */
-
 import { useEffect, useState } from 'react'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 import type { ListedProposal, ProposedChangeResult, ProposedChangeView } from '@/lib/proposals/types'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 const id = (n: number) => `00000000-0000-4000-8000-0000000002${String(n).padStart(2, '0')}`
 
@@ -38,32 +25,20 @@ const PROFILE_PATCH = [
   { op: 'add' as const, path: '/facts/escape_level_m', value: 25 },
 ]
 
-/** The proposals a preview may show, by the id a card carries. */
 export const DEMO = {
-  /** Open, this reader may decide: a batch of three moves. */
   filesOpen: id(1),
-  /** Applied by a colleague, one row failed. */
   filesPartial: id(2),
-  /** Open, but this reader may only read. */
   filesReadOnly: id(3),
-  /** An office note, open. */
   memoryOpen: id(4),
-  /** An office note that corrects an earlier one. */
   memoryCorrection: id(5),
-  /** Remembered by a colleague. */
   memoryDecided: id(6),
-  /** A change to the project facts, open. */
   profileOpen: id(7),
-  /** The same change, applied by a colleague. */
   profileDecided: id(8),
-  /** Discarded by a colleague. */
   profileDismissed: id(9),
-  /** An action of the agent catalog with a long value: „Übernehmen“ waits until it is read in full. */
   operationOpen: id(10),
   operationIds: id(11),
 } as const
 
-/** The ids an operation names, for the card that shows each by its name (and one this reader may not read). */
 const NAMED = {
   folder: '0b7a9c1e-2d3f-4a5b-8c6d-7e8f9a0b1c2d',
   documents: ['3c2b1a0f-9e8d-4c7b-a6f5-4e3d2c1b0a9f', '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d'],
@@ -73,7 +48,7 @@ const NAMED = {
 const base = {
   projectId: DEMO_PROJECT_ID,
   status: 'proposed' as const,
-  proposedByKind: 'piloti' as const,
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_me',
   onBehalfOfName: 'Mia Huber',
   originConversationId: null,
@@ -109,7 +84,6 @@ const PROFILE = {
   patch: PROFILE_PATCH,
 }
 
-/** Office instructions with a long text: the card shows the start until the reader unfolds it. */
 const OPERATION = {
   operation: 'organization-instructions-set',
   input: {
@@ -202,7 +176,6 @@ const seed = (): Map<string, ProposedChangeView> =>
     ).map((proposal) => [proposal.id, proposal])
   )
 
-/** The profile the demo project has, so „vorher“ differs from „nachher“. */
 const PROFILE_NOW: ProjectProfile = {
   facts: {
     heat_supply: { value: 'gas', confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-01-01T00:00:00.000Z' },
@@ -216,7 +189,6 @@ const PROFILE_NOW: ProjectProfile = {
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
-/** The one result line of a memory note, a profile change or an operation. */
 function labelOf(proposal: Exclude<ProposedChangeView, { kind: 'file_operation' }>): string {
   switch (proposal.kind) {
     case 'memory':
@@ -228,12 +200,6 @@ function labelOf(proposal: Exclude<ProposedChangeView, { kind: 'file_operation' 
   }
 }
 
-/**
- * Replace `fetch` with the faked API; the returned function puts the real one
- * back. `listed` are proposals a preview brings of its own, with the documents
- * they name (the setup page's filing suggestions): answered like the built-in
- * ones, and by the open-proposals list (`GET /api/proposals`).
- */
 export function installFakeProposalClient(listed: readonly ListedProposal[] = []): () => void {
   const real = window.fetch
   const proposals = seed()
@@ -288,10 +254,6 @@ export function installFakeProposalClient(listed: readonly ListedProposal[] = []
   }
 }
 
-/**
- * Install the faked API for the life of the page; true once it is in place, so
- * no card asks the real one first. `listed` must be a stable array.
- */
 export function useFakeProposalClient(listed?: readonly ListedProposal[]): boolean {
   const [ready, setReady] = useState(false)
   useEffect(() => {

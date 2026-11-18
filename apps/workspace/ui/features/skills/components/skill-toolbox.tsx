@@ -28,6 +28,7 @@ import {
   type SkillListItem,
 } from '@/adapters/api/skills-client'
 import { agentScopeLabelKey } from '../lib/agent-scope'
+import { readMetadata } from '@/lib/skills/legacy-names'
 import { groupSkillsByCategory, matchesSkillQuery, type CategoryGroup } from '../lib/skill-categories'
 import { CuratedSkills } from './curated-skills'
 import { SkillDetail } from './skill-detail'
@@ -441,9 +442,9 @@ function CategorySection({
                       Under the description, not beside the switch: next to it
                       the badge took the row's width on a phone and the skill's
                       name was cut to "/energy". */}
-                  {agentScopeLabelKey(skill.metadata['grid-agents']) && (
+                  {agentScopeLabelKey(readMetadata(skill.metadata, 'agents')) && (
                     <Badge variant="outline" className="mt-1">
-                      {t(`toolbox.scope.${agentScopeLabelKey(skill.metadata['grid-agents'])}`)}
+                      {t(`toolbox.scope.${agentScopeLabelKey(readMetadata(skill.metadata, 'agents'))}`)}
                     </Badge>
                   )}
                 </div>

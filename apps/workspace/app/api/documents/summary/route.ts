@@ -1,9 +1,3 @@
-/**
- * A shelf's summary (ADR-0102): counts per folder by read-state family and the
- * failed documents, for `?projectId=` or `?scope=office_shelf`, with the same
- * server filters as the listing. Thin handler; `@/lib/documents/shelf-summary`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { documentSummaryQuerySchema } from '@/lib/documents/document-wire'
 import { summarizeOfficeShelfDocuments, summarizeProjectDocuments } from '@/lib/documents/shelf-summary'

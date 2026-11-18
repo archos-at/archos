@@ -16,6 +16,7 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
 | Merge Dependabot's minor and patch updates once `CI OK` passes | Dependabot pull requests | `dependabot-auto-merge.yml` | `CI OK`, through auto-merge ([setup](testing-and-verification.md)) |
+| Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; `keep-open` and Dependabot exempt) | daily | `stale-prs.yml` | No |
 
 Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
@@ -73,12 +74,12 @@ It also lists the third-party image pins the change adds or moves
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
 | Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
 | Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data, the 65% gate, the PR comment |
-| Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the migration test with the claim-queue suites on a real Postgres (`task be:test:postgres`) |
+| Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the claim-queue suites on a real Postgres (`task be:test:postgres`) |
 | Workspace (`workspace`) | workspace tier | card schema check, lint, types, and the tenant-isolation suite against a real Postgres |
 | Workspace tests (`workspace-test`) | workspace tier; on a PR, unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
 | Workspace coverage | PRs, workspace tier | merges the shards' coverage into the PR comment. Not in `CI OK` |
-| Agent to engine tests (`agent-engine`) | backend or packages tier | the root environment plus the IFC engine as `apps/agent-host/Dockerfile` installs it, and every suite that otherwise skips without the engine (`importorskip("ifc_spatial…")`): `test_question_battery.py` and three more. Fails when its one report holds no test or a skipped one; an expected failure counts as run. `tests/test_ci_workflows.py` fails when a gated suite is not named here. The install floats on purpose, like the image's: a new release of a dependency can turn this red with no commit, on every pull request in these tiers and on `publish`. The image built next would carry that release, which is how ifcopenshell 0.9 got there unnoticed. Green proves only what these suites call, not that the engine works on that release |
+| Agent to engine tests (`agent-engine`) | backend or packages tier, except on a light pull request run | the root environment plus the IFC engine as `apps/agent-host/Dockerfile` installs it, and every suite that otherwise skips without the engine (`importorskip("ifc_spatial…")`): `test_question_battery.py` and three more. Fails when its one report holds no test or a skipped one; an expected failure counts as run. `tests/test_ci_workflows.py` fails when a gated suite is not named here. The install floats on purpose, like the image's: a new release of a dependency can turn this red with no commit, on every full run in these tiers and on `publish`. The image built next would carry that release, which is how ifcopenshell 0.9 got there unnoticed. Green proves only what these suites call, not that the engine works on that release |
 | Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*` |
 | Hatchet engine tests (`hatchet`) | `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
@@ -202,10 +203,9 @@ Why it is built this way:
 - The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the
   Source maps workflow installs that same version (a test holds the two
   together). Its npm package downloads the binary on first use (`bun install
-  --ignore-scripts` skips its postinstall), which happens inside the build RUN,
-  and the same RUN deletes the binary: `bun install --production` over an
-  existing `node_modules` does not prune devDependencies (measured with bun
-  1.3.11), so the later production install would let it ship.
+  --ignore-scripts` skips its postinstall), which happens inside the build RUN.
+  It never ships: the runner's `node_modules` is the `prod-deps` stage's fresh
+  production install, not the builder's.
 
 An image already in GHCR under its `inputs-<hash>` is not rebuilt when the
 secret is added later, so its maps are never uploaded. Wait for the weekly

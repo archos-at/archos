@@ -1,27 +1,7 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   The Piloti series look, shared by every work: paper, inks, screen angles,
-   registration, line specs, the one camera and the one sun, the parallel
-   projection helpers, and the small props (1:100 figure, stakes).
-
-   Classic script, loaded after engine.js. The values here ARE the series:
-   change one and every plate of every work changes with it, so a change here
-   means re-exporting every work (node art/riso/export.mjs) and looking at the
-   result. A work that needs a different ink or camera for one plate passes
-   its own values to that plate; it does not edit this file.
-
-   Line weights, in 1080-unit drawing space (so they scale with the format):
-     1.9  silhouettes      1.1–1.4  arrises      0.8–1.0  annotation
-   A key line must stay >= ~1.25 device px, so a format far below 720 px wide
-   (spot icons, email strips) needs its own composition with heavier units:
-   units = 1.25 / K.
-   ───────────────────────────────────────────────────────────────────────── */
 'use strict';
 
 const PAPER = '#F4F2E8';
 
-/* Real Riso drum colours (hex from the riso-colors list, M. DesLauriers, MIT).
-   mist ≈ the site's sage tint, kelly ≈ its lime accent, moss + hunter overprint
-   ≈ its dark olive panel and ink. red is spent once per plate at most. */
 const INK = {
   mist:   '#D5E4C0',
   kelly:  '#67B346',
@@ -29,11 +9,9 @@ const INK = {
   hunter: '#407060',
   red:    '#F15060',
 };
-/* The drum each ink is on a Riso machine: what a print shop needs next to a separation. */
 const INK_DRUM = {
   mist: 'Mist', kelly: 'Kelly Green', moss: 'Moss', hunter: 'Hunter Green', red: 'Bright Red',
 };
-/* Screen angles as rational tangents; each ink keeps its own lattice. */
 const SCREEN = {
   mist:   { a: 1, b: 0 },   //  0.0°
   kelly:  { a: 1, b: 1 },   // 45.0°
@@ -41,8 +19,6 @@ const SCREEN = {
   hunter: { a: 4, b: 1 },   // 14.0°
   red:    { a: 2, b: 1 },   // 26.6°
 };
-/* Registration misses, in 1080-space device px; scaled by K and rounded, so a
-   screened bitmap is never drawn at a sub-pixel offset (that would resample it). */
 const REG = {
   mist:   [ 1.5, -1.0], kelly:  [-1.5,  1.5], moss:   [ 1.0,  1.5],
   hunter: [ 0.0,  0.0], red:    [-2.0,  1.0],
@@ -50,8 +26,6 @@ const REG = {
 
 const KEY = { hunter: 1 };                 // key line
 const KEY_DARK = { hunter: 1, moss: 0.85 };// overprinted line: darkest edge
-
-/* ── geometry: parallel projection, shadows, hulls ─────────────────────────── */
 
 const v3 = {
   add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
@@ -74,7 +48,6 @@ function axo(o) {
   const P = (p) => [o.ox + o.s * (p[0] * ex[0] + p[1] * ey[0] + p[2] * ez[0]),
                     o.oy + o.s * (p[0] * ex[1] + p[1] * ey[1] + p[2] * ez[1])];
   P.ex = ex; P.ey = ey; P.ez = ez; P.s = o.s;
-  // the world direction that projects to a point: the view ray, oriented into the sheet
   const r1 = [ex[0], ey[0], ez[0]], r2 = [ex[1], ey[1], ez[1]];
   let n = [r1[1] * r2[2] - r1[2] * r2[1], r1[2] * r2[0] - r1[0] * r2[2], r1[0] * r2[1] - r1[1] * r2[0]];
   if (n[2] > 0) n = n.map((v) => -v);
@@ -148,8 +121,6 @@ const boxCorners = (x0, y0, z0, x1, y1, z1) => [[x0, y0, z0], [x1, y0, z0], [x1,
                                                 [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
 function boxShadow(P, corners, L, z0) { return pathOf(hull(corners.map((p) => P(onGround(p, L, z0))))); }
 
-/* ── small shared props ────────────────────────────────────────────────────── */
-
 /** Depth of a world point along the view direction: larger is further away. */
 const depth = (P, p) => v3.dot(p, P.view);
 /** A planar face is seen from its front when its normal points against the view. */
@@ -172,22 +143,18 @@ function figure(foot, hpx, o) {
   parts.push(pathOf(curve([[hip[0] - 0.075 * h, hip[1] + 0.02 * h], [sh[0] - 0.105 * h, sh[1] + 0.02 * h], [sh[0] - 0.06 * h, sh[1] - 0.025 * h],
     [sh[0] + 0.06 * h, sh[1] - 0.025 * h], [sh[0] + 0.105 * h, sh[1] + 0.02 * h], [hip[0] + 0.075 * h, hip[1] + 0.02 * h]], true, 5)));
   parts.push(nib([[sh[0] - 0.012 * h, sh[1]], [sh[0] - 0.02 * h, sh[1] - 0.05 * h]], () => 0.022 * h, { raw: true }));   // neck
-  // far arm hangs; near arm bent to hold the roll against the body
   parts.push(nib([[sh[0] - 0.095 * h, sh[1] + 0.01 * h], [sh[0] - 0.11 * h, fy - 0.62 * h], [sh[0] - 0.1 * h, fy - 0.43 * h]], (u) => 0.024 * h * (1 - 0.3 * u), { per: 6 }));
   parts.push(nib([[sh[0] + 0.095 * h, sh[1] + 0.01 * h], [sh[0] + 0.12 * h, fy - 0.64 * h], [sh[0] + 0.04 * h, fy - 0.6 * h]], (u) => 0.024 * h * (1 - 0.2 * u), { per: 6 }));
   const hc = [sh[0] - 0.035 * h, sh[1] - 0.11 * h], hr = 0.07 * h;
   const head = new Path2D(); head.ellipse(hc[0], hc[1], hr * 0.9, hr, -0.5, 0, TAU);
   parts.push(head);
   const body = new Path2D(); for (const p of parts) body.addPath(p);
-  // the roll: a thin paper tube across the near elbow
   const r0 = [sh[0] - 0.02 * h, fy - 0.555 * h], r1 = [sh[0] + 0.3 * h, fy - 0.7 * h];
   const roll = nib([r0, r1], () => 0.022 * h, { raw: true });
   const rollEnd = new Path2D(); rollEnd.ellipse(r1[0], r1[1], 0.012 * h, 0.022 * h, -0.4, 0, TAU);
   return { body, roll, rollEnd, top: [hc[0], hc[1] - hr] };
 }
 
-/* One camera and one sun for the whole series: x nearly level, y receding up-left
-   at half scale, z true; a low sun from the front-left. */
 const VIEW_SERIES = { ax: 0.05, ay: 0.64, fx: 1, fy: 0.52, fz: 1 };
 const SUN_SERIES = v3.norm([0.74, 0.52, -0.62]);
 
@@ -213,8 +180,6 @@ function settingOut(c, P, x0, y0, x1, y1, o) {
   line(c, str, 0.8, { hunter: 0.9 });
   for (const [x, y] of back.slice(2)) stake(c, P, x, y, hs, o);
 }
-
-/* ── helpers for new works (tafeln inlines its own copies of these idioms) ── */
 
 /** A line weight in units that never prints thinner than ~1.25 device px, for small formats. */
 const weight = (units) => Math.max(units, 1.25 / K);

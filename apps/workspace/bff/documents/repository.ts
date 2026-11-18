@@ -1,15 +1,3 @@
-/**
- * Documents repository — the only module that talks to the `documents` table
- * (and the folder-path probe the upload flow needs) for the documents domain.
- *
- * Repository rules (see docs/architecture/bff-service-architecture.md):
- *   - drizzle only; no HTTP, no auth, no SeaweedFS/backend calls.
- *   - Every query that serves tenant data takes `organizationId` (and, where
- *     applicable, `projectId`) and scopes the WHERE clause with it — tenancy
- *     is enforced in SQL, not in JS.
- *   - List queries are always bounded (`limit`).
- */
-
 import 'server-only'
 
 export { DOCUMENT_LIST_LIMIT, outsideHiddenFolders, documentListColumns, listProjectDocuments, afterDocumentListCursor, readDocumentListPage, cursorCreatedAtColumn, listDocumentPage, listProjectDocumentPage } from './repository/list'

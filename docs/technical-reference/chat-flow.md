@@ -22,7 +22,7 @@ the contract in [`websocket-protocol.md`](../api/websocket-protocol.md)).
    (a note typed into the asker's own running turn, read before its next
    round; never a turn of its own).
 4. Every server event carries `turn_id` and `seq`. The driver in
-   `features/chat/hooks/use-websocket-chat.ts` hands them to the store's
+   `features/chat/lib/turn-driver.ts` hands them to the store's
    `applyTurnEvents`, which folds them with `foldTurnEvent`
    (`bff/turns/turn-fold.ts`) and draws the view into the thread
    (`features/chat/lib/turn-projection.ts`). Answer deltas wait for a 100 ms

@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Wissensbasis-Transparenzseite: was das RAG aktuell kennt. */
 export const knowledge: typeof en.knowledge = {
   title: 'Wissensbasis',
   subtitle:
@@ -51,8 +50,6 @@ export const knowledge: typeof en.knowledge = {
     removed: 'Der Korpus führt dieses Dokument nicht mehr, seine indexierten Inhalte sind aber noch durchsuchbar. Zum Bereinigen löschen.',
     inconsistent: 'Als verarbeitet vermerkt, aber es wurden keine durchsuchbaren Inhalte gefunden. Synchronisierung erneut ausführen.',
   },
-  // Eine Seite klein, mit einer Stelle darauf markiert (ADR-0128): die
-  // Angesehen-Karte, die Zeile in der Herleitung und die Zitatvorschau.
   placeThumbnail: {
     page: 'Seite {page}',
     loading: 'Seite wird gezeichnet',
@@ -106,9 +103,6 @@ export const knowledge: typeof en.knowledge = {
     passwordSubmit: 'Dokument öffnen',
     passwordIncorrect: 'Das Kennwort stimmt nicht.',
   },
-  // „Im Büro behandelt": hat das Büro die Stelle, die die Leserin gerade liest,
-  // schon einmal behandelt, und wo. Durchsucht wird nur, was sie lesen darf; ein
-  // gesperrtes Dokument erscheint nie, auch nicht ihr eigener Upload in Prüfung.
   similar: {
     title: 'Im Büro behandelt',
     action: 'Im Büro nachsehen',
@@ -137,10 +131,7 @@ export const knowledge: typeof en.knowledge = {
     openPassage: '{document}, Seite {page} öffnen',
     openPassageNoPage: '{document} öffnen',
   },
-  // Der RIS-Leser: eine Rechtsquelle wird IN Piloti gelesen statt im Browser-Tab.
   risViewer: {
-    // „Lesefassung", nicht „Originaldokument": maßgeblich bleibt die
-    // Veröffentlichung im RIS, und der Link daneben führt dorthin.
     description: 'Lesefassung aus dem RIS.',
     openAtRis: 'Im RIS öffnen',
     loading: 'Rechtsquelle wird geladen…',

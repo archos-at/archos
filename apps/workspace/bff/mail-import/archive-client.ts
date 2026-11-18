@@ -1,11 +1,3 @@
-/**
- * The backend's archive reader, as the filing job calls it (ADR-0085).
- *
- * The backend reads; it decides nothing. What comes back is parsed here, at the
- * boundary, because the job trusts it for folder names, filenames and the
- * position it saves as its cursor.
- */
-
 import 'server-only'
 import { z } from 'zod'
 import { getBackendUrl } from '@/lib/backend-proxy'
@@ -24,7 +16,6 @@ const attachmentSchema = z.object({
 })
 
 const messageSchema = z.discriminatedUnion('kind', [
-  // A damaged item of a readable archive; `detail` says what libpff refused.
   z.object({
     kind: z.literal('unreadable'),
     position: z.number().int().nonnegative(),
@@ -46,18 +37,10 @@ const messageSchema = z.discriminatedUnion('kind', [
     sender: addressSchema.nullable(),
     to: z.array(addressSchema),
     cc: z.array(addressSchema),
-    /** Sent items only: received mail never shows its Bcc. Never rendered, never indexed. */
     bcc: z.array(addressSchema).default([]),
     sent_at: z.string().nullable(),
     received_at: z.string().nullable(),
     message_id: z.string().nullable(),
-    /**
-     * The thread properties (D4, D12), each as the archive stores it: In-Reply-To
-     * and References as header text (`parseInReplyTo`, `parseReferences`), and the
-     * Outlook conversation index base64, as an inbound `Thread-Index` header
-     * carries it (`threadIndexGuid`). `./archive.ts` in `lib/mail-thread` matches
-     * the mail to its E-Mail-Verlauf with them.
-     */
     in_reply_to: z.string().nullable().default(null),
     references: z.string().nullable().default(null),
     conversation_index: z.string().nullable().default(null),
@@ -83,7 +66,6 @@ export interface ArchiveRef {
   size: number
 }
 
-/** The file is not an archive the backend can read. Retrying will not change that. */
 export class UnreadableArchiveError extends Error {
   constructor(detail: string) {
     super(`The archive could not be read: ${detail}`)
@@ -91,7 +73,6 @@ export class UnreadableArchiveError extends Error {
   }
 }
 
-/** One attachment is damaged. The mail is still filed without it. */
 export class AttachmentUnreadableError extends Error {
   constructor() {
     super('The attachment could not be read from the archive')
@@ -99,7 +80,6 @@ export class AttachmentUnreadableError extends Error {
   }
 }
 
-/** The backend refused one attachment as too large. The mail is still filed without it. */
 export class AttachmentTooLargeError extends Error {
   constructor() {
     super('The attachment is too large to import')
@@ -132,8 +112,6 @@ async function post(path: string, body: unknown): Promise<Response> {
   if (response.status === 422) throw new UnreadableArchiveError(detailOf(detail))
   if (response.status === 413) throw new AttachmentTooLargeError()
   if (response.status === 409) throw new AttachmentUnreadableError()
-  // Anything else (a 502 from the store, a 503 while the backend restarts) is
-  // worth another attempt: the job's own retry takes it.
   throw new Error(`the archive reader answered ${response.status} on ${path}: ${detailOf(detail)}`)
 }
 

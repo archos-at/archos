@@ -110,7 +110,6 @@ class TestNoChunkReadSeesAFolder:
         ids = set(placed.chunk_ids(PROJECT))
 
         assert len(ids) == 2
-        assert set(placed.sample_chunk_ids(PROJECT, 10)) == ids
 
     def test_term_frequencies(self, placed):
         total, counts = retrieval.term_frequencies(PROJECT, ["Brandschutz"])

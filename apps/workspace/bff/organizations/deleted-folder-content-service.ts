@@ -1,9 +1,3 @@
-/**
- * Saving „Inhalte aus gelöschten Ordnern" (ADR-0088): the one writer of
- * `organizations.settings.deletedFolderContent` (the generic settings save
- * refuses the key, `DEDICATED_ROUTE_SETTINGS`), audited.
- */
-
 import 'server-only'
 import { recordAuditEvent } from '@/lib/audit/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -11,7 +5,6 @@ import type { DeletedFolderContentPolicy } from '@/lib/authz/folder-access-rule'
 import { writeDedicatedOrgSetting } from './service'
 import { DELETED_FOLDER_CONTENT_SETTING, invalidateDeletedFolderContentPolicy } from './deleted-folder-content'
 
-/** Save the organization's choice (validated by the route) and audit who changed it. */
 export async function saveDeletedFolderContentPolicy(
   session: AuthorizedSession,
   policy: DeletedFolderContentPolicy,

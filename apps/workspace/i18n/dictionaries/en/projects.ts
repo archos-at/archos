@@ -1,4 +1,3 @@
-/** projects namespace — populated during component i18n. */
 export const projects = {
   list: {
     heading: 'Projects',
@@ -9,14 +8,9 @@ export const projects = {
     searchAria: 'Search projects by name, address or client',
     searchReset: 'Reset search',
     resume: {
-      // Shown when the rail is filled by the viewer's own activity…
       heading: 'Pick up where you left off',
-      // …and when they have not worked in any project yet, so the rail is
-      // filled by project recency instead. Never claim a "continue" that isn't.
       fallbackHeading: 'Your projects',
     },
-    // "More", not "All": this list is everything minus the resume rail, and a
-    // count that disagrees with the heading above it is worse than a plainer word.
     more: {
       heading: 'More projects',
     },
@@ -126,7 +120,6 @@ export const projects = {
     cancel: 'Cancel',
     removed: '{count} files moved to the bin.',
     error: 'Clearing out did not work; the project is still open.',
-    /** The clean-out failed and could not be fully undone (ADR-0092): where to look. */
     partial:
       'Clearing out did not work and could not be fully undone. Some files may still be in a folder „{folders}“ inside their folder, or in the Papierkorb. The project is still open.',
     rules: {
@@ -303,7 +296,6 @@ export const projects = {
       cancelled: 'Not realized',
     },
     lastActivity: 'Last activity',
-    /** The viewer's OWN last message in the project — not the project's. */
     yourActivity: 'You were last here',
     document: 'document',
     documents: 'documents',
@@ -311,7 +303,6 @@ export const projects = {
     open: 'Open {name}',
     overview: 'Overview',
     overviewAria: 'Open overview of {name}',
-    /** `ProjectMailWaiting`: mail waiting in the project's E-Mail-Eingang, for a reader who may file it. */
     mailWaiting: '{count, plural, one {# mail waits} other {# mails wait}}',
     mailWaitingAria: '{count, plural, one {# mail waits to be filed in {name}} other {# mails wait to be filed in {name}}}',
   },
@@ -615,7 +606,6 @@ export const projects = {
     deleted: 'Note removed.',
     heading: 'Project memory',
     description: 'What {productName} has learned about this project — editable.',
-    // Who reads (ADR-0180): the one line under the heading.
     audience: 'Every member of this project sees these notes.',
     addMemory: 'Add note',
     kindAria: 'Kind of note',

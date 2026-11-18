@@ -22,7 +22,7 @@ knowing what is *there*.
 
 | capability | API | where |
 |---|---|---|
-| streamed parse | `GeometryProcessor.processAdaptive` | `ifc-viewer-canvas.tsx` |
+| streamed parse | `GeometryProcessor.processAdaptive` | `features/bim/hooks/use-ifc-model-load.ts` |
 | orbit / pan / zoom-to-cursor / pinch, with inertia | `Camera.orbit/pan/zoom/update` | canvas input |
 | named views + parallel projection | `setPresetView`, `setProjectionMode` | `viewer-camera.ts` |
 | adaptive home framing | `fitBoundsAdaptive` | `fitModel` |

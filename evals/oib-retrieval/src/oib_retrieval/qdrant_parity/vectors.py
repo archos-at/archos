@@ -1,30 +1,3 @@
-"""The vectors the store is filled with, and the query vectors it is asked with.
-
-ONE SET OF VECTORS
-------------------
-A comparison across runs that embeds twice compares two embedding runs as much as
-two rankings. So every text is embedded once, cached on disk keyed by model and
-text, and the same float32 array is written into Qdrant on every run (and the
-ranking sweep's variants all read it).
-
-PRODUCTION'S EMBEDDER, THROUGH PRODUCTION'S SEAM
-------------------------------------------------
-``make_embed_model`` from the knowledge layer is the only embedding client the
-process builds, and its HTTP clients pin every OpenRouter request to zero-data-
-retention endpoints (``agent.common.openrouter.PLATFORM_FIXED``). The key comes
-from the same chain the retriever resolves (``resolve_embed_api_key``). Nothing
-here opens its own HTTP client to the provider.
-
-The chunk text is embedded as production embeds it: the node's text under
-LlamaIndex's ``MetadataMode.EMBED`` header, minus the keys ingestion excludes
-(``EMBED_EXCLUDED_METADATA_KEYS`` plus the Punkt chunker's own list). A query is
-embedded with ``get_query_embedding``, as ``_embed_query_cached`` does.
-
-``hashed`` is the offline stand-in the tests use: deterministic, no key, no meaning.
-A number from it is wiring, never retrieval quality, and the report says which
-embedder produced every figure.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -42,15 +15,12 @@ logger = logging.getLogger(__name__)
 PRODUCTION_MODEL = os.environ.get("EMBED_MODEL", "openai/text-embedding-3-large")
 PRODUCTION_BASE_URL = os.environ.get("EMBED_BASE_URL", "https://openrouter.ai/api/v1")
 
-#: Dimension of the offline stand-in. Small, so a test indexes a corpus in milliseconds.
 HASHED_DIMENSION = 64
 
-#: Texts per embedding request; production's ingestion batch size is in the same range.
 EMBED_BATCH = 64
 
 
 def embed_text(text: str, metadata: dict[str, Any]) -> str:
-    """The string production embeds for one chunk: the EMBED header, then the body."""
     from knowledge_layer.ingest import CLAUSE_EMBED_EXCLUDED_METADATA_KEYS
     from knowledge_layer.ingest import EMBED_EXCLUDED_METADATA_KEYS
     from llama_index.core.schema import MetadataMode
@@ -67,11 +37,6 @@ def embed_text(text: str, metadata: dict[str, Any]) -> str:
 
 
 def truncate_renormalise(matrix: np.ndarray, dimension: int) -> np.ndarray:
-    """The first ``dimension`` components of each row, L2-normalised again.
-
-    OpenAI documents this as equivalent to asking the v3 API for ``dimensions``, so a
-    1024-d vector is derived from the stored 3072-d one with no API call (gate G6).
-    """
     if dimension <= 0 or dimension > matrix.shape[1]:
         raise ValueError(f"cannot truncate {matrix.shape[1]}-d vectors to {dimension}")
     cut = np.asarray(matrix[:, :dimension], dtype=np.float32)
@@ -81,7 +46,6 @@ def truncate_renormalise(matrix: np.ndarray, dimension: int) -> np.ndarray:
 
 
 def hashed_vector(text: str, dimension: int = HASHED_DIMENSION) -> np.ndarray:
-    """A deterministic unit vector from the text's German lexemes. No semantics at all."""
     from agent.common.german_text import analyze
 
     vector = np.zeros(dimension, dtype=np.float32)
@@ -97,12 +61,6 @@ def hashed_vector(text: str, dimension: int = HASHED_DIMENSION) -> np.ndarray:
 
 
 class VectorCache:
-    """Embeddings on disk, keyed by ``(model, kind, text)``; a re-run embeds only what is new.
-
-    ``kind`` separates documents from queries, because a model may encode the two
-    differently and the cache must never hand a document vector to a query.
-    """
-
     def __init__(self, directory: Path, model: str):
         self.directory = directory
         self.model = model
@@ -116,7 +74,6 @@ class VectorCache:
     def get_many(
         self, kind: str, texts: Sequence[str], compute: Callable[[list[str]], list[list[float]]]
     ) -> np.ndarray:
-        """Vectors for ``texts`` in order, computing (in batches) only the ones not cached."""
         found: dict[int, np.ndarray] = {}
         missing: list[int] = []
         for index, text in enumerate(texts):
@@ -144,8 +101,6 @@ class VectorCache:
 
 
 class Embedder:
-    """Documents and queries, embedded through one backend and cached."""
-
     def __init__(self, name: str, cache_dir: Path | None):
         self.name = name
         self.model = PRODUCTION_MODEL if name == "production" else f"hashed-{HASHED_DIMENSION}"
@@ -182,5 +137,4 @@ class Embedder:
 
     @property
     def embedded_now(self) -> int:
-        """Texts sent to the embedding API in this process (0 on a fully cached run)."""
         return self.cache.embedded_now if self.cache is not None else 0

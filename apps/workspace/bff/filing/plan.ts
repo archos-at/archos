@@ -1,49 +1,17 @@
-/**
- * From a judgement to proposals: the gates, and one proposal per target folder.
- * Pure, so every rule is specced without a database or a model.
- *
- * The gates, in the order a move meets them:
- *
- * 1. **Restricted** (ADR-0087, ADR-0088). A document in a folder not every
- *    member may read is never moved out (that would widen who sees it), and
- *    nothing is moved into one. The caller never sends either to the model;
- *    this holds it again for an answer that names one anyway.
- * 2. **Already proposed.** A document an open proposal already names is not
- *    proposed again: no second open proposal stacks on the first, whoever made
- *    it (a chat's or Piloti's own).
- * 3. **Dismissed.** A document and a target a person said no to are never
- *    proposed together again. Another target for the same document may be.
- *
- * And one revision: when ingestion has read the batch (`basis: content`), an
- * open suggestion Piloti made from the names alone is kept only when the new
- * judgement files every document of it in the same folder. Otherwise it is
- * withdrawn, and its documents are judged afresh with the rest. A person's
- * decision is never undone this way: only open proposals are withdrawn, and
- * only Piloti's filing suggestions (no conversation, a `basis`).
- *
- * One proposal per target folder (at most eight files each), so a person
- * confirms per folder.
- */
-
 import { folderPathKey } from '@/lib/projects/folders'
 import { MAX_FILE_OPERATION_ITEMS, type FileOperationPayload, type FilingBasis } from '@/lib/proposals/types'
 import type { FilingMove } from './types'
 
-/** How a document's name is compared: the executor's own key (NFC, trimmed, case-folded). */
 export const documentNameKey = (name: string): string => name.normalize('NFC').trim().toLowerCase()
 
-/** A proposal on the shelf, as the plan reads the record. */
 export interface RecordedProposal {
   id: string
   status: 'proposed' | 'dismissed' | string
   payload: FileOperationPayload
-  /** Made in a chat: never Piloti's filing suggestion, never withdrawn here. */
   originConversationId: string | null
-  /** Somebody is applying it right now: it cannot be withdrawn. */
   claimed: boolean
 }
 
-/** A document the judgement read. */
 export interface PlannedDocument {
   id: string
   filename: string
@@ -52,16 +20,11 @@ export interface PlannedDocument {
 export interface FilingPlanInput {
   basis: FilingBasis
   shelf: 'project' | 'office_shelf'
-  /** The documents that were judged. */
   documents: readonly PlannedDocument[]
-  /** Every document of the batch the uploader may see, judged or not (held, failed, still being read). */
   batchFilenames: readonly string[]
-  /** Whether a judgement came back; without one nothing is proposed and nothing withdrawn. */
   judged: boolean
   moves: readonly FilingMove[]
-  /** Documents (by id) filed in a folder not every member may read. */
   restrictedDocumentIds: ReadonlySet<string>
-  /** Folder paths not every member may read; a target at or below one is refused. */
   restrictedPaths: readonly string[]
   record: readonly RecordedProposal[]
 }
@@ -84,7 +47,6 @@ function underRestricted(path: string, restrictedPaths: readonly string[]): bool
   })
 }
 
-/** Which open suggestions the content judgement no longer supports, and which documents stay covered. */
 function revise(input: FilingPlanInput, moveByName: ReadonlyMap<string, FilingMove>) {
   const batch = new Set(input.batchFilenames.map(documentNameKey))
   const withdraw: string[] = []
@@ -109,7 +71,6 @@ function revise(input: FilingPlanInput, moveByName: ReadonlyMap<string, FilingMo
   return { withdraw, covered }
 }
 
-/** Group the surviving moves by target, at most eight files per proposal. */
 function proposalsFor(moves: ReadonlyArray<{ move: FilingMove; filename: string }>, input: FilingPlanInput) {
   const byTarget = new Map<string, Array<{ move: FilingMove; filename: string }>>()
   for (const entry of moves) {

@@ -90,7 +90,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     window.setTimeout(() => document.getElementById(`row-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
   }
   const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
-  // An author of any revision in the request may not give its second review.
   const confirm = {
     requestId: view.id,
     open: reviewable && !(view.status !== 'submitted' && authored),

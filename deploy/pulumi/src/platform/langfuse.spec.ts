@@ -6,27 +6,6 @@ import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import { BFF_SERVICE_NAME } from "../app/config";
 import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 
-/**
- * The Langfuse tier (ADR-0044).
- *
- * The bar for a test here is the same one `config.spec.ts` sets: would the
- * mistake produce a running, healthy-looking deployment? Nearly every failure
- * mode in this tier does.
- *
- *   - A collector exporting to the wrong path 404s inside the exporter. Every
- *     pod is Ready; Langfuse is simply empty.
- *   - A missing `LANGFUSE_OTLP_AUTH` env with the exporter still configured
- *     stops the COLLECTOR from starting — taking every export down with it,
- *     for a tier nobody was looking at yet.
- *   - Two containers both running migrations contend on an advisory lock; the
- *     loser blocks until its startup probe gives up, so a deploy fails on a
- *     probe timeout rather than on anything naming migrations.
- *   - An S3 identity granted a bare action reaches EVERY bucket, including the
- *     Postgres PITR archive. Nothing errors, ever.
- *
- * None of those is visible in `kubectl get pods`, which is why they are here.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
@@ -45,7 +24,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-/** Resolve a possibly-Output resource input to a plain value. */
 function resolve(value: unknown): Promise<any> {
   return new Promise((done) =>
     (pulumi.output(value) as pulumi.Output<any>).apply((v: any) => {
@@ -69,16 +47,6 @@ function has(type: string, name: string): boolean {
   return RESOURCES.some((r) => r.type === type && r.name === name);
 }
 
-/**
- * Unwrap Pulumi's secret sentinel.
- *
- * A `pulumi.secret(...)` reaches the resource mock as
- * `{ <signature>: "1b47…", value: <real> }` rather than as the value itself,
- * and `pulumi.output().apply()` does not strip it. Reading straight through the
- * wrapper yields `undefined`, which as a test failure looks like "the resource
- * was never built".
- */
-// Pulumi's public special-signature constant, not a credential.
 const SECRET_SIGNATURE = "4dabf18193072939515e22adb298388d"; // pragma: allowlist secret
 function unsecret<T>(value: unknown): T {
   return (value && typeof value === "object" && SECRET_SIGNATURE in (value as object)
@@ -86,14 +54,12 @@ function unsecret<T>(value: unknown): T {
     : value) as T;
 }
 
-/** The parsed `s3.json` authorization catalogue, as the filer will read it. */
 async function s3Identities(): Promise<Array<{ name: string; actions: string[] }>> {
   const secret = find("kubernetes:core/v1:Secret", "seaweedfs-s3-config");
   const data = unsecret<Record<string, string>>(await resolve(secret.inputs.stringData));
   return JSON.parse(data["s3.json"]).identities;
 }
 
-/** Env of the first container of a Deployment (or StatefulSet), as a plain key→value map. */
 async function containerEnv(
   name: string,
   type = "kubernetes:apps/v1:Deployment",
@@ -103,7 +69,6 @@ async function containerEnv(
   return Object.fromEntries(env.map((e) => [e.name, e.value ?? e.valueFrom]));
 }
 
-/** The rollout-checksum annotation on a workload's pod template. */
 async function podChecksum(name: string, type = "kubernetes:apps/v1:Deployment"): Promise<string> {
   const spec = (await resolve(find(type, name).inputs.spec)) as any;
   const annotations = (spec.template.metadata.annotations ?? {}) as Record<string, string>;
@@ -112,7 +77,6 @@ async function podChecksum(name: string, type = "kubernetes:apps/v1:Deployment")
   return annotations[key];
 }
 
-/** The `app.kubernetes.io/name` of every caller a NetworkPolicy's first ingress rule admits. */
 function callers(spec: any): string[] {
   return (spec.ingress[0].from as any[]).map((f) => f.podSelector.matchLabels["app.kubernetes.io/name"]).sort();
 }
@@ -124,8 +88,6 @@ describe("with the Langfuse tier enabled", () => {
     RESOURCES.length = 0;
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...langfuseStackConfig() });
     await import("../../index");
-    // Pulumi resolves resource inputs asynchronously; give the mock registry a
-    // turn of the loop to receive them all.
     await new Promise((r) => setTimeout(r, 200));
 
     const cm = find("kubernetes:core/v1:ConfigMap", "otel-collector");
@@ -145,10 +107,8 @@ describe("with the Langfuse tier enabled", () => {
       expect(service.pipelines.traces).toEqual(
         pipeline(["otlp_http/langfuse"], { processors: ["filter/drop_app_spans"] }),
       );
-      // One trace per HTTP request is what flooded Langfuse (ADR-0029 Amendment 5).
       expect(processors["filter/drop_app_spans"]).toEqual({
         error_mode: "ignore",
-        // Exactly the names the Next tiers are given as OTEL_SERVICE_NAME.
         trace_conditions: [
           `resource.attributes["service.name"] == "${BFF_SERVICE_NAME}" or resource.attributes["service.name"] == "${BFF_JOBS_SERVICE_NAME}"`,
         ],
@@ -156,9 +116,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("sends it no logs and no metrics", () => {
-      // Langfuse ingests traces. Pointing logs at it would be silently
-      // discarded volume — Langfuse's OTLP receiver is a traces endpoint. Logs
-      // go to PostHog (on by default) or end in the nop exporter.
       const users = Object.entries(parseCollectorConfig(collectorConfig).service.pipelines)
         .filter(([, p]) => p.exporters.includes("otlp_http/langfuse"))
         .map(([name]) => name);
@@ -166,18 +123,11 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("uses the component's CURRENT type id, not its deprecated alias", () => {
-      // Both `otlp_http` and `otlphttp` resolve today, so nothing fails if this
-      // drifts — until the deprecated alias is removed upstream and the
-      // collector refuses to start, taking every export with it.
-      // Upstream is explicit: `Type = MustNewType("otlp_http")`,
-      // `DeprecatedType = MustNewType("otlphttp")`.
       expect(collectorConfig).toContain("otlp_http/langfuse:");
       expect(collectorConfig).not.toMatch(/^\s+otlphttp\//m);
     });
 
     it("posts to the full signal path, via traces_endpoint", () => {
-      // `endpoint:` would make the exporter append `/v1/traces` to a path that
-      // already ends in it — a 404 per batch, and no other symptom.
       expect(collectorConfig).toContain(
         "traces_endpoint: http://langfuse-web:3000/api/public/otel/v1/traces",
       );
@@ -185,9 +135,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("marks its spans as v4 ingestion, so they land without the propagation delay", () => {
-      // Without the header Langfuse v4 still accepts the spans, but routes them
-      // through the server-side propagation: traces appear ~15 minutes late and
-      // nothing reports it.
       const exporter = parseCollectorConfig(collectorConfig).exporters["otlp_http/langfuse"] as {
         headers: Record<string, string>;
       };
@@ -195,9 +142,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("reads its credential from the environment, never the ConfigMap", async () => {
-      // A ConfigMap is not protected the way a Secret is — anyone who can run
-      // `kubectl get cm` in the namespace would otherwise be handed a working
-      // ingestion key.
       expect(collectorConfig).toContain("Authorization: ${env:LANGFUSE_OTLP_AUTH}");
       expect(collectorConfig).not.toContain("pk-lf-test");
       expect(collectorConfig).not.toContain("sk-lf-test");
@@ -207,10 +151,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("rolls the collector when the ingestion key rotates", async () => {
-      // `secretKeyRef` is read once at container start. Without a checksum on
-      // the pod template, rotating the Langfuse keys updates the Secret,
-      // restarts nothing, and leaves the collector presenting a retired header
-      // — 401s, and traces that simply stop, while `pulumi up` reports success.
       const spec = (await resolve(
         find("kubernetes:apps/v1:Deployment", "otel-collector").inputs.spec,
       )) as any;
@@ -219,16 +159,12 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("bounds the Langfuse queue so an outage cannot grow the collector without limit", () => {
-      // Unbounded buffering behind a slow Langfuse becomes `memory_limiter`
-      // back-pressure on the whole pipeline.
       expect(collectorConfig).toMatch(/sending_queue:\s*\n\s*enabled: true\s*\n\s*queue_size: 2000/);
     });
   });
 
   describe("migrations", () => {
     it("writes v4's events table only, on both containers alike", async () => {
-      // v3's tables are no longer written: nothing reads them, and a write mode
-      // that differs between web and worker would split the data.
       for (const name of ["langfuse-web", "langfuse-worker"]) {
         const env = await containerEnv(name);
         expect(env.LANGFUSE_MIGRATION_V4_WRITE_MODE).toBe("events_only");
@@ -249,7 +185,6 @@ describe("with the Langfuse tier enabled", () => {
       const web = await containerEnv("langfuse-web");
       const worker = await containerEnv("langfuse-worker");
 
-      // Both images ship migrations and both run them by default.
       expect(web.LANGFUSE_AUTO_POSTGRES_MIGRATION_DISABLED).toBeUndefined();
       expect(web.LANGFUSE_AUTO_CLICKHOUSE_MIGRATION_DISABLED).toBeUndefined();
       expect(worker.LANGFUSE_AUTO_POSTGRES_MIGRATION_DISABLED).toBe("true");
@@ -264,11 +199,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("gives the migration longer than the rollout deadline allows to fail it", async () => {
-      // The failure this guards is the most misleading in the tier: a first
-      // deploy whose migrations run for the documented ~10 minutes gets marked
-      // ProgressDeadlineExceeded and fails `pulumi up` while the pod is doing
-      // exactly what it was configured to do. `assertStartupFitsRollout` throws
-      // at plan time if this stops holding; this pins the resulting numbers.
       const spec = (await resolve(
         find("kubernetes:apps/v1:Deployment", "langfuse-web").inputs.spec,
       )) as any;
@@ -282,8 +212,6 @@ describe("with the Langfuse tier enabled", () => {
   });
 
   describe("images", () => {
-    // Digests are opaque, so this cannot prove web and worker are one Langfuse
-    // version; it proves each Deployment runs the default it is meant to.
     it.each([
       ["langfuse-web", "webImage"],
       ["langfuse-worker", "workerImage"],
@@ -299,14 +227,6 @@ describe("with the Langfuse tier enabled", () => {
   });
 
   describe("runtime user", () => {
-    // Both Dockerfiles build their runtime user at `ARG UID=1001` and chown
-    // /app to it. `runAsUser` OVERRIDES the image's USER, so 1000 — the value
-    // every other workload in this repo uses — would run the process as an
-    // identity owning none of its own files. Kept explicit even though 4.56.0
-    // switched to a numeric `USER 1001`: before that the images named their
-    // user (`nextjs` / `expressjs`), and `runAsNonRoot` against a non-numeric
-    // image user makes the kubelet refuse the pod outright. Pinning the uid
-    // here keeps a rollback to an older digest bootable.
     it.each(["langfuse-web", "langfuse-worker"])("runs %s as the uid its image owns", async (name) => {
       const spec = (await resolve(
         find("kubernetes:apps/v1:Deployment", name).inputs.spec,
@@ -322,9 +242,6 @@ describe("with the Langfuse tier enabled", () => {
 
   describe("ClickHouse", () => {
     it("matches the schema shape the migrator will emit", async () => {
-      // `CLICKHOUSE_CLUSTER_ENABLED=false` makes Langfuse emit plain MergeTree
-      // DDL. Against a single node that is the only correct value — the
-      // Replicated* engines it would otherwise use need a keeper quorum.
       const web = await containerEnv("langfuse-web");
       expect(web.CLICKHOUSE_CLUSTER_ENABLED).toBe("false");
     });
@@ -336,8 +253,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("runs on a non-default login, which is what removes the passwordless superuser", async () => {
-      // The image's entrypoint writes `<default remove="remove">` only when
-      // CLICKHOUSE_USER is something other than `default`.
       const spec = (await resolve(
         find("kubernetes:apps/v1:StatefulSet", "clickhouse").inputs.spec,
       )) as any;
@@ -346,7 +261,6 @@ describe("with the Langfuse tier enabled", () => {
       );
       expect(env.CLICKHOUSE_USER).toBe("langfuse");
       expect(env.CLICKHOUSE_USER).not.toBe("default");
-      // Langfuse's queries return empty result sets on a non-UTC server.
       expect(env.TZ).toBe("UTC");
     });
 
@@ -354,7 +268,6 @@ describe("with the Langfuse tier enabled", () => {
       const spec = (await resolve(
         find("kubernetes:apps/v1:StatefulSet", "clickhouse").inputs.spec,
       )) as any;
-      // The trace store has no second copy anywhere: no PITR, no S3 mirror.
       expect(spec.persistentVolumeClaimRetentionPolicy).toEqual({
         whenDeleted: "Retain",
         whenScaled: "Retain",
@@ -379,8 +292,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("rolls the pods when a credential rotates", async () => {
-      // `secretKeyRef` is read once at container start, so without the checksum
-      // annotation a rotation updates the Secret and changes nothing running.
       for (const name of ["langfuse-web", "langfuse-worker"]) {
         const spec = (await resolve(
           find("kubernetes:apps/v1:Deployment", name).inputs.spec,
@@ -397,23 +308,16 @@ describe("with the Langfuse tier enabled", () => {
       expect(langfuse?.actions.sort()).toEqual(
         ["List:langfuse", "Read:langfuse", "Tagging:langfuse", "Write:langfuse"],
       );
-      // A bare action would match every bucket, including grid-pg-backups.
       for (const action of langfuse?.actions ?? []) {
         expect(action).toContain(":");
       }
     });
 
     it("withholds the trace bucket from the general-purpose `grid` credential", async () => {
-      // The BFF and the purger hold that key. Raw trace events are every
-      // tenant's prompts and completions, and neither has any reason to read
-      // them — adding a platform bucket must not silently widen an existing
-      // credential.
       const identities = await s3Identities();
       const grid = identities.find((i) => i.name === "grid");
 
       expect(grid?.actions.some((a) => a.endsWith(":langfuse"))).toBe(false);
-      // But it does still hold the buckets it is supposed to — the filter must
-      // remove one bucket, not collapse the grant.
       expect(grid?.actions).toContain("Write:grid-documents");
     });
   });
@@ -430,13 +334,6 @@ describe("with the Langfuse tier enabled", () => {
       );
     });
 
-    // Langfuse's own PostHog integration runs inside the worker: an hourly job
-    // that POSTs to the configured PostHog host (`eu.i.posthog.com`), with the
-    // host and key saved in Langfuse's project settings and not in any env this
-    // program sets. So there is no egress rule to write for it, and one rule is
-    // enough to break it with every pod Ready: an `Egress` policy selecting the
-    // worker would silently cut the export. Egress is open by design
-    // (network-policies.ts); this holds that line for the one pod that needs it.
     it("leaves the worker's egress open so the PostHog export can reach its host", async () => {
       const policies = RESOURCES.filter((r) => r.type === "kubernetes:networking.k8s.io/v1:NetworkPolicy");
       expect(policies.length).toBeGreaterThan(0);
@@ -444,7 +341,6 @@ describe("with the Langfuse tier enabled", () => {
         const spec = (await resolve(policy.inputs.spec)) as any;
         const selectsWorker =
           spec.podSelector?.matchLabels?.["app.kubernetes.io/name"] === "langfuse-worker" ||
-          // The wholesale allow selects everyone except a NotIn list; it is Ingress-only.
           spec.podSelector?.matchExpressions !== undefined;
         if (selectsWorker) expect(spec.policyTypes, policy.name).not.toContain("Egress");
       }
@@ -488,8 +384,6 @@ describe("with the Langfuse tier enabled", () => {
           .inputs.spec,
       )) as any;
 
-      // Langfuse's own SSO would admit anyone who can authenticate to the
-      // WorkOS environment at all. The permission check exists only here.
       expect(spec.authorization.defaultAction).toBe("Deny");
       expect(spec.authorization.rules[0].principal.jwt.scopes).toContain(
         "platform:organizations:view",
@@ -498,11 +392,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("also admits the read-only observability permission, on a rule of its own", async () => {
-      // Analysts get Langfuse without the platform-operator permission. Envoy
-      // ANDs the scopes inside ONE principal, so listing both on one rule
-      // would admit only a token holding both and lock the analyst out. Each
-      // permission must be its own rule (rules are ORed), and requested as a
-      // scope, or WorkOS never puts it on the token.
       const spec = (await resolve(
         find("kubernetes:gateway.envoyproxy.io/v1alpha1:SecurityPolicy", "grid-langfuse-security-policy")
           .inputs.spec,
@@ -531,12 +420,6 @@ describe("with the Langfuse tier enabled", () => {
     });
   });
 
-  /**
-   * Answer feedback lands in Langfuse as scores written by the BFF (ADR-0044,
-   * Amendment 3). Every failure here is silent: a missing key or host makes the
-   * BFF's scoring a no-op, a missing NetworkPolicy makes every call time out in
-   * the background, and the vote itself succeeds either way.
-   */
   describe("the BFF as a score writer", () => {
     it("hands the frontend the in-cluster API, the public UI and the project", async () => {
       const env = await containerEnv("frontend");
@@ -564,12 +447,6 @@ describe("with the Langfuse tier enabled", () => {
     });
   });
 
-  /**
-   * A first SSO sign-in must land somewhere. Without the defaults Langfuse
-   * creates an account in no organization, and the person the edge admitted
-   * sees an empty "create an organization" page, which reads as "Langfuse is
-   * broken" rather than "nobody added you".
-   */
   describe("default membership for SSO users", () => {
     it("joins a new user to the seeded org and project as VIEWER", async () => {
       const web = await containerEnv("langfuse-web");
@@ -589,11 +466,6 @@ describe("with the Langfuse tier enabled", () => {
     });
   });
 
-  /**
-   * The agent writes its answer checks as scores (ADR-0089). Each failure is
-   * silent: no keys or host and `emit_scores` is a no-op, no NetworkPolicy and
-   * every post times out on a background pool, and the answer ships either way.
-   */
   describe("the backend as a score writer", () => {
     const BACKEND_TIERS: Array<[string, string]> = [
       ["aiq-agent", "kubernetes:apps/v1:StatefulSet"],
@@ -609,7 +481,6 @@ describe("with the Langfuse tier enabled", () => {
       expect(env.LANGFUSE_HOST).toBe("http://langfuse-web:3000");
       expect(env.LANGFUSE_PUBLIC_KEY).toEqual({ secretKeyRef: { name: "langfuse-secrets", key: "public-key" } });
       expect(env.LANGFUSE_SECRET_KEY).toEqual({ secretKeyRef: { name: "langfuse-secrets", key: "secret-key" } });
-      // A capability, not the product decision: the remote prompt stays off.
       expect(env.LANGFUSE_PROMPTS_ENABLED).toBeUndefined();
     });
 
@@ -630,7 +501,6 @@ describe("with the Langfuse tier enabled", () => {
     });
 
     it("names in the policy every backend tier that carries the keys", async () => {
-      // The two lists are written in different files; this holds them together.
       const spec = (await resolve(
         find("kubernetes:networking.k8s.io/v1:NetworkPolicy", "allow-backend-to-langfuse").inputs.spec,
       )) as any;
@@ -642,9 +512,6 @@ describe("with the Langfuse tier enabled", () => {
     it.each([...BACKEND_TIERS, ["bff-jobs", "kubernetes:apps/v1:Deployment"] as [string, string]])(
       "rolls %s when the Langfuse keys rotate, as the frontend does",
       async (name, type) => {
-        // Every pod that reads the keys folds them into one checksum, so they
-        // all carry the frontend's; the ingest worker, which holds none, keeps
-        // the app Secret's alone.
         const frontend = await podChecksum("frontend");
 
         expect(await podChecksum(name, type)).toBe(frontend);
@@ -654,9 +521,6 @@ describe("with the Langfuse tier enabled", () => {
   });
 
   it("turns on backend identity attributes, which is what makes traces attributable", async () => {
-    // Without this the traces arrive but carry no user and no tenant — the
-    // difference between "Langfuse is receiving spans" and "Langfuse can tell
-    // you whose run this was", which is most of why the tier exists.
     const spec = (await resolve(
       find("kubernetes:apps/v1:StatefulSet", "aiq-agent").inputs.spec,
     )) as any;
@@ -748,9 +612,6 @@ describe("the platform OIDC gate", () => {
 });
 
 describe("the rollout-budget guard", () => {
-  // A guard that cannot fire is worse than no guard — it reads as protection
-  // that was considered and applied. So this asserts the arithmetic REFUSES a
-  // bad combination, not merely that today's numbers happen to pass.
   it("refuses a probe budget that can outlive its rollout deadline", async () => {
     const { assertStartupFitsRollout } = await import("./rollout");
 
@@ -794,7 +655,6 @@ describe("config gating", () => {
   });
 
   it("refuses a stack that still sets the removed v4 write mode", () => {
-    // Silently ignoring it would let someone believe the v3 tables are kept.
     const error = loadWith({ "grid-oib:langfuseV4WriteMode": "dual" });
     expect(error?.message).toMatch(/langfuseV4WriteMode was removed/);
   });
@@ -810,16 +670,11 @@ describe("config gating", () => {
   });
 
   it.each(["viewer", "READ", "EDITOR"])("refuses %s as the default role", (role) => {
-    // Langfuse checks the variable against a zod enum at startup, so a value
-    // it does not know is a langfuse-web that never becomes Ready.
     const error = loadWith({ "grid-oib:langfuseDefaultRole": role });
     expect(error?.message).toMatch(/langfuseDefaultRole must be one of OWNER, ADMIN, MEMBER, VIEWER, NONE/);
   });
 
   it("refuses a base64 encryption key, which is the natural mistake", () => {
-    // Every other secret in this program is `openssl rand -base64 32`. This one
-    // is hex, and Langfuse's own failure for a wrong-length value is a crash
-    // loop with a stack trace that does not name the variable.
     const error = loadWith({
       "grid-oib:langfuseEncryptionKey": "Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4",
     });
@@ -834,12 +689,6 @@ describe("config gating", () => {
     expect(error?.message).toContain(prefix);
   });
 
-  // The house convention for every other secret here is `openssl rand -base64
-  // 32`, which for 32 bytes ALWAYS ends in `=` and often contains `+`. Langfuse
-  // interpolates this one into a connection-string query parameter unencoded
-  // (`clickhouse/scripts/up.sh`), so following the convention breaks the
-  // ClickHouse migration and crash-loops langfuse-web — with nothing in the
-  // logs but a generic hint about special characters.
   it.each([
     ["base64 padding", "c2VjcmV0LXZhbHVlLWZvci10ZXN0aW5nLW9ubHk="],
     ["a plus sign", "abc+def"],
@@ -855,31 +704,21 @@ describe("config gating", () => {
   });
 
   it("refuses a queue password shared with another Redis instance", () => {
-    // Every app pod holds the ADR-0020 cache URL. A shared password would let
-    // anything that reads one pod's env drain the ingestion queue.
     const error = loadWith({ "grid-oib:langfuseQueuePassword": "df" });
     expect(error?.message).toMatch(/must differ from grid-oib:dragonflyPassword/);
   });
 
   it("refuses an S3 key shared with a wider-scoped identity", () => {
-    // SeaweedFS authenticates by key, so this would hand the Langfuse tier
-    // object CRUD across every tenant bucket instead of its own.
     const error = loadWith({ "grid-oib:langfuseS3SecretKey": "s3-secret" });
     expect(error?.message).toMatch(/must differ from grid-oib:seaweedfsSecretKey/);
   });
 
   it("refuses the tier with NetworkPolicies off, on a guard of its own", () => {
-    // Langfuse needs policies as much as the dashboard does. It used to inherit
-    // the dashboard's guard through `observabilityEnabled`; with the collector
-    // no longer needing the dashboard that inheritance is gone, so this tier
-    // states the requirement itself (collector-gate.spec.ts covers the
-    // no-dashboard stack).
     const error = loadWith({ "grid-oib:networkPolicies": "false" });
     expect(error?.message).toMatch(/requires grid-oib:networkPolicies/);
   });
 
   it("skips the tier, rather than half-deploying it, when a credential is missing", () => {
-    // Availability = flag AND capability: no throw, no tier.
     expect(loadWith({}, ["grid-oib:langfuseSalt"])).toBeNull();
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
@@ -890,8 +729,6 @@ describe("config gating", () => {
   });
 
   it("skips the tier when the collector that feeds it is not deployed", () => {
-    // Langfuse has no receiver of its own here — without the collector it is
-    // four workloads that can only ever sit idle.
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
       ...langfuseStackConfig(),

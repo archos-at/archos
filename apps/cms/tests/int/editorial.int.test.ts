@@ -1,16 +1,8 @@
-/**
- * The review step on a real database (ADR-0155), through the same operations
- * the admin panel, REST and the MCP plugin run: `overrideAccess: false` with a
- * user is how each of them calls Payload.
- *
- * Run by `bun run test:db` (scripts/test-db.sh), which migrates a throwaway
- * Postgres first. Skipped without CMS_TEST_DATABASE_URL.
- */
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { getPayload, type Payload } from 'payload';
 import type { Post } from '../../src/payload-types';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { paragraph, root } from '../../scripts/lib/lexical.mjs';
 
 const DATABASE = process.env.CMS_TEST_DATABASE_URL;
@@ -42,14 +34,14 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       res.end();
     });
     await new Promise<void>((resolve) => website.listen(0, '127.0.0.1', resolve));
-    process.env.WEBSITE_REVALIDATE_URL = `http://127.0.0.1:${(website.address() as AddressInfo).port}/api/cms/revalidate`;
-    process.env.WEBSITE_REVALIDATE_TOKEN = 'revalidate-token'; // pragma: allowlist secret
-    process.env.CMS_JOBS_AUTORUN = 'false';
-    process.env.CMS_WEBSITE_API_KEY = 'website-key-0123456789'; // pragma: allowlist secret
-    process.env.CMS_SOCIAL_HANDOFF_API_KEY = 'handoff-key-0123456789'; // pragma: allowlist secret
-    process.env.CMS_PLATFORM_MCP_API_KEY = 'gateway-key-0123456789'; // pragma: allowlist secret
-    process.env.CMS_ADMIN_EMAIL = 'admin@example.com';
-    process.env.CMS_ADMIN_PASSWORD = 'an-admin-password'; // pragma: allowlist secret
+    vi.stubEnv('WEBSITE_REVALIDATE_URL', `http://127.0.0.1:${(website.address() as AddressInfo).port}/api/cms/revalidate`);
+    vi.stubEnv('WEBSITE_REVALIDATE_TOKEN', 'revalidate-token'); // pragma: allowlist secret
+    vi.stubEnv('CMS_JOBS_AUTORUN', 'false');
+    vi.stubEnv('CMS_WEBSITE_API_KEY', 'website-key-0123456789'); // pragma: allowlist secret
+    vi.stubEnv('CMS_SOCIAL_HANDOFF_API_KEY', 'handoff-key-0123456789'); // pragma: allowlist secret
+    vi.stubEnv('CMS_PLATFORM_MCP_API_KEY', 'gateway-key-0123456789'); // pragma: allowlist secret
+    vi.stubEnv('CMS_ADMIN_EMAIL', 'admin@example.com');
+    vi.stubEnv('CMS_ADMIN_PASSWORD', 'an-admin-password'); // pragma: allowlist secret
     const { default: config } = await import('@payload-config');
     payload = await getPayload({ config });
     const find = async (email: string) => (await payload.find({ collection: 'users', where: { email: { equals: email } } })).docs[0] as unknown as User;
@@ -74,7 +66,6 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     expect([users.admin.role, users.website.role, users.handoff.role]).toEqual(['admin', 'website', 'social-handoff']);
     const accounts = await payload.find({ collection: 'social-accounts' });
     expect(accounts.docs.map((a) => a.key)).toEqual(['linkedin-company']);
-    // Running it again changes nothing.
     const { provision } = await import('../../src/provision');
     const lines: string[] = [];
     await provision(payload, process.env, (line) => lines.push(line));
@@ -84,7 +75,6 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
   test("the platform MCP gateway's key is found as the MCP plugin finds it, and acts as an agent", async () => {
     const { createHmac } = await import('node:crypto');
     const index = createHmac('sha256', payload.secret).update('gateway-key-0123456789').digest('hex');
-    // resolveAccessSettings in @payloadcms/plugin-mcp: the key's index, then its user and switches.
     const { docs } = await payload.find({ collection: 'payload-mcp-api-keys', where: { apiKeyIndex: { equals: index } }, depth: 1, limit: 1 });
     const key = docs[0] as unknown as { user: { email: string; role: string }; posts: Record<string, boolean>; socialPosts: Record<string, boolean> };
     expect(key.user).toMatchObject({ email: 'platform-mcp@robots.cms.invalid', role: 'agent' });
@@ -98,7 +88,6 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       expect(draft._status).toBe('draft');
       await expect(payload.create({ collection: 'posts', data: post(`Live by ${who}`, { _status: 'published' }), ...as(who) })).rejects.toThrow(/not allowed/i);
       await expect(payload.update({ collection: 'posts', id: draft.id, data: { _status: 'published' }, ...as(who) })).rejects.toThrow(/not allowed/i);
-      // Asking for a non-draft save is a draft save all the same.
       const saved = await payload.update({ collection: 'posts', id: draft.id, data: { title: `Draft by ${who}, edited` }, draft: false, ...as(who) });
       expect(saved._status).toBe('draft');
     }
@@ -117,7 +106,6 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     revalidations.length = 0;
     for (const who of ['editor', 'agent'] as const) {
       await payload.update({ collection: 'posts', id: live.id, data: { title: `Changed by ${who}` }, ...as(who) });
-      // An unpublish asked for without the draft flag is only a draft save, too.
       await payload.update({ collection: 'posts', id: live.id, data: { _status: 'draft' }, ...as(who) });
       const current = await payload.findByID({ collection: 'posts', id: live.id });
       expect([current._status, current.title]).toEqual(['published', 'Live post']);
@@ -125,15 +113,11 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       expect(newest.title).toBe(`Changed by ${who}`);
     }
     expect(revalidations).toEqual([]);
-    // Restoring a published version is a publisher's. (restoreVersion reads its `draft` flag
-    // before the beforeOperation hook, so the update access is what refuses it here; Payload's
-    // Local API passes no `draft` to it at all, and REST's ?draft=true restores as a draft.)
     const versions = await payload.findVersions({ collection: 'posts', where: { parent: { equals: live.id } }, sort: 'createdAt' });
     await expect(payload.restoreVersion({ collection: 'posts', id: versions.docs[0].id, ...as('editor') })).rejects.toThrow(/not allowed/i);
     expect((await payload.findByID({ collection: 'posts', id: live.id }))._status).toBe('published');
     const copy = await payload.duplicate({ collection: 'posts', id: live.id, data: { slug: 'live-post-copy' }, ...as('agent') });
     expect(copy._status).toBe('draft');
-    // A publisher publishes the waiting change.
     const published = await payload.update({ collection: 'posts', id: live.id, data: { title: 'Live post, reviewed', _status: 'published' }, ...as('publisher') });
     expect(published.title).toBe('Live post, reviewed');
     expect(revalidations).toHaveLength(1);
@@ -158,7 +142,6 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     expect(titles).not.toContain('Only a draft');
     expect(titles).not.toContain('Due later');
     expect(read.docs.every((d) => d._status === 'published')).toBe(true);
-    // Not even the draft of a live post, asked for explicitly.
     const drafts = await payload.find({ collection: 'posts', draft: true, limit: 0, ...as('website') });
     expect(drafts.docs.map((d) => d.title)).not.toContain('Changed by agent');
     await expect(payload.create({ collection: 'posts', data: post('By the website'), ...as('website') })).rejects.toThrow(/not allowed/i);
@@ -202,9 +185,7 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'approved' }, ...as('editor') })).rejects.toThrow(/not allowed/i);
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'scheduled' }, ...as('handoff') })).rejects.toThrow(/not allowed/i);
     await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'approved' }, ...as('publisher') });
-    // Approved, it is out of the drafters' hands.
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { text: 'Changed after approval.' }, ...as('agent') })).rejects.toThrow(/not allowed/i);
-    // The hand-off claims before it sends; it cannot record a hand-over it did not claim.
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'scheduled' }, ...as('handoff') })).rejects.toThrow(/not allowed/i);
     await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'sending' }, ...as('handoff') });
     const handed = await payload.update({
@@ -214,12 +195,10 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       ...as('handoff'),
     });
     expect([handed.status, handed.externalId, handed.text]).toEqual(['scheduled', 'buffer-1', 'Neu im Blog.']);
-    // Buffer holds it now: a publisher's edit here would not reach Buffer, and approving it again would send it twice.
     const edited = await payload.update({ collection: 'social-posts', id: draft.id, data: { text: 'Edited after the hand-over.', scheduledAt: '2027-01-01T00:00:00.000Z' }, ...as('publisher') });
     expect([edited.text, edited.scheduledAt ?? null]).toEqual(['Neu im Blog.', null]);
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'approved' }, ...as('publisher') })).rejects.toThrow(/not allowed/i);
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'draft' }, ...as('admin') })).rejects.toThrow(/not allowed/i);
-    // The way back: a person sets it failed (having dealt with it in Buffer), and it is editable again.
     await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'failed' }, ...as('publisher') });
     const reworked = await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'draft', text: 'Neu geschrieben.' }, ...as('publisher') });
     expect([reworked.status, reworked.text]).toEqual(['draft', 'Neu geschrieben.']);

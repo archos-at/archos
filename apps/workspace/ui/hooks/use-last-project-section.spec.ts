@@ -11,7 +11,6 @@ import {
   useResumeProjectHref,
 } from './use-last-project-section'
 
-// Drive usePathname per test so we can simulate navigation between sections.
 let mockPathname = '/'
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,

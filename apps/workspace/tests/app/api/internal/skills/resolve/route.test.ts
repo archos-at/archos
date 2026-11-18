@@ -19,7 +19,7 @@ const mockResolve = vi.mocked(resolveSkillsForAgent)
 const REAL_TOKEN = 'a-real-secret-token'
 
 function makeRequest(url: string, token?: string): Request {
-  return new Request(`https://grid.test${url}`, {
+  return new Request(`https://example.test${url}`, {
     headers: token ? { 'x-grid-internal-token': token } : {},
   })
 }

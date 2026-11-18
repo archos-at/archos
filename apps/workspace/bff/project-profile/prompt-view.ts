@@ -17,49 +17,17 @@ import type {
   ProjectProfileDisplay,
 } from './types'
 
-// Re-exported so existing server-side importers (profile / patches routes, tests)
-// keep a single import surface; the engine itself now lives in the isomorphic
-// patch-engine module so the intake wizard can share it.
 export { applyProjectProfilePatch, emptyProjectProfile } from './patch-engine'
 
 const PROMPT_VIEW_CACHE_TTL_MS = 5 * 60 * 1000
 
-/** Key segment for a request that legitimately has no organization. */
 const ANONYMOUS_TENANT = 'anon'
 
-/**
- * Cache keys derived from the stored profile (`projects.profile`). BOTH are
- * served with the same 5-min TTL and MUST be invalidated together on every
- * profile write — see {@link invalidateProjectProfileCaches}.
- *
- * The organization is part of the key, and that is a tenancy boundary rather
- * than a nicety. `getCached` returns BEFORE the loader runs, so a key of
- * `projectId` alone meant a hit served whatever the first caller had populated
- * — without ever entering the tenant scope or consulting row-level security.
- * The project id is supplied by the caller on the websocket-scope path, so an
- * id belonging to another organization would have returned that organization's
- * project context straight out of the cache. Partitioning by tenant is what
- * makes the cached path obey the same boundary as the query behind it.
- */
-// `-v2` and `federal-state:` are new prefixes on purpose: a cache is shared by the
-// pods of a rolling deploy, and an older pod fills the old keys with the German
-// names. A new pod never reads those.
 const promptViewCacheKey = (projectId: string, organizationId: string | null | undefined) =>
   `promptview-v2:${organizationId ?? ANONYMOUS_TENANT}:${projectId}`
 const federalStateCacheKey = (projectId: string, organizationId: string | null | undefined) =>
   `federal-state:${organizationId ?? ANONYMOUS_TENANT}:${projectId}`
 
-/**
- * Cached read of the project-context prompt view injected into the agent on
- * every WS upgrade. Backed by the shared cache (ADR-0020), so a profile edit
- * on one replica invalidates for all replicas — the per-process Map this
- * replaces served stale project context for up to 5 minutes after an edit.
- *
- * The view is one per project, read by every member and by scheduled and
- * deep-research runs, and it names no document in a restricted folder, for
- * anyone (ADR-0087): listing is not use, and a chat finds a restricted
- * document by searching for it.
- */
 export async function loadProjectPromptView(
   projectId: string | undefined,
   organizationId: string | null | undefined
@@ -69,15 +37,8 @@ export async function loadProjectPromptView(
   const build = async (): Promise<string | null> => {
     const [stored, documents] = await Promise.all([
       storedViewAsTheLawShows(projectId, organizationId),
-      // Appended here rather than baked into the stored view, because a role
-      // binding changes without the profile changing. `buildProjectPromptView`
-      // runs at profile-save; a document declared afterwards would never reach
-      // a view built there. Declaring or revoking a role invalidates this cache
-      // (`lib/document-roles/service`), so the block cannot go stale either.
       loadDocumentRolesPromptSection(projectId, organizationId),
     ])
-    // A view an older pod stored after the rename still names the German keys
-    // and tokens; the agent reads them in English only.
     const combined = [stored ? normalizeLegacyPromptView(stored).trim() : null, documents]
       .filter(Boolean)
       .join('\n\n')
@@ -85,9 +46,6 @@ export async function loadProjectPromptView(
     return combined || null
   }
 
-  // The unreadable files ride beside the cached view, not inside it: a re-read
-  // changes them without touching anything that invalidates the cache, and
-  // the next turn must not be told about a failure „Alle erneut lesen" fixed.
   const [view, unreadable] = await Promise.all([
     getCached(promptViewCacheKey(projectId, organizationId), PROMPT_VIEW_CACHE_TTL_MS, build),
     loadUnreadableDocumentsSection(projectId, organizationId),
@@ -95,11 +53,6 @@ export async function loadProjectPromptView(
   return [view, unreadable].filter(Boolean).join('\n\n') || null
 }
 
-/**
- * The stored view, or, where the project's gate names no law, the view of the profile without its derived
- * classes: the agent reads no Gebäudeklasse the Steckbrief hides (`profileAsTheLawShows`, the one rule).
- * The stored classes stay; a gate that names law again serves the stored view as before.
- */
 async function storedViewAsTheLawShows(projectId: string, organizationId: string | null | undefined): Promise<string | null> {
   const stored = await findProjectPromptView(projectId, organizationId)
   if (!organizationId || !stored) return stored
@@ -121,14 +74,6 @@ export async function invalidateProjectPromptViewCache(
   )
 }
 
-/**
- * Every tenant-partitioned key a project's cached value can live under.
- *
- * A write must drop the anonymous variant as well as its own: an anonymous
- * deployment populates `anon` while an authenticated write knows an
- * organization, and dropping only one leaves the other serving the value the
- * write just replaced.
- */
 function tenantVariants(
   key: (projectId: string, organizationId: string | null | undefined) => string,
   projectId: string,
@@ -138,15 +83,6 @@ function tenantVariants(
   return [...keys]
 }
 
-/**
- * Invalidate EVERY per-project cache derived from the stored profile. Both the
- * prompt-view text (`promptview:`) and the structured `federal_state` fact
- * (`federal_state:`) are read from `projects.profile` with a 5-min TTL, so a
- * profile write must drop BOTH keys — otherwise a wizard save that changes the
- * location leaves the jurisdiction-dependent `federal_state` on the WS handshake
- * (RIS logic) stale for up to 5 minutes. This is the single invalidation every
- * profile write path (`saveProjectProfile`, `patchProjectProfile`) must call.
- */
 export async function invalidateProjectProfileCaches(
   projectId: string,
   organizationId: string | null | undefined
@@ -159,20 +95,6 @@ export async function invalidateProjectProfileCaches(
   )
 }
 
-/**
- * Cached read of the project's validated `federal_state` fact, straight off the
- * stored structured profile (`projects.profile.facts.federal_state.value`) —
- * the SAME source `buildProjectPromptView` reads to emit the
- * `federal_state=<token>` text line `loadProjectPromptView` above serves.
- *
- * Backlog T3-9 follow-up (2026-07-16, user-mandated): jurisdiction is a
- * cross-cutting request fact and must travel STRUCTURED on the
- * `X-Grid-Request-Context` envelope, not be re-parsed out of that prompt
- * text — this is the read producers resolve `RequestContextInput.federal_state`
- * from. Returns `null` for no project, no fact, or a value outside the
- * validated intake vocabulary (a stale/corrupt row must never leak an
- * unvalidated token onto the wire).
- */
 export async function loadProjectFederalState(
   projectId: string | undefined,
   organizationId: string | null | undefined
@@ -196,7 +118,6 @@ export function buildProjectPromptView(profile: ProjectProfile): string {
 
   const factKeys = Object.keys(normalized.facts).sort()
 
-  // Legacy profile: no country fact but valid AT federal_state → derive country=at
   const countryInFacts = normalized.facts.country
   if (!countryInFacts && normalized.facts.federal_state?.value) {
     const bv = normalized.facts.federal_state.value
@@ -254,23 +175,15 @@ export function buildProjectPromptView(profile: ProjectProfile): string {
   return sections.map((section) => section.join('\n')).join('\n\n')
 }
 
-/**
- * The most lines the `assumptions:` and `contested:` sections list each. The
- * view rides every turn, so a reading that suggested hundreds of values must not
- * grow it without end; the text says how many it left out.
- */
 const MAX_VIEW_LINES = 60
 
-/** Longest file name the view carries; a name is a pointer, not content. */
 const MAX_VIEW_FILE_NAME_LENGTH = 120
 
-/** At most {@link MAX_VIEW_LINES} lines, then one line saying how many more there are. */
 function bounded(lines: string[]): string[] {
   if (lines.length <= MAX_VIEW_LINES) return lines
   return [...lines.slice(0, MAX_VIEW_LINES), `- … und ${lines.length - MAX_VIEW_LINES} weitere`]
 }
 
-/** `Datei, S. n`, or `Datei` when the document has no pages. Never a quote: a quote is document text, and the view is not the place for it. */
 function documentSource(evidence: ProjectFact['evidence']): string | null {
   const document = evidence?.find((entry) => entry.kind === 'document')
   if (document?.kind !== 'document') return null
@@ -278,22 +191,12 @@ function documentSource(evidence: ProjectFact['evidence']): string | null {
   return document.page === null ? name : `${name}, S. ${document.page}`
 }
 
-/**
- * Where a suggestion came from, for an `assumptions:` line: the first document
- * it was read in, or that it was derived from other values. Nothing when it has
- * no evidence (a person's estimate, a profile from before the intake).
- */
 function provenanceSuffix(evidence: ProjectAssumption['evidence']): string {
   const source = documentSource(evidence)
   if (source) return ` [Vorschlag: ${source}]`
   return evidence?.some((entry) => entry.kind === 'derivation') ? ' [abgeleitet]' : ''
 }
 
-/**
- * Keys that carry a different value found beside the one they hold, facts and
- * assumptions alike: `- key: value | alternativ: v2 (Datei, S. n)`. The agent
- * must not state either as settled; it asks, or names both.
- */
 function contestedLines(profile: ProjectProfile): string[] {
   const entries = [
     ...Object.entries(profile.facts).map(([key, fact]) => ({ key, ...fact })),
@@ -313,15 +216,7 @@ function contestedLines(profile: ProjectProfile): string[] {
 
 export function buildProjectProfileDisplay(
   profile: ProjectProfile,
-  // The AI summary is generated by a separate async call (POST /generate-summary)
-  // and stored on profileDisplay.summary. Rebuilding the display from the raw
-  // profile (on every save/patch) must PRESERVE that summary rather than wiping
-  // it -- otherwise any chat-driven profile edit permanently blanks the Project
-  // Brief prose until the next full intake save.
   previousSummary = '',
-  // The locale that `previousSummary` was generated in, carried over 1:1 with
-  // the summary so a preserved prose keeps its language provenance (and a reset
-  // summary drops it — callers pass undefined). See ProjectProfileDisplaySchema.
   previousSummaryLocale?: string
 ): ProjectProfileDisplay {
   const normalized = ProjectProfileSchema.parse(profile)
@@ -331,8 +226,6 @@ export function buildProjectProfileDisplay(
     title: 'Project profile',
     summary: previousSummary,
     summaryLocale: previousSummaryLocale,
-    // Human-readable, intake-ordered: question labels ("Building class") and
-    // option labels ("Residential") instead of raw keys/enum values.
     keyFacts: brief.groups.flatMap((group) =>
       group.facts.map((fact) => ({ label: fact.label, value: fact.value }))
     ),

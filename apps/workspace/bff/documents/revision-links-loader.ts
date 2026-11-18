@@ -1,18 +1,3 @@
-/**
- * The Fassung facts of documents, resolved for ONE reader.
- *
- * The backend stores a Fassung link by file name. This is the only place a name
- * becomes a document the browser is told about, and it does so through the same
- * rules a listing applies: the documents of the SAME collection, active, past
- * screening for this reader (`documentVisibleTo`, ADR-0086), and not in a
- * folder this session may not open (ADR-0087; the Papierkorb counts as closed).
- * What fails any of them is dropped with its name (`resolveRevisionLinks`).
- *
- * Kept apart from `reconcile-status.ts` on purpose. That module's metadata is
- * spread onto rows several callers hand out, with no reader in sight; a file
- * name there would be one forgotten destructure away from the wire.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds } from '@/lib/authz/folder-access'
@@ -32,12 +17,10 @@ import { documentNameKey } from './name-match'
 import { readRevisionLinkNames, refreshCollectionFiles } from './reconcile-status'
 import { findRevisionCounterparts, type RevisionCounterpartRow } from './repository'
 
-/** A document to read the Fassung facts of: the row facts `collectionFileRef` needs, and its id. */
 export interface RevisionLinksSubject extends AuthoredDocumentRow {
   id: string
 }
 
-/** The counterparts the session may open, by name key: the documents one collection's names resolve to. */
 async function visibleRefs(
   session: AuthorizedSession,
   collectionName: string,
@@ -53,30 +36,21 @@ async function visibleRefs(
     refs.set(documentNameKey(row.filename), {
       id: row.id,
       filename: row.filename,
-      // Coerced at the boundary: a driver handing back a string must not reach `toISOString`.
       createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
     })
   }
   return refs
 }
 
-/** A counterpart the reader may open, with the one row fact the history shows. */
 interface VisibleRef extends RevisionRef {
   createdAt: string | null
 }
 
-/** The backend's names of one file of a collection, addressed the way `collectionFileRef` addresses a person's upload. */
 const namesOf = (collectionName: string, filename: string): Promise<RevisionLinkNames | null> => {
-  const ref = collectionFileRef({ collectionName, filename, authoredBy: 'user', publishedVersionId: null })
+  const ref = collectionFileRef({ id: null, collectionName, filename, authoredBy: 'user', publishedVersionId: null })
   return ref ? readRevisionLinkNames(ref) : Promise.resolve(null)
 }
 
-/**
- * The older Fassungen behind `names`, by the backend's names, newest first: the
- * documents it replaces, then the ones THEY replace, breadth first. Cycle-safe
- * and bounded; the reader's visibility is applied afterwards, like every other
- * name here. Each comes with its own names, for its change line.
- */
 async function walkHistory(
   collectionName: string,
   ownName: string,
@@ -100,7 +74,6 @@ async function walkHistory(
   return walked
 }
 
-/** The folders this session may not open, per project the rows belong to. */
 async function hiddenFoldersByProject(
   session: AuthorizedSession,
   rows: readonly RevisionCounterpartRow[],
@@ -112,14 +85,6 @@ async function hiddenFoldersByProject(
   return new Map(projectIds.map((projectId, index) => [projectId, new Set(hidden[index])]))
 }
 
-/**
- * The Fassung facts of `subjects` for `session`, by document id. A document with
- * nothing to say (or nothing the reader may see) has no entry.
- *
- * `reader` is the one the rows were read with, so a document held from the
- * reader is held here as well. `fresh` reads the backend listing anew, for the
- * answer to a write that the cached listing predates.
- */
 export async function loadRevisionLinks(
   session: AuthorizedSession,
   subjects: readonly RevisionLinksSubject[],
@@ -181,19 +146,12 @@ export async function loadRevisionLinks(
     }
     const resolved = resolveRevisionLinks(names, subject.filename, lookup)
     const history = historyFor(histories.get(subject.id) ?? [], refs, lookup)
-    // A hidden direct predecessor leaves the document's own facts empty, while
-    // older Fassungen behind it may still be the reader's to see.
     if (history.length > 0) facts.set(subject.id, { ...(resolved ?? EMPTY_REVISION_LINKS), history })
     else if (resolved) facts.set(subject.id, resolved)
   }
   return facts
 }
 
-/**
- * The walked history as the reader may see it: a Fassung they may not open is
- * left out with its name, and so is a change line that describes one (the same
- * rule `resolveRevisionLinks` applies to the document's own facts).
- */
 function historyFor(
   walked: ReadonlyArray<{ filename: string; names: RevisionLinkNames | null }>,
   refs: Map<string, VisibleRef> | undefined,

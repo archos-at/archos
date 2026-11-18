@@ -1,32 +1,11 @@
-/**
- * Scores one answer against one golden case (ADR-0165 amendment): each expected
- * value is present, the edition is named, each citation resolves to a cited
- * source and its locus, and no must-not is violated. Pure, and country-neutral:
- * every word it looks for is the case's own.
- *
- * The answer suite scores the same cases with `scripts/turn_census/golden_eval.py`,
- * a mirror of this module. `tests/fixtures/golden/scoring_parity.json` holds
- * both to one set of verdicts (`score.spec.ts`, `tests/test_golden_eval.py`):
- * change one and the other fails until it follows.
- *
- * What it does not judge: whether a sentence means what its words say. A
- * phrase is found or it is not; a must-not written as a phrase is as sharp as
- * the phrase its reviewer accepted.
- */
-
 import type { GoldenAnswer, GoldenAnswerSource, GoldenCase, GoldenCaseMustNot, GoldenCheck, GoldenScores } from '../wire/golden-case'
 
-/** Case-folded, with every run of whitespace (a non-breaking space too) as one space. */
 export function normalized(text: string): string {
   return text.normalize('NFKC').toLocaleLowerCase('und').replace(/\s+/gu, ' ').trim()
 }
 
 const WORD = /[\p{L}\p{N}]/u
 
-/**
- * Whether `phrase` stands in `text` as its own words: "40 m" is not found in
- * "140 m" or "40 mm". Both are compared normalized.
- */
 export function holdsPhrase(text: string, phrase: string): boolean {
   const haystack = normalized(text)
   const needle = normalized(phrase)
@@ -43,7 +22,6 @@ export function holdsPhrase(text: string, phrase: string): boolean {
 
 const holdsAny = (text: string, phrases: readonly string[]) => phrases.some((phrase) => holdsPhrase(text, phrase))
 
-/** Everything a source says about itself: its name, where it lies, the clause it was cited at. */
 const sourceText = (source: GoldenAnswerSource) => [source.name, source.documentId, source.url, source.clause].filter(Boolean).join(' | ')
 
 function valueChecks(golden: GoldenCase, answer: GoldenAnswer): GoldenCheck[] {
@@ -94,7 +72,6 @@ function recordsStateApplies(rule: Extract<GoldenCaseMustNot, { kind: 'phrase' }
   return rule.whenRecords === 'any' || (rule.whenRecords === 'released') === answer.recordsReleased
 }
 
-/** Why a must-not is violated, or null when the answer keeps it. */
 function violation(rule: GoldenCaseMustNot, answer: GoldenAnswer): string | null {
   if (rule.kind === 'source') {
     const hit = answer.sources.find((source) => source.kind !== undefined && rule.sourceKinds.includes(source.kind) && (rule.naming.length === 0 || holdsAny(sourceText(source), rule.naming)))
@@ -121,13 +98,10 @@ export interface ScoredCase {
   passed: boolean
   checks: GoldenCheck[]
   scores: GoldenScores
-  /** Expectations no reviewer confirmed yet. */
   unconfirmed: number
-  /** No check decides: every expectation is unconfirmed and the case has no must-not. It proves nothing, so it does not pass. */
   unverified: boolean
 }
 
-/** Every check of the case against the answer, and the scores they make. A case passes when every deciding check does, and at least one decides. */
 export function scoreGoldenCase(golden: GoldenCase, answer: GoldenAnswer): ScoredCase {
   const values = valueChecks(golden, answer)
   const edition = editionChecks(golden, answer)
@@ -142,8 +116,6 @@ export function scoreGoldenCase(golden: GoldenCase, answer: GoldenAnswer): Score
   }
   if (values.length > 0) scores['golden-expected-values'] = share(values)
   if (citations.length > 0) {
-    // `law-cited-from-web` is the agent's score on every answered turn (`law_source_scores`); a web source
-    // here fails the case through its `web-copy` must-not check instead of a second value under that name.
     scores['claim-citation-resolves'] = citations.every((check) => check.passed)
   }
   return { passed, checks, scores, unconfirmed: checks.filter((check) => !check.decides).length, unverified }

@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer_testing import reingest
 from knowledge_layer_testing.vector_store import FakeEmbedder
 
@@ -28,7 +28,7 @@ def processes(tmp_path, monkeypatch, stores, qdrant_store):
     def encrypted(_path):
         raise ValueError("PDF is encrypted")
 
-    monkeypatch.setattr(adapter_module, "_extract_text_from_pdf", encrypted)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", encrypted)
 
     def process() -> LlamaIndexIngestor:
         ingestor = LlamaIndexIngestor({"generate_summary": False})

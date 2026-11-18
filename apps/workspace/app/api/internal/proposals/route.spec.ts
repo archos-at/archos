@@ -90,7 +90,7 @@ const MOVE: InternalProposalRequest = {
 
 const post = (body: unknown, token = SECRET) =>
   POST(
-    new Request('https://grid.test/api/internal/proposals', {
+    new Request('https://example.test/api/internal/proposals', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),
@@ -99,7 +99,7 @@ const post = (body: unknown, token = SECRET) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
@@ -111,11 +111,11 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 })
 
 describe('POST /api/internal/proposals', () => {
-  it('files the proposal in the envelope’s project and conversation, as Piloti for the asker', async () => {
+  it('files the proposal in the envelope’s project and conversation, as the agent for the asker', async () => {
     const response = await post(MOVE)
 
     expect(response.status).toBe(200)
@@ -127,7 +127,7 @@ describe('POST /api/internal/proposals', () => {
       scope: 'project',
       kind: 'file_operation',
       payload: MOVE.payload,
-      proposedByKind: 'piloti',
+      proposedByKind: 'agent',
       onBehalfOf: 'user_1',
       originConversationId: 'conv_1',
       originMessageId: ANSWER,

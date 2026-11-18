@@ -1,5 +1,3 @@
-"""Graph and middleware factory for the deep researcher agent and its subagents."""
-
 from __future__ import annotations
 
 import logging
@@ -59,21 +57,8 @@ from .tools.source_tool_batching import adapt_source_tools_for_research
 
 logger = logging.getLogger(__name__)
 
-# Orchestrator graph recursion limit. Lowered from the LangGraph default (25)
-# and from the previous hard-coded 2000 so it can actually fire as a hard stop
-# before the 40-minute wall-clock kill surfaces as a generic internal error.
-# 150 steps is generous: each plan→batch→synthesis cycle costs ~5–10 steps,
-# so 150 allows ~15–30 cycles before the limit triggers.
 _ORCHESTRATOR_RECURSION_LIMIT = 150
 
-#: The filesystem tools every deep-research agent is built with, as
-#: ``FilesystemMiddleware``'s ``tools=`` allowlist (:func:`research_filesystem_middleware`).
-#: ``delete`` is deliberately absent: since deepagents 0.7 it is a recursive,
-#: destructive tool that a ``CompositeBackend`` always advertises (its
-#: ``delete`` routes to every mount), so without the allowlist an agent could
-#: drop ``/shared/plan.json`` or the research notes the writer needs.
-#: ``execute`` stays listed; the middleware only offers it on a sandbox backend,
-#: and ``ToolVisibilityMiddleware`` hides it when there is none.
 FILESYSTEM_TOOL_NAMES: tuple[FsToolName, ...] = (
     "ls",
     "read_file",
@@ -87,20 +72,19 @@ ORCHESTRATOR_AGENT = "orchestrator"
 PLANNER_AGENT = "planner-agent"
 SOURCE_ROUTER_AGENT = "source-router-agent"
 WRITER_AGENT = "writer-agent"
-#: The subagent deepagents adds to every orchestrator unless a profile turns it off.
 GENERAL_PURPOSE_AGENT = "general-purpose"
 
 
-@tool
+THINK_DESCRIPTION = "Use this tool to reason through decisions, verify constraints, or plan next steps."
+
+
+@tool(description=THINK_DESCRIPTION)
 def think(thought: str) -> str:
-    """Use this tool to reason through decisions, verify constraints, or plan next steps."""
     return "Thought recorded."
 
 
 @dataclass(frozen=True)
 class DeepResearchToolSet:
-    """Tool groupings used by the deep researcher graph and subagents."""
-
     source_tool_names: set[str]
     tools_info: list[dict[str, str]]
     helper_tools: list[BaseTool]
@@ -112,8 +96,6 @@ class DeepResearchToolSet:
 
 @dataclass(frozen=True)
 class DeepResearchMiddlewareSet:
-    """Middleware stacks used by the deep researcher graph and subagents."""
-
     researcher: list[Any]
     planner: list[Any]
     writer: list[Any]
@@ -122,8 +104,6 @@ class DeepResearchMiddlewareSet:
 
 @dataclass(frozen=True)
 class DeepResearchGraphContext:
-    """Shared graph-build inputs used by the orchestrator and subagent specs."""
-
     llm_provider: LLMProvider
     state: DeepResearchAgentState
     prompts: dict[str, str]
@@ -137,10 +117,6 @@ class DeepResearchGraphContext:
     enable_source_router: bool
     backend: Any
     visibility_middleware: list[Any]
-    #: THIS run's skills (ADR-0135): the assigned builtin collections and the
-    #: office's own, served under ``/skills/`` on ``backend``. None, or empty,
-    #: on a run where nothing resolved, which is why every prompt has to read
-    #: as a complete instruction without a skills section.
     skills: SkillRuntime | None = None
 
     @property
@@ -153,7 +129,6 @@ class DeepResearchGraphContext:
 
     @property
     def ris_catalog(self) -> str | None:
-        """Lane-rendered norm registry block for prompts; None when the registry is unavailable."""
         return render_block_for_prompt()
 
     def render_prompt(self, prompt_name: str, **values: Any) -> str:
@@ -192,12 +167,6 @@ class DeepResearchGraphContext:
         return skill_filesystem_permissions(self.skill_sources(agent_name))
 
     def skill_sources(self, agent_name: str) -> list[str] | None:
-        """The skill sources ``agent_name`` lists; the writer also lists the office's own.
-
-        The office's skills go to the WRITER and to no one else: a skill that
-        reaches deep research from the office is an instruction about the
-        ANSWER, and the answer is written there.
-        """
         sources = self.runtime.skill_sources_for(agent_name, self.skills)
         if agent_name == WRITER_AGENT and self.skills is not None and OFFICE_SOURCE in self.skills.sources:
             sources.append(source_path(OFFICE_SOURCE))
@@ -211,7 +180,6 @@ def build_deep_research_tool_set(
     max_concurrent_source_tool_calls: int,
     max_source_tool_batch_size: int,
 ) -> DeepResearchToolSet:
-    """Build helper, researcher, writer, and source tool groupings."""
     source_tool_names = {tool.name for tool in tools}
     helper_tools = [think, build_get_verified_sources_tool(source_registry_middleware)]
     research_source_tools = adapt_source_tools_for_research(
@@ -231,21 +199,10 @@ def build_deep_research_tool_set(
     )
 
 
-# run_research_batch raises deliberate errors (oversized batch, partial worker
-# failure) that the ORCHESTRATOR must react to; re-executing the whole batch
-# below the LLM would re-run every already-successful multi-LLM-call worker.
 _NO_RETRY_TOOL_NAMES = frozenset({"run_research_batch"})
 
 
 def _is_transient_model_error(exc: Exception) -> bool:
-    """Retry model calls only on transient provider errors.
-
-    The default retry_on=(Exception,) also retried permanent failures (schema
-    rejections, auth errors, context overflow), stacking on top of the OpenAI
-    client's own max_retries and multiplying latency for calls that can never
-    succeed. Retry only what a wait can fix: rate limits, timeouts, transport
-    errors, and 5xx.
-    """
     import openai
 
     if isinstance(exc, (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError)):
@@ -261,19 +218,10 @@ def _model_retry_middleware() -> ModelRetryMiddleware:
     )
 
 
-# The writer must read the plan, EVERY research note file, get_verified_sources,
-# and skill files without truncation; pruning any of them corrupts the final
-# synthesis and the citation whitelist. Sized as assumed-max research batches
-# times per-batch queries, plus headroom for plan/skill/source reads.
 _WRITER_ASSUMED_MAX_BATCHES = 5
 _WRITER_TOOL_RESULT_HEADROOM = 20
 _WRITER_MAX_TOOL_RESULT_CHARS = 20_000
 
-# Total-character budget for the writer's tool-result context. Even with
-# per-message max_chars and keep_last_n, the sum of all kept tool results can
-# grow unbounded (e.g. many research-note files each at 20K chars). When the
-# total exceeds this ceiling, the oldest oversized messages are truncated too.
-# Overridable via WRITER_CHAR_BUDGET (falls back on unset/invalid/<=0).
 _WRITER_CHAR_BUDGET = _positive_int_env("WRITER_CHAR_BUDGET", 200_000)
 
 DEFAULT_TOOL_RESULT_KEEP_LAST_N = 10
@@ -281,7 +229,6 @@ DEFAULT_TOOL_RESULT_MAX_CHARS = 2000
 
 
 def writer_tool_result_keep_last_n(max_research_concurrency: int) -> int:
-    """Return a writer keep-last-n that covers every research note plus headroom."""
     return max_research_concurrency * _WRITER_ASSUMED_MAX_BATCHES + _WRITER_TOOL_RESULT_HEADROOM
 
 
@@ -294,7 +241,6 @@ def build_common_middleware(
     tool_result_max_chars: int = DEFAULT_TOOL_RESULT_MAX_CHARS,
     tool_result_total_char_budget: int = 0,
 ) -> list[Any]:
-    """Build the shared middleware stack with agent-specific valid tool names."""
     valid_tool_names = {tool.name for tool in [*tool_set.all_tools, *tool_set.researcher_tools]}
     valid_tool_names.update(FILESYSTEM_TOOL_NAMES)
     valid_tool_names.update(extra_valid_tool_names)
@@ -319,7 +265,6 @@ def build_common_middleware(
 
 
 def build_source_router_middleware(*, extra_valid_tool_names: Sequence[str] = ()) -> list[Any]:
-    """Build minimal middleware for the source-router-agent."""
     return [
         EmptyContentFixMiddleware(),
         ToolNameSanitizationMiddleware(valid_tool_names=sorted({"write_file", *extra_valid_tool_names})),
@@ -339,7 +284,6 @@ def build_deep_research_middleware_set(
     source_registry_middleware: SourceRegistryMiddleware,
     max_research_concurrency: int,
 ) -> DeepResearchMiddlewareSet:
-    """Build researcher, writer, and orchestrator middleware stacks."""
 
     def common(extra_valid_tool_names: Sequence[str] = (), **kwargs: Any) -> list[Any]:
         return build_common_middleware(
@@ -364,37 +308,20 @@ def build_deep_research_middleware_set(
 def research_filesystem_middleware(
     backend: Any, permissions: list[FilesystemPermission] | None = None
 ) -> FilesystemMiddleware:
-    """The filesystem middleware for a deep-research agent: the stock tools, minus ``delete``.
-
-    Passed in an agent's ``middleware=`` it takes the stock instance's place by
-    name (``create_deep_agent`` matches on ``.name``) and is re-bound to that
-    agent's permissions there, so the orchestrator and subagents pass none.
-    The researcher is built with ``create_agent`` and passes its own.
-    """
     return FilesystemMiddleware(backend=backend, tools=list(FILESYSTEM_TOOL_NAMES), permissions=permissions)
 
 
 def planning_middleware(backend: Any) -> list[Any]:
-    """What deepagents 0.6 gave every ``create_deep_agent`` agent and 0.7 no longer does.
-
-    ``TodoListMiddleware`` (``write_todos``, the ``todos`` channel the job's
-    todo artifact reads) stopped being a default in deepagents 0.7.0; the
-    orchestrator and planner prompts still offer it, so it is added back here
-    for the orchestrator and each declarative subagent. The researcher never
-    had it.
-    """
     return [research_filesystem_middleware(backend), TodoListMiddleware()]
 
 
 def runtime_visibility_middleware(runtime: DeepAgentsRuntime) -> list[Any]:
-    """Hide execution tools unless a sandbox backend is configured."""
     if runtime.execution_enabled:
         return []
     return [ToolVisibilityMiddleware(hidden_tool_names={"execute"})]
 
 
 def skill_filesystem_permissions(skill_sources: Sequence[str] | None) -> list[FilesystemPermission]:
-    """Build permissions that expose only an agent's own skill sources, read-only."""
     allowed_source_paths = [source.rstrip("/") for source in skill_sources or ()]
     rules = [
         FilesystemPermission(
@@ -440,7 +367,6 @@ def build_researcher_runnable(
     visibility_middleware: list[Any] | None = None,
     filesystem_permissions: list[FilesystemPermission] | None = None,
 ) -> Any:
-    """Build the reusable single-query researcher runnable."""
     middleware: list[Any] = []
     if skill_sources:
         middleware.append(skills_middleware(backend, skill_sources))
@@ -449,9 +375,6 @@ def build_researcher_runnable(
             research_filesystem_middleware(backend, filesystem_permissions),
             create_summarization_middleware(researcher_model, backend),
             PatchToolCallsMiddleware(),
-            # Strict structured output is deferred to the researcher's exit
-            # turn: binding response_format on every tool-loop call makes
-            # constrained decoders skip research entirely (backlog T2-8).
             DeferredStructuredOutputMiddleware(ResearchNotes),
             *researcher_middleware,
             *(visibility_middleware or []),
@@ -490,8 +413,6 @@ def _subagent_spec(
     if response_format is not None:
         spec["response_format"] = response_format
     if skills:
-        # In the spec's own middleware our instance takes the skills slot by
-        # name, so the catalog reads as it does for every other agent.
         spec["middleware"] = [*spec["middleware"], skills_middleware(context.backend, skills)]
     return spec
 
@@ -517,7 +438,6 @@ def _source_router_spec(context: DeepResearchGraphContext) -> dict[str, Any]:
 
 
 def build_deep_research_subagents(context: DeepResearchGraphContext) -> list[dict[str, Any]]:
-    """Build all DeepAgents subagent specs."""
     subagents: list[dict[str, Any]] = []
     if context.enable_source_router:
         subagents.append(_source_router_spec(context))
@@ -532,16 +452,11 @@ def build_deep_research_subagents(context: DeepResearchGraphContext) -> list[dic
             prompt_name="planner",
             role=LLMRole.PLANNER,
             tools=context.tool_set.researcher_tools,
-            # Same deferred structured output as the researcher (T2-8): the
-            # planner also runs a tool loop, so the strict ResearchPlan schema
-            # is applied only on its exit turn.
             middleware=[DeferredStructuredOutputMiddleware(ResearchPlan), *context.middleware_set.planner],
             prompt_values={
                 "tools": context.tool_set.tools_info,
                 "enable_source_router": context.enable_source_router,
                 "max_research_concurrency": context.max_research_concurrency,
-                # The plan the reader approved binds the planner: its
-                # sections are the required components, in that order.
                 "approved_plan": context.state.clarifier_result,
             },
         )
@@ -572,7 +487,6 @@ def _build_research_batch_tool(
     source_registry_middleware: SourceRegistryMiddleware,
     rounds: RetrievalRounds,
 ) -> BaseTool:
-    """The orchestrator's ``run_research_batch``, with its researcher runnable inside."""
     researcher_runnable = build_researcher_runnable(
         researcher_model=context.llm_provider.get(LLMRole.RESEARCHER),
         researcher_tools=context.tool_set.researcher_tools,
@@ -594,23 +508,12 @@ def _build_research_batch_tool(
         max_research_concurrency=context.max_research_concurrency,
         researcher_tool_names={tool.name for tool in context.tool_set.researcher_tools},
         source_registry_middleware=source_registry_middleware,
-        # This graph is built per run (ADR-0018), so the ledger is per run too.
         submission_counts={},
-        # Owned by the agent, not built here: the run reads it back after the
-        # graph has finished, to state what each round fetched.
         rounds=rounds,
     )
 
 
 def _orchestrator_prompt(context: DeepResearchGraphContext, orchestrator_tools: Sequence[BaseTool]) -> str:
-    """The orchestrator's system prompt, rendered from the tools actually bound.
-
-    Single source of truth for the orchestrator's toolset: the prompt's
-    "Available Tools" section is rendered from the same list that is bound to
-    the graph, so it can never advertise tools the orchestrator cannot call
-    (backlog T2-9 — the prompt previously listed every configured source tool,
-    and the model tried to call them directly).
-    """
     return context.render_prompt(
         "orchestrator",
         clarifier_result=context.state.clarifier_result,
@@ -640,15 +543,6 @@ def build_deep_research_graph(
     skills: SkillRuntime | None = None,
     rounds: RetrievalRounds | None = None,
 ) -> Any:
-    """Build the full DeepAgents graph for one deep research run.
-
-    ``checkpointer`` is execution-state durability (LangGraph's per-thread
-    checkpoint log: messages, DeepAgents filesystem, todos), distinct from
-    ``store`` below (longterm cross-thread memory, always in-memory here).
-    When set, ``DeepResearcherAgent`` also invokes the compiled graph with a
-    stable ``thread_id`` so a re-run of the same job resumes from the last
-    persisted checkpoint instead of starting over.
-    """
     context = DeepResearchGraphContext(
         llm_provider=llm_provider,
         state=state,
@@ -658,8 +552,6 @@ def build_deep_research_graph(
         tool_set=tool_set,
         middleware_set=middleware_set,
         domain_catalog_path=domain_catalog_path,
-        # Date only: a per-second timestamp made every subagent system prompt
-        # unique, defeating provider prompt caching across a run's many calls.
         current_datetime=datetime.now().strftime("%Y-%m-%d"),
         max_research_concurrency=max_research_concurrency,
         enable_source_router=enable_source_router,
@@ -675,8 +567,6 @@ def build_deep_research_graph(
     )
     orchestrator_tools = [*context.tool_set.helper_tools, research_batch_tool]
     subagents = build_deep_research_subagents(context)
-    # Innermost, so each `task` attempt the retry middleware makes is one
-    # subagent invocation on the chat wire.
     subagent_events = SubagentEventsMiddleware([*(spec["name"] for spec in subagents), GENERAL_PURPOSE_AGENT])
     agent = create_deep_agent(
         model=context.llm_provider.get(LLMRole.ORCHESTRATOR),

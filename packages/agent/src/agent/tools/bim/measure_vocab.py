@@ -1,5 +1,3 @@
-"""The measure vocabulary: operations, relations, measures, kinds, and the tokens the model may name."""
-
 import logging
 from collections.abc import Sequence
 from typing import Any
@@ -13,8 +11,6 @@ from agent.tools.bim.failures import unrunnable_text
 logger = logging.getLogger(__name__)
 
 
-# The failure texts, under the names Piloti's tests fix.
-
 _rejected_text = rejected_text
 
 
@@ -23,14 +19,6 @@ _unrunnable_text = unrunnable_text
 
 _too_large_text = too_large_text
 
-
-#: The operations, in the order the description teaches them.
-#:
-#: ORDERED, and that is not cosmetic. This tuple becomes the ``enum`` on the
-#: ``operation`` field of the wire schema, and a set's iteration order varies
-#: between processes because string hashing is randomised. A schema whose enum
-#: reorders on every restart is a different schema to every prefix cache in
-#: front of the model.
 
 OPERATIONS: tuple[str, ...] = (
     "briefing",
@@ -58,22 +46,6 @@ OPERATIONS: tuple[str, ...] = (
 VALID_OPERATIONS = frozenset(OPERATIONS)
 
 
-#: Operations that answer with something other than a quantity, and therefore
-#: carry no measurement-evidence trailer (:func:`_render`).
-#:
-#: A briefing, a hit list, an element's index metadata, a written IDS file and a
-#: drawing's path are all real results and none of them measures the building.
-#: Telling the model „Messwerte in diesem Ergebnis: 0" about a `draw` reads as a
-#: measurement that failed and invites a retry that costs one of five tool
-#: iterations.
-#:
-#: This is an allow-list of SUPPRESSION, not of grounding, so it fails in the
-#: safe direction: an operation missing from this set gets a trailer stating its
-#: true count, and an operation wrongly IN it gets no trailer — which the
-#: confidence gate reads as no measurement either way. `relations` is
-#: deliberately absent: „0 Messwerte" is exactly what the model needs to hear
-#: before it turns a list of bounding walls into „rund 2,7 m".
-
 NON_MEASURING_OPERATIONS: frozenset[str] = frozenset(
     {
         "briefing",
@@ -85,21 +57,6 @@ NON_MEASURING_OPERATIONS: frozenset[str] = frozenset(
     }
 )
 
-
-# ── the enums, mirrored ──────────────────────────────────────────────────────
-#
-# These four sets mirror `ifc_spatial.tools.RELATIONS`, `.MEASURES`, `.KINDS`
-# and the room-use lexicon, and `packages/agent/tests/tools/bim/test_ifc_measure_tool.py`
-# pins them against the package so a renamed operator fails there rather than at
-# the user.
-#
-# Copied rather than imported for one reason: `import ifc_spatial` pulls in
-# IfcOpenShell, numpy and shapely — a second of import time and a few hundred
-# megabytes of address space — and this module is imported by the agent runtime's plugin
-# discovery at startup on every deployment, including the ones that never touch
-# a building. The engine is imported when a call is actually made.
-
-#: relation → what it answers, in the tool's own words.
 
 RELATIONS: dict[str, str] = {
     "hostedIn": "which wall carries this window/door (from voids+fills)",
@@ -118,13 +75,8 @@ RELATIONS: dict[str, str] = {
 }
 
 
-#: The four relations that fall back to a geometric contact map when the export
-#: declares no ``IfcRelSpaceBoundary`` — which is the ordinary case.
-
 GEOMETRIC_RELATIONS = frozenset({"bounds", "enclosedBy", "opensTo", "adjacentSpaces", "above", "below"})
 
-
-#: measure → what it answers.
 
 MEASURES: dict[str, str] = {
     "extent": "width, depth, height and centroid of one element",
@@ -190,13 +142,6 @@ MEASURES: dict[str, str] = {
 }
 
 
-# NONE of these is a clear dimension, and saying otherwise was a defect. The
-# entry for 'horizontal' read "what a lichte Breite check needs"; the operator
-# measures CENTROID to CENTROID in plan, which is an Achsabstand. On a 1.00 m
-# opening between two 30 cm walls that is 1.30 m — too large by half of each
-# element, in the direction that turns a failed escape-route width into a passing
-# one. A clear width is `measure` + `clearWidth`, measured on the aperture.
-
 DISTANCE_MODES = {
     "min": (
         "gap between the two axis-aligned BOUNDING BOXES. 0 means the boxes overlap — it does NOT "
@@ -213,8 +158,6 @@ DISTANCE_MODES = {
     ),
 }
 
-
-#: `what` on the `fire` operation — the OIB 2 geometry, in one place.
 
 FIRE_ASPECTS = {
     "escape_level": (
@@ -238,12 +181,6 @@ FIRE_ASPECTS = {
 }
 
 
-#: `what` on the `envelope` operation — the OIB 6 geometry.
-#:
-#: Carried on `kind`, the same field `fire` uses, because both are "one subject
-#: asked several ways" and a third field spelling would make the model choose a
-#: parameter name instead of a question.
-
 ENVELOPE_ASPECTS = {
     "thermalEnvelope": (
         "which elements form the boundary between heated inside and outside, grouped by kind, each "
@@ -262,37 +199,20 @@ ENVELOPE_ASPECTS = {
 }
 
 
-#: `mode` on view. A SECOND vocabulary on the same field, which is worth naming
-#: rather than leaving inline: `mode` already carries the distance senses, and a
-#: model that reads DISTANCE_MODES and then meets `mode="highlight"` has to work
-#: out for itself that the field is operation-scoped. Spelling both sets out —
-#: and pinning both in the skill test — is what keeps that from being a guess.
-
 VIEW_MODES = {
     "highlight": "mark these elements red on the full plan — 'where is this in the building'",
     "only": "draw nothing but these elements — 'what does this look like'",
 }
 
 
-#: `kind` on find_elements — the spatial role, not the IFC type.
-
 KINDS = ("project", "site", "building", "storey", "space", "element", "opening", "group")
 
-
-#: `room_kind` on room_inventory.
 
 ROOM_KINDS = ("habitable_room", "ancillary_room", "circulation")
 
 
-#: `ifc_spatial.tools.MAX_BATCH` — the most GlobalIds one `measure` may carry.
-#: Mirrored for the same reason the vocabularies above are, and pinned against
-#: the package by the same test.
-
 MAX_BATCH = 50
 
-
-#: The one value `kind` takes on `element_profile`, where it is an opt-in to the
-#: expensive measures rather than a vocabulary.
 
 PROFILE_KINDS = ("expensive",)
 
@@ -301,36 +221,10 @@ def _enum_lines(entries: dict[str, str], indent: str = "    ") -> str:
     return "\n".join(f"{indent}{name} — {meaning}" for name, meaning in entries.items())
 
 
-# ── the input schema ─────────────────────────────────────────────────────────
-#
-# The schema is what the model reads a vocabulary from, so the enums are BUILT
-# from the vocabularies above rather than retyped beside them, and the model is
-# FLAT rather than a discriminated union: a `RootModel[Union[...]]` reaches the
-# wire as one property called `root`, a wrapper the model cannot learn about.
-# Measured, not assumed — `packages/agent/tests/tools/bim/test_ifc_measure_tool.py`
-# keeps the measurement. Why the schema was tightened at all, and what it buys
-# (fewer bad calls EMITTED, not turns refunded): ``docs/roadmap/spatial-review-findings.md``.
-
-
 def _literal(*groups) -> Any:
-    """A ``Literal`` over these vocabularies, in the order they were written.
-
-    Order is part of the contract: the tuple becomes the ``enum`` array in the
-    schema the model is handed, and an enum that reshuffles between restarts
-    invalidates every prefix cache in front of it.
-    """
     names = dict.fromkeys(name for group in groups for name in group)
     return Literal[tuple(names)]  # type: ignore[valid-type]
 
-
-#: Which vocabulary a bad `kind` is recorded AGAINST — the ledger entry, not the
-#: check. `kind` is one field over four vocabularies, and the `Literal` accepts
-#: the union of all of them because the call builders are the layer that
-#: knows which applies: `element_profile` ignores a `kind` that is not
-#: 'expensive', and narrowing the type here would turn that shrug into a
-#: refusal. What IS scoped is the backlog line: „fire kind='brandabschnitt'" and
-#: „find_elements kind='brandabschnitt'" are different requests, and a ledger
-#: that merged them would rank neither.
 
 _KIND_FIELD: dict[str, str] = {
     "fire": "fire.kind",
@@ -339,15 +233,8 @@ _KIND_FIELD: dict[str, str] = {
 }
 
 
-#: Every spelling `kind` accepts, across all four of its vocabularies.
-
 _ALL_KINDS: tuple[str, ...] = (*KINDS, *FIRE_ASPECTS, *ENVELOPE_ASPECTS, *PROFILE_KINDS)
 
-
-#: The fields this tool has always matched case-insensitively, and their
-#: canonical spellings. A `Literal` is case-SENSITIVE, and kind='Compactness'
-#: has always been a working call. `measure` and `relation` are absent on
-#: purpose: those have always been required exact.
 
 _CASE_FOLDED: dict[str, tuple[str, ...]] = {
     "operation": OPERATIONS,
@@ -357,8 +244,6 @@ _CASE_FOLDED: dict[str, tuple[str, ...]] = {
 }
 
 
-#: German tokens these fields used to take, per field. Remove after one release.
-
 _LEGACY_TOKENS: dict[str, dict[str, str]] = {
     "room_kind": {"aufenthaltsraum": "habitable_room", "nebenraum": "ancillary_room", "erschliessung": "circulation"},
     "kind": {"fluchtniveau": "escape_level"},
@@ -366,21 +251,17 @@ _LEGACY_TOKENS: dict[str, dict[str, str]] = {
 
 
 def _canonical(asked: str, vocabulary: Sequence[str]) -> str:
-    """The vocabulary's own spelling of ``asked``, or ``asked`` unchanged when it is in no vocabulary."""
     wanted = asked.strip().lower()
     return next((known for known in vocabulary if known.lower() == wanted), asked)
 
 
 def _record_misses(data: dict[str, Any]) -> None:
-    """Write every value that is in no vocabulary to the capability ledger."""
     operation = str(data.get("operation") or "").strip().lower()
     checks = (
         ("operation", VALID_OPERATIONS),
         ("measure", MEASURES),
         ("relation", RELATIONS),
         ("room_kind", ROOM_KINDS),
-        # Against the WHOLE of `kind`, because that is what the field accepts:
-        # `element_profile kind='space'` is a shrug, not a missing capability.
         (_KIND_FIELD.get(operation, "kind"), _ALL_KINDS),
     )
     for name, known in checks:

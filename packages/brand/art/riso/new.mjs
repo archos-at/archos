@@ -1,14 +1,4 @@
 #!/usr/bin/env node
-/*
- * Scaffold a new riso work from art/riso/template/.
- *
- *   node art/riso/new.mjs <work> [--title "Karten"]
- *
- * Writes art/riso/<work>/index.html (a working starter plate on the shared
- * kit, one `plate` job with TODO alt text) and PRINT.md (the headings every
- * work fills in). Refuses to overwrite. Next: open index.html?t=0, draw,
- * then node art/riso/export.mjs --work <work> and node art/riso/check.mjs.
- */
 import fs from 'node:fs';
 import path from 'node:path';
 import { HERE, args } from './kit.mjs';

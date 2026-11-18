@@ -1,58 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } from 'react'
-import Link from 'next/link'
-import {
-  ArrowDown,
-  ArrowUp,
-  ExternalLink,
-  Link2,
-  MessageSquarePlus,
-  MessagesSquare,
-  MousePointer2,
-  RotateCcw,
-  Sparkles,
-  Speech,
-  SquareDashed,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import { toast } from 'sonner'
-import { DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { PageDialog, PageDialogContent } from '@/components/ui/page-dialog'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { useMediaQuery } from '@/hooks/use-media-query'
-import { Button } from '@/components/ui/button'
-import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { identityInk } from '@/components/ui/avatar-identity'
-import { FloatingNote, FloatingToolbar, ToolbarIconButton } from '@/components/ui/floating-toolbar'
-import { Kbd } from '@/components/ui/kbd'
-import { MiddleTruncate } from '@/components/ui/middle-truncate'
-import { AgentGlyph } from '@/components/ui/agent-glyph'
-import { ShimmerText } from '@/components/ui/shimmer-text'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { FloatingNote, FloatingToolbar } from '@/components/ui/floating-toolbar'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { PdfDocumentView } from '@/features/knowledge/components/pdf-document-view'
-import { liveLine } from '@/features/chat/lib/turn-events'
-import { useLocale, useTranslations } from '@/i18n'
-import { chatCopy } from '@/i18n/namespaces/chat'
+import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { presenceCopy } from '@/i18n/namespaces/presence'
 import { isGhostMark, type AnnotationView } from '@/lib/annotations/types'
 import { documentFileUrl } from '@/lib/documents/urls'
-import { cn } from '@/lib/utils'
-import { stepsOf, type CanvasAsk } from '../../hooks/use-canvas-ask'
-import { DECISION_UNDO_MS, type DocumentReview as ReviewState, type ReviewTool } from '../../hooks/use-document-review'
 import { sameValue } from '@/lib/utils/same-value'
-import {
-  useRoomPeers,
-  useRoomSelector,
-  type DocumentRoom,
-  type RoomPeerState,
-} from '../../hooks/use-document-room'
+import { isAgentKind } from '@/lib/agent-kind'
+import { DECISION_UNDO_MS, type DocumentReview as ReviewState, type ReviewTool } from '../../hooks/use-document-review'
+import { useRoomSelector, type RoomPeerState } from '../../hooks/use-document-room'
 import { CursorChat } from './cursor-chat'
 import { keepTrigger, restoreFocus } from './focus-return'
 import { AgentAnswerCard } from './agent-answer-card'
-import { isAgentPeer, ReviewPageLayer } from './review-page-layer'
+import { ReviewPageLayer } from './review-page-layer'
 import { ReviewPanel, type OpenMark } from './review-panel'
 import { useReviewList } from './review-list'
 import { ReviewAnnouncer } from './review-announcer'
@@ -60,460 +26,28 @@ import { ReviewExportMenu } from './review-export-menu'
 import type { ProtocolFilingTarget } from '../../lib/protocol-filing'
 import { useCheckFixed } from './check-fixed'
 import { ReviewToaster, reviewToast } from './review-toaster'
-import { hasLiveMarks, openMarksLabel, openMarksShortLabel } from '../open-marks-chip'
 import { clearReviewParams, setReviewParams } from '../../lib/open-review'
-import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
+import { ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
-import { PRODUCT_NAME } from '@/lib/brand'
+import { rememberToolsIntro, toolsIntroSeen } from '../../lib/review-tools-intro'
+import { toolOffered } from '../../lib/offered-tools'
+import { walkPosition } from '../../lib/proposal-walk'
+import { pageOf } from '../../lib/review-peers'
+import { typing } from '../../lib/typing-target'
+import { ReviewHeader } from './document-review/review-header'
+import { ReviewCardSheet } from './document-review/review-card-sheet'
+import { ReviewListSheet } from './document-review/review-list-sheet'
+import { Elsewhere } from './document-review/elsewhere'
+import { ReviewTools } from './document-review/review-tools'
 
-type PaletteTool = ReviewTool | 'chat'
-
-const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
-  { tool: 'select', key: 'V', icon: MousePointer2 },
-  { tool: 'point', key: 'C', icon: MessageSquarePlus },
-  { tool: 'region', key: 'R', icon: SquareDashed },
-  { tool: 'ask', key: 'P', icon: Sparkles },
-  { tool: 'chat', key: '/', icon: Speech },
-]
-
-export const TOOLS_INTRO_KEY = 'review.toolsIntroSeen'
-
-export function toolsIntroSeen(): boolean {
-  try {
-    return window.localStorage.getItem(TOOLS_INTRO_KEY) === '1'
-  } catch {
-    return true
-  }
-}
-
-function rememberToolsIntro(): void {
-  try {
-    window.localStorage.setItem(TOOLS_INTRO_KEY, '1')
-  } catch {
-    // A private window: the intro shows again next time, which is harmless.
-  }
-}
+export { TOOLS_INTRO_KEY, toolsIntroSeen } from '../../lib/review-tools-intro'
+export { walkPosition } from '../../lib/proposal-walk'
+export { people, peerSide, roomCompanyOf } from '../../lib/review-peers'
+export type { PeerSide, RoomCompany } from '../../lib/review-peers'
+export { useRoomCompany } from '../../hooks/use-room-company'
+export { Presence } from './document-review/presence'
 
 const DOCKED_CARDS = '(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
-
-export function walkPosition(
-  annotations: readonly Pick<AnnotationView, 'id' | 'status' | 'onCurrentRevision'>[],
-  id: string | null
-): { index: number; total: number } | null {
-  const walk = annotations.filter((annotation) => annotation.status === 'proposed' && annotation.onCurrentRevision)
-  const index = walk.findIndex((annotation) => annotation.id === id)
-  return index === -1 ? null : { index: index + 1, total: walk.length }
-}
-
-function ReviewTools({
-  review,
-  chatOpen,
-  onChat,
-  variant,
-  onFold,
-  onAim,
-}: {
-  review: ReviewState
-  chatOpen: boolean
-  onChat: () => void
-  variant: 'icons' | 'intro' | 'touch'
-  onFold?: () => void
-  onAim?: () => void
-}): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const offered = TOOLS.filter(({ tool }) => tool === 'chat' || toolOffered(tool, review))
-  return (
-    <div role="group" aria-label={t('review.toolsLabel')} data-testid="review-tools" data-variant={variant} className="flex items-center gap-0.5">
-      {offered.map(({ tool, key, icon: Icon }) => {
-        const pressed = tool === 'chat' ? chatOpen : review.tool === tool
-        const name = tool === 'chat' ? t('review.chatOpen') : t(`review.tools.${tool}`)
-        const button = (
-          <ToolbarIconButton
-            data-testid={`review-tool-${tool}`}
-            aria-pressed={pressed}
-            aria-keyshortcuts={key}
-            aria-label={name}
-            onClick={(event) => {
-              if (tool === 'chat') return onChat()
-              review.setTool(pressed ? 'select' : tool)
-              if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
-            }}
-            className={cn(
-              'aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:text-background',
-              variant === 'intro' && 'w-auto gap-1.5 px-2 text-xs font-medium @max-5xl:w-7 @max-5xl:px-0',
-              variant === 'touch' && 'h-12 w-14 flex-col gap-0.5 pointer-coarse:size-auto pointer-coarse:h-12 pointer-coarse:w-14'
-            )}
-          >
-            <Icon aria-hidden />
-            {variant === 'intro' && (
-              <>
-                {/* The short name: the pill also carries the viewer's own controls. */}
-                <span className="@max-5xl:sr-only">{t(`review.toolsShort.${tool}`)}</span>
-                <Kbd className="h-4 min-w-4 px-1 text-[10px] @max-5xl:hidden">{key}</Kbd>
-              </>
-            )}
-            {variant === 'touch' && <span className="text-[10px] leading-3 font-medium">{t(`review.toolsShort.${tool}`)}</span>}
-          </ToolbarIconButton>
-        )
-        if (variant === 'touch') return <span key={tool} className="contents">{button}</span>
-        return (
-          <Tooltip key={tool}>
-            <TooltipTrigger asChild>{button}</TooltipTrigger>
-            <TooltipContent side="top">
-              {name} <Kbd className="ml-1">{key}</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        )
-      })}
-      {variant === 'intro' && onFold && (
-        <ToolbarIconButton
-          aria-label={t('review.toolsIntroFold')}
-          title={t('review.toolsIntroFold')}
-          data-testid="review-tools-fold"
-          className="@max-5xl:hidden"
-          onClick={onFold}
-        >
-          <X aria-hidden />
-        </ToolbarIconButton>
-      )}
-    </div>
-  )
-}
-
-const toolOffered = (tool: ReviewTool, review: ReviewState): boolean =>
-  tool === 'select' || (tool === 'ask' ? review.piloti.available : review.canAnnotate)
-
-const typing = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-
-export function people(peers: readonly RoomPeerState[]): RoomPeerState[] {
-  const byUser = new Map<string, RoomPeerState>()
-  for (const state of peers) {
-    if (!isAgentPeer(state) && !byUser.has(state.peer.userId)) byUser.set(state.peer.userId, state)
-  }
-  return [...byUser.values()]
-}
-
-export interface RoomCompany {
-  people: Array<{ peerId: string; userId: string; name: string; page: number | null }>
-  piloti: { forName: string | null; working: boolean; label: string | null } | null
-}
-
-export function roomCompanyOf(peers: readonly RoomPeerState[]): RoomCompany {
-  const piloti = peers.find(isAgentPeer) ?? null
-  return {
-    people: people(peers).map((state) => ({
-      peerId: state.peer.peerId,
-      userId: state.peer.userId,
-      name: state.peer.name,
-      page: pageOf(state),
-    })),
-    piloti: piloti
-      ? { forName: piloti.peer.forName ?? null, working: Boolean(piloti.activity), label: piloti.activity?.label ?? null }
-      : null,
-  }
-}
-
-export const useRoomCompany = (room: Pick<DocumentRoom, 'peers'>): RoomCompany =>
-  useRoomSelector(room, roomCompanyOf, sameValue)
-
-export function Presence({
-  review,
-  following = null,
-  onFollow,
-}: {
-  review: ReviewState
-  following?: string | null
-  onFollow?: (peerId: string | null) => void
-}): JSX.Element | null {
-  const t = useTranslations(filesCopy)
-  const tPresence = useTranslations(presenceCopy)
-  const { people: others, piloti } = useRoomCompany(review.room)
-  const forName = piloti?.forName
-  const onBehalf = forName ? tPresence('piloti.onBehalfOf', { name: forName }) : null
-  if (others.length === 0 && !piloti) return null
-  if (!onFollow) {
-    return (
-      <span aria-hidden className="flex items-center -space-x-1" data-testid="review-presence">
-        {piloti && (
-          <span className="ring-background rounded-full ring-2">
-            <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? PRODUCT_NAME} />
-          </span>
-        )}
-        {others.map((person) => (
-          <PersonAvatar
-            key={person.userId}
-            size="sm"
-            className="ring-background size-7 text-[10px] ring-2"
-            person={{ userId: person.userId, name: person.name, profilePictureUrl: null }}
-          />
-        ))}
-      </span>
-    )
-  }
-  return (
-    <div className="flex items-center -space-x-1" data-testid="review-presence">
-      {piloti && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span data-testid="review-presence-agent" className="ring-background rounded-full ring-2">
-              <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? PRODUCT_NAME} />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            {onBehalf ? (
-              <>
-                <span className="block">{onBehalf}</span>
-                {piloti.label && <span className="block">{piloti.label}</span>}
-              </>
-            ) : (
-              piloti.label || t('review.agentWorking')
-            )}
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {others.map((person) => {
-        const on = following === person.peerId
-        return (
-          <Tooltip key={person.userId}>
-            <TooltipTrigger asChild>
-              <button data-attr="review-peer"
-                type="button"
-                data-testid="review-peer"
-                aria-pressed={on}
-                aria-label={on ? t('review.unfollow', { name: person.name }) : t('review.follow', { name: person.name })}
-                onClick={() => onFollow(on ? null : person.peerId)}
-                className="relative rounded-full outline-none focus-visible:ring-2"
-              >
-                <PersonAvatar
-                  size="sm"
-                  className="ring-background size-7 text-[10px] ring-2"
-                  person={{ userId: person.userId, name: person.name, profilePictureUrl: null }}
-                />
-                <span
-                  aria-hidden
-                  className={cn('absolute -inset-[3px] rounded-full border-2', on ? 'opacity-100' : 'opacity-0')}
-                  style={{ borderColor: identityInk(person.userId) }}
-                />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="block">
-                {on ? t('review.unfollow', { name: person.name }) : t('review.follow', { name: person.name })}
-              </span>
-              {person.page && <span className="block">{t('review.onPage', { name: person.name, page: person.page })}</span>}
-            </TooltipContent>
-          </Tooltip>
-        )
-      })}
-    </div>
-  )
-}
-
-const pageOf = (state: RoomPeerState): number | null => state.cursor?.page ?? state.viewport?.page ?? null
-
-export type PeerSide = 'here' | 'above' | 'below'
-
-export function peerSide(
-  at: { page: number; y: number },
-  viewPage: number,
-  pageRect: { top: number; height: number } | null,
-  view: { top: number; bottom: number } | null
-): PeerSide {
-  if (pageRect && view && pageRect.height > 0) {
-    const y = pageRect.top + at.y * pageRect.height
-    return y < view.top ? 'above' : y > view.bottom ? 'below' : 'here'
-  }
-  return at.page < viewPage ? 'above' : at.page > viewPage ? 'below' : 'here'
-}
-
-function useScrollTick(ref: RefObject<HTMLElement | null>): void {
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return
-    let frame: number | null = null
-    const onScroll = () => {
-      if (frame === null)
-        frame = requestAnimationFrame(() => {
-          frame = null
-          setTick((tick) => tick + 1)
-        })
-    }
-    node.addEventListener('scroll', onScroll, { capture: true, passive: true })
-    return () => {
-      node.removeEventListener('scroll', onScroll, { capture: true })
-      if (frame !== null) cancelAnimationFrame(frame)
-    }
-  }, [ref])
-}
-
-function Elsewhere({
-  review,
-  page,
-  edge,
-  canvas,
-  onJump,
-}: {
-  review: ReviewState
-  page: number
-  edge: 'above' | 'below'
-  canvas: RefObject<HTMLElement | null>
-  onJump: (state: RoomPeerState) => void
-}): JSX.Element | null {
-  const t = useTranslations(filesCopy)
-  useScrollTick(canvas)
-  const row = useRef<HTMLDivElement | null>(null)
-  const node = canvas.current
-  const view = node?.getBoundingClientRect() ?? null
-  const card = node?.querySelector<HTMLElement>('[data-review-card]')?.getBoundingClientRect() ?? null
-  const lane = row.current?.getBoundingClientRect() ?? null
-  const overCard = Boolean(card && lane && covers(card, lane))
-  const peers = useRoomPeers(review.room)
-  const here = people(peers).flatMap((state) => {
-    const at = pageOf(state)
-    if (at === null) return []
-    const y = state.cursor?.page === at ? state.cursor.y : (state.viewport?.y ?? 0.5)
-    const layer = node?.querySelector<HTMLElement>(`[data-testid="review-layer-${at}"]`)
-    const side = peerSide({ page: at, y }, page, layer?.getBoundingClientRect() ?? null, view)
-    return side === edge ? [{ state, at }] : []
-  })
-  if (here.length === 0) return null
-  const Arrow = edge === 'above' ? ArrowUp : ArrowDown
-  return (
-    <div
-      ref={row}
-      className={cn(
-        'pointer-events-none flex flex-wrap justify-center gap-1.5',
-        edge === 'below' && 'absolute bottom-16 left-1/2 z-30 -translate-x-1/2 pointer-coarse:bottom-36',
-        overCard && 'invisible'
-      )}
-      data-testid={`review-elsewhere-${edge}`}
-      data-over-card={overCard || undefined}
-    >
-      {here.map(({ state, at }) => (
-        <button data-attr="review-elsewhere"
-          key={state.peer.userId}
-          type="button"
-          data-testid="review-elsewhere"
-          aria-label={t('review.elsewhereJump', { name: state.peer.name, page: at })}
-          title={t('review.elsewhereJump', { name: state.peer.name, page: at })}
-          onClick={() => onJump(state)}
-          className="pointer-events-auto inline-flex items-center gap-1 rounded-full py-0.5 pr-2 pl-1.5 text-[11px] leading-4 font-medium text-background shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          style={{ backgroundColor: identityInk(state.peer.userId) }}
-        >
-          <Arrow className="size-3" aria-hidden />
-          {t('review.elsewhere', { name: state.peer.name.split(/\s+/)[0] ?? state.peer.name, page: at })}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-const documentReviewOf = (asks: readonly CanvasAsk[]): CanvasAsk | null =>
-  asks.findLast((ask) => ask.region === null && !ask.replyInThread) ?? null
-
-function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => void }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const tChat = useTranslations(chatCopy)
-  const { piloti } = review
-  const run = documentReviewOf(piloti.asks)
-  if (!run) {
-    const button = (
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        className="h-8 gap-1.5"
-        data-testid="review-with-agent"
-        disabled={piloti.busy}
-        onClick={() => piloti.ask({ text: t('review.reviewSeed'), region: null, effort: 'medium' })}
-      >
-        <Sparkles className="size-3.5" aria-hidden />
-        {/* On a phone the glyph carries it; the words stay for a screen reader. */}
-        <span className="max-sm:sr-only">{t('review.reviewWithAgent')}</span>
-      </Button>
-    )
-    if (!piloti.busy) return button
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex rounded-control" data-testid="review-with-agent-busy">
-            {button}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{t('review.piloti.busyTooltip')}</TooltipContent>
-      </Tooltip>
-    )
-  }
-  const working = run.status === 'thinking'
-  const checking = run.checkFixed !== null
-  const found = run.status === 'answered' && !checking ? review.counts.proposed : 0
-  const line = working
-    ? (liveLine(stepsOf(run.view), tChat) ?? t(checking ? 'review.piloti.checkingFixed' : 'review.piloti.reviewing'))
-    : run.status === 'failed'
-      ? t('review.piloti.reviewFailed')
-      : found > 0
-        ? t('review.piloti.reviewFound', { count: found })
-        : t(checking ? 'review.piloti.checkFixedDone' : 'review.piloti.reviewDone')
-  return (
-    <div
-      role="status"
-      data-testid="review-agent-status"
-      className="border-border/70 bg-muted flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
-    >
-      <AgentGlyph working={working} />
-      {working ? (
-        <ShimmerText className="min-w-0 flex-1 text-xs">{line}</ShimmerText>
-      ) : (
-        <span className="text-foreground min-w-0 flex-1 truncate text-xs font-medium">{line}</span>
-      )}
-      {found > 0 && (
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="h-6 shrink-0 rounded-full px-2.5 text-xs"
-          data-testid="review-agent-walk"
-          onClick={onWalk}
-        >
-          {t('review.walkProposals')}
-        </Button>
-      )}
-      {piloti.conversationHref && (
-        <Button asChild variant="ghost" size="sm" className="h-6 px-2 text-xs">
-          <Link href={piloti.conversationHref} data-testid="review-agent-conversation">
-            {t('review.piloti.openConversation')}
-          </Link>
-        </Button>
-      )}
-      {run.status === 'failed' && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-6 rounded-full [&_svg]:size-3"
-          aria-label={t('review.piloti.retry')}
-          onClick={() => piloti.retry(run.id)}
-        >
-          <RotateCcw aria-hidden />
-        </Button>
-      )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="size-6 rounded-full [&_svg]:size-3"
-        aria-label={working ? t('review.piloti.stop') : t('review.piloti.close')}
-        title={working ? t('review.piloti.stop') : t('review.piloti.close')}
-        data-testid="review-agent-dismiss"
-        onClick={() => piloti.dismiss(run.id)}
-      >
-        <X aria-hidden />
-      </Button>
-    </div>
-  )
-}
 
 export function DocumentReviewMode({
   open,
@@ -541,10 +75,9 @@ export function DocumentReviewMode({
   protocolFiling?: ProtocolFilingTarget | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const { locale } = useLocale()
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
-  const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti } = review
+  const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti: agent } = review
   const [viewPage, setViewPage] = useState<number | null>(null)
   const viewAt = useRef<{ page: number; y: number } | null>(null)
   const { sendViewport } = room
@@ -574,7 +107,7 @@ export function DocumentReviewMode({
     const y = state.viewport?.page === page ? state.viewport.y : (state.cursor?.y ?? 0)
     setFocus({ page, y, key: `jump:${state.peer.peerId}:${Date.now()}` })
   }, [])
-  const openAsk = piloti.asks.find((ask) => ask.id === piloti.openId) ?? null
+  const openAsk = agent.asks.find((ask) => ask.id === agent.openId) ?? null
   const list = useReviewList(review)
   const { beside: listBeside, sheetOpen: listOpen, setSheetOpen: setListOpen } = list
   const docked = useMediaQuery(DOCKED_CARDS)
@@ -743,16 +276,16 @@ export function DocumentReviewMode({
   const dockOpen = docked && Boolean(dockedAsk || draft || selected)
   const closeCard = useCallback(() => {
     if (dockedAsk) {
-      if (dockedAsk.status === 'thinking') piloti.open(null)
-      else piloti.dismiss(dockedAsk.id)
+      if (dockedAsk.status === 'thinking') agent.open(null)
+      else agent.dismiss(dockedAsk.id)
     } else if (draft) setDraft(null)
     else select(null)
-  }, [dockedAsk, piloti, draft, setDraft, select])
+  }, [dockedAsk, agent, draft, setDraft, select])
 
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
     if (typing(event.target) && !draft && !openAsk) return
-    if (openAsk) piloti.open(null)
+    if (openAsk) agent.open(null)
     else if (draft) setDraft(null)
     else if (following) setFollowing(null)
     else if (tool !== 'select') setTool('select')
@@ -784,7 +317,7 @@ export function DocumentReviewMode({
     else if ((key === 'c' || key === 'r') && review.canAnnotate) {
       setTool(key === 'c' ? 'point' : 'region')
       startAim()
-    } else if (key === 'p' && piloti.available) {
+    } else if (key === 'p' && agent.available) {
       setTool('ask')
       startAim()
     } else if (key === 'j' && walk) {
@@ -884,7 +417,7 @@ export function DocumentReviewMode({
     <ReviewExportMenu
       documentId={review.documentId}
       hasRevisions={annotations.some((annotation) => !annotation.onCurrentRevision)}
-      hasProposals={annotations.some((annotation) => annotation.authorKind === 'piloti' && !annotation.acceptedBy)}
+      hasProposals={annotations.some((annotation) => isAgentKind(annotation.authorKind) && !annotation.acceptedBy)}
       filing={protocolFiling && review.canAnnotate ? { target: protocolFiling, documentName } : null}
     />
   )
@@ -899,102 +432,21 @@ export function DocumentReviewMode({
         className="bg-background inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] flex h-[calc(100dvh-var(--page-inset-top,0px))] max-h-none w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
         data-testid="document-review"
       >
-        <header className="flex min-h-13 shrink-0 items-center gap-3 border-b px-3 pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] max-sm:flex-wrap max-sm:gap-x-2 max-sm:gap-y-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-8 shrink-0 pointer-coarse:size-11"
-            aria-label={t('review.close')}
-            title={`${t('review.close')} (Esc)`}
-            onClick={close}
-          >
-            <X className="size-4" aria-hidden />
-          </Button>
-          {/* On a phone the name has a row of its own, under the close and the
-              faces: beside them it kept ~40px, „G…_Index-C.pdf". Cut in the
-              middle where even the row is short: the index at its end is what
-              says which Fassung is under review. The line under it wraps there
-              rather than lose the count. */}
-          <div className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full max-sm:pb-2">
-            <DialogTitle className="text-foreground flex text-sm font-medium">
-              <MiddleTruncate text={documentName} tail={12} />
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs sm:truncate">
-              {[
-                revisionLabel,
-                review.revision?.replacedBy
-                  ? t('review.replacedBy', { name: review.revision.replacedBy.filename })
-                  : review.revision?.replaces[0]
-                    ? t('review.replaces', { name: review.revision.replaces[0].filename })
-                    : null,
-                hasLiveMarks(review.counts) ? openMarksShortLabel(t, review.counts) : t('review.nothingOpen'),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </DialogDescription>
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-3 max-sm:gap-2">
-            {room.status === 'offline' && (
-              <span
-                className="text-muted-foreground text-[11px] font-medium"
-                data-testid="review-offline"
-                title={t('review.offlineHint')}
-                role="status"
-              >
-                {t('review.offline')}
-              </span>
-            )}
-            <Presence review={review} following={following} onFollow={setFollowing} />
-            {popoutHref && (
-              <span className="flex items-center max-sm:hidden">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label={t('review.popout')}
-                  title={t('review.popout')}
-                  data-testid="review-popout"
-                  onClick={popout}
-                >
-                  <ExternalLink className="size-3.5" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label={t('review.copyReviewLink')}
-                  title={t('review.copyReviewLink')}
-                  data-testid="review-copy-link"
-                  onClick={() => copyText(new URL(popoutHref, window.location.href).toString())}
-                >
-                  <Link2 className="size-3.5" aria-hidden />
-                </Button>
-              </span>
-            )}
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-8 gap-1.5 pointer-coarse:h-11"
-              aria-haspopup={listBeside ? undefined : 'dialog'}
-              aria-expanded={list.expanded}
-              aria-label={t('review.listOpen', {
-                marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
-              })}
-              data-testid="review-list-open"
-              onClick={list.toggle}
-            >
-              <MessagesSquare className="size-3.5" aria-hidden />
-              {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
-              <span className="font-mono tabular-nums">{review.counts.open}</span>
-            </Button>
-            {listBeside && exportMenu}
-            {piloti.available && review.canAnnotate && <AgentReview review={review} onWalk={walkProposals} />}
-          </div>
-        </header>
+        <ReviewHeader
+          review={review}
+          documentName={documentName}
+          revisionLabel={revisionLabel}
+          close={close}
+          following={following}
+          setFollowing={setFollowing}
+          popoutHref={popoutHref}
+          popout={popout}
+          copyText={copyText}
+          list={list}
+          exportMenu={exportMenu}
+          walkProposals={walkProposals}
+          agentOffered={agent.available && review.canAnnotate}
+        />
 
         <ReviewStageContext.Provider value={stage}>
           <div className="flex min-h-0 flex-1">
@@ -1088,52 +540,26 @@ export function DocumentReviewMode({
           </div>
         </ReviewStageContext.Provider>
         {docked && (
-          <Sheet open={dockOpen} modal={false} onOpenChange={(next) => !next && closeCard()}>
-            <SheetContent
-              side="bottom"
-              closeLabel={t('review.closeThread')}
-              data-testid="review-card-sheet"
-              onInteractOutside={(event) => event.preventDefault()}
-              className="max-h-[75dvh] gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]"
-            >
-              <SheetTitle className="sr-only">{documentName}</SheetTitle>
-              <SheetDescription className="sr-only">{t('annotations.section')}</SheetDescription>
-              {dockedAsk ? (
-                <AgentAnswerCard key={dockedAsk.id} review={review} ask={dockedAsk} placement="docked" />
-              ) : (
-                threadCard('docked')
-              )}
-            </SheetContent>
-          </Sheet>
+          <ReviewCardSheet
+            review={review}
+            documentName={documentName}
+            dockOpen={dockOpen}
+            closeCard={closeCard}
+            dockedAsk={dockedAsk}
+            threadCard={threadCard}
+          />
         )}
         {!listBeside && (
-          <Sheet open={listOpen} onOpenChange={setListOpen}>
-            <SheetContent
-              side="bottom"
-              closeLabel={t('review.close')}
-              data-testid="review-list-sheet"
-              className="flex h-[70dvh] flex-col gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)] sm:mx-auto sm:max-w-xl"
-            >
-              <SheetHeader className="flex-row items-center gap-2 px-4 pt-4 pr-14 pb-0">
-                <SheetTitle className="text-base">{t('annotations.section')}</SheetTitle>
-                <SheetDescription className="sr-only">{documentName}</SheetDescription>
-                {exportMenu && <div className="ml-auto">{exportMenu}</div>}
-              </SheetHeader>
-              <ReviewPanel
-                review={review}
-                presentation="sheet"
-                onOpen={(annotation, byKeyboard) => {
-                  setListOpen(false)
-                  openFromList(annotation, byKeyboard)
-                }}
-                onWalkProposals={() => {
-                  setListOpen(false)
-                  walkProposals()
-                }}
-                onCheckFixed={checkFixed}
-              />
-            </SheetContent>
-          </Sheet>
+          <ReviewListSheet
+            review={review}
+            documentName={documentName}
+            listOpen={listOpen}
+            setListOpen={setListOpen}
+            exportMenu={exportMenu}
+            openFromList={openFromList}
+            walkProposals={walkProposals}
+            checkFixed={checkFixed}
+          />
         )}
         <ReviewAnnouncer review={review} />
       </PageDialogContent>

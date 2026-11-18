@@ -1,17 +1,3 @@
-/**
- * The SQL of the estate tree (`./service.ts`): one shelf's folders, empty ones
- * included, and one keyset page of its documents, each under the reach the
- * search uses (`lib/search/reach.ts`). Who may list what is decided there and
- * only there: folders through `folderReachWhere`, documents through
- * `reachWhere` (the shelves, the hidden folders, the lifecycle,
- * `documentVisibleTo`). What this module adds is the walk: every folder, the
- * card beside it, the page, and what ingestion read of each document from the
- * search's projection (`document_search_facets`).
- *
- * The conversation's own files (the session shelf) are no shelf of a reach, so
- * they are read with the reach's READER and the conversation, nothing more.
- */
-
 import 'server-only'
 import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm'
 import { BadRequestError } from '@/lib/api/errors'
@@ -30,7 +16,6 @@ import { ESTATE_TREE_FOLDERS_MAX } from './types'
 
 const f = documentSearchFacets
 
-/** Which documents a page reads: a shelf of the reach, or the conversation's own files under the reach's reader. */
 export type TreeSource = { kind: 'reach'; reach: SearchReach } | { kind: 'session'; reach: SearchReach; conversationId: string }
 
 export interface TreeFolderRow {
@@ -66,17 +51,11 @@ export interface TreeDocumentRow {
   updatedAt: Date
 }
 
-/** Where a page of documents starts: after this file name and id. */
 export interface TreeCursor {
   filename: string
   id: string
 }
 
-/**
- * The living folder at `path` on the shelf, or null. Only the path's
- * resolution: whether the audience may list it is the reach's (`folderSubtree`
- * refuses a hidden one).
- */
 export async function findFolderIdByPath(organizationId: string, shelf: DocumentShelf, path: string): Promise<string | null> {
   const [row] = await getDb()
     .select({ id: projectFolders.id })
@@ -86,11 +65,6 @@ export async function findFolderIdByPath(organizationId: string, shelf: Document
   return row?.id ?? null
 }
 
-/**
- * The reach's folders, by path, at most {@link ESTATE_TREE_FOLDERS_MAX};
- * `truncated` when there were more. Empty folders are listed: nothing here
- * joins a document.
- */
 export async function listTreeFolders(reach: SearchReach): Promise<{ rows: TreeFolderRow[]; truncated: boolean }> {
   const rows = await getDb()
     .select({
@@ -127,10 +101,6 @@ function sourceWhere(source: TreeSource): SQL | undefined {
   )
 }
 
-/**
- * One page of the source's documents, by file name then id, after `cursor`;
- * `limit + 1` rows are read so the caller knows whether a next page exists.
- */
 export async function listTreeDocuments(
   source: TreeSource,
   page: { cursor: TreeCursor | null; limit: number },
@@ -195,14 +165,12 @@ export async function listTreeDocuments(
   }))
 }
 
-/** The cursor as the wire carries it: opaque to the caller. */
 export function encodeTreeCursor(cursor: TreeCursor): string {
   return Buffer.from(JSON.stringify([cursor.filename, cursor.id]), 'utf8').toString('base64url')
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** A cursor this route issued, or a 400. */
 export function decodeTreeCursor(raw: string): TreeCursor {
   let parsed: unknown = null
   try {

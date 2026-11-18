@@ -39,11 +39,11 @@ const CREDENTIAL_ID = '6a0c1f0e-6a52-4d7e-9a43-1b2f3c4d5e6f'
 const principal: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'client_claude',
-  scopes: ['piloti:sensitive'],
+  scopes: ['documents:sensitive'],
   sensitiveOptIns: ['secret'],
   session: {
     userId: 'user_1',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'org_1',

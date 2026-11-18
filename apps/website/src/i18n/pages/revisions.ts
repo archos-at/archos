@@ -1,17 +1,3 @@
-/**
- * Copy of the plan revision page, both locales. `{name}` is the brand name, filled by
- * `withName`. Text only: images, links and structure live in `src/views/RevisionsView.astro`.
- *
- * Evidence for each claim (Belegpflicht):
- * - recognising a new revision, the three ways to compare, marking on request, the inbox note,
- *   the current revision: releasenotes/notes/dokument-mit-allen-fassungen-*.yaml;
- * - "what changed" page by page with values: releasenotes/notes/compare-fassungen-pages-*.yaml;
- * - carrying annotations over, due dates and reminders: releasenotes/notes/anmerkungen-fassung-fristen-*.yaml;
- * - a revision against the room schedule: owner decision D16 (live), the home gallery's screenshot;
- * - folders and ZIP uploads: VISION.md ("Files and the Büroablage").
- * The automatic comparison when a revision is filed sits behind a feature flag
- * (the release note "notices a new Fassung"), so the page does not promise it.
- */
 const de = {
   title: 'Planstände vergleichen',
   description:

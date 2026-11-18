@@ -41,7 +41,9 @@ CHAT_MODEL_HOMES = {
 
 EMBEDDING_CLIENT = re.compile(r"\b[A-Za-z]*Embeddings?\(|\.embeddings\.create\(")
 EMBEDDING_CLIENT_HOMES = {
-    "packages/knowledge-layer/src/embedding.py": "make_embed_model hands llama-index the limited transports",
+    "packages/knowledge-layer/src/knowledge_layer/embedding.py": (
+        "make_embed_model hands llama-index the limited transports"
+    ),
     "packages/agent/src/agent/common/openrouter.py": "mentions `.embeddings` in a docstring only",
 }
 NOT_A_CLIENT = re.compile(r"\b(?:Mock|Fake|Stub|Noop)\w*Embedding|\bQueryEmbedding\(|\b_InflightEmbedding\(")
@@ -54,7 +56,9 @@ MODEL_TRAFFIC = re.compile(
 )
 RAW_HTTPX_HOMES = {
     "packages/agent/src/agent/common/openrouter.py": "the seam builds the clients that take the slot",
-    "packages/knowledge-layer/src/ingest/adapter.py": "its httpx.Client PUTs a thumbnail to a presigned URL",
+    "packages/knowledge-layer/src/knowledge_layer/ingest/thumbnails.py": (
+        "its httpx.Client PUTs a thumbnail to a presigned URL"
+    ),
     "scripts/release_notes_translate.py": "sends the release notes from a release script",
     "scripts/smoke_card_generation.py": "a dev smoke test on fixed sample text",
 }
@@ -80,8 +84,8 @@ def _code(path: Path) -> str:
 def test_the_scan_sees_the_known_call_sites():
     scanned = {_rel(p) for p in _python_files()}
     assert "packages/agent/src/agent/common/llm_factory.py" in scanned
-    assert "packages/knowledge-layer/src/ingest/adapter.py" in scanned
-    assert "packages/agent/src/agent/agents/piloti/register.py" in scanned
+    assert "packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py" in scanned
+    assert "packages/agent/src/agent/core/register.py" in scanned
 
 
 @pytest.mark.parametrize("path", _python_files(), ids=_rel)

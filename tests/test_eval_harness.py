@@ -18,9 +18,9 @@ import suite  # noqa: E402
 import turn_input  # noqa: E402
 from jsonschema import Draft202012Validator  # noqa: E402
 
-from agent.agents.piloti.prompt import focus_region_block  # noqa: E402
 from agent.common.bff_http import SignedEnvelope  # noqa: E402
 from agent.common.wire_v2 import FocusRegion  # noqa: E402
+from agent.core.prompt import focus_region_block  # noqa: E402
 from agent.tools import proposals_client  # noqa: E402
 from agent.tools.canvas import client as canvas_client  # noqa: E402
 from agent.tools.canvas.marks import propose_payload  # noqa: E402
@@ -78,7 +78,7 @@ class TestTheDrawnBoxOnTheTurn:
         import subprocess
 
         code = (
-            "import agent.agents.piloti.conversation_register as c;"
+            "import agent.core.conversation_register as c;"
             "i = c.extract_turn_inputs('hi'); print(i.surface, i.focus_file_name)"
         )
         env = {

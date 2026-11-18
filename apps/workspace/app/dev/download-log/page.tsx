@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organisation → Download-Protokoll (ADR-0088): the REAL view
- * and the REAL retention form, over fixtures, with no backend. Not linked from
- * anywhere; 404s outside development.
- *
- * The fixture is chosen for the states that are easy to get wrong: an explicit
- * download from an ordinary folder, opens in a folder with its own access list
- * (flagged), a version opened by number, the Archiv and a chat attachment (no
- * folder), a person who has left the organization (shown by id, said so), and a
- * project and a folder that no longer exist.
- *
- * A module-scope fetch shim (browser + dev only; it must not be a `useEffect`,
- * or it loses the race with the child's own first fetch) answers the log with
- * two pages, filtered by person and by part of a document name so the filters
- * visibly work, and the retention save.
- *
- *   `?empty=1`   no entries (the empty state)
- *   `?error=1`   the read is refused (the failure state)
- *
- * Pinned to German: the committed evidence carries the copy most users see.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 

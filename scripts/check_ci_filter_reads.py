@@ -1,26 +1,5 @@
 #!/usr/bin/env python3
 
-"""A test that reads a repo file as source runs whenever that file changes.
-
-`.github/filters.yml` decides which test jobs a change runs, by path. Many
-tests read another area's source to hold both sides of a contract to one name
-or number: a Pulumi spec reads the env names a Python module reads, a backend
-test reads a constant from the BFF. When the file it reads changes in a pull
-request that touches nothing else of the test's tier, the job is skipped, the
-pull request merges green, and the next pull request that runs the job fails
-on code it never touched. #1392 and #1395 were that, twice in one day.
-
-The check: every test file belongs to the tiers whose filter matches it. Each
-repo file it names by path must be matched by one of those tiers too. A path is
-a string literal naming a tracked file, or a chain of literals joined by `/`
-or `,` (`ROOT / "a" / "b.py"`, `read("a", "b.py")`, `join(repoRoot, "a",
-"b.ts")`), or such a chain under a directory another chain in the same file
-names (`UI_LIB / "documents" / "x.ts"`). A directory a test scans whole is left
-out: covering it would run the tier on every change there.
-
-Usage: python scripts/check_ci_filter_reads.py. Exit 1 lists each file a test
-reads that its tier's filter does not name.
-"""
 
 from __future__ import annotations
 
@@ -43,8 +22,6 @@ HARNESS_TASK = ROOT / "taskfiles" / "backend.yml"
 BEGIN = "  # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):"
 END = "  # End of the files this tier's tests read."
 TEST_NAME = re.compile(r"(^test_.*\.py$|_test\.py$|\.(spec|test)\.[cm]?[jt]sx?$)")
-# One token per match, no nested quantifiers: a string literal on one line, a
-# joining operator, or any other single non-space character (which ends a chain).
 TOKEN = re.compile(r"\"[^\"\n]*\"|'[^'\n]*'|`[^`\n]*`|[/,]|\S")
 
 
@@ -54,7 +31,6 @@ def tracked() -> list[str]:
 
 
 def harness_tests() -> set[str]:
-    """The tests `be:test:harness` runs: CI's Repo checks runs them on every pull request, unfiltered."""
     return set(yaml.safe_load(HARNESS_TASK.read_text(encoding="utf-8"))["vars"]["HARNESS_TESTS"].split())
 
 
@@ -64,7 +40,6 @@ def tier_patterns() -> dict[str, list[str]]:
 
 
 def python_tokens(source: str) -> list[str]:
-    """String literals (docstrings and f-strings aside) and the `/` `,` operators, comments dropped."""
     tokens: list[str] = []
     try:
         for token in tokenize.generate_tokens(io.StringIO(source).readline):
@@ -83,13 +58,11 @@ def python_tokens(source: str) -> list[str]:
 
 
 def opens_string(before: str) -> bool:
-    """Whether a quote after `before` starts a string, not an apostrophe in JSX text or a regex."""
     before = before.rstrip()
     return not before or before[-1] in "(,=:[!&|?{};+" or before.endswith(("=>", "return", "case"))
 
 
 def script_tokens(source: str) -> list[str]:
-    """The same for JavaScript and TypeScript: comments are stripped first, outside strings."""
     code: list[str] = []
     index, quote = 0, ""
     while index < len(source):
@@ -119,7 +92,6 @@ def script_tokens(source: str) -> list[str]:
 
 
 def chains(tokens: list[str]) -> list[str]:
-    """Each run of string literals joined by `/` or `,`, as one slash-joined path."""
     found: list[str] = []
     parts: list[str] = []
     joined = False
@@ -146,10 +118,7 @@ def chains(tokens: list[str]) -> list[str]:
 
 
 def files_read(test: str, source: str, files: set[str], directories: set[str]) -> set[str]:
-    """The tracked files `source` names, directly or under a directory it names."""
     tokens = python_tokens(source) if test.endswith(".py") else script_tokens(source)
-    # Every leading run of a chain, so an argument after the path (`_ts_number(LIB / "a.ts", "NAME")`)
-    # does not hide it. A path has a directory in it: a bare name (`'README.md'` as test data) is not one.
     candidates = {
         "/".join(parts[:end])
         for chain in chains(tokens)
@@ -164,7 +133,6 @@ def files_read(test: str, source: str, files: set[str], directories: set[str]) -
 
 
 def reads_by_test(patterns: dict[str, list[str]]) -> dict[str, tuple[list[str], set[str]]]:
-    """For each filtered test file: the tiers that run it and the tracked files it reads."""
     paths = tracked()
     files = set(paths)
     directories = {str(parent) for path in paths for parent in PurePosixPath(path).parents if str(parent) != "."}
@@ -181,7 +149,6 @@ def reads_by_test(patterns: dict[str, list[str]]) -> dict[str, tuple[list[str], 
 
 
 def missing(patterns: dict[str, list[str]]) -> dict[str, dict[str, str]]:
-    """Per tier, each file one of its tests reads that no tier running that test names, and the test."""
     gaps: dict[str, dict[str, str]] = {}
     for test, (tiers, reads) in sorted(reads_by_test(patterns).items()):
         for path in sorted(reads):
@@ -191,7 +158,6 @@ def missing(patterns: dict[str, list[str]]) -> dict[str, dict[str, str]]:
 
 
 def generated(text: str, tier: str) -> list[str]:
-    """The paths in `tier`'s generated block of filters.yml, in order."""
     lines = text.splitlines()
     start = lines.index(f"{tier}:")
     block: list[str] = []
@@ -209,17 +175,11 @@ def generated(text: str, tier: str) -> list[str]:
 
 
 def hand_patterns(text: str) -> dict[str, list[str]]:
-    """Each tier's patterns without its generated block: what a person chose to watch.
-
-    Tier membership and coverage are both decided on these, so a test file that
-    another tier's block names does not join that tier.
-    """
     filters = yaml.safe_load(text)
     return {tier: [p for p in filters[tier] if p not in set(generated(text, tier))] for tier in TIERS}
 
 
 def write_blocks(needed: dict[str, dict[str, str]]) -> None:
-    """Rewrite each tier's generated block to exactly its needed reads, at the tier's end."""
     text = FILTERS.read_text(encoding="utf-8")
     for tier in TIERS:
         lines = text.splitlines()
@@ -238,7 +198,6 @@ def write_blocks(needed: dict[str, dict[str, str]]) -> None:
 
 
 def drift() -> tuple[dict[str, dict[str, str]], dict[str, list[str]]]:
-    """The reads the generated blocks lack, and the entries they hold that no test reads any more."""
     text = FILTERS.read_text(encoding="utf-8")
     needed = missing(hand_patterns(text))
     absent = {

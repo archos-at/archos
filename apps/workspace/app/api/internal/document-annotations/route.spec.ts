@@ -54,6 +54,7 @@ vi.mock('@/lib/annotations/attention', () => ({
 }))
 
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'
+import { LEGACY_AGENT_DIRECT_EDITS_OFF } from '@/lib/authz/legacy-feature-flags'
 import { listAnnotationsForAgent, proposeAnnotations, replyToAnnotation } from '@/lib/annotations/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { findConversationInOrg } from '@/lib/conversations/repository'
@@ -91,12 +92,13 @@ import { insertAgentChanges } from '@/lib/changes/repository'
 import { recordAuditEvent, type AuditEventInput } from '@/lib/audit/service'
 import { expectRegistered } from '@/test-utils/audit'
 import type { AgentChangeRow } from '@/lib/db/schema/piloti-changes'
+import { isAgentKind } from '@/lib/agent-kind'
 import { POST } from './route'
 
 const SECRET = 'test-internal-token-annotations'
 const DOC_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_DOC = '22222222-2222-4222-8222-222222222222'
-const SESSION = { userId: 'user_1', organizationId: 'org_1', featureFlags: ['piloti-acts'] } as Partial<AuthorizedSession> as AuthorizedSession
+const SESSION = { userId: 'user_1', organizationId: 'org_1', featureFlags: ['agent-direct-edits'] } as Partial<AuthorizedSession> as AuthorizedSession
 const CONTEXT = {
   organizationId: 'org_1',
   userId: 'user_1',
@@ -108,7 +110,7 @@ const CONTEXT = {
 
 const post = (body: unknown) =>
   POST(
-    new Request('https://grid.test/api/internal/document-annotations', {
+    new Request('https://example.test/api/internal/document-annotations', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': SECRET },
       body: JSON.stringify(body),
@@ -129,9 +131,9 @@ const PROPOSAL = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  SESSION.featureFlags = ['piloti-acts']
+  SESSION.featureFlags = ['agent-direct-edits']
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(findConversationInOrg).mockResolvedValue({
@@ -154,7 +156,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   vi.unstubAllEnvs()
 })
 
@@ -168,7 +170,7 @@ describe('POST /api/internal/document-annotations', () => {
     await expect(response.json()).resolves.toMatchObject({ documentName: 'Grundriss EG.pdf' })
   })
 
-  it('proposes on the subject, as Piloti for the asker, and says which numbers it took', async () => {
+  it('proposes on the subject, as the agent for the asker, and says which numbers it took', async () => {
     const response = await post({ op: 'propose', proposals: [PROPOSAL] })
 
     expect(response.status).toBe(200)
@@ -180,7 +182,7 @@ describe('POST /api/internal/document-annotations', () => {
     })
   })
 
-  it('answers in a thread as Piloti', async () => {
+  it('answers in a thread as the agent', async () => {
     vi.mocked(replyToAnnotation).mockResolvedValue({
       annotation: { id: OTHER_DOC, number: 2, replies: [{}] } as never,
       replyId: 'reply_1',
@@ -194,7 +196,7 @@ describe('POST /api/internal/document-annotations', () => {
       DOC_ID,
       OTHER_DOC,
       { body: 'Die lichte Breite ist im Schnitt B-B kotiert.' },
-      { kind: 'piloti' }
+      { kind: 'agent' }
     )
   })
 
@@ -280,7 +282,7 @@ describe('POST /api/internal/document-annotations', () => {
 
   it('refuses a caller without the internal token', async () => {
     const response = await POST(
-      new Request('https://grid.test/api/internal/document-annotations', {
+      new Request('https://example.test/api/internal/document-annotations', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ op: 'list' }),
@@ -304,7 +306,7 @@ describe('POST /api/internal/document-annotations', () => {
       expiresAt: '2026-10-13T12:00:00.000Z',
     }
 
-    it('says who is in the document and where, by mark number, without Piloti itself', async () => {
+    it('says who is in the document and where, by mark number, without the agent itself', async () => {
       vi.mocked(listAnnotationsForAgent).mockResolvedValue({
         documentId: DOC_ID,
         annotations: [
@@ -314,7 +316,7 @@ describe('POST /api/internal/document-annotations', () => {
       })
       vi.mocked(roomSnapshot).mockResolvedValue([
         ANNA,
-        { ...ANNA, peerId: 'piloti-conv_1', name: 'Piloti', kind: 'piloti', selected: null, draft: null },
+        { ...ANNA, peerId: 'piloti-conv_1', name: 'Agent', kind: 'piloti', selected: null, draft: null },
       ])
 
       const response = await post({ op: 'room' })
@@ -337,7 +339,7 @@ describe('POST /api/internal/document-annotations', () => {
       })
     })
 
-    it('points and highlights as Piloti for this conversation, after checking the asker may read', async () => {
+    it('points and highlights as the agent for this conversation, after checking the asker may read', async () => {
       await post({ op: 'point', page: 1, x: 0.4, y: 0.5, label: 'Hier' })
       await post({ op: 'highlight', page: 1, x: 0.8, y: 0.1, w: 0.4, h: 0.2, label: 'Fluchtweg 1,10 m' })
 
@@ -351,7 +353,7 @@ describe('POST /api/internal/document-annotations', () => {
       ])
     })
 
-    it('says what Piloti reads: a box on the page, clamped onto it, or the whole page', async () => {
+    it('says what the agent reads: a box on the page, clamped onto it, or the whole page', async () => {
       await post({ op: 'look', page: 2, x: 0.7, y: 0.1, w: 0.5, h: 0.2 })
       await post({ op: 'look', page: 3 })
 
@@ -434,10 +436,10 @@ const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
 
 function violatedChecks(row: DocumentAnnotationRow): string[] {
   const broken: string[] = []
-  if (row.status === 'proposed' && row.authorKind !== 'piloti') broken.push('only_piloti_proposes')
+  if (row.status === 'proposed' && !isAgentKind(row.authorKind)) broken.push('only_agent_proposes')
   if ((row.acceptedBy === null) !== (row.acceptedAt === null)) broken.push('acceptance_complete')
   if (row.authorKind !== 'person' && !['proposed', 'dismissed'].includes(row.status) && row.acceptedBy === null) {
-    broken.push('piloti_needs_a_person')
+    broken.push('agent_needs_a_person')
   }
   const closed = row.status === 'resolved' || row.status === 'dismissed'
   if (closed !== (row.closedBy !== null) || (row.closedBy === null) !== (row.closedAt === null)) {
@@ -453,14 +455,14 @@ function fakeRepository() {
   vi.mocked(listDocumentAnnotations).mockImplementation(async () => [...marks.values()])
   vi.mocked(insertDocumentAnnotations).mockImplementation(async (input: NewAnnotationsInput) =>
     input.marks.map((mark, index) => {
-      const acceptedBy = input.authorKind === 'piloti' ? (input.acceptedBy ?? null) : null
+      const acceptedBy = isAgentKind(input.authorKind) ? (input.acceptedBy ?? null) : null
       const row = record({
         ...mark,
         id: `55555555-5555-4555-8555-55555555555${index}`,
         number: 10 + index,
         authorKind: input.authorKind,
         createdBy: input.createdBy,
-        status: input.authorKind === 'piloti' && !acceptedBy ? 'proposed' : 'open',
+        status: isAgentKind(input.authorKind) && !acceptedBy ? 'proposed' : 'open',
         acceptedBy,
         acceptedAt: acceptedBy ? NOW : null,
       })
@@ -516,12 +518,12 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
 
     expect(response.status).toBe(200)
     expect(insertDocumentAnnotations).toHaveBeenCalledWith(
-      expect.objectContaining({ authorKind: 'piloti', createdBy: 'user_1', acceptedBy: 'user_1' })
+      expect.objectContaining({ authorKind: 'agent', createdBy: 'user_1', acceptedBy: 'user_1' })
     )
     const body = await response.json()
     expect(body).toMatchObject({ documentId: DOC_ID, created: [{ number: 10, kind: 'defect', body: PROPOSAL.body }] })
     const born = marks.get(body.created[0].id)
-    expect(born).toMatchObject({ status: 'open', authorKind: 'piloti', acceptedBy: 'user_1' })
+    expect(born).toMatchObject({ status: 'open', authorKind: 'agent', acceptedBy: 'user_1' })
     expect(violatedChecks(born ?? record())).toEqual([])
     await vi.waitFor(() =>
       expect(onMarksSet).toHaveBeenCalledWith(
@@ -535,7 +537,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
     )
   })
 
-  it('resolves for the asker, in their name, and says so in the thread as Piloti', async () => {
+  it('resolves for the asker, in their name, and says so in the thread as the agent', async () => {
     const response = await post({ op: 'update', annotationId: MARK_ID, status: 'resolved', note: NOTE })
 
     expect(response.status).toBe(200)
@@ -555,7 +557,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
       {
         organizationId: 'org_1',
         annotationId: MARK_ID,
-        authorKind: 'piloti',
+        authorKind: 'agent',
         body: NOTE,
         createdBy: 'user_1',
         addressesAgent: false,
@@ -602,7 +604,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
     expect(stored()).toMatchObject({ assigneeUserId: null })
   })
 
-  it('tells the new Zuständige as the asker’s own change would, saying Piloti did it for them, and the note tells nobody twice', async () => {
+  it('tells the new Zuständige as the asker’s own change would, saying the agent did it for them, and the note tells nobody twice', async () => {
     await post({ op: 'update', annotationId: MARK_ID, assignee: 'Anna Berger', note: 'Anna übernimmt.' })
 
     await vi.waitFor(() => expect(onAssigneeChanged).toHaveBeenCalledTimes(1))
@@ -623,7 +625,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
     expect(onMarkReplied).not.toHaveBeenCalled()
   })
 
-  it('settles the mark and tells its author when Piloti resolves it for the asker', async () => {
+  it('settles the mark and tells its author when the agent resolves it for the asker', async () => {
     marks.set(MARK_ID, record({ createdBy: 'user_anna' }))
 
     await post({ op: 'update', annotationId: MARK_ID, status: 'resolved', note: NOTE })
@@ -706,7 +708,7 @@ describe('POST /api/internal/document-annotations — what the asker asks for', 
     expect(deleteDocumentAnnotation).not.toHaveBeenCalled()
   })
 
-  it('deletes a mark Piloti set open for the asker, as the asker may (parity, `mayDeleteMark`)', async () => {
+  it('deletes a mark the agent set open for the asker, as the asker may (parity, `mayDeleteMark`)', async () => {
     marks.set(MARK_ID, record({ authorKind: 'piloti', status: 'open', createdBy: 'user_1', acceptedBy: 'user_1', acceptedAt: NOW }))
     expect((await post({ op: 'delete', annotationId: MARK_ID })).status).toBe(200)
   })
@@ -755,7 +757,7 @@ describe('POST /api/internal/document-annotations — what a turn changed is rec
     )
   })
 
-  it('records a mark Piloti set as a create, with its whole state, and tells attention it was a question', async () => {
+  it('records a mark the agent set as a create, with its whole state, and tells attention it was a question', async () => {
     const response = await post({ op: 'create', answerMessageId: ANSWER, marks: [{ ...PROPOSAL, kind: 'question' }] })
 
     expect(response.status).toBe(200)
@@ -798,7 +800,7 @@ describe('POST /api/internal/document-annotations — what a turn changed is rec
     })
   })
 
-  it('records each proposal Piloti made as a create, and tells attention of a mark', async () => {
+  it('records each proposal the agent made as a create, and tells attention of a mark', async () => {
     vi.mocked(proposeAnnotations).mockResolvedValue({
       annotations: [{ ...record({ id: 'ann_1', status: 'proposed', authorKind: 'piloti' }) }] as never,
     })
@@ -811,7 +813,7 @@ describe('POST /api/internal/document-annotations — what a turn changed is rec
     expect(onAgentWrote).toHaveBeenCalledWith(expect.objectContaining({ annotationId: 'ann_1', what: 'mark' }))
   })
 
-  it('records a change with only the fields that moved, as they were and as Piloti left them', async () => {
+  it('records a change with only the fields that moved, as they were and as the agent left them', async () => {
     await post({ op: 'update', answerMessageId: ANSWER, annotationId: MARK_ID, status: 'resolved', assignee: 'Anna Berger', note: NOTE })
 
     expect(recorded()).toEqual([
@@ -968,7 +970,7 @@ describe('POST /api/internal/document-annotations — what a turn changed is in 
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.change.applied',
+        action: 'agent.change.applied',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: null },
         targetType: 'document_annotation',
@@ -1061,12 +1063,12 @@ describe('POST /api/internal/document-annotations — what a turn changed is in 
     expect(response.status).toBe(200)
     expect(stored().status).toBe('resolved')
     expect(insertAgentChanges).toHaveBeenCalledTimes(1)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('piloti.change.applied'), expect.any(Error))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('agent.change.applied'), expect.any(Error))
     warn.mockRestore()
   })
 })
 
-describe('POST /api/internal/document-annotations — an office that has Piloti propose only', () => {
+describe('POST /api/internal/document-annotations — an office that has the agent propose only', () => {
   beforeEach(() => {
     marks = new Map([[MARK_ID, record({ createdBy: 'user_1' })]])
     fakeRepository()
@@ -1075,7 +1077,10 @@ describe('POST /api/internal/document-annotations — an office that has Piloti 
     SESSION.featureFlags = []
   })
 
-  const refusal = { code: 'PILOTI_ACTS_OFF', details: { reason: 'piloti-acts-off' } }
+  const refusal = {
+    code: LEGACY_AGENT_DIRECT_EDITS_OFF.code,
+    details: { reason: LEGACY_AGENT_DIRECT_EDITS_OFF.reason },
+  }
 
   it('refuses to set a mark open for the asker, typed, and writes nothing', async () => {
     const response = await post({ op: 'create', answerMessageId: ANSWER, marks: [PROPOSAL] })
@@ -1138,7 +1143,7 @@ describe('POST /api/internal/document-annotations — an office that has Piloti 
   })
 
   it('acts again once the organization switches it on', async () => {
-    SESSION.featureFlags = ['piloti-acts']
+    SESSION.featureFlags = ['agent-direct-edits']
 
     const response = await post({ op: 'update', annotationId: MARK_ID, status: 'resolved', note: NOTE })
 

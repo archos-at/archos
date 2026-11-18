@@ -1,22 +1,3 @@
-/**
- * `background-work-pg` (ADR-0150): the CloudNativePG cluster Hatchet keeps its
- * state in (its message queue is RabbitMQ, `platform/rabbitmq.ts`), apart from
- * the application's cluster so a backlog of background work never competes with
- * a person's request for the same primary, and so a bulk reindex cannot fill
- * the disk that holds every conversation.
- *
- * Built from the same `cnpgClusterSpec` as the application's cluster
- * (`cnpg.ts`), smaller: one database (`hatchet`), its owner (`hatchet`, with a
- * `CONNECTION LIMIT` from `backgroundWorkPgConnectionBudget`) and the read-only
- * `keda_scaler` login the worker tiers' ScaledObjects count Hatchet's backlog
- * through. No pooler: Hatchet's pgx pools are bounded per process
- * (`DATABASE_MAX_CONNS`) and the budget adds them up.
- *
- * BACKUPS. The application cluster's archive defaults to the in-cluster
- * SeaweedFS, which survives a lost Postgres volume but not a lost cluster. This
- * one has no in-cluster default: when `backgroundWorkPgBackupsEnabled` is on it
- * must name object storage outside the cluster (`config/background-work.ts`).
- */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
@@ -33,38 +14,19 @@ import { cnpgClusterSpec, installBackupSecret, installCnpgScheduledBackup } from
 
 export interface BackgroundWorkPostgres {
   cluster: k8s.apiextensions.CustomResource;
-  /** `postgresql://hatchet:…@background-work-pg-rw.background-work.svc.cluster.local:5432/hatchet?sslmode=require`. */
   ownerDsn: pulumi.Output<string>;
-  /** The same host as the read-only scaler, for KEDA's operator in its own namespace. */
   scalerDsn: pulumi.Output<string>;
-  /**
-   * The Job that gives the scaler SELECT on the columns its count reads, once
-   * Hatchet's migrations have made the tables. Every ScaledObject that counts
-   * Hatchet's backlog waits for it.
-   */
   grants: (dependsOn: pulumi.Resource[]) => k8s.batch.v1.Job;
 }
 
-/** The primary's Service, by FQDN: every client of this cluster is in another namespace or is KEDA. */
 export const BACKGROUND_WORK_PG_HOST = `${BACKGROUND_WORK.cluster}-rw.${BACKGROUND_WORK.namespace}.svc.cluster.local`;
 
-/**
- * The columns of Hatchet's tables the scaler count reads, and nothing else: a
- * task's `input` is a sealed payload, but the scaler has no reason to hold it.
- * Table and column names from Hatchet's schema at the pinned image tag
- * (`sql/schema/v1-core.sql`, v0.114.2): `v1_queue_item` holds a task waiting
- * for a worker slot, `v1_task_runtime` one a worker holds, and `v1_task` names
- * the action of a runtime row. A task held back by its organisation's
- * concurrency (`GROUP_ROUND_ROBIN`) is in neither, so it does not ask for a
- * replica that could not run it anyway.
- */
 export const SCALER_COLUMNS = {
   v1_queue_item: ["action_id"],
   v1_task: ["id", "inserted_at", "action_id"],
   v1_task_runtime: ["task_id", "task_inserted_at"],
 } as const;
 
-/** The grants Job's SQL, as the owner: the role's statement timeout, then the scaler's column grants. */
 export function backgroundWorkGrantsSql(): string {
   const grants = Object.entries(SCALER_COLUMNS).map(
     ([table, columns]) => `GRANT SELECT (${columns.join(", ")}) ON ${table} TO ${KEDA_SCALER_ROLE};`,
@@ -100,7 +62,6 @@ function basicAuth(logical: string, user: string, password: pulumi.Output<string
 export function installBackgroundWorkPostgres(
   cfg: DeployConfig,
   provider: k8s.Provider,
-  /** The namespace, and the CNPG operator's webhook being ready (the app cluster). */
   dependsOn: pulumi.Resource[],
 ): BackgroundWorkPostgres {
   assertBackgroundWorkPgConnectionBudget();
@@ -140,8 +101,6 @@ export function installBackgroundWorkPostgres(
           shared_buffers: BACKGROUND_WORK.sharedBuffers,
         },
         bootstrap: { database: BACKGROUND_WORK.database, owner: BACKGROUND_WORK.owner, secret: owner.metadata.name },
-        // The owner is managed too, for its CONNECTION LIMIT; the operator
-        // keeps its password from the same Secret the bootstrap used.
         roles: [
           {
             name: BACKGROUND_WORK.owner,
@@ -158,7 +117,6 @@ export function installBackgroundWorkPostgres(
     {
       provider,
       dependsOn: [owner, scaler, ...(backupSecret ? [backupSecret] : []), ...dependsOn],
-      // CloudNativePG owns the PVCs: deleting this CR drops every run in flight.
       protect: cfg.protectDataResources,
     },
   );
@@ -178,11 +136,6 @@ export function installBackgroundWorkPostgres(
   return { cluster, ownerDsn, scalerDsn: dsn(KEDA_SCALER_ROLE, pg.scalerPassword), grants };
 }
 
-/**
- * Idempotent, after the Hatchet release (whose setup Job runs the migrations
- * that create the tables): waits for `v1_queue_item`, then applies
- * {@link backgroundWorkGrantsSql}. A missing table fails it (`ON_ERROR_STOP`).
- */
 function installGrantsJob(
   cfg: DeployConfig,
   provider: k8s.Provider,

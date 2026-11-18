@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 
-from agent.agents.piloti.markers import detect_and_strip_confidence_marker
 from agent.common.answer_envelope import ANATOMY_FIELDS
 from agent.common.answer_envelope import CONTEXT_MAX_CHARS
 from agent.common.answer_envelope import ENVELOPE_VERSION
@@ -16,6 +15,7 @@ from agent.common.answer_envelope import render_envelope_response_format
 from agent.common.answer_envelope import render_envelope_schema
 from agent.common.answer_envelope import resolve_callout_marker
 from agent.common.wire_v2 import StatusStep
+from agent.core.markers import detect_and_strip_confidence_marker
 
 
 def _fenced(payload: dict) -> str:

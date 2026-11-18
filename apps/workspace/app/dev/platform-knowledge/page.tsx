@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Basiswissen (ADR-0016). Renders the REAL manager
- * the way the route does (PageHeader, then the component) with fixture data:
- * the four corpus numbers, the toolbar, the sortable table and the pager, and
- * below it the read-only support role, which sees the same corpus without a
- * single write control. The fixture carries every lifecycle state worth seeing
- * (indexing, failed, outdated, no longer listed), so the status column and the
- * Issues number are reviewed with real content. A module-scope fetch shim
- * (browser + dev only) serves the corpus status and where each file belongs
- * (its country, edition and change request; the rest are named by no record). Pinned to German, the primary
- * product language. Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/page-header'
@@ -23,7 +10,6 @@ import { I18nProvider, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 
-/** Each fixture document with the type it really has, so the type column reads true. */
 const DOCUMENTS: [title: string, docClass: string][] = [
   ['OIB-Richtlinie 2 — Brandschutz, Ausgabe 2023', 'oib_guideline'],
   ['OIB-Leitfaden Barrierefreiheit', 'oib_guide'],
@@ -41,10 +27,8 @@ const DOCUMENTS: [title: string, docClass: string][] = [
   ['Merkblatt Rauchwarnmelder', 'other'],
 ]
 
-/** Lifecycle per row, by index: the states the Issues number and the status column exist for. */
 const STATES: Record<number, string> = { 3: 'pending', 8: 'stale', 11: 'failed', 13: 'removed' }
 
-// 14 rows: more than one page (10), so the pager is exercised in the shot.
 const FILES = DOCUMENTS.map(([title, docClass], index) => ({
   fileName: `base-dokument-${String(index + 1).padStart(2, '0')}.pdf`,
   state: STATES[index] ?? 'ingested',
@@ -79,7 +63,6 @@ const STATUS = {
   files: FILES,
 }
 
-/** Where the first files belong: two released Austrian texts, a German one in a draft; the rest no record names. */
 const TEXTS = {
   nextCursor: null,
   texts: [

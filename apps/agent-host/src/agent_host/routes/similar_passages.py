@@ -1,18 +1,3 @@
-"""Similar passages („Im Büro behandelt“): where else the office wrote something like this passage.
-
-The person reading a passage in the document viewer asks for its neighbours
-across the collections the BFF authorized: the project's other documents,
-the office's other projects in reach, the Büroablage. Deterministic: a
-nearest-neighbour query in Qdrant, no LLM (``knowledge_layer.vector_store.similar``).
-
-Authorization is the searches' (``document_search._authorize_collection``):
-every searched collection AND the source's own must be in the signed scope,
-404 when one is not (an out-of-scope collection is indistinguishable from a
-missing one), 403 under ``REQUIRE_AUTH`` without a signed scope at all. The
-source collection is checked because the query reads the source point's
-vector from it.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Request
+from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 
 from agent.observability.direct_trace import observed_retrieval
 
@@ -35,14 +21,10 @@ from .document_search import request_office
 
 logger = logging.getLogger(__name__)
 
-#: The trace this search files under, and the observation inside it.
 TRACE_FEATURE = "similar-passages"
 TRACE_STEP = "retrieve.similar_passages"
-#: Picks recorded on the trace, at most.
 TRACE_PICK_LIMIT = 50
-#: The payload fields the query filters on (never their values): the scope, the
-#: current Fassung, and the source document's exclusion.
-FILTER_FIELDS = ["scope", "superseded", "file_name", "grid_document_id"]
+FILTER_FIELDS = ["scope", "superseded", "file_name", DOCUMENT_ID_FIELD]
 
 
 def _response(result: Any, snippet_max_chars: int) -> SimilarPassagesResponse:
@@ -68,7 +50,6 @@ def _response(result: Any, snippet_max_chars: int) -> SimilarPassagesResponse:
 
 
 def _picks(response: SimilarPassagesResponse) -> dict[str, Any]:
-    """The trace's output: which passages were handed back, by collection, file, page and score."""
     picked = [
         {
             "collection": document.collection,
@@ -84,7 +65,6 @@ def _picks(response: SimilarPassagesResponse) -> dict[str, Any]:
 
 
 def _query(request: SimilarPassagesRequest, collections: list[str]) -> dict[str, Any]:
-    """The trace's input: the ask as data. The passage text stays out (ADR-0089), its length does not."""
     return {
         "source": {
             "collection": request.source.collection,
@@ -101,7 +81,6 @@ def _query(request: SimilarPassagesRequest, collections: list[str]) -> dict[str,
 
 
 def _office(office: str | None, scopes: list[str]) -> str | None:
-    """The office this search reads as: the request's, else what the scopes name (``office_for``)."""
     from knowledge_layer.search import office_for
     from knowledge_layer.search import reading_as
 
@@ -110,7 +89,6 @@ def _office(office: str | None, scopes: list[str]) -> str | None:
 
 
 def _search(request: SimilarPassagesRequest, collections: list[str], office: str | None) -> Any:
-    """Run the query on a worker thread's terms, as ``office`` reads: the store and the embedder both block."""
     from knowledge_layer.vector_store import PassageSource
     from knowledge_layer.vector_store import find_similar
     from knowledge_layer.vector_store import get_store
@@ -139,7 +117,6 @@ def _search(request: SimilarPassagesRequest, collections: list[str], office: str
 
 
 def add_similar_passages_routes(router: APIRouter):
-    """Add the similar-passages route to the FastAPI app."""
 
     @router.post(
         "/v1/collections/similar",
@@ -148,18 +125,6 @@ def add_similar_passages_routes(router: APIRouter):
         summary="Passages like one the reader is looking at, across the collections in scope",
     )
     async def similar_passages(request: SimilarPassagesRequest, http_request: Request) -> SimilarPassagesResponse:
-        """The documents nearest to the source passage, grouped by document in ranking order.
-
-        A stored chunk (named by ``chunk_id``, or a ``cited`` passage found in
-        its file by its text) is searched with the vector the store holds; a
-        ``selected`` passage, or a citation whose chunk is not found, is
-        embedded once through the retriever's cached query path. The source
-        document is never in the answer, nor is a superseded Fassung.
-
-        400 for collections outside the office's (the legal corpus is no
-        place to search for the office's experience), 409 where this backend
-        embeds no queries, 503 when the store cannot answer.
-        """
         collections = list(dict.fromkeys(request.collections))
         for collection in [request.source.collection, *collections]:
             _authorize_collection(http_request, collection)

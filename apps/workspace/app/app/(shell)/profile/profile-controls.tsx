@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Interactive profile controls: appearance (theme), interface language, and
- * session/security actions. The surrounding account card is server-rendered;
- * these controls need client state (the layout store, the i18n context, and
- * the auth adapter), so they live in their own client island.
- */
-
 import { type FC, useCallback } from 'react'
 import { Monitor, Moon, Sun, Globe, Palette, ShieldCheck, LogOut, ListTree } from 'lucide-react'
 
@@ -45,21 +38,8 @@ const THEME_ICONS: Record<ThemeMode, FC<{ className?: string }>> = {
 interface ProfileControlsProps {
   authRequired: boolean
   email?: string | null
-  /**
-   * Whether the keyboard shortcuts are mounted for this session (they need an
-   * organization to navigate in, see `app/app/layout.tsx`). Without them the
-   * per-user toggle is not shown at all.
-   */
   shortcutsAvailable?: boolean
-  /**
-   * Whether this deployment collects usage analytics (PostHog configured,
-   * resolved server-side). Without it the opt-out card is not shown.
-   */
   analyticsAvailable?: boolean
-  /**
-   * Whether the person is shown the weekly "Neu diese Woche" notice (read server-side); the
-   * switch is not shown without an organization, where nothing is stored.
-   */
   releaseNoticeEnabled?: boolean
 }
 
@@ -188,7 +168,7 @@ export const ProfileControls: FC<ProfileControlsProps> = ({
         </div>
       )}
 
-      {/* Whether Piloti opens the places it cites beside the chat (ADR-0144): per browser, like the row's switch */}
+      {/* Whether the agent opens the places it cites beside the chat (ADR-0144): per browser, like the row's switch */}
       <ViewerActionsSettings />
 
       {/* Usage analytics: a per-browser opt-out of the PostHog storage and traffic */}

@@ -1,12 +1,3 @@
-/**
- * Upload one file to a shelf: a project's (`projectId`) or the office shelf
- * (`scope=office_shelf`, which needs `org:office_shelf:manage`), optionally into
- * one of its folders, and hand it to ingestion. Multipart: `file`, the shelf
- * fields, and the optional `folderId`, `originPath`, `screeningRelease`,
- * `uploadBatchId` and `revisionOf`. Thin handler; the shelf pipeline is
- * `@/lib/documents/shelf-upload`.
- */
-
 import { apiRoute, parseFormData } from '@/lib/api/handler'
 import { DOCUMENT_UPLOAD_LIMIT } from '@/lib/limits'
 import { BadRequestError } from '@/lib/api/errors'
@@ -32,12 +23,9 @@ export const POST = apiRoute(
     const shelf = shelfOf({ scope: scope as (typeof SHELF_SCOPES)[number] | undefined, projectId: text(formData.get('projectId')) }, request)
     const input = {
       folderId: text(formData.get('folderId')) ?? null,
-      // Where the file sat before it was uploaded, when the browser knows. Only a
-      // folder upload sends it; the service sanitizes and bounds it.
       originPath: text(formData.get('originPath')) ?? null,
       screeningRelease: readScreeningRelease(formData.get('screeningRelease')),
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
-      // The older document, when the reader filed this as its new revision (ADR-0099); checked by the service.
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
     }
     return shelf.kind === 'project'

@@ -1,42 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the `document_draft` card, in the states it actually has.
- *
- *  1. **A draft that has been worked on, still only in the chat.** The state the
- *     reader meets first: the tool wrote the path, the reader asked for a
- *     change, `edit_file` wrote it again — so the version is not 1. Everything
- *     on the card is a fact the working directory holds (name, path, size, how
- *     often it was written), and the byline is the Files feature's own component
- *     and words, because a file should say who wrote it the same way everywhere.
- *     The one action, „Ins Projekt übernehmen", writes NOTHING: it puts the
- *     request in the composer, because the bytes are in the agent's working
- *     directory and the browser has neither them nor a route to file them (the
- *     component's header argues this).
- *  2. **Filed, and still the reader's to send.** After `file_draft`: the card
- *     names a project document, says so, and offers the two things that are now
- *     real — opening it beside the conversation, and sending it for approval.
- *     „Zur Freigabe einreichen" is the interactive half and calls the same route
- *     the Files pane calls.
- *  3. **Already with a reviewer.** After `file_draft` with `submit`, or after the reader
- *     pressed the control in 2: the card reports the state and draws no control,
- *     because the version can no longer be replaced and the next move belongs to
- *     a person.
- *  4. **The first write, and an empty one.** A stub the tool created with
- *     nothing in it yet: `v1`, `0 B`. It is here because a card that only looks
- *     right on rich values is a card that looks broken on the day the model
- *     writes a placeholder — and `bytes: 0` is inside the schema (`ge=0`).
- *
- * What the screenshot is FOR is the line between 1 and 2. Judge in both themes
- * that the unfiled card never reads as though the document is already in the
- * project, that the filed one says plainly that it is a DRAFT and not a
- * Freigabe, and that the controls stay quieter than the draft's own name two
- * lines above them.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): the copy
- * under review is the German copy. 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
 import { useChatStore } from '@/features/chat/store'
@@ -55,10 +18,6 @@ function Panel({ title, note, children }: { title: string; note: string; childre
 
 export default function DocumentDraftCardPreview() {
   if (process.env.NODE_ENV !== 'development') notFound()
-  // „Im Projekt öffnen" links into the Files pane, which is project-scoped, so
-  // without a project in the store a filed card correctly draws no link — and
-  // the filed card's two controls are what this page exists to judge. A chat
-  // that filed anything always has one.
   useChatStore.setState({ projectId: 'proj-demo' })
 
   return (

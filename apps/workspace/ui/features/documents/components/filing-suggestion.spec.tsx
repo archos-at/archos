@@ -128,7 +128,7 @@ describe('FilingChip', () => {
     expect(newChip.querySelector('[data-slot="agent-glyph"]')?.className).toContain('shrink-0')
   })
 
-  it('draws nothing for a file Piloti has nothing to say about', () => {
+  it('draws nothing for a file the agent has nothing to say about', () => {
     renderSlot(current, { documentId: 'doc_elsewhere' })
     expect(screen.queryByTestId('filing-chip')).not.toBeInTheDocument()
   })

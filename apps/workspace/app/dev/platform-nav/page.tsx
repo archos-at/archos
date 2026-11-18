@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform section nav. Renders the REAL nav in both of
- * its layouts (the `lg` rail and the narrow scrolling strip) so the active
- * state, spacing and wrapping can be reviewed and screenshotted without a
- * backend or the platform-owner gate. Not linked from anywhere; 404s outside
- * development.
- */
-
 import type { JSX } from 'react'
 import { PlatformNav } from '@/features/platform/components/platform-nav'
 

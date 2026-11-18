@@ -1,5 +1,3 @@
-"""Distance to the site boundary, measured from the building's outline to the nearest point of the site."""
-
 from __future__ import annotations
 
 import math
@@ -20,59 +18,8 @@ from .envelope import undecidable
 from .model import AIR_TYPES
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# distance_to_site_boundary — the one that usually has to refuse
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None) -> Answer[dict[str, Any]]:
-    """Horizontal distance from the building — or from one element — to the site boundary, in metres.
-
-    The geometric input to Brandübertragung auf Nachbargrundstücke, and the
-    operator in this module most likely to return nothing.
-
-    ## Why there is no bounding-box fallback, deliberately
-
-    Every ``IfcSite`` has a placement and most have a bounding box implied by
-    whatever geometry hangs beneath them. It would take four lines to take the
-    site's extent and report the distance from the building to its edge, and the
-    number would be **fiction**: the site's extent in an architectural export is
-    the extent of the *modelled* content — the terrain patch someone drew, or
-    the building itself — and it has no relationship to the Grundstücksgrenze in
-    the Katasterplan. A wrong Abstand zur Grundstücksgrenze is not a rounding
-    error; it is the input to whether a facade may have openings at all, and it
-    would arrive wearing a unit, a tolerance and ``provenance = computed`` like
-    every honest number in this library.
-
-    So: a boundary is measured only against a boundary that is actually in the
-    file, and otherwise the answer is ``undecidable`` with a remedy naming what
-    to export. **Measured on this repository's fixtures: none of the five
-    carries one.** All five have ``IfcSite.Representation = None`` and not one
-    ``IfcAnnotation`` between them. The sample house is even georeferenced
-    (``RefLatitude`` 51° 30′) and still has no boundary — georeferencing places
-    a model on the earth, it does not draw the plot.
-
-    ## What counts as a boundary when it is there
-
-    In order: a curve in the ``IfcSite``'s own representation (``FootPrint`` is
-    where exporters put it), then an ``IfcAnnotation`` whose name matches
-    :data:`BOUNDARY_TERMS`. Polylines and indexed poly-curves are read straight
-    off the entity and transformed by their placement, rather than through the
-    tessellator: a 2D ``FootPrint`` curve is not a body, and asking a solid
-    kernel for one produces nothing at all.
-
-    ## What is measured
-
-    The shortest **horizontal** distance from the subject's body to the boundary
-    polygon, over every vertex. With no ``global_id`` the subject is every
-    physical element in the model — spaces and openings are air and are skipped
-    — and the answer names the element that comes closest, because "das Gebäude
-    steht 3,00 m von der Grenze" is only usable if you can see which corner of
-    it that is.
-
-    No verdict: how close is permissible depends on the Bestimmung, the
-    Bebauungsplan and the neighbour's building, none of which is in this file.
-    """
     method = "distanceToSiteBoundary(model)" if global_id is None else f"distanceToSiteBoundary({global_id})"
     subject = None if global_id is None else op._require(model, global_id, method)
 
@@ -146,10 +93,6 @@ def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None)
 
     measured.sort(key=lambda entry: (entry["distance"], entry["globalId"]))
     nearest = measured[0]
-    # `None`, not `False`, on an open polyline: an even-odd crossing test has to
-    # close the ring to run at all, and on three drawn sides of a parcel that
-    # closing line is a line nobody drew. Reporting `False` would be an answer
-    # about a shape this file does not contain.
     outside = _outside_polygon(np.array(nearest["pointOnElement"]), boundary["points"]) if boundary["closed"] else None
 
     caveat = [
@@ -175,12 +118,6 @@ def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None)
             "und erst danach eine Aussage über das Bauwerk. Der gemeldete Abstand ist in diesem Fall der "
             "Abstand nach außen."
         )
-    # `elements` carries the ten nearest, never all of them, and the caveat has
-    # to say which of the two it is. On a model with 12 candidate elements the
-    # sentence „Die vollständige … Liste steht unter „elemente““ stood over a
-    # payload of 10: a truncation that reads as „das ist alles" is exactly what
-    # `Answer.caveat` means by "a caller that drops this is reporting a subset
-    # as a total".
     listed = measured[:10]
     if global_id is None:
         caveat.append(
@@ -217,7 +154,6 @@ def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None)
 
 
 def _site_boundary(model: SpatialModel) -> dict[str, Any] | None:
-    """The site boundary polygon in world XY, or ``None`` when the file has none."""
     for site in model.file.by_type("IfcSite"):
         found = _curve_points(model, site)
         if found is not None:
@@ -252,13 +188,6 @@ def _site_boundary(model: SpatialModel) -> dict[str, Any] | None:
 
 
 def _curve_points(model: SpatialModel, product: Any) -> tuple[np.ndarray, str] | None:
-    """World-coordinate XY points of the first usable curve on this product.
-
-    Read off the entity and transformed by its placement rather than shaped: a
-    ``FootPrint`` is a 2D curve, ``ifcopenshell.geom.create_shape`` builds solids
-    and surfaces, and asking it for a plot boundary returns nothing at all —
-    which would be indistinguishable from the file not having one.
-    """
     import ifcopenshell.util.placement as placement_util
 
     representation = getattr(product, "Representation", None)
@@ -280,7 +209,6 @@ def _curve_points(model: SpatialModel, product: Any) -> tuple[np.ndarray, str] |
 
 
 def _points_of_items(items: Sequence[Any]) -> list[tuple[float, float, float]]:
-    """Cartesian points out of the curve kinds an exporter actually writes."""
     out: list[tuple[float, float, float]] = []
     for item in items:
         if item.is_a("IfcPolyline"):
@@ -312,24 +240,9 @@ def _is_closed(points: np.ndarray) -> bool:
 
 
 def _distance_to_polygon(vertices: np.ndarray, boundary: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
-    """Shortest distance from a vertex cloud to a polyline, with both witnesses.
-
-    Both endpoints come back because a bare number is not checkable: a reviewer
-    with the two coordinates can put a dimension line on the plan and see
-    whether it lands where they expect.
-    """
     best = math.inf
     on_element = vertices[0]
     on_boundary = boundary[0]
-    # Only the segments the file actually draws. An open polyline is NOT closed
-    # here, deliberately: a survey layer routinely carries three sides of a
-    # parcel, and the fourth side this code would invent lands wherever the
-    # first and last point happen to be. Measured on a three-sided fixture, that
-    # fabricated closing line came out **1.06 m** from a wall that is 7.70 m
-    # from the nearest drawn boundary — a plausible, precise, invented number,
-    # which is the same substitution this operator refuses to make from the
-    # site's bounding box. The caveat says a missing side makes the distance too
-    # large instead.
     for start, end in zip(boundary[:-1], boundary[1:], strict=False):
         edge = end - start
         length_squared = float(edge @ edge)
@@ -348,8 +261,6 @@ def _distance_to_polygon(vertices: np.ndarray, boundary: np.ndarray) -> tuple[fl
 
 
 def _outside_polygon(point: np.ndarray, boundary: np.ndarray) -> bool:
-    """Even-odd ray crossing in plan. Meaningless on an open polyline, and the
-    caller says so in that case rather than suppressing the flag."""
     inside = False
     count = len(boundary)
     for index in range(count):
@@ -362,16 +273,7 @@ def _outside_polygon(point: np.ndarray, boundary: np.ndarray) -> bool:
     return not inside
 
 
-# ── shared helpers ──────────────────────────────────────────────────────────
-
-
 def _matching_term(name: str | None, terms: Sequence[str] = NOT_OCCUPIED_TERMS) -> str | None:
-    """The first term matching this name, normalised the way the lexicon is.
-
-    Reuses :func:`~ifc_spatial.briefing.normalise` so ``Dachgeschoß``,
-    ``Dachgeschoss`` and ``DACHGESCHOSS`` are one storey rather than three, and
-    so a name only mangled by an exporter's encoding does not change the answer.
-    """
     if not name:
         return None
     normalised = normalise(str(name))

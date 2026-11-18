@@ -1,6 +1,6 @@
 # Development Scripts
 
-Helper scripts for developing and running Piloti. `task --list` is the entry point; these are what some tasks call.
+Helper scripts for developing and running the workspace. `task --list` is the entry point; these are what some tasks call.
 
 ## Available Scripts
 

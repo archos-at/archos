@@ -1,8 +1,3 @@
-/**
- * Grundlagen des Büros, the hard-load arrival of its sheet (ADR-0024): a
- * refresh or a pasted link, where there is no page underneath to cover.
- */
-
 import type { JSX } from 'react'
 import { type Metadata } from 'next'
 import { getTranslations } from '@/i18n/server'

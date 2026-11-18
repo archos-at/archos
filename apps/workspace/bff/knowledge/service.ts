@@ -1,19 +1,8 @@
-/**
- * Knowledge-base service — read-only transparency over the RAG corpus.
- *
- * Fetches the merged OIB corpus report from the Python backend
- * (`GET /v1/oib/status`) and maps it to the camelCase shape the UI consumes.
- * A dedicated service (instead of the generic `/api/v1` proxy) is required
- * because the proxy's collection authz deliberately rejects any request that
- * names the base corpus collection.
- */
-
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { internalServiceHeaders } from '@/lib/internal-auth'
 import { ApiError, BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 
-/** Lifecycle of a corpus file relative to what the RAG has indexed. */
 export type KnowledgeFileState = 'ingested' | 'stale' | 'pending' | 'failed' | 'removed' | 'inconsistent'
 
 export interface KnowledgeFile {
@@ -23,17 +12,11 @@ export interface KnowledgeFile {
   chunkCount: number
   ingestedSha256: string | null
   currentSha256: string | null
-  /** The country a release marked the file with (ADR-0173); null when none did or a rollback left it unreleased; `ZZ` for a rollback from before the released flag. */
   countryId: string | null
   ingestedAt: string | null
   summary: string | null
   docClass: string | null
-  /**
-   * A Dokumentart the decision model read from the text when the file name gave
-   * no hint (ADR-0064, use 8). Offered, never applied; cleared once a person sets one.
-   */
   docClassSuggestion: string | null
-  /** Effective user-facing name: stored admin override, else derived default. */
   displayTitle: string | null
 }
 
@@ -103,19 +86,8 @@ function mapFile(entry: BackendFileEntry): KnowledgeFile {
   }
 }
 
-/**
- * Fetch the OIB corpus status from the backend. Read-only; every
- * authenticated user may see it — the corpus is the shared, non-tenant
- * regulatory knowledge every chat answer is grounded on.
- */
-/** Longest backend reason a failure carries; the rest is in the backend's log. */
 const BACKEND_REASON_CHARS = 300
 
-/**
- * A non-OK backend answer as an error whose message says why: the backend's
- * own `detail` (FastAPI's error body), so an index run records "returned 500:
- * QueueUnavailable: …" and not a bare status (the AT publish of 2026-11-12).
- */
 async function backendFailure(res: Response): Promise<UpstreamError> {
   const text = await res.text().catch(() => '')
   let reason = text
@@ -165,15 +137,6 @@ export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
   }
 }
 
-/**
- * The base corpus as a reader of `countries` sees it (ADR-0173): the files a
- * release marked with one of them, and counts over those alone. A file no
- * release marked, one a rollback withdrew and another country's file are not
- * listed, by the rule that keeps their chunks out of every search
- * (`corpus_country_condition`) and their PDF out of the viewer
- * (`streamReleasedKnowledgeBaseDocument`). A reader of no country reads nothing.
- * `getKnowledgeBaseStatus` is the whole corpus, for the platform's own readers.
- */
 export async function getReleasedKnowledgeBaseStatus(countries: readonly string[]): Promise<KnowledgeBaseStatus> {
   const status = await getKnowledgeBaseStatus()
   const files = status.files.filter((file) => file.countryId !== null && countries.includes(file.countryId))
@@ -194,17 +157,11 @@ export async function getReleasedKnowledgeBaseStatus(countries: readonly string[
   }
 }
 
-/**
- * Admin-token header for the backend's `/v1/admin/oib/*` endpoints. The token
- * is optional in dev (the backend fails open when its own token is unset);
- * production deployments must set ADMIN_TOKEN on both services.
- */
 export function adminHeaders(): Record<string, string> {
   const token = process.env.ADMIN_TOKEN
   return token ? { 'X-Admin-Token': token } : {}
 }
 
-/** Basename-only, `.pdf`-only — anything else is rejected before it travels. */
 export function requirePdfBasename(fileName: string): string {
   const name = fileName.trim()
   if (!name || name !== name.replace(/[/\\]/g, '') || !name.toLowerCase().endsWith('.pdf')) {
@@ -213,7 +170,6 @@ export function requirePdfBasename(fileName: string): string {
   return name
 }
 
-/** Basename-only, `.pdf`- OR `.zip`-only — the two shapes the upload accepts. */
 function requireUploadBasename(fileName: string): string {
   const name = fileName.trim()
   const lower = name.toLowerCase()
@@ -223,7 +179,6 @@ function requireUploadBasename(fileName: string): string {
   return name
 }
 
-/** One PDF queued from a ZIP bulk upload (or rejected during extraction). */
 export interface KnowledgeUploadMember {
   fileName: string
   status: 'pending' | 'rejected'
@@ -242,17 +197,10 @@ export interface KnowledgeUploadResult {
   members: KnowledgeUploadMember[] | null
 }
 
-/** Upload options: an optional explicit doc_class for a single-PDF upload. */
 export interface KnowledgeUploadOptions {
   docClass?: string
 }
 
-/**
- * Upload a PDF — or a ZIP of PDFs — into the shared base corpus. Ingestion runs
- * in the background on the backend, so this returns promptly with status
- * `pending`; the caller polls the corpus status for the terminal lifecycle.
- * Platform-owner authorization happens in the route.
- */
 export async function uploadKnowledgeBaseDocument(
   file: File,
   options: KnowledgeUploadOptions = {},
@@ -270,15 +218,12 @@ export async function uploadKnowledgeBaseDocument(
       method: 'POST',
       headers: adminHeaders(),
       body: form,
-      // The upload is non-blocking (ingestion is backgrounded), but a large ZIP
-      // still travels + extracts; keep a generous ceiling.
       signal: AbortSignal.timeout(660_000),
     })
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
   if (res.status === 409) {
-    // The api tier keeps other bytes under this name, and a corpus file's bytes never change (ADR-0165).
     throw new ApiError(409, 'NAME_TAKEN', `The base corpus keeps other bytes as ${name}; nothing is replaced.`, {
       hint: 'Remove that file from the base corpus first if no record names it, or upload it under another name.',
     })
@@ -315,10 +260,6 @@ export async function uploadKnowledgeBaseDocument(
   }
 }
 
-/**
- * Reclassify a base-corpus document's Dokumentart (doc_class). Because retrieval
- * is store-authoritative, the change reflects immediately with no re-ingest.
- */
 export async function updateKnowledgeBaseDocClass(fileName: string, docClass: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   let res: Response
@@ -342,11 +283,6 @@ export async function updateKnowledgeBaseDocClass(fileName: string, docClass: st
   if (!res.ok) throw await backendFailure(res)
 }
 
-/**
- * Rename a base-corpus document (user-facing display title). Store-authoritative,
- * so the new name reflects on citation chips immediately with no re-ingest. Pass
- * an empty string / null to clear the override and restore the derived default.
- */
 export async function updateKnowledgeBaseDisplayTitle(
   fileName: string,
   displayTitle: string | null,
@@ -369,11 +305,6 @@ export async function updateKnowledgeBaseDisplayTitle(
   if (!res.ok) throw await backendFailure(res)
 }
 
-/**
- * Delete a base-corpus document: its indexed chunks, its stored file and its
- * corpus entry. There is one kind of removal and it deletes; uploading the same
- * file again adds it back.
- */
 export async function deleteKnowledgeBaseDocument(fileName: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   let res: Response
@@ -398,14 +329,12 @@ export interface KnowledgeSyncResult {
   message: string
 }
 
-/** Trigger an incremental corpus re-sync (new/changed PDFs are re-ingested). */
 export async function syncKnowledgeBase(): Promise<KnowledgeSyncResult> {
   let res: Response
   try {
     res = await fetch(`${getBackendUrl()}/v1/admin/oib/sync`, {
       method: 'POST',
       headers: adminHeaders(),
-      // A full first-time sync embeds the whole corpus; give it 10 minutes.
       signal: AbortSignal.timeout(660_000),
     })
   } catch (error) {
@@ -427,22 +356,6 @@ export interface KnowledgeReingestResult {
   message: string
 }
 
-/**
- * Force a rebuild of specific base-corpus documents' chunks.
- *
- * `syncKnowledgeBase` is incremental and gates on the sha256 of the PDF bytes, so it does
- * nothing for a document whose file has not changed. That is correct for "has anything new
- * arrived" and useless after a change to how chunks are BUILT rather than what they are
- * built from — a chunking change, a new embedding model, a half-failed ingest. This is the
- * targeted remedy, so an admin does not have to re-ingest the whole corpus (39 PDFs,
- * including VLM captioning) to rebuild three of them.
- *
- * Returns as soon as the work is QUEUED, like an upload: the backend ingests in the
- * background and the caller polls `/api/platform/knowledge/documents`, where each queued document reads
- * `pending` until its chunks exist again. Unknown names come back in `unknown` rather than
- * failing the call — one stale name must not discard a selection of twenty.
- */
-/** The platform record a corpus file is the text of (ADR-0173): what its chunks carry as `country_id` and `knowledge_edition_id`. */
 export interface CorpusFileMark {
   countryId: string | null
   editionId: string | null
@@ -467,7 +380,6 @@ export async function reingestKnowledgeBaseDocuments(
           ? { marks: Object.fromEntries(Object.entries(marks).map(([name, mark]) => [name, { country_id: mark.countryId, edition_id: mark.editionId }])) }
           : {}),
       }),
-      // Queueing only — the ingestion itself runs in the background.
       signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
     })
   } catch (error) {
@@ -476,8 +388,6 @@ export async function reingestKnowledgeBaseDocuments(
   if (!res.ok) throw await backendFailure(res)
   const body = await res.json().catch(() => ({}))
   const queued: string[] = Array.isArray(body?.queued) ? body.queued.map(String) : []
-  // A release mark must land as released: a backend from before the flag records the country and leaves a
-  // withdrawn row withdrawn, so its answer is refused and the indexing job retries (ADR-0173).
   const released = new Set(Array.isArray(body?.released) ? body.released.map(String) : [])
   const unreleased = queued.filter((name) => Object.hasOwn(marks, name) && !released.has(name))
   if (unreleased.length > 0) throw new UpstreamError(`Knowledge backend did not release ${unreleased.join(', ')}`)
@@ -489,18 +399,11 @@ export async function reingestKnowledgeBaseDocuments(
   }
 }
 
-/**
- * The whole base corpus as one .tar.gz. Its only consumer was the answer-suite
- * CI workflow, which has been removed; the export stays until someone decides
- * to delete it. The backend builds it from exactly the PDFs its sync ingests
- * and refuses without a configured admin token; this passes the stream through.
- */
 export async function streamKnowledgeBaseCorpus(): Promise<Response> {
   let res: Response
   try {
     res = await fetch(`${getBackendUrl()}/v1/admin/oib/corpus.tar.gz`, {
       headers: adminHeaders(),
-      // Tens of MB, tarred before the first byte: minutes, not seconds.
       signal: AbortSignal.timeout(600_000),
     })
   } catch (error) {
@@ -519,14 +422,6 @@ export async function streamKnowledgeBaseCorpus(): Promise<Response> {
   })
 }
 
-/**
- * Withdraw a base-corpus file (ADR-0173): mark its chunks and its corpus row
- * unreleased (`released: false`), so no office reads it and a later re-ingest
- * stamps it again; its country and licence fields stay as they are. The backend
- * writes the row even for a file with no chunks and answers 200 then. Throws on
- * any failure, a 404 included, and on an answer that does not echo the flag:
- * a backend from before the flag ignores it, so the job retries it.
- */
 export async function withdrawCorpusFile(fileName: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   const backendUrl = getBackendUrl()

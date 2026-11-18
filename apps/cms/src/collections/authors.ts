@@ -1,4 +1,3 @@
-/** The people a post names as its author, for the byline and the post's structured data. */
 import type { CollectionConfig } from 'payload';
 import { canDraft, canPublish, roleOf } from '../access/roles';
 

@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The create-project dialog, shown open, so its anatomy is screenshot-
- * reviewable without a database. Submitting calls the real server action and
- * fails without one; the dialog shows its calm error then.
- *
- * The address search and the same-address lookup answer from fixtures here:
- * type „Haupt" or „Lack" for suggestions; the first Hauptstraße has an earlier
- * project. `?filled=1` opens it filled in, the description unfolded.
- */
-
 import { use } from 'react'
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
 import type { GeocodingClient } from '@/lib/geocoding/client'

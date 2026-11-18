@@ -4,25 +4,14 @@ import { DeployConfig } from '../config'
 import { GATEWAY_NAME } from "./gateway";
 import { PLATFORM_RESOURCES } from "../constants";
 
+export const CERT_MANAGER_CHART_VERSION = "v1.21.3";
+
 export interface CertManager {
   release: k8s.helm.v3.Release;
-  /** The ClusterIssuer resource — Gateway resources should `dependsOn` this so
-   *  the cert-manager Gateway shim never references a not-yet-created issuer. */
   issuer: k8s.apiextensions.CustomResource;
-  /** Name of the ClusterIssuer the Gateway references for TLS. */
   issuerName: pulumi.Output<string>;
 }
 
-/**
- * cert-manager (Helm) with **Gateway API integration enabled**, plus a Let's
- * Encrypt ClusterIssuer whose ACME HTTP-01 challenge is solved via the Gateway
- * API (`gatewayHTTPRoute`) rather than an Ingress. The Gateway is annotated
- * with this issuer so cert-manager provisions a Certificate per HTTPS listener.
- *
- * Ordering: this depends on the Gateway API CRDs already existing (installed by
- * the Envoy Gateway controller), because cert-manager reads them at startup to
- * enable the integration — pass the controller release in `dependsOn`.
- */
 export function installCertManager(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -39,15 +28,11 @@ export function installCertManager(
     "cert-manager",
     {
       chart: "cert-manager",
-      // Unpinned: track the latest chart. `enableGatewayAPI` has been stable
-      // config since v1.15, so newer releases stay compatible with the wiring
-      // below.
+      version: CERT_MANAGER_CHART_VERSION,
       namespace: ns.metadata.name,
       repositoryOpts: { repo: "https://charts.jetstack.io" },
       values: {
         crds: { enabled: true },
-        // Enable the Gateway API integration (HTTP-01 gatewayHTTPRoute solver +
-        // the Gateway certificate shim). Requires the Gateway API CRDs to exist.
         config: {
           apiVersion: "controller.config.cert-manager.io/v1alpha1",
           kind: "ControllerConfiguration",

@@ -15,6 +15,7 @@ vi.mock('../lib/event-hub', () => ({
 }))
 
 import { useMentionCandidates, useSharing } from './use-sharing'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const RESOURCE_ID = 's_conv_new'
 const URL = `/api/sharing/conversation/${RESOURCE_ID}`
@@ -175,7 +176,7 @@ const candidates = (): Response =>
   ({
     ok: true,
     status: 200,
-    json: async () => ({ candidates: [{ kind: 'agent', id: 'agent', name: 'Piloti' }] }),
+    json: async () => ({ candidates: [{ kind: 'agent', id: 'agent', name: PRODUCT_NAME }] }),
   }) as unknown as Response
 
 describe('useMentionCandidates — before the conversation exists', () => {

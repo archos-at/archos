@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Platform maintenance: the kill switch for deep research.
- *
- * Stops every queued or running deep research in every organization and closes
- * each run as interrupted (`POST /api/platform/maintenance/kill-runs`,
- * `lib/runs/kill-all.ts`). The anatomy is the shared `MaintenanceActionCard`,
- * in its danger tone; this file is the endpoint, the copy and how to read a
- * `KillAllResult`.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { OctagonX } from 'lucide-react'
@@ -22,7 +12,6 @@ import {
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
-/** Mirrors `KillAllResult` in `@/lib/runs/kill-all`. */
 export interface KillResult {
   jobsFound: number
   jobsKilled: number
@@ -32,11 +21,6 @@ export interface KillResult {
   truncated: boolean
 }
 
-/**
- * The backend stops up to a thousand jobs one after another; past this the
- * request is released so the dialog cannot hang. The kill itself is
- * server-owned and may still complete.
- */
 const KILL_TIMEOUT_MS = 180_000
 
 function parseKill(body: unknown): KillResult {
@@ -52,7 +36,6 @@ function parseKill(body: unknown): KillResult {
 }
 
 export interface RunKillSwitchProps {
-  /** Seeds the last-kill panel, for the dev preview and tests only. */
   initialResult?: KillResult | null
 }
 

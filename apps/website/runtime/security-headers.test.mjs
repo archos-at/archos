@@ -28,7 +28,6 @@ test('with analytics the policy adds exactly the PostHog EU origins', () => {
     'https://eu.i.posthog.com',
     'https://eu-assets.i.posthog.com',
   ])
-  // Session replay, after consent, runs its compression in a blob worker.
   assert.deepEqual(directive(csp, 'worker-src'), ["'self'", 'blob:'])
 })
 

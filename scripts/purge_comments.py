@@ -1,9 +1,8 @@
-"""Comment and docstring purge for Python, TypeScript and JavaScript; the rule: code-conventions.md#comments."""
-
 from __future__ import annotations
 
 import ast
 import io
+import re
 import sys
 import tokenize
 from pathlib import Path
@@ -13,8 +12,7 @@ from check_comments import DIRECTIVE  # noqa: E402
 from check_comments import _comment_nodes  # noqa: E402
 from check_comments import _kind  # noqa: E402
 from check_comments import _parser  # noqa: E402
-
-BEHAVIOUR = ("__doc__", "@tool", "from_function", "FunctionInfo")
+from check_comments import script_metadata_lines  # noqa: E402
 
 
 def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int, bool, int]]:
@@ -39,21 +37,23 @@ def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int,
 
 
 def _comment_lines(source: str) -> set[int]:
-    found = set()
+    found: set[int] = set()
+    kept = script_metadata_lines(source)
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type != tokenize.COMMENT or token.line[: token.start[1]].strip():
             continue
         if token.start[0] == 1 and token.string.startswith("#!"):
             continue
-        if not DIRECTIVE.search(token.string):
+        if token.start[0] not in kept and not DIRECTIVE.search(token.string):
             found.add(token.start[0])
     return found
 
 
+EXPIRY = re.compile(r"drop after release \S+?(?=[.\s\"]|$)")
+
+
 def purge(path: Path) -> int:
     source = path.read_text(encoding="utf-8")
-    if any(marker in source for marker in BEHAVIOUR):
-        return 0
     lines = source.split("\n")
     try:
         tree = ast.parse(source)
@@ -61,10 +61,13 @@ def purge(path: Path) -> int:
     except SyntaxError, tokenize.TokenError, IndentationError:
         return 0
     replace: dict[int, str] = {}
-    for start, end, sole, col in _docstring_spans(tree, lines):
+    spans = _docstring_spans(tree, lines)
+    for start, end, sole, col in spans:
         remove.update(range(start, end + 1))
         if sole:
             replace[start] = " " * col + "..."
+        elif marker := EXPIRY.search("\n".join(lines[start - 1 : end])):
+            replace[start] = " " * col + f"# {marker.group(0)}"
     if not remove:
         return 0
     out = []

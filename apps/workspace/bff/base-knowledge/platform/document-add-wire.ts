@@ -1,11 +1,3 @@
-/**
- * The wire of adding one document to a country (Platform → a country → Works
- * and editions → "Add a document"): a PDF, from the publisher's URL or an
- * upload, becomes the text of an edition of a work of that country, inside the
- * country's open draft change request. Pure: the routes, the agent operations
- * and the dialog's prefill read it.
- */
-
 import { z } from 'zod'
 import { KNOWLEDGE_WORK_KINDS, type KnowledgeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import { normalizeForQuote, quoteFound } from './quote'
@@ -16,7 +8,6 @@ const keySchema = z
   .trim()
   .regex(/^[a-z0-9][a-z0-9._-]{0,99}$/)
 
-/** The work the document belongs to: one of the country's, by key, or a new one. */
 export const documentWorkSchema = z.union([
   z.object({ workKey: keySchema.describe('A work of this country, from platform-knowledge-work-list.') }),
   z.object({
@@ -52,7 +43,6 @@ function parsedJson(value: string): unknown {
   }
 }
 
-/** The upload's text fields as form parts: `work` travels as JSON, and an empty `inForceFrom` is none. */
 export const uploadDocumentFields = {
   work: z
     .string()
@@ -88,7 +78,6 @@ export const listWorksQuerySchema = z.object({
 })
 export type ListWorksQuery = z.infer<typeof listWorksQuerySchema>
 
-/** One work of a country, as the dialog offers it, with its editions' labels. */
 export interface CountryWorkView {
   workKey: string
   title: string
@@ -97,11 +86,9 @@ export interface CountryWorkView {
   editions: { editionKey: string; label: string }[]
 }
 
-/** Where the document went: the request, and the records it now holds. */
 export interface AddDocumentResult {
   changeRequestId: string
   changeRequestTitle: string
-  /** True when no draft of this country was open and one was opened for it. */
   opened: boolean
   workKey: string
   editionKey: string
@@ -109,7 +96,6 @@ export interface AddDocumentResult {
   sha256: string
 }
 
-/** A key part from printed words: lower case, no accents, dashes between words. */
 export function keyPart(text: string, max = 60): string {
   return text
     .normalize('NFKD')
@@ -122,7 +108,6 @@ export function keyPart(text: string, max = 60): string {
     .replace(/[-.]+$/g, '')
 }
 
-/** Whether `text` prints `needle` as whole words: "2019" is not in "12019". Both normalized for the quote check. */
 function printsWords(text: string, needle: string): boolean {
   const wordChar = /[\p{L}\p{N}]/u
   for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + 1)) {
@@ -131,10 +116,6 @@ function printsWords(text: string, needle: string): boolean {
   return false
 }
 
-/**
- * The fewest words of `text` around where it prints `label`, long enough to be a quote (KC-6): what a record
- * cites to say the document names it. Null when the text does not print it as whole words.
- */
 export function quoteNaming(text: string, label: string): string | null {
   const needle = normalizeForQuote(label)
   if (!needle || !printsWords(normalizeForQuote(text), needle)) return null

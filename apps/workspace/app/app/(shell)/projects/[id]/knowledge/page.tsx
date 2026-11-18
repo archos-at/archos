@@ -19,8 +19,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function KnowledgePage({ params }: KnowledgePageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
-    // Feature-flagged rollout (default off): the page 404s like it doesn't
-    // exist rather than teasing a locked section.
     if (!isProjectKnowledgePageEnabled(session)) {
       notFound()
     }

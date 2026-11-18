@@ -1,15 +1,3 @@
-/**
- * A typed address line as the parts a register is searched by (ADR-0172).
- * Pure and client-safe.
- *
- * Reads "Straße Nr, PLZ Ort", "Straße Nr PLZ Ort", "PLZ Ort, Straße Nr", an
- * optional country prefix (`A-`, `D-`, `CH-`) and a trailing country name. A
- * stated country is kept as stated: invariant A1, no axis inferred from
- * another. A five-digit postcode states nothing by itself: a Kleinwalsertal
- * address is typed with its German postcode and is Austrian (design E30).
- */
-
-/** Country prefixes and names a person types, as ISO 3166-1 alpha-2. */
 const COUNTRY_WORDS: Readonly<Record<string, string>> = {
   a: 'AT', at: 'AT', aut: 'AT', austria: 'AT', oesterreich: 'AT', 'österreich': 'AT', osterreich: 'AT',
   d: 'DE', de: 'DE', deu: 'DE', germany: 'DE', deutschland: 'DE',
@@ -19,15 +7,11 @@ const COUNTRY_WORDS: Readonly<Record<string, string>> = {
 }
 
 export interface ParsedAddress {
-  /** The street (or farm or place name) before the house number. */
   street: string
-  /** The house number as typed, without a door or staircase (`16` of `16/2/5` is kept in `doorless`). */
   houseNumber: string
-  /** The number before a `/`, for a line that adds staircase and door; null when there is none. */
   doorless: string | null
   postcode: string | null
   place: string | null
-  /** The country the line states, ISO alpha-2, or null when it states none. */
   statedCountry: string | null
 }
 
@@ -35,12 +19,6 @@ function countryOf(word: string): string | null {
   return COUNTRY_WORDS[word.trim().toLowerCase().replace(/\.$/, '')] ?? null
 }
 
-/**
- * "Herrengasse 16" → street and number; null without a number at its end. A
- * lot number (`Dallein GNR 310/4`, `GNR .87`) is the house number, as the
- * register writes it: where a place has no house numbers, the BEV numbers by
- * Grundstück.
- */
 function streetAndNumber(segment: string): StreetPart | null {
   const lot = /^(.*?\p{L}.*?)\s+(GNR\s*\.?\s*\d+(?:\s*\/\s*\d+)?)$/iu.exec(segment.trim())
   if (lot) return { street: lot[1].trim(), houseNumber: lot[2].replace(/\s+/g, ' ').trim() }
@@ -49,7 +27,6 @@ function streetAndNumber(segment: string): StreetPart | null {
   return { street: match[1].trim().replace(/[,.]$/, ''), houseNumber: match[2].replace(/\s+/g, ' ').trim() }
 }
 
-/** "8010 Graz", "D-87567 Riezlern", "A-1010 Wien" → postcode, place and a stated country. */
 interface PostalPart {
   postcode: string
   place: string | null
@@ -69,7 +46,6 @@ function postcodeAndPlace(segment: string): PostalPart | null {
   return { postcode: match[2], place: match[3]?.trim() || null, country }
 }
 
-/** Split a line written without commas at its postcode: "Herrengasse 16 8010 Graz". */
 function segmentsOf(line: string): string[] {
   const segments = line.split(',').map((part) => part.trim()).filter(Boolean)
   if (segments.length !== 1) return segments
@@ -77,7 +53,6 @@ function segmentsOf(line: string): string[] {
   return match ? [match[1], match[2]] : segments
 }
 
-/** The parts of a typed line, or null when it names no street and house number: nothing to look up. */
 export function parseAddress(line: string): ParsedAddress | null {
   const segments = segmentsOf(line.replace(/\s+/g, ' ').trim())
   let statedCountry: string | null = null

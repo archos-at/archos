@@ -1,18 +1,8 @@
-"""Hand-built PDFs with real fonts, sizes and rasters, for tests that read them.
-
-No PDF library is installed for writing (reportlab is not a dependency), so this emits
-the few objects a page needs: the base-14 Helvetica faces, which every reader knows
-without embedding, in WinAnsiEncoding so German text survives as cp1252 bytes, and —
-for :func:`build_plan_set_pdf` — one embedded JPEG (``/DCTDecode``) per drawing, the
-same shape a plan set has.
-"""
-
 from __future__ import annotations
 
 import random
 from pathlib import Path
 
-#: ``(font, size, text)``; font ``"R"`` is Helvetica, ``"B"`` Helvetica-Bold.
 PdfLine = tuple[str, float, str]
 
 _PAGE_TOP = 800.0
@@ -35,7 +25,6 @@ def _content(lines: list[PdfLine]) -> bytes:
 
 
 def build_pdf(pages: list[list[PdfLine]]) -> bytes:
-    """A PDF with one page per list of lines, top to bottom."""
     count = len(pages)
     fonts = "<< /FR 3 0 R /FB 4 0 R >>"
     objects: list[bytes] = [
@@ -59,7 +48,6 @@ def build_pdf(pages: list[list[PdfLine]]) -> bytes:
 
 
 def _xref_pdf(objects: list[bytes]) -> bytes:
-    """Serialise 1-based ``objects`` into a PDF with a cross-reference table."""
     out = bytearray(b"%PDF-1.4\n")
     offsets: list[int] = []
     for number, body in enumerate(objects, start=1):
@@ -74,7 +62,6 @@ def _xref_pdf(objects: list[bytes]) -> bytes:
 
 
 def body_lines(tag: str, count: int) -> list[PdfLine]:
-    """``count`` distinct 10 pt body lines, each a whole sentence tagged ``tag-NN``."""
     return [
         ("R", 10, f"Satz {tag}-{n:02d}: Die Anforderungen an Bauteile sind gemäß Tabelle einzuhalten.")
         for n in range(1, count + 1)
@@ -86,11 +73,6 @@ def footer(page: int) -> PdfLine:
 
 
 def fire_safety_concept_pages() -> list[list[PdfLine]]:
-    """A three-page German report: title 18 pt, chapters 14 pt, sub-sections 12 pt, body 10 pt.
-
-    Section 1.1 starts on page 1 and ends on page 2; a line opening with ``1.200 m²``
-    sits in 1.2's body; every page carries the same footer.
-    """
     page_one = [
         ("B", 18, "Brandschutzkonzept Wohnanlage Musterstraße"),
         ("R", 10, "Projekt Wohnanlage Musterstraße 12, 1010 Wien, Fassung vom 3. März 2026."),
@@ -126,36 +108,16 @@ def write_pdf(path: Path, pages: list[list[PdfLine]]) -> Path:
     return path
 
 
-# ---------------------------------------------------------------------------
-# Plan sets: the memory profile of a heavy embedded-raster document.
-#
-# A plan set is a page per drawing, each drawing one or more big rasters (a
-# scan, a photo, a plotted sheet, a detail crop on top of it). It is the
-# document that OOM-killed the ingest pods: at full resolution every raster of
-# a sheet is decoded and held until the sheet's last JPEG is built, so one plan
-# set costs hundreds of MiB before a single caption is asked for. The fixture
-# reproduces that profile on demand, deterministically and in seconds.
-# ---------------------------------------------------------------------------
-
-#: One drawing's raster: 3000 x 2200 px (about 20 MB, 19 MiB, once decoded; ~6 MB on disk).
 PLAN_SET_RASTER_PX: tuple[int, int] = (3000, 2200)
 
-#: A raster below ``MIN_IMAGE_WIDTH_PX``/``MIN_IMAGE_HEIGHT_PX``, the icon filter.
 PLAN_SET_UNDERSIZED_PX: tuple[int, int] = (40, 40)
 
-#: A raster that survives the icon filter but loses to the large ones at the cap.
 PLAN_SET_SMALL_RASTER_PX: tuple[int, int] = (400, 300)
 
 _PLAN_SET_SEED = 20261018
 
 
 def _noise_jpeg(width: int, height: int, seed: int) -> bytes:
-    """A deterministic, incompressible RGB JPEG; distinct bytes per ``seed``.
-
-    Noise, not a gradient: a real sheet's raster does not compress away, which
-    is what makes the on-disk bytes match the profile. ``PIL`` is imported
-    here so the text builders above stay dependency-free.
-    """
     import io
 
     from PIL import Image
@@ -174,12 +136,6 @@ def plan_set_page_rasters(
     small_raster_pages: int = 0,
     include_undersized_raster: bool = False,
 ) -> list[list[tuple[int, int]]]:
-    """Each drawing page's list of raster sizes, in page order.
-
-    ``rasters_per_page`` matters to the memory profile: the extractor holds every
-    raster of one page at full resolution before it encodes any of them, so a
-    page with several large rasters is what costs hundreds of MiB at once.
-    """
     pages = [[raster_px] * rasters_per_page for _ in range(raster_pages)]
     pages += [[PLAN_SET_SMALL_RASTER_PX] for _ in range(small_raster_pages)]
     if include_undersized_raster:
@@ -197,16 +153,6 @@ def build_plan_set_pdf(
     include_undersized_raster: bool = False,
     seed: int = _PLAN_SET_SEED,
 ) -> bytes:
-    """A plan set: large embedded rasters on the drawing pages, plus a few text pages.
-
-    Each drawing page carries ``rasters_per_page`` seeded-noise JPEGs at
-    ``raster_px`` (embedded with ``/DCTDecode``, so PDFium reports the raster's
-    own pixel size without decoding it). ``text_pages`` pages carry Helvetica
-    text only. ``small_raster_pages`` add pages with a raster above the icon
-    filter but below ``raster_px``, what a cap keeps out;
-    ``include_undersized_raster`` prepends a page below the icon filter, for the
-    tests that neither the filter nor the cap ever reaches a decode.
-    """
     objects: list[bytes] = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"PLACEHOLDER_PAGES",  # object 2, filled in below once the page numbers are known
@@ -281,12 +227,6 @@ def build_plan_set_pdf(
 
 
 def build_drawing_sheets_pdf(sheets: int, paths_per_sheet: int, *, seed: int = 7) -> bytes:
-    """A set of CAD-exported sheets: ``paths_per_sheet`` stroked line segments and a title block each.
-
-    The shape that OOM-killed the ingest worker in the text pass (2026-10-19):
-    pdfplumber builds a dict per path and its table finder walks every edge,
-    while the text a person would search for is two lines in the corner.
-    """
     rng = random.Random(seed)
     objects: list[bytes] = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
@@ -314,7 +254,6 @@ def build_drawing_sheets_pdf(sheets: int, paths_per_sheet: int, *, seed: int = 7
 
 
 def write_plan_set(path: Path, **kwargs: object) -> Path:
-    """Write a plan set to ``path``, with any keyword of :func:`build_plan_set_pdf`."""
     path.write_bytes(build_plan_set_pdf(**kwargs))  # type: ignore[arg-type]
     return path
 

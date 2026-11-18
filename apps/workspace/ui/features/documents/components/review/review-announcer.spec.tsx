@@ -32,7 +32,7 @@ function reviewWith(annotations: Array<Pick<AnnotationView, 'id' | 'number'>>, a
 }
 
 describe('announcementOf', () => {
-  it("gathers each one's changes into one sentence: Piloti's proposals by count, a person's marks by number", () => {
+  it("gathers each one's changes into one sentence: the agent's proposals by count, a person's marks by number", () => {
     const { result } = renderHook(() => useTranslations(filesCopy))
     const numbers: Record<string, number> = { a7: 7 }
     const line = announcementOf(
@@ -88,7 +88,7 @@ describe('ReviewAnnouncer', () => {
     for (const line of said) expect(line.replace('\u200b', '')).toBe('Anna Berger: new reply on annotation 7')
   })
 
-  it('says Piloti answered when a question this reader asked leaves thinking', () => {
+  it('says the agent answered when a question this reader asked leaves thinking', () => {
     const { review } = reviewWith([], [{ id: 'ask_1', status: 'thinking' }])
     const view = render(<ReviewAnnouncer review={review} />)
     view.rerender(<ReviewAnnouncer review={reviewWith([], [{ id: 'ask_1', status: 'answered' }]).review} />)

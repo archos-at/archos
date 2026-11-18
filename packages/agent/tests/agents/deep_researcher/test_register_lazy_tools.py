@@ -1,5 +1,3 @@
-"""Tests for lazy (request-time) inherited-tool resolution in the deep research register."""
-
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -15,9 +13,8 @@ from tests.provider_doubles import NAT_LLM_CONFIG
 from tests.provider_doubles import nat_langchain_client
 
 
-@tool
+@tool(description="Search the web.")
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     return f"results: {query}"
 
 
@@ -41,7 +38,6 @@ class _FakeBuilder:
 
 
 def _make_agent_stub():
-    """DeepResearcherAgent replacement whose .run echoes the input state."""
 
     def _factory(*args, **kwargs):
         agent = MagicMock()
@@ -60,26 +56,19 @@ async def _get_run_fn(config, builder):
 
 @pytest.mark.asyncio
 async def test_inherited_tools_resolved_lazily_after_registry_populated():
-    """Empty registry at build time: first run resolves nothing; a later run resolves once populated."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = DeepResearchAgentConfig(orchestrator_llm="orch_llm", tools=[])
 
     with patch.object(register_module, "DeepResearcherAgent", _make_agent_stub()):
-        # Registry empty at build time.
         with patch.object(register_module, "get_all_tool_refs", return_value=[]):
             run_fn, gen = await _get_run_fn(config, builder)
-            # No build-time tool resolution for inherited tools.
             assert builder.get_tools_calls == []
 
-            # First request: registry still empty -> runtime gate returns an error state,
-            # and the empty result is NOT cached.
             result = await run_fn(DeepResearchAgentState(messages=[]))
             assert result.messages  # error AIMessage placed by the runtime gate
 
-        # Registry now populated (build-order race resolved by request time).
         with patch.object(register_module, "get_all_tool_refs", return_value=["web_search_tool"]):
             result2 = await run_fn(DeepResearchAgentState(messages=[]))
-            # Tools were resolved lazily and the agent actually ran.
             assert result2 is not None
             assert ["web_search_tool"] in builder.get_tools_calls
 
@@ -88,7 +77,6 @@ async def test_inherited_tools_resolved_lazily_after_registry_populated():
 
 @pytest.mark.asyncio
 async def test_explicit_tools_resolved_eagerly_and_registry_never_consulted():
-    """Explicit config.tools keeps the original eager-resolution behavior."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = DeepResearchAgentConfig(orchestrator_llm="orch_llm", tools=["web_search_tool"])
 
@@ -98,12 +86,10 @@ async def test_explicit_tools_resolved_eagerly_and_registry_never_consulted():
         patch.object(register_module, "get_all_tool_refs", get_all),
     ):
         run_fn, gen = await _get_run_fn(config, builder)
-        # Eager resolution at build time for the explicit list.
         assert builder.get_tools_calls == [["web_search_tool"]]
 
         result = await run_fn(DeepResearchAgentState(messages=[]))
         assert result is not None
-        # The inherited-tools registry path is never taken for explicit configs.
         get_all.assert_not_called()
 
         await gen.aclose()

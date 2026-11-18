@@ -1996,7 +1996,11 @@ describe('the authorship gate on the (collection, filename) join', () => {
       const [url, init] = documentCalls()[0] ?? []
       expect(String(url)).toBe('http://backend:8000/v1/collections/proj_abc/documents')
       expect((init as RequestInit)?.method).toBe('DELETE')
-      expect(JSON.parse(String((init as RequestInit)?.body))).toEqual({ file_ids: [collidingName], permanent: true })
+      expect(JSON.parse(String((init as RequestInit)?.body))).toEqual({
+        file_ids: [collidingName],
+        documents: [{ id: 'doc-1', file_name: collidingName }],
+        permanent: true,
+      })
     })
 
     it('purges permanently, both times: a deleted document keeps no Fassung link for a later upload of its name', async () => {

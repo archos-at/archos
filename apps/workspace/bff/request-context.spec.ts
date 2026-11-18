@@ -5,6 +5,7 @@
 import fixtureData from '../tests/fixtures/request_context.json'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { callsTo, parseSourceText, ts } from '@/test-utils/source-ast'
 import { buildRequestContextEnvelopeHeaders as commonJsEnvelopeHeaders, turnContextHeaders } from './turns/turn-headers.js'
 
 import {
@@ -394,55 +395,110 @@ describe('verifyRequestContextEnvelope', () => {
   })
 })
 
-describe('server.js mints the same envelope payload this module does', () => {
-  const source = readFileSync(new URL('./turns/turn-headers.js', import.meta.url), 'utf8')
-  const server = readFileSync(new URL('../server.js', import.meta.url), 'utf8')
+const decodeEnvelope = (headers: Record<string, string>): Record<string, unknown> =>
+  JSON.parse(Buffer.from(headers['x-request-context'], 'base64url').toString('utf8'))
 
-  const serverFields = (): string[] => {
-    const start = source.indexOf('function buildRequestContextEnvelopeHeaders(input, secret)')
-    expect(start, 'turn-headers.js no longer has the duplicated builder this spec pins').toBeGreaterThan(-1)
-    const body = source.slice(start, source.indexOf('const json = JSON.stringify(payload)', start))
-    return [...body.matchAll(/payload\.([A-Za-z]+)\s*=/g)].map((match) => match[1])
+function dottedName(node: ts.Node | undefined): string | undefined {
+  if (!node) return undefined
+  if (ts.isIdentifier(node)) return node.text
+  if (ts.isPropertyAccessExpression(node)) {
+    const owner = dottedName(node.expression)
+    return owner === undefined ? undefined : `${owner}.${node.name.text}`
   }
+  return undefined
+}
 
-  const canonicalFields = (): string[] =>
-    Object.keys(
-      buildRequestContextEnvelopePayload({
-        organizationId: 'org_1',
-        userId: 'user_1',
-        projectId: 'proj_1',
-        collectionScope: ['oib_knowledge'],
-        projectContext: 'context',
-        projectMemory: 'memory',
-        modelOverrides: { shallow_research: 'm' },
-        budget: { remainingOrgUsd: 1, remainingUserUsd: 1, remainingProjectUsd: 1 },
-        disabledSources: ['web_search'],
-        memoryReflectionEnabled: true,
-        federalState: 'vienna',
-        conversationId: 's_conv_1',
-        issuedAt: 1789430400000,
-        orgInstructions: 'Zuerst das Ergebnis.',
-      }),
-    )
+function propertyNames(node: ts.Node | undefined): string[] {
+  if (!node || !ts.isObjectLiteralExpression(node)) return []
+  return node.properties.flatMap((property) => (property.name && ts.isIdentifier(property.name) ? [property.name.text] : []))
+}
 
-  it('carries every field, in the same key order — the signature is over the bytes', () => {
-    expect(serverFields()).toEqual([...canonicalFields(), 'contextTransport', 'requester'])
+describe('turn-headers.js mints the envelope the gateway sends', () => {
+  const NOW = 1789430400000
+  const SECRET = 'turn-headers-spec-secret' // pragma: allowlist secret
+
+  it('mints the canonical bytes for every field, in the canonical key order', () => {
+    const input: RequestContextInput = {
+      organizationId: 'org_1',
+      userId: 'user_1',
+      projectId: 'proj_1',
+      collectionScope: ['oib_knowledge'],
+      projectContext: 'context',
+      projectMemory: 'memory',
+      modelOverrides: { shallow_research: 'm' },
+      budget: { remainingOrgUsd: 1, remainingUserUsd: 1, remainingProjectUsd: 1 },
+      disabledSources: ['web_search'],
+      memoryReflectionEnabled: true,
+      federalState: 'vienna',
+      conversationId: 's_conv_1',
+      issuedAt: NOW,
+      orgInstructions: 'Zuerst das Ergebnis.',
+    }
+    const canonical = buildRequestContextEnvelope(input, SECRET)
+    const minted = commonJsEnvelopeHeaders(input, SECRET)
+    expect(minted).toEqual({
+      'x-request-context': canonical.header,
+      'x-request-context-sig': canonical.signature,
+    })
+    expect(Object.keys(decodeEnvelope(minted))).toEqual([
+      'organizationId',
+      'userId',
+      'projectId',
+      'collectionScope',
+      'projectContext',
+      'projectMemory',
+      'modelOverrides',
+      'budget',
+      'disabledSources',
+      'memoryReflectionEnabled',
+      'federalState',
+      'conversationId',
+      'issuedAt',
+      'orgInstructions',
+    ])
   })
 
-  it('signs the conversation and the mint time, which is what makes it a credential', () => {
-    expect(serverFields()).toContain('conversationId')
-    expect(serverFields()).toContain('issuedAt')
+  it('mints the bff transport without the prompt blocks, and names the requester last', () => {
+    const input: RequestContextInput = {
+      organizationId: 'org_1',
+      userId: 'user_1',
+      projectContext: 'context',
+      projectMemory: 'memory',
+      orgInstructions: 'Zuerst das Ergebnis.',
+      conversationId: 's_conv_1',
+      issuedAt: NOW,
+      contextTransport: 'bff',
+      requester: { name: 'Ada Lovelace', email: null, organizationName: 'Büro Nord' },
+    }
+    const canonical = buildRequestContextEnvelope(input, SECRET)
+    const minted = commonJsEnvelopeHeaders(input, SECRET)
+    expect(minted).toEqual({
+      'x-request-context': canonical.header,
+      'x-request-context-sig': canonical.signature,
+    })
+    const payload = decodeEnvelope(minted)
+    expect(Object.keys(payload)).toEqual(['organizationId', 'userId', 'conversationId', 'issuedAt', 'contextTransport', 'requester'])
+    expect(payload.requester).toEqual({ name: 'Ada Lovelace', email: null, organizationName: 'Büro Nord' })
   })
 
-  it('passes the conversation the scope route authorized, never the raw query param', () => {
-    expect(server).toContain('turnContextHeaders(result.data, {')
-    expect(source).toContain('conversationId: data.conversationId')
+  it('writes the conversation the BFF authorized into the envelope, with the bff transport', () => {
     const headers = turnContextHeaders(
       { header: 'scope', organizationId: 'org_1', userId: 'user_1', conversationId: 's_conv_1' },
-      { issuedAt: 1789430400000, secret: 'fixture-secret' },
+      { issuedAt: NOW, secret: SECRET },
     )
-    const payload = JSON.parse(Buffer.from(headers['x-request-context'], 'base64url').toString('utf8'))
-    expect(payload).toMatchObject({ conversationId: 's_conv_1', issuedAt: 1789430400000, contextTransport: 'bff' })
+    expect(decodeEnvelope(headers)).toMatchObject({ conversationId: 's_conv_1', issuedAt: NOW, contextTransport: 'bff' })
+  })
+
+  it('signs the conversation and the mint time, so a signature from another conversation or mint does not verify', () => {
+    const mint = (conversationId: string, issuedAt: number) =>
+      turnContextHeaders({ header: 'scope', organizationId: 'org_1', userId: 'user_1', conversationId }, { issuedAt, secret: SECRET })
+    const headers = mint('s_conv_1', NOW)
+    expect(
+      verifyRequestContextEnvelope(headers['x-request-context'], headers['x-request-context-sig'], SECRET, NOW),
+    ).toMatchObject({ conversationId: 's_conv_1', issuedAt: NOW })
+    for (const other of [mint('s_conv_2', NOW), mint('s_conv_1', NOW + 1)]) {
+      expect(verifyRequestContextEnvelope(headers['x-request-context'], other['x-request-context-sig'], SECRET, NOW)).toBeNull()
+    }
   })
 
   it('matches the signed bytes for compact capsules and every legacy fixture', () => {
@@ -477,5 +533,14 @@ describe('server.js mints the same envelope payload this module does', () => {
       expect(wire).not.toHaveProperty(name)
     }
     expect(Buffer.byteLength(canonical.header)).toBeLessThan(1000)
+  })
+})
+
+describe('server.js hands the gateway the scope route data', () => {
+  it('calls turnContextHeaders once, with the scope route result and the mint time, never a query parameter', () => {
+    const server = parseSourceText(readFileSync(new URL('../server.js', import.meta.url), 'utf8'), 'server.js')
+    const calls = callsTo(server, 'turnContextHeaders')
+    expect(calls.map((call) => dottedName(call.arguments[0]))).toEqual(['result.data'])
+    expect(calls.map((call) => propertyNames(call.arguments[1]))).toEqual([['issuedAt', 'secret']])
   })
 })

@@ -64,7 +64,7 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess

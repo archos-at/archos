@@ -191,7 +191,7 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
         </p>
       )}
 
-      {/* One sentence, and only in a project: that Piloti WRITES. The canvas is
+      {/* One sentence, and only in a project: that the agent WRITES. The canvas is
           otherwise deliberately quiet (the starters were cut for costing every
           user on every new thread), and this earns its place because it is the
           product's least discoverable capability — today it is found only by

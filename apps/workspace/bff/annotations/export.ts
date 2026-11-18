@@ -1,43 +1,3 @@
-/**
- * A document's Anmerkungen as an office Protokoll: the file a Jour fixe is run
- * from, or the one sent to the client or a consultant (CONTEXT.md „Anmerkung":
- * the running number is what a Jour fixe and a Protokoll name).
- *
- * ## The read gate
- *
- * The export is a READ of the Anmerkungen, so it goes through the read every
- * listing goes through, {@link listAnnotations}, after
- * `getAccessibleDocument(…, 'read')`: a held upload, a document in a folder the
- * reader may not open (ADR-0087) and another organization's document are all
- * 404, exactly as they are for the Prüfansicht. Nothing here reads a mark
- * that route would not have shown this person.
- *
- * ## One structure, three files
- *
- * The Protokoll is built once as {@link DocBlock}s, the vocabulary the answer
- * export writes into, and handed to the renderers that already exist:
- * `renderDocx` (`lib/answer-export/docx.ts`) for Word, `BlocksDocument`
- * (`lib/pdf/blocks-to-pdf.tsx`) for PDF, and {@link blocksToMarkdown} below for
- * Markdown, the one format no renderer wrote yet. No dependency was added.
- *
- * No thumbnail of the marked place: the BFF has no page rasterizer (pages are
- * rendered by pdf.js in the browser, and crops by the agent's
- * `look`), so an entry names its page and nothing more.
- *
- * ## What is in it
- *
- * The office's marks, by number. Piloti's proposals that nobody took over are
- * not the office's (CONTEXT.md: they count only once a person takes them
- * over), so they are left out unless asked for, and then they stand under a
- * heading of their own, never among the marks. A mark Piloti set that a person
- * stands behind is in the list and says so („von Piloti gesetzt · für Anna"),
- * and so does each reply Piloti wrote („Piloti · für Anna").
- *
- * Nothing here calls a model, so nothing is traced to Langfuse; the export is
- * an audit event (`document.annotations.exported`), because office review
- * content leaving the product is worth a trail.
- */
-
 import 'server-only'
 import React from 'react'
 import { renderToBuffer } from '@react-pdf/renderer'
@@ -65,27 +25,23 @@ import { listAnnotations } from './service'
 import { isLive, isOverdue, type AnnotationView } from './types'
 import { protocolFileNameOf, type AnnotationExportOptions } from './export-request'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const MARKDOWN_MEDIA_TYPE = 'text/markdown; charset=utf-8'
 
 export interface ExportedProtocol {
-  /** The file's name with its extension, as a person reads it („Anmerkungen – Grundriss EG – Fassung 3.pdf"). */
   filename: string
   bytes: Uint8Array
   mediaType: string
 }
 
-/** The Fassung the document shows now, among all of its Fassungen. */
 export interface ProtocolRevision {
   number: number
   total: number
-  /** When this Fassung was filed (ISO). */
   createdAt: string
 }
 
-/** What the header states: about the document, and about this export. */
 export interface ProtocolHeader {
-  /** The name a person sees, with its extension. */
   documentName: string
   revision: ProtocolRevision | null
   projectName: string | null
@@ -94,51 +50,29 @@ export interface ProtocolHeader {
 }
 
 export interface ProtocolSelection {
-  /** The office's marks, by number. */
   marks: AnnotationView[]
-  /** Piloti's proposals nobody took over; empty unless asked for. */
   proposals: AnnotationView[]
 }
 
-/** A Protokoll before it is a file: the cover's title and facts, and the body. */
 export interface Protocol {
   title: string
   facts: CoverFact[]
   body: DocBlock[]
-  /**
-   * Set when the Protokoll holds text the agent wrote (a mark it set, a reply, a
-   * proposal): the file is then marked `compositeWithTrainedAlgorithmicMedia`
-   * (Art. 50(2) AI Act). Null for the office's own words alone, which no model
-   * generated and which a marking would misdescribe.
-   */
   aiProvenance: AiProvenance | null
 }
 
-/** Whether any text in the selection is the agent's: a mark or proposal it set, or a reply it wrote. */
 export function holdsAgentText(selection: ProtocolSelection): boolean {
   return [...selection.marks, ...selection.proposals].some(
     (annotation) =>
-      // Two authors exist (`ANNOTATION_AUTHORS`): whatever is not a person's is the agent's.
       annotation.authorKind !== 'person' || annotation.replies.some((reply) => reply.authorKind !== 'person')
   )
 }
 
-/** Piloti's mark that no person took over: a proposal still, or one dismissed as one. */
 const unreviewed = (annotation: AnnotationView): boolean =>
-  annotation.authorKind === 'piloti' && annotation.acceptedBy === null
+  isAgentKind(annotation.authorKind) && annotation.acceptedBy === null
 
 const byNumber = (a: AnnotationView, b: AnnotationView): number => a.number - b.number
 
-/**
- * Which marks the export carries, and in which section. Pure.
- *
- * The Fassung narrows the RECORD, never the work: a mark still open from an
- * earlier Fassung is in every Protokoll, whatever `revision-links` says, and its
- * entry names the Fassung it was set on. A new Index arriving the day before
- * the Jour fixe does not answer the marks on the one before it, so a default
- * export that dropped them would drop exactly the points the meeting is for.
- * `revision-links=current` leaves out what was CLOSED on earlier Fassungen.
- */
 export function selectMarks(
   annotations: readonly AnnotationView[],
   options: Pick<AnnotationExportOptions, 'scope' | 'revision' | 'includeProposals'>
@@ -155,13 +89,9 @@ export function selectMarks(
 }
 
 export interface Formatters {
-  /** A calendar day held as `YYYY-MM-DD`: a due date. */
   day: (isoDay: string) => string
-  /** The day of an instant, on the office's calendar. */
   date: (iso: string) => string
-  /** An instant, to the minute. */
   dateTime: (value: Date) => string
-  /** Today on the office's calendar, `YYYY-MM-DD`. */
   today: string
 }
 
@@ -181,11 +111,9 @@ export function formatters(locale: string, now: Date): Formatters {
   }
 }
 
-/** „Piloti · für Anna Berger", or plain „Piloti" when the directory does not know the person. */
 const agentFor = (t: Translator, name: string | null): string =>
   name ? t('review.attribution.agentFor', { name }) : PRODUCT_NAME
 
-/** Who set the mark, who closed it, and whether Piloti works it now: one small line each. */
 function attributionLines(annotation: AnnotationView, t: Translator, f: Formatters): string[] {
   const set = f.date(annotation.createdAt)
   const lines: string[] = []
@@ -195,7 +123,7 @@ function attributionLines(annotation: AnnotationView, t: Translator, f: Formatte
         ? t('review.export.document.proposalFor', { name: annotation.createdByName, date: set })
         : t('review.export.document.proposal', { date: set })
     )
-  } else if (annotation.authorKind === 'piloti') {
+  } else if (isAgentKind(annotation.authorKind)) {
     lines.push(
       annotation.acceptedByName
         ? t('review.export.document.agentSetFor', { name: annotation.acceptedByName, date: set })
@@ -219,7 +147,6 @@ function attributionLines(annotation: AnnotationView, t: Translator, f: Formatte
   return lines
 }
 
-/** Zuständig, Termin, Grundlage, and the Fassung it was set on when that is not the current one. */
 function factLines(annotation: AnnotationView, t: Translator, f: Formatters): DocBlock[] {
   const blocks: DocBlock[] = []
   if (annotation.basis) blocks.push(labelled(t('review.export.document.basis'), annotation.basis))
@@ -242,18 +169,16 @@ function factLines(annotation: AnnotationView, t: Translator, f: Formatters): Do
   return blocks
 }
 
-/** The thread: author · date, then what they wrote. Piloti's replies say for whom it wrote them. */
 function threadBlocks(annotation: AnnotationView, t: Translator, f: Formatters): DocBlock[] {
   if (annotation.replies.length === 0) return []
   const items: DocRun[][] = annotation.replies.map((reply) => {
     const author =
-      reply.authorKind === 'piloti' ? agentFor(t, reply.createdByName) : (reply.createdByName ?? t('review.someone'))
+      isAgentKind(reply.authorKind) ? agentFor(t, reply.createdByName) : (reply.createdByName ?? t('review.someone'))
     return [{ text: `${author} · ${f.date(reply.createdAt)}: `, bold: true }, { text: reply.body }]
   })
   return [{ kind: 'paragraph', runs: [{ text: t('review.export.document.thread'), bold: true }] }, { kind: 'bullets', items }]
 }
 
-/** One mark: „Nr. 4 · Seite 2 · Mangel · offen", who stands behind it, the text, its facts and its thread. */
 export function entryBlocks(annotation: AnnotationView, t: Translator, f: Formatters): DocBlock[] {
   const heading = t('review.export.document.entry', {
     number: annotation.number,
@@ -270,17 +195,9 @@ export function entryBlocks(annotation: AnnotationView, t: Translator, f: Format
   ]
 }
 
-/** Whether the selection carries a mark set on an earlier Fassung. */
 const carriesEarlier = (selection: ProtocolSelection): boolean =>
   [...selection.marks, ...selection.proposals].some((annotation) => !annotation.onCurrentRevision)
 
-/**
- * Which Fassungen the Protokoll covers, as it IS: „aktuelle Fassung" only
- * while nothing from an earlier one is in it. Open marks come from every
- * Fassung, so an open-only Protokoll that carries an earlier one covers all
- * of them; one that keeps the record of the current Fassung says the open ones
- * of earlier Fassungen came along.
- */
 function revisionPart(options: AnnotationExportOptions, selection: ProtocolSelection, t: Translator): string {
   if (options.revision === 'all') return t('review.export.document.revisions.all')
   if (!carriesEarlier(selection)) return t('review.export.document.revisions.current')
@@ -328,7 +245,6 @@ function headerFacts(
   ]
 }
 
-/** The Protokoll as a title, header facts and body blocks. Pure: the specs read it without rendering a file. */
 export function buildProtocol(
   header: ProtocolHeader,
   selection: ProtocolSelection,
@@ -359,7 +275,6 @@ export function buildProtocol(
   }
 }
 
-/** The title and the header facts as blocks, for the formats that have no cover page. */
 const withHeader = (protocol: Protocol): DocBlock[] => [
   { kind: 'heading', level: 1, text: protocol.title },
   ...protocol.facts.map((fact) => labelled(fact.label, fact.value)),
@@ -372,7 +287,6 @@ function runsToMarkdown(runs: readonly DocRun[]): string {
       if (run.mono) return `\`${run.text.replace(/`/g, '')}\``
       const text = escapeInline(run.text)
       if (!text.trim()) return text
-      // Emphasis may not open or close on a space, so the space stands outside it.
       const [, lead, core, trail] = /^(\s*)([\s\S]*?)(\s*)$/.exec(text) ?? ['', '', text, '']
       const marked = run.bold && run.italic ? `***${core}***` : run.bold ? `**${core}**` : run.italic ? `*${core}*` : core
       return `${lead}${marked}${trail}`
@@ -380,7 +294,6 @@ function runsToMarkdown(runs: readonly DocRun[]): string {
     .join('')
 }
 
-/** A line break inside a paragraph is a hard break (two spaces), never a new paragraph. */
 const hardBreaks = (text: string, indent = ''): string => text.replace(/\n/g, `  \n${indent}`)
 
 function blockToMarkdown(block: DocBlock): string {
@@ -390,7 +303,6 @@ function blockToMarkdown(block: DocBlock): string {
     case 'paragraph': {
       const text = hardBreaks(escapeLineStarts(runsToMarkdown(block.runs)))
       if (block.style === 'quote') return text.replace(/^/gm, '> ')
-      // The small grey line is italic, unless it already carries a bold label (`labelled`).
       const plain = block.runs.every((run) => !run.bold && !run.italic && !run.mono)
       return block.style === 'meta' && plain && text.trim() ? `*${text.trim()}*` : text
     }
@@ -411,12 +323,10 @@ function blockToMarkdown(block: DocBlock): string {
   }
 }
 
-/** Blocks as CommonMark: the shape a Protokoll pasted into an office's own minutes keeps. */
 export function blocksToMarkdown(blocks: readonly DocBlock[]): string {
   return `${blocks.map(blockToMarkdown).join('\n\n')}\n`
 }
 
-/** What laying the blocks out costs react-pdf, in the unit `MAX_MARKDOWN_PDF_CHARS` bounds. */
 function pdfRenderCost(blocks: readonly DocBlock[]): number {
   const runsLength = (runs: readonly DocRun[]) => runs.reduce((sum, run) => sum + run.text.length, 0)
   return blocks.reduce((sum, block) => {
@@ -426,7 +336,6 @@ function pdfRenderCost(blocks: readonly DocBlock[]): number {
       case 'paragraph':
         return sum + runsLength(block.runs)
       case 'bullets':
-        // Each item is a flex row the layout pass measures, like a table cell.
         return sum + block.items.reduce((items, item) => items + runsLength(item) + TABLE_CELL_COST_CHARS, 0)
       case 'table':
         return sum + block.rows.flat().reduce((cells, cell) => cells + runsLength(cell) + TABLE_CELL_COST_CHARS, 0)
@@ -436,13 +345,9 @@ function pdfRenderCost(blocks: readonly DocBlock[]): number {
   }, 0)
 }
 
-/** What `renderToBuffer` accepts; react-pdf does not export `DocumentProps` (see `markdown-pdf.ts`). */
 type PdfDocumentElement = Parameters<typeof renderToBuffer>[0]
 
 async function renderPdf(protocol: Protocol): Promise<Uint8Array> {
-  // The layout pass blocks the event loop and cannot be aborted, so a
-  // Protokoll too long for it is refused before it starts (the bound and its
-  // measurements: `MAX_MARKDOWN_PDF_CHARS`). Word and Markdown have no such pass.
   if (pdfRenderCost(protocol.body) > MAX_MARKDOWN_PDF_CHARS) {
     throw new UnprocessableError('This Protokoll is too long for a PDF; export it as Word or Markdown.', {
       reason: 'too-long-for-pdf',
@@ -458,7 +363,6 @@ async function renderPdf(protocol: Protocol): Promise<Uint8Array> {
   return marking ? withAiProvenanceXmp(bytes, marking) : bytes
 }
 
-/** „Anmerkungen – Grundriss EG – Fassung 3.pdf": what the office files it under. */
 export function protocolFileName(
   header: Pick<ProtocolHeader, 'documentName' | 'revision'>,
   options: Pick<AnnotationExportOptions, 'format' | 'revision'>,
@@ -483,7 +387,6 @@ export async function renderProtocol(protocol: Protocol, format: AnnotationExpor
   return { bytes: new TextEncoder().encode(blocksToMarkdown(withHeader(protocol))), mediaType: MARKDOWN_MEDIA_TYPE }
 }
 
-/** The Fassung the document shows now: its number among all of them, and when it was filed. */
 async function currentRevision(session: AuthorizedSession, doc: Document): Promise<ProtocolRevision | null> {
   if (!doc.publishedVersionId) return null
   const versions = await listDocumentVersions(doc.id, session.organizationId)
@@ -506,10 +409,6 @@ async function readHeader(session: AuthorizedSession, doc: Document, now: Date):
   }
 }
 
-/**
- * The document's Anmerkungen as a Protokoll file, for a person who may read
- * the document; 404 for anyone else, as the listing is.
- */
 export async function exportAnnotationProtocol(
   session: AuthorizedSession,
   documentId: string,
@@ -522,7 +421,6 @@ export async function exportAnnotationProtocol(
     readHeader(session, doc, new Date()),
     getLocale(),
   ])
-  // Bound by name, so `key-coverage.spec.ts` checks every key this file asks for against `files`.
   const t = await getTranslations(filesCopy)
   const selection = selectMarks(annotations, options)
   const protocol = buildProtocol(header, selection, options, t, locale)

@@ -39,7 +39,7 @@ describe('AddresseeIndicator — the composer says where the message goes', () =
     expect(line()).toHaveAttribute('data-mode', 'thread')
   })
 
-  test('an explicit @Piloti overrides the wait — that is the documented way back', () => {
+  test('an explicit mention of the agent overrides the wait — that is the documented way back', () => {
     render(<AddresseeIndicator mentions={[AGENT]} awaitingHuman />)
     expect(line()).toHaveAttribute('data-mode', 'agent')
     expect(line()).not.toHaveTextContent('everyone in the chat')
@@ -101,7 +101,7 @@ describe('AddresseeIndicator — teaching that @ exists', () => {
     expect(screen.queryByTestId('composer-mention-offer')).not.toBeInTheDocument()
   })
 
-  test('steps aside when Piloti is explicitly tagged', () => {
+  test('steps aside when the agent is explicitly tagged', () => {
     render(
       <AddresseeIndicator
         mentions={[{ targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }]}

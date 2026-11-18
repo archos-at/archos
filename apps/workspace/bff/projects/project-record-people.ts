@@ -1,13 +1,6 @@
-/**
- * The Steckbrief's people list (ADR-0091): the project's members as WorkOS
- * knows them, merged with the rows stored for the project. Pure, so the merge
- * is tested without WorkOS or a database.
- */
-
 import { dateToMonth, type Month } from './month'
 import type { ProjectPersonKind, ProjectPersonView } from './project-record-types'
 
-/** A stored row, as much of it as the list shows. */
 export interface StoredPerson {
   id: string
   userId: string | null
@@ -18,7 +11,6 @@ export interface StoredPerson {
   endedOn: string | null
 }
 
-/** A member of the project now (`project-team.ts`). */
 export interface CurrentMember {
   userId: string
   name: string
@@ -41,12 +33,6 @@ function fromRow(row: StoredPerson, kind: ProjectPersonKind): ProjectPersonView 
 const byPeriodThenName = (a: ProjectPersonView, b: ProjectPersonView): number =>
   (a.startedOn ?? '').localeCompare(b.startedOn ?? '') || a.name.localeCompare(b.name)
 
-/**
- * Members first, in the order they joined, each with what their row adds; then
- * everyone else. A row naming an account that is no longer on the project is a
- * former member, but only when the roster was read: with `team` null nobody is
- * called former on the strength of a failed lookup.
- */
 export function mergePeople(rows: readonly StoredPerson[], team: readonly CurrentMember[] | null): ProjectPersonView[] {
   const rowOf = new Map<string, StoredPerson>()
   for (const row of rows) if (row.userId && !rowOf.has(row.userId)) rowOf.set(row.userId, row)
@@ -57,7 +43,6 @@ export function mergePeople(rows: readonly StoredPerson[], team: readonly Curren
       ...(row ? fromRow(row, 'member') : { id: null, function: null, company: null, startedOn: null, endedOn: null }),
       kind: 'member',
       userId: member.userId,
-      // The directory's name is the current one; the row keeps the one they left with.
       name: member.name,
       startedOn: dateToMonth(row?.startedOn) ?? member.since,
     }

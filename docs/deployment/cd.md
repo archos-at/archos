@@ -193,13 +193,6 @@ backwards, and it logs a warning. A deployed ref that is not a `sha-` tag, or a
 commit the checkout does not know, is a warning, not a failure. Each service's
 move is logged as `<service>: <deployed ref> -> <resolved ref>`.
 
-Below the guard sits a **floor** nothing passes, a rollback included
-(`deploy/pulumi/scripts/vector-store-floor.sh`): the backend image must have
-been built for the vector store the deployed program runs. The program and
-image disagree when one commit still has `deploy/pulumi/src/data/chroma.ts`
-(the Chroma tier, removed by ADR-0115) and the other does not. Prod's job runs
-the same check on the tag `Pulumi.prod.yaml` pins.
-
 **Prod has the same guard** for the tag its `Pulumi.prod.yaml` pins, on a push
 to `prod` only (`deploy/pulumi/scripts/prod-downgrade-guard.sh`, step *Refuse a
 downgrade*, between the preview and the apply). Each service's pinned commit must be the one
@@ -330,10 +323,9 @@ applies prod's program with the chosen images, never develop's program.
 works only while the two still fit together. Across a change to what the
 program deploys, it does not. The one such change today is Chroma's removal
 (ADR-0115): a backend from before it, under a program without Chroma, answers
-from an empty per-pod store and loses every upload, and the floor above refuses
-the tag. Going back across it is a revert of that change on `develop`, with
-every write Qdrant took since lost:
-[`qdrant-runbook.md`, "Rollback"](qdrant-runbook.md#rollback).
+from an empty per-pod store and loses every upload, and nothing refuses the tag
+any more. There is no way back across it:
+[`qdrant-runbook.md`, "Chroma, retired"](qdrant-runbook.md#chroma-retired).
 
 For a change to the deployment *program* itself (not just the image), check out
 the previous commit and `pulumi up` from there. `pulumi cancel` only abandons an

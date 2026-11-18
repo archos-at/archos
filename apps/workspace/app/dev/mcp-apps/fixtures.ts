@@ -1,16 +1,11 @@
-/**
- * The proposals and host styles the `/dev/mcp-apps` preview hands its frames.
- * Shapes are the route's own (`proposalResponseSchema`), so the view parses
- * them exactly as it parses `proposal-get`'s result on the door.
- */
-
 import type { McpUiStyles } from '@modelcontextprotocol/ext-apps'
 import type { ProposedChangeView } from '@/lib/proposals/types'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 const BASE = {
   projectId: '3d1c2f7a-5b8e-4c1d-9f20-6a7b8c9d0e1f',
   status: 'proposed' as const,
-  proposedByKind: 'piloti' as const,
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_anna',
   onBehalfOfName: 'Anna Berger',
   originConversationId: null,
@@ -54,7 +49,6 @@ export const FILE_PROPOSAL: ProposedChangeView = {
 
 export const READ_ONLY_PROPOSAL: ProposedChangeView = { ...OPERATION_PROPOSAL, id: '9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', canDecide: false }
 
-/** A host's variables, as the SDK's reference host passes them (`examples/basic-host/src/host-styles.ts`, abridged). */
 export const HOST_STYLES: McpUiStyles = {
   '--color-background-primary': 'light-dark(#ffffff, #262624)',
   '--color-background-secondary': 'light-dark(#f5f4ed, #30302e)',

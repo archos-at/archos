@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from knowledge_layer.search import _ambiguous_file_names
 from knowledge_layer.search import format_results
-from knowledge_layer.search.grounding_hits import _ambiguous_file_names
 
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result

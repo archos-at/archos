@@ -1,10 +1,3 @@
-/**
- * Start a golden run (ADR-0165 amendment): a country's golden cases, released
- * or of one change request in preview, asked through the real answer path and
- * scored. Platform staff with `platform:knowledge:write`; the questions are
- * asked as the caller, in the platform organization, on its model budget.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

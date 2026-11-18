@@ -22,27 +22,9 @@ export interface Backend {
   statefulSet: k8s.apps.v1.StatefulSet;
   service: k8s.core.v1.Service;
   headlessService: k8s.core.v1.Service;
-  /** Only present in db mode (multi-replica); a singleton needs no PDB. */
   pdb?: k8s.policy.v1.PodDisruptionBudget;
 }
 
-/**
- * The chat tier (`PROCESS_ROLE=chat`, ADR-0082), under `name` (`tier-names.ts`):
- * the chat socket and the answers running on it, plus the agent runtime's own routes. Every
- * other backend route is the api tier's (`api.ts`). It keeps no files: the vectors
- * live in the shared Qdrant cluster, the base corpus in SeaweedFS and a Postgres
- * table (ADR-0082 step A2), and what it caches on its own disk
- * (`BASE_CORPUS_CACHE_DIR`, under /tmp) it can lose at any restart.
- *
- * The chat and retrieval path is replica-safe (shared Qdrant, Postgres DSNs,
- * shared cache, DB-persisted ingest status, advisory-locked reapers), so it runs
- * `backend.replicas` replicas. Research executes on the separate agent-worker tier.
- *
- * Still a StatefulSet, though nothing here needs one any more: chat affinity
- * hashes a conversation onto a pod ordinal (ADR-0028, ADR-0080), and that
- * routing needs the stable per-pod DNS and ordinals only a StatefulSet gives.
- * It becomes a Deployment when the chat tier stops depending on it (ADR-0082).
- */
 export function installBackend(
   w: AppWiring,
   cfg: DeployConfig,
@@ -54,8 +36,6 @@ export function installBackend(
   const headlessName = `${name}-headless`;
   const autoscaled = backendAutoscaled(cfg);
   const multiReplica = cfg.backend.replicas > 1 || autoscaled;
-  // The grace period is the chat drain plus the endpoint drain and slack: a
-  // terminating replica finishes the turns it claimed (ADR-0080).
   const profile = backendRollout(cfg.backend.drainSeconds);
   const shutdown = gracefulShutdown(profile, "python");
 
@@ -64,39 +44,21 @@ export function installBackend(
     {
       metadata: { name, namespace: w.namespace, labels },
       spec: {
-        // Headless governing service → stable per-pod DNS
-        // (<name>-<i>.<name>-headless), which the frontend uses for
-        // conversation affinity so a chat pins to its owning replica.
         serviceName: headlessName,
-        // Multi-replica chat tier (safe with conversation affinity, ADR-0028, or
-        // the conversation bus, ADR-0080). The floor when KEDA scales it
-        // (backend-scaling.ts).
         replicas: cfg.backend.replicas,
         selector: { matchLabels: labels },
-        // One pod at a time, highest ordinal first, and each replacement must
-        // stay Ready for minReadySeconds before the next is touched — the
-        // ordering the conversation-affinity routing (ADR-0028) depends on.
         ...orderedRollout(profile),
         template: {
           metadata: {
             labels,
-            // Credential rotation ⇒ pod-template change ⇒ a real, ordered
-            // rolling update (rollout.ts). Without it the pods keep serving with
-            // the pre-rotation keys and `pulumi up` still reports success.
             annotations: secretChecksumAnnotations(withLangfuseKeysChecksum(cfg, secrets.checksum)),
           },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets: w.imagePullSecrets,
-            // preStop covers EndpointSlice propagation (both the ClusterIP and
-            // the affinity headless service route here), then uvicorn gets its
-            // SIGTERM with room to finish streaming responses in flight.
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             securityContext: { runAsNonRoot: true, runAsUser: UID.backend, runAsGroup: UID.backend },
-            // The chat tier may run >1 replica — spread across nodes so an upgrade
-            // node-drain / node loss can't take every chat replica down.
             ...(multiReplica ? { topologySpreadConstraints: spreadAcrossNodes(labels) } : {}),
-            // The app group (`nodeGroupApp`), when the stack has worker groups.
             ...onNodeGroup(cfg.nodeGroups.app),
             containers: [
               {
@@ -108,8 +70,6 @@ export function installBackend(
                 env: chatEnv(w),
                 resources: toResourceRequirements(cfg.backend.resources),
                 lifecycle: shutdown.lifecycle,
-                // Boot opens the Qdrant client — generous
-                // startup window before liveness kicks in.
                 startupProbe: {
                   httpGet: { path: "/health", port: PORT.backend },
                   periodSeconds: 10,
@@ -135,15 +95,8 @@ export function installBackend(
     {
       provider: w.provider,
       dependsOn: [secrets.secret, ...dependsOn],
-      // KEDA owns the replica count once its ScaledObject exists, so a count
-      // this program wrote would be reverted on the next `pulumi up`.
       ignoreChanges: autoscaled ? ["spec.replicas"] : [],
-      // Fixed-name StatefulSet: replaces must delete first (see seaweedfs-single.ts).
       deleteBeforeReplace: true,
-      // First boot = multi-GB image pull + startup work; the startupProbe alone
-      // allows 10 min. Give the await headroom so a healthy-but-slow first
-      // deploy doesn't fail on Pulumi's default 10m.
-      // An update also waits out every replica's drain, one pod at a time.
       customTimeouts: {
         create: "25m",
         update: `${Math.ceil(profile.terminationGracePeriodSeconds / 60) * cfg.backend.maxReplicas + 25}m`,
@@ -151,8 +104,6 @@ export function installBackend(
     },
   );
 
-  // Headless service: stable per-pod DNS (<name>-<i>.<name>-headless) for
-  // conversation affinity (the frontend routes a conversation to its owning pod).
   const headlessService = new k8s.core.v1.Service(
     headlessName,
     {
@@ -161,17 +112,12 @@ export function installBackend(
         clusterIP: "None",
         selector: labels,
         ports: [{ port: PORT.backend, targetPort: PORT.backend, name: "http" }],
-        // Serve DNS for pods as soon as they exist (before Ready) so affinity
-        // routing resolves during rollouts.
         publishNotReadyAddresses: true,
       },
     },
     { provider: w.provider },
   );
 
-  // Load-balanced ClusterIP for callers that don't need affinity: the frontend's
-  // WebSocket proxy when it has no pod address (BACKEND_CHAT_URL), and KEDA's
-  // occupancy scaler. HTTP callers use the api tier's Service, not this one.
   const service = new k8s.core.v1.Service(
     name,
     {
@@ -184,9 +130,6 @@ export function installBackend(
     { provider: w.provider, dependsOn: statefulSet },
   );
 
-  // PDB only when the tier is genuinely multi-replica (db mode). On a singleton
-  // a maxUnavailable:1 PDB is a no-op, but adding it conditionally keeps the
-  // intent explicit and avoids churn on a single-replica stack.
   const pdb = multiReplica
     ? installPdb(name, w.namespace, w.provider, labels, [statefulSet])
     : undefined;

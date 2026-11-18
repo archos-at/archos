@@ -115,7 +115,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -241,7 +241,7 @@ describe('GET /api/proposals', () => {
       [OFFICE_SHELF, null, false],
     ])
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     expect((await listOpenProposals({ shelf: 'office_shelf' }, run)).proposals[0].proposal.canDecide).toBe(true)
   })
 
@@ -317,7 +317,7 @@ describe('a proposal no conversation made', () => {
 describe('the Büroablage', () => {
   it('is decided by its curators: a member gets a 403', async () => {
     await expect(applyProposal(OFFICE_SHELF, run)).rejects.toMatchObject({ status: 403 })
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     const { proposal } = await applyProposal(OFFICE_SHELF, run)
     expect(proposal.status).toBe('applied')
     expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc_n', folderId: 'f_normen' }, SESSION)

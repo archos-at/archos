@@ -14,9 +14,9 @@ const RETIRED: readonly { word: RegExp; use: string }[] = [
 
 const KEPT: Readonly<Record<string, string>> = {
   'projects.lifecycle.closeDialog.outcome.cancelledHint':
-    'a client’s commission to the office (a withdrawn Auftrag), not work handed to Piloti',
-  'files.lifecycle.submit.orderLabel': 'the instruction a person gives the reviewer of a revision, not work for Piloti',
-  'files.lifecycle.submit.needOrder': 'the instruction a person gives the reviewer of a revision, not work for Piloti',
+    'a client’s commission to the office (a withdrawn Auftrag), not work handed to the agent',
+  'files.lifecycle.submit.orderLabel': 'the instruction a person gives the reviewer of a revision, not work for the agent',
+  'files.lifecycle.submit.needOrder': 'the instruction a person gives the reviewer of a revision, not work for the agent',
 }
 
 function values(node: unknown, path: string, into: [string, string][]): [string, string][] {

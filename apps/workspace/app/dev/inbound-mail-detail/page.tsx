@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev preview of one held mail (`InboundMailDetail`, DECISION §9): the real
- * detail over the fixture client, one fixture per case of the detail and of
- * the attachment table:
- *
- * `?variant=member-verified|external-unverified|impersonation|impersonation-colleague|own-unverified|automatic-own|paused|not-filed|sender-unchecked|member-name|expires-soon|bcc-own|not-addressed|forwarded|mixed-attachments|type-not-accepted|name-stop|macro|scan-pending|infected|original-infected|content-finding|thread-append|unverified-thread|new-thread|full-thread|revision|duplicate|already-filed|still-reading|no-suggestion|decided-by-other|partial-failure|quota-full|filed-outcome|follow-offer|followed|closed|expired|dismissed|unreadable-text|loading|error|worst-case`
- *
- * Pressing „Ablegen“ works against the fixtures (the parts go to filing,
- * then filed). `&locale=en`, `&chrome=0` as on `/dev/inbound-mail`. Not
- * linked from anywhere; the `/dev` layout 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { use, useMemo } from 'react'
 import { I18nProvider } from '@/i18n'

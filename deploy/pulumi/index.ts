@@ -1,32 +1,10 @@
-/**
- * Grid OIB — Kubernetes deployment (Pulumi / TypeScript).
- *
- * Provisions the whole stack against a provider-supplied kubeconfig:
- *   platform  → cert-manager (+ Let's Encrypt issuer), Envoy Gateway, metrics-server
- *   data      → CloudNativePG Postgres (3 DBs), Dragonfly cache, SeaweedFS (S3),
- *               Qdrant (the vector store, ADR-0115)
- *   background → Hatchet (ADR-0150) on its own CloudNativePG cluster and RabbitMQ, in the
- *               `background-work` namespace: every background job runs there
- *   app       → chat (StatefulSet, the chat role), api (Deployment + HPA,
- *               the api role), each beside its legacy name until the switch, frontend (Deployment + HPA), purger, gotenberg (office
- *               → PDF), a migration Job, a WorkOS audit-schema reconcile Job and,
- *               opt-in, the one-shot Chroma-to-Qdrant Job and ClamAV (the
- *               malware scanner, ADR-0157)
- *   edge      → Gateway API (Envoy Gateway) + HTTPRoutes with cert-manager TLS,
- *               for the app, the landing site and the public S3 endpoint
- *
- * The agent tier scales VERTICALLY here (resources + admission
- * caps); every precondition for later HORIZONTAL scaling is already wired
- * (Postgres DSNs instead of SQLite, a shared Redis/Dragonfly cache). See
- * docs/deployment/kubernetes.md for the scale-out roadmap.
- */
 import * as pulumi from "@pulumi/pulumi";
 
 import { loadConfig } from './src/config'
 import { backendAutoscaled } from './src/config/chat-tier'
 import { backendImage, frontendImage, webImage } from './src/config/images'
 import { makeProvider } from "./src/platform/providers";
-import { makeAppNamespace } from "./src/platform/namespaces";
+import { appNamespaces, makeAppNamespace } from "./src/platform/namespaces";
 import { installCertManager } from "./src/platform/cert-manager";
 import { installGatewayController, installGatewayResources } from "./src/platform/gateway";
 import { installMetricsServer } from "./src/platform/metrics-server";
@@ -42,9 +20,9 @@ import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } fr
 import { runMigrations } from "./src/app/migrations-job";
 import { buildOnlineIndexes } from "./src/app/online-indexes-job";
 import { runKnowledgeCarry } from "./src/app/knowledge-carry-job";
+import { installBackfills } from "./src/app/backfills";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
-import { migrateChromaToQdrant } from "./src/app/chroma-migration-job";
 import { installBackend } from "./src/app/backend";
 import { installBackendScaling } from "./src/app/backend-scaling";
 import { installApi } from "./src/app/api";
@@ -68,6 +46,7 @@ import { installKeda } from "./src/platform/keda";
 import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
 import { installOtelAgent } from "./src/platform/otel-agent";
+import { installLogShipper } from "./src/platform/log-shipper";
 import { installDns, managedRecordNames } from "./src/platform/dns";
 import { inboundMailOutputs, installInboundMail } from "./src/platform/inbound-mail";
 import { installInboundMailZone } from "./src/platform/email-routing";
@@ -82,46 +61,23 @@ import { installCmsTier } from "./src/platform/cms-tier";
 const cfg = loadConfig();
 const provider = makeProvider(cfg);
 
-// ── Namespace + platform add-ons ──────────────────────────────────────────
 const ns = makeAppNamespace(cfg, provider);
 const namespace = ns.metadata.name;
 
-// Default-deny ingress + least-privilege allows for the app namespace.
 if (cfg.networkPolicies) {
   installNetworkPolicies(cfg, provider, namespace);
 }
 
-// Gateway API edge: install the Envoy Gateway controller (+ Gateway API CRDs)
-// FIRST so cert-manager can enable its Gateway integration at startup.
 const gatewayController = installGatewayController(cfg, provider);
 const certManager = installCertManager(cfg, provider, namespace, [gatewayController]);
 if (cfg.ingress.installMetricsServer) {
   installMetricsServer(provider);
 }
 
-// ── Data tier ─────────────────────────────────────────────────────────────
-//
-// The two data stores depend on each other, and which way round depends on the
-// SeaweedFS topology:
-//
-//   - Postgres archives its WAL into a SeaweedFS bucket, so it wants the bucket
-//     to exist before the cluster boots.
-//   - The SPLIT topology's filer keeps its namespace in a Postgres database, so
-//     it cannot start until that database exists.
-//
-// Run both at once and it is a cycle. It is only a real cycle in one
-// configuration, though — split topology with the Postgres filer store — so
-// rather than degrade every deployment to the weaker ordering, each branch
-// takes the ordering that is actually correct for it.
 const extraBuckets = [
   ...(cfg.postgres.backups.enabled ? [cfg.postgres.backups.bucket] : []),
-  // Langfuse's event archive + batch exports (ADR-0044). A platform bucket, so
-  // the init Job creates it — but withheld from the general-purpose `grid` S3
-  // identity in `s3IdentityCatalog`; Langfuse reaches it as `grid-langfuse`.
   ...(cfg.langfuse.enabled ? [LANGFUSE.bucket] : []),
-  // Qdrant's shard snapshots (ADR-0115), reached only as `grid-qdrant`.
   QDRANT.snapshotBucket,
-  // The CMS's file library (ADR-0155), reached only as `cms`.
   ...(cfg.cms.enabled ? [CMS.bucket] : []),
 ];
 const filerNeedsPostgres =
@@ -131,18 +87,6 @@ let seaweed: SeaweedFS;
 let postgres: Postgres;
 
 if (filerNeedsPostgres) {
-  // Postgres first: the filer cannot open its store otherwise, and Pulumi would
-  // sit waiting for a StatefulSet that is crash-looping on a database this same
-  // `up` has not created yet.
-  //
-  // The cost, and it is a real one: with `pgBackupsEnabled` the cluster now
-  // boots BEFORE its WAL archive bucket exists, so the first minutes of a fresh
-  // deploy report `ContinuousArchiving: false` with NoSuchBucket. That
-  // resolves itself — Postgres retries `archive_command` indefinitely and picks
-  // up the moment bucket-init lands, holding the segments in pg_wal until then
-  // — but it is visible in `kubectl cnpg status` and should not be mistaken for
-  // a broken backup. Gating the cluster on the bucket is exactly what would
-  // close the cycle back up.
   postgres = installPostgres(cfg, provider, namespace, []);
   seaweed = installSeaweedFS(
     cfg,
@@ -153,8 +97,6 @@ if (filerNeedsPostgres) {
     postgres.filerStoreDeps,
   );
 } else {
-  // No cycle: SeaweedFS first, so the cluster only boots once its archive
-  // bucket is there.
   seaweed = installSeaweedFS(cfg, provider, namespace, extraBuckets);
   postgres = installPostgres(
     cfg,
@@ -164,16 +106,8 @@ if (filerNeedsPostgres) {
   );
 }
 
-// The nightly Postgres base backup, created AFTER the archive bucket exists in
-// both branches. `immediate: true` fires one Backup on creation and CNPG does
-// not retry a failed one — so a schedule created before bucket-init leaves the
-// stack with archived WAL, no base backup, and a status page that says
-// archiving is healthy. That is not a recoverable PITR.
 installScheduledBackup(cfg, provider, namespace, [postgres.cluster, seaweed.bucketInitJob]);
 
-// Offsite backup for the documents bucket (ADR-0042). Gated on an EXTERNAL S3
-// target; `loadConfig` refuses an in-cluster endpoint, which would put the
-// backup on the very volumes it exists to survive.
 installSeaweedFSBackup(
   cfg,
   provider,
@@ -183,15 +117,6 @@ installSeaweedFSBackup(
 );
 const dragonfly = installDragonfly(cfg, provider, namespace);
 
-// ── Background work (ADR-0150) ─────────────────────────────────────────────
-// Hatchet runs every background job (ingest, research runs, BFF jobs) on its
-// own CloudNativePG cluster and a three-node RabbitMQ, in its own namespace
-// (`platform/hatchet.ts` says why). The cluster waits for the CNPG operator's
-// webhook, which the app cluster already waits for; the RabbitMQ operator for
-// cert-manager, which issues its webhook's certificate; the grants Job for the
-// tables Hatchet's migrations make; the token copy for the chart's
-// worker-token Job. Every tier that starts or runs a Hatchet run waits for the
-// copy: the SDK reads its token at start.
 const backgroundWorkNs = installHatchetNamespace(provider);
 const backgroundWorkPg = installBackgroundWorkPostgres(cfg, provider, [backgroundWorkNs, postgres.cluster]);
 const rabbitmqOperator = installRabbitmqOperator(provider, [certManager.release]);
@@ -206,47 +131,24 @@ const hatchetGrants = backgroundWorkPg.grants([hatchet.release]);
 if (cfg.networkPolicies) {
   installHatchetNetworkPolicies(cfg, provider, namespace, [backgroundWorkNs]);
 }
-// ClickHouse + the ingestion queue for Langfuse (ADR-0044). Both live in the
-// data tier because that is what they are, even though the tier they serve is
-// an observability one — the Pulumi module layout follows what a workload IS,
-// not who consumes it.
 const clickhouse = cfg.langfuse.enabled
   ? installClickHouse(cfg, provider, namespace, [ns])
   : undefined;
 const langfuseQueue = cfg.langfuse.enabled
   ? installLangfuseQueue(cfg, provider, namespace)
   : undefined;
-// Counter store for edge rate limiting (ADR-0040 L1) — deliberately a SECOND
-// instance, never the cache above; `data/dragonfly.ts` explains why. Only the
-// rate limit service in `envoy-gateway-system` talks to it, over the allow in
-// `platform/network-policies.ts`.
 const rateLimitStore = cfg.rateLimit.enabled
   ? installRateLimitStore(cfg, provider, namespace)
   : undefined;
-// The vector store (ADR-0115). Its snapshot CronJob waits on the bucket it
-// uploads into. Chroma is gone from this program: on the deploy that removes it,
-// `chromaMigration` (below) copies it over before Pulumi deletes the server, and
-// its claim `data-chroma-0` is kept (`whenDeleted: Retain`) as the way back.
 installWorkloadAlerts(provider, namespace);
 const qdrant = installQdrant(cfg, provider, namespace, seaweed.internalEndpoint, [seaweed.bucketInitJob]);
-// Office → PDF converter for the document viewer (ADR-0070). Stateless and
-// fail-open, so nothing waits on it; its NetworkPolicies admit the frontend
-// alone and deny it every egress.
 const gotenberg = cfg.gotenberg.enabled
   ? installGotenberg(cfg, provider, namespace, [ns])
   : undefined;
-// The malware scanner (ADR-0157): clamd and freshclam for what strangers send.
-// Off by default (`malwareScanEnabled`). Fail closed: without it every scan
-// fails and nothing that needs a clean one is filed, so nothing waits on it.
 const clamav = cfg.malwareScan.enabled
   ? installClamAV(cfg, provider, namespace, [ns])
   : undefined;
-// ── Shared wiring for the app tier ─────────────────────────────────────────
-// Pull Secret for private app images (no-op when none are configured).
 const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
-// The sandboxed fetcher of public sources (ADR-0162), in every stack: the backend roles read
-// public sources, and parse their PDFs, only through it (`publicSourceFetcherEnv`, ADR-0162 amendment).
-// It runs the private backend image, so it needs the pull Secret like every app pod.
 const publicSourceFetcher = installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
 const wiring: AppWiring = {
   cfg,
@@ -262,19 +164,8 @@ const wiring: AppWiring = {
   imagePullSecrets: pullSecret ? [{ name: PULL_SECRET_NAME }] : [],
 };
 
-// The Secret AND the checksum every consumer stamps on its pod template, so a
-// rotated credential is a gated rolling update rather than a silent no-op
-// (src/platform/rollout.ts).
 const secrets = buildSecrets(wiring);
 
-// The `app` DB is created at cluster bootstrap; run drizzle migrations before
-// the frontend/workers that read it. The migrations themselves go straight to
-// the primary; the pooler is listed so everything ordered after them (the BFF
-// tiers, which connect through it) is created after it too (ADR-0083).
-//
-// First, the indexes a pending migration would build under ACCESS EXCLUSIVE are
-// built online (`ONLINE_INDEXES`), so the migration adopts them: drizzle runs
-// the whole batch in one transaction and would hold that lock to its end.
 const onlineIndexes = buildOnlineIndexes(wiring, cfg, secrets, [postgres.cluster, postgres.initJob]);
 const migratedSchema = runMigrations(wiring, cfg, secrets, [
   postgres.cluster,
@@ -282,86 +173,30 @@ const migratedSchema = runMigrations(wiring, cfg, secrets, [
   postgres.pooler,
   onlineIndexes,
 ]);
-// Then the row-level-security roles take their names without a brand
-// (ADR-0145 row 10d, `src/data/postgres-rename.ts`): the migrations written
-// before the rename grant to the old ones. Everything that waits on the
-// migrations logs in as one of these roles, so it waits on the rename too.
 const migrations = postgres.renameRlsRoles([migratedSchema]);
+const backfillsBefore = installBackfills(wiring, cfg, secrets, "before-readers", [migrations, qdrant.service]);
+const afterBackfills = backfillsBefore ? [backfillsBefore] : [];
 
-// WorkOS must know every audit action the code emits, or it rejects the events
-// and the trail silently thins out (issues #255/#256). Reconciled per deploy so
-// the environment follows the code; skipped when auth is off, because then
-// there is no WorkOS environment and no key to reconcile against.
-//
-// The same goes for the authorization catalog: every permission and role the
-// code checks is created in WorkOS by the deploy that ships it, rather than by
-// a runbook step someone has to remember per environment.
 const authzCatalog = cfg.auth.requireAuth ? reconcileAuthzCatalog(wiring, cfg, secrets, [ns]) : undefined;
 if (cfg.auth.requireAuth) {
   reconcileAuditSchemas(wiring, cfg, secrets, [ns]);
 }
 
-// The purger and the sweep and housekeeping CronJobs. Ahead of
-// the tiers below only because the Chroma migration waits on two of them.
-const workers = installWorkers(wiring, cfg, secrets, [migrations]);
+const workers = installWorkers(wiring, cfg, secrets, [migrations, ...afterBackfills]);
 
-// The retired Chroma store, carried into Qdrant once (ADR-0115), on the deploy
-// that removes Chroma. The Job exports from the Chroma server the previous
-// release still runs (Pulumi deletes what this program dropped last, and only
-// on a deploy that succeeded), and Pulumi awaits it. Every tier that reads or
-// writes Qdrant waits for it in turn, so the order is: Qdrant ready → export,
-// import, verify → backend tiers roll → Chroma deleted. The old backends serve
-// retrieval from Chroma until then, nothing new writes Qdrant during the
-// import, and a failed Job stops the deploy before anything rolled. It also
-// waits for the base-corpus clock and the vector reconcile to be suspended, so
-// neither takes a collection the import has not filled yet for one the store
-// lost.
-const chromaMigration = cfg.chromaMigration.enabled
-  ? migrateChromaToQdrant(wiring, cfg, secrets, [
-      postgres.initJob,
-      postgres.pooler,
-      qdrant.statefulSet,
-      qdrant.service,
-      workers.baseCorpusSync,
-      ...(workers.vectorReconcile ? [workers.vectorReconcile] : []),
-    ])
-  : undefined;
-/** What every tier that reads or writes Qdrant waits for: the migration Job, when one runs. */
-const afterChromaMigration = chromaMigration ? [chromaMigration] : [];
-
-// ── App workloads ──────────────────────────────────────────────────────────
-//
-// Rollout order (ADR-0082 step B): the api tier, then the frontend, then the
-// chat tier. A frontend from before the split sends every HTTP call to
-// `aiq-agent`, and a new `aiq-agent` serves only the chat socket, so the chat
-// tier may change only once the frontend that calls `aiq-api` instead has
-// rolled out; and that frontend needs `aiq-api` to be there. Pulumi awaits a
-// workload's rollout before it creates what depends on it, so the `dependsOn`
-// below is the whole mechanism and no operator sequences anything.
-
-// The api role: every backend HTTP route but the chat socket, behind the
-// Service BACKEND_URL names.
-//
-// Each backend tier runs under its new name beside its legacy one (ADR-0145 row
-// 10c, expand): callers still dial the legacy Services, so the new tiers come up
-// idle. `src/app/tier-names.ts` has the three steps.
 const apiDependsOn = [
   hatchet.tokenSync,
   postgres.initJob,
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
-  ...afterChromaMigration,
+  ...afterBackfills,
 ];
 const api = installApi(wiring, cfg, secrets, apiDependsOn);
 const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER);
 
-// One base-corpus sync cycle as soon as the api tier, which serves the route,
-// has rolled out, instead of on the CronJob's next tick. Not awaited.
 syncBaseCorpusAfterRollout(wiring, cfg, secrets, [migrations, api.deployment, api.service]);
 
-// The chat tier the frontend dials (the switch step, `tier-names.ts`): up and
-// ready before the frontend that points its socket at it rolls out.
 const backendDependsOn = [
   hatchet.tokenSync,
   postgres.initJob,
@@ -369,7 +204,7 @@ const backendDependsOn = [
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
-  ...afterChromaMigration,
+  ...afterBackfills,
 ];
 const backend = installBackend(wiring, cfg, secrets, backendDependsOn);
 
@@ -380,17 +215,13 @@ const frontend = installFrontend(wiring, cfg, secrets, [
   legacyApi.service,
   backend.statefulSet,
   backend.service,
+  ...afterBackfills,
 ]);
 
-// Folder lists move from role grants to WorkOS folder roles (ADR-0097). The
-// carry-over runs once the frontend that reads folder roles has rolled out,
-// never before: a list narrowed in the old dialog after an early run would come
-// back wider. Its folder roles come from the catalog Job.
 if (authzCatalog) {
   carryOverFolderGrants(wiring, cfg, secrets, [migrations, frontend.deployment, authzCatalog]);
 }
 
-// The legacy chat tier finishes the turns it holds; nothing dials it any more.
 const legacyBackend = installBackend(
   wiring,
   cfg,
@@ -399,9 +230,6 @@ const legacyBackend = installBackend(
   LEGACY_CHAT_TIER,
 );
 
-// The public website + blog (Astro, apps/website) — static-first, no app secrets,
-// but it pulls from the same registry, so it gets the pull Secret too.
-// With the CMS (ADR-0155) it also reads the posts from it, with the `web-cms` tokens.
 const webCmsSecret = installWebCmsSecret(cfg, provider, cfg.namespace, [ns]);
 const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ns,
@@ -409,20 +237,14 @@ const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ...(webCmsSecret ? [webCmsSecret] : []),
 ]);
 
-// KEDA scales the research and ingest workers and the BFF job pool (Hatchet's
-// backlog, ADR-0150) and the chat tier (running turns, ADR-0080).
 const keda = cfg.keda.install ? installKeda(provider) : undefined;
 
-// How KEDA reads Hatchet's backlog: the read-only scaler login on
-// `background-work-pg`, after the grants Job gave it the columns it counts.
 const hatchetQueueAuth = installHatchetQueueAuth(wiring, backgroundWorkPg.scalerDsn, [
   ...(keda ? [keda] : []),
   hatchetGrants,
 ]);
 const queueScalerDeps = [...(keda ? [keda] : []), hatchetQueueAuth, hatchetGrants, hatchet.tokenSync];
 
-// Research worker tier (ADR-0021) — runs `research-run` on Hatchet (ADR-0150),
-// scaled by KEDA on its backlog there.
 const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
@@ -430,11 +252,9 @@ const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
-  ...afterChromaMigration,
+  ...afterBackfills,
 ]);
 
-// Ingestion tier (ADR-0076) — runs `ingest-document` on Hatchet (ADR-0150),
-// fairly across organisations, scaled by KEDA on its backlog there.
 const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
@@ -442,37 +262,27 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
-  ...afterChromaMigration,
+  ...afterBackfills,
 ]);
 
-// The high-memory ingest pool: `ingest-document-heavy`, the files of
-// `ingestHeavyFileBytes` or more, one a pod, scaled by KEDA on that backlog.
-installIngestWorkerHeavy(wiring, cfg, secrets, [
+const ingestWorkerHeavy = installIngestWorkerHeavy(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
   dragonfly.service,
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
-  ...afterChromaMigration,
+  ...afterBackfills,
 ]);
 
-// BFF background pool (ADR-0079) — runs `bff-job` on Hatchet (ADR-0150), fairly across
-// organisations and runs project reindex and rescan jobs in its own BFF,
-// scaled by KEDA on its backlog there. Internal only: no Service, no route.
-// Always deployed, at least one replica: it is also the one worker of the
-// scheduling crons (`assertBffJobsRunsSchedules`, `config/workers.ts`).
 const bffJobs = installBffJobs(wiring, cfg, secrets, [
   migrations,
   api.service,
   legacyApi.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
-// The promotion's carry of reviewed knowledge releases (ADR-0181), where the
-// stack says so: after everything it calls has rolled out (the schema, the api
-// tier and the fetcher it fetches through, the pool that runs the index runs,
-// the workers that ingest). Not awaited; `knowledge-carry-job.ts` says why.
 if (cfg.auth.knowledgeCarry) {
   runKnowledgeCarry(wiring, cfg, secrets, [
     migrations,
@@ -486,20 +296,29 @@ if (cfg.auth.knowledgeCarry) {
   ]);
 }
 
-// Chat tier scale-out (ADR-0080) — KEDA moves the chat StatefulSet between its
-// floor and ceiling on the fleet's running turns. Only with affinity off. The
-// count is the fleet's, so only the tier that takes new turns scales on it; the
-// legacy one keeps the count it had while its last turns drain.
+installBackfills(wiring, cfg, secrets, "after-switch", [
+  migrations,
+  workers.purger,
+  api.deployment,
+  legacyApi.deployment,
+  backend.statefulSet,
+  legacyBackend.statefulSet,
+  frontend.deployment,
+  web.deployment,
+  publicSourceFetcher.deployment,
+  agentWorker.deployment,
+  ingestWorker.deployment,
+  ...(ingestWorkerHeavy ? [ingestWorkerHeavy.deployment] : []),
+  bffJobs.deployment,
+]);
+
 if (backendAutoscaled(cfg)) {
   installBackendScaling(wiring, cfg, backend.statefulSet, keda ? [keda] : []);
 }
 
-// ── Edge (Gateway API) ───────────────────────────────────────────────────────
 const gatewayResources = installGatewayResources(cfg, provider, namespace, certManager.issuerName, [
   gatewayController,
   certManager.release,
-  // Gate the annotated Gateway on the ClusterIssuer so the cert-manager shim
-  // never creates a Certificate referencing a not-yet-existent issuer.
   certManager.issuer,
 ]);
 const routes = installHttpRoutes(cfg, provider, namespace, [
@@ -507,35 +326,16 @@ const routes = installHttpRoutes(cfg, provider, namespace, [
   frontend.service,
   seaweed.service,
   web.service,
-  // Don't program rate limit rules before their counter store exists: the
-  // window in between is fail-open, so the limits would read as configured
-  // while enforcing nothing.
   ...(rateLimitStore ? [rateLimitStore.service] : []),
 ]);
-// The website's CMS (ADR-0155) on `cms.<baseDomain>`: off unless `cmsEnabled`.
-if (cfg.cms.enabled) {
-  installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway });
-}
-// Qdrant's dashboard on its own host, behind the platform-operator gate. Off
-// by default (`qdrantDashboardEnabled`); operators port-forward otherwise.
+const cmsTier = cfg.cms.enabled
+  ? installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway })
+  : undefined;
 if (cfg.qdrant.dashboard.enabled) {
   installQdrantDashboard(cfg, provider, namespace, [gatewayResources.gateway, qdrant.service]);
 }
 
-// ── Observability (OTel Collector, ADR-0029) ─────────────────────────────────
-// Deployed when something consumes it (see config.ts): Langfuse for traces,
-// PostHog logs for logs, PostHog metrics for metrics. The Aspire dashboard and err2issue it used to feed are
-// retired.
 if (cfg.observability.enabled) {
-  // Langfuse (ADR-0044) before the collector: the collector's `otlp_http/langfuse` exporter starts exporting the moment it
-  // boots, so having the Service resolvable first avoids a burst of
-  // connection-refused export errors on every deploy. Its own `enabled` brings
-  // the collector up.
-  //
-  // `clickhouse` / `langfuseQueue` are non-undefined exactly when
-  // `cfg.langfuse.enabled` is true — the same flag guards all three — but
-  // TypeScript cannot see that, so the check is written where the values are
-  // used rather than asserted away.
   const langfuse =
     cfg.langfuse.enabled && clickhouse && langfuseQueue && postgres.langfuseDsn
       ? installLangfuse(
@@ -559,7 +359,6 @@ if (cfg.observability.enabled) {
         )
       : undefined;
 
-  // The platform MCP gateway (ADR-0154), in front of Langfuse's and the CMS's MCP servers.
   if (cfg.mcpGateway.enabled && (langfuse || cfg.cms.enabled)) {
     const cmsCredential = installCmsGatewayCredential(cfg, provider, namespace, [ns]);
     installMcpGateway(cfg, provider, namespace, [
@@ -577,38 +376,24 @@ if (cfg.observability.enabled) {
     ],
     {
       langfuseSecretName: langfuse ? langfuse.secret.metadata.name : undefined,
-      // Every Qdrant peer's metrics port (ADR-0115), scraped and re-exposed on
-      // :8889 for the alert rules.
       qdrantMetricsTargets: qdrant.metricsTargets,
+      eventNamespaces: appNamespaces(cfg),
+      eventNamespaceResources: [ns, backgroundWorkNs, ...(cmsTier ? [cmsTier.namespace] : [])],
     },
   );
 
-  // One collector per node for what the nodes and their pods are doing, sent to
-  // the collector above. It exists only to feed PostHog Metrics.
   if (cfg.posthog.metricsEnabled) {
     installOtelAgent(cfg, provider, namespace, [collector.service]);
   }
+  if (cfg.posthog.logsEnabled) {
+    installLogShipper(cfg, provider, appNamespaces(cfg), [collector.service]);
+  }
 }
 
-// ── Public DNS ───────────────────────────────────────────────────────────────
-//
-// Last, and deliberately independent of every resource above: these records are
-// managed at Cloudflare, not in the cluster, so they carry no `dependsOn` and
-// nothing in the cluster waits on them. Publishing a name before the Gateway
-// answers on it is harmless (the browser gets a connection refused, cert-manager
-// retries its challenge); the reverse — a Gateway nobody can find — is the state
-// this exists to prevent.
 const dns = installDns(cfg);
 
-// ── Project mail (Cloudflare Email Routing, ADR-0138) ────────────────────────
-//
-// Cloudflare-only as well, and independent for the same reason: a Worker that
-// posts to a frontend not up yet gets a connection error or a 404, throws, and
-// the sending server retries. The promote that first sets the domain sets
-// `inboundMailPaused` too, and the unpause follows the launch gates.
 const inboundMail = installInboundMail(cfg, installInboundMailZone(cfg));
 
-// ── Stack outputs ────────────────────────────────────────────────────────────
 export const appUrl = pulumi.interpolate`https://${cfg.ingress.appDomain}`;
 export const s3Url = pulumi.interpolate`https://${cfg.ingress.s3Domain}`;
 export const webUrl = pulumi.interpolate`https://${cfg.ingress.webDomain}`;
@@ -616,7 +401,6 @@ export const appNamespace = namespace;
 export const postgresRwHost = postgres.rwHost;
 export const backendService = backend.service.metadata.name;
 export const apiService = api.service.metadata.name;
-// Draining until the contract step deletes them (`src/app/tier-names.ts`).
 export const legacyBackendService = legacyBackend.service.metadata.name;
 export const legacyApiService = legacyApi.service.metadata.name;
 export const frontendService = frontend.service.metadata.name;
@@ -640,20 +424,11 @@ export const platformMcpUrl = cfg.mcpGateway.enabled
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
-// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet;
-// `inboundMailCloudflare` is what deploy.yml's post-deploy mail steps read.
 export const { inboundMailWorker, inboundMailOperator, inboundMailCloudflare } = inboundMailOutputs(cfg, inboundMail);
-// The image refs this update deployed. `deploy.yml` reads them back before the
-// next staging deploy and refuses one that would move a service to an older
-// commit (`scripts/resolve-image-refs.sh`). The stack file cannot answer that:
-// CI's `pulumi config set` never reaches git, so the committed file still says
-// `imageTag: latest` whatever is running. Rename this and the guard goes blind.
 export const deployedImages = {
   backend: backendImage(cfg),
   frontend: frontendImage(cfg),
   web: webImage(cfg),
-  // The CMS's image, so the next staging deploy's downgrade guard can read it
-  // (scripts/resolve-image-refs.sh). Recorded even while the CMS is off.
   cms: cmsImage(cfg.images, cfg.cms.imageOverride),
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;

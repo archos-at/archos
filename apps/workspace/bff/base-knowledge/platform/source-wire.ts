@@ -1,9 +1,3 @@
-/**
- * The wire of the source operations on the platform door (ADR-0174): what
- * `source-test`, `source-status` and `source-credential-set` take. Pure zod,
- * shared by the routes and the catalog.
- */
-
 import { z } from 'zod'
 import { sourceKeySchema } from '@/lib/base-knowledge/wire/source'
 

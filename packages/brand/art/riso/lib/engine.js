@@ -1,31 +1,4 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   Piloti riso print engine. Shared by every work in art/riso/<work>/index.html.
-
-   A classic script (not a module): the kit's tools open a work over file://,
-   where module scripts are blocked and classic scripts load. Top-level
-   declarations here are shared with the work's own inline script, which is how
-   a plate's draw() reads W, H, K, CX, CY and calls own(), line(), hatch() ...
-
-   Adapted from riso-windowseat (MIT, (c) 2026 sevenevesai), prints/workings
-   and prints/cabinet, pinned in art/riso/kit.json; LICENSE-NOTICE.md in
-   art/riso/ carries the licence. Changes from the kit: non-square formats,
-   per-job pitch, a solid line layer per ink, integer registration offsets,
-   starvation placed in drawing units, a JOBS table built from formats.js, and
-   a separation view for press work.
-
-   Load order in a work: formats.js, engine.js, piloti.js, then the work.
-
-   Query string views (any work):
-     ?t=<job>      which job to show
-     ?only=<ink>   bake a single ink, on paper, in colour (debug)
-     ?sep=<ink>    press separation: that ink's screened plate, black on white,
-                   no paper, no registration offset (export.mjs uses it)
-     ?paper=0      the inks alone, registered, multiplied onto white instead of
-                   the paper: what the ink stack lets through. export.mjs turns
-                   it into the on-page file (ink alpha, no paper)
-     ?debug=lines  construction lines, where a plate implements them
-     ?list         bake nothing; publish window.__riso.jobs only
-   ───────────────────────────────────────────────────────────────────────── */
+/* Adapted from riso-windowseat (MIT, (c) 2026 sevenevesai); licence in art/riso/LICENSE-NOTICE.md. */
 'use strict';
 
 const QS = new URLSearchParams(location.search);
@@ -34,20 +7,12 @@ const SEP = QS.get('sep');
 const DEBUG = QS.get('debug') || '';
 const NOPAPER = QS.get('paper') === '0';
 
-/* A work's own look, from Riso.run({ look }): `ink` maps an ink name to the hex it
-   prints in, `paper` is the sheet's colour, `mottle: false` leaves the sheet flat
-   (no fibres, flecks or mottling). Unset, a work prints in the series look
-   (the series file). The vignetten work uses it to print in the brand neutrals. */
 let LOOK = { ink: {}, paper: null, mottle: true };
 const inkHex = (ink) => LOOK.ink[ink] || INK[ink];
 
-/* Every format is drawn in a 1080-unit wide space. H is the format's height in
-   units. OUT/OUTH/K/PITCH are set per job before a bake. */
 const W = 1080;
 let H = 1080, CX = 540, CY = 540;
 let OUT = 1080, OUTH = 1080, K = 1, PITCH = 4.6;
-
-/* ── deterministic randomness ─────────────────────────────────────────────── */
 
 function mulberry32(a) {
   return function () {
@@ -74,8 +39,6 @@ function cv(w, h) {
   return c;
 }
 
-/* ── halftone screens (kit, with Cabinet's pixel-centred dots) ───────────── */
-
 const screens = {};
 function buildScreen(name) {
   const { a, b } = SCREEN[name];
@@ -88,7 +51,6 @@ function buildScreen(name) {
   for (let m = -n; m <= n; m++) {
     for (let k = -n; k <= n; k++) {
       const x = m * v1[0] + k * v2[0], y = m * v1[1] + k * v2[1];
-      // +0.5 puts dot centres on pixel centres, so the smallest dots grow 1 → 5 → 9 px
       const wx = ((x % S) + S + 0.5) % S, wy = ((y % S) + S + 0.5) % S;
       if (!pts.some(p => Math.abs(p[0] - wx) < 0.01 && Math.abs(p[1] - wy) < 0.01)) pts.push([wx, wy]);
     }
@@ -128,8 +90,6 @@ function screenPlate(tone, line, name) {
       const cover = s[i + 3] / 255;
       const c = cover + (DITHER[(y & 255) * 256 + (x & 255)] - 0.5) * 0.09 * Math.min(1, cover * 10) * (1 - cover);
       const dot = c >= 1 || c > sc.th[row + (x % sc.S)] ? 255 : 0;
-      // Line work is not screened: a stroke thinner than the pitch would break into
-      // dots. Its antialiased edge is kept, as a scan of a solid printed line shows.
       s[i + 3] = Math.max(dot, ln[i + 3]);
     }
   }
@@ -137,8 +97,6 @@ function screenPlate(tone, line, name) {
   out.getContext('2d').putImageData(src, 0, 0);
   return out;
 }
-
-/* ── paper (kit), drawn in units so every size of a plate is one sheet ───── */
 
 function bakePaper() {
   const c = cv(OUT, OUTH), x = c.getContext('2d');
@@ -200,8 +158,6 @@ function starve(g, rng) {
   }
   g.restore();
 }
-
-/* ── craft kit (subset, from the kit's craft block) ──────────────────────── */
 
 function makeWob(rng, harmonics = 3) {
   const h = [];
@@ -314,11 +270,6 @@ function spray(g, path, rng, o) {
   g.restore();
 }
 
-/* ── plate context: a tone layer (screened) and a line layer (solid) per ink ──
-   c.g is tone, c.L is line. A spec maps ink → tone, e.g. { moss: .4, hunter: .2 }.
-   Painter's order holds on both layers: own() clears tone and line beneath a
-   shape, so an occluder hides the lines behind it as well as the fields.     */
-
 function own(c, path, spec) {
   carve(c.g, path); carve(c.L, path);
   const a = spec && spec[c.ink];
@@ -351,8 +302,6 @@ function dashed(c, path, w, spec, dash) {
   c.L.restore();
 }
 
-/* ── plate numbers: engraved roman capitals (Cabinet's numeral) ──────────── */
-
 /** 1 → 'I' … 39 → 'XXXIX'; the glyphs below draw I, V and X. */
 function roman(n) {
   const units = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
@@ -376,7 +325,6 @@ function numeral(n, cx, base, h) {
       glyphs.push(stem(l, base - h, m, base, thick / 2), stem(r, base - h, m, base, thin / 2),
                   serif(l, base - h + thin / 2, sw * 0.9), serif(r, base - h + thin / 2, sw * 0.7));
     } else {
-      // X: the thick stroke falls left to right, as in V; serifs at all four ends.
       const l = x + h * 0.08, r = x + adv.X - h * 0.08;
       glyphs.push(stem(l, base - h, r, base, thick / 2), stem(r, base - h, l, base, thin / 2),
                   serif(l, base - h + thin / 2, sw * 0.8), serif(r, base - h + thin / 2, sw * 0.7),
@@ -386,27 +334,6 @@ function numeral(n, cx, base, h) {
   }
   return glyphs;
 }
-
-/* ── runtime: a work's JOBS table, the bake, and the kit's __riso contract ──
-
-   A work calls Riso.run({ work, plates, jobs }) once, at the end of its script:
-
-     plates: [{ name: 'stuetzen', base: 'piloti-i-stuetzen', art: I, composes: ['sq'], number?: 1 }]
-       name    the plate's stable key. It seeds every random stream of the plate
-               (name:compose:ink), so renaming it reseeds the print. Freeze it.
-       base    file name stem; defaults to '<work>-<name>'
-       art     { inks, key, draw(c, compose), numeral?: { <compose>: [x, y] } }
-       composes the compositions draw() handles; a job asking for another fails
-       number  its roman numeral, default its 1-based position; 0 draws none
-
-     jobs: [{ plate, format, alt: { de, en }, caption?: { de, en }, compose?, id? }]
-       format  a key of FORMATS (formats.js); it brings sizes, pitch, encoding,
-               destination and the default composition
-       alt     required for formats with dest 'site' or 'app' (they reach a manifest)
-       id      default '<work>/<plate>/<format>'; pages use it, never a path
-
-   Each job expands to one export per size of its format, so the integer time t
-   picks one file: window.__riso.jobs[t]. seek(t) is pure; bakes are cached. */
 
 const Riso = (() => {
   const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => {
@@ -458,13 +385,11 @@ const Riso = (() => {
   function bake(j, pl) {
     setJob(j);
     const out = cv(OUT, OUTH), o = out.getContext('2d');
-    // White is multiply's identity: without paper the canvas holds the inks' transmittance.
     if (SEP || NOPAPER) { o.fillStyle = '#fff'; o.fillRect(0, 0, OUT, OUTH); } else o.drawImage(bakePaper(), 0, 0);
     const tone = cv(OUT, OUTH), g = tone.getContext('2d');
     const lineC = cv(OUT, OUTH), L = lineC.getContext('2d');
     const scratch = cv(OUT, OUTH).getContext('2d');
     const na = (pl.numeral && pl.numeral[j.compose]) || [W / 2, H - 22];
-    // The numeral belongs to the sheet: a print shown on the page has none.
     const nums = j.number && !NOPAPER ? numeral(j.number, na[0], na[1], 17) : [];
     for (const ink of pl.inks) {
       if (ONLY && ink !== ONLY) continue;
@@ -485,7 +410,6 @@ const Riso = (() => {
       if (ink === pl.key) { for (const p of nums) { L.save(); L.fill(p); L.restore(); } }
       starve(g, rngFor(j.plate + ':' + ink + ':void'));
       const dots = screenPlate(tone, lineC, ink);
-      // A separation is the screened plate itself, registered: the press adds its own miss.
       if (SEP) { o.drawImage(dots, 0, 0); continue; }
       const tin = cv(OUT, OUTH), tx = tin.getContext('2d');
       tx.drawImage(dots, 0, 0);

@@ -6,11 +6,6 @@ import { loadTurnContext } from '@/lib/turn-context/service'
 import { TurnContextTiming } from '@/lib/turn-context/timing'
 import { turnContextRequestSchema } from '@/lib/turn-context/wire'
 
-/**
- * The context one chat turn starts from. `Server-Timing` says where the build's
- * time went (`session`, `access`, each read, `total`); the agent records it on
- * its `setup.project_context` phase in Langfuse.
- */
 export const POST = internalApiRoute(
   'Internal Turn Context',
   async ({ request }) => {

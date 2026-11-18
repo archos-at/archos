@@ -50,11 +50,11 @@ describe('onProposalCreated', () => {
     expect(emitted()).toMatchObject({
       organizationId: 'org_1',
       recipientUserId: 'user_me',
-      type: 'piloti.proposal_waiting',
+      type: 'agent.proposal_waiting',
       resourceType: 'conversation',
       resourceId: 'conv_1',
       anchorId: 'prop_1',
-      groupKey: 'piloti.proposal_waiting:conversation:conv_1:prop_1',
+      groupKey: 'agent.proposal_waiting:conversation:conv_1:prop_1',
       payload: { variant: 'move', excerpt: 'Grundriss.pdf, Schnitt.pdf +1' },
     })
   })
@@ -82,7 +82,7 @@ describe('onProposalCreated', () => {
       resourceType: 'project',
       resourceId: 'proj_1',
       anchorId: 'prop_1',
-      groupKey: 'piloti.proposal_waiting:project:proj_1:prop_1',
+      groupKey: 'agent.proposal_waiting:project:proj_1:prop_1',
     })
   })
 
@@ -135,7 +135,7 @@ describe('onProposalDecided', () => {
 
     expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({
       organizationId: 'org_1',
-      types: ['piloti.proposal_waiting'],
+      types: ['agent.proposal_waiting'],
       anchorId: 'prop_1',
     })
   })

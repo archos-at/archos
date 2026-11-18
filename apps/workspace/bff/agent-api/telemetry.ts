@@ -1,99 +1,33 @@
 import 'server-only'
-/**
- * What the agent door records about each call (ADR-0119, ADR-0089).
- *
- *  - PostHog, through the collector: `agent_operation_called` and
- *    `agent_operation_missing` (`docs/observability/posthog-events.md`), for
- *    product analytics: which operations agents use and which they miss.
- *  - Langfuse: one `agent-tool-call` trace per MCP tool call and per A2A
- *    method's call of an ask route (`lib/langfuse/tool-call-trace.ts`), the
- *    observability platform's view of the same call, beside the chat turns it
- *    belongs to.
- *
- * Properties are scalars the catalog and the route already know. No free text:
- * `agent_operation_missing` sends the description's length, never its words,
- * because an agent's report can quote a document or a name.
- */
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordToolCallTrace } from '@/lib/langfuse/tool-call-trace'
+import { type CallDoor, callDoorOf, sessionSourceOf } from './call-origin'
 import type { Confirmation } from './confirmation'
 import type { CallDecision } from './policy'
 import type { AgentPrincipal } from './principal'
 
 export type McpMode = 'search' | 'tools'
 
-/**
- * Where a call came in: the office MCP server for an external agent or for
- * Piloti, the A2A door, or the platform door (`/api/platform/mcp`, ADR-0126).
- */
-export type CallDoor = 'mcp' | 'piloti' | 'a2a' | 'platform'
+export type { CallDoor, SessionSource } from './call-origin'
+export { sessionSourceOf }
 
 export interface McpCallContext {
   principal: AgentPrincipal
-  /** The MCP server's mode; null on the A2A door, which has none. */
   mode: McpMode | null
-  /** Set by a door that is not the MCP server (`a2a`); otherwise read from the principal. */
   door?: CallDoor
-  /**
-   * Set on a 2026-07-28 request of an outside agent when a signing key exists:
-   * a destructive write is put to the person first (`confirmation.ts`). Absent,
-   * every call takes its path unchanged.
-   */
   confirmation?: Confirmation | null
-  /**
-   * `elicitation` on the round that runs a call the person confirmed in their
-   * own chat (bound to a signed `requestState`). `app`: an MCP Apps card's
-   * app-only tool, from a client that declared it renders MCP Apps, whose host
-   * keeps the tool from its model; still the host's word, not a proof.
-   * `app-unverified`: the same tool from a client that declared nothing (the
-   * 2025 era carries no capabilities), so the call may be its model's.
-   */
   decisionSource?: DecisionSource
-  /**
-   * Whether this caller's client renders MCP Apps (`mcp-apps.ts`): `declared`
-   * on a 2026-07-28 request whose capabilities name the UI extension with the
-   * MCP Apps mime type; `unknown` on a 2025-era request, which carries none;
-   * absent when the client declared it does not, or nothing is offered.
-   */
   appHost?: 'declared' | 'unknown'
 }
 
 export type DecisionSource = 'elicitation' | 'app' | 'app-unverified'
 
-/**
- * What became of a call: run or proposed (`CallDecision`), refused, put to the
- * person to confirm (`confirm`), not confirmed by them (`declined`), or not
- * run because it needs the person's yes and this client cannot ask for it
- * (`person_required`, `confirmation.ts`). The last is not `refused`: nothing
- * the caller may not do was asked, and counting it there would hide how often
- * a client without form elicitation reaches for an operation it cannot run.
- */
 export type RecordedDecision = CallDecision | 'refused' | 'confirm' | 'declined' | 'person_required'
-
-function doorOf({ principal, door }: McpCallContext): CallDoor {
-  if (door) return door
-  if (principal.door === 'platform') return 'platform'
-  return principal.actor === 'external_agent' ? 'mcp' : 'piloti'
-}
-
-/**
- * Who is behind a call, to keep automation out of usage numbers: `ui` when
- * the in-product agent works in a person's chat, `mcp` when an outside agent holds an OAuth
- * client's token, `script` when an outside agent's token names no client (a
- * bare token in a script).
- */
-export type SessionSource = 'ui' | 'mcp' | 'script'
-
-export function sessionSourceOf({ principal }: Pick<McpCallContext, 'principal'>): SessionSource {
-  if (principal.actor !== 'external_agent') return 'ui'
-  return principal.clientId ? 'mcp' : 'script'
-}
 
 export function recordOperationCalled(
   ctx: McpCallContext,
   call: {
-    /** A catalog name, or null for a name no operation has: that is the agent's own text. */
     operation: string | null
     domain: string | null
     decision: RecordedDecision
@@ -103,11 +37,10 @@ export function recordOperationCalled(
 ): void {
   const { principal, mode } = ctx
   const endedAt = Date.now()
-  // Not awaited: a call never waits for, or fails because of, Langfuse.
   void recordToolCallTrace({
     operation: call.operation,
     domain: call.domain,
-    door: doorOf(ctx),
+    door: callDoorOf(ctx),
     mode,
     decision: call.decision,
     ...(ctx.decisionSource ? { decisionSource: ctx.decisionSource } : {}),
@@ -126,7 +59,7 @@ export function recordOperationCalled(
     properties: {
       operation: call.operation,
       domain: call.domain,
-      door: doorOf(ctx),
+      door: callDoorOf(ctx),
       session_source: sessionSourceOf(ctx),
       mode,
       decision: call.decision,
@@ -147,7 +80,7 @@ export function recordOperationMissing(ctx: McpCallContext, description: string,
     properties: {
       description_length: description.length,
       category,
-      door: doorOf(ctx),
+      door: callDoorOf(ctx),
       session_source: sessionSourceOf(ctx),
       mode,
       client_id: principal.clientId,

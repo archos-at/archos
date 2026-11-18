@@ -56,6 +56,7 @@ import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-c
 import type { DocumentCheckPayload } from '@/lib/jobs-queue/types'
 import { documentCheckConversationId, documentCheckId, documentCheckMessageId } from './check'
 import { checkTurnMessage, runDocumentCheckSlice } from './job'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const ORG = 'org-1'
 const DOC_ID = '00000000-0000-4000-8000-0000000000d1'
@@ -79,7 +80,7 @@ const session = {
   email: 'u@x.test',
   name: 'Anna Weber',
   organizationId: ORG,
-  featureFlags: ['piloti-notices'],
+  featureFlags: ['revision-suggestions'],
 } as unknown as AuthorizedSession
 const DOCUMENT = {
   id: DOC_ID,
@@ -141,7 +142,7 @@ describe('runDocumentCheckSlice — starting the turn', () => {
     const [[request]] = vi.mocked(runHeadlessTurn).mock.calls
     expect(request.conversationId).toBe(CONVERSATION)
     expect(request.headers['x-chat-mode']).toBe('headless')
-    expect(request.headers['x-aiq-mode']).toBe('headless')
+    expect(request.headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     expect(request.requires).toEqual(['user_message.trigger', 'user_message.if_idle'])
     expect(request.message).toMatchObject({
       message_id: CHECK_ID,
@@ -276,7 +277,7 @@ describe('runDocumentCheckSlice — waiting for the answer', () => {
     expect(message.content.indexOf('Gebäudeklasse')).toBeLessThan(message.content.indexOf('11 Wohnungen'))
     expect(emitInboxItems).toHaveBeenCalledTimes(1)
     expect(vi.mocked(emitInboxItems).mock.calls[0][0][0]).toMatchObject({
-      type: 'piloti.revision_checked',
+      type: 'agent.revision_checked',
       recipientUserId: 'uploader',
       resourceId: DOC_ID,
       anchorId: 'a2',

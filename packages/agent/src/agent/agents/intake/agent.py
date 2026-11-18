@@ -1,43 +1,3 @@
-"""The Erfassungs-Agent: Piloti sets a project up from its documents (ADR-0111).
-
-A run of agent type ``project_intake`` on the research worker
-(``agent_host/registry.py``), started by the BFF when a finished upload batch lands
-on a project with an intake, or by a person's click. It acts as that person
-through the signed envelope the run carries (ADR-0108), and reads only the
-project's main collection, the scope the BFF signed.
-
-The model is given a goal, the rules a value must meet, the tools and its
-budget, and chooses its own way through the documents: the prompt prescribes
-no sequence (the product owner's direction for this agent: tools, not a
-graph). It runs as a LangChain ``create_agent`` graph (the ReAct agent the deep
-researcher's workers are built on) with the four intake tools (``tools.py``),
-``read_document`` (``reading.py``) and the shared ``list_files``,
-``knowledge_search`` and ``read_passage`` the runner resolves from the config.
-How each tool is used lives in its description (ADR-0060). The opening message
-is the project's state (its needs, unread files, description and the last
-reading's summary), given as context to save a first call, not as an order of
-work.
-
-Three guarantees hold in code, not in the prompt:
-
-* **Every quote was read.** The run's read log (``read_log.py``) is bound for
-  the run; ``record_values`` refuses a quote that does not stand in it.
-* **The run is bounded**: ``max_tool_steps`` tool calls (then only
-  ``finish_intake`` runs), a recursion limit behind it, and ``max_run_seconds``
-  of wall clock. Both are fields of ``ProjectIntakeAgentConfig``
-  (``register.py``), which the runner hands to the constructor; the defaults
-  below are the config's.
-* **The run always finishes.** When the model stops without ``finish_intake``,
-  runs out of budget or fails, the run finishes in code with a short summary, so
-  the intake leaves ``reading`` on the BFF without waiting for its reconciler.
-  The tool may hold the model's first call once (decisive needs open, files
-  unread); past the step budget it never holds, and the finish in code calls
-  ``finish_intake`` itself, past the tool.
-
-The run writes no report (``produces_report = False``): its output is values on
-the profile, and the job's output is the summary.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -73,16 +33,12 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-#: Tool calls one run may make before only ``finish_intake`` still runs.
 DEFAULT_MAX_TOOL_STEPS = 80
-#: Wall clock for one run. The BFF reconciles a reading older than 30 minutes; this ends well before.
 DEFAULT_MAX_RUN_SECONDS = 20 * 60
-#: The BFF's instruction text, carried into the first message, bounded.
 MAX_INSTRUCTION_CHARS = 500
 
 
 def _context_job_id() -> str | None:
-    """The job this run is: the worker sets the agent runtime's ``workflow_run_id`` to it at claim."""
     try:
         from nat.plugin_api import Context
 
@@ -93,7 +49,6 @@ def _context_job_id() -> str | None:
 
 
 def system_prompt(max_steps: int = DEFAULT_MAX_TOOL_STEPS, max_run_seconds: float = DEFAULT_MAX_RUN_SECONDS) -> str:
-    """The prompt: who Piloti is, the goal, the rules, the tools and the budget. No procedure."""
     return render_prompt_template(
         load_prompt(PROMPTS_DIR, "system.j2"),
         max_steps=max_steps,
@@ -103,13 +58,6 @@ def system_prompt(max_steps: int = DEFAULT_MAX_TOOL_STEPS, max_run_seconds: floa
 
 
 def first_message(instruction: str, needs_body: dict[str, Any]) -> str:
-    """The project's state as the run starts: why it runs, the last reading's note, the needs and unread files.
-
-    Context, not instructions: it is the ``intake_needs`` answer the model would
-    otherwise ask for first, with the BFF's occasion and the previous reading's
-    own summary (``previousSummary``) beside it, so a reading of new documents
-    does not start blind.
-    """
     lines = ["The project as it stands now (the same answer intake_needs gives, so you need not ask for it first)."]
     instruction = " ".join((instruction or "").split())[:MAX_INSTRUCTION_CHARS]
     if instruction:
@@ -135,7 +83,6 @@ def _instruction(state: IntakeAgentState) -> str:
 
 
 def _last_words(messages: list[Any]) -> str:
-    """The model's own last text, when it stopped by writing instead of calling ``finish_intake``."""
     for message in reversed(messages or []):
         if isinstance(message, AIMessage) and not message.tool_calls:
             return " ".join(content_to_text(message.content).split())
@@ -153,7 +100,6 @@ _ENDINGS = {
 
 
 def fallback_summary(ended: str, session: IntakeSession, documents_read: int, last_words: str = "") -> str:
-    """The summary the run finishes with when the model did not write one. German: a person reads it."""
     if ended == "model" and last_words:
         return last_words[: client.MAX_SUMMARY_CHARS]
     withdrawn = session.outcomes.get("withdrawn", 0)
@@ -165,11 +111,7 @@ def fallback_summary(ended: str, session: IntakeSession, documents_read: int, la
 
 
 class ProjectIntakeAgent:
-    """Reads a new project's documents and suggests its profile values, each with the page it is on."""
-
-    #: The runner builds this state from the job (``_get_agent_state_class``).
     state_model = IntakeAgentState
-    #: The run writes values to the profile, not a report: no post-report passes.
     produces_report = False
 
     def __init__(
@@ -222,7 +164,6 @@ class ProjectIntakeAgent:
         )
 
     async def _loop(self, model: Any, session: IntakeSession, opening: str) -> tuple[str, list[Any]]:
-        """Run the model's loop; how it ended, and its messages."""
         from langgraph.errors import GraphRecursionError
 
         config: dict[str, Any] = {"recursion_limit": 2 * (self.max_tool_steps + 5) + 1}
@@ -241,7 +182,6 @@ class ProjectIntakeAgent:
             logger.warning("Project intake %s hit its time budget", session.job_id)
             return "time_budget", []
         except (BudgetExceededError, RunBudgetExceededError) as error:
-            # Out of budget is the office's limit at work, not a fault: no ERROR, no error-tracking issue.
             logger.info("Project intake %s stopped: %s", session.job_id, error)
             return "llm_budget", []
         except Exception:  # noqa: BLE001 — the run still finishes, with what it recorded
@@ -250,13 +190,10 @@ class ProjectIntakeAgent:
         return "model", list((result or {}).get("messages") or [])
 
     async def _read(self, state: IntakeAgentState, session: IntakeSession) -> tuple[str, str]:
-        """The run; ``(how it ended, the summary it ended with)``."""
         if not session.job_id:
             return "no_job", "Die Erfassung konnte nicht starten: der Lauf hat keine Job-ID."
         reply = await client.call_intake("needs", client.needs_request(session.job_id))
         if not reply.ok:
-            # No identity, an identity the BFF refused, or no longer the current reading:
-            # nothing this run sends would be taken, finish included.
             if reply.reason == "no_envelope" or reply.stale or reply.status in (401, 403):
                 session.stale = reply.stale
                 return "refused", reply.refusal
@@ -275,7 +212,6 @@ class ProjectIntakeAgent:
         return ended, session.summary or fallback_summary(ended, session, len(current_documents_read()))
 
     async def run(self, state: IntakeAgentState | dict[str, Any]) -> IntakeAgentState:
-        """Read the project, record what its documents state, and finish. Never raises but on cancellation."""
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
 
@@ -315,7 +251,6 @@ def _outcome(ended: str, session: IntakeSession, documents_read: list[str]) -> d
 
 
 def _record_trace(outcome: dict[str, Any]) -> None:
-    """The run's facts as trace metadata on its ``research-job`` trace (ADR-0089). Never raises."""
     from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
     refusals = ",".join(f"{reason}={count}" for reason, count in sorted(outcome["refusals"].items()))

@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform retrieval-settings surface. Renders the REAL
- * card with fixture data so the two states that matter can be reviewed and
- * screenshotted without a backend:
- *
- *  - a count pinned to a platform value (`knowledge.top_k`, `web.max_results`),
- *  - a count still on the build-time config default (everything else).
- *
- * A module-scope fetch shim (browser + dev only) serves the settings payload.
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PlatformRetrievalSettings } from '@/app/app/(shell)/platform/retrieval/platform-retrieval-settings'
@@ -20,9 +8,6 @@ import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import { RETRIEVAL_SETTINGS } from '@/lib/retrieval-settings/catalog'
 
-// The real catalog, not a copy of it: a renamed key or a reworded description
-// should show up in this preview (and its screenshots) instead of quietly
-// drifting from what the surface actually renders.
 const DEFINITIONS = RETRIEVAL_SETTINGS
 
 interface SettingFixture {
@@ -55,12 +40,6 @@ const SETTINGS: SettingFixture[] = DEFINITIONS.map((definition) => {
 
 const PREVIEW_PATH = '/dev/platform-retrieval'
 
-/**
- * Install the fixture responder ONCE at module scope and never tear it down;
- * scope comes from the pathname check inside. A teardown on unmount restores
- * `window.fetch` between StrictMode's two mounts, so the card's second fetch
- * escaped to the real API and the preview showed the error state.
- */
 function installShim(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
   const w = window as unknown as { __platformRetrievalSettingsShim?: boolean }

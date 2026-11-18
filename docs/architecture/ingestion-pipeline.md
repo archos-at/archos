@@ -1,6 +1,6 @@
 # How a document is read: the ingestion pipeline, drawn
 
-What happens between "an architect drops a file" and "Piloti can cite it", as the
+What happens between "an architect drops a file" and "the agent can cite it", as the
 code does it on 2026-10-27. Every box below names the function that owns it, so a
 diagram that goes stale is a diff away from being caught. Where this pipeline goes
 next is [`docs/roadmap/ingestion-north-star.md`](../roadmap/ingestion-north-star.md).
@@ -12,7 +12,7 @@ Older, deeper material is still right and is linked rather than repeated:
 ADR-0076 (the claim queue, superseded), ADR-0117 (the page pipeline, proposed,
 not built), ADR-0150 (Hatchet, which now runs the job: section 7).
 
-Short forms: **A** is `packages/knowledge-layer/src/ingest/adapter.py`, **S** is
+Short forms: **A** is `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py` as it stood before it was split (its `A:N` line references are from then; the job is now run by `packages/knowledge-layer/src/knowledge_layer/ingest/ingest_run.py`, each file by `packages/knowledge-layer/src/knowledge_layer/ingest/file_ingest.py`, a PDF's reads by `packages/knowledge-layer/src/knowledge_layer/ingest/pdf_ingest.py`), **S** is
 `apps/workspace/bff/documents/service.ts` as it stood before it was split (its `S:N` line references are from then; `dispatchDocument` is now in `document-dispatch.ts`, `dispatchIngest` in `ingest-dispatch.ts`), **D** is
 `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`.
 
@@ -109,15 +109,6 @@ version. IFC models take a side road (`bim_extract`) and come back as a Markdown
 digest. A failure to start is final at once: `markDocumentIngestFailed("Ingestion
 could not be started")` (S:526).
 
-A queue row moves through four statuses, and the database holds it to them
-(`common/claim_queue_schema.py`, a trigger installed with the table): a row is born
-`queued`; a live row (`queued` or `claimed`) may be claimed, given back, cancelled
-or retired `dead`; a retired row (`dead` or `cancelled`) never changes status again
-and leaves only when `purge_retired` deletes it. Any other write fails with
-`check_violation`, whichever code path issued it. The status store's `ingest_jobs`
-has no such guard on purpose: there the owner's late write wins over a row another
-replica settled as interrupted.
-
 ## 3. Inside one file
 
 The order below is the order the code runs, with what each stage costs and what
@@ -204,7 +195,7 @@ screenable, like an embedded raster's.
 
 **Searchable before it is described.** The summary, tags, topics, dossier and a
 base-corpus Dokumentart suggestion start once the text and visuals are read, and the
-chunks are embedded and written while they run (`ingest/enrichment.py`):
+chunks are embedded and written while they run (`packages/knowledge-layer/src/knowledge_layer/ingest/enrichment.py`):
 no chunk carries them (`stamp_chunk_metadata` reads only the Dokumentart and the
 provenance). They are collected after the write, within their own bounds, and their
 rows are registered then; the tags reach the points through `register_summary`'s copy
@@ -405,7 +396,7 @@ Since 2026-10-27 the row also carries what the ingest read of the whole document
 
 The BFF derives the project's findings from them (a referenced document the project
 lacks, a plan number no document carries, two documents stating one fact
-differently, a document not fully read), `list_files` shows them to Piloti, and the
+differently, a document not fully read), `list_files` shows them to the agent, and the
 per-turn inventory carries the type and the unread pages.
 
 Still **not** extracted at ingest: storey (Geschoss) per page, a computed scale, a

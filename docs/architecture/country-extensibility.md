@@ -3,7 +3,7 @@
 Status: Active, rewritten 2026-11-10 for ADR-0175. Companion to ADR-0165,
 ADR-0168, ADR-0173 and `backend-deep-dive.md` §6b.
 
-Piloti ships Austria-first, but the product goal is multi-jurisdiction. Until
+The product ships Austria-first, but the product goal is multi-jurisdiction. Until
 ADR-0175 a `CountryProfile` in code (`common/country_profile.py`) decided which
 country's law a project read, from the project's own text, with Austria's
 doctrine, corpus note and OIB verdicts (`common/applicability.py`) as code. All
@@ -175,7 +175,7 @@ it touches:
 | Part | Today | Becomes | Paths (hits) |
 |---|---|---|---:|
 | The source record | `configs/sources/at/ris/source.yml` and its two fixtures, a file in git; `at-ris` and its hosts as examples in the platform wire and catalog | A platform source record proposed in Austria's change request (ADR-0174), its fixtures with it; examples in descriptions name no real source | 7 (16), plus the 3 files under `configs/` |
-| The adapter | `packages/ris-adapter` (19 source files, 15 test files), the `ris_xml` engine in `packages/public-sources/src/engines/`, the backend's `routes/ris.py` and the RIS halves of `routes/norms.py` and `plugin.py`, the BFF's `bff/ris/` and `/api/ris/document`, the UI's `ris-document-dialog` | The package goes away. The request side is the generic `rest` access type the record already configures. The format side is an engine named for the format (see below). Routes and the dialog are a source document by source id | 31 (481) |
+| The adapter | `packages/ris-adapter` (19 source files, 15 test files), the `ris_xml` engine in `packages/public-sources/src/public_sources/engines/`, the backend's `routes/ris.py` and the RIS halves of `routes/norms.py` and `plugin.py`, the BFF's `bff/ris/` and `/api/ris/document`, the UI's `ris-document-dialog` | The package goes away. The request side is the generic `rest` access type the record already configures. The format side is an engine named for the format (see below). Routes and the dialog are a source document by source id | 31 (481) |
 | The model tool | `ris_lookup` and its three siblings (`ris_search`, `ris_fetch_document`, `ris_catalog_lookup`) as tool names, config keys (`ris.page_size`), limits, retrieval settings, step labels and `law_gate.LAW_SOURCE_COUNTRIES = {"ris": "AT"}` | One country-neutral legal-source lookup over the sources the turn's knowledge context names (ADR-0173); which source answers is the record's territory, not a table in `law_gate` | 17 (56) |
 | Citations | `is_ris`, `isRisUrl`, `RIS_HOST_RE`, the `ris` origin and target kind, the `building_law_ris` lane, `RisPreviewChip`, the `[RIS]` tag in text parsers and report layout | A legal database is recognised by its source record and public address: roles, source identity, text parsers and verification ask the record, and the chip shows the record's title | 33 (129) |
 | Prompts | The deep research templates tell the model to call `ris_lookup` and to cite RIS; the door's guides and three built-in skills name it | The prompt names the kind of source and the neutral tool; the turn's knowledge context names the source | 12 (26) |
@@ -265,7 +265,7 @@ is deleted whole.
 ### 5. Law names (44 hits) and hosts (14 hits)
 
 `law_name` (Bauordnung, WBTV, Baugesetz as examples in tool descriptions,
-prompts and one citation regex in `knowledge-layer/src/references.py`) becomes
+prompts and one citation regex in `knowledge-layer/src/knowledge_layer/references.py`) becomes
 the works' designations from the pack, rendered where an example is needed.
 `host` (`ris.bka.gv.at`, `oib.or.at`, `ma37.wien.gv.at` in citation targets,
 the egress list and catalog examples) becomes the hosts of source records,

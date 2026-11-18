@@ -1,13 +1,3 @@
-"""Admin CRUD routes for the curated norm registry.
-
-Follows the factory pattern of :mod:`agent_host.routes.oib` (``add_norm_routes`` +
-the ``X-Admin-Token`` guard). Three endpoints under ``/v1/admin/norms``:
-
-- ``GET``    — read the current registry (store first, YAML seed fallback).
-- ``PUT``    — replace the registry with optimistic-concurrency and validation.
-- ``POST /verify`` — live OGD-RIS title search to help an admin pick a pointer.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -41,32 +31,20 @@ def _require_admin_token(x_admin_token: str | None = Header(default=None)):
 
 
 class NormsPutRequest(BaseModel):
-    """PUT body: the expected version (optimistic lock) plus the new registry."""
-
     version: int
     registry: NormsFile
 
 
 class NormsVerifyRequest(BaseModel):
-    """POST /verify body: a live OGD-RIS title search seed."""
-
     title_query: str
     application: str
-    # An admin tab that has not reloaded still sends `bundesland`; read-only.
     federal_state: str = Field("", validation_alias=AliasChoices("federal_state", "bundesland"))
     expect: str = ""
     exclude: list[str] = Field(default_factory=list)
-    # An admin tab that has not reloaded still sends `gesetzesnummer`; read-only.
     statute_number: str = Field("", validation_alias=AliasChoices("statute_number", "gesetzesnummer"))
 
 
 def _rejection_reasons(norms_file: NormsFile) -> list[str]:
-    """Entries norm_registry would silently drop — surfaced to the admin as 400 reasons.
-
-    Replicates ``norm_registry._validated_entries``' rules (unknown RIS
-    application, unknown Bundesland, duplicate id) with explicit messages so an
-    admin SEES the problem instead of having entries vanish on the next load.
-    """
     problems: list[str] = []
     seen: set[str] = set()
     for entry in norms_file.entries:
@@ -87,7 +65,6 @@ def _rejection_reasons(norms_file: NormsFile) -> list[str]:
 
 
 def _fallback_registry() -> tuple[NormsFile, int]:
-    """YAML-seed view for GET when the store is unavailable (version 0)."""
     registry = norm_registry.load_registry()
     entries = registry.entries if registry is not None else []
     return NormsFile(entries=entries), 0
@@ -118,9 +95,6 @@ def add_norm_routes(router: APIRouter) -> None:
     async def put_norms(body: NormsPutRequest, _: None = Depends(_require_admin_token)) -> dict:
         from agent.knowledge.norm_store import get_norm_store
 
-        # NormsFile schema validation already ran (FastAPI -> 422 with details).
-        # Second gate: entries norm_registry would silently drop must be an
-        # explicit 400 so the admin sees them, not lose them on the next load.
         problems = _rejection_reasons(body.registry)
         if problems:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=problems)
@@ -187,8 +161,6 @@ def add_norm_routes(router: APIRouter) -> None:
                 continue
             if any(term.lower() in lower for term in body.exclude):
                 continue
-            # Whole-law anchors only (the "§ 0" document with a consolidated-law URL):
-            # that is what a registry pointer references.
             if hit.metadata.get("Paragraph/Artikel") != "§ 0":
                 continue
             if not hit.full_law_url:

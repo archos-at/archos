@@ -1,18 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
-import { AlertCircle, Ban, Check, ChevronDown, RotateCcw, ShieldAlert, WifiOff, X } from 'lucide-react'
+import { Ban, ChevronDown, RotateCcw, X } from 'lucide-react'
 import { mayRetryUpload, type TrackedFile } from '../types'
 import {
   isDeterminate,
   summarizeTransfer,
   uploadPercent,
   uploadPhase,
-  type TransferSummary,
   type UploadPhase,
 } from '../lib/upload-progress'
 import { useElapsedSeconds, useTransferRate } from '../hooks/use-transfer-rate'
+import { useOnline } from '../hooks/use-online'
+import { phaseLabel, trayDetail, trayHeadline } from '../lib/upload-tray-wording'
 import { FileExtChip } from './file-ext-chip'
 import { IngestionStatusWord, ingestionMarkOfPhase } from './ingestion-atoms'
 import { IngestFailureNotice } from './ingest-failure-notice'
@@ -26,11 +27,14 @@ import { AnimatePresence, iconSwapTransition, motion, motionBase, useMotionToken
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatByteProgress, formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
+import { formatBytes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { FilingViewBar } from './filing-bar'
 import { HIGHLIGHT_OUTLINE_INSET } from '@/components/ui/highlight'
+import { RowAction } from './upload-tray/row-action'
+import { TrackBar } from './upload-tray/track-bar'
+import { TrayGlyph } from './upload-tray/tray-glyph'
 
 interface UploadTrayProps {
   files: TrackedFile[]
@@ -56,21 +60,6 @@ const VISIBLE_PHASES = new Set<UploadPhase>([
 const SUCCESS_LINGER_MS = 6_000
 
 const ROW_NAME_TAIL = 20
-
-function subscribeOnline(onChange: () => void): () => void {
-  window.addEventListener('online', onChange)
-  window.addEventListener('offline', onChange)
-  return () => {
-    window.removeEventListener('online', onChange)
-    window.removeEventListener('offline', onChange)
-  }
-}
-const readOnline = (): boolean => navigator.onLine
-const serverOnline = (): boolean => true
-
-function useOnline(): boolean {
-  return useSyncExternalStore(subscribeOnline, readOnline, serverOnline)
-}
 
 export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument, className }: UploadTrayProps) {
   const foldTransition = useMotionToken(motionBase)
@@ -245,7 +234,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
         testId="upload-tray-track"
       />
 
-      {/* Where Piloti would file the batch, one line per target folder. Not
+      {/* Where the agent would file the batch, one line per target folder. Not
           inside the fold: collapsing the rows does not answer the question. */}
       <FilingViewBar documentIds={documentIds} minFiles={1} className="px-4 pb-1 pt-2.5" />
 
@@ -279,110 +268,6 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
     </motion.section>
       )}
     </AnimatePresence>
-  )
-}
-
-function TrayGlyph({ summary, offline }: { summary: TransferSummary; offline: boolean }) {
-  const radius = 8
-  const circumference = 2 * Math.PI * radius
-
-  if (summary.isSettled) {
-    const hasFailure = summary.failed > 0
-    const hasHeld = !hasFailure && summary.held > 0
-    return (
-      <span
-        aria-hidden
-        data-testid="upload-tray-glyph"
-        data-tone={hasFailure ? 'destructive' : hasHeld ? 'warning' : 'success'}
-        className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-full',
-          'animate-in zoom-in-75 fade-in-0 duration-base ease-entrance motion-reduce:animate-none',
-          hasFailure
-            ? 'bg-danger-subtle text-error'
-            : hasHeld
-              ? 'bg-warning-subtle text-warning'
-              : 'bg-success-subtle text-success'
-        )}
-      >
-        {hasFailure ? (
-          <AlertCircle className="size-3.5" />
-        ) : hasHeld ? (
-          <ShieldAlert className="size-3.5" />
-        ) : (
-          <Check className="size-3.5" />
-        )}
-      </span>
-    )
-  }
-
-  if (offline) {
-    return (
-      <span
-        aria-hidden
-        data-testid="upload-tray-glyph"
-        data-tone="offline"
-        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warning-subtle text-warning"
-      >
-        <WifiOff className="size-3.5" />
-      </span>
-    )
-  }
-
-  const determinate = summary.stage === 'transferring' && summary.bytesPercent !== null
-  const filled = determinate ? (summary.bytesPercent! / 100) * circumference : circumference * 0.28
-
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 20 20"
-      className={cn('size-5 shrink-0 -rotate-90', !determinate && 'animate-spin')}
-    >
-      <circle cx="10" cy="10" r={radius} fill="none" strokeWidth="2.5" className="stroke-foreground/12" />
-      <circle
-        cx="10"
-        cy="10"
-        r={radius}
-        fill="none"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeDasharray={`${filled} ${circumference}`}
-        className="stroke-primary transition-[stroke-dasharray] duration-deliberate ease-out motion-reduce:transition-none"
-      />
-    </svg>
-  )
-}
-
-function TrackBar({
-  percent,
-  sweeping,
-  className,
-  testId,
-}: {
-  percent: number | null
-  sweeping: boolean
-  className?: string
-  testId?: string
-}) {
-  if (percent === null && !sweeping) return null
-
-  return (
-    <div
-      data-testid={testId}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      {...(percent === null ? {} : { 'aria-valuenow': percent })}
-      className={cn('relative h-[3px] w-full overflow-hidden bg-foreground/8', className)}
-    >
-      {percent === null ? (
-        <span className="animate-progress-sweep block h-full w-1/3 rounded-full bg-primary/60 motion-reduce:animate-none" />
-      ) : (
-        <span
-          className="block h-full w-full origin-left rounded-r-full bg-primary transition-transform duration-quick ease-out motion-reduce:transition-none"
-          style={{ transform: `scaleX(${percent / 100})` }}
-        />
-      )}
-    </div>
   )
 }
 
@@ -445,7 +330,7 @@ function UploadRow({
           <p className="min-w-0 text-xs text-foreground" data-testid="upload-row-name">
             <MiddleTruncate text={file.fileName} tail={ROW_NAME_TAIL} />
           </p>
-          {/* Where Piloti would file it, while the person is still at the
+          {/* Where the agent would file it, while the person is still at the
               upload: the chip, as on the card, on the row's one line. */}
           {!isFailed && !isHeldBack && (
             <FilingSuggestionSlot documentId={file.serverFileId} className="max-w-[60%] shrink-0" />
@@ -600,116 +485,4 @@ function UploadRow({
       </AnimatePresence>
     </motion.li>
   )
-}
-
-function RowAction({
-  label,
-  onClick,
-  icon: Icon,
-  className,
-}: {
-  label: string
-  onClick: () => void
-  icon: typeof X
-  className?: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={cn(
-        'flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11',
-        className
-      )}
-    >
-      <Icon className="size-3.5" aria-hidden />
-    </button>
-  )
-}
-
-function phaseLabel(phase: UploadPhase, percent: number | null, t: ReturnType<typeof useTranslations>): string {
-  switch (phase) {
-    case 'uploading':
-      return percent === null ? t('uploads.row.uploading') : `${percent}%`
-    case 'queued':
-      return t('uploads.row.queued')
-    case 'processing':
-      return t('uploads.row.processing')
-    case 'ready':
-      return t('uploads.row.ready')
-    case 'held':
-      return t('uploads.row.held')
-    case 'stored':
-      return t('uploads.row.stored')
-    case 'canceled':
-      return t('uploads.row.canceled')
-    case 'failed':
-      return t('uploads.row.failed')
-  }
-}
-
-function trayHeadline(summary: TransferSummary, t: ReturnType<typeof useTranslations>): string {
-  if (summary.stage === 'transferring') {
-    const count = summary.queued + summary.uploading
-    return t(count === 1 ? 'uploads.heading.transferringOne' : 'uploads.heading.transferringOther', { count })
-  }
-  if (summary.stage === 'processing') {
-    return t(summary.processing === 1 ? 'uploads.heading.processingOne' : 'uploads.heading.processingOther', {
-      count: summary.processing,
-    })
-  }
-  const added = summary.ready + summary.stored
-  if (added > 0 && summary.failed > 0) {
-    return t('uploads.heading.mixed', { ready: added, failed: summary.failed })
-  }
-  if (summary.failed > 0) {
-    return t(summary.failed === 1 ? 'uploads.heading.failedOne' : 'uploads.heading.failedOther', {
-      count: summary.failed,
-    })
-  }
-  if (added > 0 && summary.held > 0) {
-    return t('uploads.heading.mixedHeld', { ready: added, held: summary.held })
-  }
-  if (summary.held > 0) {
-    return t(summary.held === 1 ? 'uploads.heading.heldOne' : 'uploads.heading.heldOther', { count: summary.held })
-  }
-  if (added > 0) {
-    return t(added === 1 ? 'uploads.heading.doneOne' : 'uploads.heading.doneOther', { count: added })
-  }
-  return t('uploads.heading.canceled')
-}
-
-function trayDetail(
-  summary: TransferSummary,
-  context: {
-    bytesPerSecond: number | null
-    etaSeconds: number | null
-    processingElapsed: number
-    locale: string
-    t: ReturnType<typeof useTranslations>
-  }
-): string {
-  const { bytesPerSecond, etaSeconds, processingElapsed, locale, t } = context
-
-  if (summary.stage === 'transferring') {
-    const parts = [t('uploads.detail.bytes', formatByteProgress(summary.uploadedBytes, summary.totalBytes, locale))]
-    if (bytesPerSecond !== null) parts.push(formatTransferRate(bytesPerSecond, locale))
-    if (etaSeconds !== null && etaSeconds > 0) {
-      parts.push(t('uploads.detail.eta', { time: formatDurationShort(etaSeconds, locale) }))
-    }
-    if (summary.queued > 0) parts.push(t('uploads.detail.queued', { count: summary.queued }))
-    return parts.join(' · ')
-  }
-
-  if (summary.stage === 'processing') {
-    const parts = [t('uploads.detail.processing')]
-    if (processingElapsed >= 5) {
-      parts.push(t('uploads.detail.elapsed', { time: formatDurationShort(processingElapsed, locale) }))
-    }
-    return parts.join(' · ')
-  }
-
-  return t('uploads.detail.settled', { total: formatBytes(summary.uploadedBytes, locale) })
 }

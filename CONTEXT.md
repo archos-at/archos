@@ -59,30 +59,30 @@ The operator level above every organization, which sets the defaults each
 organization inherits unless it overrides them.
 
 **Entwurfsverfasser** (design author):
-The planner of record who signs the submission. Piloti supports this person and
+The planner of record who signs the submission. ARCHOS supports this person and
 never replaces them.
 
 **Behörde** (building authority):
-The authority that decides on a submission and issues the Bescheid. Piloti does
+The authority that decides on a submission and issues the Bescheid. ARCHOS does
 not stand in for it.
 
 **Wert / Schätzung / noch offen** (value / estimate / still open):
 The three answer modes of a project intake question. A Wert becomes a fact, a
-Schätzung an unconfirmed assumption, and noch offen an open question Piloti asks
+Schätzung an unconfirmed assumption, and noch offen an open question ARCHOS asks
 about when an answer depends on it.
 
 **Projekterfassung** (project setup from the documents):
-The way into a new project where Piloti reads the project's documents, suggests
+The way into a new project where ARCHOS reads the project's documents, suggests
 each value with the page it was found on (*Vorschlag*), and asks only the
 *Rückfragen* whose answer would change the Gebäudeklasse; a person confirms.
 The *Einrichtung* (the wizard) is the other way into the same profile. A value
 two documents state differently is a *Widerspruch*, shown, never decided by
-Piloti. A project created as abgeschlossen is set up the same way and closed
+ARCHOS. A project created as abgeschlossen is set up the same way and closed
 when its Erfassung is finished.
 _Avoid_: wizard, for the Projekterfassung; „Plan" for any of the documents it reads.
 
 **Gebäudeklasse** (building class):
-The OIB classification of a building that many requirements depend on. Piloti
+The OIB classification of a building that many requirements depend on. ARCHOS
 asks for it when an answer turns on it.
 
 ## Sources
@@ -93,7 +93,7 @@ guidelines (Richtlinie 1 to 6, with 2.1 to 2.3), the binding text most answers
 rest on.
 
 **Punkt** (point):
-A numbered clause of an OIB-Richtlinie, and the unit Piloti cites ("OIB 2 Pkt.
+A numbered clause of an OIB-Richtlinie, and the unit ARCHOS cites ("OIB 2 Pkt.
 3.5.2").
 
 **RIS** (Rechtsinformationssystem):
@@ -148,7 +148,7 @@ filed under another name and linked: both are Fassungen in one timeline,
 numbered „Fassung 3 von 5“ (“Revision 3 of 5”). A later Fassung replaces an
 earlier one, and the earlier one stays readable on request. Offices mark it in
 the file name with an index or a date (*Stand*, always a date or an index:
-„Stand vom 14.08.2026“); Piloti reads that as a suggestion a person confirms.
+„Stand vom 14.08.2026“); ARCHOS reads that as a suggestion a person confirms.
 _Avoid_: Plan, Planstand, for any file. A name with an index says a file has
 Fassungen, not that it is a drawing; only its Dokumentart says what it is. Say
 Dokument, Datei, Fassung or Stand. Also avoid „Version“ and “version” where a
@@ -164,8 +164,8 @@ The office approving one Fassung, and only that. Its status (*Freigabestatus*)
 has eight words: Entwurf, In Prüfung, Änderungen angefordert, Freigegeben,
 Veröffentlicht, Ersetzt, Abgelehnt, Stillgelegt (Draft, In review, Changes
 requested, Approved, Published, Replaced, Rejected, Retired). Approval asserts
-the content; Piloti answers only from a *veröffentlicht* Fassung (ADR-0054), so
-say „Piloti antwortet aus dieser Fassung“, never „Grundlage für Antworten“.
+the content; ARCHOS answers only from a *veröffentlicht* Fassung (ADR-0054), so
+say „{productName} antwortet aus dieser Fassung“, never „Grundlage für Antworten“.
 _Avoid_: „freigeben“ for a held upload (see **Zurückgehalten**) or for sharing
 (see **Share**); „Änderungen erbeten“; “Superseded”.
 
@@ -179,25 +179,25 @@ when it has passed), and a thread of answers. It is *offen*, *erledigt* or *verw
 An open mark that still holds on a new Fassung is carried over to it
 (*auf die aktuelle Fassung übernehmen*), at its place, with its number and its
 thread; when another document replaces its own, it goes on there as a linked
-mark, and the old one is closed with the link. Piloti's own findings are
+mark, and the old one is closed with the link. The agent's own findings are
 *Vorschläge* until a person takes them over (*übernehmen*); only then are they
-the office's. A mark the person asked Piloti to set is open at once, in that
-person's name, and when asked Piloti changes or deletes marks as the person
+the office's. A mark the person asked ARCHOS to set is open at once, in that
+person's name, and when asked ARCHOS changes or deletes marks as the person
 could, leaving a short note in the mark's thread. Marks are set and discussed
 in the *Prüfansicht*, the document opened full screen, together and live.
-A person can hand an open mark to Piloti (*an Piloti delegieren*): the mark
-keeps its *Zuständige*, and Piloti works it on behalf of the person who
-delegated („Piloti arbeitet daran · für Miriam“) and hands it back when that
-turn has ended, whatever its outcome, or when Piloti could not start on it at
-all; taking it back stops Piloti. An answer in
-the thread that names Piloti (@Piloti), or answers Piloti's own open Rückfrage,
-*weckt* Piloti: it answers there even when nobody has the chat open (ADR-0106).
-Each change Piloti makes to a mark is recorded with its turn and can be undone
+A person can hand an open mark to ARCHOS (*an {productName} delegieren*): the mark
+keeps its *Zuständige*, and ARCHOS works it on behalf of the person who
+delegated („{productName} arbeitet daran · für Miriam“) and hands it back when that
+turn has ended, whatever its outcome, or when ARCHOS could not start on it at
+all; taking it back stops ARCHOS. An answer in
+the thread that names ARCHOS (the @-mention), or answers the agent's own open Rückfrage,
+*weckt* ARCHOS: it answers there even when nobody has the chat open (ADR-0106).
+Each change ARCHOS makes to a mark is recorded with its turn and can be undone
 while nobody has changed it since, including a mark it set for you and a reply
 it wrote for you, as long as nobody else has answered in that thread.
 _Avoid_: ticket, issue, Mangel for every mark (a Mangel is one *Art*); comment,
-for the mark itself rather than an answer in its thread; „Piloti zuweisen“:
-work is assigned to people and delegated to Piloti.
+for the mark itself rather than an answer in its thread; „{productName} zuweisen“:
+work is assigned to people and delegated to ARCHOS.
 
 **Zurückgehalten** (held back):
 An upload the content check (*Inhaltsprüfung*) keeps from every model until
@@ -224,7 +224,7 @@ _Avoid_: „zurückgehalten“, „Quarantäne“ (the *Inhaltsprüfung*'s, see
 Rechner“ as the state's name.
 
 **Piloti-Dokument**:
-A document Piloti wrote and a person approved and published, which then counts
+A document ARCHOS wrote and a person approved and published, which then counts
 as office knowledge. Its *Herkunft* (origin) names who wrote and who approved it.
 
 **Fundstelle** (locus):
@@ -244,7 +244,7 @@ not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
 after 30 days (mail from outside the office after 14, and then it is gone);
 both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
-ARCHOS's reads it. Anyone may write to the address; each mail says whether its
+ARCHOS reads it. Anyone may write to the address; each mail says whether its
 sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
 bestätigt“), which shapes what is suggested; only a signed mail of a member
 who may file is filed directly.
@@ -367,11 +367,11 @@ _Code_: `inbox`.
 ## An answer
 
 **Turn**:
-One question and everything Piloti does to answer it, from the first step to the
+One question and everything ARCHOS does to answer it, from the first step to the
 settled answer.
 
 **Herleitung** (derivation):
-The visible trace of a turn above its answer: what Piloti searched, what it
+The visible trace of a turn above its answer: what ARCHOS searched, what it
 found, where it checked.
 _Code_: `derivation`.
 
@@ -426,7 +426,7 @@ Suggested next questions offered after an answer, produced after it is
 delivered and never holding it up.
 
 **Memory** and **knowledge**:
-Memory is the briefing Piloti carries into every turn (what the office and the
+Memory is the briefing ARCHOS carries into every turn (what the office and the
 project have told it). Knowledge is the library it searches on demand.
 
 **Personal memory**:
@@ -454,7 +454,7 @@ The ordinary answer to a chat question, researched and cited within the turn.
 
 **Deep research** (Tiefenrecherche):
 A commissioned research run that works through many documents in the background
-and delivers a report with findings, not a chat answer. Piloti proposes it, with
+and delivers a report with findings, not a chat answer. ARCHOS proposes it, with
 a reason, when a question needs it.
 
 **Rechercheplan** (research plan):
@@ -481,7 +481,7 @@ as the result's `Coverage: insufficient —` line.
 ## Delegated work
 
 **Aufgabe** (task):
-Work handed to Piloti to carry out, such as a *Soll-Ist* check (target against
+Work handed to ARCHOS to carry out, such as a *Soll-Ist* check (target against
 actual), an *Einreichcheck* (submission check), a document or a revision. A
 *stehende Aufgabe* (standing task) runs on a *Zeitplan* (schedule); a one-off
 runs once, at a due time or by hand. Agents read "task" (the task definition).
@@ -503,7 +503,7 @@ _Code_: `RunBlock`; the states are `running`, `waiting`, `done`, `cancelled` and
 `interrupted`.
 
 **Chat** (conversation):
-A thread with Piloti and the people in it, in a project, in the office or on
+A thread with ARCHOS and the people in it, in a project, in the office or on
 its own. Agents read "conversation".
 _Avoid_: Unterhaltung, Gespräch.
 
@@ -513,7 +513,7 @@ read "assignee".
 _Avoid_: Verantwortlich.
 **Anfrage eines Agenten** (ask):
 A question an agent the person connected (Claude, Cursor, an A2A agent) puts
-to Piloti on their behalf. Piloti answers it like a typed question, as that
+to ARCHOS on their behalf. ARCHOS answers it like a typed question, as that
 person and on their budget, in a private conversation of theirs.
 In the A2A protocol an ask is a *task*, its conversation the *context*, and
 its answer an *artifact*; that is the protocol's word, not an Aufgabe.

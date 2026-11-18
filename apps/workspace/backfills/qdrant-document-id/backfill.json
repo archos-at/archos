@@ -1,0 +1,5 @@
+{"expires": "drop after release 2026-W50",
+  "kind": "qdrant",
+  "phase": "before-readers",
+  "command": ["python", "/app/scripts/qdrant_backfill_document_id.py", "all"]
+}

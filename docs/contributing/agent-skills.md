@@ -46,7 +46,7 @@ This applies to the skills we write. The pinned third-party skills below are
 dependencies and are chosen on their own merits.
 
 The October 2026 audit applied the rule to the ten skills `skills/` held then.
-Seven came from the upstream NVIDIA AI-Q blueprint and still described it in
+Seven came from the upstream NVIDIA blueprint and still described it in
 places: DCO sign-off, copy-pr-bot, a Sphinx docs tree, Helm charts. That content
 was deleted rather than moved.
 
@@ -61,6 +61,12 @@ was deleted rather than moved.
 | `aiq-customize-prompts-models` | moved | Prompt and model configuration is architecture knowledge | [llm-providers.md](../architecture/llm-providers.md#which-model-each-role-uses) and the prompt section of [backend-deep-dive.md](../architecture/backend-deep-dive.md#prompts-three-layers-and-where-each-is-authored) |
 | `aiq-piloti-riso` | moved | A designer making a print needs the series rules as much as an agent does | [`packages/brand/art/riso/README.md`](../../packages/brand/art/riso/README.md#making-a-print) |
 | `aiq-deploy` | deleted | A deployment runbook, and the upstream blueprint's: it cloned NVIDIA's repository and deployed with Helm | [`docs/deployment/`](../deployment/), [`scripts/README.md`](../../scripts/README.md) |
+
+Ours today, by that rule:
+
+| Skill | Fires | Why it is a skill |
+|---|---|---|
+| `verify-on-dev` | automatically, after a change reaches dev or when an agent's answer or tool call needs explaining | It is run through two MCP servers only an agent session holds: the office door on dev to act, the platform MCP gateway's Langfuse route to read the trace. A person does the same in the app and Langfuse's UI |
 
 ## Installed
 

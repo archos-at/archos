@@ -62,8 +62,8 @@ export function DiscussDocumentButton({
         )
       }}
     >
-      {/* Sparkles is Piloti's glyph across the rail („Von Piloti gelesen“), so
-          the button that talks to Piloti carries it too. */}
+      {/* Sparkles is the agent's glyph across the rail (the read-by label), so
+          the button that talks to the agent carries it too. */}
       {(withIcon || iconOnly) && <Sparkles className="size-3.5" aria-hidden />}
       {iconOnly ? <span className="sr-only">{t('assignment.discuss')}</span> : t('assignment.discuss')}
     </Button>

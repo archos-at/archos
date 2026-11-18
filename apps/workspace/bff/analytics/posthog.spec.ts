@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { CapturedNetworkRequest } from 'posthog-js'
+import { SERVICE_HEADERS } from '../proxy/ws-upgrade-headers.js'
 import {
   DISABLED_POSTHOG_CONFIG,
   adoptServerIdentity,
@@ -18,6 +19,7 @@ import {
   registerPosthogContext,
   resetPosthog,
   scrubEvent,
+  SERVICE_HEADER_NAMES,
   stripUrlQuery,
   type PostHogConfig,
 } from './posthog'
@@ -81,6 +83,7 @@ describe('posthog analytics facade', () => {
       replaySampleRate: 0,
       proxy: false,
       release: '',
+      deployment: '',
     })
   })
 })
@@ -213,6 +216,31 @@ describe('session replay privacy options', () => {
 
     expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
     expect(masked.responseHeaders).toEqual({ 'content-type': 'application/json' })
+  })
+
+  test('strips every service header under the name the backend reads it by', () => {
+    const masked = maskReplayNetworkRequest(
+      request({
+        requestHeaders: {
+          ...Object.fromEntries(SERVICE_HEADER_NAMES.map((name) => [name, 'SECRET'])),
+          accept: 'application/json',
+        },
+      })
+    )
+
+    expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
+  })
+
+  test('redacts the same service headers the WebSocket proxy strips from a client', () => {
+    expect(new Set(SERVICE_HEADER_NAMES)).toEqual(new Set(SERVICE_HEADERS))
+  })
+
+  test('redacts the internal service token under its new name', () => {
+    const masked = maskReplayNetworkRequest(
+      request({ requestHeaders: { 'x-internal-token': 'SECRET', accept: 'application/json' } })
+    )
+
+    expect(masked.requestHeaders).toEqual({ accept: 'application/json' })
   })
 
   test('keeps the bodies of a failed request, which is what explains it', () => {
@@ -371,6 +399,16 @@ describe('adoptServerIdentity', () => {
     expect(postHogConfigFromEnv({ GIT_SHA: 'abc1234' }).release).toBe('abc1234')
     expect(postHogConfigFromEnv({ GIT_SHA: 'unknown' }).release).toBe('')
   })
+
+  test('registers the deployment the server names beside the release, and nothing for a blank one', () => {
+    const config = { ...enabledConfig, ...postHogConfigFromEnv({ GIT_SHA: 'abc1234', POSTHOG_DEPLOYMENT: ' prod ' }) }
+    const sdkClient = { get_distinct_id: () => 'user_01', reset: vi.fn(), identify: vi.fn(), register: vi.fn() }
+    ;(buildPosthogInitOptions(config, identity).loaded as (client: unknown) => void)(sdkClient)
+    expect(sdkClient.register).toHaveBeenCalledWith({ release: 'abc1234', deployment: 'prod' })
+
+    expect(postHogConfigFromEnv({ POSTHOG_DEPLOYMENT: '  ' }).deployment).toBe('')
+    expect(postHogConfigFromEnv({}).deployment).toBe('')
+  })
 })
 
 describe('scrubEvent (before_send)', () => {
@@ -382,13 +420,13 @@ describe('scrubEvent (before_send)', () => {
       capture({
         $current_url: 'https://app.example/api/auth/callback?code=x&state=y',
         $pathname: '/api/auth/callback',
-        $referrer: 'https://idp.example/authorize?state=y&client=grid',
+        $referrer: 'https://idp.example/authorize?state=y&client=example',
       })
     )
     expect(scrubbed?.properties).toEqual({
       $current_url: 'https://app.example/api/auth/callback',
       $pathname: '/api/auth/callback',
-      $referrer: 'https://idp.example/authorize?client=grid',
+      $referrer: 'https://idp.example/authorize?client=example',
     })
   })
 
@@ -517,6 +555,14 @@ describe('posthog enabled path', () => {
     const mod = await load()
     mod.resetPosthog()
     expect(sdk.reset).toHaveBeenCalledTimes(1)
+  })
+
+  test('reset keeps the release and the deployment on the next person’s events', async () => {
+    const mod = await load()
+    mod.registerBuild(sdk, { release: 'abc1234', deployment: 'prod' })
+    sdk.register.mockClear()
+    mod.resetPosthog()
+    expect(sdk.register).toHaveBeenCalledWith({ release: 'abc1234', deployment: 'prod' })
   })
 
   test('support context: hands the server the replay session, and no widget session', async () => {

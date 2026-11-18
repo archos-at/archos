@@ -1,15 +1,3 @@
-/**
- * A conversation message as the API answers it (ADR-0131, rules 2 and 3).
- *
- * The stored row carries the whole answer in `metadata`: every citation with its
- * snippet, up to 200 thinking steps, the cards, the provenance. A reader who only
- * wants to know what was said does not pay for that, so the default view is the
- * lean one and the heavy parts are asked for by name (`include`). The browser
- * asks for all of them and so reads what the row held; an agent picks.
- *
- * No `server-only` and no drizzle: the browser imports the types and the parser.
- */
-
 import { MESSAGE_INCLUDES, type MessageInclude } from './conversation-wire'
 
 export interface MessageMentionView {
@@ -17,35 +5,25 @@ export interface MessageMentionView {
   display: string
 }
 
-/** One message. `metadata` is present only when an `include` asked for a part of it. */
 export interface MessageView {
   id: string
   conversationId: string
   role: string
   content: string
-  /** The person who wrote it; null for Piloti, the system and tools. */
   authorUserId: string | null
-  /** That person's name, where the directory knows it. */
   authorName: string | null
-  /** ISO 8601. */
   createdAt: string
-  /** The task run this message is the account of, if any. */
   runId: string | null
-  /** How the chat draws it (`user`, `agent_response`, …). */
   messageType: string
-  /** The colleagues (and Piloti) the message addresses, as structured mentions. */
   mentions: MessageMentionView[]
   metadata?: Record<string, unknown>
 }
 
 export interface MessageListResponse {
-  /** The page, oldest first. */
   messages: MessageView[]
-  /** Pass as `cursor` for the earlier messages; null when this page reaches the start. */
   nextCursor: string | null
 }
 
-/** What `include` asks for, from the comma-separated query value. */
 export function parseMessageIncludes(value: string | undefined): ReadonlySet<MessageInclude> {
   const asked = (value ?? '').split(',').map((part) => part.trim())
   return new Set(MESSAGE_INCLUDES.filter((include) => asked.includes(include)))
@@ -57,12 +35,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/**
- * The part of a stored message's metadata the `include` set asks for:
- * `citations` the sources the answer cites and those it only read, `steps` the
- * thinking steps of its provenance, `metadata` everything else (cards,
- * provenance without its steps, ledgers). All three give back the stored whole.
- */
 export function metadataFor(
   stored: unknown,
   include: ReadonlySet<MessageInclude>
@@ -94,7 +66,6 @@ function mentionsOf(stored: unknown): MessageMentionView[] {
   })
 }
 
-/** A stored row, as the view of it. */
 export interface StoredMessage {
   id: string
   conversationId: string

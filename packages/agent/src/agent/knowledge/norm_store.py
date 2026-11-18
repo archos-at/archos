@@ -1,24 +1,3 @@
-"""Admin-managed store for the curated norm registry (SQLAlchemy-backed).
-
-Persists the ``NormsFile`` payload (see ``agent.common.norm_registry``) so
-the platform admin UI can edit the catalog at runtime while the YAML seed at
-``configs/norms/<country>/registry.yml`` remains the build-time seed / fallback.
-The store registers itself as ``norm_registry``'s runtime source via
-``set_db_loader``; the registry stays fail-open (a broken store falls back to
-the YAML seed, never breaks the prompt-building hot path).
-
-Modeled on :mod:`agent.knowledge.document_metadata_store` (URL normalization, engine
-cache with TTL, lazy ``_ensure_table`` via ``inspect().has_table``, fail-open
-try/except → ``logger.warning``).
-
-DB URL decision: this store reuses the SAME database URL as the summary store
-(``config.summary_db`` / ``configure_summary_db``). There is intentionally NO
-new environment variable — the norm registry is a tiny single-row-per-country
-table and belongs in the same knowledge database the summaries already live in,
-so deployments configure one URL, not two. The wiring lives next to
-``configure_summary_db`` in ``packages/knowledge-layer/src/register.py``.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -41,25 +20,10 @@ ENGINE_CACHE_MAX_SIZE = 10
 
 DEFAULT_COUNTRY = "at"
 
-# The norm catalog is admin-edited, effectively static data that the
-# Piloti's answer path reads many times per turn (prompt render ×iterations,
-# knowledge/RIS tools, and RIS wire serialization). Memoize the parsed
-# ``(NormsFile, version)`` in-process for this many seconds so those repeated
-# reads don't each pay a blocking DB SELECT + full JSON re-parse on the event
-# loop. Same-process admin writes invalidate immediately (see ``put``); a
-# cross-replica edit becomes visible within the TTL — indistinguishable from
-# today's DB-propagation delay (there is no push invalidation across replicas).
 NORM_STORE_CACHE_TTL_SECONDS = 30
 
 
 class NormRegistryStore:
-    """SQLAlchemy-based store for the admin-managed norm registry.
-
-    One row per country (``country`` primary key) holding the ``NormsFile`` JSON
-    plus an integer ``version`` used for optimistic concurrency. SQLite/Postgres
-    are both supported based on ``db_url``.
-    """
-
     _sync_engine_cache: dict[str, tuple[Any, float]] = {}
     _cache_lock = threading.Lock()
     _tables_initialized: set[str] = set()
@@ -68,15 +32,9 @@ class NormRegistryStore:
         self.db_url = db_url
         self._sync_engine = self._get_or_create_sync_engine(db_url)
         self._ensure_table_sync()
-        # Short-TTL memo of parsed ``(NormsFile, version)`` per country. Instance
-        # scoped (the store is a process singleton via ``_norm_store``). Guarded
-        # by its own lock so the loader — called from the event loop and worker
-        # threads — never races the invalidation in ``put``.
         self._get_cache: dict[str, tuple[tuple[NormsFile | None, int], float]] = {}
         self._get_cache_lock = threading.Lock()
         logger.info("NormRegistryStore initialized: %s", redact_db_url(db_url))
-
-    # -- engine cache --------------------------------------------------------
 
     @classmethod
     def _get_or_create_sync_engine(cls, db_url: str):
@@ -128,10 +86,7 @@ class NormRegistryStore:
                     except RuntimeError, OSError:
                         pass
 
-    # -- schema --------------------------------------------------------------
-
     def _ensure_table_sync(self):
-        """Create the ``norm_registry`` table if it doesn't exist (sync)."""
         with NormRegistryStore._cache_lock:
             if self.db_url in NormRegistryStore._tables_initialized:
                 return
@@ -140,19 +95,9 @@ class NormRegistryStore:
             self._rewrite_legacy_keys()
             NormRegistryStore._tables_initialized.add(self.db_url)
 
-    #: Key spellings a stored row may still carry (`bundesland` -> `federal_state`,
-    #: `gesetzesnummer` -> `statute_number`). Remove with the read aliases in
-    #: ``norm_registry`` after one release.
     _LEGACY_STORED_KEYS = ('"gesetzesnummer"', '"bundesland"')
 
     def _rewrite_legacy_keys(self) -> None:
-        """Re-save a row that still carries a German key under the English one, once, at startup.
-
-        The row is read through the aliases either way; this only stops the old
-        names lingering until some admin happens to save. Same ``version``: the
-        content is unchanged, so an admin tab holding that version stays valid.
-        Fail-open like every other read here.
-        """
         from sqlalchemy import text
 
         try:
@@ -194,10 +139,7 @@ class NormRegistryStore:
         metadata.create_all(conn)
         logger.info("Created norm_registry table in %s", redact_db_url(self.db_url))
 
-    # -- read ----------------------------------------------------------------
-
     def get(self, country: str = DEFAULT_COUNTRY) -> tuple[NormsFile | None, int]:
-        """Return the stored ``(NormsFile, version)``; ``(None, 0)`` when absent or unparseable."""
         from sqlalchemy import text
 
         try:
@@ -222,14 +164,6 @@ class NormRegistryStore:
         return (norms_file, int(version))
 
     def get_cached(self, country: str = DEFAULT_COUNTRY) -> tuple[NormsFile | None, int]:
-        """Return :meth:`get` memoized with a short TTL (see ``NORM_STORE_CACHE_TTL_SECONDS``).
-
-        Behavior-equivalent to ``get`` for callers that tolerate the same
-        cross-replica propagation delay the YAML seed's mtime cache already
-        imposes. Same-process writes via :meth:`put` refresh this cache
-        immediately, so an admin edit is visible to this process on the very
-        next read.
-        """
         now = time.monotonic()
         with self._get_cache_lock:
             cached = self._get_cache.get(country)
@@ -240,22 +174,12 @@ class NormRegistryStore:
             self._get_cache[country] = (result, time.monotonic())
         return result
 
-    # -- write ---------------------------------------------------------------
-
     def put(
         self,
         norms_file: NormsFile,
         country: str = DEFAULT_COUNTRY,
         expected_version: int | None = None,
     ) -> int | None:
-        """Write the registry with optimistic concurrency.
-
-        When ``expected_version`` is not None and differs from the stored version,
-        the write is refused and ``None`` is returned (caller maps to HTTP 409).
-        Otherwise the row is written at ``stored_version + 1`` (or 1 for a new
-        row) and the new version is returned. The read-check-write runs in one
-        transaction.
-        """
         from sqlalchemy import text
 
         payload = norms_file.model_dump_json()
@@ -306,8 +230,6 @@ class NormRegistryStore:
                         ),
                         params,
                     )
-            # Refresh the read memo in-process so this write is visible to the
-            # next ``get_cached`` immediately (no TTL wait for same-process edits).
             with self._get_cache_lock:
                 self._get_cache[country] = ((norms_file, new_version), time.monotonic())
             return new_version
@@ -315,16 +237,7 @@ class NormRegistryStore:
             logger.warning("Failed to write norm_registry for %s: %s", country, e)
             return None
 
-    # -- seeding -------------------------------------------------------------
-
     def seed_from_yaml_if_empty(self, country: str = DEFAULT_COUNTRY) -> bool:
-        """Seed the store from the YAML seed when no row exists yet (idempotent).
-
-        Reads the YAML seed directly (``registry_yaml_files`` + yaml parse), NOT
-        ``load_registry`` — the latter would consult this very store's db loader.
-        Returns ``True`` when a seed was written, ``False`` when a row already
-        existed or no seed is available.
-        """
         existing, _ = self.get(country)
         if existing is not None:
             return False
@@ -353,13 +266,11 @@ class NormRegistryStore:
         return True
 
     def clear_cache(self) -> None:
-        """Drop the short-TTL read memo (invoked via ``reset_registry_cache`` on admin edits)."""
         with self._get_cache_lock:
             self._get_cache.clear()
 
     @classmethod
     def dispose_all_engines(cls):
-        """Dispose all cached engines (for shutdown / test cleanup)."""
         with cls._cache_lock:
             for _key, (engine, _) in list(cls._sync_engine_cache.items()):
                 try:
@@ -370,26 +281,14 @@ class NormRegistryStore:
             cls._tables_initialized.clear()
 
 
-# ---------------------------------------------------------------------------
-# Module-level singleton + configuration seam (mirrors factory.configure_summary_db).
-# ---------------------------------------------------------------------------
-
 _norm_store: NormRegistryStore | None = None
 
 
 def get_norm_store() -> NormRegistryStore | None:
-    """The configured store, or None when ``configure_norm_store`` was never called."""
     return _norm_store
 
 
 def configure_norm_store(db_url: str) -> NormRegistryStore | None:
-    """Build the store, seed it from YAML if empty, and register it with norm_registry.
-
-    Registers ``norm_registry.set_db_loader(lambda: store.get()[0])`` wrapped
-    fail-open so the registry hot path never breaks on a store error. Reuses the
-    summary store's DB URL (see module docstring). Returns the store, or None if
-    construction failed (fail-open — the YAML seed keeps working).
-    """
     global _norm_store
 
     try:

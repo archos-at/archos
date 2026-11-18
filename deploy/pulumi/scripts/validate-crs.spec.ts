@@ -1,23 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { loadConfig } from '../src/config'
-import { KEDA_CHART_VERSION } from "../src/platform/keda";
 import { installIngestWorker } from "../src/app/ingest-worker";
 import { installHatchetQueueAuth } from "../src/app/hatchet-queue-auth";
 import { baseStackConfig } from "../src/test-support/stack-config";
+import { isRecord, kedaCrd, kedaCrds, planOf, replaceSpec, ROOT, run, workspace } from "./validate-crs.fixtures";
+import type { Plan, PlannedResource } from "./validate-crs.fixtures";
 
-const ROOT = mkdtempSync(join(__dirname, "..", ".validate-crs-test-"));
-// The release the script validates against is the chart the program installs
-// (`KEDA_CHART_VERSION`, which the script reads from `src/platform/keda.ts`).
-const KEDA_URL = `https://github.com/kedacore/keda/releases/download/v${KEDA_CHART_VERSION}/keda-${KEDA_CHART_VERSION}-crds.yaml`;
-const CNPG_URL = "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.28.0/releases/cnpg-1.28.0.yaml";
 const UNKNOWN = "04da6b54-80e4-46f7-8ec5-a065f938c709";
-const resources: Array<{ urn: string; inputs: Record<string, unknown> }> = [];
+const resources: PlannedResource[] = [];
+const emittedPlan = (): Plan => planOf(resources);
 
 pulumi.runtime.setMocks(
   {
@@ -33,118 +28,6 @@ pulumi.runtime.setMocks(
   "test",
   false,
 );
-
-type Schema = Record<string, unknown>;
-const string = { type: "string" };
-const integer = { type: "integer" };
-const object = (properties: Schema, required: string[] = []): Schema => ({
-  type: "object", properties, required,
-});
-const array = (items: Schema): Schema => ({ type: "array", items });
-
-// Small CRD fixtures test dispatch, version selection and failure handling
-// without making CI depend on GitHub availability. Production uses upstream CRDs.
-function crd(group: string, kind: string, version: string, spec: Schema): Schema {
-  return {
-    kind: "CustomResourceDefinition",
-    spec: {
-      group,
-      names: { kind },
-      versions: [{
-        name: version,
-        storage: true,
-        schema: { openAPIV3Schema: object({ apiVersion: string, kind: string, metadata: { type: "object" }, spec }, ["spec"]) },
-      }],
-    },
-  };
-}
-
-const kedaCrds = [
-  crd("keda.sh", "TriggerAuthentication", "v1alpha1", object({
-    secretTargetRef: array(object({ parameter: string, name: string, key: string }, ["parameter", "name", "key"])),
-  })),
-  crd("keda.sh", "ScaledObject", "v1alpha1", object({
-    scaleTargetRef: object({ name: string }, ["name"]),
-    minReplicaCount: integer,
-    maxReplicaCount: integer,
-    pollingInterval: integer,
-    cooldownPeriod: integer,
-    fallback: object({ failureThreshold: integer, replicas: integer, behavior: string }, ["failureThreshold", "replicas"]),
-    advanced: { type: "object" },
-    triggers: array(object({
-      type: string,
-      metricType: string,
-      metadata: { type: "object", additionalProperties: string },
-      authenticationRef: object({ name: string }, ["name"]),
-    }, ["type"])),
-  }, ["scaleTargetRef", "triggers"])),
-];
-const cnpgCrds = [
-  crd("postgresql.cnpg.io", "Database", "v1", object({
-    name: string,
-    cluster: object({ name: string }, ["name"]),
-  }, ["name", "cluster"])),
-];
-
-type Step = { op: string; newState?: { urn: string; inputs: Record<string, unknown> } };
-type Plan = { steps: Step[] };
-function emittedPlan(): Plan {
-  return structuredClone({ steps: resources.map((newState) => ({ op: "create", newState })) });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function replaceSpec(plan: Plan, kind: string, overrides: Record<string, unknown>): Plan {
-  const inputs = plan.steps.find((step) => step.newState?.inputs.kind === kind)?.newState?.inputs;
-  if (!inputs || !isRecord(inputs.spec)) throw new Error(`missing ${kind} spec`);
-  inputs.spec = { ...inputs.spec, ...overrides };
-  return plan;
-}
-
-function workspace(): string {
-  const dir = mkdtempSync(join(ROOT, "case-"));
-  mkdirSync(join(dir, "scripts"));
-  copyFileSync(join(__dirname, "validate-crs.mjs"), join(dir, "scripts", "validate-crs.mjs"));
-  // The script reads the KEDA release it validates against from the program's one
-  // constant, so the copy needs the real file beside it.
-  mkdirSync(join(dir, "src", "platform"), { recursive: true });
-  copyFileSync(join(__dirname, "..", "src", "platform", "keda.ts"), join(dir, "src", "platform", "keda.ts"));
-  copyFileSync(join(__dirname, "..", "src", "platform", "rabbitmq.ts"), join(dir, "src", "platform", "rabbitmq.ts"));
-  writeFileSync(join(dir, "fetch.mjs"), `
-import { readFileSync } from "node:fs";
-const releases = JSON.parse(readFileSync(new URL("./releases.json", import.meta.url), "utf8"));
-globalThis.fetch = async (url) => {
-  console.error("FETCH " + url);
-  if (!Object.hasOwn(releases, url)) throw new Error("unexpected schema URL " + url);
-  if (process.env.TEST_SCHEMAS_FAILURE === "1") throw new Error("fixture network unavailable");
-  return new Response(releases[url], { status: 200 });
-};
-`);
-  return dir;
-}
-
-function run(plan: Plan, options: {
-  dir?: string;
-  keda?: Schema[];
-  env?: Record<string, string>;
-} = {}) {
-  const dir = options.dir ?? workspace();
-  writeFileSync(join(dir, "plan.json"), JSON.stringify(plan));
-  writeFileSync(join(dir, "releases.json"), JSON.stringify({
-    [KEDA_URL]: (options.keda ?? kedaCrds).map((doc) => JSON.stringify(doc)).join("\n---\n"),
-    [CNPG_URL]: cnpgCrds.map((doc) => JSON.stringify(doc)).join("\n---\n"),
-  }));
-  return spawnSync(process.execPath, [
-    "--import", pathToFileURL(join(dir, "fetch.mjs")).href,
-    join(dir, "scripts", "validate-crs.mjs"), join(dir, "plan.json"),
-  ], {
-    encoding: "utf8",
-    timeout: 20_000,
-    env: { ...process.env, ALLOW_SKIP: "", CNPG_SCHEMAS_OPTIONAL: "", ...options.env },
-  });
-}
 
 beforeAll(async () => {
   pulumi.runtime.setAllConfig({
@@ -166,8 +49,6 @@ beforeAll(async () => {
     dsn: () => pulumi.output("postgresql://fixture"),
     imagePullSecrets: [],
   };
-  // The ScaledObject names a TriggerAuthentication the program creates once for
-  // every worker tier; both resources are what the validator is shown.
   const auth = installHatchetQueueAuth(wiring, pulumi.output("postgresql://fixture"), []);
   const worker = installIngestWorker(wiring, cfg, { secret, checksum: pulumi.output("fixture-checksum") }, [auth]);
   await new Promise((done) => auth.urn.apply(done));
@@ -249,7 +130,7 @@ describe("the deploy's CR schema validator", () => {
   });
 
   it("fails closed when the release has no schemas for the requested version", () => {
-    const result = run(emittedPlan(), { keda: [crd("keda.sh", "ScaledObject", "v2", {})] });
+    const result = run(emittedPlan(), { keda: [kedaCrd("ScaledObject", "v2", {})] });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("no schemas for keda.sh/v1alpha1 in the pinned release");
   });
@@ -279,7 +160,6 @@ describe("the deploy's CR schema validator", () => {
     expect(offline.stdout).toContain("0 passed, 0 failed, 1 skipped");
   });
 
-  // Staging run 41700375427 failed on the RabbitMQ operator's webhook configurations.
   it("leaves a native webhook configuration, `webhooks` beside `metadata`, to the SDK's types", () => {
     const plan: Plan = { steps: [...emittedPlan().steps, { op: "create", newState: {
       urn: "urn:pulumi:test::program::kubernetes:admissionregistration.k8s.io/v1:ValidatingWebhookConfiguration::hook",

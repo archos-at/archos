@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { DEFAULT_INBOUND_MAIL_LOCAL_PART } from "../src/config/inbound-mail";
@@ -19,13 +19,6 @@ import {
   txtFromDoh,
   type Rule,
 } from "./inbound-mail-g0";
-
-/**
- * Gate G0's read-only check (`scripts/inbound-mail-g0.ts`, run as
- * `inbound-mail-smoke.ts g0`). What is pinned: that a pass means what the
- * runbook says it means. The live answers of Cloudflare and DNS are never
- * fetched here; `g0Findings` runs on canned ones.
- */
 
 const DOMAIN = "inbox.example.org";
 const LOCAL = "project";
@@ -202,7 +195,7 @@ describe("g0Findings", () => {
     };
     const env = (name: string) => ({ INBOUND_MAIL_ZONE_ID: "z1", INBOUND_MAIL_DOMAIN: DOMAIN })[name] ?? "";
     const before = process.env.INBOUND_MAIL_LOCAL_PART;
-    process.env.INBOUND_MAIL_LOCAL_PART = LOCAL;
+    vi.stubEnv('INBOUND_MAIL_LOCAL_PART', LOCAL);
     try {
       const findings = await g0Findings({
         cloudflareApi: async (path) => answers[path],
@@ -215,14 +208,12 @@ describe("g0Findings", () => {
       expect(findings.find((f) => f.name.startsWith("Email Routing on the zone"))?.status).toBe("info");
       expect(findings.find((f) => f.name.startsWith("one DMARC record at _dmarc.example.org"))?.status).toBe("pass");
     } finally {
-      if (before === undefined) delete process.env.INBOUND_MAIL_LOCAL_PART;
-      else process.env.INBOUND_MAIL_LOCAL_PART = before;
+      if (before === undefined) vi.stubEnv('INBOUND_MAIL_LOCAL_PART', undefined);
+      else vi.stubEnv('INBOUND_MAIL_LOCAL_PART', before);
     }
   });
 });
 
-// It starts the script in its own `bun` process: seconds on a busy machine,
-// past vitest's 5 s default (see inbound-mail-smoke.spec.ts).
 describe("the command line", { timeout: 30_000 }, () => {
   it("stops on a missing input rather than guessing one", () => {
     const result = spawnSync("bun", [join(__dirname, "inbound-mail-smoke.ts"), "g0"], {

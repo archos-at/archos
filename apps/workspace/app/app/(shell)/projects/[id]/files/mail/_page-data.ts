@@ -1,16 +1,5 @@
 import 'server-only'
 
-/**
- * What the E-Mail-Eingang's two pages read on the server, so the first paint
- * is the list (and the open mail), not a skeleton waiting for the bundle.
- *
- * The gate is the feature's own (`requireMailReviewer`): the office's
- * `inbound-mail` entitlement, then `project:documents:write`. Every refusal is
- * the page's 404 (`notFound()`), never a 403, as the routes answer it: nobody
- * learns that a project has an E-Mail-Eingang they may not open. A failed read
- * after the gate is not a 404; the workspace shows its own error for it.
- */
-
 import { notFound } from 'next/navigation'
 import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -41,7 +30,6 @@ export interface InboundMailPageData {
 
 type SearchParams = Record<string, string | string[] | undefined>
 
-/** The filter as the URL carries it; anything else is the default list. */
 export function filterOf(searchParams: SearchParams): { status: InboundMailListStatus; outcome: InboundMailOutcome | null } {
   const status = (INBOUND_MAIL_LIST_STATUSES as readonly string[]).includes(String(searchParams.status))
     ? (searchParams.status as InboundMailListStatus)
@@ -77,7 +65,6 @@ export async function loadInboundMailPage(
       console.error('[inbound-mail] the list could not be read:', error)
       return null
     }),
-    // A mail that is not this project's (or not the reader's to see) is the page's 404.
     mailId ? orNotFound(getInboundMail(session, projectId, mailId)) : Promise.resolve(null),
     listProjectFolders(projectId, session).catch((error: unknown) => {
       console.error('[inbound-mail] the folders could not be read:', error)

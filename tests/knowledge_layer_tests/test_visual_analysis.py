@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
 
@@ -455,7 +456,7 @@ class TestLegacyFields:
 
     def test_still_feeds_the_deterministic_summary_synthesiser(self, registry):
         fields = va.legacy_fields(va.parse_visual_analysis(_MIXED_SHEET, registry))
-        summary = adapter._summary_from_drawing_fields([{"fields": fields}])
+        summary = caption_documents._summary_from_drawing_fields([{"fields": fields}])
         assert summary.startswith("Plansatz.")
 
 
@@ -500,7 +501,7 @@ class TestOneAnalysisForEverySource:
         import openai
 
         with patch.object(openai, "OpenAI", _fake_openai(_MIXED_SHEET)):
-            content_type, caption, fields = adapter.analyze_visual(b"img", vlm_api_key="k")
+            content_type, caption, fields = vision_reads.analyze_visual(b"img", vlm_api_key="k")
 
         assert content_type == "drawing"
         assert fields["analysis"]["segments"][3]["domain"] == "general"
@@ -516,9 +517,9 @@ class TestOneAnalysisForEverySource:
             seen.append(image_bytes)
             return ("caption", self._fields(registry))
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", one_analyser)
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", one_analyser)
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_image_with_vlm",
             lambda *a, **k: (_ for _ in ()).throw(AssertionError("the caption prompt fired")),
         )
@@ -539,7 +540,9 @@ class TestOneAnalysisForEverySource:
     def test_an_embedded_raster_yields_per_segment_chunks(self, monkeypatch, registry):
         from knowledge_layer.ingest import processing
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry)))
+        monkeypatch.setattr(
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry))
+        )
         record = {
             "image_bytes": b"scanned-plan",
             "page_number": 7,
@@ -551,7 +554,7 @@ class TestOneAnalysisForEverySource:
         (image_results, _) = processing.enrich_vlm_batch([record], [], "model", "url", "key")
         enriched, content_type, caption = image_results[0]
 
-        docs = adapter.visual_documents(
+        docs = caption_documents.visual_documents(
             content_type,
             caption,
             enriched["fields"],
@@ -565,9 +568,13 @@ class TestOneAnalysisForEverySource:
         assert all(d.text.startswith("[DRAWING from page 7]") for d in docs)
 
     def test_a_standalone_image_takes_the_same_path(self, tmp_path, monkeypatch, registry):
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry)))
+        monkeypatch.setattr(
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry))
+        )
 
-        docs = adapter._build_image_documents(_write_image(tmp_path), "plan.webp", 999, "webp", vlm_api_key="k")
+        docs = caption_documents._build_image_documents(
+            _write_image(tmp_path), "plan.webp", 999, "webp", vlm_api_key="k"
+        )
 
         assert [d.metadata["drawing_type"] for d in docs] == ["floor_plan", "section", "diagram", "photo"]
         assert all(d.metadata["image_format"] == "webp" for d in docs)
@@ -577,24 +584,26 @@ class TestOneAnalysisForEverySource:
         analysis = va.parse_visual_analysis(
             _reply([{"domain": "general", "segment_type": "photo", "summary": "Ein Baustellenfoto."}]), registry
         )
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", {"analysis": analysis}))
+        monkeypatch.setattr(
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", {"analysis": analysis})
+        )
 
         def forbidden(*a, **k):
             raise AssertionError("a parsed analysis must never spend a second VLM call")
 
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", forbidden)
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", forbidden)
 
-        docs = adapter._build_image_documents(
+        docs = caption_documents._build_image_documents(
             _write_image(tmp_path, "foto.png", "PNG"), "foto.png", 5, "png", vlm_api_key="k"
         )
         assert len(docs) == 1
         assert docs[0].metadata["content_type"] == "image"
 
     def test_an_unparseable_reply_falls_back_to_the_caption_prompt(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("just prose", {}))
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Baustellenfoto."))
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("just prose", {}))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Baustellenfoto."))
 
-        docs = adapter._build_image_documents(
+        docs = caption_documents._build_image_documents(
             _write_image(tmp_path, "foto.png", "PNG"), "foto.png", 5, "png", vlm_api_key="k"
         )
         assert len(docs) == 1
@@ -602,11 +611,11 @@ class TestOneAnalysisForEverySource:
 
     def test_a_hard_failure_still_falls_back_before_giving_up(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
-            adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("[Drawing - analysis failed: boom]", {})
+            vision_reads, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("[Drawing - analysis failed: boom]", {})
         )
-        monkeypatch.setattr(adapter, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Foto."))
+        monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", lambda *a, **k: ("image", "Ein Foto."))
 
-        docs = adapter._build_image_documents(
+        docs = caption_documents._build_image_documents(
             _write_image(tmp_path, "foto.png", "PNG"), "foto.png", 5, "png", vlm_api_key="k"
         )
         assert len(docs) == 1
@@ -615,12 +624,12 @@ class TestOneAnalysisForEverySource:
     def test_an_undecodable_image_fails_the_file(self, tmp_path):
         path = tmp_path / "kaputt.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\nnot really a png")
-        assert adapter._build_image_documents(str(path), "kaputt.png", 5, "png", vlm_api_key="k") is None
+        assert caption_documents._build_image_documents(str(path), "kaputt.png", 5, "png", vlm_api_key="k") is None
 
 
 class TestVisualDocumentsBuilder:
     def test_a_caption_only_result_is_one_chunk_with_the_typed_prefix(self):
-        docs = adapter.visual_documents(
+        docs = caption_documents.visual_documents(
             "chart", "Ein Balkendiagramm.", {}, file_name="f.pdf", file_size=3, page_number=2
         )
         assert len(docs) == 1
@@ -630,8 +639,12 @@ class TestVisualDocumentsBuilder:
     def test_extra_metadata_is_the_only_source_specific_part(self, registry):
         fields = {"analysis": va.parse_visual_analysis(_MIXED_SHEET, registry)}
         common = dict(file_name="f.pdf", file_size=3, page_number=1)
-        page_docs = adapter.visual_documents("drawing", "c", fields, **common, extra_metadata={"image_width": 2048})
-        raster_docs = adapter.visual_documents("drawing", "c", fields, **common, extra_metadata={"image_index": 4})
+        page_docs = caption_documents.visual_documents(
+            "drawing", "c", fields, **common, extra_metadata={"image_width": 2048}
+        )
+        raster_docs = caption_documents.visual_documents(
+            "drawing", "c", fields, **common, extra_metadata={"image_index": 4}
+        )
 
         assert [d.text for d in page_docs] == [d.text for d in raster_docs]
         assert page_docs[0].metadata["image_width"] == 2048

@@ -1,9 +1,3 @@
-/**
- * Record that somebody checked a base-knowledge copy is still the edition in
- * force, and what they found (ADR-0163). Append-only: a check is never edited.
- * Needs org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { onceForKey } from '@/lib/base-knowledge/http/idempotency'
 import { asProblem } from '@/lib/base-knowledge/http/problem'

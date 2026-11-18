@@ -63,7 +63,7 @@ const fetchMock = vi.fn()
 
 const post = (body: unknown) =>
   POST(
-    new Request('https://grid.example/api/conversations/conv-1/draft/file', {
+    new Request('https://example.test/api/conversations/conv-1/draft/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -82,7 +82,7 @@ const conversation = (overrides: Partial<Conversation> = {}): Conversation =>
 describe('POST /api/conversations/[id]/draft/file', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
     vi.stubGlobal('fetch', fetchMock)
     requireResourceAccessMock.mockResolvedValue({ role: 'viewer' })
     vi.mocked(findConversationInOrg).mockResolvedValue(conversation())

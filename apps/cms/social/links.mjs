@@ -28,7 +28,6 @@ export function shareImageUrl(siteUrl, cover) {
 /** `url` with the post's UTM parameters; any it already carries are replaced. */
 export function trackedLink(url, { network, campaign, accountId, postId }) {
   const link = new URL(url);
-  // A copy of the keys: deleting from the live iterator would skip the key after each one deleted.
   for (const key of Array.from(link.searchParams.keys())) if (key.startsWith('utm_')) link.searchParams.delete(key);
   link.searchParams.set('utm_source', network);
   link.searchParams.set('utm_medium', UTM_MEDIUM);

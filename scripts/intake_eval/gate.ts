@@ -1,32 +1,3 @@
-/**
- * The intake eval's BFF gate: the real `needs` and `record` logic of
- * `apps/workspace/bff/project-intake/`, served over stdin/stdout so the
- * Python harness (`scripts/intake_eval/harness.py`) can fake the route
- * in-process without a database.
- *
- * One JSON request per line in, one JSON answer per line out. The profile
- * lives in the harness and travels with every request, so this process holds
- * no state:
- *
- *   {"op":"empty"}                                   → {"profile"}
- *   {"op":"needs","profile","mode","dismissed"}      → {"needs"}
- *   {"op":"record","profile","body","readableFiles","dismissed"}
- *                                                    → {"status", "results"?, "opened"?, "profile"?, "error"?}
- *   {"op":"withdraw","profile","body"}               → {"status", "results"?, "profile"?, "error"?}
- *
- * `record` runs what `recordIntakeValues` in `service.ts` runs: the body
- * through `internalIntakeRequestSchema` (a malformed one answers 400), the
- * static screen of each value (`staticRefusal`), then `planRecord`, which
- * applies the values, derives the Gebäudeklasse and names the needs the batch
- * opened. `withdraw` runs `planWithdraw`, as `withdrawIntakeValues` does, with
- * the body's `jobId` as the reading. Two service steps are not
- * here: the quote is not masked (`documentEvidence` needs the organization's
- * screening policy, and the fixture holds no personal data), and the profile
- * write is the harness keeping the returned profile.
- *
- * Run from the repository root: `bun run scripts/intake_eval/gate.ts`.
- */
-
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -61,20 +32,11 @@ interface GateRequest {
 
 type Screened = { key: string; screened: ScreenedValue | null; refusal: RecordRefusalReason | null }
 
-/**
- * `reasonFromEvidence` of `lib/project-intake/evidence.ts`, restated: that module is
- * `server-only` (it masks through the screening service) and cannot load here.
- */
 function reasonFromEvidence(evidence: Pick<DocumentEvidence, 'fileName' | 'page' | 'quote'>): string {
   const where = evidence.page ? `${evidence.fileName}, S. ${evidence.page}` : evidence.fileName
   return `${where}: „${evidence.quote}"`
 }
 
-/**
- * The setup records the route classifies by. The service reads the released ones from the
- * database; the eval's fixture project sits in Austria, so the gate reads the pack an operator
- * releases for it (`configs/knowledge-packs/at-setup.json`), parsed by the same wire.
- */
 const pack: { records: Array<{ key: string; values: unknown }> } = JSON.parse(
   readFileSync(join(import.meta.dir, '..', '..', 'configs', 'knowledge-packs', 'at-setup.json'), 'utf8')
 )

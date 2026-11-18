@@ -1,5 +1,3 @@
-"""List purged comment lines that state an invariant, for review before merge."""
-
 from __future__ import annotations
 
 import re
@@ -8,7 +6,7 @@ import sys
 
 INVARIANT = re.compile(
     r"\b(never|must|always|only|security|secur|tenant|rls|row-level|privacy|private|personal|leak|"
-    r"invariant|guard|authz|permission|secret|token|race|deadlock|idempot)\w*",
+    r"invariant|guard|authz|permission|secret|token|race|deadlock|idempot|workaround|upstream|legal|gdpr|dsgvo)\w*|https?://|§|\b20[12]\d\b",
     re.I,
 )
 

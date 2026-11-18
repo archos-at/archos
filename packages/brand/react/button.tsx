@@ -2,13 +2,9 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { joinClasses } from './join-classes';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** default secondary · primary (black fill) for the main action of an area: Demo anfragen in the header, the submit of a form, the CTA field */
   variant?: 'primary' | 'secondary' | 'text';
-  /** sm 30px, 13px/420 (header only) · md 40px · lg 46px (forms) */
   size?: 'sm' | 'md' | 'lg';
-  /** Appends → */
   arrow?: boolean;
-  /** Renders an <a> instead of a <button> */
   href?: string;
   children?: ReactNode;
 }

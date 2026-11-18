@@ -1,39 +1,3 @@
-"""
-Agent-runtime trace → list[RequestProfile]
-==========================================
-
-Converts an agent-runtime profiler trace JSON file (produced by ``nat eval``) into
-structured :class:`~agent.tokenomics.profile.RequestProfile` objects
-ready for the tokenomics HTML report.
-
-Architecture note
------------------
-The workflow is registered as ``deep_research_agent``.  Version 1.5.0 traces of the agent runtime still
-emit ``FUNCTION_START`` / ``FUNCTION_END`` for **tools** (e.g. search helpers),
-but **planner-agent** and **researcher-agent** runs live inside the ``task``
-tool: they do not get distinct ``FUNCTION_*`` names.  Traces from this stack
-typically have no per-step ``function_ancestry`` (or equivalent) carrying
-subagent identity — calling ``subagent.ainvoke()`` does not surface as separate
-agent-runtime function scopes for Planner vs Researcher.
-
-Subagent attribution is therefore inferred post-hoc via timing windows: every
-``task`` TOOL_START/END pair brackets one subagent invocation and carries
-``subagent_type`` in its input.  For each ``LLM_END`` we use that step's
-``event_timestamp`` (completion time, not ``span_event_timestamp``): if it
-lies inside a task window, the call is attributed to that phase; otherwise
-**orchestrator-phase**.
-
-``_build_task_windows`` appends windows in ``task`` TOOL_END order.
-``_infer_phase`` returns the **first** window in that list whose bounds contain
-``ts``.  Overlapping researcher windows share the same phase label, so order is
-unimportant in the common parallel-researcher case.
-
-If the agent runtime later attaches subagent phase directly on each step (e.g.
-``function_ancestry`` or explicit ``FUNCTION_*`` scopes for subagents),
-``_infer_phase`` can be replaced with a field read and the rest of this module
-can stay the same.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -53,15 +17,8 @@ from .profile import RequestProfile
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class _TaskWindow:
-    """Time span of a single subagent (task tool) invocation."""
-
     uuid: str
     subagent_type: str  # "planner-agent" | "researcher-agent"
     start_ts: float
@@ -75,18 +32,15 @@ class _TaskWindow:
 
 
 def _extract_subagent_type(raw_input: Any) -> str | None:
-    """Pull subagent_type out of the task tool's input field."""
     if isinstance(raw_input, dict):
         return raw_input.get("subagent_type")
     if isinstance(raw_input, str):
-        # The agent runtime stores tool inputs as Python-repr strings, not JSON
         try:
             parsed = ast.literal_eval(raw_input)
             if isinstance(parsed, dict):
                 return parsed.get("subagent_type")
         except Exception:
             pass
-        # Last resort: substring scan (handles malformed reprs)
         for candidate in ("planner-agent", "researcher-agent"):
             if candidate in raw_input:
                 return candidate
@@ -94,7 +48,6 @@ def _extract_subagent_type(raw_input: Any) -> str | None:
 
 
 def _build_task_windows(steps: list[dict]) -> list[_TaskWindow]:
-    """Build a list of completed task-tool windows from a request's steps."""
     open_windows: dict[str, _TaskWindow] = {}
     closed: list[_TaskWindow] = []
 
@@ -126,13 +79,6 @@ def _build_task_windows(steps: list[dict]) -> list[_TaskWindow]:
 
 
 def _infer_phase(ts: float, windows: list[_TaskWindow]) -> str:
-    """
-    Return the phase label for an LLM call from its ``LLM_END`` time ``ts``.
-
-    ``windows`` is ordered by ``task`` TOOL_END (see ``_build_task_windows``).
-    The first window with ``start_ts <= ts <= end_ts`` wins.  Overlapping
-    researcher windows all map to ``researcher-phase`` anyway.
-    """
     for win in windows:
         if win.start_ts <= ts <= win.end_ts:
             return win.phase
@@ -140,9 +86,7 @@ def _infer_phase(ts: float, windows: list[_TaskWindow]) -> str:
 
 
 def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegistry) -> RequestProfile:
-    """Convert one request's step list into a RequestProfile."""
 
-    # --- Workflow timing and question ---
     wf_start_ts = wf_end_ts = 0.0
     question = ""
     for step in steps:
@@ -156,10 +100,8 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
 
     duration_s = max(0.0, wf_end_ts - wf_start_ts)
 
-    # --- Subagent phase windows ---
     task_windows = _build_task_windows(steps)
 
-    # --- Single forward pass: accumulate all events ---
     phase_model_stats: dict[tuple[str, str], PhaseStats] = {}
     model_call_counters: dict[str, int] = {}
     llm_call_events: list[dict] = []
@@ -194,7 +136,6 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
             )
 
         elif et == "LLM_END":
-            # span_event_timestamp is set by LangchainProfilerHandler at LLM_START
             span_ts = payload.get("span_event_timestamp", ts)
             model = payload.get("name") or "unknown"
             usage = (payload.get("usage_info") or {}).get("token_usage") or {}
@@ -207,7 +148,6 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
             dur_s = max(0.0, ts - span_ts)
             tps = completion_tokens / dur_s if dur_s > 0 else 0.0
 
-            # Window match uses LLM_END event_timestamp (completion), not span_event_timestamp.
             phase = _infer_phase(ts, task_windows)
             key = (phase, model)
 
@@ -230,7 +170,6 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
             ps.cost_usd += cost
             ps.cache_savings_usd += savings
 
-            # Per-call observation (for distribution charts)
             call_idx = model_call_counters.get(model, 0)
             model_call_counters[model] = call_idx + 1
 
@@ -249,7 +188,6 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
                 }
             )
 
-    # --- Roll up to request-level totals ---
     phases = list(phase_model_stats.values())
     total_tool_cost_usd = sum(ev["cost_usd"] for ev in tool_call_events)
     return RequestProfile(
@@ -270,25 +208,7 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
     )
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
 def parse_trace(path: str, pricing: PricingRegistry) -> list[RequestProfile]:
-    """
-    Parse an agent-runtime profiler trace JSON file and return one
-    :class:`~agent.tokenomics.profile.RequestProfile` per request.
-
-    Parameters
-    ----------
-    path:
-        Path to the ``all_requests_profiler_traces.json`` file produced by
-        ``nat eval``.
-    pricing:
-        A :class:`~agent.tokenomics.pricing.PricingRegistry` built from
-        the ``tokenomics.pricing`` section of the eval config YAML.
-    """
     with open(path) as f:
         data = json.load(f)
 

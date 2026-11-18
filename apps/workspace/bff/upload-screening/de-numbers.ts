@@ -1,25 +1,7 @@
-/**
- * What makes a German social-insurance number or tax identification number:
- * the content screen's German rules, the twin of `agent.common.de_numbers`,
- * whose docstring is the full statement. Both are held to
- * `tests/fixtures/content_screen_cases.json`.
- *
- * `de_svnr`, the Rentenversicherungsnummer (`15 070649 C 103`): area, birth
- * date DDMMYY, the birth name's initial, a serial and a check digit over the
- * twelve digits the letter makes (weights `2 1 2 5 7 1 2 1 2 1 2 1`, digit sums,
- * mod 10). `de_tax_id`, the steuerliche Identifikationsnummer
- * (`36 574 261 809`): eleven digits, no leading zero, exactly one digit
- * repeated (two or three times) in the first ten, ISO 7064 MOD 11,10; counted
- * only with a tax-ID label on the page (`TAX_ID_LABELS`).
- *
- * Pure and client-safe: the composer runs it.
- */
-
 import { digitsAt, digitTouches, skipSeparator } from './screen-chars'
 
 const RVNR_WEIGHTS = [2, 1, 2, 5, 7, 1, 2, 1, 2, 1, 2, 1]
 
-/** Labels of a German tax identification number, folded (`foldContent`), matched at a word start. */
 export const TAX_ID_LABELS: readonly string[] = [
   'steuer-id',
   'steuer id',
@@ -71,12 +53,6 @@ export function maskDeTaxId(digits: string): string {
   return `•• ••• ••• •${digits.slice(-2)}`
 }
 
-// ------------------------------------------------------------------ parsers
-
-/**
- * The Rentenversicherungsnummer printed at `start`: `AA DDMMYY L SS C`, whitespace
- * allowed after the area, the date, the letter and before the check digit.
- */
 export function deSvnrAt(text: string, start: number, soft: ReadonlySet<number>): { compact: string; end: number } | null {
   const area = digitsAt(text, start, 2)
   if (!area) return null
@@ -94,7 +70,6 @@ export function deSvnrAt(text: string, start: number, soft: ReadonlySet<number>)
   return { compact, end: check.end }
 }
 
-/** The tax identification number printed at `start`: unbroken, or 2-3-3-3 joined by whitespace. */
 export function deTaxIdAt(text: string, start: number, soft: ReadonlySet<number>): { digits: string; end: number } | null {
   const first = digitsAt(text, start, 2)
   if (!first) return null

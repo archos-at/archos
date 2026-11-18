@@ -55,7 +55,7 @@ function envelopeHeaders(overrides: { conversationId?: string | null; projectId?
 }
 
 function request(path: string, body: unknown, headers: Record<string, string> = envelopeHeaders()) {
-  return new Request(`https://grid.test${path}`, {
+  return new Request(`https://example.test${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-grid-internal-token': SECRET, ...headers },
     body: JSON.stringify(body),

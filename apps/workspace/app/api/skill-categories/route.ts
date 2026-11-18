@@ -1,9 +1,3 @@
-/**
- * Skill categories API — the org's own arrangement. Thin adapters (ADR-0017);
- * logic in `@/lib/skills/service`. Every query is org-scoped, and platform
- * categories are read-only here: they arrive inside the list, and nothing else.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { createSkillCategory, listSkillCategories } from '@/lib/skills/service'

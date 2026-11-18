@@ -1,5 +1,5 @@
 /**
- * Reconcile GRID's Audit Log actions/schemas with a WorkOS environment — or
+ * Reconcile the Audit Log actions/schemas with a WorkOS environment — or
  * report the drift.
  *
  * WorkOS validates every emitted event against the schema registered for its
@@ -62,7 +62,6 @@ async function currentSchema(action) {
     if (error instanceof NotFoundException) return null
     throw error
   }
-  // WorkOS keeps every version; only the newest one validates incoming events.
   return versions.reduce((latest, schema) => (!latest || schema.version > latest.version ? schema : latest), null)
 }
 

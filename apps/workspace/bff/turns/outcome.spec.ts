@@ -229,7 +229,7 @@ describe('recordTurnOutcome', () => {
       expect(handBackDelegation).not.toHaveBeenCalled()
     })
 
-    it('hands back whatever the outcome was: a failed delegation does not stay on Piloti', async () => {
+    it('hands back whatever the outcome was: a failed delegation does not stay on the agent', async () => {
       wakeEndsAs(DELEGATION)
       markIs(DELEGATED_AT)
       await recordTurnOutcome(request(DELEGATION, { outcome: 'failed', reason: 'model down' }))
@@ -291,14 +291,14 @@ describe('recordTurnOutcome', () => {
       for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
     })
 
-    it('records every end once as piloti.wake.ended, as the person whose act woke Piloti', async () => {
+    it('records every end once as agent.wake.ended, as the person whose act woke the agent', async () => {
       wakeEndsAs(DELEGATION)
       markIs(DELEGATED_AT)
       await recordTurnOutcome(request(DELEGATION, { outcome: 'handed_off' }))
 
       expect(await recorded()).toEqual([
         {
-          action: 'piloti.wake.ended',
+          action: 'agent.wake.ended',
           organizationId: ORG,
           actor: { userId: USER, email: 'anna@example.at' },
           targetType: 'document_annotation',

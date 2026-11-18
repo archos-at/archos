@@ -1,11 +1,3 @@
-"""Regression tests for fail-open checkpointer resolution in the deep research register.
-
-An unopenable checkpoint_db (read-only container filesystem, missing volume,
-bad DSN) must degrade to no-durability with a warning — never take application
-startup down (post-#72 incident: a default-on relative sqlite path crashed the
-container at WorkflowBuilder.populate_builder time).
-"""
-
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -20,9 +12,8 @@ from tests.provider_doubles import NAT_LLM_CONFIG
 from tests.provider_doubles import nat_langchain_client
 
 
-@tool
+@tool(description="Search the web.")
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     return f"results: {query}"
 
 
@@ -52,7 +43,6 @@ def _agent_stub_factory(seen_kwargs: dict):
 
 @pytest.mark.asyncio
 async def test_unopenable_checkpoint_db_fails_open_and_registration_succeeds(caplog):
-    """A checkpoint_db that cannot be opened disables durability with a warning, not a crash."""
     seen: dict = {}
     config = DeepResearchAgentConfig(
         orchestrator_llm="orch_llm",
@@ -71,7 +61,6 @@ async def test_unopenable_checkpoint_db_fails_open_and_registration_succeeds(cap
 
 @pytest.mark.asyncio
 async def test_empty_checkpoint_db_means_no_checkpointer_and_no_warning(caplog):
-    """checkpoint_db None/empty (the opt-in default) never touches get_checkpointer."""
     seen: dict = {}
     config = DeepResearchAgentConfig(orchestrator_llm="orch_llm", tools=["web_search_tool"], checkpoint_db=None)
     with (

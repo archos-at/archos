@@ -133,7 +133,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()

@@ -328,7 +328,7 @@ describe('everyone the feature does not reach is answered as before', () => {
     expect(callOperation).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps Piloti’s write a proposal, on either era, and never asks', async () => {
+  it('keeps the in-product agent’s write a proposal, on either era, and never asks', async () => {
     const modern = await modernCall(inProductAgent, DELETE_P1)
     expect(modern.result?.resultType).toBe('complete')
     expect(modern.result?.structuredContent).toMatchObject({ decision: 'propose', proposalId: 'prop_1' })

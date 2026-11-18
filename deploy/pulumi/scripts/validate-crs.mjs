@@ -37,9 +37,16 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
-/** Pinned CNPG release (tag ref, immutable) whose CRDs the plan is validated against. */
+/** The CNPG operator the pinned chart installs (`CNPG_OPERATOR_VERSION`, `src/data/postgres.ts`). */
+function cnpgOperatorVersion() {
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/data/postgres.ts"), "utf8");
+  const version = /CNPG_OPERATOR_VERSION = "(\d+\.\d+\.\d+)"/.exec(source)?.[1];
+  if (!version) throw new Error("CNPG_OPERATOR_VERSION not found in src/data/postgres.ts");
+  return version;
+}
+const CNPG_OPERATOR_VERSION = cnpgOperatorVersion();
 const CNPG_RELEASE_URL =
-  "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.28.0/releases/cnpg-1.28.0.yaml";
+  `https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v${CNPG_OPERATOR_VERSION}/releases/cnpg-${CNPG_OPERATOR_VERSION}.yaml`;
 const CNPG_GROUP = "postgresql.cnpg.io/v1";
 const CNPG_KINDS = new Set(["Cluster", "ScheduledBackup", "Backup", "Pooler", "Database"]);
 /**
@@ -79,7 +86,6 @@ const RELEASE_SCHEMAS = {
     url: `https://github.com/kedacore/keda/releases/download/v${KEDA_VERSION}/keda-${KEDA_VERSION}-crds.yaml`,
     kinds: new Set(["TriggerAuthentication", "ClusterTriggerAuthentication", "ScaledObject", "ScaledJob"]),
   },
-  // The operator's release manifest carries its CRDs; it is the file the program applies.
   "rabbitmq.com/v1beta1": {
     name: "RabbitMQ",
     prefix: "rabbitmq",
@@ -96,7 +102,6 @@ const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
 const Ajv = require("ajv");
 
-// ── Load the plan ───────────────────────────────────────────────────────────
 const planPath = process.argv[2];
 if (!planPath) {
   console.error("usage: validate-crs.mjs <pulumi-preview-json-file>");
@@ -143,7 +148,6 @@ for (const step of steps) {
   crs.push({ urn: state.urn ?? step.urn, inputs });
 }
 
-// ── Pre-validation whole-object checks ──────────────────────────────────────
 const NAME_RE = /^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$/;
 const NS_RE = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/;
 const TOP_LEVEL_OK = new Set(["apiVersion", "kind", "metadata", "spec", "status"]);
@@ -192,9 +196,7 @@ function elideUnknowns(value, counter) {
   return value;
 }
 
-// ── @kubernetes-models validators (ESM subpath imports) ─────────────────────
 const MODEL_PACKAGES = {
-  // Subpath exports already map `<Kind>` → `<Kind>.js` — no extension here.
   "gateway.networking.k8s.io/v1": (kind) =>
     import(`@kubernetes-models/gateway-api/gateway.networking.k8s.io/v1/${kind}`),
   "gateway.envoyproxy.io/v1alpha1": (kind) =>
@@ -203,13 +205,6 @@ const MODEL_PACKAGES = {
     import(`@kubernetes-models/cert-manager/cert-manager.io/v1/${kind}`),
 };
 
-// ── Schemas from pinned release manifests (fetched + cached) ───────────────
-// validateFormats off: CRD int32/date-time formats are advisory (the apiserver
-// doesn't enforce them either); logger off to keep CI output readable.
-// allErrors reports every schema violation in a CR at once instead of stopping
-// at the first. The DoS-via-unbounded-errors concern the ajv-allerrors rule
-// flags needs attacker-controlled input, but the only input here is our own
-// pulumi-preview plan generated locally in CI, so it does not apply.
 // nosemgrep: javascript.ajv.security.audit.ajv-allerrors-true.ajv-allerrors-true
 const ajv = new Ajv({ strict: false, allErrors: true, validateFormats: false, logger: false });
 const releaseSchemas = new Map();
@@ -219,12 +214,6 @@ async function loadReleaseSchemas(apiVersion) {
   const result = { schemas: {}, error: null };
   releaseSchemas.set(apiVersion, result);
   const cacheDir = join(here, "../.schemas-cache");
-  // The cache stores ONLY the kinds selected at write time, so its identity is
-  // (release URL, kind set) — not just the group. Without that in the filename, a
-  // checkout carrying a cache written before a kind was added takes the
-  // `existsSync` branch, finds no schema for the new kind, and FAILS the gate
-  // with "no schema for this kind in the pinned CNPG release" — a wrong answer
-  // that `rm -rf .schemas-cache` fixes and nothing in the output suggests.
   const cacheKey = createHash("sha256")
     .update(release.url)
     .update("\u0000")
@@ -241,7 +230,6 @@ async function loadReleaseSchemas(apiVersion) {
       const res = await fetch(release.url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const full = await res.text();
-      // Cache only the CRDs we validate — the full release manifest is >1 MB.
       const docs = yaml
         .loadAll(full)
         .filter(
@@ -273,7 +261,6 @@ async function loadReleaseSchemas(apiVersion) {
   return result;
 }
 
-// ── Validate ────────────────────────────────────────────────────────────────
 let pass = 0, fail = 0, skip = 0;
 const failures = [];
 
@@ -316,8 +303,6 @@ for (const { urn, inputs } of crs) {
     }
     const validate = schemas[kind];
     if (!validate) {
-      // A registered kind we have no schema for is a typo or a new kind — either
-      // way it must not slide through a gate that claims to cover this group.
       console.log(`FAIL  ${label} — no schema for this kind in the pinned ${release.name} release`);
       failures.push({ label, errors: `unknown ${apiVersion} kind "${kind}"` });
       fail++;

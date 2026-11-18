@@ -1,20 +1,3 @@
-/**
- * The collaboration operations (ADR-0122): inbox, push notifications, sharing
- * state, assignments, mentions, proposed changes, Piloti's changes, the
- * person's preferences and the files attached to a chat.
- * See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for
- * the rules.
- *
- * Changing who may see a resource (visibility, grants, revoking, taking
- * ownership under `/api/sharing/.../grants`) is here too, as `sensitivity:
- * 'access'`: an outside agent sees it only under the organization's opt-in and
- * the step-up scope (`SENSITIVE_SCOPE_ENFORCED_BY_WORKOS`, off until WorkOS
- * enforces it, so today no agent sees it), and Piloti never does. Also left out: registering a
- * browser for push (`POST /api/notifications/push/devices`, `GET .../config`),
- * which needs a browser push subscription, and the multipart session-document
- * upload.
- */
-
 import { z } from 'zod'
 import {
   assignmentBodySchema,
@@ -63,7 +46,6 @@ const proposalParams = z.object({
 })
 
 export const collaborationOperations = [
-  // Inbox
   {
     name: 'inbox-list',
     domain: 'collaboration',
@@ -150,7 +132,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/inbox/[id]/archive/route'),
   },
 
-  // Push notifications
   {
     name: 'push-device-list',
     domain: 'collaboration',
@@ -193,7 +174,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/notifications/push/preferences/route'),
   },
 
-  // Sharing
   {
     name: 'sharing-get',
     domain: 'collaboration',
@@ -283,7 +263,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/sharing/[resourceType]/[resourceId]/grants/[subjectUserId]/route'),
   },
 
-  // Assignments
   {
     name: 'assignment-list',
     domain: 'collaboration',
@@ -331,7 +310,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/assignments/[resourceType]/[resourceId]/route'),
   },
 
-  // Mentions and hand-offs
   {
     name: 'conversation-awaiting-get',
     domain: 'collaboration',
@@ -369,7 +347,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/mentions/[requestId]/release/route'),
   },
 
-  // Proposed changes and Piloti's changes
   {
     name: 'proposal-list',
     domain: 'collaboration',
@@ -379,8 +356,6 @@ export const collaborationOperations = [
       '`projectId` (from project-list) or `shelf`, and optionally `kind`. Page with `nextCursor`. Ids feed proposal-get; the person decides each.',
     method: 'GET',
     path: '/api/proposals',
-    // The route's `proposalListQuerySchema` adds the refinement (a project or a shelf, never both), which is
-    // not a ZodObject; the route is the gate.
     query: proposalListQueryShape,
     spansProjects: 'unlessScoped',
     load: () => import('@/app/api/proposals/route'),
@@ -432,7 +407,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/piloti-changes/[id]/undo/route'),
   },
 
-  // Preferences
   {
     name: 'user-preference-get',
     domain: 'collaboration',
@@ -456,7 +430,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/user/preferences/route'),
   },
 
-  // Personal memory (ADR-0180)
   {
     name: 'personal-memory-list',
     domain: 'collaboration',
@@ -550,7 +523,6 @@ export const collaborationOperations = [
     load: () => import('@/app/api/user/memory/route'),
   },
 
-  // Files attached to a chat
   {
     name: 'session-document-list',
     domain: 'collaboration',

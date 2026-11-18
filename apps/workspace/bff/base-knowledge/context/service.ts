@@ -1,23 +1,3 @@
-/**
- * The knowledge context a turn carries (design §5.5, ADR-0173), on every turn
- * since the cut-over (ADR-0175): which country an office reads is decided by
- * its entitlement rows (`knowledge_country_entitled`), never by a switch.
- *
- * The inputs that decide the context are cheap (the office row, its
- * entitlements, the project's site facts, the packs' newest stable sequence,
- * the day); the graph and its resolution are not. So the cheap ones make a
- * digest, and the resolved context is cached under
- * `knowledge-context-v6:<org>:<project>:<digest>`: the organization and the
- * project are in the key, never only in the digest, so two offices whose
- * inputs hash alike never share an entry (the tenant cache-key rule).
- *
- * Fails closed: a read that throws gives `knowledge_unavailable`, which
- * withholds retrieval, law lookup and classification while documents still
- * answer. A turn's failed read logs the `knowledge_context_available` alert
- * line; a page's logs its own marker, so a page polling an outage does not
- * fire the turn alert.
- */
-
 import 'server-only'
 import { createHash } from 'node:crypto'
 import { metrics } from '@opentelemetry/api'
@@ -45,27 +25,18 @@ import type { KnowledgeContext, ProcedureContext } from './wire'
 
 type ReferenceDate = ProcedureContext['referenceDates'][string]
 
-/** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
 export const CONTEXT_TTL_MS = 10 * 60 * 1000
 
-/** The procedures a turn carries: the profile's first, as `procedure-*` facts scope them (ADR-0171). */
 const PROCEDURE_IDS = PROFILE_PROCEDURE_IDS
 
-/**
- * Turns whose knowledge context could not be read (`knowledge_context_available`
- * in design §5.5): the alert's row in the merged health insight reads it
- * (docs/observability/metrics.md). A no-op meter where nothing exports.
- */
 const unavailableTurns = metrics
   .getMeter('base-knowledge')
   .createCounter('knowledge_context.unavailable', { description: 'Turns whose knowledge context could not be read' })
 
-/** Times one phase of the turn context's load (`TurnContextTiming.time`); the identity when nobody measures. */
 export type PhaseTimer = <T>(name: string, load: () => Promise<T>) => Promise<T>
 
 const untimed: PhaseTimer = (_name, load) => load()
 
-/** What decides a context, before the graph is read. */
 export interface ContextDigestInputs {
   homeCountry: string | null
   entitled: readonly string[]
@@ -73,15 +44,11 @@ export interface ContextDigestInputs {
   date: string
   packSeqs: Readonly<Record<string, number>>
   procedures: readonly ProcedureContext[]
-  /** When the office's own records and the platform's checks last changed (`recordsStamp`); neither moves a pack sequence. */
   recordsStamp?: string
-  /** The project's buildings, read by each edition's scope (ADR-0178): in the digest, so a changed answer re-resolves. */
   buildings?: BuildingScope
-  /** A day a caller asks about (`project-base-get` `asOf`): the context resolves on it, before a filing day or today. */
   asOf?: string
 }
 
-/** A stable hash of the inputs: same inputs, same digest, in any key order. */
 export function contextDigest(inputs: ContextDigestInputs): string {
   const canonical = JSON.stringify({
     homeCountry: inputs.homeCountry,
@@ -97,17 +64,10 @@ export function contextDigest(inputs: ContextDigestInputs): string {
   return createHash('sha256').update(canonical).digest('hex').slice(0, 32)
 }
 
-/** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
   return `knowledge-context-v6:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
-/**
- * The newest stable release sequence of each country's pack: what a running
- * research turn pins (E42) and what a confirmed Steckbrief records. The moves
- * are platform-private; only the numbers of countries the office is entitled
- * to leave this read.
- */
 export async function packSequences(countries: readonly string[]): Promise<Record<string, number>> {
   if (countries.length === 0) return {}
   const rows = await withPlatformAccess('knowledge context: the newest stable release of each entitled pack', () =>
@@ -120,12 +80,6 @@ export async function packSequences(countries: readonly string[]): Promise<Recor
   return Object.fromEntries(rows.map((row) => [row.country_id, Number(row.seq)]))
 }
 
-/**
- * When the office's own records last gained a revision and the platform last
- * checked an edition: an office relation or a freshness check changes the
- * context without moving a pack sequence, so the digest reads them and the
- * next turn resolves again, rather than after the TTL.
- */
 export async function recordsStamp(organizationId: string): Promise<string> {
   const rows = await withPlatformAccess('knowledge context: when the office records and the platform checks last changed', () =>
     getDb().execute<{ office: string | Date | null; checks: string | Date | null }>(sql`
@@ -136,11 +90,6 @@ export async function recordsStamp(organizationId: string): Promise<string> {
   return [row?.office, row?.checks].map((value) => (value ? new Date(value).toISOString() : '-')).join('/')
 }
 
-/**
- * A procedure's reference day until a reviewed reference-date rule names one (design §5.4, country-as-data §3.6): its
- * filing day once that has come, an assumption the chain text says; otherwise undetermined, and the turn resolves on
- * today. Pure.
- */
 export function referenceDateOf(filedOn: string | null, today: string): ReferenceDate {
   return filedOn && filedOn <= today ? { date: filedOn, basis: 'filed_on' } : { date: null, basis: 'undetermined' }
 }
@@ -158,7 +107,6 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
   })
 }
 
-/** Resolve the context from what was read; the graph is read only for a site the office is entitled to. */
 async function resolveFor(organizationId: string, inputs: ContextDigestInputs, time: PhaseTimer): Promise<KnowledgeContext> {
   const first = inputs.sites[0]
   const country = first ? countryOf(first.territoryId) : null
@@ -172,7 +120,6 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     sites: inputs.sites,
     graph,
     truncated: loaded?.truncated ?? false,
-    // A day the caller names wins: the question is about that day, not about the filing day or today.
     date: inputs.asOf ?? reference?.date ?? inputs.date,
     dateBasis: inputs.asOf ? undefined : reference?.basis,
     now: new Date(),
@@ -180,7 +127,6 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     packSeqs: inputs.packSeqs,
     building: inputs.buildings ?? null,
   })
-  // The sources a lookup may read follow what the turn may read: none where it reads no country's law.
   const { sources, dropped } = await time('knowledge-sources', () => lookupSourcesFor(context.retrieval.countries))
   return {
     ...context,
@@ -189,7 +135,6 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   }
 }
 
-/** The cached resolution for an office and project, on `asOf` when a caller names a day; throws what a read throws. */
 async function resolution(organizationId: string, projectId: string | null, time: PhaseTimer, asOf?: string): Promise<KnowledgeContext> {
   const read = await readContextInputs(organizationId, projectId)
   const inputs = asOf ? { ...read, asOf } : read
@@ -197,15 +142,6 @@ async function resolution(organizationId: string, projectId: string | null, time
   return getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
 }
 
-/**
- * The context of a project as a person's page reads it (`projectLawFor`,
- * `project-base-get`): the same resolution the turn reads, from the same
- * cache. On `asOf`, resolved on that day: a question about a past or coming
- * submission reads the editions binding then, labelled with that day. Fails
- * closed like the turn: a read that throws is `knowledge_unavailable`. Logged
- * under its own marker, never the turn alert's (ADR-0173): an intake polls
- * every few seconds.
- */
 export async function contextForPage(organizationId: string, projectId: string, asOf?: string): Promise<KnowledgeContext> {
   try {
     return await resolution(organizationId, projectId, untimed, asOf)
@@ -215,12 +151,10 @@ export async function contextForPage(organizationId: string, projectId: string, 
   }
 }
 
-/** The context with nothing readable: retrieval, law lookup and classification withheld. */
 export function unavailableContext(date: string): KnowledgeContext {
   return { gate: { state: 'knowledge_unavailable', reason: null, leaves: [] }, packs: [], chains: {}, date, procedures: [], uses: [], text: null, retrieval: { countries: [] } }
 }
 
-/** The inputs that decide a turn's context, read as the office. */
 export async function readContextInputs(organizationId: string, projectId: string | null): Promise<ContextDigestInputs> {
   const [countries, profile, zone, stamp, setupRecords] = await Promise.all([
     readOrganizationCountries(organizationId),
@@ -230,7 +164,6 @@ export async function readContextInputs(organizationId: string, projectId: strin
     readSetupRecords(organizationId),
   ])
   const entitled = countries.entitled.map((entry) => entry.countryId)
-  // A profile that names no site is assumed in the subdivision the office's home country names (ADR-0158).
   const officeAssumed = assumedSubdivisionOf(setupRecords, countries.homeCountry)?.territoryId ?? null
   const sites = siteLeaves(profile?.profile, subdivisionTerritories(setupRecords), officeAssumed)
   const facts = profile?.profile?.facts ?? {}
@@ -240,7 +173,6 @@ export async function readContextInputs(organizationId: string, projectId: strin
     entitled,
     sites,
     date,
-    // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
     procedures: proceduresOf(facts, sites, date),
     recordsStamp: stamp,
@@ -248,20 +180,11 @@ export async function readContextInputs(organizationId: string, projectId: strin
   }
 }
 
-/** A site a caller states instead of a project's: a golden case's territory and the day its question is about. */
 export interface StatedSite {
   territoryId: string | null
-  /** A filing day the question is about: the context resolves on it once it has come, as a project's would. */
   filedOn: string | null
 }
 
-/**
- * The context an office's turn carries at a stated site with no project (a
- * golden run, ADR-0165 amendment): the office's own entitlements and the
- * released records, as {@link knowledgeContextForTurn} resolves them, with the
- * site and the filing day stated by the caller. Never cached: a run asks each
- * case once. Fails closed like the turn's.
- */
 export async function knowledgeContextForStatedSite(organizationId: string, stated: StatedSite): Promise<KnowledgeContext> {
   try {
     const inputs = await readContextInputs(organizationId, null)
@@ -284,19 +207,8 @@ export async function knowledgeContextForStatedSite(organizationId: string, stat
   }
 }
 
-/**
- * Who reads a context: a chat turn; an operation (`project-base-get`, `-confirm`)
- * a person or an agent called; or a background run, which carries its own.
- */
 export type ContextReader = 'turn' | 'operation' | 'run'
 
-/**
- * The turn's knowledge context, always present: a read that fails gives
- * `knowledge_unavailable`, never no context, so the agent fails closed
- * (ADR-0175). Timed as the `knowledge` phase.
- * Only a turn's failed read counts toward the `knowledge_context_available`
- * alert: an operation's failure is its caller's error, already in its response.
- */
 export async function knowledgeContextForTurn(
   organizationId: string,
   projectId: string | null,
@@ -308,13 +220,10 @@ export async function knowledgeContextForTurn(
     try {
       const context = await resolution(organizationId, projectId, time)
       if (!conversationId) return context
-      // What this turn is answered on: its answer records from it, not from a later resolution (E42).
       await rememberTurnContext(organizationId, conversationId, context)
-      // After the cache: whether the base moved since this conversation's last answer is per conversation (E42).
       const previous = await lastAnswerPackSeqs(organizationId, conversationId)
       return { ...context, updatedSinceLastAnswer: packsUpdatedSince(context.packs, previous) }
     } catch (error) {
-      // Only a chat turn's failure is the alert's: an operation's is in its own response, and logs its own marker.
       if (reader === 'turn') {
         unavailableTurns.add(1)
         console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })

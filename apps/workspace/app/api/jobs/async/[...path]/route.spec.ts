@@ -73,7 +73,7 @@ describe('/api/jobs/async/[...path] proxy — SSE reconnection resume', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('data: {}\n\n', {
         status: 200,
@@ -86,9 +86,9 @@ describe('/api/jobs/async/[...path] proxy — SSE reconnection resume', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 
@@ -172,7 +172,7 @@ describe('/api/jobs/async/[...path] proxy — POST org model overrides', () => {
   }
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(loadProjectFederalState).mockResolvedValue(null)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -188,9 +188,9 @@ describe('/api/jobs/async/[...path] proxy — POST org model overrides', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 
@@ -258,7 +258,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   }
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
       headerValue: 'scope',
@@ -284,19 +284,19 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   afterEach(() => {
     vi.restoreAllMocks()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
     if (originalInternalToken === undefined) {
-      delete process.env.INTERNAL_API_TOKEN
+      vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     } else {
-      process.env.INTERNAL_API_TOKEN = originalInternalToken
+      vi.stubEnv('INTERNAL_API_TOKEN', originalInternalToken)
     }
   })
 
   it('attaches an unsigned envelope carrying org/user/project/scope when no internal token is configured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 
     const res = await POST(
       postRequest('https://grid.example/api/jobs/async/submit', { agent_type: 'deep_research' }),
@@ -326,7 +326,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   })
 
   it('signs the envelope when INTERNAL_API_TOKEN is configured', async () => {
-    process.env.INTERNAL_API_TOKEN = 'test-secret'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-secret')
 
     const res = await POST(
       postRequest('https://grid.example/api/jobs/async/submit', { agent_type: 'deep_research' }),
@@ -442,7 +442,7 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
     )
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(fileCommissionedReport).mockResolvedValue({ outcome: 'queued' })
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(reportResponse(REPORT_BODY))
@@ -455,9 +455,9 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
     vi.restoreAllMocks()
     vi.mocked(fileCommissionedReport).mockReset()
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 
@@ -525,7 +525,7 @@ describe('/api/jobs/async/[...path] proxy — filing a commissioned report', () 
   })
 
   it('hands no session to the filing in anonymous mode', async () => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
 
     await GET(getRequest('https://grid.example/api/jobs/async/job/job-1/report'), streamParams(['job', 'job-1', 'report']))
 
@@ -562,8 +562,8 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
   }
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
-    process.env.INTERNAL_API_TOKEN = SECRET
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
       headerValue: 'scope',
@@ -590,10 +590,10 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalRequireAuth === undefined) delete process.env.REQUIRE_AUTH
-    else process.env.REQUIRE_AUTH = originalRequireAuth
-    if (originalInternalToken === undefined) delete process.env.INTERNAL_API_TOKEN
-    else process.env.INTERNAL_API_TOKEN = originalInternalToken
+    if (originalRequireAuth === undefined) vi.stubEnv('REQUIRE_AUTH', undefined)
+    else vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
+    if (originalInternalToken === undefined) vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+    else vi.stubEnv('INTERNAL_API_TOKEN', originalInternalToken)
   })
 
   it.each([
@@ -678,13 +678,13 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
 
 describe('/api/jobs/async/[...path] proxy — a cancel the backend refuses because the run ended (#632)', () => {
   beforeEach(() => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalRequireAuth !== undefined) process.env.REQUIRE_AUTH = originalRequireAuth
+    if (originalRequireAuth !== undefined) vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
   })
 
   it.each(['success', 'failure'])('warns, never errors, for a job already at %s', async (terminal) => {
@@ -715,14 +715,14 @@ describe('/api/jobs/async/[...path] proxy — a run’s documents have one door 
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }))
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalRequireAuth !== undefined) process.env.REQUIRE_AUTH = originalRequireAuth
+    if (originalRequireAuth !== undefined) vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
   })
 
   it.each([

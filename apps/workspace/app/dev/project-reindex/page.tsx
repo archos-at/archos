@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the project Settings re-index card.
- *
- * The card is a leaf: it renders from a project id and its own translations, and
- * every state it has is driven by one local flag. So this preview shows both — the
- * resting state and the in-flight state — side by side rather than scripting a
- * click, because what a reviewer needs to see is the pair.
- *
- * The in-flight copy is reproduced here rather than reached by clicking, since
- * clicking would fire a real POST against an API this route has no session for.
- */
-
 import type { JSX } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'

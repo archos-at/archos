@@ -90,8 +90,6 @@ export function topologicallyOrderedDefNames(root) {
     ordered.push(name)
   }
 
-  // Deterministic output: walk the schema's own `oneOf` order first, then any
-  // def it does not reach, in `$defs` order.
   for (const entry of root.oneOf ?? []) visit(refToDefName(entry.$ref), [])
   for (const name of Object.keys(defs)) visit(name, [])
   return ordered
@@ -183,10 +181,6 @@ export function buildCardSchemaModule(root) {
     return `export const ${exportName(defName)} = ${zodExpr}`
   })
 
-  // The discriminated union must contain ONLY the card members (the schema's
-  // `oneOf`), never nested sub-structure defs (NormReference, DimensionCheck, …)
-  // which have no `type` discriminator. Sub-structure schemas are still emitted
-  // as standalone consts above; they just don't belong in the union.
   const cardDefNames = (root.oneOf ?? []).map((entry) => refToDefName(entry.$ref))
   const unionMembers = (cardDefNames.length ? cardDefNames : Object.keys(defs))
     .map((defName) => exportName(defName))
@@ -200,10 +194,6 @@ export function buildCardSchemaModule(root) {
     )
   }
 
-  // One type per def, so a renderer names the shape it reads instead of
-  // declaring a copy of it. The INPUT type: a field with a default stays
-  // optional, so the type takes both a parsed card and the operands a renderer
-  // builds itself (`lib/formulas.ts`).
   const types = orderedDefNames.map(
     (defName) => `export type ${defName}Data = z.input<typeof ${exportName(defName)}>`
   )
@@ -227,11 +217,9 @@ ${types.join('\n')}
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
-// scripts -> workspace -> apps -> repo root
 export const schemaPath = resolve(scriptDir, '../../../contracts/cards/schemas.json')
 export const outPath = resolve(scriptDir, '../shared/cards/generated.ts')
 
-// Importing this module (the spec does) must not write the generated file.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = JSON.parse(readFileSync(schemaPath, 'utf-8'))
   writeFileSync(outPath, buildCardSchemaModule(root), { encoding: 'utf-8' })

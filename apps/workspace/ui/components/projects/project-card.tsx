@@ -16,7 +16,6 @@ interface ProjectCardProps {
   project: Project
   docCount?: number
   activityAt?: string
-  // The caller passes mailWaiting only for a reader who may file the mail.
   mailWaiting?: number
 }
 

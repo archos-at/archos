@@ -1,5 +1,3 @@
-"""Request and response models for knowledge API endpoints."""
-
 import logging
 from typing import Annotated
 from typing import Any
@@ -27,45 +25,18 @@ from .mail_facts import MailThreadFacts
 
 logger = logging.getLogger(__name__)
 
-#: Bounds of an office's screening terms. The ingest job applies the same ones
-#: (``agent.common.content_screen``) to whatever reaches it.
 SCREENING_MAX_TERMS = 200
 SCREENING_MIN_TERM_CHARS = 2
 SCREENING_MAX_TERM_CHARS = 80
 
 
 class CreateCollectionRequest(BaseModel):
-    """Request body for creating a collection."""
-
     name: str = Field(..., description="Unique collection name")
     description: str | None = Field(None, description="Human-readable description")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Backend-specific metadata")
 
 
-class DeleteFilesRequest(BaseModel):
-    """Request body for batch file deletion."""
-
-    file_ids: list[str] = Field(..., description="List of file IDs to delete")
-    permanent: bool = Field(
-        False,
-        description=(
-            "True when nobody will undo this delete (an erase, a move to another collection): the Fassung facts "
-            "a person made on the files go with them. False (the default) keeps those facts for the files' "
-            "return after an archive, the folder bin or a publish."
-        ),
-    )
-
-
 class ScreeningPolicy(BaseModel):
-    """What an ingest job screens the document's locally extracted text for, before any model sees it.
-
-    A match fails the file and records why on ``FileProgress.quarantine``, the
-    typed verdict (``knowledge_layer.ingest.screening``, ADR-0113). Terms match case-, umlaut- and
-    whitespace-insensitively at a word start, in the text as a person reads it
-    (invisible characters left out, a hyphen at a line break joined); the
-    detectors count checksum-valid matches only, a card only in a printed layout.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     content_terms: list[str] = Field(
@@ -100,10 +71,8 @@ class ScreeningPolicy(BaseModel):
 
 ProjectStatus = Literal["active", "paused", "closed"]
 
-#: A token as the intake stores it (``lower_austria``, ``timber``).
 _FactToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 
-#: A BFF document id as ``grid_document_id`` holds it: a UUID, lowercase as Postgres prints it.
 _DocumentId = Annotated[
     str,
     StringConstraints(
@@ -113,24 +82,14 @@ _DocumentId = Annotated[
     ),
 ]
 
-#: A document's file name as the chunks' ``file_name`` holds it.
 _FileName = Annotated[str, StringConstraints(min_length=1, max_length=500)]
 
-#: What a person names a reference by, or a ``kind:key`` token.
 _ReferenceText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class ProjectFacts(BaseModel):
-    """A project's fingerprint as the BFF's similarity reads it (``similarityFacts`` in ``similarity.ts``).
-
-    Postgres ``projects.profile`` is the authority; this is the copy every
-    point of the project's collections carries, and the current project's
-    facts a search is boosted by.
-    """
-
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    # The German names (``bundesland``) are what a BFF that has not rolled yet sends; read-only.
     federal_state: _FactToken | None = Field(
         None,
         validation_alias=AliasChoices("federal_state", "bundesland"),
@@ -154,7 +113,6 @@ class ProjectFacts(BaseModel):
 
     @model_validator(mode="after")
     def _english_tokens(self) -> ProjectFacts:
-        """A German token (``wien``) from a BFF that has not rolled yet is read as the English one."""
         if self.federal_state is not None:
             self.federal_state = normalize_profile_token("federal_state", self.federal_state)
         for name in ("construction_method", "uses", "work_type"):
@@ -162,13 +120,10 @@ class ProjectFacts(BaseModel):
         return self
 
     def to_store(self) -> dict[str, Any]:
-        """The facts as the vector store's payload spells them: the wire names and English tokens."""
         return self.model_dump(mode="json")
 
 
 class ProjectFactsUpdate(BaseModel):
-    """Body of ``PUT /v1/collections/{collection}/project-facts``, and the project part of an ingest job."""
-
     model_config = ConfigDict(extra="forbid")
 
     facts: ProjectFacts = Field(default_factory=ProjectFacts)
@@ -176,8 +131,6 @@ class ProjectFactsUpdate(BaseModel):
 
 
 class IngestRequest(KnowledgeMarkFields):
-    """Request body for URL-based ingestion; a base-knowledge copy also carries its licence mark."""
-
     file_ref: ObjectStoreUrl = Field(..., description="Presigned GET of the original in the object store")
     collection: str = Field(..., description="Target collection name")
     document_id: str | None = Field(None, description="Optional document tracking ID")
@@ -209,17 +162,6 @@ class IngestRequest(KnowledgeMarkFields):
     def _drop_unreadable_project_facts(
         cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
     ) -> ProjectFactsUpdate | None:
-        """Project facts this tier cannot read are dropped with a warning, never a 422 on the upload.
-
-        They are a copy stamped onto the chunks; the upload is a person's file.
-        Refusing the request over one malformed fact on the project (a class
-        outside 1..5, an overlong token) would fail every upload into it until
-        someone fixed the profile. Without them the job writes chunks that carry
-        no facts, which the next ``PUT /v1/collections/{c}/project-facts`` and
-        the weekly sweep fill. ``ProjectFacts`` itself stays strict: that PUT
-        and the boosted search still refuse a malformed body, so a BFF that
-        sends one is seen there.
-        """
         try:
             return handler(value)
         except ValidationError as error:
@@ -282,8 +224,6 @@ class IngestRequest(KnowledgeMarkFields):
     )
     revision_of: str | None = Field(
         None,
-        # ``fassung_of`` is what a BFF that has not rolled yet sends (renamed with migration 0165);
-        # a request and a queued job carry either. Remove after one release.
         validation_alias=AliasChoices("revision_of", "fassung_of"),
         max_length=512,
         description=(
@@ -330,7 +270,6 @@ class IngestRequest(KnowledgeMarkFields):
 
     @model_validator(mode="after")
     def _a_thread_came_with_no_mail(self) -> IngestRequest:
-        """A Verlauf IS the mails; an attachment came WITH one. Both on one document is a caller bug."""
         if self.mail_thread is not None and self.mail_origin is not None:
             raise ValueError("mail_thread and mail_origin describe different documents; send one")
         return self
@@ -347,13 +286,10 @@ class IngestRequest(KnowledgeMarkFields):
 
 
 class SimilarityWeights(BaseModel):
-    """The BFF's hand-set ``SIMILARITY_WEIGHTS``, sent with each boosted search so they live in one place."""
-
     model_config = ConfigDict(extra="forbid")
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    # The German names are what a BFF that has not rolled yet sends; read-only.
     federal_state: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("federal_state", "bundesland"))
     building_class: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("building_class", "gebaeudeklasse"))
     building_class_adjacent: float = Field(
@@ -367,13 +303,10 @@ class SimilarityWeights(BaseModel):
     work_type: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("work_type", "vorhabensart"))
 
     def to_store(self) -> dict[str, float]:
-        """The weights as ``knowledge_layer.vector_store.boost`` names them: the wire names."""
         return self.model_dump()
 
 
 class SearchBoost(BaseModel):
-    """Lift passages from projects like the current one: its facts, and what each shared fact is worth."""
-
     model_config = ConfigDict(extra="forbid")
 
     facts: ProjectFacts
@@ -381,17 +314,6 @@ class SearchBoost(BaseModel):
 
 
 class GroupedSearchFilters(BaseModel):
-    """Pre-filters for the grouped search, applied inside the one query before ranking.
-
-    Within a list: any of. Across lists: all of. ``document_types`` and
-    ``disciplines`` both read the document's tags (one closed vocabulary,
-    ``tag-vocabulary.ts``), as two separate any-of conditions.
-    ``document_ids``, ``reading_types`` and ``refers_to`` read what ingestion
-    put on every chunk (``grid_document_id`` and the dossier's
-    ``document_type`` and ``references``), so the BFF's search core can narrow
-    the content query to its own candidates for recall (ADR-0136, item 5).
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     document_types: list[_FactToken] = Field(
@@ -403,13 +325,13 @@ class GroupedSearchFilters(BaseModel):
     document_ids: list[_DocumentId] = Field(
         default_factory=list,
         max_length=1000,
-        description="Only passages of these documents (the BFF's document ids, `grid_document_id` on the chunks).",
+        description="Only passages of these documents (the BFF's document ids, `document_id` on the chunks).",
     )
     file_names: list[_FileName] = Field(
         default_factory=list,
         max_length=1000,
         description=(
-            "The same documents' file names, for the passages that carry no `grid_document_id` (written before "
+            "The same documents' file names, for the passages that carry no `document_id` (written before "
             "the field existed, or copied from Chroma): any of `document_ids` or of these. Only with `document_ids`."
         ),
     )
@@ -442,14 +364,6 @@ class GroupedSearchFilters(BaseModel):
 
 
 class GroupedDocumentSearchRequest(BaseModel):
-    """Request body for one semantic search across many collections, grouped per collection.
-
-    The cross-project lookup's single call (ADR-0094, ADR-0116): every
-    reachable project's collections are ranked in ONE query, so hits from
-    different projects are ordered by one fused ranking instead of by scores
-    from separate indexes.
-    """
-
     query: str = Field(..., min_length=1, max_length=1000, description="Natural-language search query")
     collections: list[str] = Field(..., min_length=1, max_length=500, description="Collections to rank together")
     groups: int = Field(20, ge=1, le=200, description="Max collections in the answer, best first")
@@ -468,8 +382,6 @@ class GroupedDocumentSearchRequest(BaseModel):
 
 
 class ProjectFactsResult(BaseModel):
-    """Answer of ``PUT /v1/collections/{collection}/project-facts``."""
-
     collection: str
     applied: bool = Field(
         ...,
@@ -481,8 +393,6 @@ class ProjectFactsResult(BaseModel):
 
 
 class GenerateSummaryRequest(BaseModel):
-    """Request body for AI project summary generation."""
-
     profile_text: str = Field(..., description="Human-readable project profile text (label: value lines)")
     locale: str = Field(
         default="de",
@@ -491,8 +401,6 @@ class GenerateSummaryRequest(BaseModel):
 
 
 class GenerateSummaryResponse(BaseModel):
-    """Response for AI project summary generation."""
-
     summary: str = Field(..., description="One-sentence generated project summary (empty string on failure)")
     error: str | None = Field(
         default=None,
@@ -505,13 +413,6 @@ class GenerateSummaryResponse(BaseModel):
 
 
 class CleanupDocumentFacts(BaseModel):
-    """What the index already holds about one document, and nothing more (ADR-0092).
-
-    No document content: the name, where it is filed, its type and tags, the
-    summary ingestion already wrote, and its editorial state.
-    Any other field is refused, so document text cannot ride along.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., max_length=64)
@@ -526,15 +427,11 @@ class CleanupDocumentFacts(BaseModel):
 
 
 class CleanupProposalRequest(BaseModel):
-    """Request body for the „Ausmisten" proposal at a project's close."""
-
     documents: list[CleanupDocumentFacts] = Field(..., max_length=2000)
     locale: str = Field(default="de", description="UI locale; the reasons are written in it")
 
 
 class CleanupCandidate(BaseModel):
-    """One document the model proposes to remove, and why."""
-
     id: str
     category: str = Field(
         ..., description="working_copy | superseded | duplicate | temporary | unpublished_draft | other"
@@ -543,28 +440,17 @@ class CleanupCandidate(BaseModel):
 
 
 class CleanupProposalResponse(BaseModel):
-    """The model's proposal. Empty with ``error`` set when it could not be made."""
-
     candidates: list[CleanupCandidate] = Field(default_factory=list)
     model: str | None = None
     error: str | None = None
 
 
 class ConversationTitleMessage(BaseModel):
-    """One turn of the opening exchange used to name a conversation."""
-
     role: str = Field(..., description="'user' or 'assistant'")
     content: str = Field(..., description="Plain-text message content (no cards/markup)")
 
 
 class GenerateConversationTitleRequest(BaseModel):
-    """Request body for ChatGPT-style conversation naming + topic tagging.
-
-    The UI sends the opening exchange (first user question and, when available,
-    the assistant's answer). The LLM returns a short human title describing what
-    the inquiry was about plus 0–3 OIB topic tags drawn from a fixed vocabulary.
-    """
-
     messages: list[ConversationTitleMessage] = Field(
         default_factory=list,
         description="Opening exchange, oldest first (first user question + optional assistant answer)",
@@ -580,8 +466,6 @@ class GenerateConversationTitleRequest(BaseModel):
 
 
 class GenerateConversationTitleResponse(BaseModel):
-    """Response for conversation naming + tagging."""
-
     title: str = Field(..., description="Concise conversation title (empty string on failure)")
     tags: list[str] = Field(
         default_factory=list,
@@ -597,24 +481,15 @@ class GenerateConversationTitleResponse(BaseModel):
     )
 
 
-#: Ceiling on one dictation's audio, in bytes before base64. 45 seconds of the
-#: browser's Opus or AAC at 64 kbit/s is about 360 KB; the bound leaves room for
-#: a browser that ignores the requested bitrate. Mirrored by the BFF
-#: (``apps/workspace/bff/dictation/limits.ts``), which refuses first.
 MAX_DICTATION_AUDIO_BYTES = 4 * 1024 * 1024
 
-#: The container formats a browser's MediaRecorder produces, named the way the
-#: transcription endpoint names them (Safari's ``audio/mp4`` is ``m4a``).
 DictationAudioFormat = Literal["webm", "ogg", "m4a"]
 
 
 class DictationRequest(BaseModel):
-    """One recorded utterance from the chat composer's microphone button."""
-
     audio_base64: str = Field(
         ...,
         min_length=1,
-        # base64 is 4 characters per 3 bytes.
         max_length=(MAX_DICTATION_AUDIO_BYTES * 4) // 3 + 4,
         description="The recording, base64-encoded (raw bytes, not a data URI)",
     )
@@ -636,8 +511,6 @@ class DictationRequest(BaseModel):
 
 
 class DictationResponse(BaseModel):
-    """The cleaned transcript, or why there is none. Always HTTP 200 (fail open)."""
-
     text: str = Field(default="", description="Cleaned transcript; empty for silence or on failure")
     audio_seconds: float | None = Field(default=None, description="Seconds of audio transcribed")
     model: str | None = Field(default=None, description="The model that produced the transcript")
@@ -650,41 +523,21 @@ class DictationResponse(BaseModel):
     )
 
 
-#: Ceiling on the sampled questions a digest request may carry. Enforced on the
-#: schema so an oversized list is refused at parse time; the route slices to the
-#: same bound for callers that are within it.
 MAX_DIGEST_SAMPLES = 60
 
 
 class FeedbackDigestTopic(BaseModel):
-    """Votes on one OIB topic tag, for the digest's per-topic reading."""
-
     topic: str = Field(..., description="Conversation topic tag key (e.g. 'fire_safety')")
     up: int = Field(0, ge=0, description="Helpful votes on conversations carrying this tag")
     down: int = Field(0, ge=0, description="Unhelpful votes on conversations carrying this tag")
 
 
 class FeedbackDigestOrgShare(BaseModel):
-    """One organization's vote counts, DELIBERATELY without its identifier.
-
-    The digest needs to know whether a problem is spread across tenants or is
-    one tenant's, which is a question about the shape of the distribution, not
-    about who is in it. Sending the ids would put tenant identities in a
-    third-party model's request log to buy a naming the reader already has: the
-    per-organization table sits directly under the digest on the same screen.
-    """
-
     up: int = Field(0, ge=0)
     down: int = Field(0, ge=0)
 
 
 class FeedbackDigestSample(BaseModel):
-    """One rated question, as the digest's only free-text evidence.
-
-    The QUESTION only — never the answer. Naming themes needs what people asked;
-    it does not need the generated text back, and answers are the long half.
-    """
-
     verdict: Literal["up", "down"] = Field(..., description="'up' or 'down'")
     reason: str | None = Field(None, description="Down-vote reason key, when the vote carried one")
     topics: list[str] = Field(default_factory=list, description="Topic tag keys of the conversation")
@@ -700,13 +553,6 @@ class FeedbackDigestSample(BaseModel):
 
 
 class FeedbackDigestRequest(BaseModel):
-    """Request body for the plain-language answer-feedback digest.
-
-    An aggregate plus a bounded sample of questions. Everything identifying —
-    organization ids, user ids, conversation ids — is stripped by the caller;
-    what arrives is counts and questions.
-    """
-
     window_days: int = Field(30, ge=1, le=365, description="Days of history the aggregate covers")
     answers: int = Field(0, ge=0, description="Assistant answers produced in the window (the denominator)")
     up: int = Field(0, ge=0, description="Helpful votes")
@@ -732,23 +578,12 @@ class FeedbackDigestRequest(BaseModel):
     samples: list[FeedbackDigestSample] = Field(
         default_factory=list,
         description="Bounded sample of rated questions, both directions",
-        # Bounded at the schema, not only by the route's slice: an unknown
-        # verdict would otherwise fall silently into the "disliked" bucket, and
-        # an oversized list would be fully parsed before being truncated.
         max_length=MAX_DIGEST_SAMPLES,
     )
     locale: str = Field("de", description="UI locale ('de' or 'en') — the language the digest is written in")
 
 
 class FeedbackDigestResponse(BaseModel):
-    """The digest: a headline plus what is working and what is not.
-
-    ``strengths`` and ``concerns`` are separate REQUIRED fields rather than one
-    list of observations, because that is the whole point of the endpoint: a
-    summary free to return only problems will return only problems, and the
-    surface this backs was already too good at that.
-    """
-
     headline: str = Field("", description="Two or three plain sentences summarising the window")
     strengths: list[str] = Field(default_factory=list, description="What the data says is working (0–3)")
     concerns: list[str] = Field(default_factory=list, description="What the data says needs attention (0–3)")
@@ -773,21 +608,11 @@ class FeedbackDigestResponse(BaseModel):
 
 
 class ConsistencyCheckField(BaseModel):
-    """A single intake answer passed to the consistency check (label + rendered value)."""
-
     field: str = Field(..., description="Human-readable question label (echoed back in findings)")
     value: str = Field(..., description="Human-readable rendering of the user's answer")
 
 
 class ConsistencyCheckRequest(BaseModel):
-    """Request body for the end-of-wizard FREE-TEXT consistency check.
-
-    Only free-text answers are scrutinised by the LLM. Structured answers
-    (selects/numbers/booleans) are checked deterministically on the client and
-    are passed here purely as read-only context, so the model can judge whether
-    the free text contradicts them. Skipped/unknown answers are omitted upstream.
-    """
-
     free_text: list[ConsistencyCheckField] = Field(
         default_factory=list,
         description="Free-text answers to scrutinise (e.g. goal details, high-building details)",
@@ -803,8 +628,6 @@ class ConsistencyCheckRequest(BaseModel):
 
 
 class ConsistencyFinding(BaseModel):
-    """One detected contradiction involving a free-text answer."""
-
     fields: list[str] = Field(
         default_factory=list,
         description="Labels of the answers involved in the contradiction (echoed from the request)",
@@ -814,14 +637,6 @@ class ConsistencyFinding(BaseModel):
 
 
 class ConsistencyCheckResponse(BaseModel):
-    """Response for the intake consistency check.
-
-    ``findings`` is an empty list when the answers are internally consistent,
-    a populated list when contradictions were found, and ``None`` when the
-    check could not run (see ``error``). Always HTTP 200 — the wizard fails
-    open and never blocks saving on a check outage.
-    """
-
     findings: list[ConsistencyFinding] | None = Field(
         default=None,
         description="Detected contradictions ([] = consistent); None when the check could not complete",
@@ -836,15 +651,6 @@ class ConsistencyCheckResponse(BaseModel):
 
 
 class SkillReviewRequest(BaseModel):
-    """Request body for the LLM review of a single Agent Skill (a SKILL.md).
-
-    The three fields are the SKILL.md contract as ``skills/models.py`` enforces
-    it: hyphenated ``name``, the one-line ``description`` an agent sees before
-    it decides to load anything, and the markdown ``body`` it only sees after.
-    The skill under review need not be valid or saved yet — this endpoint is an
-    advisory pass over a draft, not a gate.
-    """
-
     name: str = Field(default="", description="Skill name as written in the SKILL.md frontmatter")
     description: str = Field(default="", description="Skill description (progressive-disclosure level 1)")
     body: str = Field(default="", description="Skill instruction markdown (progressive-disclosure level 2)")
@@ -858,15 +664,6 @@ class SkillReviewRequest(BaseModel):
 
 
 class SkillReviewFinding(BaseModel):
-    """One critique of the skill under review.
-
-    ``check`` names the rule that produced the finding. The reviewer applies a
-    vendored, versioned rulebook (SkillCheck — see the route's module docstring),
-    and every check in it has a stable id, so a finding can be traced back to the
-    rule rather than read as an opinion. Optional: it is empty when the check
-    that fired carries no id, or when the model simply did not supply one.
-    """
-
     severity: str = Field(..., description="'error' (breaks the skill), 'warning' (likely harmful), 'suggestion'")
     field: str = Field(..., description="Which part of the SKILL.md the finding is about: name, description or body")
     check: str = Field(
@@ -878,14 +675,6 @@ class SkillReviewFinding(BaseModel):
 
 
 class SkillReviewResponse(BaseModel):
-    """Response for the skill review.
-
-    ``findings`` is an empty list when the skill needs no changes, a populated
-    list when it does, and ``None`` when the review could not run (see
-    ``error``). Always HTTP 200 — like the intake consistency check, an outage
-    of an advisory reviewer must never stop someone from saving their skill.
-    """
-
     findings: list[SkillReviewFinding] | None = Field(
         default=None,
         description="Critiques ([] = the skill is good); None when the review could not complete",
@@ -900,16 +689,12 @@ class SkillReviewResponse(BaseModel):
 
 
 class UploadResponse(BaseModel):
-    """Response for document upload (async operation)."""
-
     job_id: str = Field(..., description="Job ID for polling status")
     file_ids: list[str] = Field(default_factory=list, description="IDs of uploaded files")
     message: str | None = Field(None, description="Status message")
 
 
 class OibSyncResponse(BaseModel):
-    """Response for OIB sync endpoint."""
-
     status: str
     message: str
     files_added: int
@@ -917,8 +702,6 @@ class OibSyncResponse(BaseModel):
 
 
 class OibUploadedMember(BaseModel):
-    """One PDF queued from a ZIP bulk upload (or rejected during extraction)."""
-
     file_name: str = Field(..., description="Member PDF basename.")
     status: str = Field(..., description="'pending' (queued for ingestion) or 'rejected'.")
     doc_class: str | None = Field(None, description="Pre-filled doc_class guess for accepted members.")
@@ -926,14 +709,6 @@ class OibUploadedMember(BaseModel):
 
 
 class OibDocumentUploadResponse(BaseModel):
-    """Response for a platform-admin upload into the OIB base corpus.
-
-    Single-file uploads populate ``file_name``/``doc_class``; ZIP bulk uploads
-    populate ``members``/``accepted``/``rejected``. Ingestion runs in the
-    background, so ``status`` is ``'pending'`` on a successful accept — the
-    caller polls ``/v1/oib/status`` for the terminal lifecycle.
-    """
-
     status: str = Field(..., description="'pending', 'success', 'failed', or 'timeout'.")
     file_name: str | None = Field(None, description="Uploaded PDF basename (single-file uploads).")
     message: str
@@ -945,25 +720,14 @@ class OibDocumentUploadResponse(BaseModel):
 
 
 class OibDocumentDeleteResponse(BaseModel):
-    """Response for deleting an OIB base-corpus document (chunks, row, object and cached copy)."""
-
     success: bool
     file_name: str
 
 
-#: Ceiling on the notes one embedding request may carry. Mirrors `_MAX_TEXTS`
-#: in `routes/note_embeddings.py`.
 MAX_NOTE_EMBEDDING_TEXTS = 64
 
 
 class NoteEmbeddingRequest(BaseModel):
-    """Request body for embedding short notes (memory items, platform lessons).
-
-    Text only — never an identifier, never tenant context. The caller (the BFF,
-    which owns the notes) sends the strings it wants comparable and stores the
-    vectors next to its own rows.
-    """
-
     texts: list[str] = Field(
         default_factory=list,
         description="Short texts to embed, in order; the response's vectors match this order",
@@ -972,15 +736,6 @@ class NoteEmbeddingRequest(BaseModel):
 
 
 class NoteEmbeddingResponse(BaseModel):
-    """Vectors plus the fingerprint of the model that produced them.
-
-    ``fingerprint`` is not decoration: a vector is comparable only to vectors
-    from the same model, so the caller stores this alongside each vector and
-    treats a mismatch as "not embedded yet" rather than comparing across
-    models. Empty ``vectors`` with an ``error`` means the caller must fall back
-    to its lexical path.
-    """
-
     vectors: list[list[float]] = Field(default_factory=list, description="One vector per input text, in order")
     fingerprint: str = Field("", description="Embedding-model fingerprint to store beside each vector")
     dimensions: int = Field(0, ge=0, description="Vector dimensionality, 0 when nothing was embedded")

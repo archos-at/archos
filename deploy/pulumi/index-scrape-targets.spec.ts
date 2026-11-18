@@ -3,17 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 import { SCRAPE_ANNOTATION } from "./src/platform/scrape";
 
-/**
- * Every workload the node agents scrape (ADR-0119), across the whole program.
- *
- * An annotation is a promise nothing checks at runtime. One whose port no
- * container declares scrapes a closed port; one on a pod that rule 2 of
- * `network-policies.ts` withholds from the namespace, with no rule admitting
- * `otel-agent`, times out. Either reads in PostHog as a service that never
- * reported, which looks the same as one nobody annotated. This suite holds the
- * three together, and names the workloads, so dropping one is a decision.
- */
-
 type Inputs = Record<string, any>;
 const RESOURCES: Array<{ type: string; name: string; inputs: Inputs }> = [];
 
@@ -52,7 +41,6 @@ async function render(values: Record<string, string>): Promise<void> {
   );
 }
 
-/** Every pod template this program builds that asks to be scraped. */
 function scrapedTemplates(): Scraped[] {
   return RESOURCES.filter((r) => POD_MAKERS.test(r.type)).flatMap((r) => {
     const template = r.inputs.spec.template;
@@ -70,13 +58,11 @@ function scrapedTemplates(): Scraped[] {
   });
 }
 
-/** The app names rule 2 withholds from the namespace's wholesale allow. */
 function withheld(): string[] {
   const intra = RESOURCES.find((r) => r.name === "allow-same-namespace")!.inputs.spec;
   return intra.podSelector.matchExpressions[0].values;
 }
 
-/** Whether some NetworkPolicy admits `otel-agent` to `port` on pods named `appName`. */
 function agentAdmitted(appName: string, port: number): boolean {
   return RESOURCES.filter((r) => r.type.endsWith("NetworkPolicy")).some((r) => {
     const spec = r.inputs.spec;
@@ -122,8 +108,6 @@ describe.each([
       ]),
     );
     expect(names.some((n) => n.includes("seaweedfs"))).toBe(true);
-    // The gateway already scrapes every Qdrant peer by name; an annotation
-    // would send each series twice.
     expect(names.some((n) => n.includes("qdrant"))).toBe(false);
   });
 

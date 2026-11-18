@@ -12,7 +12,6 @@ from langgraph.graph import END
 from langgraph.graph import START
 from langgraph.graph import StateGraph
 
-from agent.agents.piloti.answer_pipeline import SettledStream
 from agent.common.wire_v2 import AnswerRetractedBody
 from agent.common.wire_v2 import CardBody
 from agent.common.wire_v2 import CardRefusedBody
@@ -21,6 +20,7 @@ from agent.common.wire_v2 import StateSnapshotBody
 from agent.common.wire_v2 import TextMessageContentBody
 from agent.common.wire_v2 import TextMessageEndBody
 from agent.common.wire_v2 import TextMessageStartBody
+from agent.core.answer_pipeline import SettledStream
 from agent.turn import answer_stream
 from agent.turn.answer_stream import LiveProse
 from agent.turn.answer_stream import bound_live_prose

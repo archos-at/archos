@@ -1,18 +1,3 @@
-/**
- * Lenient, per-part salvage of a stored {@link ProjectProfile}.
- *
- * The intake page used to `ProjectProfileSchema.safeParse` the stored profile and
- * fall back to `null` on ANY failure — a single malformed fact discarded the whole
- * brief, the wizard opened blank in create mode, and the next Save overwrote the
- * stored profile with only the freshly-typed answers (silent data loss).
- *
- * This helper instead validates each part individually and keeps everything that
- * is still well-formed, dropping only the invalid entries. It reports what was
- * dropped so the wizard can show an honest banner ("parts could not be loaded and
- * will be replaced when you save") instead of silently discarding data.
- *
- * Pure and isomorphic — no I/O, safe on the server or the client.
- */
 import { normalizeLegacyProfile } from './legacy-names'
 import {
   ProjectAssumptionSchema,
@@ -23,19 +8,7 @@ import {
 import type { ProjectAssumption, ProjectFact, ProjectPrimitiveValue, ProjectProfile } from './types'
 
 export interface SalvageResult {
-  /**
-   * The best-effort recovered profile, or `null` when nothing usable could be
-   * recovered (a fully-invalid or absent profile → the wizard opens in create
-   * mode). A non-null profile may still have had individual entries dropped —
-   * see {@link SalvageResult.dropped}.
-   */
   profile: ProjectProfile | null
-  /**
-   * Identifiers of the parts that failed validation and were discarded (e.g.
-   * `facts.main_use`, `goals.focus_areas`, `unknowns[2]`). Empty when the
-   * stored profile was fully valid (or genuinely absent). Non-empty → the wizard
-   * shows the replacement-warning banner.
-   */
   dropped: string[]
 }
 
@@ -43,36 +16,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/**
- * Attempt a lenient, per-part salvage of a raw stored project profile.
- *
- * - A fully valid profile is returned untouched with `dropped: []`.
- * - A genuinely absent profile (`null` / `undefined` / the empty `{}` default) is
- *   reported as `{ profile: null | <empty>, dropped: [] }` — no banner.
- * - A malformed profile keeps every well-formed fact / goal / unknown / assumption
- *   and lists the rest in `dropped`.
- * - A profile with no salvageable content (everything dropped, or a non-object)
- *   returns `{ profile: null, dropped: [...] }` so the wizard opens in create mode
- *   while still warning the user.
- */
 export function salvageProjectProfile(stored: unknown): SalvageResult {
-  // Every stored profile is read through here, so this is where a row an older
-  // pod wrote with the German names is brought to the new ones.
   const raw = normalizeLegacyProfile(stored)
 
-  // Fast path: a fully valid profile passes straight through, nothing dropped.
   const full = ProjectProfileSchema.safeParse(raw)
   if (full.success) {
     return { profile: full.data, dropped: [] }
   }
 
-  // A genuinely absent profile is not a corruption — no banner, create mode.
   if (raw === null || raw === undefined) {
     return { profile: null, dropped: [] }
   }
 
-  // A non-object (string / number / boolean / array) is unsalvageable, but it IS
-  // corrupt data rather than an absent profile → warn via a non-empty `dropped`.
   if (!isPlainObject(raw)) {
     return { profile: null, dropped: ['profile'] }
   }
@@ -95,41 +50,20 @@ export function salvageProjectProfile(stored: unknown): SalvageResult {
     unknowns.length > 0 ||
     Object.keys(assumptions).length > 0
 
-  // Nothing survived — treat as a full failure so the wizard opens in create mode.
   if (!anySalvaged) {
     return { profile: null, dropped: dropped.length > 0 ? dropped : ['profile'] }
   }
 
-  // Every kept entry already validated against its schema, and all four fields
-  // are present here — so the reassembled profile is a well-formed ProjectProfile
-  // by construction. Assemble it directly instead of re-parsing the whole object.
   const profile: ProjectProfile = { facts, goals, unknowns, assumptions }
   return { profile, dropped }
 }
 
-/** The intake page's entry decision, derived from a salvage result. */
 export interface IntakeEntry {
-  /** 'edit' when any brief content survived (incl. assumptions-only); else 'create'. */
   mode: 'create' | 'edit'
-  /** The profile to prefill the wizard with in edit mode, else null. */
   initialProfile: ProjectProfile | null
-  /** Banner variant: 'partial' when some parts dropped but content survived,
-   *  'full' when nothing salvageable remained, null when the brief loaded cleanly. */
   salvageNotice: 'partial' | 'full' | null
 }
 
-/**
- * Derive the intake page's mode / initialProfile / banner from a raw stored
- * profile in one coherent decision.
- *
- * A salvaged profile that retained ANY content — facts, goals, unknowns, OR
- * assumptions — is USED: the wizard opens in edit mode prefilled from it, so an
- * assumptions-only brief is no longer silently dropped into create mode by a
- * facts/goals/unknowns-only count. A genuinely empty profile (e.g. the `{}`
- * default of a fresh project) has no content and opens in create mode. The
- * banner is 'partial' when parts were dropped but a profile survived, 'full'
- * when nothing salvageable remained, and null when the brief loaded cleanly.
- */
 export function deriveIntakeEntry(raw: unknown): IntakeEntry {
   const { profile, dropped } = salvageProjectProfile(raw)
   const hasContent =
@@ -147,7 +81,6 @@ export function deriveIntakeEntry(raw: unknown): IntakeEntry {
   }
 }
 
-/** Validate each value of a record against `schema`, dropping the invalid ones. */
 function salvageRecord<T>(
   raw: unknown,
   schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false } },
@@ -171,7 +104,6 @@ function salvageRecord<T>(
   return out
 }
 
-/** Goals are bare primitive values — validate each, drop the invalid ones. */
 function salvageGoals(raw: unknown, dropped: string[]): Record<string, ProjectPrimitiveValue> {
   const out: Record<string, ProjectPrimitiveValue> = {}
   if (raw === undefined || raw === null) return out
@@ -190,7 +122,6 @@ function salvageGoals(raw: unknown, dropped: string[]): Record<string, ProjectPr
   return out
 }
 
-/** Unknowns are a string array — keep the strings, drop anything else. */
 function salvageUnknowns(raw: unknown, dropped: string[]): string[] {
   const out: string[] = []
   if (raw === undefined || raw === null) return out

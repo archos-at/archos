@@ -1,7 +1,7 @@
 name: Turn shapes (live model)
 
 # Weekly + on-demand eval of the two behaviours ADR-0052 moved from code into
-# Piloti's prompt: a greeting answers without searching, and a
+# the agent's prompt: a greeting answers without searching, and a
 # commissioned report escalates to deep research before retrieving. Plus a
 # control question that must still search. Real prompt, real model through
 # OpenRouter, stub tools recording the trace:

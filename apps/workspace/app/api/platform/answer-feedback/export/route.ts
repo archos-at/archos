@@ -1,31 +1,3 @@
-/**
- * Answer-feedback export — the votes the ratings tab shows, as an Excel
- * workbook for a person or a CSV for a script.
- *
- *   scope    from, to (UTC days, inclusive; or days=7|30|90), org, project
- *            (both repeatable): the page-wide scope every quality view shares.
- *   filters  verdict, reason, topic, mode, confidence (repeatable where it
- *            makes sense), has_comment=1, has_expected=1, q: the ratings tab's
- *            filters. Read by the one strict parser the page's reads use
- *            (`lib/feedback/query.ts`), so the file is the set on screen; an
- *            unknown value is a 400.
- *   ?scope=all            every vote in the scope, ratings filters ignored.
- *                         (`scope=selection` is the old drill-in export and
- *                         still means "the filters, down-votes by default".)
- *   ?format=xlsx|csv      `csv` (default, what scripts have always fetched) or
- *                         `xlsx`, the four-sheet workbook the page links to.
- *   ?summary=weekly       instead: per organization and ISO week, as CSV. The
- *                         scope and the topic apply; the filters a rate cannot
- *                         honour are named in `X-Grid-Export-Ignored-Filters`.
- *
- * Streams out with `Content-Disposition` rather than being assembled in the
- * browser, so the download costs the bundle nothing and is reachable as a plain
- * link. A thin adapter: the gate and the reads are the service's
- * (`lib/feedback/export-service.ts`), the columns are `export-columns.ts`, and
- * the two renderers sit beside them. A cut export says so in a header for a
- * script (`X-Grid-Export-Truncated`) and in the file name for a person.
- */
-
 import { NextResponse } from 'next/server'
 import { ForbiddenError } from '@/lib/api/errors'
 import { apiRoute } from '@/lib/api/handler'
@@ -36,6 +8,7 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 import { requireFeedbackQuery } from '@/lib/feedback/query'
 import { RATINGS_FILTER_PARAMS } from '@/lib/feedback/filters'
 import { EXPORT_IGNORED_FILTERS_HEADER, EXPORT_TRUNCATED_HEADER } from '@/lib/feedback/types'
+import { withLegacyHeaderNames } from '@/lib/http/legacy-header-names'
 import {
   feedbackExportFileName,
   feedbackWeeklyFileName,
@@ -60,7 +33,7 @@ function download(
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Cache-Control': 'no-store',
-      ...extraHeaders,
+      ...withLegacyHeaderNames(extraHeaders),
     },
   })
 }

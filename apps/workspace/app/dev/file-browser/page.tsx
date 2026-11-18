@@ -1,62 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the Files browser — the Finder-style drill-down that
- * replaced the folder tree. Fixtures:
- *
- *  1. The default browser: breadcrumb path row ("All Files › …"), the folder
- *     brief folded to its one line (click it to open), folder cards beside file
- *     cards at the current level, the New-folder popover, and the cards/list
- *     view toggle. Clicking a folder card drills in; the breadcrumb
- *     walks back out.
- *  2. A flat reference grid (no `folderNav`) — the Archiv's presentation.
- *  3. A standalone `FileSearchBar` with a live query so the enlarged clear (X)
- *     hit target is visible.
- *
- * A module-scope fetch shim 404s thumbnails so the SVG sketch fallback
- * renders. 404s outside development.
- *
- * `?variant=search-failed` renders the state a semantic search lands in when it
- * could not RUN. The hook fails open to an empty hit list so the pane cannot
- * crash, and it says which of the two happened — but nothing read that flag, so
- * a backend timeout rendered as "no semantic matches for <query>": the pane told
- * the reader something about their own corpus that it had no way of knowing, and
- * offered them a reset for it. The fixture makes the search endpoint 500 and
- * runs a query, which is the only way to see the state at all.
- *
- * `?variant=search-list` is a semantic search answered in the DETAIL view. The
- * view toggle used to be read only on the un-searched branch, so pressing Enter
- * threw a reader who had chosen the list back into cards. The fixture's hits are
- * deliberately not in upload order, so the shot also shows the ranking surviving
- * into a view whose default sort is newest-first.
- *
- * `?variant=folder-rename` and `?variant=folder-menu` render the two states a
- * folder card only reaches through an interaction: its name swapped for an
- * in-place editor, and the per-card ⋯ menu that gets it there. Both drive
- * themselves — the rename editor is internal component state, and the card
- * controls are hover-revealed on a pointer device, so a fixture that merely
- * rendered the grid would be a picture of neither.
- *
- * `?variant=uploading` renders the moment right after a batch lands, which is
- * the one row where the cards are NOT all the same shape: a document that is
- * still being read has no AI summary yet, while its neighbours do. That is the
- * state the grid used to render badly — the shorter card kept its natural
- * height inside a stretched grid cell and its size · time footer floated in the
- * middle of the tile with dead space underneath. One card in the fixture also
- * has its page thumbnail already rendered while the badge still says
- * "Processing", because a PDF preview is produced at upload time and the rest of
- * ingestion runs after it.
- *
- * The default browser also shows what is still open on a document: the
- * Anmerkungen chip in a card's footer and beside the name in the list
- * („4 offene Anmerkungen, 2 für Sie"), on `Einreichplan_Grundriss_EG_Index-C.pdf`
- * at the root and `Statik_Positionsplan.pdf` in Statik.
- *
- * `?variant=revisions` renders documents with Fassungen (ADR-0099): the count
- * beside the name, the one badge on an older Fassung, in cards and in the list,
- * with older Fassungen hidden and shown. See `revisions-fixture.tsx`.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -65,6 +8,7 @@ import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents
 import { FileSearchBar, FileSearchField } from '@/features/documents/components/file-search-bar'
 import { FileFilterMenu } from '@/features/documents/components/file-filter-menu'
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
+import { FOLDER_DRAG_TYPE } from '@/features/documents/hooks/use-document-drag'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import { NO_FILE_FILTERS, type FileFilters } from '@/features/documents/lib/file-filters'
 import { DEFAULT_FILE_SORT, type FileSort } from '@/features/documents/lib/file-sort'
@@ -101,12 +45,6 @@ export default function FileBrowserDevPage(): JSX.Element {
   return <FileBrowserFixtures />
 }
 
-/**
- * Picking several files, the way the workspace composes it: the pane in
- * selection mode, the bar at the foot of the column, and (`move-sheet`) the
- * folder sheet „Verschieben" opens. Two photos are already picked so the shot
- * shows both marks and the count.
- */
 function SelectionFixture({ view, sheetOpen = false }: { view: 'cards' | 'list'; sheetOpen?: boolean }): JSX.Element {
   const folderNav = useFixtureFolderNav()
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -160,11 +98,6 @@ function SelectionFixture({ view, sheetOpen = false }: { view: 'cards' | 'list';
   )
 }
 
-/**
- * The phone's floating Hochladen: the pane in a column that ends a button's
- * height above the foot, with the workspace's own `UploadFab` over it. Scroll
- * the list to its end to see that the last card is clear of the button.
- */
 function PhoneUploadFabFixture(): JSX.Element {
   const folderNav = useFixtureFolderNav()
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -192,23 +125,6 @@ function PhoneUploadFabFixture(): JSX.Element {
   )
 }
 
-/** Local folder-navigation state over the fixture's static folders. */
-
-/**
- * A folder lit up as a drop target, mid-drag.
- *
- * The state only exists THROUGH a drag, so the fixture performs one rather than
- * setting a flag: a `dragover` carrying our own folder MIME type, dispatched at
- * a folder card after mount. Setting the highlight directly would be a picture
- * of the state rather than the tile arriving in it, and it is the arriving that
- * this pins — the target has to decide, during the drag and before the release,
- * whether it can take what is over it.
- *
- * The shot is worth having because two surfaces used to answer this gesture at
- * once. The workspace's upload overlay reacted to any drag with items on it, so
- * dragging INSIDE the page covered the folder being aimed at in „Dateien hier
- * ablegen". What this shows is one answer: the folder, ringed.
- */
 function FolderDropTargetFixture(): JSX.Element {
   const folderNav = useFixtureFolderNav()
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -216,10 +132,8 @@ function FolderDropTargetFixture(): JSX.Element {
   useEffect(() => {
     const card = document.querySelector('[data-testid="folder-card-f-statik"]')
     if (!card) return
-    const types = ['application/x-grid-folder-id', 'application/x-grid-folder-id:f-brand']
+    const types = [FOLDER_DRAG_TYPE, `${FOLDER_DRAG_TYPE}:f-brand`]
     const event = new Event('dragover', { bubbles: true, cancelable: true })
-    // jsdom and the browser both refuse a constructed `DataTransfer` here, so
-    // the one fact the target reads is attached directly.
     Object.defineProperty(event, 'dataTransfer', {
       value: { types, getData: () => 'f-brand', dropEffect: 'none' },
     })
@@ -257,15 +171,6 @@ function FolderDropTargetFixture(): JSX.Element {
   )
 }
 
-/**
- * Folders in the DETAIL view — the one composition of this pane that had no shot at all.
- *
- * Every existing file-browser target photographs the card grid, or a search. The
- * detail view's folder band was captured nowhere, which is how it came to be
- * drawn in raw `amber-*` — a band of tinted rows above a neutral table, reading
- * as a warning strip over a listing where nothing is wrong. The shot exists so
- * the next change to either half is seen against the other.
- */
 function FoldersInListViewFixture(): JSX.Element {
   const [selected, setSelected] = useState<string | null>(null)
   const folderNav = useFixtureFolderNav()
@@ -303,17 +208,10 @@ function FoldersInListViewFixture(): JSX.Element {
   )
 }
 
-/**
- * Types a query and submits it, the way the failed-search fixture does — this
- * state only exists THROUGH a search, and setting it directly would be a
- * picture of the state rather than the pane arriving in it.
- */
 function useSelfDrivenSearch(testId: string, query: string): void {
   useEffect(() => {
     const input = document.querySelector<HTMLInputElement>(`[data-testid="${testId}"] input`)
     if (!input) return
-    // React tracks the input's value on the node, so a plain assignment is
-    // swallowed; going through the prototype setter is what makes `input` fire.
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
     setter?.call(input, query)
     input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -324,7 +222,6 @@ function useSelfDrivenSearch(testId: string, query: string): void {
   }, [testId, query])
 }
 
-/** A ranked semantic answer, rendered in the view the reader actually chose. */
 function SearchInListViewFixture(): JSX.Element {
   const [selected, setSelected] = useState<string | null>(null)
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -370,9 +267,6 @@ function SearchInListViewFixture(): JSX.Element {
   )
 }
 
-/**
- * Right-click on a file card — Finder-shaped, same items as the ⋯.
- */
 function FileContextMenuFixture(): JSX.Element {
   const folderNav = useFixtureFolderNav()
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -419,40 +313,21 @@ function FileContextMenuFixture(): JSX.Element {
   )
 }
 
-/**
- * The folder card's two interaction-only states.
- *
- * `mode="menu"` opens the ⋯ menu on a card — which is also the only way to SEE
- * the card controls on a pointer device, since they are hover-revealed
- * (`data-[state=open]:opacity-100` keeps the trigger lit while its menu is up).
- * `mode="rename"` goes one step further and picks Rename, so the card's name is
- * replaced in place by its own field. The two cannot share a page: the rename
- * input commits on blur, so opening a menu anywhere else would end the rename.
- */
 function FolderCrudFixture({ mode }: { mode: 'menu' | 'rename' }): JSX.Element {
   const folderNav = useFixtureFolderNav()
   const search = useFileSearch(projectSearchScope('proj-demo'))
 
-  // `reactStrictMode` runs an effect twice on mount, and Enter on the trigger
-  // TOGGLES the menu — so an unguarded effect opened it and immediately shut it
-  // again. The ref makes the drive run once; there is deliberately no cleanup,
-  // because Strict Mode's cleanup would cancel the frame the first pass queued.
   const driven = useRef(false)
   useEffect(() => {
     if (driven.current) return
     driven.current = true
     const trigger = document.querySelector<HTMLButtonElement>('[data-testid="folder-actions-f-brand"]')
     if (!trigger) return
-    // Driven by KEYBOARD, not `.click()`: the trigger opens on pointerdown,
-    // which a synthetic click never produces. Enter opens the menu and moves
-    // focus to the first item, so a second Enter picks Rename — the same two
-    // keystrokes a reader who never touches the mouse would use.
     const press = (node: Element | null) =>
       node?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     trigger.focus()
     press(trigger)
     if (mode === 'menu') return
-    // The menu content is portaled and mounts a frame later.
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => press(document.activeElement))
     })
@@ -486,13 +361,6 @@ function FolderCrudFixture({ mode }: { mode: 'menu' | 'rename' }): JSX.Element {
   )
 }
 
-/**
- * A semantic search that could not run.
- *
- * It drives itself — types the query and submits it — because this state is
- * only reachable THROUGH a search, and a fixture that set it directly would be
- * a picture of the state rather than the pane arriving in it.
- */
 function SearchFailedFixture(): JSX.Element {
   const [selected, setSelected] = useState<string | null>(null)
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -536,11 +404,6 @@ function SearchFailedFixture(): JSX.Element {
   )
 }
 
-/**
- * The grid a second after an upload: unsettled cards (no summary yet) sharing a
- * row with settled ones. Every tile has to reach the bottom of its cell, so the
- * size · time footers line up across the row whatever the card carries above it.
- */
 function JustUploadedFixture(): JSX.Element {
   const [selected, setSelected] = useState<string | null>(null)
   const search = useFileSearch(projectSearchScope('proj-demo'))
@@ -573,14 +436,12 @@ function FileBrowserFixtures(): JSX.Element {
   const folderNav = useFixtureFolderNav()
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const flatSearch = useFileSearch(projectSearchScope('proj-demo'))
-  // A non-empty query so the search bar's clear (X) target renders in the shot.
   const [barSearch, setBarSearch] = useState('Brandschutz')
   const phone = usePhoneLayout()
   const [filters, setFilters] = useState<FileFilters>(NO_FILE_FILTERS)
   const [sort, setSort] = useState<FileSort>(DEFAULT_FILE_SORT)
 
   const levelFiles = FILES.filter((f) => (f.folderId ?? null) === folderNav.currentFolderId)
-  // The brief as the workspace mounts it: folded to one line, opened on a click.
   const [briefCollapsed, setBriefCollapsed] = useState(true)
   const currentFolderName = FOLDERS.find((folder) => folder.id === folderNav.currentFolderId)?.name ?? null
 

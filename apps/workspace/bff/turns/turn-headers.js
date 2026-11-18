@@ -5,7 +5,7 @@
  *
  * Two callers, one copy. `server.js` proxies a browser's upgrade and sets these
  * on the forwarded request; the wake job (`lib/annotations/wake-job.ts`) opens
- * the socket itself, as the person whose act woke Piloti (ADR-0106). Both
+ * the socket itself, as the person whose act woke the agent (ADR-0106). Both
  * build the headers here, from the same data, so a field one of them forgets
  * cannot exist: before this, the mapping lived inline in `server.js` and the
  * wake would have been its second copy.
@@ -19,7 +19,6 @@
  * in by path (`deploy/Dockerfile`).
  */
 
-// `require`, not `import`: `server.js` loads this file as CommonJS at startup.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const crypto = require('crypto')
 
@@ -148,8 +147,9 @@ const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toSt
 
 /**
  * Every header the upgrade carries for one turn context: the individual
- * `x-grid-*` headers (the DUAL-WRITE the backend still reads beside the
- * envelope) and the signed envelope, built from the SAME values.
+ * service headers under their new names (`x-budget`, `x-organization-id`, ...,
+ * the DUAL-WRITE the backend reads beside the envelope) and the signed
+ * envelope, built from the SAME values.
  *
  * An authenticated context (organization and user) sends its prompt blocks by
  * the per-turn `POST /api/internal/turn-context` instead (`contextTransport:
@@ -168,7 +168,6 @@ function turnContextHeaders(data, { issuedAt, secret }) {
   const headers = {}
   if (data.header) headers['x-collection-scope'] = data.header
   const authenticated = Boolean(data.organizationId && data.userId)
-  // Who the caller is, so the backend knows without a token lookup.
   if (data.organizationId) {
     headers['x-organization-id'] = data.organizationId
     if (data.userId) headers['x-user-id'] = data.userId
@@ -185,14 +184,9 @@ function turnContextHeaders(data, { issuedAt, secret }) {
     }
   }
   if (data.projectId) headers['x-project-id'] = data.projectId
-  // Always sent, so the backend fails closed when it is absent.
   headers['x-feature-memory-reflection'] = data.memoryReflectionEnabled ? 'true' : 'false'
-  // Per-org model overrides and the remaining budget, JSON then base64url;
-  // decoded in agent (model_overrides.py, cost_tracking.py). Absent is the
-  // workflow defaults and no cap.
   if (data.modelOverrides) headers['x-model-overrides'] = base64urlJson(data.modelOverrides)
   if (data.budget) headers['x-budget'] = base64urlJson(data.budget)
-  // Sources the organization switched off (web search, ADR-0022).
   if (Array.isArray(data.disabledSources) && data.disabledSources.length > 0) {
     headers['x-disabled-sources'] = base64urlJson(data.disabledSources)
   }
@@ -203,8 +197,6 @@ function turnContextHeaders(data, { issuedAt, secret }) {
         organizationId: data.organizationId,
         userId: data.userId,
         projectId: data.projectId,
-        // Shelf-bearing entries when the resolver supplied them, bare names
-        // otherwise: the envelope is the copy `scoping.py` trusts (ADR-0047).
         collectionScope: data.scopedCollections ?? data.scope,
         projectContext: data.projectContext,
         projectMemory: data.projectMemory,
@@ -214,9 +206,6 @@ function turnContextHeaders(data, { issuedAt, secret }) {
         disabledSources: data.disabledSources,
         memoryReflectionEnabled: data.memoryReflectionEnabled,
         federalState: data.federalState,
-        // The conversation the BFF authorized, not the raw query param: a
-        // caller-chosen value must never sit inside a signature a write route
-        // trusts.
         conversationId: data.conversationId,
         issuedAt,
         contextTransport: authenticated ? 'bff' : undefined,

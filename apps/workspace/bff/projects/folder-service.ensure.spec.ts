@@ -9,7 +9,7 @@
  * exactly would create a second „Pläne" beside the one already there and file
  * half the Einreichung into it — invisibly, because the two render identically.
  * macOS is what makes that concrete: it hands over decomposed umlauts, so the
- * folder from the desktop and the folder typed into Piloti are different
+ * folder from the desktop and the folder typed into the agent are different
  * strings for the same name.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'

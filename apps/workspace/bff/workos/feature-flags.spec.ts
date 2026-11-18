@@ -17,6 +17,7 @@ vi.mock('./client', () => ({
 }))
 
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
+import { LEGACY_FLAG_KEYS } from '@/lib/authz/legacy-feature-flags'
 import {
   _clearFeatureFlagCache,
   enabledPostAnswerStages,
@@ -93,6 +94,20 @@ describe('isOrgFeatureEnabled', () => {
     await isOrgFeatureEnabled(MEMORY_REFLECTION, 'org-1')
     await isOrgFeatureEnabled(MEMORY_REFLECTION, 'org-1')
     expect(listOrganizationFeatureFlags).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    FEATURE_FLAGS.threadReplies,
+    FEATURE_FLAGS.agentActs,
+    FEATURE_FLAGS.agentNotices,
+    FEATURE_FLAGS.agentAsk,
+  ])('%s is on for its new key, and for the key it had before the rename', async (flag) => {
+    listOrganizationFeatureFlags.mockResolvedValue(paginated([{ slug: flag }]))
+    await expect(isOrgFeatureEnabled(flag, 'org-1')).resolves.toBe(true)
+
+    await _clearFeatureFlagCache('org-1')
+    listOrganizationFeatureFlags.mockResolvedValue(paginated([{ slug: String(LEGACY_FLAG_KEYS[flag]) }]))
+    await expect(isOrgFeatureEnabled(flag, 'org-1')).resolves.toBe(true)
   })
 })
 

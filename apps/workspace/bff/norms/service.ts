@@ -1,12 +1,3 @@
-/**
- * Norm-registry service — server-only bridge to the backend's admin norm API.
- *
- * The backend attaches no admin token itself; this BFF service holds
- * ADMIN_TOKEN and forwards it via `X-Admin-Token` (mirroring
- * `@/lib/knowledge/service`). Backend 409/422/400 statuses are re-thrown as the
- * matching typed {@link ApiError} so route handlers relay them faithfully.
- */
-
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import {
@@ -26,13 +17,11 @@ import {
 
 const NORMS_TIMEOUT_MS = 30_000
 
-/** Admin-token header for the backend's `/v1/admin/norms*` endpoints. */
 function adminHeaders(): Record<string, string> {
   const token = process.env.ADMIN_TOKEN
   return token ? { 'X-Admin-Token': token } : {}
 }
 
-/** Best-effort human-readable detail from a non-OK backend body. */
 async function readDetail(res: Response): Promise<string> {
   const text = await res.text().catch(() => '')
   if (!text) return ''
@@ -47,7 +36,6 @@ async function readDetail(res: Response): Promise<string> {
   return text.slice(0, 500)
 }
 
-/** Load the whole curated registry (envelope: concurrency version + file). */
 export async function getNormRegistry(): Promise<NormRegistryEnvelope> {
   let res: Response
   try {
@@ -71,12 +59,6 @@ export async function getNormRegistry(): Promise<NormRegistryEnvelope> {
   return parsed.data
 }
 
-/**
- * The registry takes no edits: a norm reaches offices only through a reviewed
- * change request (ADR-0165), unconditionally since the cut-over (ADR-0175). The
- * route, its operation and the editor answer 409 with the way in until the
- * contract step that drops `norm_registry` removes them.
- */
 export async function putNormRegistry(
   _session: UserSession | null,
   _body: PutNormRegistryBody,
@@ -87,7 +69,6 @@ export async function putNormRegistry(
   )
 }
 
-/** Verify a pointer against RIS. Returns candidates for the admin to pick from. */
 export async function verifyNormPointer(payload: VerifyNormRequest): Promise<VerifyNormResponse> {
   let res: Response
   try {
@@ -104,7 +85,6 @@ export async function verifyNormPointer(payload: VerifyNormRequest): Promise<Ver
     throw new BadRequestError((await readDetail(res)) || 'Ungültige Verifizierungsanfrage')
   }
   if (!res.ok) {
-    // 502 (RIS unreachable) and any other non-OK collapse to an upstream error.
     throw new UpstreamError(`RIS verification backend returned ${res.status}`)
   }
   const body = await res.json().catch(() => {

@@ -1,14 +1,3 @@
-"""The Qdrant parity harness's own instrument, offline (``task be:eval:qdrant-parity``).
-
-What can rot without a server is pinned here: the hard-case fixture and its
-oracles, the scores, the gate thresholds and their boundaries, the reference
-numbers of the Chroma path (``baseline.py``), the regex scan exact mode is held
-to, the dimension truncation and the report renderer. The store half runs
-against a real Qdrant in
-``packages/knowledge-layer/tests/test_qdrant_parity_harness.py``, where CI starts
-one.
-"""
-
 from __future__ import annotations
 
 import json
@@ -26,9 +15,6 @@ from oib_retrieval.qdrant_parity.vectors import truncate_renormalise
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 HARD_CASES = FIXTURES / "qdrant_lexical_hard_cases.json"
-
-
-# ---------------------------------------------------------------- the fixture
 
 
 def test_the_hard_case_fixture_loads_and_covers_every_kind_the_gate_names():
@@ -72,9 +58,6 @@ def test_the_loader_refuses_a_malformed_fixture(tmp_path, mutation, message):
         evaluation.load_hard_cases(path)
 
 
-# ---------------------------------------------------------------- scores
-
-
 def test_hard_case_scores_count_precision_r_precision_and_first_hit():
     case = evaluation.HardCase("x", "allcaps_code", "REI 90", r"\bREI\s*90\b")
     ranked = ["nothing", "REI 90 here", "REI 60", "REI 90 again"]
@@ -108,9 +91,6 @@ def test_percentiles_interpolate_and_an_empty_sample_is_nan():
     assert evaluation.latency_summary([1.0, 3.0])["p50"] == 2.0
 
 
-# ---------------------------------------------------------------- gates
-
-
 def _scores(recall16: float) -> evaluation.RankScores:
     return evaluation.RankScores(queries=1, recall={16: recall16}, ndcg={}, mrr=0.0)
 
@@ -140,9 +120,6 @@ def test_g2_and_g6_bounds_are_the_design_docs_and_inclusive():
     assert failed.status == "fail", "a drop at the top must fail even when recall@16 is saturated"
 
 
-# ---------------------------------------------------------------- dimension
-
-
 def test_truncation_renormalises_and_keeps_the_prefix_direction():
     rng = np.random.default_rng(0)
     matrix = rng.normal(size=(5, 12)).astype(np.float32)
@@ -163,11 +140,7 @@ def test_the_base_filter_is_the_one_register_builds():
     assert channels.base_filters(excluded) == base_collection_filters(config, None)
 
 
-# ---------------------------------------------------------------- the reference and the exact-mode oracle
-
-
 def test_the_reference_is_the_gate_reports_chroma_path_and_names_its_source():
-    """The numbers G1b and the report compare against, as ``qdrant-gates-2026-10.md`` records them."""
     report = (Path(__file__).resolve().parents[3] / "docs" / "audit" / "qdrant-gates-2026-10.md").read_text()
     assert "qdrant-gates-2026-10.md" in baseline.SOURCE
     lexical = baseline.LEXICAL_GOLDEN
@@ -179,7 +152,6 @@ def test_the_reference_is_the_gate_reports_chroma_path_and_names_its_source():
 
 
 def test_the_regex_scan_finds_the_phrase_with_either_spelling_and_honours_the_base_filter():
-    """What Chroma's ``$regex`` returned, and what ``find_text`` is now held to."""
     inputs = sample.inputs(HARD_CASES)
     view = runner.Corpus(inputs.chunks, inputs.excluded)
     allowed = [chunk for chunk in inputs.chunks if view.allowed(chunk)]
@@ -234,9 +206,6 @@ def test_the_markdown_report_renders_every_section_from_plain_results():
         assert heading in markdown
     assert "reference (Postgres `german` FTS)" in markdown and "reference (Chroma)" in markdown
     assert "describe another corpus" in markdown, "a hashed run must not read as comparable to the reference"
-
-
-# ---------------------------------------------------------------- the ranking sweep
 
 
 def test_the_sweep_diff_names_the_questions_that_moved():

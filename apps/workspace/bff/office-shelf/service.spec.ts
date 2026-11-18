@@ -293,7 +293,7 @@ describe('resolveOfficeShelfDocumentsByName', () => {
 })
 
 describe('uploadOfficeShelfDocument', () => {
-  it('rejects callers without org:archiv:manage (403)', async () => {
+  it('rejects callers without org:office_shelf:manage (403)', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
     await expect(uploadOfficeShelfDocument(session, makeFile(), request)).rejects.toBeInstanceOf(ForbiddenError)
@@ -413,7 +413,7 @@ describe('uploadOfficeShelfDocument', () => {
 })
 
 describe('deleteOfficeShelfDocument', () => {
-  it('rejects callers without org:archiv:manage (403)', async () => {
+  it('rejects callers without org:office_shelf:manage (403)', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
     await expect(deleteOfficeShelfDocument(session, 'd1', request)).rejects.toBeInstanceOf(ForbiddenError)
@@ -450,7 +450,11 @@ describe('deleteOfficeShelfDocument', () => {
     const deletes = fetchSpy.mock.calls.filter(([, init]) => (init as RequestInit)?.method === 'DELETE')
     expect(deletes).toHaveLength(2)
     for (const [, init] of deletes) {
-      expect(JSON.parse(String((init as RequestInit).body))).toEqual({ file_ids: ['plan.pdf'], permanent: true })
+      expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+        file_ids: ['plan.pdf'],
+        documents: [{ id: 'd1', file_name: 'plan.pdf' }],
+        permanent: true,
+      })
     }
     expect(deleteOfficeShelfDocumentRow).toHaveBeenCalledWith('d1', 'org-1')
     expect(recordAuditEvent).toHaveBeenCalledWith(

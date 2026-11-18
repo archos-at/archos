@@ -1,10 +1,3 @@
-"""
-Job submission utilities.
-
-Provides functions to submit agent jobs (ADR-0021, ADR-0150): the submit persists
-the job, then starts its ``research-run`` on Hatchet, which a research worker runs.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -54,10 +47,6 @@ def _build_run_agent_payload(
     request_envelope=None,
     knowledge_context=None,
 ) -> dict:
-    """Build the JSON-serializable ``run_agent_job`` kwargs a research worker replays.
-
-    Keys mirror ``run_agent_job``'s signature exactly; every value round-trips through JSON.
-    """
     (
         parent_span_id,
         parent_function_id,
@@ -96,12 +85,8 @@ def _build_run_agent_payload(
         "clarifier_result": clarifier_result,
         "memory_reflection_enabled": memory_reflection_enabled,
         "memory_reflection_llm": memory_reflection_llm,
-        # The ``task_runs`` row this job is: the run-ledger route's only identity for it.
         "run_id": run_id,
-        # The Unterlagen named on the plan; the runner sanitises them (``plan_documents``).
         "documents": documents,
-        # The requester's signed envelope as the BFF sent it, for the run's tools to echo
-        # (ADR-0108, ``jobs/run_envelope.py``). ``None`` when none verified.
         "request_envelope": request_envelope,
         "knowledge_context": knowledge_context,  # without it the run fails closed (ADR-0175)
     }
@@ -109,38 +94,17 @@ def _build_run_agent_payload(
 
 logger = logging.getLogger(__name__)
 
-# Admission control for BACKGROUND work — the other half of ADR-0040 layer L3.
-#
-# This pool is deliberately SEPARATE from the interactive-turn pool
-# (`agent.common.turn_admission`, `MAX_ACTIVE_TURNS*`) rather than a
-# share of one total. That separation is the partition: a queue full of deep
-# research cannot consume the capacity interactive chat needs, and a busy chat
-# hour cannot block scheduled research. Sizing the two is therefore an explicit
-# choice about how much of the cluster each kind of work may hold — not a race
-# between them.
-#
-# Capacity makes a job WAIT, never fail (ADR-0079). Hatchet runs fairly across
-# organizations and holds one organization to `MAX_ACTIVE_JOBS_PER_ORG` running
-# at once (`jobs/research_workflow.py`), so a full cluster is a longer wait, and a
-# scheduled run is not skipped for it. The one refusal left is a bound on how many
-# jobs ONE organization may have waiting (`MAX_QUEUED_JOBS_PER_ORG`), which
-# stops a runaway caller and is not capacity management.
-
 
 async def _enforce_job_admission(db_url: str, organization_id: str | None) -> None:
-    """Refuse a submission past its organization's waiting-queue bound (fail-open on errors)."""
     try:
         await _enforce_queue_bound(db_url, organization_id)
     except JobAdmissionError:
         raise
     except Exception:
-        # Admission control is protective, not load-bearing: a broken count
-        # must never take research submission down.
         logger.warning("Job admission check failed; admitting job", exc_info=True)
 
 
 async def _enforce_queue_bound(db_url: str, organization_id: str | None) -> None:
-    """Refuse only an organization whose own waiting queue is past its bound."""
     bound = orchestrator_runs.max_queued_per_org()
     if bound <= 0:
         return
@@ -154,7 +118,6 @@ async def _enforce_queue_bound(db_url: str, organization_id: str | None) -> None
 
 
 def _get_disabled_sources() -> set[str]:
-    """Org-disabled source ids from the submitting request (fail-open)."""
     try:
         from agent.common import get_disabled_sources_from_context
 
@@ -165,12 +128,6 @@ def _get_disabled_sources() -> set[str]:
 
 
 def _resolve_submission_principal(owner: str) -> Principal | None:
-    """Resolve the best available principal for async job ownership.
-
-    Used only when submit_agent_job is called programmatically without an
-    explicit principal.  Verified middleware identity is preferred; falls back
-    to a compatibility principal when auth is disabled.
-    """
     principal = get_current_principal()
     if principal is not None:
         return principal
@@ -190,16 +147,6 @@ def _get_parent_trace_context() -> tuple[
     str | None,  # parent_conversation_id
     dict[str, str],  # request_trace_tags
 ]:
-    """
-    Extract trace context from current workflow for propagation to async jobs.
-
-    This enables nested spans in Phoenix - the async job will appear as a child
-    of the workflow that submitted it.
-
-    Returns:
-        Tuple of (parent_span_id, parent_function_id, parent_function_name,
-                  parent_workflow_run_id, parent_workflow_trace_id, parent_conversation_id, request_trace_tags)
-    """
     try:
         from nat.plugin_api import ContextState
     except ImportError:
@@ -207,12 +154,10 @@ def _get_parent_trace_context() -> tuple[
 
     context_state = ContextState.get()
 
-    # Extract workflow-level context
     parent_workflow_run_id = context_state.workflow_run_id.get()
     parent_workflow_trace_id = context_state.workflow_trace_id.get()
     parent_conversation_id = context_state.conversation_id.get()
 
-    # Extract span hierarchy context
     parent_span_id = None
     active_stack = context_state.active_span_id_stack.get()
     if active_stack and len(active_stack) > 1:
@@ -236,46 +181,17 @@ def _get_parent_trace_context() -> tuple[
     )
 
 
-class MissingPrincipalError(RuntimeError):
-    """No verified principal is available to own the async job.
-
-    Subclasses RuntimeError for backwards compatibility. HTTP routes map this
-    specific error to 403 with its static, user-safe message — arbitrary
-    RuntimeError text (which may carry hosts/DSNs) must never reach clients.
-    """
+class MissingPrincipalError(RuntimeError): ...
 
 
-class DuplicateJobIdError(ValueError):
-    """A caller-supplied job ID collides with an existing job.
-
-    Mapped to HTTP 409 Conflict by the submit route. Only raised for
-    caller-supplied IDs; auto-generated UUIDs skip the existence check.
-    """
+class DuplicateJobIdError(ValueError): ...
 
 
 def _job_store_settings() -> tuple[str, str, int]:
-    """The job database, the worker's config file and its log level, from the environment."""
-    # @environment_variable NAT_JOB_STORE_DB_URL
-    # @category Server
-    # @type str
-    # @default sqlite:///./data/jobs.db
-    # @required false
-    # Database URL for job persistence (SQLite or PostgreSQL).
     db_url = os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
 
-    # @environment_variable NAT_CONFIG_FILE
-    # @category Server
-    # @type str
-    # @required false
-    # Path to the agent-runtime workflow config file the research worker loads.
     config_path = os.environ.get("NAT_CONFIG_FILE", "")
 
-    # @environment_variable NAT_FASTAPI_LOG_LEVEL
-    # @category Server
-    # @type int
-    # @default 20
-    # @required false
-    # Python logging level for FastAPI workers (10=DEBUG, 20=INFO, 30=WARNING).
     log_level = int(os.environ.get("NAT_FASTAPI_LOG_LEVEL", "20"))
     return db_url, config_path, log_level
 
@@ -286,28 +202,21 @@ def _captured_request_context(
     project_context: str | None,
     model_overrides: dict[str, str] | None,
 ) -> tuple[str | None, list[str] | None, str | None, dict[str, str] | None]:
-    """Fill each value the caller did not pass from the request the job is submitted in."""
-    # Auto-capture auth token if not explicitly provided
     if auth_token is None:
         from agent.auth import get_auth_token
 
         auth_token = get_auth_token()
 
-    # Auto-detect collection scope from the agent runtime's context if not explicitly provided.
-    # When the request arrives via HTTP/WS the agent-runtime middleware populates
-    # Context.metadata.headers with the BFF-supplied X-Grid-Collection-Scope.
     if collection_scope is None:
         from agent.knowledge.scoping import get_collection_scope_from_context
 
         collection_scope = get_collection_scope_from_context()
 
-    # Auto-detect project context from the agent runtime's context if not explicitly provided.
     if project_context is None:
         from agent.project_context import get_project_context_from_context
 
         project_context = get_project_context_from_context()
 
-    # Auto-detect per-org runtime model overrides if not explicitly provided.
     if model_overrides is None:
         from agent.common import get_model_overrides_from_context
 
@@ -316,12 +225,6 @@ def _captured_request_context(
 
 
 def _effective_data_sources(data_sources: list[str] | None) -> list[str] | None:
-    """The data sources the worker may use: the request's, less what the organization turned off."""
-    # Org-disabled data sources (ADR-0022): subtracted HERE, at submit time,
-    # so research workers need no live flag lookup — the effective data_sources
-    # list they receive already excludes anything the organization turned
-    # off. A None ("all sources") request is materialized first so the
-    # subtraction can apply.
     disabled_sources = _get_disabled_sources()
     if disabled_sources:
         if data_sources is None:
@@ -333,7 +236,6 @@ def _effective_data_sources(data_sources: list[str] | None) -> list[str] | None:
 
 
 def _verified_principal(principal: Principal | None, owner: str) -> Principal:
-    """The principal that owns the job: the one passed in, else the current request's verified one."""
     if principal is None:
         principal = _resolve_submission_principal(owner)
     if principal is None:
@@ -347,14 +249,6 @@ async def _verify_job_id_is_new(
     db_url: str,
     loop: asyncio.AbstractEventLoop,
 ) -> bool:
-    """Refuse a caller-supplied job ID that exists. Returns whether the ID's pre-existence was verified."""
-    # Duplicate-ID guard: job_id is caller-supplied, and both the agent runtime's job_info
-    # write and the job_access upsert below are unconditional — without this
-    # check, re-submitting an existing ID would rewrite the original job's
-    # ownership (hijack), and a failed re-submission would delete the original
-    # job via rollback_job_submission. Auto-generated UUIDs skip the check.
-    # Fails open on DB errors (like admission control), but an unverified
-    # pre-existence also suppresses the destructive rollback below.
     preexistence_verified = job_id is None
     if job_id is not None:
         try:
@@ -378,11 +272,7 @@ async def _discard_failed_submission(
     preexistence_verified: bool,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Undo a submission that failed part-way: its job rows, when they were ours to delete."""
     if not preexistence_verified:
-        # rollback_job_submission deletes job_access, job_events AND
-        # job_info. Without positive proof the job ID did not exist before
-        # this request, rolling back could wipe a pre-existing job.
         logger.warning(
             "Skipping rollback for job %s after submission failure: pre-existence of the "
             "job ID could not be verified, and rollback must never delete a pre-existing job.",
@@ -415,12 +305,7 @@ async def submit_agent_job(
     auth_token: str | None = None,
     collection_scope: list[str] | None = None,
     project_context: str | None = None,
-    # The project-memory digest as of submit time, the worker's fallback when
-    # its own live fetch fails. The chat path leaves it None: the worker fetches.
     project_memory: str | None = None,
-    # Rendered PLATFORM_LESSONS block. Passed explicitly rather than resolved in
-    # the worker: request contextvars do not survive into a background job, and
-    # the holdout decision belongs to the turn that dispatched the job.
     platform_lessons: str | None = None,
     model_overrides: dict[str, str] | None = None,
     usage_context: dict | None = None,
@@ -435,72 +320,10 @@ async def submit_agent_job(
     request_envelope: dict[str, str] | None = None,
     knowledge_context: dict | None = None,
 ) -> str:
-    """
-    Submit an agent job as a ``research-run`` on Hatchet (ADR-0021, ADR-0150).
-
-    This is the main entry point for submitting async jobs from application code.
-    It looks up the agent configuration from the registry, persists the job, and
-    starts the run, which a research worker runs.
-
-    Args:
-        agent_type: Agent type identifier (e.g., 'deep_researcher').
-        input_text: The user's query/request.
-        owner: Owner email for the job.
-        principal: Verified principal that owns the job.
-        job_id: Optional custom job ID.
-        expiry_seconds: Job expiry time in seconds (default 24h).
-        available_documents: Optional list of document dicts with file_name and summary.
-        data_sources: Optional list of allowed data sources to enforce in the worker.
-        auth_token: Optional auth token to propagate to the research worker for
-            data sources that require authentication.
-        model_overrides: Optional per-org runtime model overrides
-            (``{agent_group: openrouter_model_id}``). Auto-captured from the
-            submitting request's ``X-Grid-Model-Overrides`` header when not
-            explicitly provided.
-        usage_context: Optional identity + budget snapshot for LLM cost
-            tracking in the worker (see ``capture_usage_context``).
-            Auto-captured from the submitting request when not provided.
-        user_info: Optional user identity dict (name/email) set on the agent
-            state so worker-side prompts can render the authenticated user,
-            matching the synchronous chat path.
-        clarifier_result: Optional clarifier dialog log set on the agent state
-            so worker-side prompts render the structured Clarification Context
-            section, matching the synchronous chat path.
-        memory_reflection_enabled: Whether the worker should run the post-answer
-            memory-reflection stage over the finished report. Captured from the
-            submitting request's feature flag (the worker cannot read it).
-        memory_reflection_llm: Optional ``llms:`` ref for the reflection pass
-            (e.g. ``card_llm``). When set and enabled, the worker records durable
-            project findings from the completed report.
-        priority: ``"interactive"`` (the default) or ``"bulk"``. Inside one
-            organization Hatchet runs interactive jobs first: a question the
-            reader escalated goes before a scheduled sweep of the same
-            organization, and never before another organization's.
-        run_id: Optional id of the ``task_runs`` row this job is. Carried into
-            the worker so the run can flush its ledger to its own message; a
-            job submitted without one still narrates itself on its event
-            stream and writes nothing (``jobs/run_ledger_fold.py``).
-        request_envelope: ``{"header", "signature"}`` of the requester's signed
-            request-context envelope, as ``run_envelope.capture_request_envelope``
-            kept it from the submit. Never captured here: only a route that
-            verified it for the run's requester may pass one (ADR-0108).
-        knowledge_context: The turn context's ``knowledgeContext`` the BFF resolved for
-            the run's project (ADR-0173): gate, chain text, edition roles. Absent, the run fails closed (ADR-0175).
-
-    Returns:
-        The job ID.
-
-    Raises:
-        KeyError: If agent_type is not registered.
-        DuplicateJobIdError: If a caller-supplied job_id collides with an existing job.
-    """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
-    # Before anything is persisted: a priority nobody defined, or a missing KEK, is
-    # refused where it enters, not after the job's status rows exist.
     research_workflow.check_submittable(priority)
 
-    # Get agent configuration from registry
     agent_config = get_agent_config(agent_type)
     db_url, config_path, log_level = _job_store_settings()
     auth_token, collection_scope, project_context, model_overrides = _captured_request_context(
@@ -508,7 +331,6 @@ async def submit_agent_job(
     )
     data_sources = _effective_data_sources(data_sources)
 
-    # Capture caller identity + remaining budget for cost tracking in the worker.
     if usage_context is None:
         from agent.common.cost_tracking import capture_usage_context
 
@@ -517,37 +339,18 @@ async def submit_agent_job(
     principal = _verified_principal(principal, owner)
     organization_id = ((usage_context or {}).get("identity") or {}).get("organization_id")
 
-    # Admission control: nothing else bounds how many concurrent jobs the
-    # cluster accepts, and each deep-research run fans out multiple
-    # LLM-calling researchers. Caps are best-effort (checked before submit,
-    # no lock) and fail OPEN — a broken count must not take research down.
     await _enforce_job_admission(db_url, organization_id)
 
-    # The agent runtime's JobStore requires a scheduler address that this path never uses
-    # (ADR-0021): every call here goes to the database.
     job_store = JobStore(scheduler_address="", db_url=db_url)
     resolved_job_id = job_store.ensure_job_id(job_id)
     loop = asyncio.get_running_loop()
     preexistence_verified = await _verify_job_id_is_new(job_id, resolved_job_id, db_url, loop)
 
     parent_trace_context = _get_parent_trace_context()
-    # An EXPLICIT conversation wins over the ambient one.
-    #
-    # Interactive submits inherit the caller's conversation from the agent runtime's request
-    # context, which is right: the job belongs to the turn that started it. A
-    # scheduled job has no request context at all — it is fired by the
-    # scheduler over the internal route — so its conversation can only arrive
-    # as an argument, and it must not be overwritten by whatever (usually
-    # nothing) the ambient context holds. Passing it here is enough to reach
-    # both places it is needed: `create_job_access` below, which is what makes
-    # `GET /v1/jobs/async/jobs?conversation_id=` able to find the run, and the
-    # worker payload, which is how the runner knows where to write the answer.
     parent_conversation_id = conversation_id or parent_trace_context[5]
     project_collection = derive_project_collection(collection_scope)
 
     try:
-        # Persist the job's status row, then start its run with the encrypted
-        # run_agent_job payload (ADR-0150). A research worker runs it.
         payload = _build_run_agent_payload(
             configure_logging=True,
             log_level=log_level,
@@ -590,8 +393,6 @@ async def submit_agent_job(
             project_collection,
             organization_id,
         )
-        # Start the run LAST, once job_info AND job_access exist, so no worker
-        # runs a job whose ownership/rollback state is still incomplete.
         await research_workflow.start(db_url, resolved_job_id, payload, organization_id, priority)
     except Exception:
         await _discard_failed_submission(resolved_job_id, db_url, preexistence_verified, loop)

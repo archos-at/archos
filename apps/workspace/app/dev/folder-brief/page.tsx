@@ -2,30 +2,6 @@
 
 import type { MissingDocument } from '@/lib/document-roles/prompt-loader'
 
-/**
- * Dev preview for the folder brief (the read line that opens in place) and the
- * read state on folder tiles — the real `FolderBrief` and `FolderCard`, over
- * the „Wohnbau Seestadt Nord" corpus in `fixtures.ts`.
- *
- * Six sections, one per state the brief has to show: the project root (folded
- * to its one line, as the product opens it; click to open), a nested folder
- * with failures, the folded line again, a folder where everything is read (no
- * „Needs you"), the office shelf's root, and the folders as card-view tiles
- * (no read state) and list-view rows (with their subtree read state). The
- * corpus holds three replaced Fassungen (one a failed read); the brief and the
- * rows count one entry per document, so the root reads „35 von 44“ over 48
- * files and no replaced Fassung is listed under failures. The Fassungen timeline is at `/dev/fassungen`.
- * `?section=a|b|c|d|e|f|g|h` shows just one of them, for captures; the default
- * shows all seven. Section g is a folder read page by page (ADR-0102): its
- * brief is counted from the shelf summary and offers to load the details.
- *
- * "Alle erneut lesen" is faked here: it steps a progress object to completion
- * on a timer and changes no document, so the button's busy state can be seen
- * without a backend.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -52,17 +28,10 @@ type SectionId = (typeof SECTIONS)[number]
 const ROOT_BRIEF = buildFolderBrief(FILES, FOLDERS, null)
 const SUBMISSION_BRIEF = buildFolderBrief(FILES, FOLDERS, 'f-03')
 const BASIS_BRIEF = buildFolderBrief(FILES, FOLDERS, 'f-01')
-// The tiles count what the listing shows: one entry per document, the three
-// replaced Fassungen in `alt` left out (as `file-browser-pane.tsx` does).
 const LISTED = withoutOlderRevisions(FILES, false)
 const TALLIES = subtreeTallies(LISTED, FOLDERS)
 const ROOT_FOLDERS = FOLDERS.filter((folder) => folder.parentId === null)
 
-/**
- * The shelf summary the server would answer for the corpus (ADR-0102): the
- * documents filed directly in each folder, by read-state family. What a folder
- * read page by page builds its brief from until its documents are loaded.
- */
 function summaryOf(files: readonly FileItem[]): ShelfSummary {
   const rows = new Map<string | null, ShelfFolderTally>()
   for (const file of files) {
@@ -90,7 +59,6 @@ function summaryOf(files: readonly FileItem[]): ShelfSummary {
   }
 }
 const SUMMARY_BRIEF = buildFolderBriefFromSummary(summaryOf(FILES), FOLDERS, null)
-/** Ticket #38's case: every one of 27 documents the agent reads is read, beside 16 it never reads. */
 const QUIET_BRIEF = buildFolderBriefFromSummary(
   {
     folders: [{ folderId: null, total: 43, readable: 27, reading: 0, failed: 0, held: 0, unindexed: 16, latest: null }],
@@ -104,16 +72,9 @@ const QUIET_BRIEF = buildFolderBriefFromSummary(
 const noop = (): void => {}
 const resolveFalse = (): Promise<boolean> => Promise.resolve(false)
 
-/** How many re-reads the fake batch runs, and how often one answers. */
 const READ_AGAIN_TICK_MS = 450
 
-/**
- * The root brief with REAL local state for the collapse toggle, and a fake
- * re-read that walks `progress` from 0 to the failed count and then clears it.
- * Every fourth answer is a refusal, so the progress object carries both numbers.
- */
 function LiveRootBrief(): JSX.Element {
-  // Folded, as the product opens it (`useBriefCollapsed`); the line opens it.
   const [collapsed, setCollapsed] = useState(true)
   const [progress, setProgress] = useState<BulkReingestProgress | null>(null)
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -160,7 +121,6 @@ function LiveRootBrief(): JSX.Element {
   )
 }
 
-/** What the intake answers would expect of this project — `loadMissingDocuments`' shape. */
 const MISSING: readonly MissingDocument[] = [
   { role: 'land_register_extract', label: 'Grundbuchauszug', buildingName: null },
   { role: 'expert_report_ground', label: 'Baugrundgutachten', buildingName: null },
@@ -178,17 +138,12 @@ function Section({ id, title, children }: { id: SectionId; title: string; childr
   )
 }
 
-/** The direct documents and subfolders a folder's count line names. */
 function itemCountOf(folderId: string): number {
   const documents = LISTED.filter((file) => file.folderId === folderId).length
   const subfolders = FOLDERS.filter((folder) => folder.parentId === folderId).length
   return documents + subfolders
 }
 
-/**
- * The same folders twice: as the card view's tiles, which carry no read state,
- * and as the list view's rows, which do. The list view is where the state lives.
- */
 function FolderTiles(): JSX.Element {
   const tileProps = (folder: (typeof ROOT_FOLDERS)[number]) => ({
     folder,
@@ -343,7 +298,6 @@ export default function FolderBriefDevPage(): JSX.Element {
     notFound()
   }
 
-  // `useSearchParams` needs a Suspense boundary in the app router.
   return (
     <Suspense fallback={<div />}>
       <FolderBriefPreview />

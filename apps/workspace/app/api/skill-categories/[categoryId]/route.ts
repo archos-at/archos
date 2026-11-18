@@ -1,9 +1,3 @@
-/**
- * Single org category API — rename, re-describe, re-order, remove. Thin adapters
- * (ADR-0017); logic in `@/lib/skills/service`. Platform categories 404 here: the
- * fleet's arrangement is curated in Platform → Skills, never from a tenant.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { deleteSkillCategory, updateSkillCategory } from '@/lib/skills/service'

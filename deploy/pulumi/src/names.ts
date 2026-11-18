@@ -1,35 +1,12 @@
 import * as pulumi from "@pulumi/pulumi";
 
-/**
- * Every infrastructure name the program gives an object, in one table
- * (ADR-0147: infrastructure names carry no brand).
- *
- * The same program runs as two Pulumi projects while the namespace moves:
- * `grid-oib`, the deployment in namespace `grid`, which keeps every name it
- * has until the contract step deletes it, and `workspace`, the deployment that
- * replaces it. A name is picked by the project that is running, so neither
- * stack file says which set it gets and the old stack's preview stays a no-op.
- *
- * Out of this table on purpose, each with its owner (ADR-0147, "The names"):
- * Postgres database and role names (`grid_app`, `grid_keda_scaler`), bucket
- * names and SeaweedFS identities (the bucket follow-up ADR), env var names and
- * OTel service names (the code-identifier rename).
- */
 export const LEGACY_PROJECT = "grid-oib";
 export const PROJECT = "workspace";
 
-/**
- * Only the `workspace` project gets the brand-free names. Everything else
- * keeps today's: the legacy project, and a module evaluated outside a Pulumi
- * run, where the SDK reports the project as `"project"` (a spec imports its
- * modules before its `setMocks` call runs). The cleanup step after contract
- * folds the table into its second column and deletes this switch.
- */
 export function isLegacyProject(project: string = pulumi.getProject()): boolean {
   return project !== PROJECT;
 }
 
-/** `[legacy, brand-free]`. The second column is what the `workspace` stack creates. */
 const TABLE = {
   namespace: ["grid", "workspace"],
   partOf: ["grid-oib", "workspace"],
@@ -66,7 +43,6 @@ const TABLE = {
   qdrantDashboardRoute: ["grid-qdrant-dashboard", "qdrant-dashboard"],
   qdrantDashboardAuth: ["grid-qdrant-dashboard-auth", "qdrant-dashboard-auth"],
   qdrantTls: ["grid-qdrant-tls", "qdrant-tls"],
-  // The former domain's hosts during a domain move (app/former-domain.ts); off unless formerBaseDomain is set.
   formerWebTls: ["grid-former-web-tls", "former-web-tls"],
   formerAppTls: ["grid-former-app-tls", "former-app-tls"],
   formerWebRedirectRoute: ["grid-former-web-redirect", "former-web-redirect"],
@@ -78,26 +54,18 @@ const TABLE = {
   auditSchemasJob: ["grid-app-audit-schemas", "app-audit-schemas"],
   authzCatalogJob: ["grid-app-authz-catalog", "app-authz-catalog"],
   folderGrantsJob: ["grid-app-folder-grants", "app-folder-grants"],
-  chromaMigrationJob: ["grid-chroma-migration", "chroma-migration"],
 } as const satisfies Record<string, readonly [string, string]>;
 
 export type NameKey = keyof typeof TABLE;
 
-/** The name this project gives the object `key`. */
 export function objectName(key: NameKey, project?: string): string {
   return TABLE[key][isLegacyProject(project) ? 0 : 1];
 }
 
-/** Every brand-free name, for the spec that holds them to the rule. */
 export function brandFreeNames(): Record<NameKey, string> {
   return Object.fromEntries(Object.entries(TABLE).map(([k, v]) => [k, v[1]])) as Record<NameKey, string>;
 }
 
-/**
- * A Pulumi logical name. These are URN segments, so they stay as they are on
- * the legacy project, where a changed one would replace the resource; the new
- * project's start without the `grid-` prefix.
- */
 export function logicalName(legacy: string, project?: string): string {
   return isLegacyProject(project) ? legacy : legacy.replace(/^grid-/, "");
 }

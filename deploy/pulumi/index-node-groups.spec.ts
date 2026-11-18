@@ -6,17 +6,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { NODE_GROUP_LABEL } from "./src/constants";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * Worker-group placement, with the knobs prod sets (IPAX, 2026-10).
- *
- * Prod was placed by hand first: the vector store on `data`, the ingest workers on
- * `batch`, the chat tier on `Node`. A `pulumi up` that renders anything else
- * moves them back, and one that places a tier nobody meant to (a store with a
- * PVC) moves it without its migration. So the whole program is built here and
- * every `nodeSelector` it emits is checked, not just the three expected ones.
- * `index.spec.ts` holds the other half: with the knobs unset, none at all.
- */
-
 type Inputs = Record<string, unknown>;
 const RESOURCES: Array<{ type: string; name: string; inputs: Inputs }> = [];
 
@@ -36,7 +25,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-/** The prod stack file's config, as `pulumi up` would read it. */
 const PROD = (load(readFileSync(join(__dirname, "Pulumi.prod.yaml"), "utf8")) as { config: Record<string, unknown> })
   .config;
 const PROD_KNOBS = [
@@ -50,7 +38,6 @@ const PROD_KNOBS = [
   "seaweedfsTopology",
 ];
 
-/** Every `nodeSelector` anywhere in a resource's inputs, by resource. */
 function nodeSelectors(): Record<string, unknown[]> {
   const found: Record<string, unknown[]> = {};
   const walk = (value: unknown, owner: string): void => {
@@ -65,7 +52,6 @@ function nodeSelectors(): Record<string, unknown[]> {
   return found;
 }
 
-/** Pulumi names of the workloads that belong on the data and batch groups. */
 const DATA = [
   "grid-pg",
   "grid-pg-pooler-rw",
@@ -79,7 +65,6 @@ const DATA = [
 ];
 const BATCH = ["ingest-worker", "ingest-worker-heavy", "gotenberg"];
 
-/** Every resource that makes pods, as `Kind/name`: what must carry a group. */
 function workloads(): string[] {
   const podMakers = /:(apps\/v1:(Deployment|StatefulSet)|batch\/v1:(Job|CronJob)|postgresql\.cnpg\.io\/v1:(Cluster|Pooler))$/;
   return RESOURCES.filter((r) => podMakers.test(r.type)).map((r) => `${r.type.split(":").pop()}/${r.name}`);
@@ -94,8 +79,6 @@ const podOf = (type: string, name: string): Pod =>
 
 describe("worker-group placement with prod's knobs", () => {
   beforeAll(async () => {
-    // Prod's shape: Langfuse and its ClickHouse, queue and collector deployed,
-    // SeaweedFS as one node. Every workload prod runs is rendered and checked.
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
       ...langfuseStackConfig(),
@@ -117,11 +100,8 @@ describe("worker-group placement with prod's knobs", () => {
   });
 
   it("places every workload, the stores on data and ingestion on batch", () => {
-    // A group cannot be tainted, so the data nodes stay the stores' only while
-    // nothing else selects them: an unplaced pod lands wherever there is room,
-    // which on 2026-10-12 was the 32 GB data nodes for the frontend tier, and
-    // the Postgres primary, both PgBouncers and every Dragonfly on one app node.
     const selectors = nodeSelectors();
+    // 2026-10-12: an unplaced pod landed on the 32 GB data nodes (frontend tier); a group cannot be tainted.
     const unplaced = workloads().filter((w) => !(w in selectors));
     const groupOf = (w: string): string => {
       const found = selectors[w] ?? [];
@@ -138,14 +118,14 @@ describe("worker-group placement with prod's knobs", () => {
     expect(workloads()).toEqual(expect.arrayContaining(DATA.map((n) => expect.stringContaining(`/${n}`))));
   });
 
-  it("runs the per-node agent on every node, whatever its group", () => {
-    // The one pod maker that must NOT carry a group: a node without an agent
-    // is a node whose readings are missing, and nothing reports the gap.
+  it("runs the per-node agent and the log shipper on every node, whatever its group", () => {
     const daemonSets = RESOURCES.filter((r) => r.type.endsWith("apps/v1:DaemonSet")).map((r) => `DaemonSet/${r.name}`);
-    expect(daemonSets).toEqual(["DaemonSet/otel-agent"]);
-    expect(nodeSelectors()).not.toHaveProperty("DaemonSet/otel-agent");
-    const pod = podOf("kubernetes:apps/v1:DaemonSet", "otel-agent") as unknown as { spec: { tolerations: unknown[] } };
-    expect(pod.spec.tolerations).toEqual([{ operator: "Exists" }]);
+    expect(daemonSets.sort()).toEqual(["DaemonSet/otel-agent", "DaemonSet/otel-logs"]);
+    for (const name of ["otel-agent", "otel-logs"]) {
+      expect(nodeSelectors()).not.toHaveProperty(`DaemonSet/${name}`);
+      const pod = podOf("kubernetes:apps/v1:DaemonSet", name) as unknown as { spec: { tolerations: unknown[] } };
+      expect(pod.spec.tolerations).toEqual([{ operator: "Exists" }]);
+    }
   });
 
   it("keeps the Postgres instances on different nodes, required", () => {
@@ -158,9 +138,6 @@ describe("worker-group placement with prod's knobs", () => {
   });
 
   it("spreads the PgBouncers by a label their pods carry, and budgets them by it", () => {
-    // CloudNativePG overwrites `app.kubernetes.io/name` and `managed-by` on the
-    // pods it builds from the template. Selecting on those matched no pod: the
-    // spread did nothing and the PDB guarded nothing (2026-10-12).
     const pooler = RESOURCES.find((r) => r.type.endsWith(":Pooler"))!.inputs as {
       spec: { template: { spec: { topologySpreadConstraints: unknown[] } } };
     };
@@ -184,7 +161,6 @@ describe("worker-group placement with prod's knobs", () => {
   });
 
   it("sizes prod's ingest workers wide and small on the batch nodes", () => {
-    // Two files a pod at 6Gi, request = limit, once the text pass held one page (#1095).
     const [container] = podOf("kubernetes:apps/v1:Deployment", "ingest-worker").spec.containers;
 
     expect(container.resources).toEqual({

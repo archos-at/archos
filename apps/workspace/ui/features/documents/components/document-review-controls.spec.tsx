@@ -189,7 +189,7 @@ describe('DocumentReviewControls — approving signs its stand', () => {
     expect(onAct).toHaveBeenCalledWith('approve')
   })
 
-  it('tells Piloti’s untaken proposals apart from the open Anmerkungen', async () => {
+  it('tells the agent’s untaken proposals apart from the open Anmerkungen', async () => {
     render(
       <DocumentReviewControls
         version={inReview()}
@@ -301,7 +301,7 @@ describe('DocumentReviewControls — publishing is its own act', () => {
 })
 
 describe('DocumentReviewControls — two decisions in view, two behind ⋯', () => {
-  it('shows Approve and Request changes, and keeps Have Piloti revise it and Reject behind the ⋯', async () => {
+  it('shows Approve and Request changes, and keeps the delegate-revision action and Reject behind the ⋯', async () => {
     const onAct = vi.fn()
     render(
       <DocumentReviewControls

@@ -50,7 +50,7 @@ function call(body: unknown = BODY, headers: Record<string, string> = signedHead
 beforeEach(() => {
   vi.clearAllMocks()
   temporary.conversations.clear()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(SESSION)
   vi.mocked(createPersonalMemoryItem).mockResolvedValue({ item: NOTE, created: true } as never)
 })

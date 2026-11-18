@@ -1,9 +1,3 @@
-/**
- * Every live channel kind there is (ADR-0110). Explicit on purpose: a channel
- * is an authorization decision, and a list in one file is where review sees a
- * new one arrive. Add a kind with `defineChannel` and list it here.
- */
-
 import 'server-only'
 import type { AnyChannel } from './channel'
 import { documentChannel } from './document-channel'
@@ -23,7 +17,6 @@ export interface ResolvedChannel {
   params: unknown
 }
 
-/** The channel a key names, with its params; null for an unknown kind or a key its kind does not parse. */
 export function resolveChannel(key: string, channels: Readonly<Record<string, AnyChannel>> = CHANNELS): ResolvedChannel | null {
   const kind = channelKind(key)
   if (!kind) return null

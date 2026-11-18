@@ -7,7 +7,6 @@ import { Family, Forced, type StateRowSpec } from './state-table'
 
 const COLUMNS = ['Ruhe', 'Zeiger', 'Gedrückt', 'Tastatur', 'Deaktiviert'] as const
 
-/** One button in every state it has: the same props five times, the state forced on four of them. */
 function states(props: ButtonProps, children: ReactNode): readonly ReactNode[] {
   return [
     <Forced key="rest">
@@ -68,7 +67,6 @@ const ROWS: readonly StateRowSpec[] = [
   },
 ]
 
-/** Everything that does something when pressed. */
 export function ActionsFamily(): JSX.Element {
   return (
     <Family

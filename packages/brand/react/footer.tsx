@@ -14,7 +14,6 @@ export interface FooterProps {
   legal?: NavLink[];
   note?: string;
   claim?: string;
-  /** Funding note above the legal row */
   funding?: { text: string; logo?: ReactNode };
   theme?: 'dark' | 'light';
   homeHref?: string;

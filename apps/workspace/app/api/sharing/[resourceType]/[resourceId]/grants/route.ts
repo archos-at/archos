@@ -1,13 +1,3 @@
-/**
- * Grants API — invite a person, change their role, or (for a project admin) take
- * ownership of a resource they were not party to (spec SH-3, SH-10, SH-11).
- *
- * POST creates access, PATCH changes an existing role: two verbs because the
- * invariants differ — creating is bounded by the roster cap and the container
- * precondition, changing is bounded by the last-owner rule. Thin adapters
- * (ADR-0017); every check lives in `@/lib/sharing/service`.
- */
-
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireCollaborationEnabled } from '@/lib/authz/feature-flags'
@@ -28,9 +18,6 @@ export const POST = apiRoute<Params>(
       return escalateToOwner(session, resourceType, params.resourceId, request)
     }
     const sharing = await grantResourceAccess(session, resourceType, params.resourceId, body, request)
-    // `resource_shared` (ADR-0100): the collaboration funnel's first step. A
-    // grant names a person, so the audience kind is `person`; the person's id
-    // stays out, the event says THAT a resource was shared and at what role.
     captureServer({
       event: 'resource_shared',
       distinctId: session.userId,

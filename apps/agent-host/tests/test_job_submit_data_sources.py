@@ -409,7 +409,7 @@ async def test_submit_job_validates_sources_for_researcher(submit_app, monkeypat
     app, submitted_job, builder = submit_app
 
     research_config = AgentConfig(
-        class_path="agent.agents.piloti.agent.ChatAgent",
+        class_path="agent.core.agent.ChatAgent",
         config_name="shallow_research_agent",
         description="Test researcher",
     )

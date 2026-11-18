@@ -1,65 +1,19 @@
-/**
- * The wire of a public source as a platform record (ADR-0174, ADR-0162, design
- * §4.2): what an operator's agent proposes so a country's statute database or
- * geodata service is configured without a git change or a deploy.
- *
- * The common fields are typed here, because the database decides on them (the
- * hosts the fetcher may reach, what may flow there, how its monitor runs). The
- * protocol's `access` and the format's `engine` configuration are validated by
- * the access type and engine themselves, in `packages/public-sources`, when
- * the kit runs KC-7 through the api tier: one validator, not a second copy.
- *
- * A record's fixtures carry their recorded responses inline (a repository
- * record keeps them as files beside it), so `platform-knowledge-source-test`
- * proves the record with no live call. A small binary body is carried as
- * base64, within the same length.
- *
- * A published document does not fit that length (a PDF is megabytes), so a
- * `pdf_document` fixture names the response the platform recorded itself: a
- * `fetched` citation capture of the URL (`{captureId}`), whose bytes, sha256
- * and time are the platform's own. The record keeps the capture's id; the kit
- * hands the capture's text to the check (`platform/source-checks.ts`).
- */
-
 import { z } from 'zod'
 import { SOURCE_FORMATS, SOURCE_PROTOCOLS } from '@/shared/vocabularies.generated'
 import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS } from './vocab'
 
-/** The key a work's own designation is stored under beside its identifiers (`records.ts`): never a scheme. */
 export const DESIGNATION_KEY = 'designation'
 
-/**
- * The name of an identifier scheme (`eli`, a law number in a source's links):
- * an open word, never a list in code. A source record declares how its
- * addresses state each scheme (`identifiers` below) and a work record carries
- * its value under the same word, so a scheme means something exactly where a
- * source record names it (ADR-0174, `docs/design/citations.md`).
- */
 export const identifierSchemeSchema = z
   .string()
   .regex(/^[a-z][a-z0-9_]{0,39}$/)
   .refine((scheme) => scheme !== DESIGNATION_KEY, 'the designation is the work’s own field, not a scheme')
 
-/**
- * The access types and format engines a source record may name. Their one list is the Python
- * registry that runs them (`ACCESS_TYPES`, `ENGINES` in `packages/public-sources`), generated
- * into `shared/vocabularies.generated.ts`: a new engine is code there, once, with no migration
- * (0216 dropped the CHECKs) and no second edit here.
- */
 export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
 export type SourceFormat = (typeof SOURCE_FORMATS)[number]
 
-/**
- * The licences a configured source may have: its fixtures and its monitor's
- * captures keep the source's text, which licensed text never is (ADR-0164).
- */
 export const CONFIGURED_SOURCE_LICENCES = ['public_open', 'public_restricted'] as const satisfies readonly (typeof LICENCE_CLASSES)[number][]
 
-/**
- * Headers a key may never be sent under: the request's routing and framing,
- * cookies, the proxy's, and the ones the guard forwards on its own. Held again
- * by `public_sources.source.Credential`.
- */
 export const REFUSED_CREDENTIAL_HEADERS = [
   'host',
   'cookie',
@@ -101,24 +55,20 @@ export const sourceCredentialSchema = z
   })
   .strict()
 
-/** A source's id, which is also its record key: `<iso2>-<name>` in lower case (`xa-gazette`). */
 export const sourceKeySchema = z
   .string()
   .trim()
   .regex(/^[a-z]{2}(-[a-z0-9]+){1,6}$/, 'a source id such as at-ris: the country in lower case, then a name')
   .max(60)
 
-/** An exact DNS name: no scheme, port or wildcard (the fetcher compares it at every redirect hop). */
 const hostSchema = z
   .string()
   .regex(/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, 'an exact lower-case DNS name such as www.ris.bka.gv.at')
 
 const argsSchema = z.record(z.string().regex(/^\w{1,40}$/), z.string().max(500))
 
-/** Standard base64 (RFC 4648 §4), padded: what `public_sources.source.InlineResponse` decodes. */
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 
-/** One recorded response, inline: what the fixture run serves for the URL instead of a live call. */
 const recordedResponseSchema = z
   .object({
     contentType: z.string().min(1).max(120).describe('e.g. text/html; charset=utf-8, application/geo+json or application/pdf.'),
@@ -134,10 +84,6 @@ const recordedResponseSchema = z
     message: 'a base64 body is standard padded base64 (RFC 4648), with no line breaks',
   })
 
-/**
- * One response the platform recorded itself: a citation capture of the URL, taken through this source with
- * `platform-knowledge-citation-capture {basis: "fetched"}`. Nobody pastes a document's bytes.
- */
 const capturedResponseSchema = z
   .object({
     captureId: z
@@ -152,7 +98,6 @@ const capturedResponseSchema = z
 
 export type SourceFixtureResponse = z.infer<typeof recordedResponseSchema> | z.infer<typeof capturedResponseSchema>
 
-/** Whether a fixture's response is a capture the platform took, not a body the proposer wrote. */
 export const isCapturedResponse = (response: SourceFixtureResponse): response is z.infer<typeof capturedResponseSchema> => 'captureId' in response
 
 export const sourceFixtureSchema = z
@@ -215,7 +160,6 @@ export const sourceRecordFields = {
     .array(hostSchema)
     .max(20)
     .default([])
-    // A web hit on one is a copy: withheld where the source can be read, labelled where not (web_sources.py).
     .describe('Sites that republish its texts: never fetched, never one of hosts.'),
   dataFlow: z
     .enum(SOURCE_DATA_FLOWS)
@@ -245,11 +189,6 @@ export const sourceRecordFields = {
 
 export type SourceRecordValues = z.infer<z.ZodObject<typeof sourceRecordFields>>
 
-/**
- * The record as `public_sources.source.Source` reads it: snake case, the key
- * as its id, the recorded responses inline or by their capture's id. What the
- * body's `config` keeps and what the api tier validates, tests and fetches with.
- */
 export function sourceConfigOf(record: SourceRecordValues): Record<string, unknown> {
   return {
     id: record.key,

@@ -1,9 +1,9 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Fragment, memo, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import type { FileItem, FolderItem } from '../file-types'
-import { CheckSquare, Search, SearchX, FilterX, FolderOpen, Sparkles } from 'lucide-react'
+import { CheckSquare, Search, FilterX, FolderOpen } from 'lucide-react'
 import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -20,17 +20,21 @@ import { useLevelDirection } from '../hooks/use-level-direction'
 import { motion } from '@/components/motion'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { useMoveInSheet } from './document-actions'
-import { FileCard, type FileCardProps } from './file-card'
+import type { FileCardProps } from './file-card'
+import { FileTile } from './file-browser-tile'
+import { SemanticSearchResults } from './file-browser-semantic-results'
+import { BriefSliceListing } from './file-browser-slice-listing'
 import { FilingViewBar } from './filing-bar'
-import { FileGrid, FileCardSkeleton } from './file-grid'
-import { FileListSkeleton, FileListView } from './file-list-view'
+import { FileGrid } from './file-grid'
+import { FileListView } from './file-list-view'
 import { FolderRow } from './folder-table-row'
 import { FolderActionsTrigger, FolderObjectMenu } from './folder-object-menu'
 import { FolderDescriptionLine } from './folder-description-dialog'
 import { listingActionEntries } from './listing-action-entries'
 import { NewFolderDialog } from './new-folder-dialog'
 import { DEFAULT_FILE_SORT, sortFiles, type FileSort } from '../lib/file-sort'
-import { subtreeTallies, type KnowledgeTally } from '../lib/folder-knowledge'
+import type { KnowledgeTally } from '../lib/folder-knowledge'
+import { folderRollupsOf } from '../lib/folder-rollups'
 import { LoadMore } from '@/components/ui/load-more'
 import { withoutOlderRevisions } from '../lib/revision-chain'
 import {
@@ -39,27 +43,10 @@ import {
   type DropFilesInFolder,
 } from './folder-navigation'
 import type { FileDropAim } from '../hooks/use-document-drag'
-import { AssignmentFaces } from './assignment-faces'
 import { CONTENT_MAX, FileBrowserSkeleton, levelTransition } from './file-browser-skeleton'
-
-export interface FolderNavigation {
-  folders: FolderItem[]
-  currentFolderId: string | null
-  onNavigate: (id: string | null) => void
-  onCreateFolder: (name: string, parentId?: string) => Promise<boolean>
-  onRenameFolder: (folderId: string, name: string) => Promise<boolean>
-  onDeleteFolder: (folderId: string) => Promise<boolean>
-  readOnly?: boolean
-  onEditFolderAccess?: (folderId: string) => void
-  onDescribeFolder?: (folderId: string) => void
-  rootAccess?: 'read' | 'write'
-}
-
-export function mayWriteAt(folderNav: FolderNavigation | undefined, folderId: string | null): boolean {
-  if (!folderNav) return true
-  if (folderId === null) return folderNav.rootAccess !== 'read'
-  return folderNav.folders.find((folder) => folder.id === folderId)?.access !== 'read'
-}
+import { mayWriteAt, type BriefSlice, type FileBrowserSelection, type FolderNavigation } from '../lib/file-browser-contract'
+import { canAcceptFolderDrop, folderDepthOf } from '../lib/folder-nesting'
+export { mayWriteAt, type FileBrowserSelection, type FolderNavigation } from '../lib/file-browser-contract'
 
 interface FileBrowserPaneProps {
   files: readonly FileItem[]
@@ -87,7 +74,7 @@ interface FileBrowserPaneProps {
   onPickFiles?: () => void
   onPickFolder?: () => void
   brief?: ReactNode
-  slice?: { files: readonly FileItem[]; label: string; onClear: () => void; loading?: boolean }
+  slice?: BriefSlice
   paging?: { hasMore: boolean; loading: boolean; failed: boolean; onLoadMore: () => void }
   folderStats?: { counts: ReadonlyMap<string, number>; tallies: ReadonlyMap<string, KnowledgeTally> }
   shelfEmpty?: boolean
@@ -95,65 +82,6 @@ interface FileBrowserPaneProps {
   selection?: FileBrowserSelection
   rootToolsInMenu?: boolean
 }
-
-export interface FileBrowserSelection {
-  active: boolean
-  selectedIds: ReadonlySet<string>
-  onToggle: (documentId: string) => void
-  onStart?: () => void
-}
-
-interface FileTileProps {
-  file: FileItem
-  isSelected: boolean
-  onSelectFile: (id: string | null) => void
-  locale: string
-  match?: FileCardProps['match']
-  showAssignment: boolean
-  renderActions?: (file: FileItem) => ReactNode
-  wrapFile?: (file: FileItem, node: ReactNode) => ReactNode
-  draggable: boolean
-  where?: string
-  selecting: boolean
-  checked: boolean
-  onToggle: (documentId: string) => void
-}
-
-const FileTile = memo(function FileTile({
-  file,
-  isSelected,
-  onSelectFile,
-  locale,
-  match,
-  showAssignment,
-  renderActions,
-  wrapFile,
-  draggable,
-  selecting,
-  checked,
-  onToggle,
-  where,
-}: FileTileProps): ReactNode {
-  const onSelect = useCallback(
-    () => (selecting ? onToggle(file.id) : onSelectFile(file.id)),
-    [selecting, onToggle, onSelectFile, file.id]
-  )
-  const card = (
-    <FileCard
-      file={file}
-      isSelected={isSelected}
-      onSelect={onSelect}
-      locale={locale}
-      match={match}
-      footerLead={showAssignment ? <AssignmentFaces assignees={file.assignees} /> : undefined}
-      actions={renderActions?.(file)}
-      draggable={draggable}
-      selection={selecting ? { checked } : undefined}
-      where={where}
-    />
-  )
-  return wrapFile ? wrapFile(file, card) : card
-})
 
 export function FileBrowserPane({
   files,
@@ -337,37 +265,12 @@ export function FileBrowserPane({
     )
   }
 
-  const folderDepth = useMemo(() => {
-    if (!folderNav || currentFolderId === null) return 0
-    let depth = 0
-    let cur: string | null = currentFolderId
-    const byId = new Map(folderNav.folders.map((f) => [f.id, f]))
-    while (cur) {
-      depth += 1
-      cur = byId.get(cur)?.parentId ?? null
-      if (depth > folderNav.folders.length) break
-    }
-    return depth
-  }, [folderNav, currentFolderId])
+  const folderDepth = useMemo(() => folderDepthOf(folderNav, currentFolderId), [folderNav, currentFolderId])
 
   const navDirection = useLevelDirection(folderDepth)
 
   const canAcceptFolder = useCallback(
-    (draggedId: string, targetId: string | null): boolean => {
-      if (draggedId === targetId) return false
-      const all = folderNav?.folders ?? []
-      const dragged = all.find((folder) => folder.id === draggedId)
-      if (!dragged) return false
-      if ((dragged.parentId ?? null) === targetId) return false
-      if (targetId === null) return true
-      const byId = new Map(all.map((folder) => [folder.id, folder]))
-      let cursor: string | null = targetId
-      for (let step = 0; cursor !== null && step <= all.length; step += 1) {
-        if (cursor === draggedId) return false
-        cursor = byId.get(cursor)?.parentId ?? null
-      }
-      return true
-    },
+    (draggedId: string, targetId: string | null): boolean => canAcceptFolderDrop(folderNav, draggedId, targetId),
     [folderNav]
   )
   const canMoveFolderTo = useCallback(
@@ -380,21 +283,10 @@ export function FileBrowserPane({
     [folderNav?.folders, currentFolderId]
   )
 
-  const folderAggregates = useMemo((): {
-    counts: ReadonlyMap<string, number>
-    tallies: ReadonlyMap<string, KnowledgeTally>
-  } => {
-    if (folderStats) return folderStats
-    const corpus = withoutOlderRevisions(searchFiles ?? files, showOlderRevisions)
-    const allFolders = folderNav?.folders ?? []
-    const counts = new Map<string, number>()
-    const bump = (id: string | null | undefined) => {
-      if (id != null) counts.set(id, (counts.get(id) ?? 0) + 1)
-    }
-    for (const file of corpus) bump(file.folderId)
-    for (const folder of allFolders) bump(folder.parentId)
-    return { counts, tallies: subtreeTallies(corpus, allFolders) }
-  }, [folderStats, files, searchFiles, folderNav?.folders, showOlderRevisions])
+  const folderAggregates = useMemo(
+    () => folderRollupsOf(folderStats, files, searchFiles, folderNav?.folders, showOlderRevisions),
+    [folderStats, files, searchFiles, folderNav?.folders, showOlderRevisions]
+  )
 
   const folderItemCount = (folderId: string): number => folderAggregates.counts.get(folderId) ?? 0
 
@@ -519,7 +411,7 @@ export function FileBrowserPane({
           count={paging?.hasMore ? undefined : t('browser.searchCount', { count: filteredFiles.length })}
         />
       )}
-      {/* What Piloti knows about the level's whole subtree. Hidden while a
+      {/* What the agent knows about the level's whole subtree. Hidden while a
           query runs for the same reason the breadcrumb is: the query is the
           context then, and its results span the corpus. */}
       {/* The folder's description, where it has one, as the first line under the tabs; „Beschreiben …“ is in the
@@ -537,7 +429,7 @@ export function FileBrowserPane({
       {brief && !semantic.active && !searching && (
         <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
       )}
-      {/* Piloti's filing suggestions for the documents of this level, one line
+      {/* The agent's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
           decision that moves several files, made where they are all in view. */}
       {!semantic.active && !searching && !slice && (
@@ -546,80 +438,15 @@ export function FileBrowserPane({
 
       <ActionMenu mode="context" entries={listingEntries}>
       {semantic.active ? (
-        semantic.isSearching ? (
-          view === 'list' ? (
-            <div className={CONTENT_MAX}>
-              <FileListSkeleton />
-            </div>
-          ) : (
-            <div className={`${CONTENT_MAX} p-4`}>
-              <FileGrid>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <FileCardSkeleton key={i} />
-                ))}
-              </FileGrid>
-            </div>
-          )
-        ) : semantic.error ? (
-          <div className="p-8">
-            <EmptyState
-              variant="bare"
-              icon={SearchX}
-              title={t('browser.semantic.failed')}
-              description={t('browser.semantic.failedDescription')}
-              action={
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {/* Retries the SAME query — offering only "show all files"
-                      asks the reader to give up and retype a search they have
-                      already made. */}
-                  <Button size="sm" onClick={search.run}>
-                    {t('browser.semantic.retry')}
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={search.clear}>
-                    {t('browser.semantic.reset')}
-                  </Button>
-                </div>
-              }
-            />
-          </div>
-        ) : semantic.hits.length === 0 ? (
-          <div className="p-8">
-            <EmptyState
-              variant="bare"
-              icon={Sparkles}
-              title={t('browser.semantic.noResults', { query: semantic.query ?? '' })}
-              description={t('browser.semantic.noResultsDescription')}
-              action={
-                <Button variant="secondary" size="sm" onClick={search.clear}>
-                  {t('browser.semantic.reset')}
-                </Button>
-              }
-            />
-          </div>
-        ) : view === 'list' ? (
-          <div className={CONTENT_MAX}>
-            <FileListView
-              key={semantic.query ?? ''}
-              semantic
-              query={semantic.query}
-              files={semantic.hits}
-              selectedFileId={selectedFileId}
-              onSelectFile={onSelectFile}
-              renderActions={renderActions}
-              wrapRow={wrapFileRow}
-            />
-          </div>
-        ) : (
-          <div className={`${CONTENT_MAX} p-4`}>
-            <FileGrid>
-              {semantic.hits.map((hit) => (
-                <Fragment key={hit.id}>
-                  {fileCard(hit, { match: { snippet: hit.snippet, page: hit.page, query: semantic.query } })}
-                </Fragment>
-              ))}
-            </FileGrid>
-          </div>
-        )
+        <SemanticSearchResults
+          search={search}
+          view={view}
+          selectedFileId={selectedFileId}
+          onSelectFile={onSelectFile}
+          renderActions={renderActions}
+          wrapFileRow={wrapFileRow}
+          fileCard={fileCard}
+        />
       ) : searching ? (
         filteredFiles.length === 0 && !paging?.hasMore && !paging?.loading ? (
           <div className="p-8">
@@ -660,50 +487,19 @@ export function FileBrowserPane({
           </div>
         )
       ) : slice ? (
-        <div className={CONTENT_MAX} data-testid="folder-brief-slice">
-          <div className="flex items-center gap-2 px-4 pt-4">
-            <p className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{slice.label}</p>
-            <Button type="button" variant="secondary" size="sm" onClick={slice.onClear} data-testid="folder-brief-slice-clear">
-              {t('brief.sliceClear')}
-            </Button>
-          </div>
-          {slice.loading ? (
-            view === 'list' ? (
-              <FileListSkeleton />
-            ) : (
-              <div className="p-4">
-                <FileGrid>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <FileCardSkeleton key={i} />
-                  ))}
-                </FileGrid>
-              </div>
-            )
-          ) : slice.files.length === 0 ? (
-            <div className="p-8">
-              <EmptyState variant="bare" icon={FolderOpen} title={t('brief.sliceEmpty')} />
-            </div>
-          ) : view === 'list' ? (
-            <FileListView
-              files={orderedSlice}
-              selectedFileId={selectedFileId}
-              onSelectFile={onSelectFile}
-              renderActions={renderActions}
-              wrapRow={wrapFileRow}
-              sort={sort}
-              onSortChange={onSortChange}
-              selection={selection}
-            />
-          ) : (
-            <div className="p-4">
-              <FileGrid>
-                {orderedSlice.map((file) => (
-                  <Fragment key={file.id}>{fileCard(file)}</Fragment>
-                ))}
-              </FileGrid>
-            </div>
-          )}
-        </div>
+        <BriefSliceListing
+          slice={slice}
+          orderedSlice={orderedSlice}
+          view={view}
+          sort={sort}
+          onSortChange={onSortChange}
+          selectedFileId={selectedFileId}
+          onSelectFile={onSelectFile}
+          renderActions={renderActions}
+          wrapFileRow={wrapFileRow}
+          selection={selection}
+          fileCard={fileCard}
+        />
       ) : levelEmpty ? (
         <motion.div
           key={`empty-${currentFolderId ?? 'root'}`}
@@ -796,8 +592,5 @@ export function FileBrowserPane({
     </div>
   )
 }
-
-
-
 
 const noToggle = (): void => undefined

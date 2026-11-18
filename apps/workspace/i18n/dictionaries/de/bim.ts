@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** IFC/BIM-Oberflächen: Viewer, Modell-Explorer, Viewer-Karte. */
 export const bim: typeof en.bim = {
   title: 'Modell',
   tabs: {
@@ -9,10 +8,6 @@ export const bim: typeof en.bim = {
     structure: 'Struktur',
     quantities: 'Mengen',
     revisions: 'Revisionen',
-    // In der Büroablage gibt es kein Projekt – und damit keine Gebäudeklasse und
-    // keine Hauptnutzung, gegen die geprüft werden könnte. Deaktiviert statt
-    // ausgeblendet: Ein fehlender Reiter liest sich, als wäre das Prüfbuch
-    // verschwunden.
     complianceNeedsProject: 'Nur im Projekt verfügbar',
     complianceNeedsProjectDescription:
       'Die Anforderungen werden gegen Gebäudeklasse und Hauptnutzung geprüft, und beides steht in den Projektdaten. Öffnen Sie das Modell in einem Projekt, um das Prüfbuch zu sehen. Struktur, Mengen und Revisionen stehen hier vollständig zur Verfügung.',
@@ -361,12 +356,6 @@ export const bim: typeof en.bim = {
     loading: 'Modell wird geladen…',
     building: 'Gebäude wird aufgebaut…',
     ready: 'Das Modell ist da',
-    /**
-     * Die Werkzeugleiste auf dem Telefon. Hier steht der Name AUF der Taste,
-     * weil ein Finger keinen Tooltip hat: `tool.*` sind die kurzen
-     * Beschriftungen unter den Symbolen, die langen Namen bleiben die
-     * Zugriffsnamen. „Einpassen“ steckt in „Ganzes Modell einpassen“.
-     */
     tool: {
       fit: 'Einpassen',
       more: 'Mehr',
@@ -405,7 +394,6 @@ export const bim: typeof en.bim = {
     keyboardHint:
       'Pfeiltasten drehen, Umschalt mit Pfeiltaste verschiebt, Plus und Minus zoomen, F passt das Modell ein. Beim Messen setzt Eingabe einen Punkt, Esc bricht ab. Alle Bauteile stehen zusätzlich als Liste unter „Details“.',
     xray: 'Durchsichtig',
-    // Dieselbe Auskunft ohne den Namen davor, für die Zeile, die „Durchsichtig“ schon trägt.
     xrayHint: 'Zuerst ein Bauteil auswählen oder eine markierte Antwort öffnen',
     xrayNeedsTarget: 'Durchsichtig — zuerst ein Bauteil auswählen oder eine markierte Antwort öffnen',
     view: {
@@ -419,7 +407,6 @@ export const bim: typeof en.bim = {
     projection: {
       parallel: 'Parallel',
     },
-    /** Die Ansicht als Bild sichern. */
     capture: {
       action: 'Bild speichern',
       failed: 'Das Bild konnte nicht erstellt werden',
@@ -431,18 +418,12 @@ export const bim: typeof en.bim = {
       down: 'Blick nach unten',
       up: 'Blick nach oben',
     },
-    /**
-     * Messen. `hint` steht im Dock, solange das Werkzeug aktiv ist — ein
-     * Messwerkzeug ohne Ansage, wohin der nächste Klick gehört, ist ein
-     * Fadenkreuz, mit dem man erst einmal experimentieren muss.
-     */
     measure: {
       toggle: 'Messen',
       horizontal: 'horizontal',
       vertical: 'vertikal',
       first: 'Ersten Punkt anklicken',
       second: 'Zweiten Punkt anklicken — Esc bricht ab',
-      // Mit dem Finger: kein „Klick“, und keine Esc-Taste — das Werkzeug selbst bricht ab.
       firstTouch: 'Ersten Punkt antippen',
       secondTouch: 'Zweiten Punkt antippen — Messen beendet die Messung',
       clear: 'Messungen löschen',

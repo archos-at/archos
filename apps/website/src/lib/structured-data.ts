@@ -1,19 +1,7 @@
-/**
- * JSON-LD (schema.org) for the pages. Every page carries the organisation behind the
- * site and the site itself (`Organization`, `WebSite`), linked by `@id`; a page adds
- * its own nodes: `BreadcrumbList` on every inner page, `FAQPage` where an FAQ renders
- * (built from the same items the component shows, so the two cannot drift),
- * `SoftwareApplication` on the home page, `BlogPosting` on a post. Every brand string
- * comes from identity.json, so a rename needs no edit here. Rendered by BaseLayout.
- *
- * Belegpflicht holds here too: no `offers` (there is no public price) and no
- * `aggregateRating` (there are no public reviews).
- */
 import type { Locale } from '../i18n/paths';
 import identity from './identity';
 import { socialProfiles } from './social';
 
-/** One node of the graph. */
 export type GraphNode = Record<string, unknown>;
 
 const homeUrl = (site: URL) => new URL('/', site).href;
@@ -55,7 +43,6 @@ export function siteGraph(site: URL, locale: Locale, nodes: GraphNode[] = []) {
   };
 }
 
-/** The product, on the home page. `description` is the page's own, in planning language. */
 export function softwareApplication(site: URL, locale: Locale, description: string, path: string): GraphNode {
   return {
     '@type': 'SoftwareApplication',
@@ -70,13 +57,11 @@ export function softwareApplication(site: URL, locale: Locale, description: stri
   };
 }
 
-/** A crumb: the page's name and its path. */
 export interface Crumb {
   name: string;
   path: string;
 }
 
-/** Start › … › this page. */
 export function breadcrumbList(site: URL, crumbs: Crumb[]): GraphNode {
   return {
     '@type': 'BreadcrumbList',
@@ -89,7 +74,6 @@ export function breadcrumbList(site: URL, crumbs: Crumb[]): GraphNode {
   };
 }
 
-/** The questions an FAQ component renders on the page. */
 export function faqPage(site: URL, path: string, items: { q: string; a: string }[]): GraphNode {
   return {
     '@type': 'FAQPage',
@@ -102,7 +86,6 @@ export function faqPage(site: URL, path: string, items: { q: string; a: string }
   };
 }
 
-/** A blog post, from its frontmatter (no schema change: `dateModified` is `pubDate` until a post has an update date). */
 export function blogPosting(
   site: URL,
   post: {
@@ -110,13 +93,10 @@ export function blogPosting(
     description: string;
     path: string;
     published: Date;
-    /** The last change, when the source knows it (the CMS does); else the publication date. */
     modified?: Date;
     locale: Locale;
     section: string;
-    /** A path on the site, or an absolute URL (a CMS image cover's share preset). */
     image: string;
-    /** A named author (CMS); without one the organization is the author. */
     author?: { name: string; jobTitle?: string; url?: string };
   },
 ): GraphNode {
@@ -144,10 +124,6 @@ export function blogPosting(
   };
 }
 
-/**
- * The graph as text for a `<script type="application/ld+json">`. `<` is escaped
- * so no string can close the script element.
- */
 export function jsonLd(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }

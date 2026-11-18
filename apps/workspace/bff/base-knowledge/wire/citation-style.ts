@@ -1,8 +1,3 @@
-/**
- * What a `citation_style.v1` record may say (migration 0234). A template is a list of
- * segments; a segment prints only when every `{field}` in it has a value.
- */
-
 import { z } from 'zod'
 
 const segment = z.string().min(1).max(200)
@@ -10,7 +5,6 @@ const template = z.array(segment).min(1).max(12)
 const name = z.string().trim().min(1).max(200)
 const tokens = z.array(z.string().trim().min(1).max(64)).max(20).default([])
 
-/** The fields each template may name. */
 const FIELDS = {
   line: ['title', 'edition', 'locus', 'page', 'publisher', 'place', 'container', 'note', 'accessed', 'url'],
   date: ['day', 'month', 'year'],
@@ -23,7 +17,6 @@ const FIELDS = {
 const languageStyleSchema = z
   .object({
     language: z.string().regex(/^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\d{3}))?$/),
-    /** First match wins: by authority, tint, lane prefix or origin. Anything else is a web page or a document. */
     kinds: z
       .array(
         z
@@ -37,13 +30,11 @@ const languageStyleSchema = z
           .strict()
       )
       .max(20),
-    /** The word before an edition in a title ("Ausgabe Mai 2023"), its month names, and how the line names it. */
     edition: z
       .object({ word: name, label: template, months: z.record(z.string().min(1).max(20), z.number().int().min(1).max(12)) })
       .strict()
       .optional(),
     date: segment,
-    /** A locus that is a bare number ("5.1.1"); any other names its own unit. */
     bareLocus: segment,
     page: segment,
     lines: z.object({ standard: template, legislation: template, webpage: template, report: template }).strict(),
@@ -71,7 +62,6 @@ const languageStyleSchema = z
   })
 export type CitationStyle = z.infer<typeof languageStyleSchema>
 
-/** The payload: a country's styles, one per language. */
 export const citationStyleSchema = z
   .object({ styles: z.array(languageStyleSchema).min(1).max(10) })
   .strict()

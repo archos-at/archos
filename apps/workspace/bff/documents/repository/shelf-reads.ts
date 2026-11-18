@@ -1,5 +1,3 @@
-/** Shelf reads: the shelf row, folder summary, failed tally and filename lookups. */
-
 import 'server-only'
 import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -14,12 +12,6 @@ import { DOCUMENT_LIST_LIMIT, documentListColumns, type DocumentListRow, listing
 import { type ShelfReadFilters } from './levels'
 import { retryAllowedSql } from './quarantine-and-retry'
 
-/**
- * One document of a shelf as a listing row, for a deep link to a document the
- * paged level has not loaded (`GET /api/documents/[id]`, ADR-0102). Archived
- * documents are found when `includeArchived` says so; the hold and the
- * hidden-folder rule are the listing's.
- */
 export async function findShelfDocumentListRow(
   shelf: DocumentShelf,
   organizationId: string,
@@ -37,29 +29,12 @@ export async function findShelfDocumentListRow(
   return row ?? null
 }
 
-// --- What Postgres can say about a whole shelf (ADR-0102) --------------------
-
-/** `count(*)` of the rows in one read-state family, by the status vocabulary's own declaration. */
 function familyCount(family: Exclude<DocumentReadFamily, 'reading'>): SQL<number> {
   return sql<number>`count(*) FILTER (WHERE ${inArray(sql`lower(${documents.status})`, declaredStatusesIn(family))})`
 }
 
-/** The ISO-8601 the browser compares `createdAt` with (`Date#toISOString`). */
 const ISO_MILLISECOND_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
 
-/**
- * Per folder of a shelf (`null` is the root), the documents filed directly in
- * it, counted by read-state family, and the newest one's `created_at`: the
- * folder tiles and the folder brief, folded up the tree by the browser
- * (`foldTallies`). One aggregate over the listing's own WHERE, so it counts
- * exactly the rows a listing would show this reader, and no backend call:
- * the status is the stored one (rows still `pending` in Postgres are
- * reconciled by the upload sweep, or when a page holding them is read).
- *
- * Bounded by the number of folders ({@link SHELF_SUMMARY_FOLDER_LIMIT}). The
- * reading family is what is left of the total, so a status nobody declared is
- * counted as being read, as the browser counts it.
- */
 export async function summarizeShelfFolders(
   shelf: DocumentShelf,
   organizationId: string,
@@ -82,7 +57,6 @@ export async function summarizeShelfFolders(
       .groupBy(documents.folderId)
       .limit(SHELF_SUMMARY_FOLDER_LIMIT),
   )
-  // Coerced at the boundary: `count(*)` is a bigint, which the driver hands back as text.
   return rows.map((row) => {
     const total = Number(row.total)
     const readable = Number(row.readable)
@@ -102,15 +76,6 @@ export async function summarizeShelfFolders(
   })
 }
 
-/**
- * The failed documents of a shelf, newest first, at most
- * {@link SHELF_SUMMARY_FAILED_LIMIT}: what „Alle erneut lesen“ sends back
- * through ingestion. One probe row past the limit says whether it was cut.
- *
- * Only the ones reading again may change ({@link retryAllowedSql}): a file that
- * failed for a lasting reason is counted in the tally and not sent back, so the
- * button counts what it will send.
- */
 export async function listShelfFailedDocuments(
   shelf: DocumentShelf,
   organizationId: string,
@@ -137,17 +102,6 @@ export async function listShelfFailedDocuments(
   }
 }
 
-/**
- * Rows whose filename is one of `filenames` — in either Unicode form, and
- * case-insensitively, because every reader of the answer (the citation
- * resolver, the surfaced-documents index, the search join) compares names the
- * way a person does, and a model that spelled `Grundriss.PDF` still means the
- * row called `grundriss.pdf`. The exact list keeps the filename index in play
- * for the common spelling; the folded one catches the rest.
- *
- * At most {@link FILENAME_LOOKUP_MAX_NAMES} names; `undefined` for none, which
- * the callers turn into "ask nothing".
- */
 export function filenameLookupWhere(filenames: readonly string[]): SQL | undefined {
   const bounded = [...new Set(filenames.map(documentNameKey).filter((name) => name.length > 0))].slice(
     0,
@@ -159,18 +113,6 @@ export function filenameLookupWhere(filenames: readonly string[]): SQL | undefin
   return or(inArray(documents.filename, exact), inArray(sql`lower(${documents.filename})`, folded))
 }
 
-/**
- * The documents of a shelf named `filenames` — the rows a listing would show
- * (same shelf, same lifecycle rule), found by name rather than by paging.
- *
- * For the readers that need SPECIFIC documents: the semantic search's join and
- * the by-name resolve behind citations and surfaced-document cards. Reading the
- * first listing page for them dropped every hit past the newest 500 as if it
- * did not exist. Bounded by its input and by `DOCUMENT_LIST_LIMIT`.
- *
- * Folders do not enter into it: a document is unique per filename per
- * collection, so a name finds it wherever it is filed.
- */
 export async function findDocumentsByFilenames(
   shelf: DocumentShelf,
   organizationId: string,
@@ -194,7 +136,6 @@ export async function findDocumentsByFilenames(
   )
 }
 
-/** The project documents named `filenames` — see {@link findDocumentsByFilenames}. */
 export function findProjectDocumentsByFilenames(
   projectId: string,
   organizationId: string,

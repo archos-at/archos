@@ -33,7 +33,7 @@ const get = (query: string) =>
 describe('GET /api/conversations/[id]/draft', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
     vi.stubGlobal('fetch', fetchMock)
     requireResourceAccessMock.mockResolvedValue({ role: 'viewer' })
     fetchMock.mockResolvedValue({

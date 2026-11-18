@@ -336,7 +336,7 @@ describe('a confirmation that could not be saved', () => {
     unknowns: [
       {
         status: 'undecidable',
-        globalId: '0GridFixture00Wall0001',
+        globalId: '0Fixture000000Wall0001',
         name: 'AW 38 Nord',
         storeyName: 'Erdgeschoss',
         reading: 'Kein Feuerwiderstand am Bauteil hinterlegt',

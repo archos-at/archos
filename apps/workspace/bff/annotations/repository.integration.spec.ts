@@ -10,14 +10,14 @@
  * What it proves, each a claim about SQL a mocked handle cannot disagree with:
  *   - numbers run per document, and ten writers at once get ten numbers; a
  *     batch of proposals takes consecutive numbers;
- *   - a person's mark is born open and Piloti's proposed, and the database
- *     refuses Piloti's mark as open without a person who took it over; a
- *     mark the asker asked Piloti for is born open with the asker behind it;
+ *   - a person's mark is born open and the agent's proposed, and the database
+ *     refuses the agent's mark as open without a person who took it over; a
+ *     mark the asker asked the agent for is born open with the asker behind it;
  *   - the Fassung a mark was set on comes back by number, and a discarded
  *     version leaves the mark standing;
  *   - a status move is compare-and-swap: the second of two moves from the same
  *     state finds nothing to move; a carry to a replacing document closes the
- *     source only while it is open and not delegated to Piloti;
+ *     source only while it is open and not delegated to the agent;
  *   - the daily reminder reads only marks whose Frist is inside its window;
  *   - a thread comes back in order and goes with its mark;
  *   - one reply is deleted alone, and only while it still says what the caller
@@ -26,10 +26,10 @@
  *     database's clock (migration 0152);
  *   - another organization reads none of them and cannot plant one on this
  *     organization's document;
- *   - a wake of Piloti (migration 0139, ADR-0106) is recorded and queued in
+ *   - a wake of the agent (migration 0139, ADR-0106) is recorded and queued in
  *     the reply's transaction, and a reply that rolls back leaves neither; the
  *     caps count the recorded wakes; a delegation is both columns or neither,
- *     only on an open mark, and Piloti's reply leaves it alone.
+ *     only on an open mark, and the agent's reply leaves it alone.
  *
  * `task db:test:rls` (scripts/rls-test-db.sh) runs it with the other suites.
  */
@@ -133,7 +133,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -192,7 +192,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     await expect(insert(ids.document, [mark({ shape: 'region', x: 0.8, y: 0.2, w: 0.3, h: 0.4 })])).rejects.toThrow()
   })
 
-  it("refuses Piloti's mark as the office's own until a person took it over", async () => {
+  it("refuses the agent's mark as the office's own until a person took it over", async () => {
     const [proposal] = await insert(ids.document, [mark()], { authorKind: 'piloti' })
     await expect(
       inOrg(ORG, () => db.execute(sql`update document_annotations set status = 'open' where id = ${proposal.id}::uuid`))
@@ -206,7 +206,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     expect(taken).toMatchObject({ status: 'open', acceptedBy: USER })
   })
 
-  it('sets a mark the asker asked Piloti for open, with the asker behind it, and closes it in their name', async () => {
+  it('sets a mark the asker asked the agent for open, with the asker behind it, and closes it in their name', async () => {
     const [row] = await insert(ids.document, [mark()], { authorKind: 'piloti', acceptedBy: USER })
     expect(row).toMatchObject({ status: 'open', authorKind: 'piloti', createdBy: USER, acceptedBy: USER })
     expect(row.acceptedAt).toBeInstanceOf(Date)
@@ -310,7 +310,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     expect(orphan).toMatchObject({ carriedFromId: null, carriedFrom: null, status: 'open' })
   })
 
-  it('carries no mark delegated to Piloti after the service read it: the close finds nothing, and nothing is set on the target', async () => {
+  it('carries no mark delegated to the agent after the service read it: the close finds nothing, and nothing is set on the target', async () => {
     const replacing = await document(ids.project, `Index_D_${STAMP}.pdf`)
     const [source] = await insert(ids.document, [mark({ body: 'Geländer' })])
     await inOrg(ORG, () =>
@@ -581,7 +581,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     }
   })
 
-  describe('waking Piloti (migration 0139)', () => {
+  describe('waking the agent (migration 0139)', () => {
     const count = async (query: ReturnType<typeof sql>) =>
       Number(Array.from(await inOrg(ORG, () => db.execute<{ n: number }>(query)))[0]?.n)
     const event = (annotationId: string, eventId: string) => ({
@@ -597,7 +597,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
       const [row] = await insert(ids.document)
       const reply = await inOrg(ORG, () =>
         repo.insertAnnotationReply(
-          { organizationId: ORG, annotationId: row.id, authorKind: 'person', body: '@Piloti?', createdBy: USER, addressesAgent: true },
+          { organizationId: ORG, annotationId: row.id, authorKind: 'person', body: '@Agent?', createdBy: USER, addressesAgent: true },
           async (tx, inserted) => {
             await wake.enqueueWake(tx, event(row.id, inserted.id))
           }
@@ -617,7 +617,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
       await expect(
         inOrg(ORG, () =>
           repo.insertAnnotationReply(
-            { organizationId: ORG, annotationId: row.id, authorKind: 'person', body: '@Piloti?', createdBy: USER, addressesAgent: true },
+            { organizationId: ORG, annotationId: row.id, authorKind: 'person', body: '@Agent?', createdBy: USER, addressesAgent: true },
             async (tx, inserted) => {
               wakeId = wakeIds.wakeTurnId(inserted.id)
               await wake.enqueueWake(tx, event(row.id, inserted.id))
@@ -661,7 +661,7 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
       ).rejects.toThrow()
     })
 
-    it('keeps a delegation whole, on an open mark only, and a reply of Piloti’s does not hand it back', async () => {
+    it('keeps a delegation whole, on an open mark only, and a reply of the agent’s does not hand it back', async () => {
       const [row] = await insert(ids.document)
       const delegated = await inOrg(ORG, () =>
         repo.updateDocumentAnnotation(ORG, ids.document, row.id, 'open', {

@@ -1,9 +1,3 @@
-/**
- * On-demand re-verification of the active BYOK credential against its
- * provider (`GET {baseUrl}/models`). Updates `last_verified_at` and emits an
- * audit event (ADR-0022).
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'

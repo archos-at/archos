@@ -1,7 +1,3 @@
-/**
- * The words of the profile: labels for keys, the vocabulary a patch is checked against, and formatting an answer for display.
- */
-
 import { normalizeProfilePatchOperation } from './legacy-names'
 import type { ProjectPrimitiveValue, ProjectProfilePatchOperation } from './types'
 import { flattenIntakeQuestions, isIntakeAnswerProvided } from './intake-conditions'
@@ -9,10 +5,6 @@ import { projectIntakeDefinitionV1 } from './intake-definition'
 import { resolveWriteTarget } from './intake-profile'
 import type { ProjectIntakeDefinition, ProjectIntakeQuestion } from './intake-types'
 
-/**
- * Title-case a raw snake_case/space-separated profile key as a last-resort human
- * label (e.g. `high_rise_details` -> "High Rise Details").
- */
 export function humanizeProfileKey(key: string): string {
   return key
     .split('@')[0]
@@ -22,10 +14,6 @@ export function humanizeProfileKey(key: string): string {
     .join(' ')
 }
 
-/**
- * Resolve a human label for a raw profile fact/goal key (e.g. `escape_level_m`,
- * or a scoped `escape_level_m@bldg1`) from the intake question that writes it.
- */
 export function labelForProfileKey(definition: ProjectIntakeDefinition, key: string): string {
   const base = key.split('@')[0]
   for (const question of flattenIntakeQuestions(definition)) {
@@ -35,11 +23,6 @@ export function labelForProfileKey(definition: ProjectIntakeDefinition, key: str
   return humanizeProfileKey(key)
 }
 
-/**
- * Server-side vocabulary validation (defense-in-depth for the profile-patch
- * flow): reject add/replace operations whose value violates the intake question
- * that owns the key. Scoped keys (`<base>@bldg1`) resolve to their base question.
- */
 export function validateProfilePatchVocabulary(patch: ProjectProfilePatchOperation[]): void {
   for (const operation of patch.map(normalizeProfilePatchOperation)) {
     if (operation.op === 'remove') continue
@@ -138,12 +121,10 @@ function decodeVocabSegment(segment: string): string {
   return segment.replaceAll('~1', '/').replaceAll('~0', '~')
 }
 
-/** Human-readable rendering of a single answer, using option labels where available. */
 export function formatIntakeAnswer(
   question: ProjectIntakeQuestion,
   answer: ProjectPrimitiveValue | undefined
 ): string {
-  // yes_no_open facts persist as booleans; render them like a boolean here.
   if (
     question.type === 'boolean' ||
     (question.type === 'yes_no_open' && typeof answer === 'boolean')
@@ -165,7 +146,6 @@ export function formatIntakeAnswer(
     return optionLabel(answer)
   }
   if (typeof answer === 'number') {
-    // German like the rest of this answer: „18,4 m“, „1.250 m²“.
     const number = GERMAN_NUMBER.format(answer)
     return question.unit ? `${number} ${question.unit}` : number
   }

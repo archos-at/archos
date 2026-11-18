@@ -2,14 +2,14 @@
  * @vitest-environment node
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findOperation } from '@/lib/agent-api/catalog'
 import { a2aEndpointUrl, agentCardResponse, buildAgentCard, A2A_SECURITY_SCHEME } from './agent-card'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const ENV = {
-  WORKOS_AUTHKIT_DOMAIN: 'auth.piloti.test',
-  MCP_RESOURCE_URL: 'https://app.piloti.test/api/mcp',
+  WORKOS_AUTHKIT_DOMAIN: 'auth.example.test',
+  MCP_RESOURCE_URL: 'https://app.example.test/api/mcp',
 }
 
 describe('buildAgentCard', () => {
@@ -19,12 +19,12 @@ describe('buildAgentCard', () => {
   })
 
   it('names /api/a2a on the agent door’s origin, for A2A 1.0 and 0.3 over JSON-RPC', () => {
-    expect(a2aEndpointUrl(ENV)?.href).toBe('https://app.piloti.test/api/a2a')
+    expect(a2aEndpointUrl(ENV)?.href).toBe('https://app.example.test/api/a2a')
     const card = buildAgentCard(ENV)
     expect(card?.supportedInterfaces.map((entry) => [entry.url, entry.protocolBinding, entry.protocolVersion])).toEqual(
       expect.arrayContaining([
-        ['https://app.piloti.test/api/a2a', 'JSONRPC', '1.0'],
-        ['https://app.piloti.test/api/a2a', 'JSONRPC', '0.3'],
+        ['https://app.example.test/api/a2a', 'JSONRPC', '1.0'],
+        ['https://app.example.test/api/a2a', 'JSONRPC', '0.3'],
       ]),
     )
     expect(card?.capabilities).toMatchObject({ streaming: true, pushNotifications: false })
@@ -35,12 +35,12 @@ describe('buildAgentCard', () => {
     const scheme = card?.securitySchemes[A2A_SECURITY_SCHEME]?.scheme
     expect(scheme?.$case).toBe('oauth2SecurityScheme')
     if (scheme?.$case !== 'oauth2SecurityScheme') return
-    expect(scheme.value.description).toContain('https://app.piloti.test/api/mcp')
+    expect(scheme.value.description).toContain('https://app.example.test/api/mcp')
     expect(scheme.value.flows?.flow).toMatchObject({
       $case: 'authorizationCode',
       value: {
-        authorizationUrl: 'https://auth.piloti.test/oauth2/authorize',
-        tokenUrl: 'https://auth.piloti.test/oauth2/token',
+        authorizationUrl: 'https://auth.example.test/oauth2/authorize',
+        tokenUrl: 'https://auth.example.test/oauth2/token',
         pkceRequired: true,
       },
     })
@@ -55,10 +55,11 @@ describe('buildAgentCard', () => {
 })
 
 describe('agentCardResponse', () => {
-  const saved = { ...process.env }
-  beforeEach(() => Object.assign(process.env, ENV))
+  beforeEach(() => {
+    for (const [name, value] of Object.entries(ENV)) vi.stubEnv(name, value)
+  })
   afterEach(() => {
-    process.env = { ...saved }
+    vi.unstubAllEnvs()
   })
 
   it('says a project is read only when the message names its id, and no example asks one without it', () => {
@@ -81,7 +82,7 @@ describe('agentCardResponse', () => {
   })
 
   it('answers 503 while the agent door is not configured', () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     expect(agentCardResponse().status).toBe(503)
   })
 })

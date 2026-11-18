@@ -1,8 +1,3 @@
-/**
- * Capacity eviction of the active lesson set: its own file because the
- * operator's activation and the eviction it triggers share one transaction.
- * Runs inside `withPlatformAccess` (the service holds it), like the repository.
- */
 import 'server-only'
 import { desc, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -47,20 +42,10 @@ async function evictOverCapacityIn(
   return excess
 }
 
-/**
- * Retire the least-recently-reported active lessons beyond `maxActive`
- * (capacity eviction, each with its own event). Returns the ids retired.
- */
 export async function evictActiveOverCapacity(maxActive: number, actor: string): Promise<string[]> {
   return getDb().transaction((tx) => evictOverCapacityIn(tx, maxActive, actor))
 }
 
-/**
- * An operator's activation: the status change, its event and the capacity
- * eviction are ONE transaction, and the activated lesson is protected from its
- * own eviction (the stalest OTHER active lesson gives way). Returns the row as
- * stored after all of it, plus the ids evicted.
- */
 export async function activateLessonWithCapacity(
   lessonId: string,
   patch: Parameters<typeof updateLessonWithEvent>[1],

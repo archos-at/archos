@@ -5,15 +5,6 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 
-/**
- * How the landing site starts (`app/web.ts` + `apps/website/Dockerfile`).
- *
- * The entry file is the image's business. When this program also named one,
- * the two had to change in lockstep across a boundary no test crossed: a new
- * entry in the Deployment with an old image, or the reverse, is a
- * CrashLoopBackOff that plans clean.
- */
-
 type Probe = { httpGet?: { path?: string; port?: number } };
 type Container = {
   name: string;
@@ -62,7 +53,6 @@ describe("the web Deployment", () => {
     expect(headers).toContain(`export const HEALTH_PATH = '${WEB_HEALTH_PATH}'`);
     expect(container?.readinessProbe?.httpGet?.path).toBe(WEB_HEALTH_PATH);
     expect(container?.livenessProbe?.httpGet?.path).toBe(WEB_HEALTH_PATH);
-    // The image's own HEALTHCHECK asks the same route.
     expect(readFileSync(join(webDir, "Dockerfile"), "utf8")).toContain(`localhost:4321${WEB_HEALTH_PATH}`);
   });
 
@@ -71,18 +61,10 @@ describe("the web Deployment", () => {
     const cmd = dockerfile.match(/^CMD \["node", "([^"]+)"\]/m)?.[1];
     expect(cmd).toBe("runtime/server.mjs");
     expect(existsSync(join(webDir, cmd!))).toBe(true);
-    // The runner stage copies dist/ and node_modules/ by name; a new top-level
-    // directory the entry lives in has to be copied too.
     expect(dockerfile).toMatch(/^COPY --from=builder .* \/app\/runtime \.\/runtime$/m);
   });
 });
 
-/**
- * The landing site's PostHog pair. The pages are prerendered and the image has
- * no env files, so `/web-analytics.js` reads `PUBLIC_POSTHOG_*` from the pod's
- * environment per request; a Deployment that never carries them leaves web
- * analytics off on every stack and plans clean.
- */
 describe("the web Deployment's PostHog env", () => {
   const POSTHOG = {
     "grid-oib:posthogHost": "https://eu.i.posthog.com",
@@ -106,7 +88,7 @@ describe("the web Deployment's PostHog env", () => {
     ]);
   });
 
-  it("carries Piloti's project when the stack sets nothing", async () => {
+  it("carries the platform's project when the stack sets nothing", async () => {
     const { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } = await import("../config/posthog");
     expect(await webEnv({})).toEqual([
       { name: "PUBLIC_POSTHOG_HOST", value: POSTHOG_DEFAULT_HOST },

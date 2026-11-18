@@ -4,18 +4,6 @@ import { ShellContent } from '@/components/shell'
 import { getTranslations } from '@/i18n/server'
 import { profileCopy } from '@/i18n/namespaces/profile'
 
-/**
- * Route-level loading state for the profile page. The page is a server
- * component reading the WorkOS session, so without this the navigation from the
- * user menu gives no feedback.
- *
- * It no longer draws a topbar. The one it used to draw was `h-14` where the
- * real one was `h-16`, so every arrival on this page moved the entire column up
- * by 8px — a live jump, shipped by a fallback whose whole purpose was to
- * prevent one. There is nothing left to get wrong: the chrome is persistent and
- * already on screen, and the column below comes from the same `ShellContent`
- * the page itself uses.
- */
 export default async function ProfileLoading(): Promise<JSX.Element> {
   const t = await getTranslations(profileCopy)
   return (

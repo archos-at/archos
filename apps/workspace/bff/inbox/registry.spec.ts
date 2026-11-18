@@ -155,9 +155,9 @@ describe('inboxIsReachable', () => {
   })
 })
 
-describe('the Piloti types', () => {
-  const asks = ['piloti.asks_you', 'piloti.proposal_waiting'] as const
-  const reports = ['piloti.work_done', 'piloti.work_failed'] as const
+describe('the agent types', () => {
+  const asks = ['agent.asks_you', 'agent.proposal_waiting'] as const
+  const reports = ['agent.work_done', 'agent.work_failed'] as const
 
   it('count in the badge only while a person has something to decide', () => {
     for (const type of asks) expect(inboxItemIsActionable(type), type).toBe(true)
@@ -169,8 +169,8 @@ describe('the Piloti types', () => {
       expect(INBOX_TYPE_DEFINITIONS[type].grouping, type).toBe('per-anchor')
       expect(() => inboxGroupKey(type, 'document', 'doc_1'), type).toThrow(/groups per anchor/)
     }
-    expect(inboxGroupKey('piloti.asks_you', 'document', 'doc_1', 'ann_1')).not.toBe(
-      inboxGroupKey('piloti.asks_you', 'document', 'doc_1', 'ann_2'),
+    expect(inboxGroupKey('agent.asks_you', 'document', 'doc_1', 'ann_1')).not.toBe(
+      inboxGroupKey('agent.asks_you', 'document', 'doc_1', 'ann_2'),
     )
   })
 
@@ -182,15 +182,15 @@ describe('the Piloti types', () => {
 
   it('name the types whose anchor is a mark or a proposal, and only those', () => {
     expect([...MARK_ANCHORED_INBOX_TYPES].sort()).toEqual([
+      'agent.asks_you',
+      'agent.revision_checked',
+      'agent.work_done',
+      'agent.work_failed',
       'annotation.activity',
       'annotation.assigned_to_you',
       'annotation.mentioned',
-      'piloti.asks_you',
-      'piloti.revision_checked',
-      'piloti.work_done',
-      'piloti.work_failed',
     ])
-    expect(PROPOSAL_ANCHORED_INBOX_TYPES).toEqual(['piloti.proposal_waiting'])
+    expect(PROPOSAL_ANCHORED_INBOX_TYPES).toEqual(['agent.proposal_waiting'])
   })
 })
 

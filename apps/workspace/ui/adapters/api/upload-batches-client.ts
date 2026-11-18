@@ -1,18 +1,3 @@
-/**
- * Upload batches client (ADR-0086): what one upload brought in, and a
- * project's uploads over time.
- *
- *   - summary → `GET /api/upload-batches/[id]`       (the uploader's only; 404 for anyone else)
- *   - history → `GET /api/projects/[id]/uploads`      (project:view; keyset pages, `?cursor=`)
- *   - place   → `GET /api/projects/[id]`              (the project's name, for the summary's header)
- *
- * The server types (`UploadSummary`, `UploadHistoryEntry`) live in
- * `lib/upload-batches/service.ts`, which is server-only, so the wire shapes are
- * declared here. The quarantine verdict is NOT re-declared: it is read with
- * `verdictSchema`, the schema the server built it with, so the two cannot
- * drift.
- */
-
 import { z } from 'zod'
 import { verdictSchema } from '@/lib/upload-screening/quarantine'
 import { ApiRequestError } from './api-error'
@@ -20,7 +5,6 @@ import { ApiRequestError } from './api-error'
 export const UPLOAD_OUTCOMES = ['ready', 'reading', 'quarantined', 'failed', 'stored'] as const
 export type UploadOutcome = (typeof UPLOAD_OUTCOMES)[number]
 
-/** A verdict this client cannot read is `null`, never a guess. */
 const QuarantineFieldSchema = verdictSchema.nullable().catch(null)
 
 const UploadSummaryDocumentSchema = z.object({
@@ -36,15 +20,12 @@ const UploadSummaryDocumentSchema = z.object({
   summary: z.string().nullable(),
   tags: z.array(z.string()),
   pageCount: z.number().nullable(),
-  /** A new version of a document already there („geändert"). */
   replaced: z.boolean().default(false),
-  /** Filed in a folder not every project member may read („geschützt"). */
   restricted: z.boolean().default(false),
 })
 
 const UploadSummarySchema = z.object({
   id: z.string(),
-  // `archiv` is what a server not yet rolled still sends. Remove after one release.
   scope: z.preprocess((value) => (value === 'archiv' ? 'office_shelf' : value), z.enum(['project', 'office_shelf', 'session'])),
   projectId: z.string().nullable(),
   conversationId: z.string().nullable(),
@@ -99,14 +80,12 @@ async function requestError(response: Response, fallback: string): Promise<ApiRe
   )
 }
 
-/** One upload's summary. A 404 arrives as `ApiRequestError` with that status: gone, or someone else's. */
 export async function getUploadSummary(batchId: string, signal?: AbortSignal): Promise<UploadSummary> {
   const response = await fetch(`/api/upload-batches/${encodeURIComponent(batchId)}`, { signal })
   if (!response.ok) throw await requestError(response, 'Failed to load the upload summary')
   return UploadSummarySchema.parse(await response.json())
 }
 
-/** One page of a project's uploads, newest first; `cursor` is the previous page's `nextCursor`. */
 export async function listProjectUploads(
   projectId: string,
   { cursor, signal }: { cursor?: string; signal?: AbortSignal } = {}
@@ -117,7 +96,6 @@ export async function listProjectUploads(
   return UploadHistorySchema.parse(await response.json())
 }
 
-/** The project's name, or `null` when it cannot be read (deleted, or no longer this reader's). */
 export async function getProjectName(projectId: string, signal?: AbortSignal): Promise<string | null> {
   const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, { signal })
   if (!response.ok) return null

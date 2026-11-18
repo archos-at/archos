@@ -1,5 +1,3 @@
-"""Normalising the answer's citation syntax and Quellen layout, and renumbering citations to match."""
-
 from __future__ import annotations
 
 import logging
@@ -24,23 +22,10 @@ from agent.citations.source_identity import source_origin_token
 logger = logging.getLogger(__name__)
 
 
-# A leading origin token on the post-``[N]`` text of a source line, e.g. the
-# ``[KB]`` in ``- [1] [KB] file.pdf, p.3``. Kept in sync with
-# ``source_origin_token`` and the frontend ``SOURCE_KIND_TOKEN_RE`` parser.
-# Used to (a) make token injection idempotent and (b) strip a pre-existing
-# token before registry identity-matching so it never pollutes the fuzzy
-# filename comparison in ``is_knowledge_citation`` / ``has_citation_key``.
 ORIGIN_TOKEN_RE = re.compile(r"^(\[(?:KB|RIS|Web)\])\s*", re.IGNORECASE)
 
 
 def inject_origin_token(line: str, token: str) -> str:
-    """Insert ``token`` immediately after the ``[N]`` marker of a source line.
-
-    The token must sit AFTER the number (``- [1] [KB] file.pdf``) so it does
-    not break ``CITATION_LINE_RE`` parsing or the ``[N]`` renumbering in
-    ``sanitize_report``. Idempotent: a line already carrying a recognized
-    origin token is returned unchanged.
-    """
     line_match = CITATION_LINE_RE.match(line)
     if line_match is None:
         return line
@@ -52,7 +37,6 @@ def inject_origin_token(line: str, token: str) -> str:
 
 
 def format_registry_reference(num: int, entry: SourceEntry) -> str | None:
-    """Render a registered source as a source-section line."""
     title = entry.title or entry.tool_name or entry.source_type or "Source"
     token = source_origin_token(entry)
     prefix = f"{token} " if token else ""
@@ -64,7 +48,6 @@ def format_registry_reference(num: int, entry: SourceEntry) -> str | None:
 
 
 def normalize_citation_syntax(report_text: str) -> str:
-    """Normalize citation bracket variants before verification/sanitization."""
     report_text = report_text.replace("【", "[").replace("】", "]")
     report_text = SOURCE_LOCATION_CITATION_RE.sub(r"[\1]", report_text)
     report_text = FOOTNOTE_REFERENCE_LINE_RE.sub(r"[\1] ", report_text)
@@ -72,12 +55,10 @@ def normalize_citation_syntax(report_text: str) -> str:
 
 
 def _normalize_ordered_reference_lines(ref_section: str) -> str:
-    """Convert ordered-list source lines to canonical [N] form."""
     return ORDERED_REFERENCE_LINE_RE.sub(r"\1[\2] \3", ref_section)
 
 
 def _reference_segment_has_target(segment: str) -> bool:
-    """Return true when a source segment already contains a verifiable target."""
     line_match = CITATION_LINE_RE.match(segment)
     if line_match is None:
         return False
@@ -91,11 +72,6 @@ def _reference_segment_has_target(segment: str) -> bool:
 
 
 def _split_collapsed_source_line(line: str) -> str:
-    """Split only truly collapsed source entries on one line.
-
-    Avoid splitting bracketed numbers that are part of a title, such as
-    ``[1] Semiconductor outlook [2024] update: https://...``.
-    """
     first_line_match = CITATION_LINE_RE.match(line)
     if first_line_match is None:
         return line
@@ -121,56 +97,30 @@ def _split_collapsed_source_line(line: str) -> str:
 
 
 def normalize_source_section_layout(ref_section: str) -> str:
-    """Normalize source-section presentation before parsing or final cleanup.
-
-    This is report hygiene, not source-identity verification. ``verify_citations``
-    calls it only so common writer variants are parseable; ``sanitize_report``
-    owns the final display normalization.
-    """
     ref_section = _normalize_ordered_reference_lines(ref_section)
     lines = ref_section.split("\n")
     if lines and REFERENCE_HEADING_LINE_RE.match(lines[0]):
-        # Keep German reports German: a "Quellen"-style heading is normalized
-        # to "## Quellen" instead of being anglicized to "## Sources". This
-        # German-or-else binary mirrors the writer's contract, which allows the
-        # label exactly two forms: "**Quellen:**" for a German answer and
-        # "**References:**" for an answer in any other language, never a label
-        # translated into a third language (see chat_static.md, CITATIONS
-        # in <answer_envelope>). A translated label would land on "## Sources".
         lines[0] = "## Quellen" if GERMAN_REFERENCE_HEADING_LABEL_RE.search(lines[0]) else "## Sources"
         ref_section = "\n".join(lines)
     return "\n".join(_split_collapsed_source_line(line) for line in ref_section.split("\n"))
 
 
 def inline_citation_numbers(text: str) -> set[int]:
-    """Return numeric inline citation labels present in text."""
     return {int(match.group(1)) for match in INLINE_CITATION_RE.finditer(text)}
 
 
 def drop_inline_citations_not_in(text: str, valid_numbers: set[int]) -> str:
-    """Remove every inline citation outside ``valid_numbers``, with the space before it.
-
-    Removed, never labelled (ADR-0125, amended 2026-11-10): no verification marker reaches an answer's
-    prose. The record of what went is the verification's ``removed_citations``, and the answer check
-    reads the final text, where a claim without its pointer is a claim the evidence has to back.
-    """
     return _CITATION_WITH_SPACE_RE.sub(
         lambda match: match.group(0) if int(match.group(1)) in valid_numbers else "", text
     )
 
 
-#: An inline citation and the horizontal space before it, so a removal leaves no „2.3 ." behind.
 _CITATION_WITH_SPACE_RE = re.compile(r"[ \t]*" + INLINE_CITATION_RE.pattern)
 
 
 def drop_locus_mismatches(
     body: str, valid_citations: list[dict], registry: SourceRegistry
 ) -> tuple[str, list[dict], set[int]]:
-    """Remove each marker whose § / Punkt the resolved passage does not hold (``common/citation_locus``).
-
-    Returns the body, one removal record per labelled occurrence, and the
-    numbers that have no occurrence left: those lose their source line too.
-    """
     from agent.common.citation_locus import locus_mismatches
 
     entries = {
@@ -202,24 +152,12 @@ def drop_locus_mismatches(
 
 
 def renumber_citations(body: str, ref_section: str) -> tuple[str, str, dict[int, int]]:
-    """Renumber [N] citations sequentially, closing any gaps.
-
-    Scans the source section for citation numbers, builds a mapping
-    from old to new sequential numbers, and applies it to both body and
-    source lines via collision-safe placeholders.
-
-    Returns:
-        (body, ref_section, renumber_map) where renumber_map maps every
-        old citation number to its new sequential number.
-    """
     remaining = sorted(int(m.group(1)) for m in CITATION_LINE_RE.finditer(ref_section))
     renumber_map: dict[int, int] = {old: new for new, old in enumerate(remaining, 1)}
 
-    # Nothing to do if already sequential
     if all(old == new for old, new in renumber_map.items()):
         return body, ref_section, renumber_map
 
-    # Apply renumbering via placeholders (descending order avoids [1] matching inside [10])
     for old_num in sorted(renumber_map, reverse=True):
         new_num = renumber_map[old_num]
         if old_num != new_num:

@@ -1,10 +1,3 @@
-/**
- * Test a public source (ADR-0174): its recorded fixtures with no live call,
- * and on request one live probe through the fetcher. As an open change
- * request proposes it (its testing hosts, that request's alone, 24 hours), or
- * as published. Nothing is stored.
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'

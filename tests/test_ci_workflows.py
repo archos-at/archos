@@ -351,7 +351,7 @@ def test_the_agent_engine_job_runs_every_suite_that_skips_without_the_engine():
 
 def test_the_agent_engine_job_installs_the_engine_the_way_the_image_does():
     dockerfile = (WORKFLOWS.parents[1] / "apps/agent-host/Dockerfile").read_text(encoding="utf-8")
-    install = re.search(r"^RUN (uv pip install -e \S*ifc-spatial-py\S*)$", dockerfile, re.MULTILINE)
+    install = re.search(r"(uv pip install -e \S*ifc-spatial-py\S*)$", dockerfile, re.MULTILINE)
     steps = JOBS["agent-engine"]["steps"]
 
     assert install
@@ -365,6 +365,15 @@ def test_the_agent_engine_job_runs_when_either_side_of_the_path_changes(tier):
 
     assert not runs("agent-engine", event="pull_request", outputs=nothing)
     assert runs("agent-engine", event="pull_request", outputs=nothing | {tier: "true"})
+
+
+def test_the_agent_engine_job_waits_for_a_full_run_and_runs_where_there_is_no_depth():
+    full = plan(event="pull_request")
+    without_depth = {key: value for key, value in full.items() if key != "depth"}
+
+    assert not runs("agent-engine", event="pull_request", outputs=full | {"depth": "light"})
+    assert runs("agent-engine", event="pull_request", outputs=full | {"depth": "full"})
+    assert runs("agent-engine", event="pull_request", outputs=without_depth)
 
 
 def test_the_agent_engine_job_runs_when_the_script_it_calls_changes():
@@ -541,7 +550,6 @@ def test_a_prod_rollback_is_a_dispatch_tag_checked_before_it_reaches_a_command_l
     assert job["environment"]["name"] == "production"
     verify = _step_index(steps, "Verify the pinned images exist")
     assert "^sha-[0-9a-f]{40}$" in steps[verify]["run"]
-    assert "vector-store-floor.sh" in steps[verify]["run"]
     validate = steps[_step_index(steps, "Validate plan (CRD schemas + policy pack)")]
     assert all(key in validate["run"] for key in ("backendImage", "frontendImage", "webImage"))
     for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):

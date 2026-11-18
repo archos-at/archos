@@ -20,7 +20,7 @@ const REAL_TOKEN = 'a-real-secret-token'
 const CONVERSATION_ID = 'conv-1'
 
 const makeRequest = (body: unknown, token?: string) =>
-  new Request(`https://grid.test/api/internal/conversations/${CONVERSATION_ID}/messages`, {
+  new Request(`https://example.test/api/internal/conversations/${CONVERSATION_ID}/messages`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

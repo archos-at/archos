@@ -25,10 +25,6 @@ const { eraseProject } = require('../workers/job-queue')
 /** error.code used to signal "hold appeared after claim" to the caller. */
 const LEGAL_HOLD_CODE = 'LEGAL_HOLD_ACTIVE'
 
-// Only a real 404 means "already gone" (idempotent success). Matching the word
-// "not found" anywhere in a message wrongly swallowed errors like WorkOS's
-// "Organization not found" or a proxy "upstream host not found", leaking the
-// resource while the row was marked purged.
 /**
  * @param {unknown} error
  * @returns {boolean}
@@ -113,39 +109,16 @@ async function purgeProject(tx, entry, deps) {
   const projectId = entry.entity_id
   const orgId = entry.organization_id
 
-  // Re-check legal holds NOW, before any destruction. claimNext already
-  // filtered held rows, but a hold created between claim and this point
-  // (TOCTOU) must still block destruction. The caller releases the row back
-  // to 'pending' when this throws. Re-checked again before each external step.
   await assertNoHold(tx, entry)
 
-  // Gather pointers BEFORE destroying anything. Fall back to the payload
-  // snapshot if a previous partial run already removed the row.
   const [project] = await tx`SELECT * FROM projects WHERE id = ${projectId}`
-  // Narrowed at the boundary like every other raw SQL / payload read here: both
-  // sources are `unknown` to the compiler and the name is a string or nothing.
   const collectionName = /** @type {string | null} */ (
     project ? project.collection_name : (entry.payload && entry.payload.collectionName) || null
   )
-  // Narrowed at the boundary, where the SQL shape is known — the same rule
-  // code-conventions.md sets for raw `sql<T>` results in the repositories.
   const conversations = /** @type {{ id: string }[]} */ (
     await tx`SELECT id FROM conversations WHERE project_id = ${projectId}`
   )
 
-  //    The private attachments hanging off this project's chats (ADR-0047
-  //    Phase 2), read HERE for the same reason as everything else on this line:
-  //    step 4 deletes the conversations, the document rows cascade off them, and
-  //    after that nothing names these objects or these collections.
-  //
-  //    They are invisible to every other query in this file, which is exactly
-  //    how they were being stranded. A session document has a NULL `project_id`
-  //    (its shelf is the conversation), so the bucket read below does not see
-  //    it. Its object lives under `org/<org>/session/<conversation>/`, which the
-  //    project prefix sweep does not cover. And its chunks live in the chat's
-  //    own `s_<conversation>` collection, which the backend purge — given only
-  //    the PROJECT's collection name — does not touch. Three misses, one
-  //    outcome: the cascade took the rows and every byte of it survived.
   const sessionDocuments = /** @type {{ conversation_id: string, collection_name: string | null, storage_bucket: string | null }[]} */ (
     await tx`
       SELECT DISTINCT conversation_id, collection_name, storage_bucket
@@ -153,29 +126,13 @@ async function purgeProject(tx, entry, deps) {
        WHERE scope = 'session'
          AND conversation_id IN (SELECT id FROM conversations WHERE project_id = ${projectId})`
   )
-  // Same subquery discipline as step 4: one bound parameter regardless of how
-  // many conversations the project holds, and it reads the conversation set at
-  // statement time rather than from the snapshot above.
 
-  //    Every OTHER collection the project's own documents name. A document
-  //    filed under a restricted folder lives in that folder's collection,
-  //    `<project collection>_r<12 hex>` (ADR-0087), not in the project's, so a
-  //    purge given only the project's name left every restricted folder's
-  //    chunks — the files a restriction exists for — readable in Chroma after
-  //    the rows that named them were gone. Read here, before step 4 cascades
-  //    the document rows away, for the same reason as the session rows above.
-  //
-  //    DISTINCT over the rows rather than derived from the folders: a document
-  //    records the collection it was ingested into, and a re-classification
-  //    moves the row only after the old collection was purged (ADR-0087), so
-  //    the rows name every collection that still holds this project's chunks.
   const documentCollections = /** @type {{ collection_name: string | null }[]} */ (
     await tx`
       SELECT DISTINCT collection_name FROM documents
        WHERE project_id = ${projectId} AND collection_name IS NOT NULL`
   )
 
-  // 1. Python-side stores: Chroma collection, summaries, job rows, checkpoints.
   await purgeBackendCollection(
     deps,
     fetchImpl,
@@ -183,30 +140,14 @@ async function purgeProject(tx, entry, deps) {
     conversations.map((c) => c.id),
   )
 
-  // 1b. The per-chat collections. One call each, and only for chats that
-  //     actually hold attachments — the rows say which, so a project of ten
-  //     thousand chats and one uploaded PDF makes one call.
-  //
-  //     A failure here throws exactly like the project collection's does, which
-  //     is the point: the whole purge is retried and NOTHING below has run, so
-  //     the document rows that name these collections still exist to drive the
-  //     retry. Deleting the conversations first would have removed the only
-  //     record that these collections were ever ours to erase.
   const sessionCollections = new Set(
     sessionDocuments.map((row) => row.collection_name).filter((name) => Boolean(name)),
   )
   for (const sessionCollection of sessionCollections) {
-    // Per collection, not once for the loop: each is an external destructive
-    // step, and a hold placed part way through must stop the rest (file header).
     await assertNoHold(tx, entry)
     await purgeBackendCollection(deps, fetchImpl, sessionCollection, [])
   }
 
-  // 1c. The restricted folders' collections (ADR-0087). Same contract as 1b:
-  //     one call each, a hold re-checked before each, and a failure throws
-  //     before anything below has run, so the rows naming them drive the retry.
-  //     Session collections are not in this set (their rows have no
-  //     `project_id`), and the project's own collection was erased in step 1.
   const restrictedCollections = new Set(
     documentCollections
       .map((row) => row.collection_name)
@@ -217,47 +158,12 @@ async function purgeProject(tx, entry, deps) {
     await purgeBackendCollection(deps, fetchImpl, restrictedCollection, [])
   }
 
-  // 1d. The chats' Langfuse traces, found by session id = conversation id. Read
-  //     from the rows here, like every pointer above: step 4 deletes them. One
-  //     erasure per chat with the hold re-checked before each, since each is an
-  //     external destructive step; a failure throws before anything below has
-  //     run, so the rows that name the chats drive the retry. Chats erased on
-  //     their own earlier took their traces then. A logged no-op without Langfuse.
   for (const conversation of conversations) {
     await assertNoHold(tx, entry)
     await deps.eraseConversationTraces(conversation.id)
   }
 
-  // Re-check the hold before EACH external destructive step to keep the TOCTOU
-  // window to a single step (see file header). Aborts release the row.
   await assertNoHold(tx, entry)
-  // 2. SeaweedFS objects under the project prefix, in every bucket that holds
-  //    them.
-  //
-  //    READ from the ledger rather than DERIVED from the organization id. Under
-  //    ADR-0043 each document records the bucket it was written to precisely so
-  //    that nothing has to recompute it — and a purge that recomputed it would
-  //    be the one place where a naming disagreement is invisible: it would
-  //    sweep a bucket that does not exist, find nothing, and report the erasure
-  //    complete. Asking the rows is also strictly more complete than deriving,
-  //    because it finds buckets written under a PREVIOUS prefix configuration,
-  //    which no current-rule derivation can.
-  //
-  //    Read here, before step 4 deletes the rows that answer it. The shared
-  //    bucket is always included: NULL means shared (migration 0033), and an
-  //    orphaned object from an upload whose row insert failed can only be
-  //    there or in a bucket a sibling document names.
-  //
-  //    Sequential rather than concurrent on purpose: the prefix sweep is a
-  //    list-then-delete loop, and running several against one storage tier only
-  //    trades a rarely-hot latency for contention on the thing being erased.
-  //    An Outlook archive half-sent into the project's mail import (ADR-0085)
-  //    names its bucket on its own row: a project with no document yet would
-  //    otherwise never reach that bucket, and its upload would never be aborted.
-  //    So does a mail sent to the project (`_inbound-mail/`, staged in the
-  //    bucket its row recorded) and a filed message's kept original
-  //    (`_mail-originals/`, ADR-0137): a project that only ever received mail
-  //    has no document, and its staged mail would outlive the purge.
   const recorded = /** @type {{ storage_bucket: string }[]} */ (
     await tx`
       SELECT DISTINCT storage_bucket FROM documents
@@ -274,40 +180,11 @@ async function purgeProject(tx, entry, deps) {
   )
   const targets = new Set([bucket, ...recorded.map((row) => row.storage_bucket)])
   for (const target of targets) {
-    // Re-checked per BUCKET, not once for the loop. The hold check above bounds
-    // the window to a single step, and this loop is now N destructive steps —
-    // one sweep per bucket, each of which can take a while. A hold placed after
-    // the first sweep began would otherwise be ignored for every bucket after
-    // it, which is precisely the case a legal hold exists to stop: the erasure
-    // continues past the moment someone said stop, and reports success.
     await assertNoHold(tx, entry)
     await deleteStoragePrefix(target, `org/${orgId}/project/${projectId}/`)
-    // And what is not an object yet: an Outlook archive half-sent into the
-    // project's mail import (ADR-0085). Only the organization's own bucket
-    // receives one, but sweeping each target costs a list and catches any.
     await abortMultipartUploads(target, `org/${orgId}/project/${projectId}/`)
   }
 
-  // 2b. SeaweedFS objects under each CHAT's prefix.
-  //
-  //     A session attachment is written to
-  //     `org/<org>/session/<conversation>/doc/<id>/<file>` (`lib/s3.ts`), which
-  //     shares no prefix with `org/<org>/project/<project>/` — so the loop above
-  //     sweeps past it however many buckets it visits. One prefix per
-  //     conversation is what makes it a sweep rather than a per-row loop, and it
-  //     also catches the object whose row insert failed after the write, which
-  //     no row-driven delete could find.
-  //
-  //     The bucket set is per conversation, from that conversation's own rows,
-  //     plus the shared bucket — the same rule and the same reason as above.
-  //     Session rows are the only ones that answer here: their `project_id` is
-  //     NULL, so the query above cannot see them.
-  //
-  //     The prefix uses the conversation id verbatim. `buildSessionStorageKey`
-  //     passes it through `storageKeySegment`, which is the identity for every
-  //     id the app mints (`s_<uuid>`: no separators, no control characters, far
-  //     under the length cap) — the sanitiser is there to stop a hand-crafted id
-  //     climbing out of the org prefix, not to rewrite real ones.
   /** @type {Map<string, Set<string>>} */
   const sessionBuckets = new Map()
   for (const row of sessionDocuments) {
@@ -323,8 +200,6 @@ async function purgeProject(tx, entry, deps) {
   }
 
   await assertNoHold(tx, entry)
-  // 3. WorkOS FGA resource (+ role assignments). Already-gone is success. No
-  //    WorkOS environment means no resource was ever created (`PurgeDeps.workos`).
   if (workos) {
     try {
       await workos.authorization.deleteResourceByExternalId({
@@ -338,48 +213,6 @@ async function purgeProject(tx, entry, deps) {
     }
   }
 
-  // 4. `app` rows: the collaboration rows FIRST, then conversations
-  //    (messages and conversation_reads cascade), then the project row
-  //    (documents / folders / project-scoped memory cascade).
-  //
-  //    The collaboration tables address their target as a polymorphic
-  //    `(resource_type, resource_id)` pair with no foreign key (ADR-0032), so
-  //    nothing about them cascades — deleting the conversations first simply
-  //    orphaned every grant, every open mention request and every inbox item
-  //    for good. The rows are invisible to access checks, but they keep
-  //    inflating roster counts and leave permanently redacted entries in
-  //    people's inboxes, for a project that no longer exists.
-  //
-  //    The conversation set is expressed as a SUBQUERY, not as a list of bound
-  //    ids. `IN ${tx(ids)}` expands to one placeholder per id, and Postgres
-  //    refuses any statement with more than 65535 of them — so a project with
-  //    tens of thousands of conversations threw MAX_PARAMETERS_EXCEEDED here,
-  //    *after* Chroma, SeaweedFS and WorkOS had already been destroyed. Nothing
-  //    recovers from that: the queue row is guarded by `status='purging'` rather
-  //    than by a lock (see the file header), so it stays stuck in 'purging',
-  //    and every retry would fail on the same statement against external stores
-  //    that no longer exist. The subquery binds ONE parameter regardless of how
-  //    many conversations the project holds, so the statement count and the
-  //    parameter count are both constant.
-  //
-  //    Reading the set from the table also closes a snapshot gap: a conversation
-  //    that appeared after the SELECT above is still caught by
-  //    `DELETE FROM conversations WHERE project_id = …` below, but was absent
-  //    from the gathered id list — so its collaboration rows were orphaned by
-  //    the very statements meant to prevent that. Same transaction, same
-  //    predicate, and the conversations are still present when these run.
-  //
-  //    These run UNCONDITIONALLY, including for a project that held no
-  //    conversations at gather time. Creating a conversation checks project
-  //    access and inserts in separate operations, so a request that passed the
-  //    check before the soft delete can commit its insert after our SELECT; a
-  //    guard on the empty snapshot would then skip all three statements while
-  //    `DELETE FROM conversations` below still removed that row — orphaning its
-  //    grants, mention requests and inbox items for good. Three no-op deletes
-  //    are cheaper than that.
-  //
-  //    `conversations.id` and `resource_id` are both `text`, so the comparison
-  //    needs no cast.
   await tx`DELETE FROM inbox_items WHERE resource_type = 'conversation' AND resource_id IN (SELECT id FROM conversations WHERE project_id = ${projectId})`
   await tx`DELETE FROM mention_requests WHERE resource_type = 'conversation' AND resource_id IN (SELECT id FROM conversations WHERE project_id = ${projectId})`
   await tx`DELETE FROM resource_shares WHERE resource_type = 'conversation' AND resource_id IN (SELECT id FROM conversations WHERE project_id = ${projectId})`
@@ -387,11 +220,6 @@ async function purgeProject(tx, entry, deps) {
   await tx`DELETE FROM mention_requests WHERE resource_type = 'document' AND resource_id IN (SELECT id::text FROM documents WHERE project_id = ${projectId})`
   await tx`DELETE FROM resource_shares WHERE resource_type = 'document' AND resource_id IN (SELECT id::text FROM documents WHERE project_id = ${projectId})`
   await tx`DELETE FROM resource_assignments WHERE resource_type = 'document' AND resource_id IN (SELECT id::text FROM documents WHERE project_id = ${projectId})`
-  //    The project's background jobs (ADR-0079). `bff_job_queue` points at the
-  //    project only through its payload (no foreign key), and a payload holds the
-  //    project's work: a research report, file names, storage keys, the
-  //    requester. Nothing cascades, so without this a purged project's jobs, dead
-  //    ones included, would outlive it until their retention.
   await eraseProject(tx, orgId, projectId)
   await tx`DELETE FROM conversations WHERE project_id = ${projectId}`
   await tx`DELETE FROM projects WHERE id = ${projectId}`

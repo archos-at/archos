@@ -12,7 +12,7 @@ import { fixedStore } from '@/features/realtime/use-channel'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const AGENT: RoomPeer = {
-  peerId: 'piloti-conv_42',
+  peerId: 'agent-conv_42',
   userId: 'user_anna',
   name: PRODUCT_NAME,
   kind: 'piloti',
@@ -42,7 +42,7 @@ function reviewWith(peers: RoomPeerState[]): DocumentReview {
     sendCursor: () => {},
     sendDraft: () => {},
   }
-  const piloti: Partial<DocumentReview['piloti']> = { asks: [], openId: null, compose: () => 'ask_1', open: () => {} }
+  const agent: Partial<DocumentReview['piloti']> = { asks: [], openId: null, compose: () => 'ask_1', open: () => {} }
   const review: Partial<DocumentReview> = {
     annotations: [],
     tool: 'select',
@@ -51,7 +51,7 @@ function reviewWith(peers: RoomPeerState[]): DocumentReview {
     hoveredId: null,
     filter: 'open',
     room: room as DocumentReview['room'],
-    piloti: piloti as DocumentReview['piloti'],
+    piloti: agent as DocumentReview['piloti'],
     select: () => {},
     setDraft: () => {},
     hover: () => {},
@@ -81,8 +81,8 @@ beforeEach(() => {
 })
 afterEach(() => restore())
 
-describe('Piloti’s cursor on the canvas', () => {
-  it('reads „Piloti · for Anna" when its pointer says nothing else', () => {
+describe('the agent’s cursor on the canvas', () => {
+  it('reads the agent · for Anna when its pointer says nothing else', () => {
     renderLayer([agentState()])
     const tag = cursorTag()
     expect(within(tag).getByText(PRODUCT_NAME)).toBeInTheDocument()
@@ -204,7 +204,7 @@ function reviewOf(annotations: AnnotationView[]): DocumentReview {
 const renderThread = (annotation: AnnotationView) =>
   render(<ThreadCard review={reviewOf([annotation])} annotation={annotation} placement="right" canPickAssignee={false} />)
 
-describe('Piloti’s marks name the person they were set for', () => {
+describe('the agent’s marks name the person they were set for', () => {
   it('on the pin’s tooltip and for a screen reader', () => {
     const annotation = mark()
     render(
@@ -261,13 +261,13 @@ describe('Piloti’s marks name the person they were set for', () => {
     expect(screen.getByText('Proposal')).toBeInTheDocument()
   })
 
-  it('falls back to plain „Piloti" for a mark nobody can be named for', () => {
+  it('falls back to the plain agent name for a mark nobody can be named for', () => {
     renderThread(mark({ createdByName: null }))
     expect(screen.getByTestId('thread-byline').textContent).toBe(PRODUCT_NAME)
   })
 })
 
-describe('Piloti’s replies in a thread', () => {
+describe('the agent’s replies in a thread', () => {
   it('name the person they were written for, and a person’s reply keeps their own name', () => {
     renderThread(
       mark({

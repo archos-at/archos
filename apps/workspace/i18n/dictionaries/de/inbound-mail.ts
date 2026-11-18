@@ -1,16 +1,5 @@
 import type { en } from '../en'
 
-/**
- * inboundMail namespace: der E-Mail-Eingang (ADR-0137, DECISION §9).
- *
- * Ein Wort je Begriff (DECISION §3): „E-Mail-Eingang“ ist der Ort, „ablegen“
- * bringt einen Teil ins Projekt, „verwerfen“ sagt Nein zur ganzen E-Mail,
- * „wiederherstellen“ macht beides sieben Tage lang rückgängig, der
- * „E-Mail-Verlauf“ ist das Dokument der Korrespondenz, und seine Stände sind
- * „Fassung N“. Die Absenderangabe nennt eine Domain, nie eine Person. Nie
- * „Projektadresse“ (dort steht das Gebäude), nie „Durchsicht“, nie
- * „Nachricht“ für eine E-Mail, nie „Abgelegt“ als Zustand einer E-Mail.
- */
 export const inboundMail: typeof en.inboundMail = {
   title: 'E-Mail-Eingang',
   subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
@@ -57,14 +46,11 @@ export const inboundMail: typeof en.inboundMail = {
     thread: 'E-Mail-Verlauf „{name}“\u00A0· wird Fassung {version}',
     select: '„{subject}“ auswählen',
     impersonation: 'Gibt sich als {name} aus\u00A0· nicht ablegen',
-    // Die eigene Adresse des Lesers, von seiner Domain abgelehnt: an ihn selbst, nie „gibt sich als Sie aus“.
     impersonationOwn: 'Mit Ihrer Adresse, von Ihrer Domain abgelehnt\u00A0· prüfen',
-    /** Wer eine E-Mail ablegt, die ein Mitglied nennt, ohne dass seine Domain sie bestätigt hat. */
     claim: {
       own: 'Haben Sie sie gesendet? Bestätigen Sie es',
       colleague: 'Wartet auf {name}',
     },
-    // A no-break space: „bis 13.11.2026“ alone on a line read as a stray date.
     restorableUntil: 'wiederherstellbar bis {date}',
     outcome: {
       filed: '{count, plural, one {# Teil abgelegt} other {# Teile abgelegt}}',
@@ -72,12 +58,10 @@ export const inboundMail: typeof en.inboundMail = {
       expired: '{count, plural, one {# Teil ohne Entscheidung abgelaufen} other {# Teile ohne Entscheidung abgelaufen}}',
     },
     textFollowed: 'Text dem E-Mail-Verlauf angefügt (Verlauf folgen)',
-    // Die Domain eines Mitglieds, das im Projekt ablegen darf, hat sie bestätigt, die direkte Ablage hat sie trotzdem nicht abgelegt (`not_filed`).
     notFiled: 'Nicht direkt abgelegt\u00A0· {need}',
     filing: 'Wird abgelegt …',
     notFiledReady: 'Nicht direkt abgelegt',
     fileAsSuggested: '„{subject}“ wie vorgeschlagen ablegen',
-    /** Was eine E-Mail braucht, bevor sie wie vorgeschlagen abgelegt werden kann, in wenigen Worten (`incompleteReason`). */
     needs: {
       not_waiting: 'Schon bearbeitet',
       project_closed: 'Projekt ist abgeschlossen',
@@ -89,7 +73,6 @@ export const inboundMail: typeof en.inboundMail = {
     },
   },
 
-  /** Die zwei Hälften der wartenden E-Mails: was ein Klick ablegt, und was eine Entscheidung braucht. */
   readiness: {
     ready: 'Bereit',
     needs_you: 'Braucht Sie',
@@ -136,9 +119,6 @@ export const inboundMail: typeof en.inboundMail = {
     },
   },
 
-  // Warum eine E-Mail wartet, nach ihrem Absender (die direkte Ablage gilt nur für E-Mails, die die Domain von Personen bestätigt, die im Projekt ablegen dürfen).
-  // Ein Satz je Grund, der mit dem endet, was der Leser tun kann. „Own“: an das Mitglied, das sie nennt. Ohne „Own“ (signature, replay, automatic): an alle anderen, die
-  // nur verwerfen können; das sagt ihnen die Leiste darunter (`bar.claimed.line`), deshalb nennt die Zeile nur, auf wen sie wartet und warum.
   waitReason: {
     signature: 'Wartet auf {name}: Die Domain hat diese E-Mail nicht bestätigt.',
     signatureOwn: 'Haben Sie diese E-Mail gesendet? Ihre Domain hat sie nicht bestätigt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
@@ -149,9 +129,7 @@ export const inboundMail: typeof en.inboundMail = {
     automatic: 'Wartet auf {name}: Die E-Mail wurde automatisch versandt.',
     automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
     paused: 'Wartet: Die direkte Ablage ist ausgeschaltet, deshalb wurde sie nicht direkt abgelegt. Alle, die in diesem Projekt ablegen dürfen, können sie ablegen.',
-    // Eine E-Mail, die die Domain eines Mitglieds, das im Projekt ablegen darf, bestätigt hat und die trotzdem wartet: die direkte Ablage hat sie (ganz oder teilweise) nicht abgelegt.
     not_filed: 'Wartet: {name} hat sie gesendet und die Domain hat sie bestätigt, aber sie wurde nicht direkt abgelegt. Prüfen Sie sie und legen Sie sie ab oder verwerfen Sie sie.',
-    // Information, not an instruction, and one cause: under „Bereit“ one press files it; „nicht freigegeben“ was Freigabe's word (CONTEXT.md) and read against „Domain bestätigt“.
     no_write_rights: 'Wartet auf Ihre Ablage, weil der Absender in diesem Projekt nicht ablegen darf.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Legen Sie ab, was ins Projekt gehört; legt sie niemand ab, läuft sie nach {days} Tagen ab und lässt sich danach nicht wiederherstellen.',
     sender_unchecked: 'Wartet: Beim Eingang ließ sich nicht prüfen, wer der Absender im Büro ist. Prüfen Sie Adresse und Domain oben, bevor Sie ablegen.',
@@ -178,7 +156,6 @@ export const inboundMail: typeof en.inboundMail = {
     to: 'An',
     cc: 'Cc',
     replyTo: 'Antwort an',
-    // Dieselben Worte wie der E-Mail-Verlauf: zuerst wer sie geschrieben hat, dann wer sie weitergeleitet hat.
     forwardedFrom: 'Von {who}\u00A0· Domain nicht bestätigt\u00A0· weitergeleitet von {forwarder}',
     forwardedExplain: 'Aus dem weitergeleiteten Text gelesen. Die Domain bestätigt nur die Weiterleitung, nicht, wer die E-Mail ursprünglich geschrieben hat.',
     original: 'Original (.eml) herunterladen',
@@ -238,7 +215,6 @@ export const inboundMail: typeof en.inboundMail = {
     acknowledge: 'Gehört trotzdem zu diesem E-Mail-Verlauf',
     alreadyFiled: 'Dieser Text liegt schon in einem E-Mail-Verlauf.',
     unreadable: 'Der Text konnte nicht gelesen werden und lässt sich daher nicht ablegen. Das Original enthält ihn.',
-    /** Warum der Text nicht abgelegt werden kann, solange die Prüfung der ganzen E-Mail nicht bestanden ist (`scan_not_clean`). */
     rawScan: {
       pending: 'Die E-Mail wird noch auf Schadsoftware geprüft. Der Text lässt sich ablegen, sobald die Prüfung bestanden ist.',
       failed: 'Die Prüfung der E-Mail auf Schadsoftware ist fehlgeschlagen und wird wiederholt. Der Text lässt sich ablegen, sobald sie bestanden ist.',
@@ -334,10 +310,8 @@ export const inboundMail: typeof en.inboundMail = {
     cancel: 'Abbrechen',
   },
 
-  /** Die Warnung über einer E-Mail, die sich als jemand anderes ausgibt (`riskLevel: 'impersonation'`). */
   impersonationWarning: {
     rejectedSignature: 'Vorsicht: Diese E-Mail gibt sich als {name} aus. Die Domain hat sie abgelehnt.',
-    // An das Mitglied, dessen Adresse sie trägt: eine Frage an es selbst, keine Warnung über es.
     own: 'Diese E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt.',
     ownConsequence:
       'Haben Sie sie nicht selbst gesendet, verwerfen Sie sie: So beginnen Betrugsversuche mit Kontoänderungen. {productName} macht keinen Vorschlag, nichts ist vorausgewählt.',
@@ -363,7 +337,6 @@ export const inboundMail: typeof en.inboundMail = {
     acknowledgeSender: 'Domain nicht bestätigt. Trotzdem ablegen',
     acknowledgeOwnMail: 'Ja, ich habe diese E-Mail gesendet. Ablegen',
     originalErased: 'Das Original der E-Mail wird nach der Ablage gelöscht',
-    /** Für alle außer dem Mitglied, dessen Adresse die E-Mail trägt: nur verwerfen, nie ablegen (`onlySenderReleases`). */
     claimed: {
       line: 'Nur {name} kann diese E-Mail ablegen oder wiederherstellen. Sie können sie verwerfen.',
       dismiss: 'Verwerfen …',

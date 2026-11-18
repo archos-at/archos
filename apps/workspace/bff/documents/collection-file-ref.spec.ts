@@ -6,12 +6,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { collectionDocumentsUrl, collectionFileRef, collectionFileUrl, purgeIngestedChunks } from './collection-file-ref'
 
 const row = {
+  id: 'doc_7',
   collectionName: 'proj_abc',
   filename: 'brandschutz-gutachten-2026-08-20.pdf',
   publishedVersionId: null,
 } as const
 
 const publishedAgent = {
+  id: 'doc_1',
   collectionName: 'proj_abc',
   filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
   authoredBy: 'agent',
@@ -19,10 +21,11 @@ const publishedAgent = {
 } as const
 
 describe('collectionFileRef', () => {
-  it('names the pair for a row a person uploaded', () => {
+  it('names the pair for a row a person uploaded, with its document id', () => {
     expect(collectionFileRef({ ...row, authoredBy: 'user' })).toMatchObject({
       collectionName: 'proj_abc',
       filename: 'brandschutz-gutachten-2026-08-20.pdf',
+      documentId: 'doc_7',
     })
   })
 
@@ -35,10 +38,22 @@ describe('collectionFileRef', () => {
     expect(collectionFileRef({ ...row, authoredBy: 'agent' })).toBeNull()
   })
 
-  it('names the pair for a PUBLISHED Piloti document under its namespace', () => {
+  it('names the pair for a PUBLISHED agent document under its namespace', () => {
     expect(collectionFileRef(publishedAgent)).toMatchObject({
       collectionName: 'proj_abc',
       filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
+    })
+  })
+
+  it('names the pair for a PUBLISHED agent document under the new namespace exactly as under the old', () => {
+    expect(
+      collectionFileRef({
+        ...publishedAgent,
+        filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
+      })
+    ).toMatchObject({
+      collectionName: 'proj_abc',
+      filename: 'generated/doc_1/aktenvermerk-2026-09-01.md',
     })
   })
 
@@ -52,7 +67,7 @@ describe('collectionFileRef', () => {
     ).toBeNull()
   })
 
-  it('is not fooled by a name that merely mentions piloti', () => {
+  it('is not fooled by a name that merely mentions the namespace', () => {
     expect(collectionFileRef({ ...publishedAgent, filename: 'piloti-bericht.md' })).toBeNull()
     expect(collectionFileRef({ ...publishedAgent, filename: 'x/piloti/doc_1/a.md' })).toBeNull()
   })
@@ -76,6 +91,7 @@ describe('the URL builders', () => {
 
   it('percent-encodes both segments, so a name with a slash cannot leave its collection', () => {
     const awkward = collectionFileRef({
+      id: 'doc_2',
       collectionName: 'proj_a b',
       filename: 'Schnitt A-A/EG.pdf',
       authoredBy: 'user',
@@ -91,6 +107,7 @@ describe('the URL builders', () => {
 
 describe('purgeIngestedChunks — reversible unless said otherwise', () => {
   const ref = collectionFileRef({
+    id: 'doc_9',
     collectionName: 'proj_abc',
     filename: 'EG_Grundriss_Index_B.pdf',
     authoredBy: 'user',
@@ -111,6 +128,17 @@ describe('purgeIngestedChunks — reversible unless said otherwise', () => {
     await expect(purgeIngestedChunks('http://backend:8000', ref, 1000)).resolves.toBe(true)
 
     expect(fetchSpy.mock.calls[0][0]).toBe('http://backend:8000/v1/collections/proj_abc/documents')
+    expect(bodyOf()).toEqual({
+      file_ids: ['EG_Grundriss_Index_B.pdf'],
+      documents: [{ id: 'doc_9', file_name: 'EG_Grundriss_Index_B.pdf' }],
+    })
+  })
+
+  it('names the file alone when the ref carries no document id, so the backend deletes by name', async () => {
+    vi.stubGlobal('fetch', fetchSpy.mockResolvedValue(new Response('{}', { status: 200 })))
+
+    await purgeIngestedChunks('http://backend:8000', { ...ref, documentId: null }, 1000)
+
     expect(bodyOf()).toEqual({ file_ids: ['EG_Grundriss_Index_B.pdf'] })
   })
 
@@ -119,7 +147,11 @@ describe('purgeIngestedChunks — reversible unless said otherwise', () => {
 
     await purgeIngestedChunks('http://backend:8000', ref, 1000, { permanent: true })
 
-    expect(bodyOf()).toEqual({ file_ids: ['EG_Grundriss_Index_B.pdf'], permanent: true })
+    expect(bodyOf()).toEqual({
+      file_ids: ['EG_Grundriss_Index_B.pdf'],
+      documents: [{ id: 'doc_9', file_name: 'EG_Grundriss_Index_B.pdf' }],
+      permanent: true,
+    })
   })
 
   it('does not confirm a purge the backend answered 200 but listed as failed', async () => {

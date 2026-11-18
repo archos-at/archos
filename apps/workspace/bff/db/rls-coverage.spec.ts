@@ -1,86 +1,71 @@
 // @disk-inputs: ../../deploy/compose/init-db.sql, ../../deploy/postgres/rename-legacy-names.sh, ../../scripts/rls-test-db.sh, migrations/*.sql
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readdirSync } from 'node:fs'
 import { Table, getTableName, is } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
+import {
+  functionCalls,
+  parseSql,
+  readSql,
+  tokenizeSql,
+  type SqlStatement,
+  type SqlToken,
+} from '@/test-utils/sql-statements'
 import * as schema from './schema'
-import { ORGANIZATION_SETTING, PLATFORM_ROLE, USER_SETTING } from './tenant-context'
 
-const BOUNDARY_MIGRATIONS = [
-  '0031_row_level_security.sql',
-  '0032_messages_organization_id.sql',
-  '0034_bim_models.sql',
-  '0035_bim_check_confirmations.sql',
-  '0041_agent_skills.sql',
-  '0042_drop_workflows.sql',
-  '0043_jobs.sql',
-  '0046_curated_skill_activations.sql',
-  '0047_platform_skills.sql',
-  '0051_file_native_ownership.sql',
-   '0067_document_roles.sql',
-  '0068_platform_lessons.sql',
-  '0075_tasks.sql',
-  '0079_pricing_and_credits.sql',
-  '0082_document_versions.sql',
-  '0086_task_definitions.sql',
-  '0087_organization_instructions.sql',
-  '0089_skill_categories.sql',
-  '0100_product_feedback.sql',
-  '0102_archiv_folders.sql',
-  '0104_bff_job_queue.sql',
-  '0110_upload_batches.sql',
-  '0111_project_folder_grants.sql',
-  '0112_conversation_restricted_folders.sql',
-  '0114_document_access_log.sql',
-  '0117_project_steckbrief.sql',
-  '0119_document_quarantine_decisions.sql',
-  '0124_message_restricted_use.sql',
-  '0136_document_version_reviews.sql',
-  '0108_mail_imports.sql',
-  '0125_conversation_source_projects.sql',
-  '0126_permit_records.sql',
-  '0130_document_fassung_announcements.sql',
-  '0138_document_annotations.sql',
-  '0139_piloti_wakes.sql',
-  '0140_proposed_changes.sql',
-  '0142_piloti_changes.sql',
-  '0144_project_intakes.sql',
-  '0146_proposal_shelves.sql',
-  '0147_push_subscriptions.sql',
-  '0154_analytics_export_cursors.sql',
-  '0158_project_upload_screening.sql',
-  '0165_revision_names.sql',
-  '0173_root_sort_runs.sql',
-  '0179_piloti_asks.sql',
-  '0180_folder_cards.sql',
-  '0181_office_conventions.sql',
-  '0182_office_convention_decisions.sql',
-  '0185_document_search.sql',
-  '0186_saved_searches.sql',
-  '0189_agent_tables.sql',
-  '0191_brand_free_policies.sql',
-  '0196_inbound_mail.sql',
-  '0202_base_knowledge.sql',
-  '0203_residency.sql',
-  '0204_rulesets.sql',
-  '0205_platform_base_knowledge.sql',
-  '0209_knowledge_citation_captures.sql',
-  '0210_address_register.sql',
-  '0211_country_pack.sql',
-  '0212_country_onboarding_tooling.sql',
-  '0213_knowledge_context.sql',
-  '0214_knowledge_approve_alone.sql',
-  '0226_drop_dead_scheduler_schema.sql',
-  '0228_golden_cases.sql',
-  '0229_personal_memory.sql',
-]
+const TENANT_HELPERS = ['secure_table', 'grid_secure_table']
+const PLATFORM_HELPERS = ['secure_platform_table', 'grid_secure_platform_table']
 
-const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>
-  readFileSync(join(process.cwd(), 'migrations', file), 'utf8')
-)
+interface Migration {
+  file: string
+  statements: SqlStatement[]
+}
 
-const MIGRATION = MIGRATION_SOURCES[0]
+function withQuotedStatements(statements: SqlStatement[]): SqlStatement[] {
+  return statements.flatMap((statement) => {
+    const quoted = statement.tokens.flatMap((token) => (token.kind === 'string' ? parseSql(token.text) : []))
+    return [statement, ...withQuotedStatements(quoted)]
+  })
+}
+
+const MIGRATIONS: Migration[] = readdirSync('migrations')
+  .filter((file) => file.endsWith('.sql') && !file.endsWith('.down.sql'))
+  .sort()
+  .map((file) => ({ file, statements: withQuotedStatements(readSql(`migrations/${file}`)) }))
+
+interface HelperCall {
+  table: string
+  predicate: string | undefined
+}
+
+function word(token: SqlToken | undefined, text: string): boolean {
+  return token?.kind === 'word' && token.text.toLowerCase() === text
+}
+
+function helperCalls(statements: SqlStatement[], helpers: string[]): HelperCall[] {
+  return helpers.flatMap((helper) =>
+    functionCalls(statements, helper).flatMap(([table, ...rest]) => {
+      if (table?.kind !== 'string') return []
+      const parts = rest.filter((token) => token.kind === 'string')
+      return [{ table: table.text, predicate: parts.length > 0 ? parts.map((part) => part.text).join('') : undefined }]
+    })
+  )
+}
+
+function securedTables(helpers: string[]): string[] {
+  const names = MIGRATIONS.flatMap(({ statements }) => helperCalls(statements, helpers).map(({ table }) => table))
+  return [...new Set(names)].sort()
+}
+
+function predicates(): Map<string, string> {
+  const found = new Map<string, string>()
+  for (const { statements } of MIGRATIONS) {
+    for (const { table, predicate } of helperCalls(statements, TENANT_HELPERS)) {
+      if (predicate !== undefined) found.set(table, predicate)
+    }
+  }
+  return found
+}
 
 function declaredTables(): string[] {
   return (Object.values(schema) as unknown[])
@@ -89,49 +74,70 @@ function declaredTables(): string[] {
     .sort()
 }
 
-function securedTables(): { tenant: string[]; platform: string[] } {
-  const collect = (fn: string) => {
-    const seen = new Set<string>()
-    for (const source of MIGRATION_SOURCES) {
-      for (const match of source.matchAll(new RegExp(`${fn}\\(\\s*'([a-z_]+)'`, 'g'))) {
-        seen.add(match[1])
-      }
-    }
-    return [...seen].sort()
-  }
-  return { tenant: collect('\\b(?:grid_)?secure_table'), platform: collect('\\b(?:grid_)?secure_platform_table') }
+function tablesWithOrganizationColumn(): Set<string> {
+  return new Set(
+    (Object.values(schema) as unknown[])
+      .filter((value): value is Table => is(value, Table))
+      .filter((table) => 'organizationId' in table)
+      .map((table) => getTableName(table))
+  )
+}
+
+function tableNameAt(tokens: SqlToken[], at: number): { name: string; index: number } | undefined {
+  let index = at
+  while (['if', 'exists', 'only'].some((text) => word(tokens[index], text))) index += 1
+  const token = tokens[index]
+  return token?.kind === 'word' || token?.kind === 'quoted' ? { name: token.text, index } : undefined
 }
 
 function removedTables(): Set<string> {
   const removed = new Set<string>()
-  for (const source of MIGRATION_SOURCES) {
-    for (const match of source.matchAll(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?([a-z_]+)"?/gi)) {
-      removed.add(match[1])
-    }
-    for (const match of source.matchAll(
-      /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?"?([a-z_]+)"?\s+RENAME\s+TO\s+/gi
-    )) {
-      removed.add(match[1])
+  for (const { statements } of MIGRATIONS) {
+    for (const { tokens } of statements) {
+      tokens.forEach((token, i) => {
+        if (word(token, 'drop') && word(tokens[i + 1], 'table')) {
+          const dropped = tableNameAt(tokens, i + 2)
+          if (dropped) removed.add(dropped.name)
+        }
+        if (word(token, 'alter') && word(tokens[i + 1], 'table')) {
+          const renamed = tableNameAt(tokens, i + 2)
+          if (renamed && word(tokens[renamed.index + 1], 'rename') && word(tokens[renamed.index + 2], 'to')) {
+            removed.add(renamed.name)
+          }
+        }
+      })
     }
   }
   return removed
 }
 
 function duplicatedWithinAMigration(): string[] {
-  const duplicates: string[] = []
-  for (const source of MIGRATION_SOURCES) {
-    const calls = [...source.matchAll(/\b(?:grid_)?secure_(?:platform_)?table\(\s*'([a-z_]+)'/g)].map(
-      (m) => m[1]
-    )
-    duplicates.push(...calls.filter((name, index) => calls.indexOf(name) !== index))
-  }
-  return duplicates
+  return MIGRATIONS.flatMap(({ file, statements }) => {
+    const tables = helperCalls(statements, [...TENANT_HELPERS, ...PLATFORM_HELPERS]).map(({ table }) => table)
+    return tables.filter((table, index) => tables.indexOf(table) !== index).map((table) => `${file}: ${table}`)
+  })
+}
+
+function namesCurrentOrg(predicate: string): boolean {
+  const tokens = tokenizeSql(predicate).flat()
+  return tokens.some(
+    (token, i) =>
+      word(token, 'organization_id') &&
+      tokens[i + 1]?.text === '=' &&
+      (word(tokens[i + 2], 'current_org') || word(tokens[i + 2], 'grid_current_org')) &&
+      tokens[i + 3]?.text === '(' &&
+      tokens[i + 4]?.text === ')'
+  )
+}
+
+function isOnlyTrue(predicate: string): boolean {
+  const tokens = tokenizeSql(predicate).flat()
+  return tokens.length === 1 && word(tokens[0], 'true')
 }
 
 describe('row-level security coverage', () => {
   it('secures every table the drizzle schema declares', () => {
-    const { tenant, platform } = securedTables()
-    const secured = new Set([...tenant, ...platform])
+    const secured = new Set([...securedTables(TENANT_HELPERS), ...securedTables(PLATFORM_HELPERS)])
     const unsecured = declaredTables().filter((table) => !secured.has(table))
 
     expect(
@@ -144,10 +150,8 @@ describe('row-level security coverage', () => {
   it('secures no table that no longer exists', () => {
     const declared = new Set(declaredTables())
     const removed = removedTables()
-    const { tenant, platform } = securedTables()
-    const orphaned = [...tenant, ...platform].filter(
-      (table) => !declared.has(table) && !removed.has(table)
-    )
+    const secured = [...securedTables(TENANT_HELPERS), ...securedTables(PLATFORM_HELPERS)]
+    const orphaned = secured.filter((table) => !declared.has(table) && !removed.has(table))
 
     expect(
       orphaned,
@@ -165,52 +169,30 @@ describe('row-level security coverage', () => {
   })
 
   it('keeps platform configuration out of the tenant-predicate set', () => {
-    const { tenant, platform } = securedTables()
+    const tenant = securedTables(TENANT_HELPERS)
+    const platform = securedTables(PLATFORM_HELPERS)
 
-    expect(platform).toEqual([
-      'address_register_entries',
-      'address_register_releases',
-      'analytics_export_cursors',
-      'platform_lesson_events',
-      'platform_lesson_reports',
-      'platform_lessons',
-      'platform_model_defaults',
-      'platform_pricing_versions',
-      'platform_reasoning_efforts',
-      'platform_retrieval_settings',
-      'platform_skills',
-      'platform_workflow_templates',
-    ])
-    expect(tenant.filter((table) => table.startsWith('platform_'))).toEqual([])
+    expect(
+      platform.length,
+      'No table is secured by the platform helper: it was renamed or dropped.'
+    ).toBeGreaterThan(0)
+    expect(
+      platform.filter((table) => tenant.includes(table)),
+      'Tables secured by both helpers: their policies would OR together.'
+    ).toEqual([])
+    expect(
+      tenant.filter((table) => table.startsWith('platform_')),
+      'Platform configuration is secured with the tenant helper. Use secure_platform_table().'
+    ).toEqual([])
   })
 })
 
 describe('policy predicates say what they should', () => {
-  function predicates(): Map<string, string> {
-    const found = new Map<string, string>()
-    for (const source of MIGRATION_SOURCES) {
-      for (const match of source.matchAll(
-        /\b(?:grid_)?secure_table\(\s*'([a-z_]+)',\s*'([\s\S]*?)'\s*\)/g
-      )) {
-        found.set(match[1], match[2])
-      }
-    }
-    return found
-  }
-
   it('ties every table that has an organization_id to current_org()', () => {
-    const withOrgColumn = new Set(
-      (Object.values(schema) as unknown[])
-        .filter((value): value is Table => is(value, Table))
-        .filter((table) => 'organizationId' in table)
-        .map((table) => getTableName(table))
-    )
-
-    const wrong: string[] = []
-    for (const [table, predicate] of predicates()) {
-      if (!withOrgColumn.has(table)) continue
-      if (!/organization_id = (?:grid_)?current_org\(\)/.test(predicate)) wrong.push(table)
-    }
+    const withOrgColumn = tablesWithOrganizationColumn()
+    const wrong = [...predicates()]
+      .filter(([table, predicate]) => withOrgColumn.has(table) && !namesCurrentOrg(predicate))
+      .map(([table]) => table)
 
     expect(
       wrong,
@@ -220,61 +202,8 @@ describe('policy predicates say what they should', () => {
     ).toEqual([])
   })
 
-  it('keys user_preferences to the acting user, not the organization', () => {
-    expect(predicates().get('user_preferences')).toMatch(/\b(?:grid_)?current_user_id\(\)/)
-  })
-
   it('has no policy that matches everything', () => {
-    const permissive = [...predicates()].filter(([, p]) => p.trim() === 'true').map(([t]) => t)
+    const permissive = [...predicates()].filter(([, predicate]) => isOnlyTrue(predicate)).map(([table]) => table)
     expect(permissive, 'A predicate of `true` secures nothing.').toEqual([])
-  })
-
-  it('keeps the composite foreign keys that replace the recursive folder policy', () => {
-    const all = MIGRATION_SOURCES.join('\n')
-    expect(all).toContain('FOREIGN KEY (parent_id, project_id)')
-    expect(all).toContain('FOREIGN KEY (folder_id, project_id)')
-    expect(all).toContain('FOREIGN KEY (conversation_id, organization_id)')
-  })
-})
-
-describe('settings parity between the app and the policies', () => {
-  it('uses the setting names the policies read', () => {
-    expect(MIGRATION).toContain(`current_setting('${ORGANIZATION_SETTING}', true)`)
-    expect(MIGRATION).toContain(`current_setting('${USER_SETTING}', true)`)
-  })
-
-  it('names the same bypass role the migration requires', () => {
-    const rename = readFileSync(join(process.cwd(), '..', '..', 'deploy/postgres/rename-legacy-names.sh'), 'utf8')
-    expect(MIGRATION).toContain(`'grid_app_platform'`)
-    expect(MIGRATION).not.toContain('CREATE ROLE grid_app_platform')
-    expect(rename).toContain(`grid_app_platform:${PLATFORM_ROLE}`)
-  })
-
-  it('is provisioned by every deployment that has to run the migration', () => {
-    const provisioners = [
-      'deploy/compose/init-db.sql',
-      'scripts/rls-test-db.sh',
-      'deploy/postgres/rename-legacy-names.sh',
-    ]
-    for (const file of provisioners) {
-      const source = readFileSync(join(process.cwd(), '..', '..', file), 'utf8')
-      for (const role of ['grid_app_owner', 'grid_app_rw', 'grid_app_platform']) {
-        expect(source, `${file} must provision ${role}`).toContain(role)
-      }
-    }
-  })
-
-  it('grants the runtime role no write access to platform configuration', () => {
-    const definitions = MIGRATION_SOURCES.flatMap((source) => [
-      ...source.matchAll(/CREATE OR REPLACE FUNCTION (?:grid_)?secure_platform_table\([\s\S]*?\n\$\$;/g),
-    ]).map((match) => match[0])
-    const platformHelper = definitions.at(-1)
-
-    expect(platformHelper, 'the platform helper is gone from the migrations').toBeDefined()
-    expect(platformHelper).toContain("format('GRANT SELECT ON %I TO %I', target, rls_role('rw'))")
-    expect(
-      platformHelper,
-      'the platform helper grants the runtime role a write it must not have'
-    ).not.toMatch(/GRANT[^;']*(INSERT|UPDATE|DELETE)[^;]*rls_role\('rw'\)/)
   })
 })

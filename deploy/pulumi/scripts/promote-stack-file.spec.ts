@@ -4,13 +4,6 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The stack file a promotion to prod carries (promote.yml): develop's, with
- * the lines prod changed on its own branch since the last promotion, and the
- * new pin. The trap it closes: develop's copy pins whatever the last promotion
- * left there, so taking it whole rolled prod back two months.
- */
-
 const SCRIPT = join(__dirname, "promote-stack-file.sh");
 const DIR = mkdtempSync(join(tmpdir(), "promote-stack-file-"));
 const PIN = `sha-${"b".repeat(40)}`;

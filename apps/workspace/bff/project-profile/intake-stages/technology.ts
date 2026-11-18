@@ -1,5 +1,3 @@
-/** Stage E, Technik & Energie: building services and energy. */
-
 import type { ProjectIntakeStage } from '../intake-types'
 
 export const TECHNOLOGY_STAGE: ProjectIntakeStage = {
@@ -25,9 +23,6 @@ export const TECHNOLOGY_STAGE: ProjectIntakeStage = {
       writesTo: '/facts/heat_supply/value',
     },
     {
-      // v1.0's E2 (PV) + E3 (Lüftung) + E4 (Kühlung) + E6 (Versickerung)
-      // as one multi-select; the four boolean keys are bridged in
-      // `answersFromProfile`.
       id: 'E2',
       label: 'Weitere Technik angedacht',
       type: 'multi_select',

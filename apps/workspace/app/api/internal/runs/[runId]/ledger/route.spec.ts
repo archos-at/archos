@@ -22,7 +22,7 @@ const PATTERN = /^\/api\/internal\/runs\/([^/]+)\/ledger$/
 
 function transport(headers: Record<string, string>) {
   return async (path: string, init?: RequestInit) => {
-    const url = new URL(path, 'https://grid.test')
+    const url = new URL(path, 'https://example.test')
     const matched = PATTERN.exec(url.pathname)
     if (!matched) throw new Error(`no route for ${url.pathname}`)
     const request = new Request(url, {
@@ -38,7 +38,7 @@ const anonymous = createRunLedgerClient(transport({}))
 
 function call(body: unknown, headers: Record<string, string> = { 'x-grid-internal-token': SECRET }) {
   return POST(
-    new Request(`https://grid.test/api/internal/runs/${RUN}/ledger`, {
+    new Request(`https://example.test/api/internal/runs/${RUN}/ledger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
@@ -49,7 +49,7 @@ function call(body: unknown, headers: Record<string, string> = { 'x-grid-interna
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(applyRunLedgerOp).mockResolvedValue({ runId: RUN, ledger: LEDGER })
 })
 
@@ -130,7 +130,6 @@ describe('POST /api/internal/runs/[runId]/ledger', () => {
   it('hands a refusal to the caller as a typed error it can act on', async () => {
     vi.mocked(applyRunLedgerOp).mockRejectedValue(new NotFoundError('Unknown run'))
 
-    // A ledger flush must never fail a run; the caller decides from this typed error.
     await expect(client.append(RUN, {})).rejects.toMatchObject({
       name: 'RunLedgerError',
       status: 404,

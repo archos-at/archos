@@ -12,15 +12,6 @@ import { documents } from './documents'
 
 const list = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(', '))
 
-/**
- * `agent_changes` — every change Piloti applied to an Anmerkung or a thread,
- * with the turn that made it (migration 0142, ADR-0109;
- * `docs/architecture/document-annotations.md`).
- *
- * `annotation_id` has no foreign key on purpose: a `delete` outlives the mark
- * it deleted, or it could never be undone. The record goes with its document
- * and with the conversation of the turn that made it.
- */
 export const pilotiChanges = pgTable(
   'agent_changes',
   {
@@ -34,9 +25,7 @@ export const pilotiChanges = pgTable(
     before: jsonb('before').$type<ChangeState>(),
     after: jsonb('after').$type<ChangeState>(),
     originConversationId: text('origin_conversation_id').notNull(),
-    /** The answer message of the turn that made the change. */
     originMessageId: uuid('origin_message_id').notNull(),
-    /** The person the turn acted for. */
     onBehalfOf: text('on_behalf_of').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     undoneAt: timestamp('undone_at', { withTimezone: true }),

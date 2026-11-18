@@ -1,14 +1,3 @@
-/**
- * Generic sharing API — read a resource's sharing state, change its visibility
- * (ADR-0032, spec SH-1…SH-20).
- *
- * The route is deliberately typed on `[resourceType]` rather than mounted under
- * `/api/conversations/…`: sharing is a substrate, not a chat feature, and the
- * second consumer must cost one registry entry and nothing here (spec SH-9).
- * Thin adapters (ADR-0017); all logic and authorization live in
- * `@/lib/sharing/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { getSharingState, setResourceVisibility } from '@/lib/sharing/service'

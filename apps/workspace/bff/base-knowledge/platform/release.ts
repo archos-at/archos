@@ -1,21 +1,3 @@
-/**
- * Publish and rollback (ADR-0165, design §4.4): release moves, appended in one
- * transaction with the head moves they make. Insert-only; a rollback appends
- * the inverse moves, so every revision that was ever stable stays readable and
- * an old citation still resolves.
- *
- * - Preview: a move per record to the request's newest revision; no head moves.
- * - Stable: needs a preview first; moves each head, so entitled offices read it;
- *   refused with 409 when another request moved one of these records since this
- *   one was opened. Each published text gets an indexing run.
- * - Rollback: each record back to what it was before the stable publish;
- *   refused with 409 when a later release moved the head again.
- *
- * The database holds the same rules a second time (0205's triggers): a publish
- * only of an approved request's own revisions, a head only where the newest
- * stable move points.
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, gt, inArray, ne, sql } from 'drizzle-orm'
@@ -35,7 +17,6 @@ export interface ReleaseActor {
 export interface PublishOutcome {
   channel: ReleaseChannel
   moved: number
-  /** The indexing runs a stable publish opened, one per published text; the caller enqueues their jobs. */
   indexRuns: string[]
 }
 
@@ -106,7 +87,6 @@ export async function publishChangeRequest(requestId: string, channel: ReleaseCh
     if (request.status !== 'approved') {
       throw new ConflictError(`The change request is ${request.status}; only an approved one is published.`)
     }
-    // Read under the lock: a dispute given while this publish waited still stops it (the release trigger holds it too).
     if (request.secondReview === 'disputed') throw new ConflictError(DISPUTED_NOT_PUBLISHED)
     if (channel === 'stable' && !(await hasPreview(tx, requestId))) {
       throw new ConflictError('Publish to preview first, and check it there; then publish to stable.')
@@ -142,18 +122,9 @@ export async function publishChangeRequest(requestId: string, channel: ReleaseCh
   })
 }
 
-/** What a publish of a disputed request answers: the two ways out, by status (ADR-0176). */
 export const DISPUTED_NOT_PUBLISHED =
   'The second review disputed this change request, so it is not published further. Reject it, which withdraws its preview, or roll it back once it is published.'
 
-/**
- * Withdraw the preview of a disputed request before it is rejected (ADR-0176):
- * each record whose preview still shows this request's revision goes back to
- * where it stood before this request, as appended inverse moves. A record
- * whose preview shows another request's revision is left alone: withdrawing
- * past it would drop that request's revision.
- * Stable is untouched; nothing of an approved request is there.
- */
 export async function retractPreview(tx: Tx, requestId: string, actor: ReleaseActor, reason: string): Promise<number> {
   const previews = await tx
     .select()
@@ -164,8 +135,6 @@ export async function retractPreview(tx: Tx, requestId: string, actor: ReleaseAc
   for (const recordId of new Set(previews.map((move) => move.recordId))) {
     const own = previews.filter((move) => move.recordId === recordId)
     const [first, last] = [own[0], own[own.length - 1]]
-    // Still this request's preview: the record's preview shows the revision this request published, whichever
-    // request's move put it back there (another disputed request withdrawn over it restores it).
     if (!first || !last || last.action !== 'publish' || (await newestPreview(tx, recordId)) !== last.toRevisionId) continue
     await tx.insert(knowledgeReleaseMoves).values({
       recordId,
@@ -185,11 +154,9 @@ export async function retractPreview(tx: Tx, requestId: string, actor: ReleaseAc
 
 export interface RollbackOutcome {
   restored: number
-  /** Base-corpus files the rolled-back request released and no released copy names any more: de-indexed after the commit (ADR-0173). */
   unreleasedFiles: string[]
 }
 
-/** Undo a published request: each record back to its head before it, as appended inverse moves. */
 export async function rollbackChangeRequest(requestId: string, reason: string, actor: ReleaseActor): Promise<RollbackOutcome> {
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)

@@ -1,5 +1,5 @@
 # =============================================================================
-# Multi-stage build for AI-Q Blueprint Backend
+# Multi-stage build for the agent host backend
 # =============================================================================
 #
 # Build targets:
@@ -18,9 +18,12 @@
 # =============================================================================
 
 # =============================================================================
-# Stage 1: Builder (shared between dev and release)
+# Stage 1: Python and the third-party dependencies, from the lockfiles alone
 # =============================================================================
-FROM debian:bookworm-slim AS builder
+# Only the files the install reads, so its layers keep their digest while the
+# lock and the pyproject.toml files do not move, and the release image's venv
+# layer with them: a deploy that changed only source pulls none of it.
+FROM debian:bookworm-slim AS python-deps
 
 WORKDIR /app
 
@@ -68,10 +71,53 @@ ENV UV_COMPILE_BYTECODE=1
 # synchronously, inside the conversation graph's first node.
 ENV TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
 
-# Copy workspace configuration and lockfile
+# The workspace's lockfile and every member's pyproject.toml: all `uv sync`
+# reads while it installs no member.
 COPY pyproject.toml uv.lock ./
+COPY packages/agent/pyproject.toml ./packages/agent/
+COPY packages/knowledge-layer/pyproject.toml ./packages/knowledge-layer/
+COPY packages/ris-adapter/pyproject.toml ./packages/ris-adapter/
+COPY packages/public-sources/pyproject.toml ./packages/public-sources/
+COPY packages/tavily-web-search/pyproject.toml ./packages/tavily-web-search/
+COPY apps/agent-host/pyproject.toml ./apps/agent-host/
+# The spatial engine behind `ifc_measure` (ADR-0045 amendment / roadmap §13b).
+# It is not a uv workspace member, so IfcOpenShell stays out of the root
+# `uv.lock`; its dependencies come from this file, below.
+COPY packages/ifc-spatial-py/pyproject.toml ./packages/ifc-spatial-py/
 
-# Copy all source packages
+# Install dependencies using uv sync. `--all-packages` takes each workspace
+# member's own runtime dependencies from the lock too: the members are only in
+# the root's dev group, so without it a dependency only a member declares never
+# reaches the image (langchain-tavily, once NAT 1.9 stopped pulling it in, took
+# the agent into CrashLoopBackOff at the workflow build).
+RUN uv sync --frozen --no-dev --no-install-workspace --all-packages \
+    && uv pip install "psycopg[binary]>=3.0.0"
+
+# The spatial engine's dependencies (unlike the workspace packages, whose deps
+# come from the lockfile). Deliberately a separate layer and deliberately not in
+# `uv.lock`: IfcOpenShell ships prebuilt wheels per platform, and a deployment
+# that never answers a geometric question should be able to drop this line and
+# the package's install below. They resolve from its pyproject.toml, never from
+# its own uv.lock: what `uv sync` installed above (numpy, shapely, pillow) stays
+# at the root lock's version, the rest takes the newest release the range
+# allows. That is why IfcOpenShell and ifctester are exact there. `ifc_measure`
+# degrades to a plain refusal when the import fails — it never reports a
+# missing engine as an unreadable building. `[ids]` pulls ifctester for the IDS
+# shopping-list export. Optional in the package because the tool degrades to a
+# named refusal without it; installed here because on THIS deployment the
+# capability is wanted.
+RUN uv pip install -r packages/ifc-spatial-py/pyproject.toml --extra ids
+
+# What the venv and the interpreter hold now, for the builder to find what it
+# adds: its installs, and the bytecode its Python runs write into the stdlib.
+RUN find /app/.venv /opt/uv-python -mindepth 1 -printf '%p\t%s\t%T@\t%m\n' | sort > /deps.manifest
+
+# =============================================================================
+# Stage 2: Builder, the sources and the workspace packages (shared between dev
+# and release)
+# =============================================================================
+FROM python-deps AS builder
+
 COPY packages/agent/ ./packages/agent/
 COPY packages/knowledge-layer/ ./packages/knowledge-layer/
 COPY packages/ris-adapter/ ./packages/ris-adapter/
@@ -82,41 +128,17 @@ COPY packages/tavily-web-search/ ./packages/tavily-web-search/
 COPY apps/agent-host/ ./apps/agent-host/
 COPY configs/ ./configs/
 COPY scripts/ ./scripts/
-# The spatial engine behind `ifc_measure` (ADR-0045 amendment / roadmap §13b).
-# It is not a uv workspace member, so IfcOpenShell stays out of the root
-# `uv.lock`; it is copied and installed on its own below.
 COPY packages/ifc-spatial-py/ ./packages/ifc-spatial-py/
 
-# Install dependencies using uv sync. `--all-packages` takes each workspace
-# member's own runtime dependencies from the lock too: the members are only in
-# the root's dev group, so without it a dependency only a member declares never
-# reaches the image (langchain-tavily, once NAT 1.9 stopped pulling it in, took
-# the agent into CrashLoopBackOff at the workflow build).
-RUN uv sync --frozen --no-dev --no-install-workspace --all-packages
-
-# Install workspace packages (without CLI for base)
+# Install workspace packages (without CLI for base), and the spatial engine,
+# whose dependencies the stage above installed.
 RUN uv pip install --no-deps -e ./packages/agent \
     && uv pip install --no-deps -e ./packages/tavily-web-search \
     && uv pip install --no-deps -e ./packages/public-sources \
     && uv pip install --no-deps -e ./packages/ris-adapter \
     && uv pip install --no-deps -e "./packages/knowledge-layer[all]" \
     && uv pip install --no-deps -e ./apps/agent-host \
-    && uv pip install "psycopg[binary]>=3.0.0"
-
-# The spatial engine, installed WITH its dependencies (unlike the workspace
-# packages above, whose deps come from the lockfile). Deliberately a separate
-# layer and deliberately not in `uv.lock`: IfcOpenShell ships prebuilt wheels
-# per platform, and a deployment that never answers a geometric question
-# should be able to drop this one line. Its dependencies resolve from its
-# pyproject.toml, never from its own uv.lock: what `uv sync` installed above
-# (numpy, shapely, pillow) stays at the root lock's version, the rest takes the
-# newest release the range allows. That is why IfcOpenShell and ifctester are
-# exact there. `ifc_measure` degrades to a plain refusal when the import
-# fails — it never reports a missing engine as an unreadable building.
-# `[ids]` pulls ifctester for the IDS shopping-list export. Optional in the
-# package because the tool degrades to a named refusal without it; installed
-# here because on THIS deployment the capability is wanted.
-RUN uv pip install -e './packages/ifc-spatial-py[ids]'
+    && uv pip install -e './packages/ifc-spatial-py[ids]'
 
 # A requirement no layer installed fails the build, not the pod. Only the "not
 # installed" class: the declared-Python and cryptography mismatches `uv pip
@@ -136,8 +158,22 @@ RUN chmod +x /app/apps/agent-host/start_web.py \
     && mkdir -p /app/data \
     && chown -R 1000:1000 /app/data
 
+# /release is what the release image takes on top of python-deps' venv and
+# interpreter: all of /app but .venv, and the entries this stage added to or
+# changed in those two. A removed entry cannot travel that way, so it fails the
+# build.
+RUN find /app/.venv /opt/uv-python -mindepth 1 -printf '%p\t%s\t%T@\t%m\n' | sort > /tmp/now.manifest \
+    && cut -f1 /deps.manifest > /tmp/deps.paths \
+    && cut -f1 /tmp/now.manifest > /tmp/now.paths \
+    && if comm -23 /tmp/deps.paths /tmp/now.paths | grep .; then \
+         echo "error: the builder removed the entries above from python-deps' layers" >&2; exit 1; fi \
+    && mkdir -p /release/app \
+    && comm -13 /deps.manifest /tmp/now.manifest | cut -f1 | sed 's|^/||' \
+       | tar -C / --no-recursion --verbatim-files-from -T - -cf - | tar -C /release -xpf - \
+    && find /app -mindepth 1 -maxdepth 1 ! -name .venv -exec cp -a {} /release/app/ \;
+
 # =============================================================================
-# Stage 2: Development (adds Node.js)
+# Stage 3: Development (adds Node.js)
 # =============================================================================
 FROM builder AS dev-builder
 
@@ -149,7 +185,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 RUN /app/.venv/bin/python -c "import agent_host; import knowledge_layer; print('✓ All packages installed')"
 
 # =============================================================================
-# Stage 3: Development runtime
+# Stage 4: Development runtime
 # =============================================================================
 FROM debian:bookworm-slim AS dev
 
@@ -186,7 +222,7 @@ EXPOSE 8000
 ENTRYPOINT ["python", "/app/apps/agent-host/entrypoint.py"]
 
 # =============================================================================
-# Stage 4: Release (production - no CLI)
+# Stage 5: Release (production - no CLI)
 # =============================================================================
 FROM debian:bookworm-slim AS release
 
@@ -199,9 +235,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy from base builder (no CLI)
-COPY --from=builder /opt/uv-python /opt/uv-python
-COPY --from=builder /app /app
+# The interpreter and the dependencies first, each its own layer, unchanged
+# while the lockfiles are; then the code (no CLI).
+COPY --from=python-deps /opt/uv-python /opt/uv-python
+COPY --from=python-deps /app/.venv /app/.venv
+COPY --from=builder /release/ /
 
 USER 1000:1000
 

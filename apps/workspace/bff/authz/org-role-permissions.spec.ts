@@ -42,7 +42,7 @@ beforeEach(() => {
     data: [
       { slug: 'admin', permissions: ['org:settings:manage', 'org:projects:administer'] },
       { slug: 'member', permissions: ['org:projects:create'] },
-      { slug: 'org-geschaeftsfuehrung', permissions: ['org:projects:administer', 'org:archiv:manage'] },
+      { slug: 'org-geschaeftsfuehrung', permissions: ['org:projects:administer', 'org:office_shelf:manage'] },
     ],
   })
 })
@@ -50,7 +50,7 @@ beforeEach(() => {
 describe('rolePermissions', () => {
   it('is what WorkOS says the roles hold, every role together', async () => {
     expect(await rolePermissions(ORG, ['member', 'org-geschaeftsfuehrung'])).toEqual(
-      new Set(['org:projects:create', 'org:projects:administer', 'org:archiv:manage'])
+      new Set(['org:projects:create', 'org:projects:administer', 'org:office_shelf:manage'])
     )
     expect(listOrganizationRoles).toHaveBeenCalledWith(ORG)
   })
@@ -88,9 +88,5 @@ describe('rolesHoldPermission', () => {
   it("answers for an office's own custom role", async () => {
     expect(await rolesHoldPermission(ORG, ['org-geschaeftsfuehrung'], 'org:projects:administer')).toBe(true)
     expect(await rolesHoldPermission(ORG, ['member'], 'org:projects:administer')).toBe(false)
-  })
-
-  it('counts a grant of the old org:archiv:manage as org:office_shelf:manage', async () => {
-    expect(await rolesHoldPermission(ORG, ['org-geschaeftsfuehrung'], 'org:office_shelf:manage')).toBe(true)
   })
 })

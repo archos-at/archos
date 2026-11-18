@@ -1,10 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Was Piloti beim Lesen über ein Dokument erfahren hat, und was die Dokumente
- * eines Projekts übereinander sagen. „Planstand“ und „Plannummer“ stehen hier
- * nur für Zeichnungen: ein Datum dieser Art trägt nur eine Zeichnung.
- */
 export const dossier: typeof en.dossier = {
   documentTypes: {
     submission_drawing: 'Einreichplan',

@@ -192,11 +192,17 @@ release_databases
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
-echo "==> running the isolation, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
+echo "==> running the isolation, tenant keys, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
+    bff/db/rls-coverage-tenant-keys.integration.spec.ts \
     bff/bim/query.integration.spec.ts \
+    bff/bim/query.search-keys.integration.spec.ts \
+    bff/bim/query.catalog.integration.spec.ts \
+    bff/bim/query.aggregate.integration.spec.ts \
+    bff/bim/query.compliance.integration.spec.ts \
+    bff/bim/query.confirmations.integration.spec.ts \
     bff/bim/extraction-repository.integration.spec.ts \
     bff/bim/model-shelf.integration.spec.ts \
     bff/bim/model-kinds-repository.integration.spec.ts \
@@ -216,7 +222,6 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/projects/collection-placement.integration.spec.ts \
     bff/projects/folder-visibility.integration.spec.ts \
     bff/documents/shelf-folders.integration.spec.ts \
-    bff/projects/folder-bin.integration.spec.ts \
     bff/documents/stuck-processing.integration.spec.ts \
     bff/documents/retry-policy.integration.spec.ts \
     bff/project-profile/profile-bindings.integration.spec.ts \
@@ -252,6 +257,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/analytics/usage-export-repository.integration.spec.ts \
     bff/feedback/repository.integration.spec.ts \
     bff/citations/repository.integration.spec.ts \
+    bff/org-instructions/repository.integration.spec.ts \
     bff/profiler/repository.integration.spec.ts \
     bff/projects/project-status.integration.spec.ts \
     bff/projects/project-record.integration.spec.ts \
@@ -332,6 +338,8 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # platform suite above publishes too: alone, so neither publish meets the other's.
 # The visibility suite reads the owner's URL to check the office predicate with
 # the row policy bypassed (`store/visibility.ts`).
+# The Papierkorb suites sweep the same deletion queue (`claimable()` in each), so
+# they run one at a time too.
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
 TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
@@ -342,7 +350,13 @@ TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     bff/scheduling/repository.integration.spec.ts \
     bff/base-knowledge/chain/chain.integration.spec.ts \
     bff/base-knowledge/store/visibility.integration.spec.ts \
-    bff/base-knowledge/golden/golden-run.integration.spec.ts
+    bff/base-knowledge/golden/golden-run.integration.spec.ts \
+    bff/projects/folder-bin.integration.spec.ts \
+    bff/projects/folder-bin-restore.integration.spec.ts \
+    bff/projects/folder-bin-purge.integration.spec.ts \
+    bff/projects/folder-bin-queue.integration.spec.ts \
+    bff/projects/folder-service.bin.integration.spec.ts \
+    bff/organizations/deleted-folder-content-service.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -472,6 +486,25 @@ apply_in() {
   $PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d "$1" -v ON_ERROR_STOP=1 -q -f "migrations/$2" >/dev/null || {
     echo "MIGRATION $2 FAILED on $1 — re-run without -q to see the error" >&2
     exit 1
+  }
+}
+# One registered SQL backfill through the runner the deploy Job uses, twice: the
+# first run must write (unless "any" is passed) and the second must find 0.
+run_backfill() {
+  local manifest="backfills/$2/backfill.json"
+  PATH="$PGBIN:$PATH" APP_MIGRATION_DATABASE_URL="postgresql://$OWNER@127.0.0.1:$PORT/$1" sh backfills/run-sql.sh "$2" test \
+    "backfills/$2/$(node -p "require('./$manifest').dryRun")" "backfills/$2/$(node -p "require('./$manifest').apply")"
+}
+run_backfill_twice() {
+  local first second
+  first="$(run_backfill "$1" "$2")" || { echo "$first" >&2; echo "FAIL: backfill $2 left rows on $1" >&2; exit 1; }
+  second="$(run_backfill "$1" "$2")" || { echo "$second" >&2; echo "FAIL: backfill $2 left rows on its second run on $1" >&2; exit 1; }
+  echo "$first" | grep '"event":"backfill.done"'
+  if [ "${3:-}" != any ] && echo "$first" | grep -q '"event":"backfill.done".*"written":0,'; then
+    echo "FAIL: backfill $2 wrote nothing on its seeded rows on $1" >&2; exit 1
+  fi
+  echo "$second" | grep -q '"event":"backfill.done".*"before":0,"written":0,"after":0' || {
+    echo "$second" >&2; echo "FAIL: backfill $2 is not idempotent on $1" >&2; exit 1
   }
 }
 sql_in() { $PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d "$1" -v ON_ERROR_STOP=1 -q >/dev/null; }
@@ -4402,3 +4435,133 @@ check_in mt_0238 "SELECT count(*) FROM project_memory WHERE organization_id = 'o
 apply_in mt_0238 0238_memory_topics.sql
 check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238' AND topic IS NULL" "1" "0238 applies again after its down, and no note has a topic"
 echo "==> 0238 memory topics and their down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migrations 0241 to 0243: the stored names' expand step (ADR-0182 phase 4).
+# 0241: current_org() and current_user_id() read app.* first, grid.* second.
+# 0242: the actor-kind checks accept 'agent' beside 'piloti', under brand-free
+# constraint names. 0243: the live-name index covers generated/ beside piloti/.
+# Each applies twice, its down restores the previous shape, and it applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0241 to 0243 expand migrations and their downs on sn_0241"
+migrate_before sn_0241 0241_app_session_settings
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0241_app_session_settings.sql   # up twice: idempotent
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false), set_config('grid.organization_id', 'org_old', false)) AS s" "org_new" "0241: current_org() prefers app.organization_id"
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0241: current_org() falls back to grid.organization_id"
+check_in sn_0241 "SELECT current_user_id() FROM (SELECT set_config('app.user_id', 'user_new', false)) AS s" "user_new" "0241: current_user_id() reads app.user_id"
+check_in sn_0241 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%'" "4" "0241: the four organization defaults read the new setting"
+apply_in sn_0241 0241_app_session_settings.down.sql
+check_in sn_0241 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "none" "0241 down: current_org() reads only the old setting again"
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0242_agent_actor_kind.sql   # up twice: idempotent
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_agent_proposes', 'document_annotations_agent_needs_a_person')" "2" "0242: both constraints carry their brand-free names"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "0" "0242: the old constraint names are gone"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_author_known', 'document_annotation_replies_author_known', 'proposed_changes_proposer_known', 'document_annotations_only_agent_proposes') AND pg_get_constraintdef(oid) LIKE '%''agent''%' AND pg_get_constraintdef(oid) LIKE '%''piloti''%'" "4" "0242: every actor-kind check accepts both values"
+apply_in sn_0241 0242_agent_actor_kind.down.sql
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "2" "0242 down: the old constraint names return"
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql   # up twice: idempotent
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%' AND indexdef LIKE '%piloti/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "true" "0243: the live-name index covers both namespaces"
+apply_in sn_0241 0243_documents_generated_namespace.down.sql
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "false" "0243 down: the index returns to 0083's two arms"
+apply_in sn_0241 0243_documents_generated_namespace.sql
+echo "==> 0241 to 0243 expand migrations and their downs verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0244: a ledger row names its model once. A provider id written
+# twice is folded to the id; an id once, one with no provider prefix and a
+# NULL stay as they are. The down changes nothing, and 0244 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0244 model folded once and its down migration on um_0244"
+migrate_before um_0244 0244_usage_events_model_once
+sql_in um_0244 <<SQL
+INSERT INTO llm_usage_events (organization_id, model, generation_id) VALUES
+  ('org_0244', 'openai/gpt-6.1-terraopenai/gpt-6.1-terra', 'a-doubled'),
+  ('org_0244', 'openai/gpt-6.1-terra', 'b-once'),
+  ('org_0244', 'gpt-4ogpt-4o', 'c-no-prefix'),
+  ('org_0244', NULL, 'd-none');
+SQL
+STATE_0244="SELECT string_agg(generation_id || '=' || coalesce(model, 'null'), ',' ORDER BY generation_id) FROM llm_usage_events WHERE organization_id = 'org_0244'"
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 folds a doubled provider id and touches no other row"
+apply_in um_0244 0244_usage_events_model_once.down.sql
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 applies again after its down and folds nothing twice"
+echo "==> 0244 model folded once and its down migration verified"
+# Migration 0245 and the step-1 backfills of deploy 2 (ADR-0182 phase 4).
+# 0245: current_org() and current_user_id() read app.* only; its down restores
+# 0241. The step-1 backfills of apps/workspace/backfills/ run through the
+# deploy Job's runner against seeded rows, twice each, and the mention and lane
+# rewrites are checked on literal values.
+# ---------------------------------------------------------------------------
+echo "==> verifying migration 0245 and the step-1 backfills on sn_0245"
+migrate_before sn_0245 0245_app_session_settings_only
+apply_in sn_0245 0245_app_session_settings_only.sql
+apply_in sn_0245 0245_app_session_settings_only.sql   # up twice: idempotent
+check_in sn_0245 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "org_new" "0245: current_org() reads app.organization_id"
+check_in sn_0245 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "none" "0245: current_org() no longer reads grid.organization_id"
+check_in sn_0245 "SELECT coalesce(current_user_id(), 'none') FROM (SELECT set_config('grid.user_id', 'user_old', false)) AS s" "none" "0245: current_user_id() no longer reads grid.user_id"
+check_in sn_0245 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%' AND pg_get_expr(d.adbin, d.adrelid) NOT LIKE '%grid.%'" "4" "0245: the four organization defaults read only the new setting"
+apply_in sn_0245 0245_app_session_settings_only.down.sql
+check_in sn_0245 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0245 down: current_org() falls back to grid.organization_id again"
+apply_in sn_0245 0245_app_session_settings_only.sql
+
+sql_in sn_0245 <<'SQL'
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, count, created_at) VALUES
+  ('org_b1', 'user_b1', 'piloti.asks_you', 'document', 'doc_1', 'ann_1', 'piloti.asks_you:document:doc_1:ann_1', true, 2, '2026-11-01'),
+  ('org_b1', 'user_b1', 'agent.asks_you', 'document', 'doc_1', 'ann_1', 'agent.asks_you:document:doc_1:ann_1', true, 1, '2026-11-10'),
+  ('org_b1', 'user_b1', 'piloti.work_done', 'document', 'doc_1', 'ann_2', 'piloti.work_done:document:doc_1:ann_2', false, 1, '2026-11-02'),
+  ('org_b1', 'user_b1', 'mention.requested', 'document', 'doc_1', 'ann_3', 'mention.requested:document:doc_1:ann_3', true, 1, '2026-11-03');
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000245', 'org_b1', 'Backfill 0245', 'user_b1', 'proj_0245');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000245', 'org_b1', 'user_b1', 'a.pdf', 'k/0245/a', 'proj_0245', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000245');
+INSERT INTO document_annotations (organization_id, document_id, number, page, shape, x, y, w, h, kind, body, author_kind, status, created_by, mentions)
+VALUES ('org_b1', 'd1d1d1d1-0000-4000-8000-000000000245', 1, 1, 'region', 0.1, 0.1, 0.5, 0.5, 'question', 'Laufbreite?', 'piloti', 'proposed', 'user_b1',
+        '[{"targetId": "agent:piloti", "display": "agent:piloti"}, {"targetId": "user_b2", "display": "Ben"}]');
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, payload) VALUES
+  ('org_b1', 'user_b2', 'mention.requested', 'document', 'doc_2', 'ann_9', 'mention.requested:document:doc_2:ann_9', true,
+   '{"note": "agent:piloti", "mentions": [{"targetId": "agent:piloti", "display": "Agent"}]}');
+INSERT INTO citation_events (organization_id, turn_id, agent, kind, severity, detail) VALUES
+  ('org_b1', 'turn_1', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 2, "office_agent": 3, "project": 1}}'),
+  ('org_b1', 'turn_2', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 4}}'),
+  ('org_b1', 'turn_3', 'agent', 'health', 'info', '{"lanes": {"project": 5}}');
+INSERT INTO conversations (id, organization_id, created_by) VALUES ('conv_0245', 'org_b1', 'user_b1');
+INSERT INTO messages (id, conversation_id, organization_id, role, content, metadata)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000245', 'conv_0245', 'org_b1', 'user', '@agent:piloti office_piloti',
+        '{"mentions": [{"targetId": "agent:piloti", "display": "agent:piloti"}], "lane": "office_piloti", "lanes": ["office_piloti", "project"], "counts": {"office_piloti": 1}}');
+SQL
+run_backfill_twice sn_0245 actor-kind
+run_backfill_twice sn_0245 inbox-types
+check_in sn_0245 "SELECT string_agg(type || '=' || count || '@' || created_at::date, ',' ORDER BY type) FROM inbox_items WHERE recipient_user_id = 'user_b1'" "agent.asks_you=3@2026-11-01,agent.work_done=1@2026-11-02,mention.requested=1@2026-11-03" "backfill: an old inbox row folds into its twin or takes the new type, and others stay"
+check_in sn_0245 "SELECT count(*) FROM inbox_items WHERE group_key LIKE 'piloti.%'" "0" "backfill: no group key keeps the old type"
+run_backfill_twice sn_0245 mention-ids
+check_in sn_0245 "SELECT author_kind || ' ' || status FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" "agent proposed" "backfill: the agent's proposal is the agent's, still proposed"
+check_in sn_0245 "SELECT mentions::text FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" '[{"display": "agent:piloti", "targetId": "agent:core"}, {"display": "Ben", "targetId": "user_b2"}]' "backfill: a mark's agent mention takes the new id, a person's and the display text stay"
+check_in sn_0245 "SELECT payload::text FROM inbox_items WHERE anchor_id = 'ann_9'" '{"note": "agent:piloti", "mentions": [{"display": "Agent", "targetId": "agent:core"}]}' "backfill: an inbox payload's mention takes the new id, free text stays"
+run_backfill_twice sn_0245 lanes
+check_in sn_0245 "SELECT string_agg(detail -> 'lanes' ->> 'office_agent', ',' ORDER BY detail::text) FROM citation_events WHERE detail -> 'lanes' ? 'office_agent'" "4,5" "backfill: a lane count moves to the new key and adds to one already there"
+check_in sn_0245 "SELECT count(*) FROM citation_events WHERE detail -> 'lanes' ? 'office_piloti'" "0" "backfill: no lane count keeps the old key"
+check_in sn_0245 "SELECT metadata::text FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}, "mentions": [{"display": "agent:piloti", "targetId": "agent:core"}]}' "backfill: a message's agent mention and lane values take the new names, its keys and display text stay"
+check_in sn_0245 "SELECT content FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '@agent:piloti office_piloti' "backfill: a message's text stays as written"
+echo "==> migration 0245 and the step-1 backfills verified"
+
+# ---------------------------------------------------------------------------
+# Every registered SQL backfill (apps/workspace/backfills/), run twice through
+# the deploy Job's runner against the full schema with every suite's rows in
+# it: each ends at 0, and the second run finds nothing to write.
+# ---------------------------------------------------------------------------
+echo "==> running every registered SQL backfill twice on bf_registry"
+$PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE bf_registry TEMPLATE grid_app OWNER $OWNER;"
+for name in $(node -e '
+  const fs = require("fs");
+  for (const d of fs.readdirSync("backfills", { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()) {
+    if (JSON.parse(fs.readFileSync(`backfills/${d}/backfill.json`, "utf8")).kind === "sql") console.log(d);
+  }
+'); do
+  run_backfill_twice bf_registry "$name" any
+done
+echo "==> every registered SQL backfill verified"

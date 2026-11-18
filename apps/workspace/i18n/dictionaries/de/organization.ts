@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** The organization management page (admin). */
 export const organization: typeof en.organization = {
   title: 'Organisation',
   subtitle: 'Verwalten Sie Ihre Organisation, ihre Mitglieder und Zugriffe.',
@@ -20,7 +19,6 @@ export const organization: typeof en.organization = {
     compliance: 'Compliance',
     enterprise: 'Enterprise',
   },
-  /** Seitentitel der Bereichsrouten — eine Überschrift pro Route, nicht pro Karte. */
   sections: {
     overview: {
       title: 'Übersicht',
@@ -72,13 +70,6 @@ export const organization: typeof en.organization = {
         'SSO, Directory Sync, Domain-Verifizierung und Audit-Log-Streaming — die WorkOS-Steuerung, die nur Administratoren berühren dürfen.',
     },
   },
-  /**
-   * Organisation -> Download-Protokoll (ADR-0088): wer welches Dokument
-   * heruntergeladen hat, und wer eines in einem Ordner mit eigener
-   * Zugriffsliste geöffnet hat. Personenbezogene Daten über Mitarbeitende:
-   * Die Seite sagt, wozu sie dient, wie lange sie aufbewahrt wird und dass
-   * ihr Lesen selbst protokolliert wird.
-   */
   downloadLog: {
     purpose:
       'Dieses Protokoll dient der Sicherheit und der Nachvollziehbarkeit: Es zeigt, wer ein Dokument heruntergeladen oder in einem Ordner mit eigener Zugriffsliste geöffnet hat. Es ist keine Auswertung der Tätigkeit und wird nicht zur Beurteilung von Personen verwendet.',
@@ -139,9 +130,7 @@ export const organization: typeof en.organization = {
       error: 'Die Aufbewahrung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
     },
   },
-  /** Personen & Zugriff: Mitgliederverzeichnis, Rollenkatalog, Berechtigungsübersicht. */
   access: {
-    /** Accessible name of the sub-tab strip when it is wider than the screen. */
     tabsScrollable: 'Bereiche, seitlich scrollbar',
     people: {
       title: 'Personen',
@@ -158,12 +147,10 @@ export const organization: typeof en.organization = {
     roles: {
       title: 'Rollen',
       description: 'Die Rollen, die diese Organisation vergeben kann, und was jede davon freischaltet.',
-      // Singular/Plural wählt hier die Komponente. Neue gezählte Strings
-      // schreiben stattdessen einen Plural-Block (siehe `i18n/translate.ts`).
       permissionCountOne: '1 Berechtigung',
       permissionCountOther: '{count} Berechtigungen',
       platformNotice:
-        'Nur für Plattform-Personal. Diese Rollen liegen in der Organisation „GRID Platform“ und können hier nicht vergeben werden.',
+        'Nur für Plattform-Personal. Diese Rollen liegen in der Plattform-Organisation und können hier nicht vergeben werden.',
     },
     permissions: {
       title: 'Berechtigungen',
@@ -186,10 +173,6 @@ export const organization: typeof en.organization = {
         'Für die Verwaltung von Personen und Rollen wird die Berechtigung „Personen und Rollen verwalten“ benötigt. Ein Organisations-Admin kann sie vergeben.',
     },
   },
-  /**
-   * Personen & Zugriff → Eigene Rollen (ADR-0087): Rollen, die ein Büro in
-   * WorkOS anlegt und im Reiter „Personen“ zuweist.
-   */
   customRoles: {
     title: 'Eigene Rollen',
     description:
@@ -250,7 +233,6 @@ export const organization: typeof en.organization = {
         'Diese Rolle hat noch jemand. Geben Sie diesen Personen zuerst im Reiter „Personen“ eine andere Rolle.',
       error: 'Die Rolle konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.',
     },
-    /** Eine Bezeichnung und eine Zeile je Organisationsberechtigung, Schlüssel = Slug nach `org:`, `:` als `_`. */
     permission: {
       settings_manage: {
         name: 'Organisationseinstellungen verwalten',
@@ -324,12 +306,6 @@ export const organization: typeof en.organization = {
     saveError: 'Die Organisationseinstellungen konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.',
     loadError: 'Die Organisationseinstellungen konnten gerade nicht geladen werden. Bitte laden Sie die Seite neu.',
   },
-  /**
-   * Organisation → Anweisungen: der Anweisungsblock, unter dem jede Antwort
-   * dieser Organisation geschrieben wird. Der Hinweis nennt die Grenze
-   * ausdrücklich, weil sie der Punkt ist: stehende Vorlieben zu Form, Fokus und
-   * Ablauf — keine Regel, die Piloti aushebelt, und kein normativer Wert.
-   */
   instructions: {
     title: 'Anweisungen',
     description:
@@ -419,7 +395,6 @@ export const organization: typeof en.organization = {
     saveErrorZdrUnavailable:
       'Die Zero-Data-Retention-Liste konnte nicht geladen werden; die Modelle ließen sich daher nicht prüfen. Es wurde nichts gespeichert – bitte versuchen Sie es gleich noch einmal.',
     zdrTitle: 'Zero Data Retention',
-    /** Phone-only toggle on the long zero-data-retention paragraph. */
     zdrHintMore: 'Mehr anzeigen',
     zdrHintLess: 'Weniger anzeigen',
     zdrHint:
@@ -509,8 +484,6 @@ export const organization: typeof en.organization = {
     },
     label: 'Bezeichnung',
     labelPlaceholder: 'z. B. Firmen-OpenRouter-Konto',
-    // Labels for the BYOK key field, not a key. detect-secrets matches on the
-    // `apiKey` identifier regardless of the value being German UI copy.
     apiKey: 'API-Schlüssel', // pragma: allowlist secret
     apiKeyPlaceholder: 'sk-…', // pragma: allowlist secret
     apiKeyHint:
@@ -532,7 +505,6 @@ export const organization: typeof en.organization = {
     history: 'Schlüsselverlauf',
     revokedOn: 'erstellt {date}',
   },
-  /** Speicher: belegte Bytes im Verhältnis zum Kontingent, das Uploads stoppt. */
   storage: {
     title: 'Dokumentenspeicher',
     description:
@@ -544,9 +516,7 @@ export const organization: typeof en.organization = {
     nearQuota: 'Fast voll — neue Uploads werden bald abgelehnt',
     projectDocuments: 'Projektdokumente',
     officeShelfDocuments: 'Büroablage',
-    /** Count-neutral: wird auch bei genau einem Dokument gerendert. */
     documentCount: 'Dokumente: {count}',
-    /** Die Obergrenze je Datei, nur lesend; `size` kommt mit Einheit. */
     maxFileSize: 'Max. Dateigröße je Upload',
     setByPlatform:
       'Ihr Speicherkontingent und die maximale Dateigröße werden von {productName} festgelegt. Wenden Sie sich an den Support, wenn Sie mehr benötigen.',
@@ -625,7 +595,6 @@ export const organization: typeof en.organization = {
     open: 'Audit-Logs ansehen',
     error: 'Der Audit-Log-Viewer konnte nicht geöffnet werden.',
   },
-  /** Sensible Daten → „Inhalte aus gelöschten Ordnern" (ADR-0088). */
   deletedFolderContent: {
     title: 'Inhalte aus gelöschten Ordnern',
     description:
@@ -649,7 +618,6 @@ export const organization: typeof en.organization = {
     loadError: 'Die Einstellung konnte nicht geladen werden.',
     readOnly: 'Nur Organisations-Admins können das ändern.',
   },
-  /** Sensible Daten: die Liste, gegen die Piloti jeden Upload prüft (ADR-0086). */
   screening: {
     title: 'Prüfliste',
     description:
@@ -694,7 +662,6 @@ export const organization: typeof en.organization = {
     readOnly: 'Ändern können diese Listen nur Personen mit der Berechtigung „Organisationseinstellungen verwalten“.',
     loadError: 'Die Listen konnten gerade nicht geladen werden.',
   },
-  /** Quarantäne: Dateien, die die Inhaltsprüfung zurückgehalten hat (ADR-0086). */
   quarantine: {
     listLabel: 'Zurückgehaltene Dateien',
     empty: 'Nichts wartet auf Prüfung',
@@ -723,8 +690,6 @@ export const organization: typeof en.organization = {
     deleteError: 'Die Datei konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.',
     deleteErrorSession: 'Einen Chat-Anhang können nur Personen löschen, die an diesem Chat beteiligt sind.',
     loadError: 'Die Quarantäne konnte gerade nicht geladen werden.',
-    // Mehrfachauswahl: mehrere zurückgehaltene Dateien auf einmal zulassen oder
-    // löschen, etwa alle, die nur wegen einer vermeintlichen Kartennummer warten.
     selectRow: '„{name}“ auswählen',
     selectAll: 'Alle angezeigten auswählen',
     selected: '{count} ausgewählt',
@@ -741,8 +706,6 @@ export const organization: typeof en.organization = {
     someFailed:
       '{count, plural, one {Über eine Datei ließ sich nicht entscheiden. Sie bleibt ausgewählt.} other {Über # Dateien ließ sich nicht entscheiden. Sie bleiben ausgewählt.}}',
     decideError: 'Die Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
-    // Mit den Regeln von heute erneut prüfen: die Prüfung wurde verbessert oder
-    // das Büro hat seine Liste geändert. Gibt nichts frei, was die Regeln halten.
     recheck: 'Erneut prüfen',
     recheckHint:
       'Prüft die Dateien noch einmal mit den heute geltenden Regeln. Was nicht mehr anschlägt, liest {productName} wie jeden Upload; was weiterhin anschlägt, kommt hierher zurück.',
@@ -761,7 +724,6 @@ export const organization: typeof en.organization = {
       unscreened: 'Nicht geprüft',
     },
   },
-  /** What Piloti learned about the office's conventions, to confirm or decline (ADR-0129). */
   baseKnowledge: {
     title: 'Grundlagen des Büros',
     description: 'Die Normen, Kommentare und Weisungen Ihres Büros haben einen eigenen Bereich neben der Büroablage. Dort laden Sie sie hoch, ordnen sie in Ordner, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',

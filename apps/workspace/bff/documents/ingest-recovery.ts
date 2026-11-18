@@ -1,8 +1,3 @@
-/**
- * Recovering documents whose ingest failed or stalled: the org-wide failed retry and the stuck
- * redispatch.
- */
-
 import 'server-only'
 import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { ForbiddenError } from '@/lib/api/errors'
@@ -23,11 +18,9 @@ import { REINDEX_CONCURRENCY, forEachBounded } from './reindex'
 import { reingestDocument } from './reingest'
 
 export interface ReingestFailedOrgResult {
-  /** The job doing the work, on the `bff-jobs` pool (ADR-0081). */
   jobId: string
 }
 
-/** Failed documents one rescan slice sends back; see {@link REINDEX_SLICE_DOCUMENTS}. */
 export const REINGEST_SLICE_DOCUMENTS = 25
 
 function reingestRefusalCode(error: unknown): string | null {
@@ -38,31 +31,6 @@ function reingestRefusalCode(error: unknown): string | null {
   return null
 }
 
-/**
- * Re-dispatch every failed ingestion in the organization: authorize, then hand
- * the walk to a job.
- *
- * The rescan behind "Rescan failed ingestions" in Organization > Enterprise:
- * all files that were stored but could never be read (`failed`/`error`, plus
- * rows stranded at the `uploaded` birth status) go back through the ingest
- * pipeline under their own ids, so citations, chat subjects and assignments
- * pointing at them keep working.
- *
- * Like the reindex, the walk runs as a `bff-jobs` job (`reingest_failed`,
- * bulk), answered 202 with the job id. It pages through the failed set with a
- * keyset, so rows that stay failed cannot starve the rows behind them and the
- * job's whole state is one position. Each id still goes through
- * `reingestDocument`, so per-document access checks and the status guards stay
- * in exactly one place. Rows that are not retryable (still running, already
- * finished behind the row's back, not eligible, or no longer visible to the
- * requester) count as `skipped`, never as failures - and a dispatch that yields
- * no job resolves as `failed` rather than `queued`, because `dispatchIngest`
- * marks the row failed itself in that case. One document's failure never
- * abandons the rest.
- *
- * The rescan itself is audited (`org.documents.reingested`) with its outcome
- * when the job ends, because it is an organization-wide mutating admin action.
- */
 export async function reingestFailedOrgDocuments(
   session: AuthorizedSession
 ): Promise<ReingestFailedOrgResult> {
@@ -86,15 +54,12 @@ export async function reingestFailedOrgDocuments(
   return { jobId }
 }
 
-/** How one failed document's retry came out. */
 async function retryFailedDocument(
   session: AuthorizedSession,
   id: string
 ): Promise<'queued' | 'skipped' | 'failed'> {
   try {
     const outcome = await reingestDocument(session, id, { priority: 'bulk' })
-    // No job id means the dispatch recorded the failure itself: the retry
-    // went wrong, it did not queue.
     return outcome.status === 'failed' ? 'failed' : 'queued'
   } catch (error) {
     const code = reingestRefusalCode(error)
@@ -111,18 +76,10 @@ async function retryFailedDocument(
   }
 }
 
-/**
- * One slice of a `reingest_failed` job: the next page of the failed set, sent
- * back through ingestion, and the position to resume from. The audit event is
- * written by the slice that finds the end of the set.
- */
 export async function runReingestFailedSlice(
   session: AuthorizedSession,
   payload: ReingestFailedPayload
 ): Promise<JobSliceResult<ReingestFailedPayload>> {
-  // The route's own gate, asked again: the job may have waited, and the walk
-  // spans slices. `session` is the requester's rights today (`handlers.ts`), so a
-  // person who lost `org:settings:manage` since they clicked ends the rescan here.
   if (!hasPermission(session, ORG_PERMISSIONS.settingsManage)) {
     console.warn(`[reingest] ${session.userId} no longer holds ${ORG_PERMISSIONS.settingsManage}; stopping the rescan`)
     return { done: true, payload }
@@ -160,28 +117,13 @@ export async function runReingestFailedSlice(
   return { done: true, payload: next }
 }
 
-/** How the sweep's retry of one stranded document came out. */
 export type StuckDocumentOutcome = 'requeued' | 'failed' | 'gone'
 
-/**
- * Give a document left at `processing` with no live job a new one, or say
- * plainly that it cannot have one.
- *
- * The sweep's door (`./stuck-processing`), and the system's own act: no person
- * is asking, so no session and no permission check; what the row says is all
- * this believes. It goes through {@link dispatchDocument}, so a model is parsed
- * again and an office file converted again by the same code a first upload
- * runs, the machine-authored guard included. A row there is nothing to rebuild
- * from (no stored bytes, not a person's document) is failed with the reason
- * the dispatcher gives for a failed start, because a row left at `processing`
- * would be found by every later sweep for good.
- */
 export async function redispatchStuckDocument(
   organizationId: string,
   documentId: string
 ): Promise<StuckDocumentOutcome> {
   const doc = await findDocumentInOrg(documentId, organizationId, internalRead('ingest'))
-  // Gone, or moved on since the sweep read it.
   if (!doc || doc.status !== 'processing') return 'gone'
 
   if (!doc.storageKey || doc.authoredBy !== 'user' || !collectionFileRef(doc)) {
@@ -197,7 +139,6 @@ export async function redispatchStuckDocument(
     storageBucket: doc.storageBucket,
     collectionName: doc.collectionName,
     folderPath: await resolveDocumentFolderPath(doc, organizationId),
-    // Recovery is nobody's upload: it yields to the people who are waiting.
     priority: 'bulk',
   })
   return status === 'failed' ? 'failed' : 'requeued'

@@ -34,7 +34,7 @@ vi.mock('@/lib/citations/style', () => ({ citationStylesFor: vi.fn(async () => n
 vi.mock('@/lib/turns/headless-turn', () => ({
   runHeadlessTurn: vi.fn(),
   cancelHeadlessTurn: vi.fn(),
-  chatSocketUrl: vi.fn(() => 'ws://aiq-agent:8000/websocket'),
+  chatSocketUrl: vi.fn(() => 'ws://agent.example.test:8000/websocket'),
 }))
 vi.mock('@/lib/turns/turn-context', async () => {
   const actual = await vi.importActual<typeof import('@/lib/turns/turn-context')>('@/lib/turns/turn-context')
@@ -58,6 +58,7 @@ import { findProjectProfile } from '@/lib/projects/repository'
 import { verifyRequestContextEnvelope } from '@/lib/request-context'
 import { cancelHeadlessTurn, chatSocketUrl, runHeadlessTurn, type HeadlessTurnRequest } from '@/lib/turns/headless-turn'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
+import { runAsActingSession } from '@/lib/agent-api/acting-session'
 import {
   deleteAskQuestion,
   endAsk,
@@ -83,6 +84,7 @@ import {
 } from './service'
 import { CHAT_TURN_DEADLINE_SECONDS, DEFAULT_ASK_MAX_SECONDS } from './ask-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'internal-secret'
 const ORG = 'org_1'
@@ -99,7 +101,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }
 
 let row: AgentAskRow
@@ -124,8 +126,8 @@ const turnRequest = (): HeadlessTurnRequest => vi.mocked(runHeadlessTurn).mock.c
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.REQUIRE_AUTH = 'true'
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('REQUIRE_AUTH', 'true')
   row = askRow()
   vi.mocked(insertAsk).mockImplementation(async (values) => {
     row = askRow({ ...values })
@@ -156,12 +158,12 @@ beforeEach(() => {
     memoryReflectionEnabled: false,
   }))
   vi.mocked(runHeadlessTurn).mockResolvedValue({ kind: 'started' })
-  vi.mocked(chatSocketUrl).mockReturnValue('ws://aiq-agent:8000/websocket')
+  vi.mocked(chatSocketUrl).mockReturnValue('ws://agent.example.test:8000/websocket')
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
-  delete process.env.REQUIRE_AUTH
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+  vi.stubEnv('REQUIRE_AUTH', undefined)
 })
 
 describe('askAnswerMessageId', () => {
@@ -206,7 +208,7 @@ describe('askAgent', () => {
     })
     expect(request.requires).toEqual(ASK_REQUIRES)
     expect(request.headers['x-chat-mode']).toBe('headless')
-    expect(request.headers['x-aiq-mode']).toBe('headless')
+    expect(request.headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     const context = verifyRequestContextEnvelope(
       request.headers['x-request-context'],
       request.headers['x-request-context-sig'],
@@ -215,7 +217,22 @@ describe('askAgent', () => {
     expect(context).toMatchObject({ userId: USER, organizationId: ORG, conversationId: row.conversationId })
   })
 
-  it('waits for the turn’s outcome and answers with Piloti’s message', async () => {
+  it('names the agent door the ask came through, so the turn’s answer_finished is filed under it', async () => {
+    await runAsActingSession(
+      SESSION,
+      () => askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 }),
+      'agent',
+      { door: 'a2a', sessionSource: 'script' },
+    )
+    expect(turnRequest().headers).toMatchObject({ 'x-turn-door': 'a2a', 'x-turn-session-source': 'script' })
+  })
+
+  it('names no door for an ask started outside one (the golden run)', async () => {
+    await askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 })
+    expect(Object.keys(turnRequest().headers)).not.toContain('x-turn-door')
+  })
+
+  it('waits for the turn’s outcome and answers with the agent’s message', async () => {
     vi.mocked(findAsk).mockImplementation(async () => {
       if (row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
       return row

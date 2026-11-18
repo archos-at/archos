@@ -89,7 +89,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -315,7 +315,7 @@ describe('carrying a mark of a document another one replaced', () => {
     DOCS.delete('doc_d')
   })
 
-  it('refuses a second carry, a colleague’s earlier move, and a mark Piloti is working', async () => {
+  it('refuses a second carry, a colleague’s earlier move, and a mark the agent is working', async () => {
     vi.mocked(carryAnnotationToDocument).mockRejectedValueOnce(new AlreadyCarriedError())
     await expect(carry('doc_b', 'ann_b')).rejects.toMatchObject({ status: 409 })
 
@@ -365,7 +365,7 @@ describe('what a list offers to carry, and where to', () => {
     })
   })
 
-  it('names the end of the chain, where the carry lands (B→C→D lands in D), and nothing for a mark Piloti works', async () => {
+  it('names the end of the chain, where the carry lands (B→C→D lands in D), and nothing for a mark the agent works', async () => {
     vi.mocked(loadRevisionLinks).mockImplementation(chain)
     vi.mocked(listDocumentAnnotations).mockResolvedValue([
       ON_B,

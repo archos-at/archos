@@ -1,11 +1,3 @@
-/**
- * The folders, documents, uploads and holds operations (ADR-0122). See `projects.ts` for the shape
- * and `docs/architecture/agent-surface.md` for the rules.
- *
- * Folder access is readable here (project-folder-access-get); changing it stays with a person.
- * The mail import's operations live in `mail.ts`, beside the E-Mail-Eingang's.
- */
-
 import { z } from 'zod'
 import { projectMarksQuerySchema } from '@/lib/annotations/project-types'
 import { createHoldSchema } from '@/lib/compliance/hold-wire'
@@ -521,7 +513,6 @@ export const foldersOperations = [
     method: 'GET',
     path: '/api/root-sort-runs/[runId]',
     params: rootSortRunParams,
-    // The run id names no project, and a run may sort any project's root or the office shelf.
     spansProjects: 'always',
     load: () => import('@/app/api/root-sort-runs/[runId]/route'),
   },

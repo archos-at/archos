@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-"""Comment-line ratchet; the rule and its reasons: docs/contributing/code-conventions.md#comments."""
 
 from __future__ import annotations
 
 import argparse
+import ast
 import functools
 import json
 import re
@@ -29,7 +29,8 @@ EXCLUDED = re.compile(
             r"\.generated\.",
             r"^apps/workspace/shared/cards/generated\.ts$",
             r"^apps/cms/src/payload-types\.ts$",
-            r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",
+            r"^apps/cms/src/app/\(payload\)/",
+            r"^apps/workspace/bff/skills/platform-skills\.ts$",
             r"\.d\.ts$",
             r"(^|/)migrations/",
             r"(^|/)drizzle/",
@@ -38,9 +39,9 @@ EXCLUDED = re.compile(
     )
 )
 DIRECTIVE = re.compile(
-    r"noqa|type:\s*ignore|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
+    r"noqa|type:\s*ignore|ty:\s*ignore|nosemgrep|nosec\b|NOSONAR|isort:|@deprecated|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
-    r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|"
+    r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|drop after release|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
     r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve"
 )
@@ -61,9 +62,24 @@ def tracked_sources(root: Path) -> list[str]:
     return [path for path in out.splitlines() if is_checked(path) and (root / path).is_file()]
 
 
+def script_metadata_lines(source: str) -> set[int]:
+    found, inside = set(), False
+    for number, row in enumerate(source.split("\n"), start=1):
+        if row.strip() == "# /// script":
+            inside = True
+        if inside:
+            found.add(number)
+        if inside and row.strip() == "# ///":
+            inside = False
+    return found
+
+
 def prose_comment_count(path: str, source: str) -> int:
     rows = source.split("\n")
-    return sum(1 for number in comment_lines(path, source) if not DIRECTIVE.search(rows[number - 1]))
+    kept = script_metadata_lines(source)
+    return sum(
+        1 for number in comment_lines(path, source) if number not in kept and not DIRECTIVE.search(rows[number - 1])
+    )
 
 
 @functools.cache
@@ -111,6 +127,46 @@ def measure(root: Path, paths: list[str]) -> dict[str, int]:
     return counts
 
 
+DOC_READ = (
+    "reads a docstring, and docstrings are purged: give the text an explicit field, `description=` on a tool or "
+    "an argparse parser, a `*_DESCRIPTION` constant, `Field(description=...)`, or "
+    '`model_config = ConfigDict(json_schema_extra={"description": ...})` on a schema.'
+)
+
+
+def _bare_tool(decorator: ast.expr) -> bool:
+    if isinstance(decorator, ast.Name):
+        return decorator.id == "tool"
+    named = isinstance(decorator, ast.Call) and getattr(decorator.func, "id", "") == "tool"
+    return named and not any(keyword.arg == "description" for keyword in decorator.keywords)
+
+
+def docstring_reads(path: str, source: str) -> list[str]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    lines = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == "__doc__" and isinstance(node.ctx, ast.Load):
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Name) and node.id == "__doc__" and isinstance(node.ctx, ast.Load):
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Attribute) and node.attr == "getdoc":
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Name) and node.id == "getdoc":
+            lines.add(node.lineno)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            lines.update(d.lineno for d in node.decorator_list if _bare_tool(d))
+        elif isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "from_function":
+            if not any(keyword.arg == "description" for keyword in node.keywords):
+                lines.add(node.lineno)
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", "") == "getattr" and len(node.args) > 1:
+            if isinstance(node.args[1], ast.Constant) and node.args[1].value == "__doc__":
+                lines.add(node.lineno)
+    return [f"{path}:{line}: {DOC_READ}" for line in sorted(lines)]
+
+
 def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
     findings = []
     for path, count in sorted(current.items()):
@@ -135,7 +191,7 @@ def write_baseline(path: Path, counts: dict[str, int]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Comment-line ratchet.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove entries; never raise or add one.")
     mode.add_argument("--rebaseline", action="store_true", help="Rewrite the baseline from the tree.")
@@ -157,6 +213,9 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    for path in current:
+        if path.endswith(".py"):
+            findings += docstring_reads(path, (root / path).read_text(encoding="utf-8", errors="replace"))
     slack = [f for f in findings if "so lower its" in f]
     findings = [f for f in findings if f not in slack]
     if findings:

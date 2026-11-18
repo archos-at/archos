@@ -49,7 +49,6 @@ function effectiveLimit(project: number | null, org: number | null): number | nu
   return Math.min(project, org)
 }
 
-// Amounts are never money: cost and price stay off every tenant surface.
 export function UsageSettings({ projectId, usage, canEditLimit }: UsageSettingsProps): JSX.Element {
   const t = useTranslations(settingsCopy)
   const tOrg = useTranslations(organizationCopy)

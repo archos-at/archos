@@ -14,6 +14,7 @@ import { skillsCopy } from '@/i18n/namespaces/skills'
 import { cn } from '@/lib/utils'
 import { setCuratedSkillEnabled, type SkillCategoryListItem, type SkillListItem } from '@/adapters/api/skills-client'
 import { agentScopeLabelKey } from '../lib/agent-scope'
+import { readMetadata } from '@/lib/skills/legacy-names'
 import { groupSkillsByCategory } from '../lib/skill-categories'
 import { capturePosthog } from '@/lib/analytics/posthog'
 
@@ -144,9 +145,9 @@ function CuratedSkillCard({
             {/* Same rule as an org card: a scope badge only where the skill does
                 NOT reach every agent, and under the description — beside the
                 switch it took the row on a phone and cut the name to "/energy". */}
-            {agentScopeLabelKey(skill.metadata['grid-agents']) && (
+            {agentScopeLabelKey(readMetadata(skill.metadata, 'agents')) && (
               <Badge variant="outline" className="mt-1">
-                {t(`toolbox.scope.${agentScopeLabelKey(skill.metadata['grid-agents'])}`)}
+                {t(`toolbox.scope.${agentScopeLabelKey(readMetadata(skill.metadata, 'agents'))}`)}
               </Badge>
             )}
           </div>

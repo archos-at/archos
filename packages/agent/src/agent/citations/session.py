@@ -1,8 +1,3 @@
-"""The registry a session and a turn share.
-
-The per-session ContextVar, its persistence in the shared cache, and the per-turn capture log.
-"""
-
 from __future__ import annotations
 
 import contextvars
@@ -36,8 +31,6 @@ _session_registries: OrderedDict[str, SourceRegistry] = OrderedDict()
 _session_registries_lock = threading.Lock()
 
 
-# Cross-turn citation state survives process restarts and replica moves via
-# the shared cache (ADR-0020); the in-process LRU stays the fast path.
 _REGISTRY_CACHE_PREFIX = "citations:"
 
 
@@ -45,14 +38,6 @@ _REGISTRY_CACHE_TTL_SECONDS = int(os.environ.get("CITATION_REGISTRY_TTL_SECONDS"
 
 
 def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
-    """Rebuild a session's registry from the cached dicts ``persist_session_registry`` wrote.
-
-    Every field a later turn can still read off an entry is restored, including
-    ``clause`` and ``score``: they reach the wire (``source_entry_to_wire``), so
-    dropping them made a resumed conversation's chips lose the locus and the
-    match strength that the same conversation had shown a minute earlier, on a
-    replica move nobody could see.
-    """
     registry = SourceRegistry()
     if isinstance(entries, list):
         for item in entries:
@@ -98,11 +83,6 @@ def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
 
 
 def persist_session_registry(session_id: str | None) -> None:
-    """Write a session's captured sources to the shared cache (best-effort).
-
-    Call after a turn that may have captured sources; synchronous (wrap in
-    ``asyncio.to_thread`` from the event loop).
-    """
     if not session_id:
         return
     with _session_registries_lock:
@@ -119,15 +99,6 @@ def persist_session_registry(session_id: str | None) -> None:
 
 
 def get_or_create_session_registry(session_id: str | None) -> SourceRegistry:
-    """Get or create a session-scoped SourceRegistry (LRU, max 1000 sessions).
-
-    When session_id is None (e.g. CLI or batch modes with no conversation context),
-    a fresh isolated SourceRegistry is returned on every call to prevent anonymous
-    sessions from sharing state and leaking citations across concurrent requests.
-
-    On a local miss the shared cache is consulted, so a conversation resumed on
-    another replica (or after a restart) keeps its prior-turn citation sources.
-    """
     if session_id is None:
         return SourceRegistry()
     from agent.common.profiler import annotate_current_span
@@ -138,8 +109,6 @@ def get_or_create_session_registry(session_id: str | None) -> SourceRegistry:
             annotate_current_span(cache_citation_registry="hit")
             return _session_registries[session_id]
 
-    # Shared-cache hydration outside the lock (network I/O must not serialize
-    # unrelated sessions); the double-checked insert below resolves races.
     from agent.common import cache
 
     hydrated: SourceRegistry | None = None
@@ -168,30 +137,20 @@ _turn_captured_sources: contextvars.ContextVar[list[SourceEntry] | None] = conte
 
 
 def begin_turn_capture() -> contextvars.Token:
-    """Start recording this turn's captured sources. Pair with :func:`end_turn_capture`."""
     return _turn_captured_sources.set([])
 
 
 def end_turn_capture(token: contextvars.Token) -> None:
-    """Stop recording this turn's captured sources."""
     _turn_captured_sources.reset(token)
 
 
 def record_turn_capture(entries: Sequence[SourceEntry]) -> None:
-    """Note sources a tool call returned during this turn. No-op when not recording."""
     log = _turn_captured_sources.get()
     if log is not None:
         log.extend(entries)
 
 
 def get_turn_captures() -> list[SourceEntry]:
-    """Distinct sources this turn's tool calls returned, in first-seen order.
-
-    Deduplicated on the same identity the registry uses (URL / document key), so
-    a document returned by two queries in one turn counts once — but a document
-    retrieved again in a LATER turn counts again for that turn, which
-    ``registry.all_sources()`` could not express.
-    """
     log = _turn_captured_sources.get()
     if not log:
         return []
@@ -207,15 +166,12 @@ def get_turn_captures() -> list[SourceEntry]:
 
 
 def set_session_registry(registry: SourceRegistry | None) -> contextvars.Token:
-    """Set the session-scoped SourceRegistry for the current async context."""
     return _session_source_registry.set(registry)
 
 
 def reset_session_registry(token: contextvars.Token) -> None:
-    """Restore the session-scoped SourceRegistry to its previous value."""
     _session_source_registry.reset(token)
 
 
 def get_session_registry() -> SourceRegistry | None:
-    """Get the session-scoped SourceRegistry for the current async context."""
     return _session_source_registry.get()

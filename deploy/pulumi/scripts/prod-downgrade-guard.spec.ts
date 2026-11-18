@@ -4,22 +4,11 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The prod downgrade guard, run as deploy.yml's prod job runs it: bash, a real
- * git history, and stubs for `pulumi` (the running images) and `gh` (a commit
- * date the checkout does not have).
- *
- * The case it exists for: develop's Pulumi.prod.yaml carried a September pin
- * into the November promotion, and prod ran a commit no branch has any more
- * (a history rewrite), so ancestry alone could not have refused it.
- */
-
 const SCRIPT = join(__dirname, "prod-downgrade-guard.sh");
 const ROOT = mkdtempSync(join(tmpdir(), "prod-downgrade-guard-"));
 const REPO = join(ROOT, "repo");
 const BIN = join(ROOT, "bin");
 const C: Record<string, string> = {};
-/** A commit no ref holds, as prod's rewritten sha-331b9d91… was. */
 const GONE = "331b9d9117661b201c762a7017f9c0d17ec21866";
 
 const GIT_ENV = {
@@ -54,13 +43,10 @@ beforeAll(() => {
   commit("september", "2026-09-18T10:00:00Z");
   commit("october", "2026-10-28T19:02:43Z");
   commit("november", "2026-11-10T12:00:00Z");
-  // The rewritten twin of `october`: same date, on no shared history.
   git(["checkout", "-q", "--orphan", "rewritten"]);
   commit("twin", "2026-10-28T19:02:43Z");
   git(["checkout", "-q", "develop"]);
 
-  // `pulumi stack output --json` prints the outputs with $STUB_DEPLOYED as deployedImages (none when it is empty),
-  // or fails when $STUB_PULUMI_FAILS is set.
   stub(
     "pulumi",
     [
@@ -69,7 +55,6 @@ beforeAll(() => {
       'if [ -n "${STUB_DEPLOYED:-}" ]; then printf \'{"deployedImages":%s}\' "$STUB_DEPLOYED"; else printf \'{}\'; fi',
     ].join("\n"),
   );
-  // `gh api repos/<repo>/commits/<sha>` answers $STUB_GH_DATE, or fails when it is empty.
   stub("gh", ['[ -n "${STUB_GH_DATE:-}" ] || exit 1', 'printf \'%s\\n\' "$STUB_GH_DATE"'].join("\n"));
 });
 

@@ -1,10 +1,3 @@
-/**
- * A territory's parents, read from the platform's territory records (ADR-0165,
- * design §3.2 `parents`); `chain/territory-chain.ts` `chainAt` walks them.
- * Runs inside the caller's `withTenant`; names the office's read itself
- * (`store/visibility.ts`), so the layered RLS is the backstop, not the filter.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import type { getDb } from '@/lib/db'
@@ -17,7 +10,6 @@ interface TerritoryRow extends Record<string, unknown> {
   parents: TerritoryParent[]
 }
 
-/** Each territory on `territoryId`'s way up (itself included, at most 16 levels) with its parents, dated ones included. */
 export async function readTerritoryParents(
   db: ReturnType<typeof getDb>,
   organizationId: string,

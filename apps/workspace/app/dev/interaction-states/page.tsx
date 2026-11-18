@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview: every interactive element of the kit in every state it has, by
- * family.
- *
- * It exists because the hover of a control was decided control by control: a
- * button answered the pointer with a shadow, a card with a lift, a row with a
- * fill, a tab of one page with its ink and a tab of another with a grey pill.
- * One page that shows them all is where that is seen, and where a new control
- * is checked against the rest (docs/design/design-language.md, „Hover is one
- * step down the ladder“).
- *
- * The states are real: `scripts/capture-forced-states.mjs` forces `:hover`,
- * `:active` and `:focus-visible` on the cells marked `data-force` through the
- * browser's protocol (docs/ux/visual-screenshots.md, „Every state at once“).
- * Opened by hand it is the same grid at rest. 404s outside development
- * (`app/dev/layout.tsx`).
- */
-
 import type { JSX } from 'react'
 import { ActionsFamily } from './actions-family'
 import { ChoicesFamily } from './choices-family'

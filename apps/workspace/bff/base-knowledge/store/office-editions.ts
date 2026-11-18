@@ -1,20 +1,3 @@
-/**
- * A newer edition of a standard the office already holds, as the platform holds
- * one (ADR-0163 amendment, 2026-11): a second edition record under the SAME
- * work, with its own copy and document, so `time/editions.ts` picks the one in
- * force on a day exactly as it does for the platform's editions.
- *
- * An office entry's work was created with its first document
- * (`knowledge_records.document_id`), and an edition's revision references its
- * work with ON DELETE CASCADE: removing the first document would take the work
- * and, with it, every later edition's revisions. So before a second edition
- * joins, the work is made to stand alone (`document_id` NULL): a new work
- * record with the same values, and a new revision of the first edition naming
- * it (revisions are only ever appended, migration 0202). Each edition then goes
- * with its own document, and the work goes when the last edition has
- * ({@link deleteWorkIfUnused}).
- */
-
 import 'server-only'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -29,7 +12,6 @@ import { appendRevision, bodiesOf, lockEditionWork, newRecordId, type EntryRecor
 type WorkRow = typeof knowledgeWorkRevisions.$inferSelect
 type EditionRow = typeof knowledgeEditionRevisions.$inferSelect
 
-/** A revision row as a body to append again: without the ids that name that revision. */
 function bodyOf<Row extends { revisionId: string; recordId: string; organizationId: string | null }>(
   row: Row,
 ): Omit<Row, 'revisionId' | 'recordId' | 'organizationId'> {
@@ -37,7 +19,6 @@ function bodyOf<Row extends { revisionId: string; recordId: string; organization
   return body
 }
 
-/** The newest stored revision of a work: what the last write left, whatever the caller read before. */
 async function newestWork(tx: Tx, workId: string): Promise<WorkRow | null> {
   const [row] = await tx
     .select({ body: knowledgeWorkRevisions })
@@ -49,7 +30,6 @@ async function newestWork(tx: Tx, workId: string): Promise<WorkRow | null> {
   return row?.body ?? null
 }
 
-/** The newest stored revision of an edition. */
 async function newestEdition(tx: Tx, editionId: string): Promise<EditionRow | null> {
   const [row] = await tx
     .select({ body: knowledgeEditionRevisions })
@@ -61,7 +41,6 @@ async function newestEdition(tx: Tx, editionId: string): Promise<EditionRow | nu
   return row?.body ?? null
 }
 
-/** A work's identifiers with its designation cited without one edition's date. */
 function withWorkDesignation(identifiers: KnowledgeIdentifiers): KnowledgeIdentifiers {
   const designation = workDesignation(typeof identifiers.designation === 'string' ? identifiers.designation : null)
   const { designation: _dropped, ...rest } = identifiers
@@ -82,15 +61,8 @@ async function moveHead(tx: Tx, recordId: string, revisionId: string): Promise<v
   await tx.update(knowledgeRecords).set({ headRevisionId: revisionId }).where(eq(knowledgeRecords.id, recordId))
 }
 
-/**
- * The work `earlier` belongs to, standing alone: its own id when it already
- * does, else a new standalone work with its values, the earlier edition's new
- * revision naming it. Confirmed heads move with it; a proposal stays one.
- */
 async function standaloneWork(tx: Tx, earlier: StoredEntry, context: WriteContext): Promise<string> {
   if (earlier.workStandsAlone) return earlier.workId
-  // Two newer editions at once must end in one work, and an edit must not land on a work just replaced: every
-  // write to the edition takes its lock (`lockEditionWork`), and what follows reads what is stored, not the caller's read.
   const current = await lockEditionWork(tx, earlier.editionId)
   if (current && current !== earlier.workId && (await standsAlone(tx, current))) return current
   const workId = newRecordId('work')
@@ -103,7 +75,6 @@ async function standaloneWork(tx: Tx, earlier: StoredEntry, context: WriteContex
   await tx.insert(knowledgeRecords).values({ id: workId, type: 'work', organizationId: context.organizationId, documentId: null, createdBy: context.createdBy })
   const workRevision = await appendRevision(tx, { ...common, recordId: workId, type: 'work' }, workBody)
   const editionRevision = await appendRevision(tx, { ...common, recordId: earlier.editionId, type: 'edition' }, editionBody)
-  // Confirmed heads move with it; a proposal stays one.
   if (await hasHead(tx, earlier.editionId)) {
     await moveHead(tx, workId, workRevision)
     await moveHead(tx, earlier.editionId, editionRevision)
@@ -111,12 +82,6 @@ async function standaloneWork(tx: Tx, earlier: StoredEntry, context: WriteContex
   return workId
 }
 
-/**
- * A newer edition of `earlier`'s work for one office shelf document: its edition
- * and copy records, proposed (no heads), under the work made to stand alone.
- * The work's values are the work's, its designation among them (the new
- * edition's own date is its label); the edition and the copy are the new one's.
- */
 export async function insertEditionOfWork(
   documentId: string,
   earlier: StoredEntry,
@@ -146,11 +111,6 @@ export async function insertEditionOfWork(
   })
 }
 
-/**
- * Remove a standalone work once no edition names it any more: the last
- * edition's document is gone, so is everything of the standard. A work that
- * still has an edition, or belongs to a document, stays.
- */
 export async function deleteWorkIfUnused(organizationId: string, workId: string): Promise<boolean> {
   return withTenant({ organizationId }, async () => {
     const removed = await getDb()

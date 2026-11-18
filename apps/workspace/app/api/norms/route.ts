@@ -1,10 +1,3 @@
-/**
- * The norm register, read-only, for every member: which Austrian laws and
- * authority guidance Piloti knows by number and how each becomes binding.
- * Thin handler; the platform's editing route is `/api/platform/norms`, which
- * reads the same register through `getNormRegistry`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf, pageOfList } from '@/lib/api/offset-page'
 import { filterNorms, listNormsQuerySchema } from '@/lib/norms/norm-list-wire'

@@ -1,12 +1,3 @@
-"""The project-experience route (`POST /v1/internal/project-experience`).
-
-Called by the BFF's close dialog and by the archive import, once per project. The reading is
-`agent.knowledge.project_experience`; this route only supplies the retriever's summary model
-and its chunks, read from the project's collection. It fails open like `note_embeddings`: any
-fault is answered as `error` with empty lists, never as a non-200. A bad request body is FastAPI's
-422, as everywhere else.
-"""
-
 import asyncio
 import logging
 
@@ -23,12 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 def _read_project(request: ProjectExperienceRequest) -> ProjectExperienceResponse:
-    """The blocking half: the ingestor's summary model and the chunks. Runs on a worker thread and never raises.
-
-    The summary model belongs to the ingestor (``LlamaIndexIngestor.summary_llm``),
-    not the retriever: asked of the retriever, it was always None and the route
-    answered "no model" in every deployment.
-    """
     try:
         from agent.knowledge.collection_pages import read_pages
         from agent.knowledge.factory import get_active_ingestor
@@ -46,7 +31,6 @@ def _read_project(request: ProjectExperienceRequest) -> ProjectExperienceRespons
 
 
 def add_project_experience_routes(router: APIRouter) -> None:
-    """Register the project-experience endpoint."""
 
     @router.post(
         "/v1/internal/project-experience",
@@ -60,10 +44,8 @@ def add_project_experience_routes(router: APIRouter) -> None:
         ),
     )
     async def project_experience(request: ProjectExperienceRequest, http_request: Request) -> ProjectExperienceResponse:
-        """Read the project's documents, or say why it could not be done."""
         _require_internal_token(http_request)
         from knowledge_layer.search import reading_as
 
-        # The project's office reads its scope (ADR-0163); ``to_thread`` carries the context over.
         with reading_as(request.organization_id):
             return await asyncio.to_thread(_read_project, request)

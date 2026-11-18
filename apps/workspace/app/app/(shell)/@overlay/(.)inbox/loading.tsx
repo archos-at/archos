@@ -1,9 +1,3 @@
-/**
- * Loading state for the intercepted Postfach sheet: the scrim and panel appear
- * immediately over the page the reader is on, so the click lands before the
- * session round-trip resolves.
- */
-
 import type { JSX } from 'react'
 import { PageSheetSkeleton } from '@/components/shell/page-sheet-skeleton'
 import { InboxSheetSkeleton } from '@/features/collaboration/components/InboxSkeleton'

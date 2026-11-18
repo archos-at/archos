@@ -1,7 +1,3 @@
-/**
- * From wizard answers to the project profile and back: `buildIntakeProfile`, `mergeIntakeProfile`, `answersFromProfile`.
- */
-
 import { applyProjectProfilePatch, emptyProjectProfile } from './patch-engine'
 import type { ProjectAssumption, ProjectFact, ProjectPrimitiveValue, ProjectProfile, ProjectProfilePatchOperation } from './types'
 import { BUILDING_ID_IN_KEY, type BuildingInstance, answerKeyFor, buildingNumber, defaultBuildings, modeKeyFor } from './intake-building-keys'
@@ -9,7 +5,6 @@ import { FEDERAL_STATE_TOKENS, type WriteTarget, buildingsFromAnswers, evaluateI
 import { applyLegacyAnswerBridges } from './intake-legacy-answers'
 import type { IntakeAnswerMode, ProjectIntakeDefinition, ProjectIntakeQuestion, ProjectIntakeStage } from './intake-types'
 
-/** Resolve the fact/goal base key a question writes to. */
 export function resolveWriteTarget(writesTo: string | undefined): WriteTarget | null {
   if (!writesTo) return null
   const factMatch = writesTo.match(/^\/facts\/([^/]+)/)
@@ -19,7 +14,6 @@ export function resolveWriteTarget(writesTo: string | undefined): WriteTarget | 
   return null
 }
 
-/** Namespace a base storage key with the building/zone instance it belongs to. */
 function instanceStorageKey(baseKey: string, buildingId?: string, zoneKey?: string): string {
   let key = baseKey
   if (buildingId) key += `@${buildingId}`
@@ -35,13 +29,6 @@ interface BuildContext {
   unknowns: string[]
 }
 
-/**
- * Emit the right profile entry for a single answered/-unanswered question,
- * mapping the answer mode onto the three-state profile model:
- *   • confirmed value   → fact
- *   • estimated value   → assumption (unconfirmed)
- *   • open / unanswered → unknown
- */
 function emitAnswer(
   ctx: BuildContext,
   question: ProjectIntakeQuestion,
@@ -90,7 +77,6 @@ function emitAnswer(
     return
   }
 
-  // Plain types.
   if (!isIntakeAnswerProvided(raw)) {
     ctx.unknowns.push(storageKey)
     return
@@ -116,15 +102,10 @@ function addFact(
   }
 }
 
-/** JSON-pointer-encode a storage key (the only special char we use is `~`/`/`). */
 function encodeKey(key: string): string {
   return key.replaceAll('~', '~0').replaceAll('/', '~1')
 }
 
-/**
- * Build a {@link ProjectProfile} from collected intake answers, expanding the
- * building scope over every building and the zone scope over every selected use.
- */
 export function buildIntakeProfile(
   answers: Record<string, ProjectPrimitiveValue>,
   definition: ProjectIntakeDefinition,
@@ -136,8 +117,6 @@ export function buildIntakeProfile(
   const ctx: BuildContext = { now: new Date().toISOString(), patch: [], unknowns: [] }
   const buildings = options?.buildings ?? buildingsFromAnswers(answers)
 
-  // The name may have been captured at project creation; seed it so A1 is never
-  // asked twice, but let an explicit A1 answer (below) override it.
   const projectName = options?.projectName?.trim()
   if (projectName && !isIntakeAnswerProvided(answers['A1'])) {
     ctx.patch.push({
@@ -152,7 +131,6 @@ export function buildIntakeProfile(
     })
   }
 
-  // Record building names so an edit session can rebuild the list.
   if (buildings.length > 1 || buildings[0]?.name !== 'Bauwerk 1') {
     for (const building of buildings) {
       ctx.patch.push({
@@ -178,15 +156,11 @@ export function buildIntakeProfile(
 
   const federalStatePath = '/facts/federal_state'
 
-  // A patch value is either a bare primitive or a fact envelope
-  // (`{ value, confidence, source, updatedAt }`) depending on which producer
-  // emitted it; both forms have to yield the same token here.
   const unwrapFactValue = (value: unknown): unknown =>
     typeof value === 'object' && value !== null && 'value' in value
       ? (value as { value: unknown }).value
       : value
 
-  // Derive country from federal_state for legacy profiles.
   const hasCountry = ctx.patch.some((p) => p.path === '/facts/country')
   const federalStatePatch = ctx.patch.find((p) => p.path === federalStatePath)
   if (!hasCountry && federalStatePatch) {
@@ -204,7 +178,6 @@ export function buildIntakeProfile(
     }
   }
 
-  // Derive federal_state for non-AT country.
   const countryFact = ctx.patch.find((p) => p.path === '/facts/country')
   const hasFederalState = ctx.patch.some((p) => p.path === federalStatePath)
   const countryValue = unwrapFactValue(countryFact?.value)
@@ -242,7 +215,6 @@ function emitStageForBuilding(
     emitAnswer(ctx, question, answerKey, instanceStorageKey(target.key, building.id), target, answers)
   }
 
-  // Zones: one per selected use in this building's D0.
   if (!stage.zoneDefinitions && !stage.zoneCommon) return
   const selectedUses = answers[answerKeyFor('D0', building.id)]
   if (!Array.isArray(selectedUses)) return
@@ -268,7 +240,6 @@ function emitStageForBuilding(
   }
 }
 
-/** Two profile values are the same when they are equal; a multi-select's order is not part of the answer. */
 function sameProfileValue(a: ProjectPrimitiveValue, b: ProjectPrimitiveValue): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     const sortedB = [...b].sort()
@@ -277,15 +248,6 @@ function sameProfileValue(a: ProjectPrimitiveValue, b: ProjectPrimitiveValue): b
   return a === b
 }
 
-/**
- * What a rebuilt entry keeps of what the previous profile knew about its key
- * (ADR-0111): the `evidence` when the value is unchanged, so confirming a
- * suggestion in the wizard keeps the page it was found on, and the
- * `alternatives` a reading found, except one that equals the value now chosen.
- * The wizard builds values without either, so without this a save would erase
- * both. A rebuilt estimate (`onboarding_default`) is the person's own figure
- * and keeps no evidence, only the alternatives.
- */
 function carryOverProvenance<Entry extends ProjectFact | ProjectAssumption>(
   built: Record<string, Entry>,
   previous: ProjectProfile,
@@ -311,14 +273,6 @@ function carryOverProvenance<Entry extends ProjectFact | ProjectAssumption>(
   )
 }
 
-/**
- * Merge a freshly wizard-built profile over the previously stored one so a
- * whole-profile PUT can never destroy knowledge the wizard doesn't own
- * (agent-recorded novel facts/goals/unknowns, assumptions).
- *
- * Intake-owned keys are matched by their base key ignoring any `@bldgN` / `@zone`
- * suffix, so every scope instance the wizard produced is treated as wizard-owned.
- */
 export function mergeIntakeProfile(
   built: ProjectProfile,
   previous: ProjectProfile | null | undefined,
@@ -349,9 +303,6 @@ export function mergeIntakeProfile(
     ...Object.fromEntries(
       Object.entries(previous.assumptions).filter(
         ([key, assumption]) =>
-          // A reading's suggestion is not the wizard's to delete: it stays unless
-          // this save answers the key (a fact) or estimates it (an assumption).
-          // Everything else under an intake key is the wizard's own and is rebuilt.
           (!isIntakeFact(key) && !isIntakeGoal(key)) ||
           (assumption.source === 'agent_suggested' &&
             !(key in built.facts) &&
@@ -372,10 +323,6 @@ export function mergeIntakeProfile(
   return { facts, goals, unknowns, assumptions }
 }
 
-/**
- * Reverse of {@link buildIntakeProfile}: seed wizard answers (and the building
- * list) from an already-saved profile so re-entering intake opens prefilled.
- */
 export function answersFromProfile(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition
@@ -385,7 +332,6 @@ export function answersFromProfile(
 } {
   const answers: Record<string, ProjectPrimitiveValue> = {}
 
-  // Rebuild the building list from stored building_name facts / suffixed keys.
   const foundIds = new Set<string>()
   const collectId = (key: string) => {
     const m = key.match(BUILDING_ID_IN_KEY)
@@ -408,7 +354,6 @@ export function answersFromProfile(
     const target = resolveWriteTarget(question.writesTo)
     if (!target) return
 
-    // number_tri: fact → wert, assumption → geschaetzt, unknown → offen.
     if (question.type === 'number_tri') {
       const fact = profile.facts[storageKey]
       const assumption = profile.assumptions[storageKey]
@@ -424,7 +369,6 @@ export function answersFromProfile(
       return
     }
 
-    // yes_no_open: boolean fact → ja/nein, unknown → offen.
     if (question.type === 'yes_no_open') {
       const fact = profile.facts[storageKey]
       if (fact !== undefined && typeof fact.value === 'boolean') {

@@ -1,29 +1,3 @@
-/**
- * What a project's documents say about each other, derived on read from the
- * project's documents list (`docs/architecture/document-dossier.md`,
- * „Findings“). Pure: no I/O, no clock, so the route, the agent operation and
- * a dev preview compute the same findings from the same rows.
- *
- * A finding is a pointer for a person, never a verdict: every one names the
- * documents and pages it rests on, so the reader can look for themselves.
- *
- * Five kinds:
- *  - `profile_contradiction`: a current document states a fact the project's
- *    profile (the Steckbrief) holds otherwise (`./profile-contradictions`).
- *    Only with the profile passed in.
- *  - `missing_document`: a current document points at a document type no
- *    document in the project has (by its dossier type or its tags).
- *  - `missing_plan`: a current document points at a drawing number no
- *    document's title block number or file name matches.
- *  - `contradiction`: two current documents state one fact key with values
- *    that do not overlap.
- *  - `incomplete_read`: a current document has pages no chunk holds.
- *
- * "Current" is not superseded by a newer Fassung: a replaced document's claims
- * and gaps are history. A target, though, may be any document of the project,
- * replaced or not, because it is there to be opened.
- */
-
 import { DOCUMENT_TYPE_TAGS } from './tag-vocabulary'
 import {
   profileDisagreements,
@@ -40,23 +14,18 @@ import type {
   ReadingCoverage,
 } from './dossier'
 
-/** One document as the findings read it: what the listing row carries, narrowed. */
 export interface FindingsDocument {
   id: string
-  /** What a person calls it: the rename, else the file name. */
   name: string
   filename: string
-  /** A newer Fassung replaces it (`revision.supersededBy`). */
   superseded: boolean
   tags: readonly string[]
   dossier: Dossier | null
   references: readonly DocumentReference[]
   coverage: ReadingCoverage | null
-  /** The title block's drawing number (`revisionFacts.documentNumber`). */
   documentNumber: string | null
 }
 
-/** What a listing row (`ListedDocument`) or a file item (`FileItem`) carries that the findings read. */
 export interface FindingsRow {
   id: string
   filename: string
@@ -69,7 +38,6 @@ export interface FindingsRow {
   revision?: { supersededBy: unknown } | null
 }
 
-/** One row as the findings read it. */
 export function toFindingsDocument(row: FindingsRow): FindingsDocument {
   return {
     id: row.id,
@@ -84,17 +52,13 @@ export function toFindingsDocument(row: FindingsRow): FindingsDocument {
   }
 }
 
-/** A document a finding or a reference points at. */
 export interface DocumentPointer {
   documentId: string
   name: string
 }
 
-/** One document a finding rests on, and where in it. */
 export interface FindingSource extends DocumentPointer {
-  /** 1-based, ascending; empty when the document does not say. */
   pages: number[]
-  /** For a contradiction: the value this document states, as it writes it. */
   value?: string
   unit?: string | null
 }
@@ -108,11 +72,8 @@ export type DocumentFinding =
   | { kind: 'contradiction'; factKey: DossierFactKey; sources: FindingSource[] }
   | {
       kind: 'profile_contradiction'
-      /** The dossier fact key, or `federal_state` for the Land of the document's place. */
       subject: ProfileComparedKey
-      /** The profile key it is held under (`uses`, `federal_state`). */
       profileKey: string
-      /** The confirmed value as the intake shows it; for the Gebäudeklasse the bare number(s). */
       profileValue: string
       sources: FindingSource[]
     }
@@ -124,18 +85,12 @@ export type DocumentFinding =
       sources: FindingSource[]
     }
 
-/**
- * One reference of a document, resolved against the project. `external` is a
- * norm or a law (not a project document); `self` points only at the document
- * itself (a Baubeschreibung naming the Baubeschreibung), which says nothing.
- */
 export interface ResolvedReference {
   reference: DocumentReference
   resolution: 'resolved' | 'missing' | 'self' | 'external'
   targets: DocumentPointer[]
 }
 
-/** A document that points at another one, and with what. */
 export interface IncomingReference {
   source: DocumentPointer
   reference: DocumentReference
@@ -143,12 +98,6 @@ export interface IncomingReference {
 
 type TagName = (typeof DOCUMENT_TYPE_TAGS)[number]
 
-/**
- * The document types a controlled tag stands for (`document_classification.py`,
- * `DOCUMENT_TYPE_TAGS`). A tag is coarser than a dossier type: a Grundriss is
- * taken for a submission drawing, the commonest kind a project holds.
- * „Sonstiges“ stands for nothing.
- */
 const TAG_DOCUMENT_TYPES: ReadonlyMap<TagName, readonly DossierDocumentType[]> = new Map<
   TagName,
   readonly DossierDocumentType[]
@@ -166,18 +115,15 @@ const TAG_DOCUMENT_TYPES: ReadonlyMap<TagName, readonly DossierDocumentType[]> =
   ['Foto', ['photo']],
 ])
 
-/** A Gutachten with this discipline tag is the specific report. */
 const REPORT_BY_DISCIPLINE: ReadonlyMap<string, DossierDocumentType> = new Map([
   ['Brandschutz', 'fire_safety_concept'],
   ['Standsicherheit', 'structural_analysis'],
 ])
 
-/** A reference to the broad type is answered by any of the specific ones. */
 const ANSWERED_BY: Partial<Record<DossierDocumentType, readonly DossierDocumentType[]>> = {
   expert_report: ['soil_report', 'building_physics', 'fire_safety_concept', 'structural_analysis', 'energy_certificate'],
 }
 
-/** The document types one document is, from its dossier and its tags. */
 export function documentTypesOf(document: Pick<FindingsDocument, 'dossier' | 'tags'>): Set<DossierDocumentType> {
   const types = new Set<DossierDocumentType>()
   if (document.dossier?.documentType) types.add(document.dossier.documentType)
@@ -193,7 +139,6 @@ export function documentTypesOf(document: Pick<FindingsDocument, 'dossier' | 'ta
   return types
 }
 
-/** Lowercase, and without the spaces, hyphens and underscores a drawing number is written with or without. */
 export function squashDrawingNumber(value: string): string {
   return value.normalize('NFC').toLowerCase().replace(/[\s\-_]+/g, '')
 }
@@ -202,7 +147,6 @@ const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u
 const DIGIT = /\p{N}/u
 const NUMBER_SEPARATOR = /[\s\-_.]/
 
-/** The length of `key` matched at `start` of `name`, separators allowed between its characters; -1 when it does not. */
 function matchAt(name: readonly string[], start: number, key: readonly string[]): number {
   let at = start
   for (let index = 0; index < key.length; index++) {
@@ -213,12 +157,6 @@ function matchAt(name: readonly string[], start: number, key: readonly string[])
   return at
 }
 
-/**
- * Does the file name carry the drawing number? „EP-05“ matches
- * `EP05_Grundriss_EG.pdf` and `ep 05 Grundriss.pdf`, never `EP-050.pdf`
- * or `STEP-05.pdf`: the number stands on its own in the name. A linear scan,
- * not a pattern built from the key: the key is a document's text.
- */
 function fileNameCarries(filename: string, squashedKey: string): boolean {
   if (squashedKey.length < 2) return false
   const name = [...filename.normalize('NFC').toLowerCase()]
@@ -231,7 +169,6 @@ function fileNameCarries(filename: string, squashedKey: string): boolean {
   return false
 }
 
-/** The squashed forms a drawing reference may be found under: the key, and for „3/A-501“ the sheet `A-501`. */
 function drawingKeys(reference: DocumentReference): string[] {
   const keys = [squashDrawingNumber(reference.key)]
   const sheet = reference.key.split('/').at(-1)
@@ -241,11 +178,6 @@ function drawingKeys(reference: DocumentReference): string[] {
 
 const pointer = (document: FindingsDocument): DocumentPointer => ({ documentId: document.id, name: document.name })
 
-/**
- * The documents of the project one reference points at. A norm or a law is no
- * project document; a drawing number is matched against the title block's
- * number, then the file name; a document type against types and tags.
- */
 function targetsOf(reference: DocumentReference, documents: readonly FindingsDocument[]): FindingsDocument[] | null {
   if (reference.kind === 'norm' || reference.kind === 'law') return null
   if (reference.kind === 'document') {
@@ -260,7 +192,6 @@ function targetsOf(reference: DocumentReference, documents: readonly FindingsDoc
   return documents.filter((document) => keys.some((key) => fileNameCarries(document.filename, key)))
 }
 
-/** Every reference of `document`, resolved against the project's `documents`. */
 export function resolveReferences(
   document: FindingsDocument,
   documents: readonly FindingsDocument[]
@@ -274,7 +205,6 @@ export function resolveReferences(
   })
 }
 
-/** The documents that point at `document` with a drawing number or a document type it answers. */
 export function referencedBy(document: FindingsDocument, documents: readonly FindingsDocument[]): IncomingReference[] {
   const incoming: IncomingReference[] = []
   for (const source of documents) {
@@ -287,7 +217,6 @@ export function referencedBy(document: FindingsDocument, documents: readonly Fin
   return incoming
 }
 
-/** A fact value as two documents could write it alike: trimmed, one case, decimal comma as dot, `4.0` as `4`. */
 export function normalizeFactValue(value: string): string {
   const text = value.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase().replace(/(\d),(\d)/g, '$1.$2')
   return /^-?\d+(\.\d+)?$/.test(text) ? String(Number(text)) : text
@@ -295,7 +224,6 @@ export function normalizeFactValue(value: string): string {
 
 const byName = (a: DocumentPointer, b: DocumentPointer): number => a.name.localeCompare(b.name, 'de')
 
-/** Group the references of current documents that resolve to nothing, one finding per target. */
 function missingFindings(current: readonly FindingsDocument[], documents: readonly FindingsDocument[]): DocumentFinding[] {
   const missing = new Map<string, { reference: DocumentReference; sources: FindingSource[] }>()
   for (const document of current) {
@@ -321,11 +249,6 @@ function missingFindings(current: readonly FindingsDocument[], documents: readon
   )
 }
 
-/**
- * One finding per fact key on which two current documents state values that
- * do not overlap. A document may state a key more than once (a room height
- * per storey); it disagrees with another only when they share no value.
- */
 function contradictionFindings(current: readonly FindingsDocument[]): DocumentFinding[] {
   const byKey = new Map<DossierFactKey, Map<string, Map<string, FindingSource>>>()
   for (const document of current) {
@@ -351,10 +274,6 @@ function contradictionFindings(current: readonly FindingsDocument[]): DocumentFi
   return findings
 }
 
-/**
- * One finding per compared key on which current documents disagree with the
- * profile's confirmed value, naming each such document and what it states.
- */
 function profileFindings(current: readonly FindingsDocument[], profile: ProfileFacts | null): DocumentFinding[] {
   if (!profile?.facts) return []
   const byKey = new Map<ProfileComparedKey, { profileKey: string; profileValue: string; sources: FindingSource[] }>()
@@ -400,12 +319,6 @@ function incompleteReadFindings(current: readonly FindingsDocument[]): DocumentF
 
 const byNamePointer = (a: FindingsDocument, b: FindingsDocument): number => a.name.localeCompare(b.name, 'de')
 
-/**
- * Every finding over a project's documents, contradictions first (they ask
- * for a decision; the profile's before the documents' among themselves), then
- * what is missing, then what was not read. Without `profile`, nothing is
- * compared with the Steckbrief.
- */
 export function deriveDocumentFindings(
   documents: readonly FindingsDocument[],
   profile: ProfileFacts | null = null
@@ -422,11 +335,6 @@ export function deriveDocumentFindings(
   )
 }
 
-/**
- * A finding's identity across two reads of one project: same kind, same key.
- * What `uploadReport` diffs before against after with; the sources may change
- * while the finding stays the same one.
- */
 export function findingIdentity(finding: DocumentFinding): string {
   switch (finding.kind) {
     case 'profile_contradiction':
@@ -442,7 +350,6 @@ export function findingIdentity(finding: DocumentFinding): string {
   }
 }
 
-/** Does this finding rest on the document? */
 export function findingConcerns(finding: DocumentFinding, documentId: string): boolean {
   return finding.sources.some((source) => source.documentId === documentId)
 }

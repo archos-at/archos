@@ -1,20 +1,4 @@
 import 'server-only'
-/**
- * Reading the project's E-Mail-Verläufe (ADR-0137, DECISION §7):
- * `mail-thread-list` and `mail-thread-get`. A thread is a document, and it is
- * exactly as readable as that document (D9, RT-S13): screened, not in the bin,
- * in a folder the reader may open. A thread the reader may not read is not
- * found.
- *
- * What a thread view names is the reader's too: each entry's attachments are
- * listed by position (D36), but a document in a folder the reader may not
- * open is listed without its name or ids, and one that was not filed without
- * its name, so the count of what came with a message stays true and nothing
- * restricted is named. The waiting count is for
- * people who may file mail (`project:documents:write`), and null for everyone
- * else. The original `.eml` of an entry is downloaded through its own route
- * (`…/entries/[entryId]/original`), never through these views.
- */
 
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -44,7 +28,6 @@ import {
   type ThreadRow,
 } from './repository'
 
-/** The caller may read the project's threads: the office's `inbound-mail` entitlement and `project:view`. */
 async function requireThreadReader(session: AuthorizedSession, projectId: string): Promise<string[]> {
   requireInboundMailEnabled(session)
   await requireProjectAccess(session, projectId, 'project:view')
@@ -64,16 +47,6 @@ function summaryView(thread: ThreadRow, follows: readonly MailThreadFollowRow[],
   }
 }
 
-/**
- * The attachments of one entry as this reader may see them (D36). Pure: an
- * attachment filed into a folder the reader may not open keeps its position
- * and disposition and loses its name and ids (`visible: false`). One that was
- * not filed (waiting, dismissed, infected, name-stopped, never staged) keeps
- * its reason and never its name: that name became no document anyone may
- * read, and before filing only a reviewer reads it, so a thread reader, the agent
- * or an outside agent learns none (RT-S13; the rendered Verlauf prints none
- * either).
- */
 export function attachmentViews(attachments: readonly EntryAttachment[], hiddenFolders: ReadonlySet<string>): MailThreadAttachmentView[] {
   return attachments.map((attachment) => {
     const filed = attachment.disposition !== 'not_filed'
@@ -102,7 +75,6 @@ function entryView(row: EntryRow, attachments: MailThreadAttachmentView[]): Mail
     senderDomain: entry.senderDomain,
     signerDomain: entry.signerDomain,
     senderTrust: entry.senderTrust,
-    // The heading names the original's author; the trust and this line are about who forwarded it.
     forwardedBy: entry.authorName || entry.authorAddress ? { name: entry.senderName, domain: entry.signerDomain ?? entry.senderDomain } : null,
     sentAt: new Date(entry.sentAt).toISOString(),
     receivedAt: new Date(entry.receivedAt).toISOString(),
@@ -116,7 +88,6 @@ function entryView(row: EntryRow, attachments: MailThreadAttachmentView[]): Mail
 }
 
 
-/** One page of the project's threads the reader may read (`mail-thread-list`), newest first. */
 export async function listMailThreads(
   session: AuthorizedSession,
   projectId: string,
@@ -140,7 +111,6 @@ export async function listMailThreads(
   }
 }
 
-/** One thread with its messages, their attachments and its follows (`mail-thread-get`). */
 export async function getMailThread(session: AuthorizedSession, projectId: string, threadId: string): Promise<MailThreadView> {
   const hidden = await requireThreadReader(session, projectId)
   const thread = await findVisibleThread(projectId, threadId, hidden)

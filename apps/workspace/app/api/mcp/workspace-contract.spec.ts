@@ -70,7 +70,7 @@ const fixture = JSON.parse(readFileSync(REQUESTS, 'utf8')) as RequestsFixture
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -101,7 +101,7 @@ function replay(recorded: RecordedRequest, tamper?: Tamper): Request {
     Object.entries(recorded.headers).map(([name, value]) => [name, swaps[value] ?? value])
   )
   tamper?.(headers)
-  return new Request(`https://app.piloti.test${recorded.path}`, {
+  return new Request(`https://app.example.test${recorded.path}`, {
     method: recorded.method,
     headers,
     body: JSON.stringify(recorded.body),
@@ -149,8 +149,8 @@ const audienceOf = (solo: boolean) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.MCP_RESOURCE_URL = 'https://app.piloti.test/api/mcp'
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('MCP_RESOURCE_URL', 'https://app.example.test/api/mcp')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(callOperation).mockResolvedValue({
     ok: true,
@@ -252,7 +252,7 @@ describe('what client.py sends, replayed against the real route', () => {
     expect(vi.mocked(recordWorkspaceHandOut)).toHaveBeenCalledTimes(1)
     const [principal] = vi.mocked(recordWorkspaceHandOut).mock.calls[0]
     expect(principal).toMatchObject({
-      actor: 'piloti',
+      actor: 'agent',
       conversationId: 'conv_1',
       answerMessageId: recorded('call_read').headers['x-answer-message-id'],
     })

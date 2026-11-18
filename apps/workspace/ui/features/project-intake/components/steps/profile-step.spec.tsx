@@ -173,7 +173,7 @@ describe('ProfileStep', () => {
     })
   })
 
-  describe('what Piloti found', () => {
+  describe('what the agent found', () => {
     it('shows the most decisive few, the class’s inputs first, and never a contested value', () => {
       setup(PROFILE_REVIEW)
       expect(rows()).toEqual([
