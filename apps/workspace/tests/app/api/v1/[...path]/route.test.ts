@@ -83,13 +83,13 @@ function getHeader(init: RequestInit | undefined, name: string): string | undefi
 describe('/api/v1/[...path]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.REQUIRE_AUTH
-    delete process.env.BASE_COLLECTION_NAME
+    vi.stubEnv('REQUIRE_AUTH', undefined)
+    vi.stubEnv('BASE_COLLECTION_NAME', undefined)
   })
 
   describe('scope header', () => {
     it('attaches scope header for GET requests', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
@@ -124,7 +124,7 @@ describe('/api/v1/[...path]', () => {
     })
 
     it('attaches scope header for POST JSON requests', async () => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
@@ -164,7 +164,7 @@ describe('/api/v1/[...path]', () => {
     })
 
     it('uses anonymous session when auth is disabled', async () => {
-      process.env.REQUIRE_AUTH = 'false'
+      vi.stubEnv('REQUIRE_AUTH', 'false')
       mockBuildCollectionScopeFromRequest.mockResolvedValue({
         scope: ['oib_knowledge', 's_conv-1'],
         scopedCollections: [
@@ -199,7 +199,7 @@ describe('/api/v1/[...path]', () => {
       ['POST', 'oib_knowledge'],
       ['POST', 'random-name'],
     ] as const)('forwards no %s into the files of %s (404)', async (method, collection) => {
-      process.env.REQUIRE_AUTH = 'true'
+      vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockRequireResourceAccess.mockResolvedValue({} as never)
       const fetchMock = mockFetch()
@@ -219,7 +219,7 @@ describe('/api/v1/[...path]', () => {
     it.each(['POST', 'DELETE'] as const)(
       'refuses a %s to s_<id> files for a viewer, or for a conversation that does not exist (404)',
       async (method) => {
-        process.env.REQUIRE_AUTH = 'true'
+        vi.stubEnv('REQUIRE_AUTH', 'true')
         mockRequireAuthorizedSession.mockResolvedValue(baseSession)
         mockRequireResourceAccess.mockRejectedValue(new NotFoundError())
         const fetchMock = mockFetch()

@@ -1,5 +1,4 @@
 import type { InboxItem, InboxItemType, NewInboxItem } from '@/lib/db/schema/inbox'
-import { storedInboxType } from './legacy-agent-types'
 import { canonicalInboxType } from './types'
 
 export type CanonicalInboxItem<T extends InboxItem = InboxItem> = Omit<T, 'type'> & { type: InboxItemType }
@@ -13,5 +12,5 @@ export async function canonicalRows<T extends InboxItem>(rows: PromiseLike<T[]>)
 }
 
 export function storedItem(values: NewInboxItem): NewInboxItem {
-  return { ...values, type: storedInboxType(values.type) }
+  return { ...values, type: canonicalInboxType(values.type) }
 }

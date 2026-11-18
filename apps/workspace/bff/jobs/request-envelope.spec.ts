@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { UserSession } from '@/lib/auth/types'
 import { REQUEST_CONTEXT_HEADER_NAMES, verifyRequestContextEnvelope } from '@/lib/request-context'
@@ -41,11 +41,11 @@ describe('signJobRequestContext', () => {
   let previous: string | undefined
   beforeEach(() => {
     previous = process.env.INTERNAL_API_TOKEN
-    process.env.INTERNAL_API_TOKEN = SECRET
+    vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   })
   afterEach(() => {
-    if (previous === undefined) delete process.env.INTERNAL_API_TOKEN
-    else process.env.INTERNAL_API_TOKEN = previous
+    if (previous === undefined) vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+    else vi.stubEnv('INTERNAL_API_TOKEN', previous)
   })
 
   it('signs the project and its collection for a member', () => {

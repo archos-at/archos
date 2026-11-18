@@ -10,7 +10,7 @@ import { type DnsConfig, loadDns } from "./config/dns";
 import { type DragonflyConfig, type RateLimitConfig, loadDragonfly } from "./config/dragonfly";
 import { type ImagesConfig, loadImages } from "./config/images";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
-import { type ObservabilityConfig, loadObservability } from "./config/observability";
+import { LOG_SHIPPER, type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
 import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
 import { type CmsConfig, loadCms } from "./config/cms";
@@ -254,8 +254,16 @@ export function loadConfig(): DeployConfig {
     },
   );
 
+  const namespace = cfg.get("namespace") ?? objectName("namespace");
+  if (namespace === LOG_SHIPPER.namespace) {
+    throw new Error(
+      `grid-oib:namespace must not be "${LOG_SHIPPER.namespace}": that namespace is the log shipper's, ` +
+        "with an admission level the app namespace must not share.",
+    );
+  }
+
   return {
-    namespace: cfg.get("namespace") ?? objectName("namespace"),
+    namespace,
     kubeconfig: cfg.requireSecret("kubeconfig"),
 
     images,

@@ -60,12 +60,12 @@ const PROJECT_ID = "00000000-0000-4000-8000-000000000001";
 
 describe("requireProjectAccess", () => {
   beforeEach(() => {
-    process.env.AUTHZ_CACHE_TTL_MS = "0";
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', "0");
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    delete process.env.AUTHZ_CACHE_TTL_MS;
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', undefined);
   });
 
   test("org admins bypass per-project FGA checks but NOT the tenancy check", async () => {

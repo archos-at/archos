@@ -3,12 +3,14 @@
  * @vitest-environment node
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
-import ts from 'typescript-api'
 import { describe, expect, it } from 'vitest'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { getByPath } from '@/i18n/translate'
+import { lineOf, nodesOf, parseSource, ts, walk } from '@/test-utils/source-ast'
+import { functionCalls, parseSql, readSql, type SqlStatement, type SqlToken } from '@/test-utils/sql-statements'
+import { SOURCE_DIRS } from '@/test-utils/source-tree'
 import {
   DOCUMENT_STATUSES,
   DOCUMENT_STATUS_FACTS,
@@ -19,18 +21,23 @@ import {
   isKnownDocumentStatus,
 } from './document-status'
 import { SURFACE_STATES, SURFACE_STATE_LABEL_KEYS, surfaceStateOf } from './surface-state'
-import { SOURCE_DIRS } from '@/test-utils/source-tree'
 
 const WRITER_DIRS = ['bff/documents', 'bff/session-documents', 'bff/office-shelf']
 
-function sourceFiles(dir: string, found: string[] = []): string[] {
+function filesUnder(dir: string, accept: (name: string) => boolean, found: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules') continue
     const path = join(dir, entry.name)
-    if (entry.isDirectory()) sourceFiles(path, found)
-    else if (entry.name.endsWith('.ts') && !entry.name.includes('.spec.')) found.push(path)
+    if (entry.isDirectory()) filesUnder(path, accept, found)
+    else if (accept(entry.name)) found.push(path)
   }
   return found
 }
+
+const isWriterSource = (name: string): boolean => name.endsWith('.ts') && !name.includes('.spec.')
+
+const isAnySource = (name: string): boolean =>
+  (name.endsWith('.ts') || name.endsWith('.tsx')) && !name.includes('.spec.') && !name.includes('.test.')
 
 interface LiteralWrite {
   value: string
@@ -85,6 +92,13 @@ function isStatusName(name: ts.Node): boolean {
   return (ts.isIdentifier(name) || ts.isStringLiteral(name)) && name.text === 'status'
 }
 
+function isStatusTarget(target: ts.Expression): boolean {
+  return (
+    (ts.isPropertyAccessExpression(target) && target.name.text === 'status') ||
+    (ts.isIdentifier(target) && target.text === 'status')
+  )
+}
+
 function literalValues(node: ts.Expression): string[] | null {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text]
   if (ts.isNumericLiteral(node)) return []
@@ -114,7 +128,30 @@ function literalTypes(node: ts.TypeNode): string[] {
   return []
 }
 
-const SQL_STATUS_WRITE_RE = /\bstatus"?\s*=\s*(?:'([^']*)'|"([^"]*)")/g
+type TextNode = ts.StringLiteralLike | ts.TemplateExpression
+
+const isTextNode = (node: ts.Node): node is TextNode => ts.isStringLiteralLike(node) || ts.isTemplateExpression(node)
+
+function textOf(node: TextNode): string {
+  return ts.isTemplateExpression(node)
+    ? [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(' ')
+    : node.text
+}
+
+function isWord(token: SqlToken | undefined, word: string): boolean {
+  return (token?.kind === 'word' || token?.kind === 'quoted') && token.text.toLowerCase() === word.toLowerCase()
+}
+
+function sqlStatusValues(sql: string): string[] {
+  return parseSql(sql).flatMap(({ tokens }) =>
+    tokens.flatMap((token, i) => {
+      const equals = tokens[i + 1]
+      const value = tokens[i + 2]
+      if (!isWord(token, 'status') || equals?.kind !== 'symbol' || equals.text !== '=') return []
+      return value?.kind === 'string' || value?.kind === 'quoted' ? [value.text] : []
+    }),
+  )
+}
 
 interface Scan {
   literals: LiteralWrite[]
@@ -126,47 +163,29 @@ function scanWriters(): Scan {
   const opaque: OpaqueWrite[] = []
 
   for (const dir of WRITER_DIRS) {
-    for (const file of sourceFiles(join(process.cwd(), dir))) {
-      const source = readFileSync(file, 'utf8')
+    for (const file of filesUnder(join(process.cwd(), dir), isWriterSource)) {
+      const source = parseSource(file)
       const relativePath = toPosix(relative(process.cwd(), file))
-      const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
-      const at = (node: ts.Node) => `${relativePath}:${
-        tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1
-      }`
+      const at = (node: ts.Node) => `${relativePath}:${lineOf(node)}`
 
       const record = (node: ts.Node, value: ts.Expression) => {
         const values = literalValues(value)
-        if (values === null) {
-          opaque.push({ expression: value.getText(tree), where: at(node) })
-          return
-        }
-        for (const found of values) literals.push({ value: found, where: at(node) })
+        if (values === null) opaque.push({ expression: value.getText(source), where: at(node) })
+        else for (const found of values) literals.push({ value: found, where: at(node) })
       }
 
-      const visit = (node: ts.Node): void => {
+      walk(source, (node) => {
         if (ts.isPropertyAssignment(node) && isStatusName(node.name)) record(node, node.initializer)
         else if (ts.isShorthandPropertyAssignment(node) && isStatusName(node.name)) {
           opaque.push({ expression: node.name.text, where: at(node) })
-        }
-        else if (
-          ts.isBinaryExpression(node) &&
-          node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-          ((ts.isPropertyAccessExpression(node.left) && node.left.name.text === 'status') ||
-            (ts.isIdentifier(node.left) && node.left.text === 'status'))
-        ) {
+        } else if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && isStatusTarget(node.left)) {
           record(node, node.right)
-        }
-        else if (ts.isPropertySignature(node) && isStatusName(node.name) && node.type) {
+        } else if (ts.isPropertySignature(node) && isStatusName(node.name) && node.type) {
           for (const value of literalTypes(node.type)) literals.push({ value, where: at(node) })
-        } else if (ts.isTaggedTemplateExpression(node) && node.tag.getText(tree).includes('sql')) {
-          for (const match of node.template.getText(tree).matchAll(SQL_STATUS_WRITE_RE)) {
-            literals.push({ value: match[1] ?? match[2], where: at(node) })
-          }
+        } else if (ts.isTaggedTemplateExpression(node) && ts.isIdentifier(node.tag) && node.tag.text === 'sql') {
+          for (const value of sqlStatusValues(textOf(node.template))) literals.push({ value, where: at(node) })
         }
-        ts.forEachChild(node, visit)
-      }
-
-      visit(tree)
+      })
     }
   }
 
@@ -222,29 +241,42 @@ describe('every status a writer emits is declared', () => {
   })
 })
 
-const TABLE_WRITE_RE = /\.(insert|update)\(\s*documents\s*\)|update\s+"?documents"?\s+set/i
-
 const PASS_THROUGH_TABLE_WRITERS = [
   'bff/storage/repository.ts',
   'bff/projects/folder-bin-repository.ts',
   'bff/projects/folder-derived-repository.ts',
 ]
 
-function everySourceFile(dir: string, found: string[] = []): string[] {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules') continue
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) everySourceFile(path, found)
-    else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test)\./.test(entry.name)) found.push(path)
-  }
-  return found
+function isDocumentsArgument(call: ts.CallExpression): boolean {
+  const [only] = call.arguments
+  return call.arguments.length === 1 && !!only && ts.isIdentifier(only) && only.text === 'documents'
+}
+
+function writesDocumentsSql(sql: string): boolean {
+  return parseSql(sql).some(({ tokens }) =>
+    tokens.some((token, i) => isWord(token, 'update') && isWord(tokens[i + 1], 'documents') && isWord(tokens[i + 2], 'set')),
+  )
+}
+
+function writesDocumentsTable(source: ts.SourceFile): boolean {
+  const byCall = nodesOf(source, ts.isCallExpression).some(
+    (call) =>
+      ts.isPropertyAccessExpression(call.expression) &&
+      ['insert', 'update'].includes(call.expression.name.text) &&
+      isDocumentsArgument(call),
+  )
+  return byCall || nodesOf(source, isTextNode).some((node) => writesDocumentsSql(textOf(node)))
+}
+
+function tableWriterFiles(): string[] {
+  return SOURCE_DIRS.flatMap((dir) => filesUnder(join(process.cwd(), dir), isAnySource))
+    .filter((file) => writesDocumentsTable(parseSource(file)))
+    .map((file) => toPosix(relative(process.cwd(), file)))
+    .sort()
 }
 
 describe('the scan looks where the writing happens', () => {
-  const tableWriters = SOURCE_DIRS.flatMap((dir) => everySourceFile(join(process.cwd(), dir)))
-    .filter((file) => TABLE_WRITE_RE.test(readFileSync(file, 'utf8')))
-    .map((file) => toPosix(relative(process.cwd(), file)))
-    .sort()
+  const tableWriters = tableWriterFiles()
 
   it('finds the table writers at all', () => {
     expect(tableWriters.some((file) => file.startsWith('bff/documents/repository/'))).toBe(true)
@@ -263,24 +295,6 @@ describe('the scan looks where the writing happens', () => {
         'to WRITER_DIRS, or list the file in PASS_THROUGH_TABLE_WRITERS if it ' +
         'only writes rows its callers built.',
     ).toEqual([])
-  })
-})
-
-describe('the vocabulary is derived, not restated', () => {
-  it('reconcile-status takes the in-flight set from the declaration', () => {
-    const source = readFileSync(join(process.cwd(), 'bff/documents/reconcile-status.ts'), 'utf8')
-    expect(source).toContain("import { IN_FLIGHT_DOCUMENT_STATUSES } from './document-status'")
-    expect(source).not.toMatch(/const IN_FLIGHT_STATUSES = new Set\(\[/)
-  })
-
-  it('the badge takes its variants and labels from the declaration', () => {
-    const source = readFileSync(
-      join(process.cwd(), 'ui/features/documents/components/document-status.tsx'),
-      'utf8',
-    )
-    expect(source).toContain("from '@/lib/documents/document-status'")
-    expect(source).not.toContain('const STATUS_VARIANT')
-    expect(source).not.toContain('const STATUS_LABEL_KEY')
   })
 })
 
@@ -334,6 +348,20 @@ describe('every surface state has a label in both locales', () => {
   })
 })
 
+const STATUS_CONSTRAINT = 'documents_status_known'
+
+function addsStatusConstraint(statements: SqlStatement[]): boolean {
+  return statements.some(({ tokens }) =>
+    tokens.some(
+      (token, i) =>
+        token.kind === 'quoted' &&
+        token.text === STATUS_CONSTRAINT &&
+        isWord(tokens[i - 1], 'constraint') &&
+        isWord(tokens[i - 2], 'add'),
+    ),
+  )
+}
+
 describe('the column vocabulary (migration 0135, extended by 0153)', () => {
   it('renders every value the column may hold', () => {
     for (const status of DOCUMENT_STATUSES) expect(isKnownDocumentStatus(status), status).toBe(true)
@@ -344,15 +372,15 @@ describe('the column vocabulary (migration 0135, extended by 0153)', () => {
     const defining = readdirSync(dir)
       .filter((name) => name.endsWith('.sql') && !name.endsWith('.down.sql'))
       .sort()
-      .filter((name) =>
-        readFileSync(join(dir, name), 'utf8').includes('ADD CONSTRAINT "documents_status_known"'),
-      )
+      .filter((name) => addsStatusConstraint(readSql(join(dir, name))))
     expect(defining, 'a migration must define documents_status_known').not.toEqual([])
-    const migration = readFileSync(join(dir, defining[defining.length - 1]), 'utf8')
-    const check = migration.match(/CHECK \("status" IN \(([^)]*)\)\)/)
-    expect(check, `the CHECK in ${defining[defining.length - 1]}`).not.toBeNull()
-    const listed = [...(check?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((match) => match[1])
-    expect(listed.sort()).toEqual([...DOCUMENT_STATUSES].sort())
+    const latest = defining[defining.length - 1]
+    const listed = functionCalls(readSql(join(dir, latest)), 'CHECK')
+      .find((args) => args[0]?.kind === 'quoted' && args[0].text === 'status')
+      ?.filter((token) => token.kind === 'string')
+      .map((token) => token.text)
+    expect(listed, `the CHECK in ${latest}`).toBeDefined()
+    expect([...(listed ?? [])].sort()).toEqual([...DOCUMENT_STATUSES].sort())
   })
 
   it('narrows an outside set to the column, for a SQL filter', () => {

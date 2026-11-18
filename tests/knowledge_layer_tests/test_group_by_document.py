@@ -27,7 +27,7 @@ PROJECT = "proj_1"
 def _chunk(file_name: str, page: int, *, document_id: str | None = None, collection: str = PROJECT) -> Chunk:
     metadata = {"collection": collection, "page_label": str(page)}
     if document_id:
-        metadata["grid_document_id"] = document_id
+        metadata["document_id"] = document_id
     return Chunk(
         chunk_id=f"{collection}-{file_name}-{page}",
         content=f"Aufzug Schachtgröße, Seite {page} von {file_name}.",

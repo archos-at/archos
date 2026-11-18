@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import _PreviousVersion
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import file_versions
 from knowledge_layer.ingest import revisions
 from knowledge_layer_testing import revision_ingestion as harness
 from knowledge_layer_testing.revision_ingestion import _documents
@@ -770,7 +770,7 @@ class TestAPersonsDecisionsSurviveTheReread:
         )
         found = {"statik.pdf": _PreviousVersion(chunk_ids=["c1"], stored_names=["statik.pdf"])}
 
-        adapter_module._read_human_set_fields("proj_1", found)
+        file_versions._read_human_set_fields("proj_1", found)
 
         assert found["statik.pdf"].preserved["superseded_by"] == "neu.pdf"
         assert found["statik.pdf"].preserved["revision_suggestion"] == '{"of": "x"}'

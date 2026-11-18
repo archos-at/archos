@@ -1716,6 +1716,13 @@
       "when": 1795600300000,
       "tag": "0244_usage_events_model_once",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1795600400000,
+      "tag": "0245_app_session_settings_only",
+      "breakpoints": true
     }
   ]
 }

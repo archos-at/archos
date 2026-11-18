@@ -1,4 +1,4 @@
-# drop after release 2026-W48
+# drop after release 2026-W50
 
 from __future__ import annotations
 

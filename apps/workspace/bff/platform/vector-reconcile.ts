@@ -50,7 +50,7 @@ function safeDecode(name: string): string {
   }
 }
 
-type LiveRow = { collectionName: string; filename: string; authoredBy: DocumentAuthor; publishedVersionId: string | null }
+type LiveRow = { id: string; collectionName: string; filename: string; authoredBy: DocumentAuthor; publishedVersionId: string | null }
 
 async function liveFilenamesByCollection(): Promise<Map<string, Set<string>>> {
   const db = getDb()
@@ -59,6 +59,7 @@ async function liveFilenamesByCollection(): Promise<Map<string, Set<string>>> {
     () =>
       db
         .select({
+          id: documents.id,
           collectionName: documents.collectionName,
           filename: documents.filename,
           authoredBy: documents.authoredBy,
@@ -86,6 +87,7 @@ async function liveFilenamesIn(collectionName: string): Promise<Set<string>> {
     () =>
       db
         .select({
+          id: documents.id,
           collectionName: documents.collectionName,
           filename: documents.filename,
           authoredBy: documents.authoredBy,

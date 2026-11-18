@@ -56,7 +56,7 @@ MODEL_TRAFFIC = re.compile(
 )
 RAW_HTTPX_HOMES = {
     "packages/agent/src/agent/common/openrouter.py": "the seam builds the clients that take the slot",
-    "packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py": (
+    "packages/knowledge-layer/src/knowledge_layer/ingest/thumbnails.py": (
         "its httpx.Client PUTs a thumbnail to a presigned URL"
     ),
     "scripts/release_notes_translate.py": "sends the release notes from a release script",

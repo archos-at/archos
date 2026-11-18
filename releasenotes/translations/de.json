@@ -2696,6 +2696,10 @@
     "de": "Neue Anmerkungen in einem Dokument erreichen jetzt die dafür Verantwortlichen und die Person, die es hochgeladen hat – als ein Eintrag im Posteingang pro Dokument und pro Person, die die Anmerkungen gesetzt hat, zum Beispiel „Miriam hat 15 Anmerkungen in „Grundriss EG“ gesetzt“. Anmerkungen, die Piloti für jemanden setzt, zählen genauso; Vorschläge von Piloti erst, wenn jemand sie übernimmt."
   },
   {
+    "en": "New audit log entries for the agent's actions start with „agent.“, while earlier entries keep their old names, so the audit log shows both. If you filter or export the agent's actions, include both names.",
+    "de": "Neue Audit-Log-Einträge für Aktionen des Agenten beginnen mit „agent.“, während frühere Einträge ihre alten Namen behalten, sodass im Audit-Log beide angezeigt werden. Wenn Sie die Aktionen des Agenten filtern oder exportieren, müssen Sie beide Namen berücksichtigen."
+  },
+  {
     "en": "New schedules are set up in four steps, Auftrag, Ergebnis, Rhythmus and Prüfen, instead of on one page of sixteen fields. The Rhythmus step shows the next three actual dates.",
     "de": "Neue Zeitpläne richten Sie in vier Schritten ein, Auftrag, Ergebnis, Rhythmus und Prüfen, statt auf einer Seite mit sechzehn Feldern. Der Schritt Rhythmus zeigt Ihnen die nächsten drei tatsächlichen Termine."
   },

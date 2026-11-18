@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-// The MCP surface's retired names, still served for one release: drop after release 2026-W48.
+// The MCP surface's retired names, still served for one release: drop after release 2026-W50.
 import { webcrypto } from 'node:crypto'
 import type { AuthInfo } from '@modelcontextprotocol/server'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'

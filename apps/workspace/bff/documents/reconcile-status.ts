@@ -1,4 +1,4 @@
-import { fetchInChunks, type BackendJobFile, type BackendJobStatus } from './status-batch'
+import { fetchInChunks, type BackendJobStatus } from './status-batch'
 import {
   extractIngestJobId,
   isForgottenJobFailure,
@@ -11,33 +11,30 @@ import {
 import { getBackendUrl } from '@/lib/backend-url'
 import type { SettledBy } from '@/lib/analytics/ingest-events'
 import { announceSettledIngests, announceSettledShelves } from './announce-settled'
-import { timingOf, type IngestTiming } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
-import {
-  reportsQuarantine,
-  storedQuarantineVerdictOf,
-  type StoredQuarantineVerdict,
-} from '@/lib/upload-screening/quarantine'
-import type { DocumentScreeningOutcome } from '@/lib/db/schema/documents'
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
-import { collectionFileRef, type CollectionFileRef } from './collection-file-ref'
+import { collectionFileRef, type AuthoredDocumentRow, type CollectionFileRef } from './collection-file-ref'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from './document-status'
-import { parseRevisionLinkNames, type RevisionLinkNames, type RawRevisionLinkFields } from './revision-links'
-import { parsePhotoCapture, type PhotoCapture } from './photo-capture'
-import { parseRevisionFacts, type RevisionFacts } from './revision-facts'
-import {
-  parseDocumentReferences,
-  parseDossier,
-  parseReadingCoverage,
-  type DocumentReference,
-  type Dossier,
-  type ReadingCoverage,
-} from './dossier'
+import { parseRevisionLinkNames, type RevisionLinkNames } from './revision-links'
 import { setDocumentReconciledStatus } from './repository'
 import { projectReadings } from '@/lib/search/facets-projector'
-import { listCollectionDocumentsForProjection } from '@/lib/search/facets-repository'
-import { parseIngestFailureCategory, type IngestFailureFacts } from './retry-policy'
 import { readHeader } from '@/lib/http/legacy-header-names'
+import { extractMetadata, readingsIn, type DocumentMetadata, type ListedReading } from './reconcile-status/reading-metadata'
+import { projectReplacedDocuments, type ReplacedVersions } from './reconcile-status/replaced-document-projection'
+import {
+  attributableFailure,
+  resolveCancelledRow,
+  resolveFromCollection,
+  resolveFromJobStatus,
+  resolveInterruptedRow,
+  type RowResolution,
+  type TerminalResolution,
+} from './reconcile-status/ingest-resolution'
+import type { BackendFileEntry, CollectionFiles, RawBackendFile } from './reconcile-status/collection-listing-types'
+
+export type { DocumentMetadata, ListedReading } from './reconcile-status/reading-metadata'
+export type { TerminalResolution } from './reconcile-status/ingest-resolution'
+export { cancelledResolution } from './reconcile-status/ingest-resolution'
 
 const IN_FLIGHT_STATUSES = IN_FLIGHT_DOCUMENT_STATUSES
 
@@ -56,39 +53,6 @@ export interface ReconcilableDocument {
   metadata?: unknown
   updatedAt?: Date | string | null
 }
-
-export interface DocumentMetadata {
-  summary?: string
-  pageCount?: number
-  chunkCount?: number
-  contentTypes?: string[]
-  tags?: string[]
-  topics?: string[]
-  capture?: PhotoCapture
-  revisionFacts?: RevisionFacts
-  dossier?: Dossier
-  docReferences?: DocumentReference[]
-  coverage?: ReadingCoverage
-  queueAhead?: number | null
-}
-
-export interface TerminalResolution {
-  status: 'completed' | 'failed' | 'quarantined' | 'cancelled'
-  errorMessage: string | null
-  screeningOutcome?: DocumentScreeningOutcome
-  quarantine?: StoredQuarantineVerdict | null
-  failure?: IngestFailureFacts
-  timing?: IngestTiming
-}
-
-const NO_FAILURE_FACTS: IngestFailureFacts = { category: null, retryable: null, readerVersion: null }
-
-type RowResolution = TerminalResolution | { status: 'pending'; errorMessage: null }
-
-type JobResolution =
-  | { kind: 'terminal'; resolution: TerminalResolution }
-  | { kind: 'in_progress'; queueAhead: number | null }
-  | { kind: 'unknown' }
 
 export { extractIngestJobId }
 
@@ -114,42 +78,6 @@ const fetchJson = async (
   }
 }
 
-const failureFacts = (job: BackendJobStatus, file: BackendJobFile | undefined): IngestFailureFacts => ({
-  category: parseIngestFailureCategory(file?.failure_category),
-  retryable: typeof file?.retryable === 'boolean' ? file.retryable : null,
-  readerVersion: typeof job.reader_version === 'string' && job.reader_version.length > 0 ? job.reader_version : null,
-})
-
-interface FailureReport {
-  errorMessage: string | null
-  quarantine?: unknown
-}
-
-const failedOrQuarantined = (
-  report: FailureReport,
-  failure: IngestFailureFacts = NO_FAILURE_FACTS
-): TerminalResolution =>
-  reportsQuarantine(report)
-    ? {
-        status: 'quarantined',
-        errorMessage: report.errorMessage,
-        quarantine: storedQuarantineVerdictOf(report),
-        screeningOutcome: 'quarantined',
-        failure,
-      }
-    : { status: 'failed', errorMessage: report.errorMessage, failure }
-
-const SCREENING_OUTCOMES_FROM_JOB = new Set<DocumentScreeningOutcome>(['clean', 'partial', 'unchecked'])
-
-const completedOutcome = (job: BackendJobStatus): TerminalResolution => {
-  const reported = job.file_details?.length === 1 ? job.file_details[0]?.screening : null
-  const outcome = SCREENING_OUTCOMES_FROM_JOB.has(reported as DocumentScreeningOutcome)
-    ? (reported as DocumentScreeningOutcome)
-    : undefined
-  const failure = failureFacts(job, undefined)
-  return { status: 'completed', errorMessage: null, ...(outcome ? { screeningOutcome: outcome } : {}), failure }
-}
-
 const fetchJobStatuses = (jobIds: string[]): Promise<Map<string, BackendJobStatus | null> | null> =>
   fetchInChunks(jobIds, async (chunk) => {
     const result = await fetchJson(`${getBackendUrl()}/v1/documents/status/batch`, {
@@ -161,94 +89,7 @@ const fetchJobStatuses = (jobIds: string[]): Promise<Map<string, BackendJobStatu
     return (result.body as { statuses?: Record<string, BackendJobStatus | null> }).statuses ?? {}
   })
 
-export const cancelledResolution = (): TerminalResolution => ({
-  status: 'cancelled',
-  errorMessage: null,
-  failure: NO_FAILURE_FACTS,
-})
-
-const resolveFromJobStatus = (job: BackendJobStatus | null | undefined): JobResolution => {
-  const resolved = resolveJobOutcome(job)
-  if (resolved.kind !== 'terminal' || !job) return resolved
-  return { kind: 'terminal', resolution: { ...resolved.resolution, timing: timingOf(job) } }
-}
-
-const resolveJobOutcome = (job: BackendJobStatus | null | undefined): JobResolution => {
-  if (job === undefined || job === null) return { kind: 'unknown' }
-
-  if (job.status === 'cancelled') {
-    return { kind: 'terminal', resolution: cancelledResolution() }
-  }
-  if (job.status === 'completed') {
-    const failedFile = job.file_details?.find((f) => f.status === 'failed')
-    if (failedFile && job.file_details?.length === 1) {
-      return {
-        kind: 'terminal',
-        resolution: failedOrQuarantined(
-          { errorMessage: failedFile.error_message ?? null, quarantine: failedFile.quarantine },
-          failureFacts(job, failedFile)
-        ),
-      }
-    }
-    return { kind: 'terminal', resolution: completedOutcome(job) }
-  }
-  if (job.status === 'failed') {
-    const reportingFile = job.file_details?.find((f) => f.error_message || f.quarantine)
-    const errorMessage = reportingFile?.error_message ?? job.error_message ?? null
-    return {
-      kind: 'terminal',
-      resolution: failedOrQuarantined(
-        { errorMessage, quarantine: reportingFile?.quarantine },
-        failureFacts(job, reportingFile)
-      ),
-    }
-  }
-  const ahead = job.metadata?.queue_ahead
-  return { kind: 'in_progress', queueAhead: typeof ahead === 'number' && ahead >= 0 ? ahead : null }
-}
-
-interface BackendFileEntry {
-  status?: string
-  error_message?: string | null
-  quarantine?: unknown
-  summary?: string | null
-  chunk_count?: number
-  page_count?: number
-  content_types?: string[]
-  tags?: string[] | null
-  topics?: string[] | null
-  capture?: unknown
-  revision_facts?: unknown
-  dossier?: unknown
-  doc_references?: unknown
-  coverage?: unknown
-  revision?: RevisionLinkNames | null
-}
-
-interface CollectionFiles {
-  byName: Map<string, BackendFileEntry>
-  ambiguousNames: Set<string>
-  readingUnavailable: boolean
-}
-
 const READING_UNAVAILABLE_HEADER = 'x-reading-unavailable'
-
-interface RawBackendFile extends RawRevisionLinkFields {
-  file_name?: string
-  status?: string
-  error_message?: string | null
-  quarantine?: unknown
-  summary?: string | null
-  chunk_count?: number
-  tags?: string[] | null
-  topics?: string[] | null
-  capture?: unknown
-  revision_facts?: unknown
-  dossier?: unknown
-  doc_references?: unknown
-  coverage?: unknown
-  metadata?: { page_count?: number; content_types?: string[] } | null
-}
 
 const loadCollectionFiles = async (collectionName: string): Promise<CollectionFiles | null> => {
   const result = await fetchJson(
@@ -338,35 +179,15 @@ export const refreshCollectionFiles = async (collectionName: string): Promise<vo
   await loadCollectionFilesFresh(collectionName)
 }
 
-const resolveFromCollection = (
-  files: CollectionFiles | null,
-  ref: CollectionFileRef,
-  jobId: string | null
-): TerminalResolution | null => {
-  const file = files?.byName.get(ref.filename)
-  if (!file) return null
-  if (file.status === 'success') return { status: 'completed', errorMessage: null, failure: NO_FAILURE_FACTS }
-  if (file.status === 'failed' && attributableFailure(jobId)) {
-    return failedOrQuarantined({ errorMessage: file.error_message ?? null, quarantine: file.quarantine })
-  }
-  return null
-}
-
-const attributableFailure = (jobId: string | null): boolean => jobId === null
-
 export type BackendIngestKnowledge =
   | { state: 'in-progress' }
   | { state: 'terminal'; resolution: TerminalResolution }
   | { state: 'absent' }
   | { state: 'unreachable' }
 
-export async function describeBackendIngestState(row: {
-  metadata?: unknown
-  collectionName: string
-  filename: string
-  authoredBy: DocumentAuthor
-  publishedVersionId: string | null
-}): Promise<BackendIngestKnowledge> {
+export async function describeBackendIngestState(
+  row: AuthoredDocumentRow & { metadata?: unknown },
+): Promise<BackendIngestKnowledge> {
   const jobId = extractIngestJobId(row.metadata)
   if (jobId) {
     const statuses = await fetchJobStatuses([jobId])
@@ -390,56 +211,6 @@ export async function describeBackendIngestState(row: {
   return { state: 'absent' }
 }
 
-const resolveInterruptedRow = (job: BackendJobStatus | null | undefined): RowResolution | null => {
-  const result = resolveFromJobStatus(job)
-  if (result.kind === 'in_progress') return { status: 'pending', errorMessage: null }
-  if (result.kind === 'terminal' && result.resolution.status === 'completed') return result.resolution
-  return null
-}
-
-const resolveCancelledRow = (job: BackendJobStatus | null | undefined): RowResolution | null => {
-  const result = resolveFromJobStatus(job)
-  if (result.kind === 'terminal' && result.resolution.status === 'completed') return result.resolution
-  return null
-}
-
-const extractMetadata = (files: CollectionFiles | null, ref: CollectionFileRef): DocumentMetadata | null => {
-  if (!files || files.ambiguousNames.has(ref.filename)) return null
-  const file = files.byName.get(ref.filename)
-  if (!file) return null
-
-  const meta: DocumentMetadata = {}
-  if (typeof file.summary === 'string' && file.summary.length > 0) meta.summary = file.summary
-  if (typeof file.page_count === 'number' && file.page_count > 0) meta.pageCount = file.page_count
-  if (typeof file.chunk_count === 'number' && file.chunk_count > 0) meta.chunkCount = file.chunk_count
-  if (Array.isArray(file.content_types) && file.content_types.length > 0) {
-    meta.contentTypes = file.content_types
-  }
-  if (Array.isArray(file.tags) && file.tags.length > 0) {
-    meta.tags = file.tags.filter((t): t is string => typeof t === 'string')
-  }
-  if (Array.isArray(file.topics)) {
-    const topics = file.topics.filter((t): t is string => typeof t === 'string' && t.length > 0)
-    if (topics.length > 0) meta.topics = topics
-  }
-  const capture = parsePhotoCapture(file.capture)
-  if (capture) meta.capture = capture
-  const revisionFacts = parseRevisionFacts(file.revision_facts)
-  if (revisionFacts) meta.revisionFacts = revisionFacts
-  const dossier = parseDossier(file.dossier)
-  if (dossier) meta.dossier = dossier
-  const docReferences = parseDocumentReferences(file.doc_references)
-  if (docReferences) meta.docReferences = docReferences
-  const coverage = parseReadingCoverage(file.coverage)
-  if (coverage) meta.coverage = coverage
-  return Object.keys(meta).length > 0 ? meta : null
-}
-
-export interface ListedReading {
-  metadata: DocumentMetadata | null
-  superseded: boolean
-}
-
 export const readCollectionReadings = async (
   collectionName: string,
   refs: readonly CollectionFileRef[]
@@ -447,59 +218,6 @@ export const readCollectionReadings = async (
   const files = await loadCollectionFilesFresh(collectionName)
   if (!files || files.readingUnavailable) return null
   return readingsIn(files, collectionName, refs)
-}
-
-function readingsIn(
-  files: CollectionFiles,
-  collectionName: string,
-  refs: readonly CollectionFileRef[]
-): Map<string, ListedReading> {
-  const readings = new Map<string, ListedReading>()
-  for (const ref of refs) {
-    if (ref.collectionName !== collectionName || files.ambiguousNames.has(ref.filename)) continue
-    const file = files.byName.get(ref.filename)
-    if (!file) continue
-    readings.set(ref.filename, { metadata: extractMetadata(files, ref), superseded: Boolean(file.revision?.supersededBy) })
-  }
-  return readings
-}
-
-interface ReplacedVersions {
-  collectionName: string
-  files: CollectionFiles
-  names: readonly string[]
-}
-
-async function projectReplacedDocuments(
-  organizationId: string,
-  replaced: readonly ReplacedVersions[]
-): Promise<void> {
-  const byCollection = new Map<string, { files: CollectionFiles; names: Set<string> }>()
-  for (const { collectionName, files, names } of replaced) {
-    if (files.readingUnavailable) continue
-    const group = byCollection.get(collectionName) ?? { files, names: new Set<string>() }
-    for (const name of names) group.names.add(name)
-    byCollection.set(collectionName, group)
-  }
-  for (const [collectionName, { files, names }] of byCollection) {
-    const documents = await listCollectionDocumentsForProjection(organizationId, collectionName, [...names])
-    const refs = documents.flatMap((document) => {
-      const ref = collectionFileRef(document)
-      return ref ? [{ id: document.id, ref }] : []
-    })
-    const readings = readingsIn(
-      files,
-      collectionName,
-      refs.map((entry) => entry.ref)
-    )
-    await projectReadings(
-      organizationId,
-      refs.flatMap((entry) => {
-        const reading = readings.get(entry.ref.filename)
-        return reading ? [{ documentId: entry.id, ...reading }] : []
-      })
-    )
-  }
 }
 
 export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(

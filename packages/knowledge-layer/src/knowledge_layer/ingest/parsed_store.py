@@ -20,16 +20,17 @@ PARSED_PART = "parsed.json"
 
 PARSED_MAX_BYTES = env_int("INGEST_PARSED_MAX_BYTES", 32 * 1024 * 1024, minimum=0)
 
-_PASS_MODULES = ("adapter.py", "captioned_tables.py", "section_chunking.py", "page_triage.py", "parsed_store.py")
+_PASS_MODULES = ("pdf_tables.py", "captioned_tables.py", "section_chunking.py", "page_triage.py", "parsed_store.py")
 
 
 def _pipeline_version() -> str:
     from knowledge_layer.ingest.reader_version import INGEST_READER_VERSION
 
-    from . import adapter
+    from . import limits
+    from .pdf_text import PDF_PAGE_MAX_OBJECTS
 
     digest = hashlib.sha256(f"{SCHEMA_VERSION}|{INGEST_READER_VERSION}".encode())
-    thresholds = (adapter.VISUAL_PAGE_MIN_TEXT_CHARS, adapter.VISUAL_PAGE_MIN_PATHS, adapter.PDF_PAGE_MAX_OBJECTS)
+    thresholds = (limits.VISUAL_PAGE_MIN_TEXT_CHARS, limits.VISUAL_PAGE_MIN_PATHS, PDF_PAGE_MAX_OBJECTS)
     digest.update(repr(thresholds).encode())
     for name in _PASS_MODULES:
         digest.update((Path(__file__).parent / name).read_bytes())
@@ -89,7 +90,7 @@ def encode_text_pages(text_pages: Any) -> dict[str, Any]:
 
 
 def decode_text_pages(data: dict[str, Any]) -> Any:
-    from .adapter import PdfTextPages
+    from .pdf_text import PdfTextPages
 
     return PdfTextPages(
         _decode(data["pages"]),
@@ -227,11 +228,11 @@ class FileParse:
     parsed: ParsedDocument | None
 
     def text_pages(self, pdf_path: str) -> Any:
-        from . import adapter
+        from . import pdf_text
 
         if self.parsed is not None and self.parsed.text is not None:
             return decode_text_pages(self.parsed.text)
-        text_pages = adapter._extract_text_from_pdf(pdf_path)
+        text_pages = pdf_text._extract_text_from_pdf(pdf_path)
         if self.parsed is not None:
             self.parsed.text, self.parsed.dirty = encode_text_pages(text_pages), True
         return text_pages
@@ -247,12 +248,12 @@ class FileParse:
         return triage
 
     def tables(self, pdf_path: str, taken: dict[int, list[tuple]], skip: list[int]) -> list[dict[str, Any]]:
-        from . import adapter
+        from . import pdf_tables
 
         held = (self.parsed.tables or {}) if self.parsed is not None else {}
         if held.get("skip") == sorted(skip) and "tables" in held:
             return _decode(held["tables"])
-        tables = adapter._extract_tables_from_pdf(pdf_path, taken, skip)
+        tables = pdf_tables._extract_tables_from_pdf(pdf_path, taken, skip)
         if self.parsed is not None:
             self.parsed.tables, self.parsed.dirty = {"skip": sorted(skip), "tables": _encode(tables)}, True
         return tables

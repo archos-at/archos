@@ -11,12 +11,14 @@ from knowledge_layer.ingest import STAGE_SECONDS_KEY
 from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import PageKind
 from knowledge_layer.ingest import PageSignals
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import classify_page
+from knowledge_layer.ingest import limits
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import processing
 from knowledge_layer.ingest import text_quality
 from knowledge_layer.ingest import transcription
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 
@@ -421,8 +423,8 @@ def indexed(tmp_path, monkeypatch, summary_db, qdrant_store):
 
 def _credential(monkeypatch, api_key="vlm-key"):  # pragma: allowlist secret
     cred = ResolvedCredential(api_key=api_key, base_url="https://vlm.test/v1", model="test-vlm", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
-    monkeypatch.setattr(adapter, "_resolve_vlm_model_override", lambda organization_id=None: None)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "_resolve_vlm_model_override", lambda organization_id=None: None)
 
 
 def _ingest(ing, path: str, name: str, config: dict | None = None):
@@ -439,8 +441,8 @@ def _ingest(ing, path: str, name: str, config: dict | None = None):
 @pytest.fixture
 def no_drawing_vlm(monkeypatch):
     drawing = MagicMock(side_effect=AssertionError("a scanned page went through the drawing schema"))
-    monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", drawing)
-    monkeypatch.setattr(adapter, "_analyze_image_with_vlm", drawing)
+    monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", drawing)
+    monkeypatch.setattr(vision_reads, "_analyze_image_with_vlm", drawing)
     return drawing
 
 
@@ -461,7 +463,7 @@ class TestScannedPdfIngestion:
         assert not any("DRAWING" in doc.get_content() for doc in docs)
         expected_key = "vlm-key"  # pragma: allowlist secret
         assert calls[0] == {
-            "model": adapter.DEFAULT_VLM_MODEL,
+            "model": vision_credentials.DEFAULT_VLM_MODEL,
             "base_url": "https://vlm.test/v1",
             "api_key": expected_key,
         }
@@ -502,7 +504,7 @@ class TestScannedPdfIngestion:
         _credential(monkeypatch)
         live, _calls = _fake_live()
         monkeypatch.setattr(transcription, "_transcribe_live", live)
-        monkeypatch.setattr(adapter, "MAX_OCR_PAGES", 21)
+        monkeypatch.setattr(limits, "MAX_OCR_PAGES", 21)
         path = _write(tmp_path, "akt.pdf", scan_pdf(pages=25, size=(60, 85)))
 
         status = _ingest(indexed, path, "akt.pdf")
@@ -524,7 +526,9 @@ class TestScannedPdfIngestion:
     def test_the_org_vision_override_wins(self, tmp_path, monkeypatch, indexed, no_drawing_vlm):
         _credential(monkeypatch)
         monkeypatch.setenv("OCR_MODEL", "mistral/ocr-vision")
-        monkeypatch.setattr(adapter, "_resolve_vlm_model_override", lambda organization_id=None: "tenant/vision")
+        monkeypatch.setattr(
+            vision_credentials, "_resolve_vlm_model_override", lambda organization_id=None: "tenant/vision"
+        )
         live, calls = _fake_live()
         monkeypatch.setattr(transcription, "_transcribe_live", live)
 
@@ -552,7 +556,7 @@ class TestScannedPdfIngestion:
             drawn.append(image_bytes)
             return ("ZEICHNUNGSTYP: grundriss\nZUSAMMENFASSUNG: Bestandsplan EG.", {"drawing_type": "grundriss"})
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", drawing)
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", drawing)
 
         status = _ingest(indexed, _write(tmp_path, "plan.pdf", scan_pdf()), "plan.pdf")
 
@@ -610,7 +614,7 @@ class TestOcrSwitch:
         _credential(monkeypatch)
         live, calls = _fake_live()
         monkeypatch.setattr(transcription, "_transcribe_live", live)
-        monkeypatch.setattr(adapter, "MAX_OCR_PAGES", 0)
+        monkeypatch.setattr(limits, "MAX_OCR_PAGES", 0)
         mojibake = GERMAN.encode("utf-8").decode("cp1252", errors="replace")
         path = _write(tmp_path, "alt.pdf", _pdf([text_page(), text_page(mojibake)]))
 
@@ -625,9 +629,9 @@ class TestOcrSwitch:
 class TestDrawingCapIsCounted:
     def test_drawing_pages_past_the_render_cap_are_counted(self, tmp_path, monkeypatch, indexed):
         _credential(monkeypatch)
-        monkeypatch.setattr(adapter, "MAX_RENDERED_PAGES", 2)
+        monkeypatch.setattr(limits, "MAX_RENDERED_PAGES", 2)
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda image_bytes, **k: ("ZEICHNUNGSTYP: grundriss", {"drawing_type": "grundriss"}),
         )

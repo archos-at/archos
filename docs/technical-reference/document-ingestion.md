@@ -221,7 +221,7 @@ The ingestion route delegates to the active ingestor singleton, which is set up 
 
 ## Step 4: Background Ingestion (`LlamaIndex`)
 
-**File**: `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py`
+**File**: `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py` (the `LlamaIndexIngestor`); the job runs in `packages/knowledge-layer/src/knowledge_layer/ingest/ingest_run.py`, each file in `packages/knowledge-layer/src/knowledge_layer/ingest/file_ingest.py` (a PDF's reads in `packages/knowledge-layer/src/knowledge_layer/ingest/pdf_ingest.py`, an image or text file in `packages/knowledge-layer/src/knowledge_layer/ingest/file_extraction.py`), and the summary and facts after the write in `packages/knowledge-layer/src/knowledge_layer/ingest/document_facts.py`
 
 The `LlamaIndexIngestor.submit_job()` creates a job with `JobState.PENDING` and hands `_run_ingestion()` to the bounded ingest pool. An entry of `file_paths` is a local path (the multipart upload, the OIB sync) or a deferred download (`/v1/ingest`); the latter is kept unchecked, since nothing is on disk yet.
 
@@ -591,8 +591,8 @@ Session-scoped collections (`s_*`) are automatically reaped by a background thre
 ### Fixed: silent summary-row loss on double LLM failure (2026-07-16)
 
 The summary and tag-classification calls in Step 4 above run concurrently
-against the same `summary_llm` (`packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py`,
-~lines 1795–1965) and both fail open (log a warning, return `None`) on
+against the same `summary_llm` (`packages/knowledge-layer/src/knowledge_layer/ingest/enrichment.py`;
+the fallback is `_fallback_summary` in `packages/knowledge-layer/src/knowledge_layer/ingest/document_facts.py`) and both fail open (log a warning, return `None`) on
 error/timeout. `register_summary()` — the only call that writes a row into
 the `document_metadata` table — only runs when a summary value exists. Previously the
 deterministic fallback summary (derived from already-extracted text) only
@@ -734,7 +734,7 @@ not finished were not indexed, the bytes stay, and a re-ingest reads them
 again. `cancelled` is neutral in the UI („Abgebrochen“), never a failure.
 Because a stop can land between the worker's last ownership check and its
 write, a `cancelled` row is re-checked for thirty minutes like an `interrupted`
-one (`resolveCancelledRow`, `reconcile-status.ts`): a job that did finalize
+one (`resolveCancelledRow`, `reconcile-status/ingest-resolution.ts`): a job that did finalize
 heals the row to `completed`.
 
 What stays open is narrow: a status write that lands after the cancel settled

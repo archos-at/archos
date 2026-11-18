@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 import type { ListedProposal, ProposedChangeResult, ProposedChangeView } from '@/lib/proposals/types'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 const id = (n: number) => `00000000-0000-4000-8000-0000000002${String(n).padStart(2, '0')}`
 
@@ -48,7 +48,7 @@ const NAMED = {
 const base = {
   projectId: DEMO_PROJECT_ID,
   status: 'proposed' as const,
-  proposedByKind: LEGACY_AGENT_KIND,
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_me',
   onBehalfOfName: 'Mia Huber',
   originConversationId: null,

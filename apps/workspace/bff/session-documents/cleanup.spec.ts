@@ -138,6 +138,7 @@ describe('deleteDocumentObjects', () => {
 describe('purgeCollectionChunks', () => {
   const ref = (filename: string) => {
     const value = collectionFileRef({
+      id: `doc_${filename}`,
       collectionName: CONVERSATION_ID,
       filename,
       authoredBy: 'user',
@@ -169,6 +170,7 @@ describe('purgeCollectionChunks', () => {
   it('refuses a row that owns no chunks, so the purge cannot address another document', () => {
     expect(
       collectionFileRef({
+        id: 'doc_a',
         collectionName: CONVERSATION_ID,
         filename: 'a.pdf',
         authoredBy: 'agent',
@@ -210,6 +212,7 @@ describe('purgeSessionDocuments', () => {
     expect(purge, 'the human row is still purged').toBeTruthy()
     expect(JSON.parse((purge?.[1] as RequestInit).body as string)).toEqual({
       file_ids: ['brandschutz.pdf'],
+      documents: [{ id: 'doc-1', file_name: 'brandschutz.pdf' }],
     })
   })
 
@@ -275,7 +278,10 @@ describe('purgeSessionDocuments', () => {
 
     await purgeSessionDocuments(CONVERSATION_ID, ORG_ID)
 
-    const body = JSON.stringify({ file_ids: ['brandschutz.pdf'] })
+    const body = JSON.stringify({
+      file_ids: ['brandschutz.pdf'],
+      documents: [{ id: 'doc-1', file_name: 'brandschutz.pdf' }],
+    })
     expect(order).toEqual([`purge:${body}`, 'rows:doc-1', `purge:${body}`])
   })
 
@@ -301,7 +307,7 @@ describe('purgeSessionDocuments', () => {
     const result = await purgeSessionDocuments(CONVERSATION_ID, ORG_ID)
 
     expect(result).toMatchObject({ ok: false, purged: 1, retained: 1 })
-    expect(bodies[1]).toBe(JSON.stringify({ file_ids: ['a.pdf'] }))
+    expect(bodies[1]).toBe(JSON.stringify({ file_ids: ['a.pdf'], documents: [{ id: 'doc-good', file_name: 'a.pdf' }] }))
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('second chunk purge'), expect.stringContaining('502'))
     warn.mockRestore()
   })

@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter as adapter_mod
+from knowledge_layer.ingest import collection_catalog
 from knowledge_layer_testing.vector_store import chunk_texts
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import write
@@ -30,7 +30,7 @@ def _ingestor(collection: _Collection) -> LlamaIndexIngestor:
 
 
 def _patch_side_effects(monkeypatch):
-    monkeypatch.setattr(adapter_mod, "bump_collection_version", lambda *_: None)
+    monkeypatch.setattr(collection_catalog, "bump_collection_version", lambda *_: None)
     monkeypatch.setattr(knowledge_pkg, "unregister_summary", lambda *_, **__: None, raising=False)
 
 
@@ -68,7 +68,7 @@ def test_delete_exact_match_still_works(monkeypatch, qdrant_store):
 
 
 def test_delete_returns_false_when_no_chunks_match_but_still_forgets_the_file(monkeypatch, qdrant_store):
-    monkeypatch.setattr(adapter_mod, "bump_collection_version", lambda *_: None)
+    monkeypatch.setattr(collection_catalog, "bump_collection_version", lambda *_: None)
     forgotten: list[tuple[str, str, bool]] = []
     monkeypatch.setattr(
         knowledge_pkg,
@@ -85,7 +85,7 @@ def test_delete_returns_false_when_no_chunks_match_but_still_forgets_the_file(mo
 
 
 def test_a_permanent_delete_tells_the_store_so(monkeypatch, qdrant_store):
-    monkeypatch.setattr(adapter_mod, "bump_collection_version", lambda *_: None)
+    monkeypatch.setattr(collection_catalog, "bump_collection_version", lambda *_: None)
     forgotten: list[tuple[str, bool]] = []
     monkeypatch.setattr(
         knowledge_pkg,

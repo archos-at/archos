@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W51
 import type { InboxItemType } from '@/lib/inbox/inbox-vocabulary'
 
 export const LEGACY_AGENT_INBOX_TYPES = {
@@ -13,11 +13,3 @@ export const LEGACY_AGENT_INBOX_TYPES = {
 export type LegacyAgentInboxType = keyof typeof LEGACY_AGENT_INBOX_TYPES
 
 export type StoredInboxType = InboxItemType | LegacyAgentInboxType
-
-const STORED_SPELLING: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(LEGACY_AGENT_INBOX_TYPES).map(([legacy, current]) => [current, legacy]),
-)
-
-export function storedInboxType(type: StoredInboxType): StoredInboxType {
-  return (STORED_SPELLING[type] ?? type) as StoredInboxType
-}

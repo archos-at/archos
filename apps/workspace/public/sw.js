@@ -14,7 +14,7 @@ var READ_WAIT_MS = 400
 var MESSAGE_CLOSE = 'close-notifications'
 var MESSAGE_NAVIGATE = 'navigate'
 var INBOX_TAG = 'inbox'
-var LEGACY_NAMES = { close: 'piloti:close-notifications', navigate: 'piloti:navigate', tag: 'piloti-inbox' } // drop after release 2026-W48
+var LEGACY_NAMES = { close: 'piloti:close-notifications', navigate: 'piloti:navigate', tag: 'piloti-inbox' } // drop after release 2026-W50
 
 function isString(value) {
   return typeof value === 'string' && value.length > 0

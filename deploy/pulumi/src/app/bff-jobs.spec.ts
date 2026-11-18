@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { load } from "js-yaml";
+import ts from "typescript";
 import { baseStackConfig } from "../test-support/stack-config";
 import { WORKFLOW } from "./bff-jobs";
 import { hatchetBacklogQuery } from "./keda-scaling";
@@ -41,6 +42,7 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const SCALED_OBJECT = "kubernetes:keda.sh/v1alpha1:ScaledObject";
+const SERVICE = "kubernetes:core/v1:Service";
 
 type ComposeService = {
   extends?: { service: string };
@@ -52,10 +54,54 @@ function composeServices(file: string): Record<string, ComposeService> {
   return (load(read("deploy", "compose", file)) as { services: Record<string, ComposeService> }).services;
 }
 
+function backendNames(spec: { rules?: Array<{ backendRefs?: Array<{ name: string }> }> }): string[] {
+  return (spec.rules ?? []).flatMap((rule) => (rule.backendRefs ?? []).map((ref) => ref.name));
+}
+
+function isProductionSource(file: string): boolean {
+  return /\.(ts|js)$/.test(file) && !/\.spec\.ts$/.test(file);
+}
+
+function isEnvObject(expression: ts.Expression): boolean {
+  if (ts.isIdentifier(expression)) return expression.text === "env";
+  return (
+    ts.isPropertyAccessExpression(expression) &&
+    expression.name.text === "env" &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === "process"
+  );
+}
+
+function envNamesIn(node: ts.Node, found: (name: string) => void): void {
+  if (ts.isPropertyAccessExpression(node) && isEnvObject(node.expression)) found(node.name.text);
+  if (
+    ts.isElementAccessExpression(node) &&
+    isEnvObject(node.expression) &&
+    ts.isStringLiteralLike(node.argumentExpression)
+  ) {
+    found(node.argumentExpression.text);
+  }
+  ts.forEachChild(node, (child) => envNamesIn(child, found));
+}
+
+function envReads(...dirs: string[]): Map<string, string> {
+  const reads = new Map<string, string>();
+  for (const dir of dirs) {
+    for (const file of readdirSync(dir, { recursive: true }) as string[]) {
+      if (!isProductionSource(file)) continue;
+      const kind = file.endsWith(".js") ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+      const source = ts.createSourceFile(file, readFileSync(join(dir, file), "utf8"), ts.ScriptTarget.Latest, true, kind);
+      envNamesIn(source, (name) => reads.set(name, relative(repoRoot, join(dir, file))));
+    }
+  }
+  return reads;
+}
+
 describe("the bff-jobs pool", () => {
   let env: k8s.types.input.core.v1.EnvVar[] = [];
   let drainSeconds = 0;
   let concurrency = 0;
+  let langfuseEnabled = false;
   const dsnRequests: Array<{ db: string; clusterWide?: boolean }> = [];
 
   beforeAll(async () => {
@@ -70,9 +116,11 @@ describe("the bff-jobs pool", () => {
     const { buildSecrets } = await import("./config");
     const { bffJobsEnv } = await import("./bff-jobs-env");
     const { installNetworkPolicies } = await import("../platform/network-policies");
+    const { installHttpRoutes } = await import("./httproutes");
     const cfg = loadConfig();
     drainSeconds = cfg.bffJobs.drainSeconds;
     concurrency = cfg.bffJobs.concurrency;
+    langfuseEnabled = cfg.langfuse.enabled;
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
     const wiring = {
       cfg,
@@ -92,7 +140,10 @@ describe("the bff-jobs pool", () => {
     const secrets = buildSecrets(wiring);
     const pool = installBffJobs(wiring, cfg, secrets, []);
     installNetworkPolicies(cfg, provider, "grid");
-    await new Promise((done) => pool.deployment.id.apply(done));
+    const routes = installHttpRoutes(cfg, provider, "grid", []);
+    await Promise.all(
+      [pool.deployment, ...Object.values(routes)].map((r) => new Promise((done) => r.id.apply(done))),
+    );
   });
 
   it("runs the supervisor, which owns the BFF, in ONE container with no Service in front", async () => {
@@ -101,15 +152,16 @@ describe("the bff-jobs pool", () => {
 
     expect(pod.containers).toHaveLength(1);
     expect(pod.containers[0].command).toEqual(["node", "workers/jobs/index.js"]);
-    expect(existsSync(join(repoRoot, "apps", "workspace", "workers", "jobs", "index.js"))).toBe(true);
-    expect(read("apps", "workspace", "deploy", "Dockerfile")).toMatch(/COPY .*\/app\/workers \.\/workers/);
+    const entry = join(repoRoot, "apps", "workspace", ...pod.containers[0].command.slice(1));
+    expect(existsSync(entry), entry).toBe(true);
     expect(pod.securityContext).toMatchObject({ runAsNonRoot: true });
-    expect(RESOURCES.filter((r) => r.type === "kubernetes:core/v1:Service" && r.name === "bff-jobs")).toEqual([]);
+    expect(RESOURCES.filter((r) => r.type === SERVICE && r.name.startsWith("bff-jobs"))).toEqual([]);
   });
 
   it("is never routed to: no HTTPRoute names it", () => {
-    expect(read("deploy", "pulumi", "src", "app", "httproutes.ts")).not.toMatch(/bff-jobs/);
-    expect(read("deploy", "pulumi", "src", "app", "bff-jobs.ts")).not.toMatch(/core\.v1\.Service/);
+    const routes = RESOURCES.filter((r) => r.inputs.kind === "HTTPRoute");
+    expect(routes.length).toBeGreaterThan(0);
+    expect(routes.flatMap((r) => backendNames(r.inputs.spec))).not.toContain("bff-jobs");
   });
 
   it("gives a pod its drain budget plus time to stop the BFF it supervises", async () => {
@@ -120,26 +172,38 @@ describe("the bff-jobs pool", () => {
     expect(spec.template.spec.containers[0].readinessProbe.httpGet.path).toBe("/api/healthz");
   });
 
-  it("emits only BFF_JOBS_ names the runner reads, and the ones it needs", async () => {
-    const readByRunner = new Set(
-      [...read("apps", "workspace", "workers", "jobs", "index.js").matchAll(/\b((?:GRID_)?BFF_JOBS_[A-Z_]+)/g)].map((m) => m[1]),
+  it("emits only BFF_JOBS_ names the job code reads, and the ones it needs", async () => {
+    const readByJobCode = envReads(
+      join(repoRoot, "apps", "workspace", "bff", "jobs-queue"),
+      join(repoRoot, "apps", "workspace", "workers", "jobs"),
     );
+    expect(readByJobCode.has("BFF_JOBS_MAX_ATTEMPTS")).toBe(true);
     const emitted = env.map((e) => e.name as string).filter((name) => /^(GRID_)?BFF_JOBS_/.test(name));
 
     expect(emitted.length).toBeGreaterThan(2);
-    expect(emitted.filter((name) => !readByRunner.has(name))).toEqual([]);
+    expect(
+      emitted.filter((name) => !readByJobCode.has(name)),
+      "each BFF_JOBS_ name the pool emits must be read under bff/jobs-queue or workers/jobs",
+    ).toEqual([]);
     const names = env.map((e) => e.name);
     expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "HATCHET_CLIENT_TOKEN", "HATCHET_CLIENT_HOST_PORT"]));
   });
 
-  it("carries what the scheduling tasks read: run retention, and Langfuse's API for the trace sweeps", () => {
-    const sweeps = read("apps", "workspace", "bff", "scheduling", "sweeps.ts") + read("apps", "workspace", "workers", "langfuse-traces.js")
-    for (const name of ["SKILL_RUNS_RETENTION_DAYS", "TRACE_RETENTION_DAYS", "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]) {
-      expect(sweeps).toContain(name);
-    }
+  it("carries every variable the scheduling tasks read", () => {
+    const readBySchedule = envReads(join(repoRoot, "apps", "workspace", "bff", "scheduling"));
+    expect(readBySchedule.has("SKILL_RUNS_RETENTION_DAYS")).toBe(true);
+    const carried = new Set(env.map((e) => e.name as string));
+    const missing = [...readBySchedule]
+      .filter(([name]) => !carried.has(name))
+      .map(([name, file]) => `${name} (read in ${file})`);
+    expect(missing, "the bff-jobs pool must carry every variable the scheduling code reads").toEqual([]);
+  });
+
+  it("carries Langfuse's API names and trace retention exactly when Langfuse is deployed", () => {
     const names = env.map((e) => e.name);
-    expect(names).toContain("SKILL_RUNS_RETENTION_DAYS");
-    expect(names.filter((name) => name === "LANGFUSE_HOST")).toHaveLength(names.includes("TRACE_RETENTION_DAYS") ? 1 : 0);
+    for (const name of ["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "TRACE_RETENTION_DAYS"]) {
+      expect(names.filter((n) => n === name), name).toHaveLength(langfuseEnabled ? 1 : 0);
+    }
   });
 
   it("sets no host mode: the pod runs the Hatchet worker in process, always (ADR-0150)", () => {

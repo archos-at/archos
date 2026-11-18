@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import config, { nextConfig, withSourceMaps } from '../next.config.ts'
 
@@ -42,13 +42,13 @@ describe('withSourceMaps', () => {
 
   it('is what Next loads, with no map flags outside the image build', () => {
     const saved = process.env.EMIT_SOURCE_MAPS
-    delete process.env.EMIT_SOURCE_MAPS
+    vi.stubEnv('EMIT_SOURCE_MAPS', undefined)
     try {
       const loaded = config()
       expect(loaded.productionBrowserSourceMaps).toBeUndefined()
       expect(loaded.experimental?.serverSourceMaps).toBeUndefined()
     } finally {
-      if (saved !== undefined) process.env.EMIT_SOURCE_MAPS = saved
+      if (saved !== undefined) vi.stubEnv('EMIT_SOURCE_MAPS', saved)
     }
   })
 })
@@ -103,8 +103,8 @@ describe('the image build wiring', () => {
     expect(buildStep).toContain("[ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .")
   })
 
-  it('deletes the CLI binary it fetched, which the production install would not prune', () => {
-    expect(buildStep).toContain('rm -rf node_modules/@posthog/cli/node_modules/.bin_real')
+  it('ships no node_modules from the builder, where the CLI fetched its binary', () => {
+    expect(dockerfile).not.toMatch(/^COPY --from=builder \S* ?\/app\/node_modules /m)
   })
 
   it('keeps the maps in a stage of their own that is not the default target', () => {

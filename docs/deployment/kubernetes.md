@@ -258,7 +258,13 @@ pods it builds, and a selector on the template's own labels matched no pod
 (both PgBouncers ran on one node until 2026-10).
 
 The operators (CloudNativePG, KEDA, cert-manager, Envoy Gateway,
-metrics-server) are Helm releases in their own namespaces and are not pinned.
+metrics-server) and Hatchet are Helm releases in their own namespaces, each
+pinned to an exact chart version by an exported `*_CHART_VERSION` constant.
+A release without a version re-resolves the repository's latest on every `up`:
+on 2026-11-18 that upgraded the CloudNativePG operator during a prod promotion,
+every Postgres instance restarted, and the app tiers crash-looped for about
+five minutes. `index-helm-pins.spec.ts` fails on a release without one. Move a
+pin on dev first, as a change of its own.
 
 **Cluster-autoscaler scales on *unschedulable pods*, not utilisation.** Its
 documented prerequisites — an HPA as the first scaling tier, `requests`/`limits`
@@ -270,9 +276,10 @@ a node get added.
 
 **Node loss wipes ephemeral storage; only PVCs survive.** On node replacement,
 `emptyDir` / `hostPath` / container-fs are gone. This stack uses **none** of
-those for durable data — no `emptyDir`, no `hostPath`, and the one DaemonSet,
-`otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`), mounts only its
-ConfigMap — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
+those for durable data — no `emptyDir`, no durable `hostPath`; of the two
+DaemonSets, `otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`) mounts only
+its ConfigMap and `otel-logs` (`log-shipper.ts`) reads `/var/log/pods`
+read-only — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
 `/var/lib/kubelet`) is a non-issue here; the only ephemeral file is the
 agent-worker's `/tmp` liveness marker, which is meant to be transient. All state
 lives on PVCs (which survive) or in Postgres.
@@ -1188,8 +1195,15 @@ schema.
 
 - **HA:** `grid-oib:pgInstances: 3` (the prod default) runs one primary + two
   streaming replicas with automatic failover; `primaryUpdateStrategy:
-  unsupervised` lets CNPG switch over + roll on its own when the provider drains
-  a node. Replicas use `preferred` pod anti-affinity on `kubernetes.io/hostname`
+  unsupervised` with `primaryUpdateMethod: switchover` lets CNPG roll on its
+  own: replicas first, then the primary hands over to the most aligned replica
+  instead of restarting in place. A 1-instance cluster (dev) has no replica to
+  hand to, so its primary is recreated and clients see a restart. An operator
+  upgrade rolls nothing: the operator runs with
+  `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES`, which swaps the instance manager
+  inside the running pods and leaves the postmaster up. With `switchover`,
+  CNPG refuses a change to `imageName` and PostgreSQL parameters in one
+  update; make them in two deploys. Replicas use `preferred` pod anti-affinity on `kubernetes.io/hostname`
   so they spread across worker nodes. Both routes below follow the current
   primary through a failover.
 - **Two routes to the primary (ADR-0083).** `grid-pg-pooler-rw` is a CloudNativePG
@@ -2574,6 +2588,11 @@ call gateway and agent:
   every node, deployed only with PostHog metrics on. It reads its node's
   kubelet (`kubelet_stats`) and scrapes the annotated pods scheduled on its node
   (`prometheus/pods`), and sends both to the gateway. It holds no credential.
+- **`otel-logs`** (`deploy/pulumi/src/platform/log-shipper.ts`), a DaemonSet on
+  every node in its own namespace `observability`, deployed with PostHog logs
+  on (`grid-oib:namespace` may not be `observability`; `loadConfig` refuses it). It tails the container logs of the app namespaces and sends them to the
+  gateway (below, "Container logs and Kubernetes events"). It holds no PostHog
+  token; it mounts a Kubernetes service-account token, to read pod metadata.
 
 The config each one runs is composed from one fragment per consumer or source
 (`collector-config.ts`), which also holds the invariants every collector
@@ -2637,6 +2656,8 @@ grid-ui / backend-chat / grid-agent-worker / grid-bff-jobs / grid-purger
      │  └───── scrape every 30 s: qdrant-0 / qdrant-1 / qdrant-2 (port 6336)
      │ OTLP
   otel-agent (one per node) ◀── its kubelet (:10250) and its annotated pods
+     │ OTLP
+  otel-logs (one per node, ns observability) ◀── /var/log/pods of grid, background-work, cms
 ```
 
 A signal no consumer takes ends in the collector's own `nop` exporter, because
@@ -2650,6 +2671,29 @@ filter:
 | Pipeline | Exporter | Filter | Switch |
 |---|---|---|---|
 | `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`); `resource/logs_environment` names the stack in `deployment.environment.name`, as on metrics and traces, so a query reads `resource_attributes['deployment.environment.name'] = 'prod'` (logs before 2026-11-17 have none) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to the platform's project; an empty `posthogHost` opts the stack out) |
+
+**Container logs and Kubernetes events** reach the same exporter on two more
+pipelines, so a failed rollout can be read in PostHog
+([`observability/debug-a-failed-rollout.md`](../observability/debug-a-failed-rollout.md)):
+
+| Pipeline | Source | What it keeps |
+|---|---|---|
+| `logs/containers` | OTLP from `otel-logs` on a port of its own, 4319 (`otlp/shipper`), which marks every row `collector.log.source=container`; the SDK pipeline reads only 4318, so an SDK row goes through the redaction whatever it claims to be | the line as written. The shipper's `filelog/pods` reads `/var/log/pods/<ns>_*` for `appNamespaces(cfg)` only, skips the OTLP-instrumented containers (`LOG_SHIPPER.otlpInstrumentedContainers`; `log-shipper.spec.ts` fails if a container with `OTEL_EXPORTER_OTLP_ENDPOINT` is missing from it), the collectors and the noisy stores; the `container` parser and `k8sattributes` stamp `k8s.namespace.name`, `k8s.pod.name`, `k8s.container.name`, `k8s.deployment.name`, and `service.name` is the container name. Debug dropped, warn and above kept, info sampled at 10%, lines cut at 16 KiB after CRI recombination. `k8s.deployment.name` is best effort: a new pod's first lines can come before `k8sattributes` has seen the pod, and carry the path's pod name only |
+| `logs/k8s_events` | `k8sobjects/events` on the gateway: a watch on `events.k8s.io` events in the app namespaces | one row per watch notification, so an event that repeats comes again with its count raised (`k8s.event.count`, from `series.count`) (Warning as warn, Normal as info), body the note, attributes `k8s.event.reason`, `k8s.event.type`, `k8s.object.kind`, `k8s.object.name`; `service.name` `k8s-events`, `k8s.pod.name` on the resource for a pod's events. Deletions dropped |
+
+Excluding the instrumented containers rather than filtering their stdout keeps
+the redaction whole (their stdout carries office text) and costs only their
+pre-SDK crash output, which the events cover (`BackOff`, `Unhealthy`). The
+shipper lives in its own namespace because a `hostPath` volume is refused by the
+app namespace's `baseline` admission: `observability` enforces `privileged` and
+warns at `baseline`, and the pod itself runs as UID 10001 with no capabilities,
+a read-only root, and group 0 only to read the kubelet's `0640 root:root` files.
+It reads pod metadata through a ClusterRole of get/list/watch on pods,
+namespaces and replicasets; `allow-log-shipper-to-collector` lets it through the
+app namespace's default-deny to port 4319. The events are read by the gateway
+alone, which is one replica (a second would ship every event twice; a surge
+rollout overlaps for seconds), through a Role of get/list/watch on events in
+each app namespace, bound to `otel-collector`.
 
 PostHog Logs takes `{posthogHost}/i/v1/logs` with `Authorization: Bearer
 <project token>`. The token is PostHog's public `phc_` key, the same one the

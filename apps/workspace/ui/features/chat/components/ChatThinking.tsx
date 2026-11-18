@@ -1,18 +1,6 @@
 'use client'
 
-import {
-  type FC,
-  type ReactNode,
-  forwardRef,
-  memo,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from 'react'
+import { type FC, type ReactNode, memo, useId, useMemo, useState, useTransition } from 'react'
 import { ShimmerText } from '@/components/ui/shimmer-text'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
@@ -20,25 +8,13 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertTriangle,
-  CircleArrowRight,
   CircleHelp,
   CircleMinus,
-  CircleSlash,
   Circle,
-  Clock,
   TriangleAlert,
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible'
-import {
-  motion,
-  AnimatePresence,
-  motionBase,
-  motionInstant,
-  motionQuick,
-  motionQuickExit,
-  useIconSwapTransition,
-} from '@/components/motion'
-import type { Transition, Variants } from 'motion/react'
+import { motion, AnimatePresence, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Spinner } from '@/components/ui/spinner'
@@ -53,6 +29,7 @@ import { buildCitationModel } from '../lib/citations'
 import { liveLine } from '../lib/turn-events'
 import { deriveExecutedSteps } from '../lib/executed-steps'
 import { useElapsedSeconds, formatElapsed, type ElapsedSince } from '../hooks/use-elapsed-seconds'
+import { useThrottledText } from '../hooks/use-throttled-text'
 import { ReasoningFlow } from './reasoning/ReasoningFlow'
 import { SubagentGroups } from './reasoning/SubagentGroups'
 import { derivationOverview, documentLocation } from '../lib/derivation-basis'
@@ -72,6 +49,12 @@ import {
   isSettledAnswer,
   worstFinding,
 } from '../lib/derivation-header'
+import { type Disclosure, nextDisclosure } from '../lib/thinking-disclosure'
+import { splitCount } from '../lib/split-count-label'
+import { ROLL_OFFSET, type RollMotion } from './chat-thinking/roll-motion'
+import { contentVariants } from './chat-thinking/disclosure-motion'
+import { RollingCount } from './chat-thinking/rolling-count'
+import { StatusIcon } from './chat-thinking/status-icon'
 
 export type { ThinkingEnding }
 
@@ -100,49 +83,9 @@ export interface ChatThinkingProps {
   autoOpen?: boolean
 }
 
-type CloseReason = 'fold' | 'toggle'
-
-interface Disclosure {
-  open: boolean
-  closeReason: CloseReason
-  autoOpen: boolean | undefined
-  userToggled: boolean
-  autoOpened: boolean
-}
-
-const nextDisclosure = (d: Disclosure, autoOpen: boolean | undefined): Disclosure => {
-  let next = d
-  if (autoOpen !== undefined && autoOpen !== d.autoOpen) {
-    const wasDriven = d.autoOpen === true
-    next = { ...next, autoOpen }
-    if (autoOpen && !d.userToggled) {
-      next = { ...next, open: true, autoOpened: true }
-    } else if (!autoOpen && wasDriven) {
-      if (!d.userToggled && d.autoOpened) next = { ...next, open: false, closeReason: 'fold' }
-      next = { ...next, autoOpened: false }
-    }
-  }
-  return next
-}
-
 const JOIN = '\u00A0· '
 
 const PHASE_NOTE_MIN_GAP_MS = 3000
-
-const useThrottledText = (text: string, gapMs: number): string => {
-  const [shown, setShown] = useState(text)
-  const [shownAt, setShownAt] = useState(0)
-  useEffect(() => {
-    if (text === shown) return
-    const wait = Math.max(0, shownAt + gapMs - Date.now())
-    const id = setTimeout(() => {
-      setShown(text)
-      setShownAt(Date.now())
-    }, wait)
-    return () => clearTimeout(id)
-  }, [text, shown, shownAt, gapMs])
-  return shown
-}
 
 const ChatThinkingView: FC<ChatThinkingProps> = ({
   steps,
@@ -621,148 +564,5 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     </div>
   )
 }
-
-const ROLL_OFFSET = '100%'
-
-interface RollMotion {
-  initial: { opacity: number; y: string | number }
-  animate: { opacity: number; y: number; transition: Transition }
-  exit: { opacity: number; y: string; transition: Transition }
-}
-
-const splitCount = (text: string): { before: string; count: string; after: string } | null => {
-  const match = /\d+(?:[.,\u00a0\u202f]\d{3})*/.exec(text)
-  if (!match) return null
-  return {
-    before: text.slice(0, match.index),
-    count: match[0],
-    after: text.slice(match.index + match[0].length),
-  }
-}
-
-const RollingCount: FC<{ value: string; after: string; roll: RollMotion }> = ({ value, after, roll }) => {
-  const sizer = useRef<HTMLSpanElement>(null)
-  const tail = useRef<HTMLSpanElement>(null)
-  const lastWidth = useRef<number | null>(null)
-  useLayoutEffect(() => {
-    const next = sizer.current?.getBoundingClientRect().width ?? 0
-    const previous = lastWidth.current
-    lastWidth.current = next
-    const duration = (roll.animate.transition.duration ?? 0) * 1000
-    if (previous === null || Math.abs(previous - next) < 0.5 || duration === 0) return
-    tail.current?.animate?.(
-      [{ transform: `translateX(${previous - next}px)` }, { transform: 'translateX(0)' }],
-      { duration, easing: cssEasing(roll.animate.transition.ease) }
-    )
-  }, [value, roll.animate.transition])
-  return (
-    <>
-      <span className="relative inline-grid overflow-hidden align-top tabular-nums">
-        {/* Generated content, so the sizer's digits are not in the label's text. */}
-        <span
-          ref={sizer}
-          aria-hidden="true"
-          data-text={value}
-          className="invisible absolute whitespace-nowrap before:content-[attr(data-text)]"
-        />
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span key={value} data-derivation-count className="col-start-1 row-start-1" {...roll}>
-            {value}
-          </motion.span>
-        </AnimatePresence>
-      </span>
-      <span ref={tail} className="inline-block whitespace-pre">
-        {after}
-      </span>
-    </>
-  )
-}
-
-const cssEasing = (ease: Transition['ease']): string =>
-  Array.isArray(ease) && ease.length === 4 && ease.every((n) => typeof n === 'number')
-    ? `cubic-bezier(${ease.join(', ')})`
-    : 'ease-out'
-
-interface ContentExit {
-  reason: CloseReason
-  reducedMotion: boolean
-}
-
-const contentVariants: Variants = {
-  hidden: { opacity: 0 },
-  shown: ({ reducedMotion }: ContentExit) => ({
-    opacity: 1,
-    height: 'auto',
-    transition: reducedMotion ? motionInstant : motionBase,
-  }),
-  leave: ({ reason, reducedMotion }: ContentExit) => {
-    if (reducedMotion) return { opacity: 0, height: 0, transition: motionInstant }
-    if (reason === 'toggle') return { opacity: 0, height: 0, transition: motionQuickExit }
-    return {
-      opacity: 0,
-      height: 0,
-      transition: {
-        opacity: motionQuickExit,
-        height: { duration: 0, delay: motionQuickExit.duration },
-      },
-    }
-  },
-}
-
-interface StatusIconProps {
-  status: HeaderStatus
-  t: ReturnType<typeof useTranslations>
-  enter: Transition
-  leave: Transition
-}
-
-const StatusIcon = forwardRef<HTMLSpanElement, StatusIconProps>(function StatusIcon(
-  { status, t, enter, leave },
-  ref
-) {
-  const settled = isSettledAnswer(status)
-  const iconSwap = useIconSwapTransition()
-  const glyph: Record<HeaderStatus, ReactNode> = {
-    live: <Spinner size="sm" label={t('thinking.inProgress')} />,
-    waiting: <Clock className="size-5" aria-hidden="true" />,
-    recovering: <Spinner size="sm" aria-hidden="true" />,
-    interrupted: <AlertTriangle className="size-5" aria-hidden="true" />,
-    stopped: <CircleSlash className="size-5" aria-hidden="true" />,
-    failed: <AlertTriangle className="size-5" aria-hidden="true" />,
-    handedOff: <CircleArrowRight className="size-5" aria-hidden="true" />,
-    refused: <CircleMinus className="size-5" aria-hidden="true" />,
-    askedBack: <CircleHelp className="size-5" aria-hidden="true" />,
-    flagged: <TriangleAlert className="size-5" aria-hidden="true" />,
-    done: <CheckCircle2 className="size-5" aria-hidden="true" />,
-  }
-  const tone: Record<HeaderStatus, string> = {
-    live: '',
-    waiting: 'text-brand',
-    recovering: 'text-muted-foreground',
-    interrupted: 'text-warning',
-    stopped: 'text-muted-foreground',
-    failed: 'text-warning',
-    handedOff: 'text-brand',
-    refused: 'text-muted-foreground',
-    askedBack: 'text-brand',
-    flagged: 'text-warning',
-    done: 'text-success',
-  }
-  return (
-    <motion.span
-      ref={ref}
-      className={cn('flex size-5 shrink-0 items-center justify-center', tone[status])}
-      initial={settled ? { opacity: 0, scale: 0.7 } : { opacity: 0 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        transition: settled ? iconSwap.enter : enter,
-      }}
-      exit={{ opacity: 0, transition: leave }}
-    >
-      {glyph[status]}
-    </motion.span>
-  )
-})
 
 export const ChatThinking = memo(ChatThinkingView)

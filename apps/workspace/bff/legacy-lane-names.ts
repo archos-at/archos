@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W51
 import { AGENT_AUTHORED_LANE } from './source-kinds'
 
 export const LEGACY_AGENT_AUTHORED_LANE = 'office_piloti'

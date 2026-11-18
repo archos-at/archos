@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { AUDIT_ACTIONS, AUDIT_SCHEMAS, AWAITING_EMITTER_AUDIT_ACTIONS, RETIRED_AUDIT_ACTIONS } from './schemas.mjs'
-import { writtenAuditAction } from './legacy-agent-actions'
 import { AUTHORED_REF_KINDS } from '@/lib/documents/document-authors'
 import { DOCUMENT_VERSION_TRANSITIONS } from '@/lib/documents/lifecycle-types'
 import { SOURCE_DIRS } from '@/test-utils/source-tree'
@@ -60,15 +59,10 @@ describe('audit schema coverage', () => {
     expect(withoutSchema).toEqual([])
   })
 
-  it('registers the name WorkOS receives for every agent action', () => {
-    const onTheWire = AUDIT_ACTIONS.filter((action) => action.startsWith('agent.')).map((action) => writtenAuditAction(action))
-    expect(onTheWire.filter((action) => !REGISTRY[action as AuditAction])).toEqual([])
-  })
-
   it('emits every action it registers a schema for — no orphan schemas', () => {
     const retired = new Set<string>(RETIRED_AUDIT_ACTIONS)
     const awaiting = new Set<string>(AWAITING_EMITTER_AUDIT_ACTIONS)
-    const onTheWire = new Set<string>([...EMITTED_ACTIONS, ...[...EMITTED_ACTIONS].map((action) => writtenAuditAction(action))])
+    const onTheWire = new Set<string>(EMITTED_ACTIONS)
     const orphans = Object.keys(REGISTRY).filter(
       (action) => !onTheWire.has(action) && !retired.has(action) && !awaiting.has(action),
     )

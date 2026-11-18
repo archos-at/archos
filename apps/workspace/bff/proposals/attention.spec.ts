@@ -54,7 +54,7 @@ describe('onProposalCreated', () => {
       resourceType: 'conversation',
       resourceId: 'conv_1',
       anchorId: 'prop_1',
-      groupKey: 'piloti.proposal_waiting:conversation:conv_1:prop_1',
+      groupKey: 'agent.proposal_waiting:conversation:conv_1:prop_1',
       payload: { variant: 'move', excerpt: 'Grundriss.pdf, Schnitt.pdf +1' },
     })
   })
@@ -82,7 +82,7 @@ describe('onProposalCreated', () => {
       resourceType: 'project',
       resourceId: 'proj_1',
       anchorId: 'prop_1',
-      groupKey: 'piloti.proposal_waiting:project:proj_1:prop_1',
+      groupKey: 'agent.proposal_waiting:project:proj_1:prop_1',
     })
   })
 

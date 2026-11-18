@@ -8,7 +8,7 @@ import { timedWorkOSCall } from './instrumentation'
 describe('timedWorkOSCall', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    delete process.env.AUTHZ_SLOW_CALL_MS
+    vi.stubEnv('AUTHZ_SLOW_CALL_MS', undefined)
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
@@ -50,19 +50,19 @@ describe('timedWorkOSCall', () => {
   })
 
   it('honors an env-tuned threshold', async () => {
-    process.env.AUTHZ_SLOW_CALL_MS = '5000'
+    vi.stubEnv('AUTHZ_SLOW_CALL_MS', '5000')
     await expect(runFor(3000, () => 'ok')).resolves.toBe('ok')
     expect(console.warn).not.toHaveBeenCalled()
   })
 
   it('is fully disabled when the threshold is 0', async () => {
-    process.env.AUTHZ_SLOW_CALL_MS = '0'
+    vi.stubEnv('AUTHZ_SLOW_CALL_MS', '0')
     await expect(runFor(60_000, () => 'ok')).resolves.toBe('ok')
     expect(console.warn).not.toHaveBeenCalled()
   })
 
   it('falls back to the default for a non-numeric threshold', async () => {
-    process.env.AUTHZ_SLOW_CALL_MS = 'nonsense'
+    vi.stubEnv('AUTHZ_SLOW_CALL_MS', 'nonsense')
     await expect(runFor(2500, () => 'ok')).resolves.toBe('ok')
     expect(console.warn).toHaveBeenCalledTimes(1)
   })

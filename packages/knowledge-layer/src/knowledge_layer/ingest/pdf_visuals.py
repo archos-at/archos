@@ -32,19 +32,19 @@ def visual_documents_for_pdf(
     extract_images: bool,
     extract_charts: bool,
 ) -> VisualDocuments:
-    from knowledge_layer.ingest import adapter as _adapter
+    from knowledge_layer.ingest import caption_documents
 
     documents: list[Any] = []
     charts = images = 0
     for record, content_type, caption in image_results:
-        caption = _adapter._scrub_watermark_phrases(caption) or "[Image - no describable content]"
-        content_type = _adapter.indexed_visual_type(
+        caption = caption_documents._scrub_watermark_phrases(caption) or "[Image - no describable content]"
+        content_type = caption_documents.indexed_visual_type(
             content_type, extract_images=extract_images, extract_charts=extract_charts
         )
         if content_type is None:
             continue
         documents.extend(
-            _adapter.visual_documents(
+            caption_documents.visual_documents(
                 content_type,
                 caption,
                 record.get("fields") or {},
@@ -62,7 +62,7 @@ def visual_documents_for_pdf(
         logger.info(f"  Visual extraction: {charts} charts, {images} images")
     for page in drawing_pages:
         documents.extend(
-            _adapter.visual_documents(
+            caption_documents.visual_documents(
                 page.get("content_type") or "drawing",
                 page.get("caption", ""),
                 page.get("fields") or {},

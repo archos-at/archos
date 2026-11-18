@@ -265,4 +265,7 @@ afterEach(() => {
   resetDatabase()
 })
 
-afterAll(() => server?.close())
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server?.close()
+})

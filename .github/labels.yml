@@ -45,3 +45,11 @@
 - name: answer-suite
   color: "5319e7"
   description: "No CI reads this label; run task be:eval:answer-suite and attach the report to the PR"
+
+- name: stale
+  color: "cfd3d7"
+  description: "No activity for 7 days; stale-prs.yml closes it 3 days later unless it is touched"
+
+- name: keep-open
+  color: "0e8a16"
+  description: "stale-prs.yml never closes this pull request for inactivity"

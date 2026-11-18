@@ -82,7 +82,7 @@ const OWN_H1_ALLOWED = new Map([
   ['ui/features/project-intake/components/steps/reading-step.tsx', 'the reading step\u2019s live phase line, 22px on a phone'],
   ['ui/features/project-intake/components/questions/round-list.tsx', 'the title of the question list\u2019s side column, not of the page'],
   ['app/legal/[slug]/page.tsx', 'a legal document\u2019s own title, set as a document'],
-  ['shared/components/MarkdownRenderer/MarkdownRenderer.tsx', 'a heading inside rendered Markdown (an answer, a note), not the page\u2019s'],
+  ['shared/components/MarkdownRenderer/heading-renderers.tsx', 'a heading inside rendered Markdown (an answer, a note), not the page\u2019s'],
 ])
 
 describe('page titles', () => {

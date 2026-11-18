@@ -154,7 +154,7 @@ Paths are relative to `/home/user/archos`.
 | P4 | Intake agent: Bundesland, Geschoße, Fluchtniveau, Gebäudeklasse; summary "in German" | `agents/intake/prompts/system.j2` [V] | S1 |
 | P5 | `system.j2` turn context: `oib_applicability` and "Bundesland/OIB edition" in reference projects | `core/prompts/system.j2:60-91` [S] | S1 | <!-- brand-history -->
 | P6 | Tool descriptions with OIB, GK and "Austria runs UTC+1/+2" | `tools/bim/measure_input.py:176`, `tools/cross_project/register.py:332, 776`, `tools/bim/register.py:222`, `tools/documents/tools.py:142-172` (`/law/oib/` mount) [S] | S1 each |
-| P7 | MCP door copy: `knowledge-base-get`, `norm-list` ("Austrian laws", `federalState` "Wien"), `project-standards-get` (OIB), `bim-check-*` ("OIB rule catalogue"), `door/prompts/building-law-check.md`, `door/guide.md`, `discovery.ts:627-631` | `apps/workspace/bff/agent-api/...` [S] | S2 |
+| P7 | MCP door copy: `knowledge-base-get`, `norm-list` ("Austrian laws", `federalState` "Wien"), `project-standards-get` (OIB), `bim-check-*` ("OIB rule catalogue"), `door/prompts/building-law-check.md`, `door/guide.md`, `discovery-meta-tools.ts:31-35` | `apps/workspace/bff/agent-api/...` [S] | S2 |
 | P8 | German canned replies and German HyDE / query expansion tie answers to the German corpus | `common/canned_replies.py:14-36`, `common/hyde.py`, `common/query_expansion.py` [S] | S2 |
 
 ### 2.4 UI and i18n

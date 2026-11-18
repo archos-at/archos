@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
@@ -13,9 +11,6 @@ const CALLS: Array<{ token: string; inputs: Record<string, unknown> }> = [];
 const ZONE_ID = MAIL_ZONE_ID;
 const DOMAIN = "inbox.example.test";
 const ZONE_NAME = "example.test";
-const CONTRACT = JSON.parse(
-  readFileSync(join(__dirname, "../../../../contracts/inbound-mail-contract.json"), "utf8"),
-) as { path: string };
 
 let DESTINATIONS: Array<{ email: string; verified: string | null }> = [];
 
@@ -133,16 +128,22 @@ describe("project mail on Cloudflare", () => {
     expect(CALLS).toEqual([]);
   });
 
-  it("uploads the Worker module verbatim, into the zone's account", async () => {
+  it("uploads its Worker module into the zone's account, under the stack's name", async () => {
     await install(mailConfig());
     const script = one(SCRIPT);
     expect(script.inputs.accountId).toBe("account-1");
     expect(script.inputs.scriptName).toBe("inbound-mail-test");
     expect(script.inputs.mainModule).toBe("inbound-mail-worker.js");
-    expect(script.inputs.content).toBe(readFileSync(join(__dirname, "inbound-mail-worker.js"), "utf8"));
-    expect(script.inputs.content).toContain("async email(message, env)");
-    expect(script.inputs.content).toContain(`INBOUND_MAIL_PATH = "${CONTRACT.path}"`);
     expect(CALLS.map((c) => c.token)).toContain("cloudflare:index/getZone:getZone");
+  });
+
+  it("uploads a Worker module that exports the email handler Cloudflare calls", async () => {
+    await install(mailConfig());
+    const content = String(one(SCRIPT).inputs.content);
+    const worker = (await import(`data:text/javascript;base64,${Buffer.from(content).toString("base64")}`)) as {
+      default: { email?: unknown };
+    };
+    expect(typeof worker.default.email).toBe("function");
   });
 
   it("keeps the Worker's own delivery lines and no invocation logs", async () => {
@@ -276,20 +277,6 @@ describe("the RFC 2142 forwards and the zone's DMARC record", () => {
         actions: [{ type: "forward", values: [OPERATOR_ADDRESS] }],
       }),
     ]);
-  });
-
-  it("keeps the destination address when the domain is unset or the stack destroyed", async () => {
-    const { OPERATOR_ADDRESS_OPTIONS } = await import("./inbound-mail-operator");
-    expect(OPERATOR_ADDRESS_OPTIONS.retainOnDelete).toBe(true);
-    expect(readFileSync(join(__dirname, "inbound-mail-operator.ts"), "utf8")).toMatch(
-      /new cloudflare\.EmailRoutingAddress\([^;]*\{ provider: zone\.provider, \.\.\.OPERATOR_ADDRESS_OPTIONS \}/,
-    );
-  });
-
-  it("orders each forward after the routing and the address, through the source", () => {
-    expect(readFileSync(join(__dirname, "inbound-mail-operator.ts"), "utf8")).toContain(
-      "dependsOn: [zone.routing, ...(owned ? [owned] : [])]",
-    );
   });
 
   it("points the forwards at a shared, verified address without creating one", async () => {

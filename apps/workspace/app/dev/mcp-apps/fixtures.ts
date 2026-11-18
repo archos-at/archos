@@ -1,11 +1,11 @@
 import type { McpUiStyles } from '@modelcontextprotocol/ext-apps'
 import type { ProposedChangeView } from '@/lib/proposals/types'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 const BASE = {
   projectId: '3d1c2f7a-5b8e-4c1d-9f20-6a7b8c9d0e1f',
   status: 'proposed' as const,
-  proposedByKind: LEGACY_AGENT_KIND,
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_anna',
   onBehalfOfName: 'Anna Berger',
   originConversationId: null,
