@@ -202,7 +202,7 @@ function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sti
   )
 }
 
-export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false, officeName = 'Büroablage' }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
+export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false, officeName = 'Bürobibliothek' }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
       <nav aria-label={OFFICE} className="mb-2 w-full">
