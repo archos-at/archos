@@ -5,7 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, ChevronDown, ChevronRight, FileText, Layers, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, FileText, Layers, Search, X, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -29,6 +29,7 @@ import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, GroupLabel, MoreRow, NavRow, NewChatButton, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
 const OWN = { id: 'none', name: 'Alle Projekte' }
+const OWN_ACROSS = { id: 'none', name: 'Projektübergreifend' }
 
 const OWN_FOLDERS: FolderItem[] = [
   { id: 'o-templates', parentId: null, name: 'Vorlagen', path: '/Vorlagen' },
@@ -91,6 +92,23 @@ function ProjectMenu({ form }: { form: string }): JSX.Element {
           {settings}
         </>
       )}
+      {form === 'final' && (
+        <>
+          <div className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-medium">
+            <Layers className="size-4 shrink-0" aria-hidden />
+            Projektübergreifend
+          </div>
+          {rule}
+          {label('Projekte')}
+          {projects}
+          <div className="text-name bg-selected flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal">
+            <LayoutGrid className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            Projektübersicht
+          </div>
+          {rule}
+          {settings}
+        </>
+      )}
       {form === 'card' && (
         <>
           <div className="bg-desk mb-1.5 flex items-center gap-3 rounded-[10px] p-2.5">
@@ -138,6 +156,48 @@ function ProjectMenu({ form }: { form: string }): JSX.Element {
   )
 }
 
+const OVERVIEW = [
+  { name: 'Wohnbau Seestadt Baufeld D12', meta: 'Wien · Einreichplanung', current: true },
+  { name: 'Sanierung Amtshaus Favoriten', meta: 'Wien · Ausführungsplanung' },
+  { name: 'Bürohaus Lände 3', meta: 'Wien · Entwurf' },
+  { name: 'Kindergarten Stammersdorf', meta: 'Wien · Einreichplanung' },
+  { name: 'Volksschule Mühlgasse', meta: 'Pausiert' },
+  { name: 'Dachausbau Kaiserstraße 12', meta: 'Abgeschlossen' },
+]
+
+function ProjectOverview(): JSX.Element {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgb(15_14_13_/_0.4)] p-8">
+      <div className="bg-background shadow-lg flex w-full max-w-[820px] flex-col gap-5 rounded-[16px] p-6">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-page-title">Projektübersicht</h2>
+          <div className="flex items-center gap-2">
+            <span className="bg-primary text-primary-foreground inline-flex h-8 items-center gap-1.5 rounded-control px-3 text-xs font-medium">
+              <Plus className="size-3.5" aria-hidden />
+              Neues Projekt
+            </span>
+            <span className="text-muted-foreground flex size-8 items-center justify-center rounded-control">
+              <X className="size-4" aria-label="Schließen" />
+            </span>
+          </div>
+        </div>
+        <div className="border-field-border bg-sheet text-muted-foreground flex h-9 items-center gap-2 rounded-control border px-3 text-sm">
+          <Search className="size-4" aria-hidden />
+          Projekt suchen …
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {OVERVIEW.map((item) => (
+            <div key={item.name} className={`bg-sheet flex h-[92px] flex-col justify-between rounded-[10px] p-3 ${item.current ? 'ring-foreground shadow-sm ring-[1.5px]' : 'shadow-sm'}`}>
+              <span className="text-name font-medium">{item.name}</span>
+              <span className="text-muted-foreground text-meta">{item.meta}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'top', shelfCount = 0 }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
@@ -145,7 +205,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
           <SidebarBrand iconRail={false} />
           <div className="relative mt-1 flex items-center gap-1.5">
-            <ProjectSwitcher projects={[OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
+            <ProjectSwitcher projects={[menuForm === 'final' ? OWN_ACROSS : OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
             {gear === 'menu' && <ProjectMenu form={menuForm} />}
             {gear === true && !own && (
               <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
@@ -519,6 +579,7 @@ function Talk({ place, settingsOpen, menu, menuForm, lay }: { place: string; set
   return (
     <>
       <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} />
+      {menu === 'overview' && <ProjectOverview />}
       {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} lay={lay} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
   )
