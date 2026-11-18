@@ -175,12 +175,14 @@ describe("isolation", () => {
   });
 
   test("a hint already in a long stderr is kept once, after the error", async () => {
+    const VALUE_HINT = "The returned value must be plain JSON: no undefined in an array (exceljs row.values and getSheetValues leave holes for empty cells), no Date, Decimal, Map, Set or other class instance. Map holes to null, dates to ISO strings, decimals with toNumber(), Maps with Object.fromEntries and Sets with Array.from.";
     const { body } = await runner.run({
-      source: `export default () => { console.error("decimals with toNumber()"); console.error("y".repeat(70000)); return [, 1]; }`,
+      source: `export default () => { console.error(${JSON.stringify(VALUE_HINT)}); console.error("y".repeat(70000)); return [, 1]; }`,
     });
     assert.ok(Buffer.byteLength(body.stderr) <= 64 * 1024);
     assert.match(body.stderr, /JSON-compatible|plain objects/);
-    assert.match(body.stderr, /Sets with Array\.from\.\n$/);
+    assert.equal(body.stderr.split(VALUE_HINT).length, 2);
+    assert.ok(body.stderr.endsWith(`${VALUE_HINT}\n`));
   });
 
   test("a module that does not parse is status error", async () => {
