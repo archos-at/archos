@@ -41,6 +41,7 @@ export const nextConfig: NextConfig = {
   serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk'],
 
   experimental: {
+    agentUpgrade: false,
     serverActions: {
       bodySizeLimit: `${requestBodyLimitMB}mb`,
     },

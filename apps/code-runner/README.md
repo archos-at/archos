@@ -35,7 +35,8 @@ and answers `200` with
   memory than its slot allows (`stderr`: `The run used more memory than allowed (768 MiB), so its
   runtime was stopped.`), and `timeout` when it ran past `timeoutMs`.
 - `value` is what the default export returned (JSON), `null` otherwise. The default export receives
-  `input`.
+  `input`. A value that is not plain JSON (a hole or `undefined` in an array, a `Date`, a class
+  instance) is `error`, and `stderr` adds how to return one.
 - `console.log`/`info` go to `stdout`, `console.warn`/`error` and a thrown error's message to `stderr`.
 - `files` holds only files under `/workspace/` that the run created or changed: each file sent in is
   hashed (SHA-256) before the run and compared after it.

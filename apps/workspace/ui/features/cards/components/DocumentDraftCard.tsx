@@ -17,7 +17,7 @@ import { fetchConversationDraft } from '../lib/document-draft-preview'
 import { CARD_SHELL } from './card-chrome'
 import { ClampedText } from './ClampedText'
 import { DocumentDraftPreviewDialog } from './DocumentDraftPreviewDialog'
-import { DRAFT_ACTION, DraftConflictNotice, openFiledInPlace } from './draft-filing-parts'
+import { DRAFT_ACTION, DraftConflictNotice, DraftSaveDialog, openFiledInPlace } from './draft-filing-parts'
 
 interface DocumentDraftCardProps {
   title: string
@@ -40,6 +40,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
   const filing = useDraftFiling(props)
   const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling, isSubmitting } = filing
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
   const [previewContent, setPreviewContent] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewFailed, setPreviewFailed] = useState(false)
@@ -99,7 +100,8 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             className={DRAFT_ACTION}
             aria-disabled={isFiling || undefined}
             aria-busy={isFiling || undefined}
-            onClick={() => void filing.file(false)}
+            onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+            data-testid="document-draft-file"
           >
             <StackedLabel busy={isFiling} idle={t('cards.documentDraft.file')} working={t('cards.documentDraft.filing')} />
           </button>
@@ -135,13 +137,17 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
         )}
       </p>
 
-      {filing.error && (
+      {filing.error && !saveOpen && (
         <p className="card-caption text-destructive" data-testid="document-draft-error">
           {filing.error}
         </p>
       )}
 
       <DraftConflictNotice filing={filing} />
+
+      {filing.canFile && (
+        <DraftSaveDialog filing={filing} open={saveOpen} onOpenChange={setSaveOpen} title={title} path={path} />
+      )}
 
       {!shownFiled && conversationId && (
         <DocumentDraftPreviewDialog
