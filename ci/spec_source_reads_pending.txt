@@ -26,7 +26,6 @@ apps/workspace/bff/utils.spec.ts
 apps/workspace/i18n/aggregate-imports.spec.ts
 apps/workspace/scripts/build-jobs-bundle.spec.mjs
 apps/workspace/scripts/sourcemaps-wiring.spec.mjs
-apps/workspace/tests/ai-marked-exports.spec.ts
 apps/workspace/tests/brand-literals.spec.ts
 apps/workspace/tests/cut-over.spec.ts
 apps/workspace/tests/db/migrations-journal.test.ts
