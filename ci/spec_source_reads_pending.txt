@@ -46,7 +46,6 @@ apps/workspace/ui/features/chat/components/thread-chrome-touch.spec.ts
 apps/workspace/ui/features/documents/components/files-phone-rules.spec.tsx
 apps/workspace/ui/features/documents/components/mobile-files.spec.ts
 apps/workspace/ui/features/skills/components/markdown-editor.spec.ts
-apps/workspace/ui/features/uploads/mobile-surfaces.spec.ts
 apps/workspace/workers/database-unavailable.spec.mjs
 deploy/pulumi/index-deploy-jobs.spec.ts
 deploy/pulumi/index-policy.spec.ts
