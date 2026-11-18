@@ -5,7 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Bell, Check, ChevronDown, ChevronRight, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Upload, Zap } from 'lucide-react'
+import { Bell, Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
