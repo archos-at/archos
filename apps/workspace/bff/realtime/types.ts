@@ -37,8 +37,15 @@ export const presenceEventSchema = z.object({
 })
 export type PresenceEvent = z.infer<typeof presenceEventSchema>
 
+export const AGENT_PEER_PREFIX = 'agent-'
+
+export const clientPeerIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{8,64}$/)
+  .refine((peerId) => !peerId.startsWith(AGENT_PEER_PREFIX), 'This peer id is reserved for the agent.')
+
 export const upstreamBaseSchema = z.object({
-  peerId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
+  peerId: clientPeerIdSchema,
   presence: z.enum(PRESENCE_STATES).optional(),
 })
 export type UpstreamBase = z.infer<typeof upstreamBaseSchema>

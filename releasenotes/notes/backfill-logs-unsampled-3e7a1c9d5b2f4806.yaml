@@ -1,0 +1,6 @@
+---
+operators:
+  - >
+    Every backfill count line of a deploy now reaches PostHog Logs. The log
+    shipper used to keep one info line in ten, so most of the backfill Jobs'
+    counts were missing.

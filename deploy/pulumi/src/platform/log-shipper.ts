@@ -6,6 +6,7 @@ import { commonLabels } from "./namespaces";
 import { ROLLOUT, gracefulShutdown, secretChecksum, secretChecksumAnnotations } from "./rollout";
 import { POD_METADATA_RULES, installCollectorIdentity } from "./collector-identity";
 import { hardenedContainerSecurityContext } from "./security";
+import { BACKFILL_POD } from "../constants";
 import {
   CollectorFragment,
   HEALTH_PORT,
@@ -140,6 +141,8 @@ const bodyMatches = (pattern: string) => `IsString(log.body) and IsMatch(log.bod
 
 const LEVEL_PREFIX = String.raw`^[^a-z]{0,48}?\[?`;
 
+export const UNSAMPLED_POD = String.raw`^${BACKFILL_POD}-`;
+
 export const LEVEL_PATTERNS = {
   debug: String.raw`(?i:level"?[=:]\s*"?(debug|trace)\b)|${LEVEL_PREFIX}(DEBUG|TRACE)\b|"level":\s*(10|20)\b`,
   warn: String.raw`(?i:level"?[=:]\s*"?warn)|${LEVEL_PREFIX}WARN(ING)?\b|"level":\s*40\b`,
@@ -189,6 +192,7 @@ export function podLogs(readNamespaces: string[]): CollectorFragment {
               `set(log.severity_text, "error") where log.severity_number == ${SEVERITY}_ERROR`,
               `set(log.attributes["sampling.key"], UUID())`,
               `set(log.attributes["sampling.priority"], 100) where log.severity_number >= ${SEVERITY}_WARN`,
+              `set(log.attributes["sampling.priority"], 100) where IsMatch(resource.attributes["k8s.pod.name"], ${ottl(UNSAMPLED_POD)})`,
             ],
           },
         ],

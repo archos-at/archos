@@ -34,6 +34,9 @@ class CardRegistry:
         held.append(entry)
         return len(held)
 
+    def held(self, kind: str) -> list[Any]:
+        return list(self._held.get(kind, []))
+
     def take_held(self, kind: str) -> list[Any]:
         return self._held.pop(kind, [])
 

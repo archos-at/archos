@@ -218,7 +218,7 @@ CHECK-constrained), `audio_seconds` (since 0107, for transcription calls), `requ
 **`llm_usage_rollups`** (ADR-0019) — the write-through daily aggregate per
 `(org, day, user, project)`, carrying `cost_usd`, `own_key_cost_usd`,
 `price_usd`, `credits`, `tokens` and `events`, incremented in the same
-transaction as the ledger insert. Since 0246 it also carries
+transaction as the ledger insert. Since 0247 it also carries
 `ingest_credits`, `ingest_tokens` and `ingest_events`: the part of each total
 that came from `activity = 'ingest'` rows. Unbilled activities (`dictation`) never
 reach it, which is what keeps them out of every budget.

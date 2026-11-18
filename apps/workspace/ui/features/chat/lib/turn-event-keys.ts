@@ -20,6 +20,7 @@ export const TURN_EVENT_KEYS: Record<string, string> = {
   'status.action.draftEdit': 'thinking.turnStatus.',
   'status.action.fileProposal': 'thinking.turnStatus.',
   'status.action.draftFiled': 'thinking.turnStatus.',
+  'status.action.codeRun': 'thinking.turnStatus.',
   'status.action.draftSubmitted': 'thinking.turnStatus.',
   'status.action.taskCreated': 'thinking.turnStatus.',
   'status.action.annotationsRead': 'thinking.turnStatus.',

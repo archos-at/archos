@@ -56,6 +56,7 @@ const LISTED = {
   contentType: 'application/pdf',
   status: 'completed',
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
   lifecycle: 'active',
   collectionName: 'proj_c',

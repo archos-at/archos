@@ -16,6 +16,7 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
 | Merge Dependabot's minor and patch updates once `CI OK` passes | Dependabot pull requests | `dependabot-auto-merge.yml` | `CI OK`, through auto-merge ([setup](testing-and-verification.md)) |
+| Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; `keep-open` and Dependabot exempt) | daily | `stale-prs.yml` | No |
 
 Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
@@ -79,11 +80,12 @@ It also lists the third-party image pins the change adds or moves
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
 | Workspace coverage | PRs, workspace tier | merges the shards' coverage into the PR comment. Not in `CI OK` |
 | Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*` |
+| Code runner end to end (`runner-e2e`) | `runner_e2e` tier: the code runner, the agent's `tools/execute/` and `tools/documents/`, the office skills, their test | the root venv and the runner's Node toolchain in one job; `task runner:e2e` starts the real runner and drives the agent's `execute` and `file_draft` tools against it (about 20 s after install). The task builds first, so a missing toolchain fails rather than skips |
 | Hatchet engine tests (`hatchet`) | `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
 | Image build (`image`) | PRs that change an image's inputs | builds it, read-only token, no push. For the UI this IS the production build check: `workspace:build` is not run separately |
 | Image build + push (`image-push`) | pushes, image not in GHCR | builds and pushes `inputs-<hash>` and the layer cache |
-| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on all three images, and `latest` on `develop` |
+| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on every image `ci/image_inputs.py` lists (backend, frontend, web, cms, code-runner), and `latest` on `develop` |
 | `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green PR, records the tested tree for reuse |
 
 One more workflow runs on a push to `develop` and is not CI:
@@ -114,14 +116,17 @@ The contract, end to end:
 1. A push builds content-addressed images (`inputs-<hash>`) beside its checks.
    An image tag of that kind claims nothing about any commit.
 2. Only when every check on the push has passed does `publish` put
-   `sha-<commit>` on **all three** images. A commit CI failed has no `sha-` tag.
+   `sha-<commit>` on **every** image in `IMAGES` of `ci/image_inputs.py`: backend, frontend,
+   web, `cms` and `code-runner`. A commit CI failed has no `sha-` tag.
 3. `CI OK` needs `publish`, so a push run concludes `success` only with the
    tags in place.
 4. `deploy.yml` runs on `workflow_run` of CI, for a successful **push** run of
-   this repository on `develop`, and pins all three services to
+   this repository on `develop`, and pins every service to
    `sha-<commit>`. No polling, no per-service guessing.
-5. A prod promotion pins any `develop` commit CI passed. All of them have all
-   three images.
+5. A prod promotion pins any `develop` commit CI passed. All of them have every
+   image. The CMS and the code runner are optional: `verify-image-tag.sh` checks
+   them only where the stack turns them on (`cmsEnabled`, `codeRunnerEnabled`), and
+   a rollback to a commit from before one had an image keeps the one deployed.
 
 What this replaced, and why it had to go: Publish Images rebuilt each image
 only when its own paths changed since the previous push, from two hand-written
@@ -201,10 +206,9 @@ Why it is built this way:
 - The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the
   Source maps workflow installs that same version (a test holds the two
   together). Its npm package downloads the binary on first use (`bun install
-  --ignore-scripts` skips its postinstall), which happens inside the build RUN,
-  and the same RUN deletes the binary: `bun install --production` over an
-  existing `node_modules` does not prune devDependencies (measured with bun
-  1.3.11), so the later production install would let it ship.
+  --ignore-scripts` skips its postinstall), which happens inside the build RUN.
+  It never ships: the runner's `node_modules` is the `prod-deps` stage's fresh
+  production install, not the builder's.
 
 An image already in GHCR under its `inputs-<hash>` is not rebuilt when the
 secret is added later, so its maps are never uploaded. Wait for the weekly

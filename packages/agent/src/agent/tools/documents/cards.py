@@ -7,6 +7,8 @@ from pydantic import ValidationError
 from agent.cards.models import answer_card_adapter
 from agent.cards.registry import get_card_registry
 
+from .media_types import shown_content_type
+
 logger = logging.getLogger(__name__)
 
 MAX_TITLE_CHARS = 120
@@ -43,6 +45,7 @@ def emit_draft_card(
     version: int,
     filing: dict[str, str] | None = None,
     title: str | None = None,
+    size: int | None = None,
 ) -> bool:
     registry = get_card_registry()
     if registry is None:
@@ -51,8 +54,9 @@ def emit_draft_card(
         "type": "document_draft",
         "title": title or draft_title(path, content),
         "path": path,
-        "bytes": len(content.encode("utf-8")),
+        "bytes": size if size is not None else len(content.encode("utf-8")),
         "version": version,
+        **({"media_type": media_type} if (media_type := shown_content_type(path)) else {}),
         **_filed_fields(filing),
     }
     try:
@@ -60,6 +64,17 @@ def emit_draft_card(
     except ValidationError:
         logger.exception("Failed to build document_draft card for %s", path)
         return False
-    registry.add(validated)
+    earlier = next(
+        (
+            index
+            for index, shown in enumerate(registry.snapshot())
+            if shown.get("type") == "document_draft" and shown.get("path") == path
+        ),
+        None,
+    )
+    if earlier is None:
+        registry.add(validated)
+    else:
+        registry.replace(earlier, validated)
     logger.info("Emitted document_draft card (path=%s version=%d)", path, version)
     return True

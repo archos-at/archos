@@ -592,6 +592,10 @@ def _every_live_payload(steps) -> list:
         round_index=10,
     )
     retrieval_status.emit_retrieval(
+        [{"name": "execute", "args": {"code": "export default () => 1"}}],
+        round_index=99,
+    )
+    retrieval_status.emit_retrieval(
         [{"name": "create_task", "args": {"title": "Fluchtwege prüfen"}}],
         round_index=11,
     )

@@ -48,6 +48,7 @@ export interface ReconcilableDocument {
   filename: string
   collectionName: string
   authoredBy: DocumentAuthor
+  authoredByProducer: string | null
   publishedVersionId: string | null
   errorMessage: string | null
   metadata?: unknown

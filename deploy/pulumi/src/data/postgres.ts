@@ -48,6 +48,12 @@ export interface Postgres {
 
 export const CLUSTER_NAME = objectName("pgCluster");
 
+export const CNPG_CHART_VERSION = "0.29.2";
+
+export const CNPG_OPERATOR_VERSION = "1.30.2";
+
+export const CNPG_OPERATOR_CONFIG = { ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES: "true" } as const;
+
 export function sslParamFor(driver: string): "ssl" | "sslmode" {
   return driver.includes("asyncpg") ? "ssl" : "sslmode";
 }
@@ -70,9 +76,10 @@ export function installPostgres(
     "cloudnative-pg",
     {
       chart: "cloudnative-pg",
+      version: CNPG_CHART_VERSION,
       namespace: opNs.metadata.name,
       repositoryOpts: { repo: "https://cloudnative-pg.github.io/charts" },
-      values: { resources: PLATFORM_RESOURCES.cnpgOperator },
+      values: { resources: PLATFORM_RESOURCES.cnpgOperator, config: { data: CNPG_OPERATOR_CONFIG } },
     },
     { provider, dependsOn: opNs },
   );
