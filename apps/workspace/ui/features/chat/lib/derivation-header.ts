@@ -65,17 +65,18 @@ export function worstFinding(check: ConfidenceCheck | undefined): WorstFinding |
 }
 
 export interface HeaderWarning {
-  kind: FindingProblem | 'failed' | 'open'
+  kind: FindingProblem | 'failed' | 'files' | 'open'
   count: number
 }
 
 export function headerWarning(
   status: HeaderStatus,
   worst: WorstFinding | null,
-  calls: { failed: number; open: number }
+  calls: { failed: number; open: number; files?: number }
 ): HeaderWarning | null {
   if (!isSettledAnswer(status)) return null
   if (worst) return { kind: worst.problem, count: worst.count }
+  if (calls.files) return { kind: 'files', count: calls.files }
   if (calls.failed > 0) return { kind: 'failed', count: calls.failed }
   if (calls.open > 0) return { kind: 'open', count: calls.open }
   return null
