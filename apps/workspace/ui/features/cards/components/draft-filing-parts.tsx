@@ -1,7 +1,7 @@
 'use client'
 
 import type { FC, MouseEvent } from 'react'
-import { documentFilesHref, openFiledDocument } from '@/features/documents'
+import { documentFilesHref, openFiledDocument } from '@/features/documents/chat-card-parts'
 import { StackedLabel } from '@/components/ui/stacked-label'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'

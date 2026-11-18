@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import { File as FileIcon } from 'lucide-react'
-import { useFileThumbnail } from '@/features/knowledge'
+import { useFileThumbnail } from '@/features/knowledge/file-preview'
 import { FileExtChip } from '@/features/documents'
 import { cn } from '@/lib/utils'
 
