@@ -4,7 +4,6 @@ apps/website/src/lib/rich-text.test.ts
 apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/bff/agent-asks/ask-wire.spec.ts
 apps/workspace/bff/api/wire-modules.spec.ts
-apps/workspace/bff/base-knowledge/wire/vocab.spec.ts
 apps/workspace/bff/db/integration-suite-coverage.spec.ts
 apps/workspace/bff/db/schema/deletion-queue.spec.ts
 apps/workspace/bff/db/schema/document-annotations.spec.ts
