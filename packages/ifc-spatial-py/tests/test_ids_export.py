@@ -13,12 +13,12 @@ from ifc_spatial.envelope import MissingFact
 from ifc_spatial.envelope import declared
 from ifc_spatial.envelope import undecidable
 from ifc_spatial.ids_export import PROPERTY_TARGETS
-from ifc_spatial.ids_export import WHY_NO_SPACE_BOUNDARY
 from ifc_spatial.ids_export import IdsExportError
 from ifc_spatial.ids_export import answers_as_ids
 from ifc_spatial.ids_export import blind_spots_as_ids
 from ifc_spatial.ids_export import to_xml
 from ifc_spatial.ids_export import write_ids
+from ifc_spatial.ids_export_targets import WHY_NO_SPACE_BOUNDARY
 from ifc_spatial.model import SpatialModel
 from ifctester import ids as ifctester_ids
 

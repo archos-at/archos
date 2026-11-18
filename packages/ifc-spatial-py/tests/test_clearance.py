@@ -7,6 +7,8 @@ import numpy as np
 import pytest
 import shapely
 from ifc_spatial import clearance as cl
+from ifc_spatial import clearance_shapes
+from ifc_spatial import clearance_triangles
 from ifc_spatial import operators as op
 from ifc_spatial.model import SpatialModel
 from ifc_spatial.model import UnknownElementError
@@ -220,7 +222,7 @@ def test_the_exact_pair_distance_agrees_with_dense_sampling() -> None:
     for _ in range(60):
         first = generator.normal(size=(3, 3))
         second = generator.normal(size=(3, 3)) + generator.normal(scale=1.5, size=3)
-        measured = float(cl._triangle_distances(first, second[None])[0][0])
+        measured = float(clearance_triangles._triangle_distances(first, second[None])[0][0])
         sampled = _sampled_pair_distance(first, second)
         assert measured <= sampled + 1e-9
         assert measured > sampled - 0.08
@@ -229,28 +231,28 @@ def test_the_exact_pair_distance_agrees_with_dense_sampling() -> None:
 def test_crossing_triangles_are_zero_even_though_no_vertex_and_no_edge_meet() -> None:
     first = np.array([[-1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
     second = np.array([[0.0, -1.0, 0.2], [0.0, 1.0, 0.2], [0.0, 0.0, -1.0]])
-    assert float(cl._triangle_distances(first, second[None])[0][0]) == 0.0
+    assert float(clearance_triangles._triangle_distances(first, second[None])[0][0]) == 0.0
 
 
 def test_parallel_and_nested_and_skew_triangles_are_all_exact() -> None:
     flat = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     above = flat + np.array([0.0, 0.0, 0.25])
-    assert float(cl._triangle_distances(flat, above[None])[0][0]) == pytest.approx(0.25, abs=1e-12)
+    assert float(clearance_triangles._triangle_distances(flat, above[None])[0][0]) == pytest.approx(0.25, abs=1e-12)
 
     large = np.array([[-5.0, -5.0, 0.0], [5.0, -5.0, 0.0], [0.0, 5.0, 0.0]])
     small = np.array([[-1.0, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, 0.0]])
-    assert float(cl._triangle_distances(large, small[None])[0][0]) == 0.0
+    assert float(clearance_triangles._triangle_distances(large, small[None])[0][0]) == 0.0
 
     lying = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [5.0, 0.001, 0.0]])
     standing = np.array([[5.0, -5.0, 1.0], [5.0, 5.0, 1.0], [5.0, 0.0, 1.5]])
-    assert float(cl._triangle_distances(lying, standing[None])[0][0]) == pytest.approx(1.0, abs=1e-12)
+    assert float(clearance_triangles._triangle_distances(lying, standing[None])[0][0]) == pytest.approx(1.0, abs=1e-12)
 
 
 def test_the_pruned_search_finds_what_the_unpruned_one_would(house: SpatialModel) -> None:
-    left = cl._usable_triangles(house.geometry(ROOF))
-    right = cl._usable_triangles(house.geometry(PARTITION))
-    pruned = cl._soup_distance(left, right, 60.0)[0]
-    brute = min(float(cl._triangle_distances(triangle, right)[0].min()) for triangle in left)
+    left = clearance_triangles._usable_triangles(house.geometry(ROOF))
+    right = clearance_triangles._usable_triangles(house.geometry(PARTITION))
+    pruned = clearance_triangles._soup_distance(left, right, 60.0)[0]
+    brute = min(float(clearance_triangles._triangle_distances(triangle, right)[0].min()) for triangle in left)
     assert pruned == pytest.approx(brute, abs=1e-12)
 
 
@@ -294,7 +296,7 @@ def test_the_opening_can_be_asked_directly_and_answers_the_same(house: SpatialMo
 def test_the_projection_is_the_one_the_area_operator_already_uses(house: SpatialModel) -> None:
     for global_id in (WINDOW, EXTERNAL_DOOR, INTERNAL_DOOR):
         opening = house.file.by_guid(global_id).FillsVoids[0].RelatingOpeningElement
-        polygon, _ = cl._aperture_polygon(house, opening)
+        polygon, _ = clearance_shapes._aperture_polygon(house, opening)
         assert polygon.area == pytest.approx(op._clear_opening_area(house, opening), abs=1e-12)
 
 
@@ -303,8 +305,8 @@ def test_the_element_body_is_wider_than_the_opening_it_sits_in(house: SpatialMod
     for global_id in (INTERNAL_DOOR, WINDOW, EXTERNAL_DOOR):
         element = house.file.by_guid(global_id)
         opening = element.FillsVoids[0].RelatingOpeningElement
-        body, _ = cl._aperture_polygon(house, element)
-        hole, _ = cl._aperture_polygon(house, opening)
+        body, _ = clearance_shapes._aperture_polygon(house, element)
+        hole, _ = clearance_shapes._aperture_polygon(house, opening)
         measured[global_id] = (body.bounds[2] - body.bounds[0], hole.bounds[2] - hole.bounds[0])
 
     assert measured[INTERNAL_DOOR][0] == pytest.approx(0.880, abs=1e-6)
@@ -422,7 +424,7 @@ def test_the_minimum_area_rectangle_is_exact_on_a_hand_rotated_rectangle() -> No
     rotation = np.array([[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]])
     corners = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [0.0, 1.0]]) @ rotation.T
 
-    length, width, axis = cl._minimum_area_rectangle(corners)
+    length, width, axis = clearance_shapes._minimum_area_rectangle(corners)
     assert length == pytest.approx(2.0, abs=1e-12)
     assert width == pytest.approx(1.0, abs=1e-12)
     assert length * width == pytest.approx(2.0, abs=1e-12)
@@ -434,14 +436,14 @@ def test_the_hand_rolled_calipers_agree_with_shapely(house: SpatialModel) -> Non
     assert hasattr(shapely, "minimum_rotated_rectangle")
     for global_id in (CHAIR, OTHER_CHAIR, NORTH_WALL, ROOF):
         points = house.geometry(global_id).verts[:, :2]
-        length, width, _ = cl._minimum_area_rectangle(points)
+        length, width, _ = clearance_shapes._minimum_area_rectangle(points)
         reference = shapely.minimum_rotated_rectangle(shapely.MultiPoint([tuple(p) for p in points]))
         assert length * width == pytest.approx(reference.area, rel=1e-12)
 
 
 def test_sampling_angles_instead_of_hull_edges_would_have_missed_it(house: SpatialModel) -> None:
     points = house.geometry(CHAIR).verts[:, :2]
-    length, width, _ = cl._minimum_area_rectangle(points)
+    length, width, _ = clearance_shapes._minimum_area_rectangle(points)
     exact = length * width
 
     best = min(
@@ -456,7 +458,7 @@ def test_sampling_angles_instead_of_hull_edges_would_have_missed_it(house: Spati
 
 def test_a_footprint_with_no_area_has_no_oriented_box() -> None:
     line = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]])
-    assert cl._minimum_area_rectangle(line) is None
+    assert clearance_shapes._minimum_area_rectangle(line) is None
 
 
 def test_the_answers_carry_the_envelope_the_rest_of_the_library_does(house: SpatialModel) -> None:

@@ -6,8 +6,8 @@
  * route (`POST /v1/maintenance/housekeeping/<route>`), and something outside the
  * process has to call it. On Kubernetes that is one CronJob per route
  * (`deploy/pulumi/src/app/workers.ts`); Compose has no CronJobs, so this process
- * calls the same routes on the same cadences. `housekeeping.spec.ts` in the
- * Pulumi program checks that both name exactly the routes the backend registers.
+ * calls the same routes on the same cadences. The backend, the CronJobs and this
+ * clock each have a test holding them to `contracts/housekeeping-routes.json`.
  *
  * Failures follow the scheduler's rule (`failure-streak.js`): a transient one is
  * a WARN, a streak escalates once, and anything else is an ERROR.

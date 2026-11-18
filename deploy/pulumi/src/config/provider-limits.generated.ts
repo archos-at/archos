@@ -1,0 +1,4 @@
+// AUTO-GENERATED from the Python sources named below — do not edit; run `uv run python scripts/generate_provider_limits.py`
+
+/** Each provider limit the Python modules read from the environment, by the variable the deploy sets, with the value they take when it sets none: `VLM_FLEET_CONCURRENCY` in `packages/knowledge-layer/src/knowledge_layer/ingest/vision_calls.py`; `INGEST_PAGE_READ_PARALLELISM` in `packages/knowledge-layer/src/knowledge_layer/ingest/page_reads.py`; `limit_ceiling()` in `packages/agent/src/agent/common/provider_limiter.py`; `model_limit_ceiling()` in `packages/agent/src/agent/common/provider_limiter.py`. */
+export const PROVIDER_LIMIT_DEFAULTS = {"VLM_FLEET_CONCURRENCY": 32, "INGEST_PAGE_READ_PARALLELISM": 16, "PROVIDER_LIMIT_CEILING": 128, "PROVIDER_MODEL_LIMIT_CEILING": 32} as const

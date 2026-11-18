@@ -1,10 +1,10 @@
-// @disk-inputs: bff/documents/repository/storage.ts
 /**
  * @vitest-environment node
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 
 const whereArg = vi.fn()
 
@@ -27,23 +27,11 @@ vi.mock('@/lib/db/tenant-context', () => ({
 }))
 
 import { findStorageKeyByCollectionAndFilename } from './repository'
+import { documentVisibleTo, SCREENED_ONLY } from './visibility'
 
-const columnsIn = (node: unknown, seen = new Set<unknown>()): string[] => {
-  if (node === null || typeof node !== 'object' || seen.has(node)) return []
-  seen.add(node)
-  const here = 'name' in node && typeof (node as { name: unknown }).name === 'string'
-    ? [(node as { name: string }).name]
-    : []
-  return [...here, ...Object.values(node).flatMap((child) => columnsIn(child, seen))]
-}
+const render = (condition: unknown) => new PgDialect().sqlToQuery(condition as SQL)
 
-const valuesIn = (node: unknown, seen = new Set<unknown>()): unknown[] => {
-  if (node === null || typeof node !== 'object' || seen.has(node)) return []
-  seen.add(node)
-  const value = (node as { value?: unknown }).value
-  const here = typeof value === 'string' ? [value] : []
-  return [...here, ...Object.values(node).flatMap((child) => valuesIn(child, seen))]
-}
+const occurrences = (text: string, needle: string) => text.split(needle).length - 1
 
 describe('findStorageKeyByCollectionAndFilename', () => {
   beforeEach(() => whereArg.mockReset())
@@ -52,37 +40,37 @@ describe('findStorageKeyByCollectionAndFilename', () => {
     await findStorageKeyByCollectionAndFilename('proj_abc', 'brandschutz-2026-08-20.pdf')
 
     expect(whereArg).toHaveBeenCalledTimes(1)
-    const columns = columnsIn(whereArg.mock.calls[0][0])
-    expect(columns).toContain('authored_by')
-    expect(columns).toContain('collection_name')
-    expect(columns).toContain('filename')
+    const query = render(whereArg.mock.calls[0][0])
+    expect(query.sql).toContain('"documents"."authored_by" = ')
+    expect(query.sql).toContain('"documents"."collection_name" = ')
+    expect(query.sql).toContain('"documents"."filename" = ')
+    expect(query.params).toEqual(expect.arrayContaining(['proj_abc', 'brandschutz-2026-08-20.pdf', 'user']))
   })
 
   it('never resolves a quarantined document, whose bytes no model may read (ADR-0086)', async () => {
     await findStorageKeyByCollectionAndFilename('proj_abc', 'konten.pdf')
 
-    expect(valuesIn(whereArg.mock.calls[0][0])).toContain('quarantined')
+    expect(render(whereArg.mock.calls[0][0]).params).toContain('quarantined')
   })
 
   it('still narrows by organization when the caller can supply one', async () => {
     await findStorageKeyByCollectionAndFilename('archiv_org-1', 'plan.pdf', 'org-1')
 
-    const columns = columnsIn(whereArg.mock.calls[0][0])
-    expect(columns).toContain('organization_id')
-    expect(columns).toContain('authored_by')
+    const query = render(whereArg.mock.calls[0][0])
+    expect(query.sql).toContain('"documents"."organization_id" = ')
+    expect(query.sql).toContain('"documents"."authored_by" = ')
+    expect(query.params).toEqual(expect.arrayContaining(['org-1', 'user']))
   })
 
-  it("names 'user' rather than excluding one producer by name", () => {
-    const source = readFileSync(
-      new URL('./repository/storage.ts', import.meta.url),
-      'utf8',
+  it("names 'user' rather than excluding one producer by name", async () => {
+    await findStorageKeyByCollectionAndFilename('proj_abc', 'plan.pdf')
+
+    const lookup = render(whereArg.mock.calls[0][0])
+    const visibility = render(documentVisibleTo(SCREENED_ONLY))
+    expect(lookup.sql).toContain('"documents"."authored_by" = ')
+    expect(lookup.params).toContain('user')
+    expect(occurrences(lookup.sql, '"documents"."authored_by" <>')).toBe(
+      occurrences(visibility.sql, '"documents"."authored_by" <>'),
     )
-    const fn = source.slice(source.indexOf('export async function findStorageKeyByCollectionAndFilename'))
-    const body = fn
-      .slice(0, fn.indexOf('\n}'))
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '')
-    expect(body).toMatch(/eq\(documents\.authoredBy,\s*'user'\)/)
-    expect(body).not.toMatch(/ne\(documents\.authoredBy/)
   })
 })

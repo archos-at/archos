@@ -1,12 +1,9 @@
-// @disk-inputs: ../../packages/agent/src/agent/knowledge/doc_class_vocabulary.py
 /**
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import * as backend from '@/shared/vocabularies.generated'
 import {
   DEFAULT_DOC_CLASS,
   DOC_CLASSES,
@@ -18,51 +15,24 @@ import {
   LEGACY_DOC_CLASSES,
 } from './doc-class'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(HERE, '..', '..', '..', '..')
-const BACKEND_SOURCE = join(REPO_ROOT, 'packages', 'agent', 'src', 'agent', 'knowledge', 'doc_class_vocabulary.py')
-
-function backendDocClassKeys(): string[] {
-  const source = readFileSync(BACKEND_SOURCE, 'utf-8')
-  const block = source.match(/DOCUMENT_CLASS_LABELS: dict\[str, str\] = \{([\s\S]*?)\}/)
-  expect(block, `DOCUMENT_CLASS_LABELS not found in ${BACKEND_SOURCE}`).toBeTruthy()
-  return [...block![1].matchAll(/^\s*"([^"]+)":/gm)].map((m) => m[1])
-}
-
-function backendDocClassLabels(): Record<string, string> {
-  const source = readFileSync(BACKEND_SOURCE, 'utf-8')
-  const block = source.match(/DOCUMENT_CLASS_LABELS: dict\[str, str\] = \{([\s\S]*?)\}/)!
-  const out: Record<string, string> = {}
-  for (const m of block[1].matchAll(/^\s*"([^"]+)":\s*"([^"]+)",/gm)) {
-    out[m[1]] = m[2]
-  }
-  return out
-}
-
 describe('doc-class vocabulary parity', () => {
   test('key list + order match backend DOCUMENT_CLASSES', () => {
-    expect([...DOC_CLASSES]).toEqual(backendDocClassKeys())
+    expect([...DOC_CLASSES]).toEqual([...backend.DOCUMENT_CLASSES])
   })
 
   test('German labels match backend DOCUMENT_CLASS_LABELS', () => {
-    expect(DOC_CLASS_LABELS).toEqual(backendDocClassLabels())
+    expect(DOC_CLASS_LABELS).toEqual(backend.DOCUMENT_CLASS_LABELS)
   })
 
   test('DEFAULT_DOC_CLASS matches backend DEFAULT_DOC_CLASS', () => {
-    const source = readFileSync(BACKEND_SOURCE, 'utf-8')
-    const match = source.match(/DEFAULT_DOC_CLASS = "([^"]+)"/)
-    expect(DEFAULT_DOC_CLASS).toBe(match?.[1])
+    expect(DEFAULT_DOC_CLASS).toBe(backend.DEFAULT_DOC_CLASS)
   })
 })
 
 describe('keys written before the English names', () => {
   test('are the backend LEGACY_DOC_CLASSES, each mapped onto a current class', () => {
-    const source = readFileSync(BACKEND_SOURCE, 'utf-8')
-    const block = source.match(/LEGACY_DOC_CLASSES: dict\[str, str\] = \{([\s\S]*?)\}/)
-    expect(block, 'LEGACY_DOC_CLASSES not found').toBeTruthy()
-    const pairs = [...block![1].matchAll(/^\s*"([^"]+)":\s*"([^"]+)",/gm)].map((m) => [m[1], m[2]])
-    expect(LEGACY_DOC_CLASSES).toEqual(Object.fromEntries(pairs))
-    for (const [legacy, current] of pairs) {
+    expect(LEGACY_DOC_CLASSES).toEqual(backend.LEGACY_DOC_CLASSES)
+    for (const [legacy, current] of Object.entries(backend.LEGACY_DOC_CLASSES)) {
       expect(DOC_CLASSES as readonly string[]).toContain(current)
       expect(asDocClass(legacy)).toBe(current)
     }

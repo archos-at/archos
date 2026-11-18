@@ -1,84 +1,175 @@
 // @disk-inputs: app/**, ui/**, shared/**
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import postcss from 'postcss'
+import { createElement } from 'react'
 import { describe, expect, it } from 'vitest'
+import { toast } from 'sonner'
+import { render, screen } from '@/test-utils'
+import { callsTo, nodesOf, parseSource, productionSources, ts, walk } from '@/test-utils/source-ast'
+import { Card } from '@/components/ui/card'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Toaster } from '@/components/ui/sonner'
 
 const ROOT = join(__dirname, '..')
 
 const RINGED_SHADOW = /^(?:[a-z-]+:|data-\[[^\]]+\]:)*shadow(?:-(?:2xs|xs|sm|md|lg|xl|sheet))?$/
 const NEUTRAL_BORDER = /^(?:dark:)?border$/
+const SHADOWED_PRIMITIVES = new Set([
+  'Card',
+  'PopoverContent',
+  'DropdownMenuContent',
+  'DropdownMenuSubContent',
+  'ContextMenuContent',
+  'ContextMenuSubContent',
+  'SelectContent',
+  'DialogContent',
+])
 
-function sourceFiles(dir: string): string[] {
-  const out: string[] = []
-  for (const name of readdirSync(join(ROOT, dir))) {
-    const path = join(dir, name)
-    if (statSync(join(ROOT, path)).isDirectory()) {
-      if (name === 'node_modules' || name.startsWith('.') || path === join('app', 'dev')) continue
-      out.push(...sourceFiles(path))
-    } else if (/\.tsx?$/.test(name) && !/\.spec\.tsx?$/.test(name)) {
-      out.push(relative(ROOT, join(ROOT, path)))
-    }
-  }
-  return out
-}
-
-function classStrings(text: string): string[] {
-  return [...text.matchAll(/(['"`])((?:(?!\1)[^\n])*)\1/g)].map((match) => match[2] ?? '')
-}
+const tokensOf = (text: string): string[] => text.split(/\s+/)
 
 const isDouble = (tokens: string[]): boolean =>
   tokens.some((t) => NEUTRAL_BORDER.test(t)) && tokens.some((t) => RINGED_SHADOW.test(t))
 
 const tradesRingForBorder = (value: string): boolean => {
-  const tokens = value.split(/\s+/)
+  const tokens = tokensOf(value)
   return tokens.includes('shadow-none') && tokens.some((t) => NEUTRAL_BORDER.test(t))
 }
 
-function cnCalls(text: string): string[] {
-  const calls: string[] = []
-  for (let at = text.indexOf('cn('); at !== -1; at = text.indexOf('cn(', at + 3)) {
-    let depth = 0
-    let end = at + 2
-    for (; end < text.length; end++) {
-      if (text[end] === '(') depth++
-      else if (text[end] === ')' && --depth === 0) break
+const literalsOf = (root: ts.Node): string[] => {
+  const texts: string[] = []
+  walk(root, (node) => {
+    if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+      texts.push(node.text)
     }
-    calls.push(classStrings(text.slice(at, end)).filter((value) => !tradesRingForBorder(value)).join(' '))
-  }
-  return calls
+  })
+  return texts
 }
 
-const SHADOWED_PRIMITIVES = /<(Card|PopoverContent|DropdownMenuContent|DropdownMenuSubContent|ContextMenuContent|ContextMenuSubContent|SelectContent|DialogContent)\b([^>]*?)>/g
+const isShadowedPrimitive = (node: ts.Node): node is ts.JsxOpeningElement | ts.JsxSelfClosingElement =>
+  (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && SHADOWED_PRIMITIVES.has(node.tagName.getText())
 
-function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/[^'"`\n]*$/gm, '')
+function offendersIn(file: string): string[] {
+  const source = parseSource(file)
+  const strings = literalsOf(source).filter((value) => isDouble(tokensOf(value)))
+  const composed = callsTo(source, 'cn')
+    .map((call) => literalsOf(call).filter((value) => !tradesRingForBorder(value)).join(' '))
+    .filter((value) => isDouble(tokensOf(value)))
+  const handed = nodesOf(source, isShadowedPrimitive)
+    .map((element) => `<${element.tagName.getText()}> ${literalsOf(element.attributes).join(' ')}`)
+    .filter((value) => tokensOf(value).some((t) => NEUTRAL_BORDER.test(t)))
+  return [...strings, ...composed, ...handed].map((value) => `${file}: ${value.slice(0, 120)}`)
 }
 
-function doubles(file: string): string[] {
-  const text = withoutComments(readFileSync(join(ROOT, file), 'utf8'))
-  const handed = [...text.matchAll(SHADOWED_PRIMITIVES)]
-    .map((match) => `<${match[1]}> ${classStrings(match[2] ?? '').join(' ')}`)
-    .filter((value) => value.split(/\s+/).some((t) => NEUTRAL_BORDER.test(t)))
-  return [...classStrings(text), ...cnCalls(text)].filter((value) => isDouble(value.split(/\s+/))).concat(handed)
-}
+const edgeOf = (element: Element): string[] => (isDouble(Array.from(element.classList)) ? [element.className] : [])
+
+const SHARED_SURFACES: Array<[string, () => Promise<Element>]> = [
+  [
+    'card',
+    async () => {
+      const { container } = render(createElement(Card, null, 'Body'))
+      return container.firstElementChild as Element
+    },
+  ],
+  [
+    'popover',
+    async () => {
+      render(createElement(Popover, { open: true }, createElement(PopoverContent, null, 'Body')))
+      return screen.getByText('Body')
+    },
+  ],
+  [
+    'dropdown-menu',
+    async () => {
+      render(
+        createElement(
+          DropdownMenu,
+          { open: true },
+          createElement(DropdownMenuTrigger, null, 'Actions'),
+          createElement(DropdownMenuContent, null, createElement(DropdownMenuItem, null, 'Item')),
+        ),
+      )
+      return screen.getByRole('menu')
+    },
+  ],
+  [
+    'context-menu',
+    async () => {
+      render(
+        createElement(
+          ContextMenu,
+          { open: true },
+          createElement(ContextMenuTrigger, null, 'Canvas'),
+          createElement(ContextMenuContent, null, createElement(ContextMenuItem, null, 'Item')),
+        ),
+      )
+      return screen.getByRole('menu')
+    },
+  ],
+  [
+    'select',
+    async () => {
+      render(
+        createElement(
+          Select,
+          { open: true },
+          createElement(SelectTrigger, { 'aria-label': 'Kind' }, createElement(SelectValue)),
+          createElement(SelectContent, null, createElement(SelectItem, { value: 'a' }, 'A')),
+        ),
+      )
+      return screen.getByRole('listbox')
+    },
+  ],
+  [
+    'dialog',
+    async () => {
+      render(
+        createElement(
+          Dialog,
+          { open: true },
+          createElement(DialogContent, null, createElement(DialogTitle, null, 'Title')),
+        ),
+      )
+      return screen.getByRole('dialog')
+    },
+  ],
+  [
+    'sonner',
+    async () => {
+      render(createElement(Toaster))
+      toast('Body')
+      const text = await screen.findByText('Body')
+      return text.closest('[data-sonner-toast]') as Element
+    },
+  ],
+]
 
 describe('a surface draws one edge', () => {
   it('no class string sets a neutral border beside a ringed shadow', () => {
-    const offenders = ['app', 'ui', 'shared']
-      .flatMap(sourceFiles)
-      .flatMap((file) => doubles(file).map((value) => `${file}: ${value.slice(0, 120)}`))
+    const offenders = productionSources()
+      .filter((file) => /^(app|ui|shared)\//.test(file) && !file.startsWith('app/dev/'))
+      .flatMap(offendersIn)
     expect(offenders).toEqual([])
   })
 
-  it('the shared surfaces take their edge from the shadow alone', () => {
-    for (const file of ['card', 'popover', 'dropdown-menu', 'context-menu', 'select', 'dialog', 'sonner']) {
-      expect(doubles(`ui/components/ui/${file}.tsx`), file).toEqual([])
-    }
+  it.each(SHARED_SURFACES)('the %s takes its edge from the shadow alone', async (_name, mount) => {
+    expect(edgeOf(await mount())).toEqual([])
   })
 
   it('the tokens still draw the ring, which is why the border has to go', () => {
-    const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
-    expect(tokens).toMatch(/--elevation-xs: 0 0 0 1px var\(--edge\)/)
-    expect(tokens).toMatch(/--elevation-1: 0 0 0 1px var\(--edge\)/)
+    const tokens = postcss.parse(readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8'))
+    const valuesOf = (prop: string): string[] => {
+      const values: string[] = []
+      tokens.walkDecls(prop, (declaration) => {
+        values.push(declaration.value)
+      })
+      return values
+    }
+    expect(valuesOf('--elevation-xs').some((value) => value.startsWith('0 0 0 1px var(--edge)'))).toBe(true)
+    expect(valuesOf('--elevation-1').some((value) => value.startsWith('0 0 0 1px var(--edge)'))).toBe(true)
   })
 })

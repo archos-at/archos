@@ -99,6 +99,7 @@ asserts on the syntax tree, never on text, comments or prose:
 - SQL migrations: `@/test-utils/sql-statements` (`readSql`, `createdTables`,
   `functionCalls`), which skips comments, strings and dollar-quoted bodies.
 - A stylesheet: `postcss`.
+- A Dockerfile: `dockerfile-ast`. An Astro component: `@astrojs/compiler-rs`.
 
 Every guard is listed in `ci/ast_guard_specs.txt`. The `spec-source-reads`
 hook (`scripts/check_spec_source_reads.py`, in `task lint:repo` and CI's
@@ -108,7 +109,10 @@ names a source file (`.ts`, `.tsx`, `.js`, `.py`, `.css`, `.sql`, a
 longer reads. Data is not source: a JSON contract, a PDF or IFC fixture, a
 stack's YAML, and a generated file a spec compares with its generator all pass.
 A spec that checks what a Python file says belongs on the Python side, or
-asserts against the shared contract in `contracts/`.
+asserts against the shared contract in `contracts/`, or against a module a
+generator writes from the Python values (`scripts/generate_vocabularies.py`,
+`generate_agent_host_contract.py`, `generate_provider_limits.py`, each kept in
+sync by its pre-commit hook).
 
 **A spec sets the environment through `vi.stubEnv`**, never by assigning to
 `process.env`: `vi.stubEnv(name, value)`, and `vi.stubEnv(name, undefined)` to

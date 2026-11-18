@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { de } from '@/i18n/dictionaries/de'
-import { en } from '@/i18n/dictionaries/en'
-import { createTranslator } from '@/i18n/translate'
+import { filesCopy } from '@/i18n/namespaces/files'
+import { translatorFor } from '@/i18n/namespace'
 import {
   ALLOWED_TAGS,
   DOCUMENT_TYPE_TAGS,
@@ -24,16 +23,16 @@ describe('tag vocabulary', () => {
   })
 
   it.each([
-    ['de', de, 'Korrespondenz'],
-    ['en', en, 'Correspondence'],
-  ] as const)('reads a token as its %s label', (_locale, dictionary, label) => {
-    const t = createTranslator(dictionary, 'files')
+    ['de', 'Korrespondenz'],
+    ['en', 'Correspondence'],
+  ] as const)('reads a token as its %s label', (locale, label) => {
+    const t = translatorFor(filesCopy, locale)
     expect(tagLabel('correspondence', t)).toBe(label)
   })
 
   it('reads every labelled token from every dictionary, and a free topic as itself', () => {
-    for (const dictionary of [de, en]) {
-      const t = createTranslator(dictionary, 'files')
+    for (const locale of ['de', 'en'] as const) {
+      const t = translatorFor(filesCopy, locale)
       for (const tag of LABELLED_TAGS) {
         expect(tagLabel(tag, t)).not.toBe(`documentTag.${tag}`)
         expect(tagLabel(tag, t)).not.toBe(tag)
@@ -43,8 +42,8 @@ describe('tag vocabulary', () => {
   })
 
   it('reads a tag still stored in German as itself in German and as its translation in English', () => {
-    const german = createTranslator(de, 'files')
-    const english = createTranslator(en, 'files')
+    const german = translatorFor(filesCopy, 'de')
+    const english = translatorFor(filesCopy, 'en')
     for (const tag of ALLOWED_TAGS) {
       if (LABELLED_TAGS.includes(tag as (typeof LABELLED_TAGS)[number])) continue
       expect(tagLabel(tag, german)).toBe(tag)
