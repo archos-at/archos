@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import ToolMessage
 
 from agent.common.agent_kind import AGENT_KIND
-from agent.common.answer_envelope import drop_unfiled_proposals
+from agent.common.envelope_gates import drop_unfiled_proposals
 from agent.common.legacy_agent_kind import LEGACY_AGENT_KIND
 from agent.common.workspace_records import LISTING_MAX_CHARS
 from agent.common.workspace_records import filed_proposal_ids
