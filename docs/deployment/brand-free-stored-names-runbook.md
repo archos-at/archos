@@ -39,9 +39,9 @@ psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
 | Step | Environment | Dry run before | Backfill run | Dry run after |
 |---|---|---|---|---|
 | 1 (SQL) | dev | actor kind 21 / 2 / 21; inbox 44, twins 0; mention id 0 / 2 / 0 / 0; lane 36 / 6 | 2026-11-18 ~13:45 UTC, after #1761 was live on every dev workload: all four scripts; `inbox-types.sql` renamed 44, a second run 0 | every count 0 |
-| 1 (SQL) | prod | not run | not run | not run |
+| 1 (SQL) | prod | actor kind 59 / 2 / 117; inbox 185, twins 0; mention id 0 / 2 / 0 / 0; lane 0 / 0 | 2026-11-18 ~15:47 UTC, after the promotion with #1761 (#1781) was live on every prod workload: all four scripts; `inbox-types.sql` renamed 185, a second run 0 | every count 0 |
 | 2a (Qdrant) | dev | office collections 192 with only the old key, 0 disagree; base corpus 0 | 2026-11-18 13:35 UTC: 192 written | 0 left, 0 disagree; a second dry run 0 |
-| 2a (Qdrant) | prod | not run | not run | not run |
+| 2a (Qdrant) | prod | office collections 108,864 with only the old key, 0 disagree; base corpus 0 | 2026-11-18 13:56–13:59 UTC, before #1765 reached prod: 108,864 written | 0 left, 0 disagree; a second dry run 0 |
 
 The step-1 counts follow `dry-run.sql`'s rows: actor kind is annotations /
 replies / proposals, mention id is annotations / replies / inbox payloads /
