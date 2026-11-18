@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { wireEvents } from '@/test-utils/wire-v2-fixtures'
 
@@ -542,6 +542,29 @@ describe('a turn in a chat the reader left', () => {
       expect(left(CONVERSATION).messages.at(-1)).toMatchObject({ errorData: { errorCode: 'agent.no_response' } })
     )
     expect(messages()).toEqual([])
+  })
+
+  it('is marked as answered after all when the server holds the answer of a turn that failed here', async () => {
+    const stored = {
+      id: 'stored-answer',
+      conversationId: CONVERSATION,
+      role: 'assistant',
+      content: 'Höchstens 40 m.',
+      metadata: { messageType: 'agent_response' },
+      createdAt: '2026-09-25T09:01:00.000Z',
+    }
+    client.listMessages.mockImplementation(async (conversationId: string) => (conversationId === CONVERSATION ? [stored] : []))
+    onTestFinished(() => void client.listMessages.mockReset().mockResolvedValue([]))
+    ask(answered)
+    useChatStore.getState().applyTurnEvents(upTo(answered, 9))
+    leave()
+
+    endFailedTurn(useChatStore.getState().turns[TURN]!, { code: 'agent.no_response' })
+    expect(activity(CONVERSATION)).toBe('failed')
+
+    await vi.waitFor(() => expect(activity(CONVERSATION)).toBe('answered'))
+    expect(left(CONVERSATION).messages.at(-1)).toMatchObject({ id: 'stored-answer' })
+    expect(left(CONVERSATION).messages.some((message) => message.messageType === 'error')).toBe(false)
   })
 })
 

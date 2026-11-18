@@ -66,8 +66,10 @@ their union.
 running turn's view (`turnStateFor`), never set by hand, and speak of the
 conversation on screen only. What any conversation is doing, for the chat list
 and the rail, is `conversationActivity` (`bff/turns/conversation-activity.ts`): `working`,
-`waiting` (the agent asked the reader), or `answered` (its turn ended while
-another chat was open; `unseenAnswers`, cleared by `selectConversation`).
+`waiting` (the agent asked the reader), `answered` (its turn ended while
+another chat was open) or `failed` (its turn failed there, or an error card
+landed in it, and the server held no answer after all). The last two are the
+marks in `unseenAnswers`, cleared by `selectConversation`.
 
 ### Session management
 

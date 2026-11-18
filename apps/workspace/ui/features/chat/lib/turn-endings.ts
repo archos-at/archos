@@ -76,7 +76,12 @@ export const endFailedTurn = (view: TurnView, card: RunErrorCard = runErrorCard(
   void store()
     ._recoverInterruptedAssistantMessage(view.conversationId, view.turnId)
     .then((outcome) => {
-      if (outcome !== 'nothing' || !ownerOf(view)) return
-      store().addErrorCard(card.code, card.message, card.details, view.conversationId)
+      if (!ownerOf(view)) return
+      if (outcome === 'nothing') return store().addErrorCard(card.code, card.message, card.details, view.conversationId)
+      useChatStore.setState(({ unseenAnswers }) =>
+        unseenAnswers[view.conversationId] === 'failed'
+          ? { unseenAnswers: { ...unseenAnswers, [view.conversationId]: 'answered' } }
+          : {}
+      )
     })
 }
