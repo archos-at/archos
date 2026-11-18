@@ -40,6 +40,10 @@ def emit(body: EventBody) -> None:
 _step_scope: ContextVar[Scope] = ContextVar("step_scope", default="chat")
 
 
+def current_step_scope() -> Scope:
+    return _step_scope.get()
+
+
 @contextmanager
 def step_scope(scope: Scope) -> Iterator[None]:
     token = _step_scope.set(scope)

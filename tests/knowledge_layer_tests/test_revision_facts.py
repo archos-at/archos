@@ -16,6 +16,9 @@ from knowledge_layer.ingest import revisions
 from knowledge_layer.ingest import vision_reads
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
+from knowledge_layer.ingest import visual_prompt
+from knowledge_layer.ingest import visual_rendering
+from knowledge_layer.ingest import visual_schema
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.schema import AvailableDocument
@@ -47,7 +50,7 @@ def _reply(title_block=None, *, document=None):
 
 class TestTheSchemaAndPrompt:
     def test_the_title_block_is_part_of_the_one_document_object_in_the_strict_subset(self, registry):
-        document = va.json_schema(registry)["properties"]["document"]
+        document = visual_schema.json_schema(registry)["properties"]["document"]
         block = document["properties"]["title_block"]
 
         assert list(block["properties"]) == ["document_number", "revision", "revision_date", "scale", "title"]
@@ -55,7 +58,7 @@ class TestTheSchemaAndPrompt:
         assert all(prop["type"] == ["string", "null"] for prop in block["properties"].values())
 
     def test_the_prompt_asks_for_it_in_the_same_call_and_forbids_guessing(self, registry):
-        prompt = va.build_prompt(registry)
+        prompt = visual_prompt.build_prompt(registry)
 
         for token in ("title_block", "document_number", "revision_date", "PLANKOPF", "LAST (newest) row"):
             assert token in prompt
@@ -116,13 +119,13 @@ class TestParsingTheReply:
     def test_the_title_block_is_indexed_text_so_a_plan_number_can_be_found(self, registry):
         analysis = va.parse_visual_analysis(_reply(FULL_BLOCK), registry)
 
-        text = va.segment_payloads(analysis, registry)[0]["text"]
+        text = visual_rendering.segment_payloads(analysis, registry)[0]["text"]
 
         assert "Title block: Nr. A-101, Index C, Stand 14.08.2026, Scale 1:100, Grundriss Erdgeschoss" in text
 
     def test_no_title_block_adds_no_line(self, registry):
         analysis = va.parse_visual_analysis(_reply(), registry)
-        assert "Title block" not in va.render_analysis_text(analysis, registry)
+        assert "Title block" not in visual_rendering.render_analysis_text(analysis, registry)
 
 
 class _FakeCompletions:
@@ -178,7 +181,7 @@ class TestThroughTheVisionCall:
 
 def _chunk(page: int, title_block, registry):
     analysis = va.parse_visual_analysis(_reply(title_block), registry)
-    (payload,) = va.segment_payloads(analysis, registry)
+    (payload,) = visual_rendering.segment_payloads(analysis, registry)
     return SimpleNamespace(metadata={"page_label": str(page), "drawing_data": payload["drawing_data"]})
 
 

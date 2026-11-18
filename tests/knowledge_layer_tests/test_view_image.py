@@ -9,10 +9,10 @@ from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _find_pdf
 from knowledge_layer.view_image import _is_enabled
 from knowledge_layer.view_image import _is_standalone_image
-from knowledge_layer.view_image import _normalize_image_to_jpeg
-from knowledge_layer.view_image import _render_page
-from knowledge_layer.view_image import _render_page_from_bytes
 from knowledge_layer.view_image import view_image
+from knowledge_layer.view_rendering import _normalize_image_to_jpeg
+from knowledge_layer.view_rendering import _render_page
+from knowledge_layer.view_rendering import _render_page_from_bytes
 
 _JPEG_BYTES = b"\xff\xd8\xff\xe0test-jpeg-payload"
 

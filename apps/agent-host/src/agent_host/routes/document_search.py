@@ -22,8 +22,8 @@ from agent.project_context import RequestContext
 from ..models.document_search import DocumentSearchHit
 from ..models.document_search import DocumentSearchRequest
 from ..models.document_search import DocumentSearchResponse
-from ..models.requests import GroupedDocumentSearchRequest
-from ..models.requests import GroupedSearchFilters
+from ..models.document_search import GroupedDocumentSearchRequest
+from ..models.document_search import GroupedSearchFilters
 from .collections import _require_ingestor
 from .collections import require_collection
 

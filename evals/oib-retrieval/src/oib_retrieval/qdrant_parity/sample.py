@@ -5,8 +5,8 @@ import numpy as np
 from oib_retrieval import overview
 from oib_retrieval import qrels
 from oib_retrieval.qdrant_parity import evaluation
-from oib_retrieval.qdrant_parity.runner import Inputs
-from oib_retrieval.qdrant_parity.runner import embed_inputs
+from oib_retrieval.qdrant_parity.inputs import Inputs
+from oib_retrieval.qdrant_parity.inputs import embed_inputs
 from oib_retrieval.qdrant_parity.stores import IndexedChunk
 from oib_retrieval.qdrant_parity.vectors import Embedder
 

@@ -8,7 +8,7 @@ from agent.common import envelope_gates
 from agent.common.answer_envelope import SUMMARY_MAX_CHARS
 from agent.common.answer_envelope import AnswerMeta
 from agent.core import answer_pipeline
-from agent.core.answer_pipeline import LiveAnswer
+from agent.core.live_answer import LiveAnswer
 
 PROSE = "In GK 4 darf der Fluchtweg höchstens 40 m lang sein [1]."
 SOURCES = "**Quellen:**\n- [1] oib-rl_2.pdf, p.12"

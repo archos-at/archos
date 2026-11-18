@@ -74,7 +74,7 @@ the dense A/B, is the load-bearing evidence for the chunking change.
   incomplete without it; 1 = context an expert would want beside it. nDCG uses the
   exponential gain `2**grade - 1`.
 * **Questions come from the repo's own taxonomy**, not invented: `contracts/cards/schemas.json`
-  card descriptions name a question class *and* its Richtlinie, `packages/agent/src/agent/cards/catalog.py`
+  card descriptions name a question class *and* its Richtlinie, `packages/agent/src/agent/cards/card_examples.py`
   `CARD_EXAMPLES` carries Punkt-level references, `apps/workspace/bff/project-profile/intake-definition.ts`
   supplies the intake vocabulary, and `configs/norms/at/registry.yml` marks what is corpus
   and what is a RIS pointer. Every entry's `provenance` names which.

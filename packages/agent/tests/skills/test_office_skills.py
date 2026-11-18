@@ -13,10 +13,10 @@ from agent.skills.runtime import SkillRuntime
 
 OFFICE = BUILTIN_SKILLS_DIR / "office"
 
-ENTRY = "office-files"
+ENTRY = "execute"
 
 OFFICE_SKILLS = {
-    "office-files",
+    "execute",
     "office-word",
     "office-excel",
     "office-powerpoint",

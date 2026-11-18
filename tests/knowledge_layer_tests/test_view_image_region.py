@@ -6,12 +6,13 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 import pytest
 from knowledge_layer import view_image as view
+from knowledge_layer import view_regions
 from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.view_image import ViewLimits
-from knowledge_layer.view_image import _crop_image_region
-from knowledge_layer.view_image import _render_pdf_region
-from knowledge_layer.view_image import parse_region
-from knowledge_layer.view_image import region_render_args
+from knowledge_layer.view_regions import parse_region
+from knowledge_layer.view_regions import region_render_args
+from knowledge_layer.view_rendering import _crop_image_region
+from knowledge_layer.view_rendering import _render_pdf_region
 from PIL import Image
 
 from agent.common import image_view_budget
@@ -65,10 +66,10 @@ def test_a_tiny_box_is_widened_about_its_centre_and_the_scale_is_capped():
     scale, crop = region_render_args((0.5, 0.5, 0.001, 0.001), *A4, max_dim=2048)
 
     left, bottom, right, top = crop
-    assert 595 - left - right == pytest.approx(view._MIN_REGION_PT)
-    assert 842 - top - bottom == pytest.approx(view._MIN_REGION_PT)
-    assert left + view._MIN_REGION_PT / 2 == pytest.approx(0.5005 * 595)
-    assert scale == pytest.approx(view._MAX_REGION_SCALE)
+    assert 595 - left - right == pytest.approx(view_regions._MIN_REGION_PT)
+    assert 842 - top - bottom == pytest.approx(view_regions._MIN_REGION_PT)
+    assert left + view_regions._MIN_REGION_PT / 2 == pytest.approx(0.5005 * 595)
+    assert scale == pytest.approx(view_regions._MAX_REGION_SCALE)
 
 
 def test_a_tiny_box_at_the_edge_stays_on_the_page():
@@ -76,7 +77,7 @@ def test_a_tiny_box_at_the_edge_stays_on_the_page():
 
     assert right == pytest.approx(0.0)
     assert top == pytest.approx(0.0)
-    assert left == pytest.approx(595 - view._MIN_REGION_PT)
+    assert left == pytest.approx(595 - view_regions._MIN_REGION_PT)
 
 
 @pytest.mark.parametrize(
@@ -149,7 +150,7 @@ def test_a_tiny_box_still_renders_and_says_it_was_widened():
     jpeg, width, height, widened = _render_pdf_region(_pdf(*A4), 1, (0.1, 0.1, 0.0005, 0.0005), 2048)
 
     assert widened
-    expected = round(view._MIN_REGION_PT * view._MAX_REGION_SCALE)
+    expected = round(view_regions._MIN_REGION_PT * view_regions._MAX_REGION_SCALE)
     assert abs(width - expected) <= 2 and abs(height - expected) <= 2
     assert _near(_centre(_image(jpeg)), RED)
 

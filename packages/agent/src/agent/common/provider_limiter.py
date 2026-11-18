@@ -5,7 +5,6 @@ import contextvars
 import functools
 import logging
 import os
-import random
 import threading
 import time
 import uuid
@@ -13,7 +12,6 @@ from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Iterator
-from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -23,6 +21,16 @@ from typing import TypeVar
 
 from agent.common import cache
 from agent.common import lease_slots
+from agent.common.limiter_meters import _last_limits
+from agent.common.limiter_meters import _meters
+from agent.common.limiter_meters import _record
+from agent.common.limiter_scripts import ACQUIRE_LUA
+from agent.common.limiter_scripts import THROTTLE_LUA
+from agent.common.rate_limit_errors import KEY_SCOPE
+from agent.common.rate_limit_errors import MODEL_SCOPE
+from agent.common.rate_limit_errors import _backoff_before_retry
+from agent.common.rate_limit_errors import is_rate_limited
+from agent.common.rate_limit_errors import rate_limit_scope
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +44,6 @@ BULK = "bulk"
 CLASSES = (CHAT, INTERACTIVE, RESEARCH, BULK)
 DEFAULT_CLASS = INTERACTIVE
 
-KEY_SCOPE = "key"
-MODEL_SCOPE = "model"
-
 POOL = "openrouter"
 
 LEASE_SECONDS = 60.0
@@ -47,7 +52,6 @@ TICKET_SECONDS = 5.0
 POLL_SECONDS = 0.15
 CUT_COOLDOWN_SECONDS = 2.0
 STATE_TTL_SECONDS = 3600
-RETRY_AFTER_CAP_SECONDS = 30.0
 _WAIT_WARNING_SECONDS = 30.0
 
 _ENABLED_ENV = "PROVIDER_LIMITER"
@@ -159,65 +163,6 @@ def with_provider_class(cls: str) -> Callable[[Callable[P, Awaitable[R]]], Calla
     return decorate
 
 
-ACQUIRE_LUA = (
-    """
-local classes = 4
-local now = tonumber(ARGV[1])
-local lease = tonumber(ARGV[2])
-local ticket_ttl = tonumber(ARGV[3])
-local member = ARGV[4]
-local rank = tonumber(ARGV[5])
-local interval = tonumber(ARGV[6])
-local state_ttl = tonumber(ARGV[7])
-local scoped = tonumber(ARGV[10])
-local model = ARGV[13]
-
-local function limit_of(state, floor_limit, ceiling)
-  local stored = redis.call('HMGET', state, 'limit', 'changed')
-  local limit = tonumber(stored[1]) or ceiling
-  local changed = tonumber(stored[2]) or now
-  if limit > ceiling then limit = ceiling end
-  if limit < floor_limit then limit = floor_limit end
-  if changed > now then changed = now end
-  if limit < ceiling and now - changed >= interval then
-    limit = limit + 1
-    redis.call('HSET', state, 'limit', limit, 'changed', now)
-    redis.call('EXPIRE', state, state_ttl)
-  end
-  return limit
-end
-
-local limit = limit_of(KEYS[6 + classes], tonumber(ARGV[8]), tonumber(ARGV[9]))
-local scoped_limit = 0
-if scoped == 1 then
-  scoped_limit = limit_of(KEYS[7 + classes], tonumber(ARGV[11]), tonumber(ARGV[12]))
-end
-"""
-    + lease_slots.RANKED_ADMISSION_LUA
-)
-
-THROTTLE_LUA = """
-local state = KEYS[1]
-local now = tonumber(ARGV[1])
-local floor_limit = tonumber(ARGV[2])
-local ceiling = tonumber(ARGV[3])
-local cooldown = tonumber(ARGV[4])
-local state_ttl = tonumber(ARGV[5])
-
-local stored = redis.call('HMGET', state, 'limit', 'cut')
-local limit = tonumber(stored[1]) or ceiling
-local cut = tonumber(stored[2]) or 0
-if limit > ceiling then limit = ceiling end
-if cut <= now and now - cut < cooldown then
-  return limit
-end
-limit = math.max(floor_limit, math.floor(limit / 2))
-redis.call('HSET', state, 'limit', limit, 'changed', now, 'cut', now)
-redis.call('EXPIRE', state, state_ttl)
-return limit
-"""
-
-
 def _now() -> float:
     return time.time()
 
@@ -238,71 +183,6 @@ def _keys(pool: str, model: str | None = None) -> dict[str, Any]:
 
 def _held_keys(keys: dict[str, Any], model: str | None) -> list[str]:
     return [keys["leases"], keys["model_leases"]] if model else [keys["leases"]]
-
-
-_last_limits: dict[tuple[str, str | None], int] = {}
-_instruments: tuple[Any, Any, Any] | None = None
-_instruments_lock = threading.Lock()
-
-
-def _meter() -> Any:
-    from opentelemetry import metrics
-
-    return metrics.get_meter("agent.provider_limiter")
-
-
-def _observe_limit(_options: Any) -> list[Any]:
-    from opentelemetry.metrics import Observation
-
-    observations = []
-    for (scope, model), value in list(_last_limits.items()):
-        attributes = {"scope": scope} if model is None else {"scope": scope, "model": model}
-        observations.append(Observation(value, attributes))
-    return observations
-
-
-def _meters() -> tuple[Any, Any, Any] | None:
-    global _instruments
-    if _instruments is not None:
-        return _instruments
-    with _instruments_lock:
-        if _instruments is not None:
-            return _instruments
-        try:
-            meter = _meter()
-            meter.create_observable_gauge(
-                "grid.provider.limit",
-                callbacks=[_observe_limit],
-                description="The fleet's adaptive limit of model calls in flight, per scope",
-            )
-            _instruments = (
-                meter.create_up_down_counter("grid.provider.inflight", description="Model calls holding a slot"),
-                meter.create_histogram(
-                    "grid.provider.wait_seconds", unit="s", description="Time a call waited for a slot"
-                ),
-                meter.create_counter("grid.provider.throttled_total", description="Calls the provider answered 429"),
-            )
-        except Exception:  # noqa: BLE001 - a meter must never fail a model call
-            logger.debug("Provider limiter meters unavailable", exc_info=True)
-            return None
-    return _instruments
-
-
-def _reset_meters() -> None:
-    global _instruments
-    with _instruments_lock:
-        _instruments = None
-        _last_limits.clear()
-
-
-def _record(index: int, method: str, value: float, attributes: dict[str, str]) -> None:
-    instruments = _meters()
-    if instruments is None:
-        return
-    try:
-        getattr(instruments[index], method)(value, attributes)
-    except Exception:  # noqa: BLE001 - see _meters
-        logger.debug("Provider limiter meter failed", exc_info=True)
 
 
 def _remember_limits(attempt: _Attempt, model: str | None) -> None:
@@ -467,17 +347,23 @@ def acquire(*, cls: str | None = None, model: str | None = None, max_wait_second
     started = time.monotonic()
     warned = [0.0]
     try:
-        while True:
-            attempt = _attempt(member, cls, model)
-            if attempt is None:
-                return _unheld(cls)
-            if attempt.taken:
-                return _granted(member, cls, model, attempt, started)
-            _check_wait(member, cls, started, max_wait_seconds, warned)
-            time.sleep(POLL_SECONDS)
+        return _poll_for_slot(member, cls, model, started, max_wait_seconds, warned)
     except BaseException:
         _abandon(member, model)
         raise
+
+
+def _poll_for_slot(
+    member: str, cls: str, model: str | None, started: float, max_wait_seconds: float | None, warned: list[float]
+) -> Lease:
+    while True:
+        attempt = _attempt(member, cls, model)
+        if attempt is None:
+            return _unheld(cls)
+        if attempt.taken:
+            return _granted(member, cls, model, attempt, started)
+        _check_wait(member, cls, started, max_wait_seconds, warned)
+        time.sleep(POLL_SECONDS)
 
 
 async def aacquire(*, cls: str | None = None, model: str | None = None, max_wait_seconds: float | None = None) -> Lease:
@@ -487,20 +373,32 @@ async def aacquire(*, cls: str | None = None, model: str | None = None, max_wait
     member = uuid.uuid4().hex
     started = time.monotonic()
     warned = [0.0]
-    attempt_future: asyncio.Future[_Attempt | None] | None = None
+    attempt_future: list[asyncio.Future[_Attempt | None] | None] = [None]
     try:
-        while True:
-            attempt_future = asyncio.ensure_future(asyncio.to_thread(_attempt, member, cls, model))
-            attempt = await asyncio.shield(attempt_future)
-            if attempt is None:
-                return _unheld(cls)
-            if attempt.taken:
-                return _granted(member, cls, model, attempt, started)
-            _check_wait(member, cls, started, max_wait_seconds, warned)
-            await asyncio.sleep(POLL_SECONDS)
+        return await _apoll_for_slot(member, cls, model, started, max_wait_seconds, warned, attempt_future)
     except BaseException:
-        _abandon_after(attempt_future, member, model)
+        _abandon_after(attempt_future[0], member, model)
         raise
+
+
+async def _apoll_for_slot(
+    member: str,
+    cls: str,
+    model: str | None,
+    started: float,
+    max_wait_seconds: float | None,
+    warned: list[float],
+    attempt_future: list[asyncio.Future[_Attempt | None] | None],
+) -> Lease:
+    while True:
+        attempt_future[0] = asyncio.ensure_future(asyncio.to_thread(_attempt, member, cls, model))
+        attempt = await asyncio.shield(attempt_future[0])
+        if attempt is None:
+            return _unheld(cls)
+        if attempt.taken:
+            return _granted(member, cls, model, attempt, started)
+        _check_wait(member, cls, started, max_wait_seconds, warned)
+        await asyncio.sleep(POLL_SECONDS)
 
 
 def _abandon_after(attempt: asyncio.Future | None, member: str, model: str | None) -> None:
@@ -515,68 +413,6 @@ def _abandon_after(attempt: asyncio.Future | None, member: str, model: str | Non
         withdraw()
         return
     attempt.add_done_callback(withdraw)
-
-
-def _chain(exc: BaseException) -> Iterator[BaseException]:
-    seen: set[int] = set()
-    current: BaseException | None = exc
-    while current is not None and id(current) not in seen:
-        seen.add(id(current))
-        yield current
-        current = current.__cause__ or current.__context__
-
-
-def is_rate_limited(exc: BaseException) -> bool:
-    for error in _chain(exc):
-        response = getattr(error, "response", None)
-        if 429 in (getattr(error, "status_code", None), getattr(response, "status_code", None)):
-            return True
-        if "rate_limit_exceeded" in str(error).lower():
-            return True
-    return False
-
-
-def retry_after_seconds(exc: BaseException) -> float:
-    for error in _chain(exc):
-        headers = getattr(getattr(error, "response", None), "headers", None)
-        if headers is None:
-            continue
-        for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
-            try:
-                stated = float(headers.get(name, "")) * scale
-            except TypeError, ValueError:
-                continue
-            return min(max(stated, 0.0), RETRY_AFTER_CAP_SECONDS)
-    return 0.0
-
-
-def scope_of_error(error: object) -> str:
-    body = error.get("error", error) if isinstance(error, Mapping) else None
-    if not isinstance(body, Mapping):
-        return MODEL_SCOPE
-    metadata = body.get("metadata")
-    if isinstance(metadata, Mapping) and metadata.get("provider_name"):
-        return MODEL_SCOPE
-    return KEY_SCOPE if str(body.get("code")) == "429" else MODEL_SCOPE
-
-
-def _body_of(error: BaseException) -> object:
-    body = getattr(error, "body", None)  # the OpenAI SDK: the body's `error` object
-    if isinstance(body, Mapping):
-        return body
-    response = getattr(error, "response", None)
-    try:
-        return response.json() if response is not None else None
-    except Exception:  # noqa: BLE001 - an unread stream or a body that is not JSON
-        return None
-
-
-def rate_limit_scope(exc: BaseException) -> str:
-    for error in _chain(exc):
-        body = _body_of(error)
-        if body is not None:
-            return scope_of_error(body)
-    return MODEL_SCOPE
 
 
 def throttle(model: str | None = None, scope: str = MODEL_SCOPE) -> None:
@@ -607,26 +443,25 @@ async def athrottle(model: str | None = None, scope: str = MODEL_SCOPE) -> None:
     await asyncio.shield(asyncio.to_thread(throttle, model, scope))
 
 
-def _backoff_before_retry(exc: BaseException) -> float:
-    wait = retry_after_seconds(exc)
-    return wait * (0.9 + 0.2 * random.random()) if wait else 0.0
-
-
 @contextmanager
 def slot(*, cls: str | None = None, model: str | None = None, max_wait_seconds: float | None = None) -> Iterator[Lease]:
     lease = acquire(cls=cls, model=model, max_wait_seconds=max_wait_seconds)
     try:
         yield lease
     except BaseException as exc:
-        if is_rate_limited(exc):
-            throttle(model, rate_limit_scope(exc))
-            lease.release()
-            wait = _backoff_before_retry(exc)
-            if wait:
-                time.sleep(wait)
+        _back_off_after(exc, model, lease)
         raise
     finally:
         lease.release()
+
+
+def _back_off_after(exc: BaseException, model: str | None, lease: Lease) -> None:
+    if is_rate_limited(exc):
+        throttle(model, rate_limit_scope(exc))
+        lease.release()
+        wait = _backoff_before_retry(exc)
+        if wait:
+            time.sleep(wait)
 
 
 @asynccontextmanager
@@ -637,12 +472,16 @@ async def aslot(
     try:
         yield lease
     except BaseException as exc:
-        if is_rate_limited(exc):
-            await athrottle(model, rate_limit_scope(exc))
-            await lease.arelease()
-            wait = _backoff_before_retry(exc)
-            if wait:
-                await asyncio.sleep(wait)
+        await _aback_off_after(exc, model, lease)
         raise
     finally:
         await lease.arelease()
+
+
+async def _aback_off_after(exc: BaseException, model: str | None, lease: Lease) -> None:
+    if is_rate_limited(exc):
+        await athrottle(model, rate_limit_scope(exc))
+        await lease.arelease()
+        wait = _backoff_before_retry(exc)
+        if wait:
+            await asyncio.sleep(wait)
