@@ -2,18 +2,8 @@ import { vi } from 'vitest'
 import { useChatStore, type ChatStoreWithHydration } from '@/features/chat/store'
 import { asStoreState, type StoreSelector } from '@/test-utils/store-fixtures'
 
-const createMockChatState = (
-  overrides: {
-    isSessionBusy?: (sessionId: string) => boolean
-    hasAnyBusySession?: () => boolean
-    isStreaming?: boolean
-    pendingInteraction?: { turnId: string; interactionId: string; input: 'text' | 'choice' } | null
-  } = {}
-) => ({
-  isSessionBusy: overrides.isSessionBusy ?? (() => false),
+const createMockChatState = (overrides: { hasAnyBusySession?: () => boolean } = {}) => ({
   hasAnyBusySession: overrides.hasAnyBusySession ?? (() => false),
-  isStreaming: overrides.isStreaming ?? false,
-  pendingInteraction: overrides.pendingInteraction ?? null,
 })
 
 export const setupChatStoreMock = (overrides: Parameters<typeof createMockChatState>[0] = {}) => {

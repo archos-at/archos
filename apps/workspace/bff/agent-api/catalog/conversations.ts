@@ -258,7 +258,8 @@ export const conversationsOperations = [
     domain: 'conversations',
     summary: 'File an unfiled draft into the project',
     description:
-      'Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project. A same-name ' +
+      'Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project, into ' +
+      '`folderId` under `name` when given, else into the default folder under the title. A same-name ' +
       'collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.',
     method: 'POST',
     path: '/api/conversations/[id]/draft/file',

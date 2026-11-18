@@ -14,7 +14,7 @@ from agent_host.jobs.agent_job import JobRequest
 from agent_host.jobs.agent_job import JobScope
 from agent_host.jobs.agent_job import RunStoppedError
 from agent_host.jobs.event_store import EventStore
-from agent_host.jobs.runner import sanitize_job_error
+from agent_host.jobs.job_errors import sanitize_job_error
 
 
 @pytest.fixture

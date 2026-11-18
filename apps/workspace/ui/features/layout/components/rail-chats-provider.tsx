@@ -44,6 +44,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
         href: `${chatHref}?session=${encodeURIComponent(row.id)}`,
         current: onChatRoute && row.id === openId,
         temporary: row.temporary,
+        activity: row.activity,
       })),
       allHref: chatHref,
       onOpen,

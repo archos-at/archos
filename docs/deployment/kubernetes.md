@@ -86,10 +86,12 @@ That password comes from Pulumi config `pgRuntimePassword`, which is **required
 and has no fallback**. It used to default to `pgAppPassword`; that was wrong,
 because Postgres authenticates by (role, password), so a shared password let
 anyone holding the runtime DSN log in as the schema owner instead — and the
-owner is exempt from every policy. Set it per stack:
+owner is exempt from every policy. Set it per stack, in the stack's ESC
+environment (a scratch stack without one takes `pulumi config set --secret`
+instead, as in [the Pulumi README](../../deploy/pulumi/README.md#a-scratch-stack-without-esc)):
 
 ```bash
-pulumi config set --secret pgRuntimePassword "$(openssl rand -base64 32)"
+pulumi env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:pgRuntimePassword "$(openssl rand -base64 32)" --secret
 ```
 
 A fourth login, `keda_scaler`, is declared the same way and is not an
@@ -149,7 +151,9 @@ an object store. So:
   (dev and prod) the deploy reads `data-seaweedfs-0` and patches it to the
   larger of its current size and `seaweedfsStorageSize`, so raising the value
   grows the volume and a smaller value is a no-op, never a shrink
-  (`src/data/pvc-grow.ts`). **On a new cluster, leave `seaweedfsGrowVolume`
+  (`src/data/pvc-grow.ts`). Prod sets 200Gi: grown by hand to about 100Gi, it
+  was 91 % full on 2026-11-14, 74 GB of it Qdrant snapshots retaken by failed
+  retries of the snapshot Job (since fixed in its script). **On a new cluster, leave `seaweedfsGrowVolume`
   unset for the first `pulumi up`**: the read fails while `data-seaweedfs-0`
   does not exist yet, and the template creates it at the configured size. Set it
   once the PVC exists. Qdrant and the
@@ -741,7 +745,7 @@ lock times out at Envoy after its route timeout.
 2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
    `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
    `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`; on dev and prod in the
-   stack's ESC environment with `esc env set … --secret --string`, never
+   stack's ESC environment with `pulumi env set … --secret --string`, never
    `pulumi config set --secret`, the runbook's §5), `inboundMailLocalPart`
    only to change the default `project`, `inboundMailZoneId` only for a domain on
    a zone of its own, `inboundMailOperatorAddress`, and `inboundMailDmarc` for a
@@ -1488,7 +1492,7 @@ Two refusals hold the move in place:
    # The secret, in the ESC environment Pulumi.prod.yaml imports:
    NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
    ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
    ```
 
    The commented block under `pgBackupSchedule` in `Pulumi.prod.yaml` is the same
@@ -1689,7 +1693,10 @@ up to 7 pods of 2 files, 1 CPU / 6Gi requested and 2 CPU / 6Gi limits, beside on
 `ingest-worker-heavy` pod (12Gi, one file of 40 MiB or more at a time, scaled from
 zero on `ingest-document-heavy`'s backlog; [`hatchet.md`](hatchet.md#ingestion-on-two-pools)). Memory
 request equals limit, so the scheduler never places more than a node holds,
-and both pools at their ceilings (7 × 6 + 12 = 54 GB) fit one batch node. Two files a pod because pdfplumber parses on
+and both pools at their ceilings (7 × 6 + 12 = 54 GB) fit one batch node. Staging sets
+`ingestWorkerHeavyEnabled: "false"`: its 16 GB app nodes never had 12Gi free, so
+from 2026-11-03 every deploy waited 37 minutes on an unschedulable heavy pod and
+failed; without the pool every file goes to the standard one. Two files a pod because pdfplumber parses on
 one core (the GIL): another pod adds parse speed where a third thread does
 not, and an OOM kill costs two jobs an attempt rather than three. Raise the
 memory before the ceiling if `[ingest-mem]` shows a pod near 6Gi. The ceiling
@@ -1927,9 +1934,9 @@ backoff (`common/credit_retry.py`) runs on whichever key the call carries.
    cd deploy/pulumi
    NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
    ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
    ```
 
    On a stack without ESC: `pulumi config set --secret openrouterChatKey "sk-or-..."`,

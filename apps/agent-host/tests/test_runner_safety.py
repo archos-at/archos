@@ -9,24 +9,24 @@ from unittest.mock import patch
 
 import pytest
 
+from agent_host.jobs.agent_construction import _create_agent_instance
+from agent_host.jobs.agent_construction import _resolve_deep_research_checkpointer
 from agent_host.jobs.conversation_output import write_job_turn
+from agent_host.jobs.job_cancellation import CancellationMonitor
+from agent_host.jobs.job_errors import _GRAPH_RECURSION_ERROR_MSG
+from agent_host.jobs.job_errors import _WALL_CLOCK_TIMEOUT_MSG
+from agent_host.jobs.job_errors import sanitize_job_error
+from agent_host.jobs.job_status import _update_status_if_not_terminal
+from agent_host.jobs.report_passes import _generate_answer_cards
 from agent_host.jobs.run_result import ANSWER_CONFIDENCE_FIELDS
 from agent_host.jobs.run_result import build_job_output
 from agent_host.jobs.run_result import extract_answer_transparency
 from agent_host.jobs.run_result import extract_skills_activated
 from agent_host.jobs.run_result import mark_degraded
 from agent_host.jobs.runner import _DEGRADED_EVENT_FIELDS
-from agent_host.jobs.runner import _GRAPH_RECURSION_ERROR_MSG
-from agent_host.jobs.runner import _WALL_CLOCK_TIMEOUT_MSG
 from agent_host.jobs.runner import JOB_DEGRADED_EVENT_TYPE
-from agent_host.jobs.runner import CancellationMonitor
 from agent_host.jobs.runner import _b64url_encode_text
-from agent_host.jobs.runner import _create_agent_instance
-from agent_host.jobs.runner import _generate_answer_cards
 from agent_host.jobs.runner import _purge_deep_checkpoint
-from agent_host.jobs.runner import _resolve_deep_research_checkpointer
-from agent_host.jobs.runner import _update_status_if_not_terminal
-from agent_host.jobs.runner import sanitize_job_error
 
 
 def _ensure_job_info_table(db_url: str) -> None:
@@ -849,20 +849,20 @@ class TestReportFollowUps:
     async def test_the_org_flag_gates_the_stage_like_a_chat_turn(self, monkeypatch) -> None:
         from unittest.mock import AsyncMock
 
-        from agent_host.jobs import runner
+        from agent_host.jobs import report_passes
 
         monkeypatch.setattr(
             "agent.stages.flags.resolve_enabled_stages", AsyncMock(return_value=frozenset({"memory_reflection"}))
         )
         llm = AsyncMock()
-        assert await runner._propose_report_follow_ups(llm, query="q", report="r", organization_id="org") is None
+        assert await report_passes._propose_report_follow_ups(llm, query="q", report="r", organization_id="org") is None
         llm.ainvoke.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_the_stages_handler_payload_rides_the_message(self, monkeypatch) -> None:
         from unittest.mock import AsyncMock
 
-        from agent_host.jobs import runner
+        from agent_host.jobs import report_passes
 
         monkeypatch.setattr(
             "agent.stages.flags.resolve_enabled_stages", AsyncMock(return_value=frozenset({"follow_ups"}))
@@ -875,13 +875,13 @@ class TestReportFollowUps:
             follow_ups_module.FOLLOW_UPS, handler=AsyncMock(return_value={"items": [{"question": "Und in GK 5?"}]})
         )
         monkeypatch.setattr(follow_ups_module, "FOLLOW_UPS", stage)
-        payload = await runner._propose_report_follow_ups(object(), query="q", report="r", organization_id="org")
+        payload = await report_passes._propose_report_follow_ups(object(), query="q", report="r", organization_id="org")
         assert payload == {"items": [{"question": "Und in GK 5?"}]}
 
 
 class TestTheFindingsRideIntoMemory:
     def test_each_finding_is_one_line_after_the_report(self) -> None:
-        from agent_host.jobs.runner import _reflection_text
+        from agent_host.jobs.report_passes import _reflection_text
 
         text = _reflection_text(
             "Bericht.",
@@ -897,13 +897,13 @@ class TestTheFindingsRideIntoMemory:
         )
 
     def test_a_row_without_a_status_states_none(self) -> None:
-        from agent_host.jobs.runner import _reflection_text
+        from agent_host.jobs.report_passes import _reflection_text
 
         text = _reflection_text("Bericht.", {"items": [{"requirement": "Stellplätze", "value": "12"}]})
         assert text == "Bericht.\n\n## Befunde\n- Stellplätze — 12"
 
     def test_no_findings_leaves_the_report_as_it_was(self) -> None:
-        from agent_host.jobs.runner import _reflection_text
+        from agent_host.jobs.report_passes import _reflection_text
 
         assert _reflection_text("Bericht.", None) == "Bericht."
         assert _reflection_text("Bericht.", {"items": []}) == "Bericht."
@@ -913,18 +913,18 @@ class TestReportReflectionHasNoScopeCheck:
     def test_the_reflection_takes_no_collection_scope(self) -> None:
         import inspect
 
-        from agent_host.jobs import runner
+        from agent_host.jobs import report_passes
 
-        assert "collection_scope" not in inspect.signature(runner._run_deep_research_reflection).parameters
+        assert "collection_scope" not in inspect.signature(report_passes._run_deep_research_reflection).parameters
 
     @pytest.mark.asyncio
     async def test_a_report_still_reflects(self, monkeypatch) -> None:
         from agent import common
-        from agent_host.jobs import runner
+        from agent_host.jobs import report_passes
 
         get_llm = AsyncMock(side_effect=RuntimeError("stop before the model call"))
         monkeypatch.setattr(common, "get_langchain_llm", get_llm)
-        await runner._run_deep_research_reflection(
+        await report_passes._run_deep_research_reflection(
             builder=object(),
             job_id="job-1",
             reflection_llm_ref="card_llm",

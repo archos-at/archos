@@ -360,8 +360,8 @@ async def test_persist_hands_the_skip_to_the_report_passes_so_no_reflection_mode
 
     async def passes(**kwargs: Any):
         seen.update(kwargs)
-        from agent_host.jobs.runner import CardGenerationResult
-        from agent_host.jobs.runner import ReportAnatomy
+        from agent_host.jobs.report_passes import CardGenerationResult
+        from agent_host.jobs.report_passes import ReportAnatomy
 
         return CardGenerationResult(cards=None), ReportAnatomy(), None
 

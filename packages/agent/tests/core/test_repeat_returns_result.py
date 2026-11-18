@@ -15,11 +15,11 @@ from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 from agent.common import turn_status
 from agent.common.tool_calls import FETCH_FAILED_MARKER
-from agent.core.agent import _FAILED_FETCH_REPEAT_MESSAGE
-from agent.core.agent import _REPEAT_FETCH_MESSAGE
-from agent.core.agent import _REPEAT_FETCH_PREFIX
 from agent.core.agent import ChatAgent
 from agent.core.models import ResearchAgentState
+from agent.core.round_split import _FAILED_FETCH_REPEAT_MESSAGE
+from agent.core.round_split import _REPEAT_FETCH_MESSAGE
+from agent.core.round_split import _REPEAT_FETCH_PREFIX
 
 _PROMPT = "Du bist der Agent."
 
@@ -238,7 +238,7 @@ class TestWhatIsStillTheSentence:
         assert _answer_for(result, "b") == f"{_REPEAT_FETCH_PREFIX}\n\n{_PASSAGE}"
 
     def test_a_signature_the_turn_does_not_hold_falls_back_to_the_sentence(self):
-        from agent.core.agent import _repeat_answer
+        from agent.core.round_split import _repeat_answer
 
         call = {"name": "read_passage", "args": {"document": "OIB-Richtlinie 2"}, "id": "x"}
         assert _repeat_answer(call, {}) == _REPEAT_FETCH_MESSAGE
