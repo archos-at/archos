@@ -49,7 +49,8 @@ config:
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
 
-  grid-oib:backendRequestsCpu: "1"
+  grid-oib:backendRequestsCpu: "1400m"
+  grid-oib:legacyChatRequestsCpu: "400m"
   grid-oib:backendRequestsMemory: 2Gi
   grid-oib:backendLimitsCpu: "4"
   grid-oib:backendLimitsMemory: 8Gi
@@ -64,7 +65,7 @@ config:
 
   grid-oib:ingestWorkerMinReplicas: "1"
   grid-oib:ingestWorkerMaxReplicas: "7"
-  grid-oib:ingestWorkerRequestsCpu: "1"
+  grid-oib:ingestWorkerRequestsCpu: "1200m"
   grid-oib:ingestWorkerRequestsMemory: 6Gi
   grid-oib:ingestWorkerLimitsCpu: "2"
   grid-oib:ingestWorkerLimitsMemory: 6Gi

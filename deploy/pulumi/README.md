@@ -340,7 +340,8 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `seaweedfsTenantAdminAccessKey` / 🔒 `seaweedfsTenantAdminSecretKey` | `grid-tenant-admin` / — | The one identity scoped `Admin:<prefix>*`, i.e. the only one that can create or drop a tenant bucket. Separate from the object credential because SeaweedFS's `Admin:<bucket>` authorises CreateBucket and DeleteBucket together and cannot express one without the other — a distinct key is the only way to keep "drop a tenant" off the request path, and it is why the purger never receives it. The secret is REQUIRED when `seaweedfsPerOrgBuckets` is `true` |
 | **Agent (backend web tier)** | | |
 | `cpuRequestScale` | `1` (dev: `0.25`) | Multiplies every container CPU **request** the program sets (`cpuRequest`/`scaledCpuRequest` in `src/config/cpu-requests.ts`), rounded up to a whole millicore, never below 10m. CPU limits and all memory stay as set; CPU HPA/KEDA targets are divided by it, so a tier scales out at the same absolute CPU. Above 0, at most 1. Dev sets 0.25: idle staging requested its four 4-vCPU app nodes full and no rolling update's surge pod fit (2026-11-18). `index-cpu-requests.spec.ts` holds prod's render to a snapshot and fails on any request set without the helper |
-| `backendRequestsCpu/Memory`, `backendLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Vertical scaling |
+| `backendRequestsCpu/Memory`, `backendLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Vertical scaling (prod: 1400m CPU) |
+| `legacyChatRequestsCpu` | `backendRequestsCpu` (prod: 400m) | CPU request of the draining `aiq-agent` tier alone, which carries far less than `chat`; everything else it takes from `backend*` |
 | `backendMaxActiveJobsPerOrg` | 3 | Research jobs one organization runs at once (0 = off). It is the workers' claim cap: a job over it waits in the queue (ADR-0079), it is not refused |
 | `backendMaxQueuedJobsPerOrg` | `50` | `db` execution: research jobs one organisation may have waiting (`MAX_QUEUED_JOBS_PER_ORG`), the only 429 left. 0 = off |
 | `backendIngestMaxWorkers` | `2` | Concurrent ingestion bound |
@@ -355,17 +356,17 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `conversationBus` | `true` | Dragonfly pub/sub chat bus (ADR-0028) |
 | 🔒 `jobPayloadKek` | — | REQUIRED for db mode (encrypts job payloads at rest) |
 | `allowPlaintextJobPayloads` | `false` | Dev-only escape hatch for the KEK requirement |
-| `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Worker sizing |
+| `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 375m / 2Gi / 4 / 8Gi | Worker sizing |
 | `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on the `research-run` backlog in Hatchet (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
 | `agentWorkerConcurrency` | `1` | Jobs per worker process; KEDA asks for one replica per this many open jobs |
 | `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing the research runs it holds (the Hatchet SDK waits for them on SIGTERM; no env variable carries it); the grace period is this plus 30 s. A run still going when it ends is a lost worker's, which Hatchet assigns again, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
 | **The api tier** (ADR-0082): `aiq-api`, every backend HTTP route but the chat socket, which `BACKEND_URL` names | | |
 | `apiMinReplicas` / `apiMaxReplicas` | 2 / 4 (prod 1 / 3, dev 1 / 2) | Bounds of its CPU HPA. A ceiling below the floor fails the plan |
-| `apiHpaCpuTargetPercent` | `70` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`) |
-| `apiRequestsCpu/Memory`, `apiLimitsCpu/Memory` | 500m / 1536Mi / 2 / 6Gi | Sizing |
+| `apiHpaCpuTargetPercent` | `40` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`): 40% of 875m scales out at 350m a pod. Change it with the request, so that number holds (`index-cpu-requests.spec.ts`) |
+| `apiRequestsCpu/Memory`, `apiLimitsCpu/Memory` | 875m / 1536Mi / 2 / 6Gi | Sizing |
 | **Ingestion tier, BFF pool and KEDA** (ADR-0076, ADR-0079) | | |
 | `ingestWorkerMinReplicas` / `ingestWorkerMaxReplicas` | 1 / 5 (prod 1 / 8) | KEDA bounds for the ingest tier, which scales on the `ingest-document` backlog in Hatchet. The ceiling is held to the provider budget below: the deploy fails when it is more than 2x `vlmFleetConcurrency`. Prod's 8 x 2 x 4 = 64 sits exactly at it |
-| `ingestWorkerRequestsCpu/Memory`, `ingestWorkerLimitsCpu/Memory` | 500m / 4Gi / 2 / 6Gi (prod: 1 / 6Gi / 2 / 6Gi, on the batch group) | Sizing. The memory request is what a worker holds while it parses, so the scheduler cannot pack several onto one node; prod sets request = limit, so it cannot overcommit at all |
+| `ingestWorkerRequestsCpu/Memory`, `ingestWorkerLimitsCpu/Memory` | 500m / 4Gi / 2 / 6Gi (prod: 1200m / 6Gi / 2 / 6Gi, on the batch group) | Sizing. The memory request is what a worker holds while it parses, so the scheduler cannot pack several onto one node; prod sets request = limit, so it cannot overcommit at all |
 | `ingestWorkerConcurrency` / `ingestWorkerDrainSeconds` | 3 (prod 2) / 600 | Jobs per worker (also KEDA's jobs-per-replica target) / SIGTERM budget; the grace period is the drain plus 30 s |
 | `ingestMaxPerOrg` | `0` | Most ingest jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless) |
 | `bffJobsEnabled` | `true` | Must stay `true`: `false` fails the plan. The `bff-jobs` pool runs project reindex, failed-ingestion rescan, IFC extraction, Office → PDF rendition, research-report filing, and the scheduling crons (every scheduled automation's fire and every maintenance sweep), which no other worker runs |
@@ -380,9 +381,9 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `ingestPageReadParallelism` | `16` | `INGEST_PAGE_READ_PARALLELISM`: threads one file's page reads (OCR and vision together) share. It bounds a file's threads and memory; `vlmFleetConcurrency` caps the calls, and the plan fails when this is larger than it |
 | `providerLimitCeiling` / `providerModelLimitCeiling` | 128 / 32 | `PROVIDER_LIMIT_CEILING` / `PROVIDER_MODEL_LIMIT_CEILING`: model calls in flight fleet-wide, all models together and any one model; where the adaptive limiter starts and what it recovers to |
 | **Frontend** | | |
-| `frontendRequestsCpu/Memory`, `frontendLimitsCpu/Memory` | 100m / 256Mi / 1 / 1Gi | Sizing |
+| `frontendRequestsCpu/Memory`, `frontendLimitsCpu/Memory` | 925m / 512Mi / 1 / 1536Mi | Sizing |
 | `frontendMinReplicas` / `frontendMaxReplicas` | 2 / 6 | HPA bounds |
-| `frontendHpaCpuTargetPercent` | `70` | HPA target |
+| `frontendHpaCpuTargetPercent` | `38` | HPA target: 38% of 925m scales out at 350m a pod. Change it with the request, so that number holds (`index-cpu-requests.spec.ts`) |
 | **Web (the public website, apps/website)** | | |
 | `webRequestsCpu/Memory`, `webLimitsCpu/Memory` | 50m / 128Mi / 250m / 256Mi | Sizing — static-first Astro site, near-idle CPU |
 | `webMinReplicas` / `webMaxReplicas` | 2 / 4 | HPA bounds |
