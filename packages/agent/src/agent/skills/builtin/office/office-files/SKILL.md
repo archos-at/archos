@@ -52,6 +52,7 @@ each lists the mistakes that make a file Office refuses or repairs.
 | `pdf-lib` 1.17 | PDF: make, merge, split, fill form fields | `office-pdf-charts` |
 | `unpdf` 2.1 | the text of a PDF | `office-pdf-charts` |
 | `vega` 6.4, `vega-lite` 6.5, `vega-interpreter` 2.3 | charts as SVG | `office-pdf-charts` |
+| `@cloudflare/puppeteer` 2.0 | HTML and CSS to a designed PDF, Mermaid diagrams, PNG screenshots | `office-html-pdf` |
 | `decimal.js` 10.6 | exact decimals: areas, money | this one |
 | `mathjs` 15.2 | units, matrices, expressions | this one |
 | `papaparse` 5.7 | CSV in and out (`delimiter: ";"` for German CSV) | |

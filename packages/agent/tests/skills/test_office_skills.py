@@ -15,7 +15,14 @@ OFFICE = BUILTIN_SKILLS_DIR / "office"
 
 ENTRY = "office-files"
 
-OFFICE_SKILLS = {"office-files", "office-word", "office-excel", "office-powerpoint", "office-pdf-charts"}
+OFFICE_SKILLS = {
+    "office-files",
+    "office-word",
+    "office-excel",
+    "office-powerpoint",
+    "office-pdf-charts",
+    "office-html-pdf",
+}
 
 JS_FENCE = re.compile(r"^```js\n(.*?)\n```$", re.DOTALL | re.MULTILINE)
 
@@ -41,7 +48,7 @@ def _every_example() -> list[Path]:
 
 def _library_table() -> set[str]:
     body = (OFFICE / ENTRY / "SKILL.md").read_text(encoding="utf-8")
-    return set(re.findall(r"^\| `([a-z.-]+)` [\d.]+", body, re.MULTILINE)) | set(
+    return set(re.findall(r"^\| `([@/a-z.-]+)` [\d.]+", body, re.MULTILINE)) | set(
         re.findall(r", `([a-z.-]+)` [\d.]+", body)
     )
 
@@ -101,4 +108,13 @@ def test_an_example_imports_only_what_the_runner_offers(path: Path) -> None:
 
 def test_the_example_scan_sees_the_examples() -> None:
     assert len(_every_example()) >= 10
-    assert {"docx", "exceljs", "pptxgenjs", "pdf-lib", "unpdf", "vega", "decimal.js"} <= _library_table()
+    assert {
+        "docx",
+        "exceljs",
+        "pptxgenjs",
+        "pdf-lib",
+        "unpdf",
+        "vega",
+        "decimal.js",
+        "@cloudflare/puppeteer",
+    } <= _library_table()
