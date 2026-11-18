@@ -50,6 +50,7 @@ export interface SaveToProjectDialogProps {
   title?: string
   initialFolderId?: string | null
   initialFolderName?: string
+  locating?: boolean
   revisionOf?: string
   changeNote?: string
   knownFolders?: KnownFolders
@@ -83,6 +84,7 @@ export function SaveToProjectDialog({
   title,
   initialFolderId = null,
   initialFolderName,
+  locating = false,
   revisionOf,
   changeNote: initialChangeNote = '',
   knownFolders,
@@ -97,24 +99,33 @@ export function SaveToProjectDialog({
   const [currentId, setCurrentId] = useState<string | null>(initialFolderId)
   const [mode, setMode] = useState<SaveMode>('own')
   const [changeNote, setChangeNote] = useState(initialChangeNote)
-  const placed = useRef(false)
+  const moved = useRef(false)
 
   useEffect(() => {
     if (!open) return
     setStem(nameStem(fileName, extension))
     setNameError(null)
-    setCurrentId(initialFolderId)
     setMode('own')
     setChangeNote(initialChangeNote)
-    placed.current = initialFolderId !== null
-  }, [open, fileName, extension, initialFolderId, initialChangeNote])
+    moved.current = false
+  }, [open, fileName, extension, initialChangeNote])
 
   useEffect(() => {
-    if (!open || placed.current || status !== 'ready' || !initialFolderName) return
-    placed.current = true
-    const named = folders.find((folder) => (folder.parentId ?? null) === null && folder.name === initialFolderName)
-    if (named) setCurrentId(named.id)
-  }, [open, status, folders, initialFolderName])
+    if (!open || moved.current) return
+    if (initialFolderId !== null) {
+      setCurrentId(initialFolderId)
+      return
+    }
+    const named = initialFolderName
+      ? folders.find((folder) => (folder.parentId ?? null) === null && folder.name === initialFolderName)
+      : undefined
+    setCurrentId(named?.id ?? null)
+  }, [open, initialFolderId, initialFolderName, folders])
+
+  const moveTo = (folderId: string | null): void => {
+    moved.current = true
+    setCurrentId(folderId)
+  }
 
   const byId = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders])
   const here = currentId === null ? undefined : byId.get(currentId)
@@ -130,7 +141,7 @@ export function SaveToProjectDialog({
   const rootLabel = t('folders.allFiles')
   const hereLabel = here?.name ?? rootLabel
   const writable = mayWrite(here, rootAccess)
-  const ready = status === 'ready'
+  const ready = status === 'ready' && !locating
 
   const asRevision = revisionOf !== undefined && mode === 'revision'
 
@@ -158,7 +169,9 @@ export function SaveToProjectDialog({
         <form onSubmit={submit} className="flex min-w-0 flex-col gap-5">
           <DialogHeader>
             <DialogTitle className="pr-10 text-base leading-snug">{title ?? t('saveTo.title')}</DialogTitle>
-            <DialogDescription>{t('saveTo.description')}</DialogDescription>
+            <DialogDescription>
+              {asRevision ? t('saveTo.revisionHint', { name: revisionOf }) : t('saveTo.description')}
+            </DialogDescription>
           </DialogHeader>
 
           {revisionOf !== undefined && (
@@ -213,23 +226,23 @@ export function SaveToProjectDialog({
             </span>
             <Breadcrumb aria-labelledby="save-to-project-location">
               <BreadcrumbList className="gap-1 sm:gap-1">
-                <Crumb label={rootLabel} current={trail.length === 0} onOpen={() => setCurrentId(null)} />
+                <Crumb label={rootLabel} current={trail.length === 0} onOpen={() => moveTo(null)} />
                 {trail.map((folder, index) => (
                   <Crumb
                     key={folder.id}
                     label={folder.name}
                     current={index === trail.length - 1}
-                    onOpen={() => setCurrentId(folder.id)}
+                    onOpen={() => moveTo(folder.id)}
                   />
                 ))}
               </BreadcrumbList>
             </Breadcrumb>
             <FolderLevel
-              status={status}
+              status={locating ? 'loading' : status}
               hereLabel={hereLabel}
               folders={children}
               disabled={pending}
-              onOpen={setCurrentId}
+              onOpen={moveTo}
               onRetry={() => void load()}
             />
             {ready && writable && (
@@ -238,7 +251,7 @@ export function SaveToProjectDialog({
                 parentLabel={hereLabel}
                 onCreate={async (name) => {
                   const outcome = await create(name, location)
-                  if (outcome.ok) setCurrentId(outcome.folder.id)
+                  if (outcome.ok) moveTo(outcome.folder.id)
                   return outcome
                 }}
               />

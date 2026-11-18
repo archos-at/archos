@@ -53,18 +53,16 @@ Start here; each row names the code and the page that owns its detail.
    (`unique_input_path` in `run.py`). A document named twice is sent once. The report's
    `documents read:` line names each document's path. Each tool result named in `data` (at most 10)
    goes in beside them, read-only, as JSON ([Tool results as data](#tool-results-as-data)).
-   Only the working files the code names by their `/workspace/` path are sent, or all of them when
-   it lists the directory; the report names the ones left out. A document past the tenth is named as
-   not loaded, and a single file over 32 MiB is refused by name before anything runs.
+   A document past the tenth is named as not loaded; a document over 32 MiB, or one the remaining
+   budget cannot take, is refused by name and size before anything runs.
 4. The runner gives the run a free slot, a fresh Durable Object and a fresh isolate, runs the module
    with a 60 s limit (180 s maximum), and returns the module's value, stdout, stderr and only the files
    it created or changed under `/workspace/`.
 5. The runner also lists the files sent in that the run removed (`deleted`); the tool drops them from
-   the working directory, and their card says the draft was deleted. An overwritten file keeps its one
-   earlier version, counted against the 25 MB once; the card of an earlier answer reads its own
-   version (`&v=`) and offers „Vorige Fassung wiederherstellen“. A file written under the file name of
-   a document the run read records it (`derived_from`), so the card can offer it as that document's
-   next Fassung.
+   the working directory (only at the version the run saw), and their card says the draft was deleted.
+   A file written under the file name of a document the run read records it, with the hash of the
+   bytes it read (`derived_from`), so the card can offer it as that document's next Fassung. When the
+   conversation was erased while the run ran, nothing is kept.
 6. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
    that would take the conversation's files past 25 MB, and answers with the status, value, output and
    the files kept. An input the script changed, or a file it wrote under `/workspace/in/`, is dropped,
@@ -248,11 +246,15 @@ before) with the bytes. The BFF:
 - **writes the next version** of a document the agent filed (`update_file`): into its open draft, or,
   once it was approved or published, into a new draft Fassung (`openDraftForRevision`), always with the
   same type (`bff/documents/agent-file-revision.ts`). When a person changed the document since the
-  draft was filed (`ifMatch`), it answers 409 `changed-in-project` with the Fassung's number, and the
-  agent asks the person: over it (`file_as="over_changes"`) or a separate file;
+  draft was filed (`ifMatch`), or opened a draft of their own, it answers 409 `changed-in-project`
+  with the Fassung's number. The agent tells the person, who decides on the card; writing over a
+  person's change (`overChanges`) is only ever a person's request, never the agent's;
 - **makes the next Fassung of a project document** the run read (`revise_file`), only when the person
-  asked for it, with its Änderungsvermerk (`document_versions.change_note`, migration 0248), under the
-  person's write access to that document and with the AI marking in the bytes;
+  asked for it and only for a file (never a Markdown draft), with its Änderungsvermerk
+  (`document_versions.change_note`, migration 0248, written with the bytes), under the person's write
+  access to a document of the same project, with the AI marking in the bytes. It refuses with
+  `changed-in-project` when the document changed since the run read it or a person has a draft open;
+  filed again, the draft stays on this path;
 - **resolves a folder** the agent names (`folder`, by name or path; an unknown one is refused with the
   folders that exist, `agent-folder.ts`); without one, a file made from a project document goes where
   that document lies, any other into `Berichte`.

@@ -284,7 +284,8 @@ describe('the ops it does serve', () => {
       documentId: DOC,
       work: { kind: 'markdown', content: 'korrigiert' },
       ifMatch: 'sha256:abc',
-      overChanges: undefined,
+      projectId: PROJECT,
+      ownVersionId: VERSION,
       changeNote: undefined,
       agentFiledOnly: true,
       options: {
@@ -407,24 +408,27 @@ describe('files the agent made by running code', () => {
       documentId: DOC,
       work: { kind: 'file', file: { contentType: DOCX, bytes } },
       ifMatch: 'sha256:abc',
-      overChanges: undefined,
+      projectId: PROJECT,
+      ownVersionId: VERSION,
       changeNote: undefined,
       agentFiledOnly: true,
       options: { request: expect.any(Request), actingHuman: false, origin: { conversationId: 's_conv_1', locale: 'de' } },
     })
   })
 
-  it('update_file over a Fassung a person changed passes the person’s choice on', async () => {
-    await call({
-      op: 'update_file',
-      documentId: DOC,
-      versionId: VERSION,
-      contentType: DOCX,
-      contentBase64,
-      ifMatch: 'sha256:abc',
-      overChanges: true,
-    })
-    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({ overChanges: true, agentFiledOnly: true })
+  it('never lets the agent write over a person’s change: overChanges is refused at the schema', async () => {
+    for (const op of ['update', 'update_file'] as const) {
+      const response = await call({
+        op,
+        documentId: DOC,
+        versionId: VERSION,
+        ...(op === 'update' ? { content: 'x' } : { contentType: DOCX, contentBase64 }),
+        ifMatch: 'sha256:abc',
+        overChanges: true,
+      })
+      expect(response.status, op).toBe(400)
+    }
+    expect(reviseWithAgentWork).not.toHaveBeenCalled()
   })
 
   it('revise_file makes the next Fassung of a project document, with its Änderungsvermerk', async () => {
@@ -433,11 +437,14 @@ describe('files the agent made by running code', () => {
       documentId: DOC,
       contentType: DOCX,
       contentBase64,
+      ifMatch: 'sha256:read',
       changeNote: 'Fläche Raum 2.04 korrigiert',
     })
     expect(response.status).toBe(201)
     expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({
       documentId: DOC,
+      projectId: PROJECT,
+      ifMatch: 'sha256:read',
       changeNote: 'Fläche Raum 2.04 korrigiert',
       agentFiledOnly: false,
     })

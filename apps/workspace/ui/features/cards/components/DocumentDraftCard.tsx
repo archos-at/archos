@@ -20,7 +20,6 @@ import { DocumentDraftPreviewDialog } from './DocumentDraftPreviewDialog'
 import {
   DRAFT_ACTION,
   DraftConflictNotice,
-  DraftLifeNote,
   DraftMenu,
   DraftSaveDialog,
   ProjectChangeNotice,
@@ -81,18 +80,24 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
     return (
       <Card data-testid="document-draft-card" data-removed="true" className={cn(CARD_SHELL, 'gap-1 p-5')}>
         <SectionLabel>{t('cards.fileDraft.removed')}</SectionLabel>
-        <ClampedText className="card-title text-muted-foreground line-through">{title}</ClampedText>
-        <p className="card-caption text-muted-foreground">{t('cards.fileDraft.removedNote')}</p>
+        <ClampedText className="card-title text-muted-foreground">{title}</ClampedText>
+        <p className="card-caption text-muted-foreground">
+          {t('cards.fileDraft.removedNote')}
+          {shownFiled && ` ${t('cards.fileDraft.removedFiled')}`}
+        </p>
+        {shownFiled && href && shownDocumentId && (
+          <a href={href} className={DRAFT_ACTION} data-testid="document-draft-open">
+            {t('cards.documentDraft.open')}
+          </a>
+        )}
       </Card>
     )
   }
 
   return (
-    <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'gap-2 p-5')}>
-      <div className="flex items-start justify-between gap-2">
-        <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
-        <DraftMenu life={life} name={title} />
-      </div>
+    <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'relative gap-2 p-5')}>
+      <DraftMenu life={life} name={title} filed={shownFiled} onRemoved={() => {}} className="absolute right-2 top-2" />
+      <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
 
       <div className="flex min-w-0 flex-col">
         <ClampedText className="card-title text-foreground">{title}</ClampedText>
@@ -186,11 +191,17 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
-      <ProjectChangeNotice filing={filing} name={title} />
-      <DraftLifeNote life={life} />
+      <ProjectChangeNotice filing={filing} name={title} onFileAsOwn={() => setSaveOpen(true)} />
 
-      {filing.canFile && (
-        <DraftSaveDialog filing={filing} open={saveOpen} onOpenChange={setSaveOpen} title={title} path={path} />
+      {(filing.canFile || filing.projectChange) && (
+        <DraftSaveDialog
+          filing={filing}
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          title={title}
+          path={path}
+          asOwn={Boolean(filing.projectChange)}
+        />
       )}
 
       {!shownFiled && conversationId && (

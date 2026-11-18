@@ -215,7 +215,6 @@ export const EXPOSURE = {
   'conversation-draft-file': OFFERED,
   'conversation-draft-get': OFFERED,
   'conversation-draft-rendition-get': OFFERED,
-  'conversation-draft-restore': OFFERED,
   'conversation-get': OFFERED,
   'conversation-list': OFFERED,
   'conversation-message-add': OFFERED,

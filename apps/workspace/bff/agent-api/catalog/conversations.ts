@@ -3,7 +3,6 @@ import { formatCitationsSchema } from '@/lib/citations/citation-wire'
 import {
   createConversationSchema,
   createMessagesSchema,
-  draftFileQuerySchema,
   draftPreviewQuerySchema,
   fileDraftBodySchema,
   generateTitleSchema,
@@ -225,7 +224,7 @@ export const conversationsOperations = [
     method: 'GET',
     path: '/api/conversations/[id]/draft/download',
     params: conversationParams,
-    query: draftFileQuerySchema,
+    query: draftPreviewQuerySchema,
     binaryResponse: [
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -250,18 +249,18 @@ export const conversationsOperations = [
     method: 'GET',
     path: '/api/conversations/[id]/draft/rendition',
     params: conversationParams,
-    query: draftFileQuerySchema,
+    query: draftPreviewQuerySchema,
     binaryResponse: ['application/pdf'],
     load: () => import('@/app/api/conversations/[id]/draft/rendition/route'),
   },
   {
     name: 'conversation-draft-file',
     domain: 'conversations',
-    summary: 'File an unfiled draft into the project',
+    summary: 'File a draft into the project, or update what was filed from it',
     description:
-      'Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project, into ' +
-      '`folderId` under `name` when given, else into the default folder under the title. A same-name ' +
-      'collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.',
+      'Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates ' +
+      'the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person ' +
+      'decides `overChanges`.',
     method: 'POST',
     path: '/api/conversations/[id]/draft/file',
     params: conversationParams,
@@ -271,24 +270,13 @@ export const conversationsOperations = [
   {
     name: 'conversation-draft-delete',
     domain: 'conversations',
-    summary: 'Delete an unfiled draft from a conversation',
+    summary: 'Delete a draft from a conversation',
     description: 'Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.',
     method: 'DELETE',
     path: '/api/conversations/[id]/draft',
     params: conversationParams,
     query: draftPreviewQuerySchema,
     load: () => import('@/app/api/conversations/[id]/draft/route'),
-  },
-  {
-    name: 'conversation-draft-restore',
-    domain: 'conversations',
-    summary: 'Restore the earlier version of a draft',
-    description: 'Makes the version kept before a draft’s last change its next version. Returns the version number.',
-    method: 'POST',
-    path: '/api/conversations/[id]/draft/restore',
-    params: conversationParams,
-    query: draftPreviewQuerySchema,
-    load: () => import('@/app/api/conversations/[id]/draft/restore/route'),
   },
   {
     name: 'answer-feedback-list',

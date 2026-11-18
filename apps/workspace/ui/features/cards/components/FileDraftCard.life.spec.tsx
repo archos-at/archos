@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@/test-utils'
+import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { FileDraftCard } from './FileDraftCard'
-import { filingBody, openSaveDialog, stubFetch } from './draft-filing.fixtures'
+import { filingBody, openSaveDialog, SAVE_FOLDERS, stubFetch } from './draft-filing.fixtures'
 import { useDraftLifeStore } from '../lib/draft-life'
 
 const setCardDecision = vi.fn()
@@ -43,6 +43,8 @@ const XLSX = {
   messageId: 'msg-1',
 }
 
+const FILED = { documentId: 'doc-1', versionId: 'ver-1', filedDraftVersion: 1 } as const
+
 const card = (version: number, extra: Record<string, unknown> = {}) => ({
   type: 'document_draft',
   title: 'Raumbuch.xlsx',
@@ -54,137 +56,163 @@ const card = (version: number, extra: Record<string, unknown> = {}) => ({
 
 const json = (status: number, body: unknown) => () => Promise.resolve({ ok: status < 400, status, json: async () => body })
 
+const updated = (state: string) =>
+  json(201, {
+    documentId: 'doc-1',
+    versionId: 'ver-2',
+    state,
+    alreadyFiled: true,
+    outcome: 'updated',
+    draftVersion: 2,
+    versionNumber: 2,
+  })
+
 const calls = (part: string) =>
   vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes(part)) as Array<[string, RequestInit]>
 
-describe('FileDraftCard — after it was filed and changed', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    chat.messages = [{ id: 'msg-1' }]
-    useDraftLifeStore.setState({ changes: {} })
-  })
-  afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => {
+  vi.clearAllMocks()
+  chat.messages = [{ id: 'msg-1' }]
+  useDraftLifeStore.setState({ removed: {} })
+})
+afterEach(() => vi.unstubAllGlobals())
 
+describe('FileDraftCard — after it was filed and changed', () => {
   it('says the draft changed since filing, offers the update and holds back the submit of stale bytes', async () => {
-    stubFetch(
-      json(201, {
-        documentId: 'doc-1',
-        versionId: 'ver-2',
-        state: 'draft',
-        alreadyFiled: true,
-        outcome: 'updated',
-        draftVersion: 2,
-        versionNumber: 2,
-      }),
-    )
+    stubFetch(updated('draft'))
     const user = userEvent.setup()
-    render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState="draft" filedDraftVersion={1} />)
+    render(<FileDraftCard {...XLSX} {...FILED} versionState="draft" />)
 
     expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Changed since it was filed')
     expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Update in the project' }))
 
-    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Updated in the project'))
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Updated, in the project as a draft'))
     expect(filingBody()).toEqual({ path: PATH, title: 'Raumbuch.xlsx', force: false })
     await user.click(screen.getByRole('button', { name: 'Submit for approval' }))
     expect(submit).toHaveBeenCalledWith('doc-1', 'ver-2')
   })
 
-  it('names a person’s change in the project and lets the person choose', async () => {
-    stubFetch(
-      json(409, { code: 'CONFLICT', error: 'changed', details: { reason: 'changed-in-project', versionNumber: 3 } }),
-    )
+  it('offers the submit again once an approved document got its new draft revision', async () => {
+    stubFetch(updated('draft'))
     const user = userEvent.setup()
-    render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState="draft" filedDraftVersion={1} />)
+    render(<FileDraftCard {...XLSX} {...FILED} versionState="approved" />)
+
+    await user.click(screen.getByRole('button', { name: 'Update in the project' }))
+
+    expect(await screen.findByRole('button', { name: 'Submit for approval' })).toBeInTheDocument()
+  })
+
+  it('names a person’s change, hides the update while it is open, and lets the person choose', async () => {
+    let filing = 0
+    stubFetch((url) => {
+      if (!String(url).includes('/draft/file')) return json(200, {})()
+      filing += 1
+      return filing === 1
+        ? json(409, { code: 'CONFLICT', error: 'changed', details: { reason: 'changed-in-project', versionNumber: 3 } })()
+        : updated('draft')()
+    })
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} {...FILED} versionState="draft" />)
 
     await user.click(screen.getByRole('button', { name: 'Update in the project' }))
 
     expect(await screen.findByTestId('draft-project-change')).toHaveTextContent(
       'Someone changed “Raumbuch.xlsx” in the project since it was filed; it is now revision 3.',
     )
+    expect(screen.queryByRole('button', { name: 'Update in the project' })).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('draft-as-own-file'))
+    expect(await screen.findByTestId('save-to-project')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
     await user.click(screen.getByTestId('draft-over-changes'))
     expect(filingBody(1)).toMatchObject({ overChanges: true })
-    await user.click(screen.getByTestId('draft-as-own-file'))
-    expect(filingBody(2)).toMatchObject({ as: 'own' })
+  })
+
+  it('files a separate file through the save dialog after a person’s change', async () => {
+    stubFetch(json(409, { code: 'CONFLICT', error: 'changed', details: { reason: 'changed-in-project', versionNumber: 3 } }))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} {...FILED} versionState="draft" />)
+    await user.click(screen.getByRole('button', { name: 'Update in the project' }))
+    await user.click(await screen.findByTestId('draft-as-own-file'))
+    await waitFor(() => expect(screen.getByTestId('save-to-project-submit')).not.toHaveAttribute('aria-disabled'))
+
+    await user.click(screen.getByTestId('save-to-project-submit'))
+
+    expect(filingBody(1)).toMatchObject({ as: 'own', name: 'Raumbuch.xlsx' })
   })
 })
 
-describe('FileDraftCard — an earlier version, a restore and a delete', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    useDraftLifeStore.setState({ changes: {} })
-  })
-  afterEach(() => vi.unstubAllGlobals())
-
-  it('says an earlier card was revised since and restores the previous version from it', async () => {
+describe('FileDraftCard — an earlier card and a deleted draft', () => {
+  it('says an earlier card was revised since and offers nothing that would serve the newer bytes', () => {
     chat.messages = [
       { id: 'msg-1', cards: [card(2)] },
-      { id: 'msg-2', cards: [card(3, { previous_version: 2 })] },
+      { id: 'msg-2', cards: [card(3)] },
     ]
-    stubFetch(json(200, { path: PATH, version: 4 }))
-    const user = userEvent.setup()
+    vi.stubGlobal('fetch', vi.fn())
     render(<FileDraftCard {...XLSX} />)
 
-    expect(screen.getByTestId('file-draft-superseded')).toHaveTextContent('Revised since (revision 3)')
+    expect(screen.getByTestId('file-draft-superseded')).toHaveTextContent(/^Revised since$/)
+    expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'File into the project' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Download/ })).toHaveAttribute('href', expect.stringContaining('v=2'))
-
-    await user.click(screen.getByTestId('file-draft-restore'))
-
-    await waitFor(() => expect(calls('/draft/restore')).toHaveLength(1))
-    expect(calls('/draft/restore')[0][1]).toMatchObject({ method: 'POST' })
-    await waitFor(() => expect(screen.getByTestId('file-draft-superseded')).toHaveTextContent('revision 4'))
   })
 
-  it('says so when the agent deleted the draft', () => {
-    chat.messages = [{ id: 'msg-1' }]
-    render(<FileDraftCard {...XLSX} removed />)
+  it('says so when the agent deleted the draft, and mentions the project only when something was filed', () => {
+    vi.stubGlobal('fetch', vi.fn())
+    const { unmount } = render(<FileDraftCard {...XLSX} removed />)
+    expect(screen.getByTestId('file-draft-removed')).toHaveTextContent(/^This draft was deleted from this chat\.$/)
+    unmount()
 
-    expect(screen.getByTestId('file-draft-card')).toHaveAttribute('data-removed', 'true')
-    expect(screen.getByTestId('file-draft-removed')).toHaveTextContent('This draft was deleted from the chat')
+    render(<FileDraftCard {...XLSX} {...FILED} versionState="draft" removed />)
+    expect(screen.getByTestId('file-draft-removed')).toHaveTextContent('What was filed from it stays in the project.')
+    expect(screen.getByRole('link', { name: 'Open in the project' })).toHaveAttribute('href', expect.stringContaining('doc-1'))
   })
 
-  it('deletes a draft from its menu after the person confirmed', async () => {
-    chat.messages = [{ id: 'msg-1' }]
+  it('deletes a draft after the person confirmed, then puts the focus on the card', async () => {
     stubFetch(() => Promise.resolve({ ok: true, status: 200, json: async () => ({ path: PATH, deleted: true }) }))
     const user = userEvent.setup()
     render(<FileDraftCard {...XLSX} />)
 
     await user.click(screen.getByTestId('draft-menu'))
     await user.click(await screen.findByTestId('draft-delete'))
+    expect(screen.getByRole('dialog', { name: 'Delete draft “Raumbuch.xlsx”?' })).toBeInTheDocument()
     expect(calls('/draft?path=')).toHaveLength(0)
-    await user.click(await screen.findByTestId('draft-delete-confirm'))
+    await user.click(screen.getByTestId('draft-delete-confirm'))
 
     await waitFor(() => expect(screen.getByTestId('file-draft-card')).toHaveAttribute('data-removed', 'true'))
-    expect(calls('/draft?path=')[0]).toEqual([
-      `/api/conversations/conv-1/draft?path=${encodeURIComponent(PATH)}`,
-      { method: 'DELETE' },
-    ])
+    expect(calls('/draft?path=')[0]).toEqual([`/api/conversations/conv-1/draft?path=${encodeURIComponent(PATH)}`, { method: 'DELETE' }])
+    expect(screen.getByTestId('file-draft-card')).toHaveFocus()
+  })
+
+  it('shows a failed delete in the dialog that is still open', async () => {
+    stubFetch(() => Promise.resolve({ ok: false, status: 502, json: async () => ({}) }))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await user.click(screen.getByTestId('draft-menu'))
+    await user.click(await screen.findByTestId('draft-delete'))
+    await user.click(screen.getByTestId('draft-delete-confirm'))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByTestId('draft-delete-error')).toBeInTheDocument()
   })
 })
 
 describe('FileDraftCard — a draft made from a project document', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    chat.messages = [{ id: 'msg-1' }]
-    useDraftLifeStore.setState({ changes: {} })
+  const revised = json(201, {
+    documentId: 'doc-raumbuch',
+    versionId: 'ver-4',
+    state: 'draft',
+    alreadyFiled: false,
+    outcome: 'revised',
+    versionNumber: 4,
+    revisionOf: { documentId: 'doc-raumbuch', name: 'Raumbuch.xlsx' },
   })
-  afterEach(() => vi.unstubAllGlobals())
 
   it('offers both ways, a separate file by default, and files the new revision with its change note when chosen', async () => {
     stubFetch((url) =>
-      String(url).startsWith('/api/documents/')
-        ? json(200, { document: { id: 'doc-raumbuch', folderId: null } })()
-        : json(201, {
-            documentId: 'doc-raumbuch',
-            versionId: 'ver-4',
-            state: 'draft',
-            alreadyFiled: false,
-            outcome: 'revised',
-            versionNumber: 4,
-            revisionOf: { documentId: 'doc-raumbuch', name: 'Raumbuch.xlsx' },
-          })(),
+      String(url).startsWith('/api/documents/') ? json(200, { document: { id: 'doc-raumbuch', folderId: null } })() : revised(),
     )
     const user = userEvent.setup()
     render(<FileDraftCard {...XLSX} derivedFromDocumentId="doc-raumbuch" derivedFromName="Raumbuch.xlsx" />)
@@ -192,6 +220,7 @@ describe('FileDraftCard — a draft made from a project document', () => {
     await openSaveDialog(user)
     expect(screen.getByTestId('save-to-project-mode-own')).toHaveAttribute('data-state', 'checked')
     await user.click(screen.getByTestId('save-to-project-mode-revision'))
+    expect(within(screen.getByTestId('save-to-project')).queryByText(/Choose the folder/)).not.toBeInTheDocument()
     await user.type(screen.getByTestId('save-to-project-change-note'), 'Fläche Raum 2.04 korrigiert')
     await user.click(screen.getByTestId('save-to-project-submit'))
 
@@ -203,5 +232,32 @@ describe('FileDraftCard — a draft made from a project document', () => {
       as: 'revision',
       changeNote: 'Fläche Raum 2.04 korrigiert',
     })
+  })
+
+  it('keeps what the person typed when the source folder arrives late, and opens there', async () => {
+    let answerFolder: (value: unknown) => void = () => {}
+    const late = new Promise((resolve) => {
+      answerFolder = resolve
+    })
+    stubFetch((url) =>
+      String(url).startsWith('/api/documents/')
+        ? late.then(() => ({ ok: true, status: 200, json: async () => ({ document: { folderId: SAVE_FOLDERS[0].id } }) }))
+        : revised(),
+    )
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} derivedFromDocumentId="doc-raumbuch" derivedFromName="Raumbuch.xlsx" />)
+
+    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await screen.findByTestId('save-to-project')
+    await user.click(screen.getByTestId('save-to-project-mode-revision'))
+    await user.type(screen.getByTestId('save-to-project-change-note'), 'Notiz')
+    await user.click(screen.getByTestId('save-to-project-mode-own'))
+    await user.clear(screen.getByTestId('save-to-project-name'))
+    await user.type(screen.getByTestId('save-to-project-name'), 'Eigener Name')
+    answerFolder(null)
+
+    await waitFor(() => expect(screen.getByTestId('save-to-project-here')).toHaveTextContent(SAVE_FOLDERS[0].name))
+    expect(screen.getByTestId('save-to-project-name')).toHaveValue('Eigener Name')
+    expect(screen.getByTestId('save-to-project-mode-own')).toHaveAttribute('data-state', 'checked')
   })
 })

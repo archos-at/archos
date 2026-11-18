@@ -40,6 +40,7 @@ vi.mock('@/lib/documents/repository', async (importOriginal) => ({
 vi.mock('@/lib/documents/version-repository', () => ({
   findOpenVersion: vi.fn(),
   findPublishedVersion: vi.fn(),
+  listDocumentVersions: vi.fn(),
 }))
 
 vi.mock('@/lib/documents/agent-file-revision', () => ({
@@ -58,7 +59,7 @@ import { findConversationInOrg } from '@/lib/conversations/repository'
 import { filingReference } from '@/lib/conversations/draft-filing'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { findDocumentAuthoredByRef, listProjectDocuments } from '@/lib/documents/repository'
-import { findOpenVersion } from '@/lib/documents/version-repository'
+import { listDocumentVersions } from '@/lib/documents/version-repository'
 import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
 import { findProjectFolder } from '@/lib/projects/folder-service'
 import { POST } from './route'
@@ -152,11 +153,14 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       filename: 'piloti/x.md',
       folderId: 'folder-1',
     })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: VERSION, state: 'draft', contentHash: 'sha256:a' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: VERSION, state: 'draft', contentHash: 'sha256:a', originConversationId: 'conv-1' },
+    ] as DocumentVersion[])
     vi.mocked(reviseWithAgentWork).mockResolvedValue({
       document: { id: DOC, folderId: 'folder-1' } as never,
       version: { id: VERSION, state: 'draft', contentHash: 'sha256:b', versionNumber: 1 } as DocumentVersion,
       forked: false,
+      unchanged: false,
     })
 
     const res = await post({ path: PATH, title: TITLE })
@@ -181,7 +185,9 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       filename: 'piloti/x.md',
       folderId: 'folder-1',
     })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: VERSION, state: 'in_review' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: VERSION, state: 'in_review', contentHash: 'sha256:a', originConversationId: 'conv-1' },
+    ] as DocumentVersion[])
     vi.mocked(reviseWithAgentWork).mockRejectedValue(new ConflictError('in review', { reason: 'in-review' }))
 
     const res = await post({ path: PATH, title: TITLE })

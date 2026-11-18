@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type FC } from 'react'
+import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import { Download } from 'lucide-react'
 import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
 import { Button } from '@/components/ui/button'
@@ -19,12 +19,11 @@ import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { formatBytes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useDraftFiling, type DraftFiling } from '../hooks/use-draft-filing'
-import { useDraftLife, type DraftLifeState } from '../hooks/use-draft-life'
+import { useDraftLife } from '../hooks/use-draft-life'
 import { draftFileUrls, type DraftFileUrls } from '../lib/document-draft-preview'
 import { CARD_SHELL, DECISION_BUTTON, DECISION_ROW } from './card-chrome'
 import {
   DraftConflictNotice,
-  DraftLifeNote,
   DraftMenu,
   DraftSaveDialog,
   ProjectChangeNotice,
@@ -43,7 +42,6 @@ export interface FileDraftCardProps {
   versionId?: string | null
   versionState?: DocumentVersionState | null
   filedDraftVersion?: number | null
-  previousVersion?: number | null
   derivedFromDocumentId?: string | null
   derivedFromName?: string | null
   removed?: boolean | null
@@ -115,39 +113,48 @@ const FiledActions: FC<{ filing: DraftFiling }> = ({ filing }) => {
   )
 }
 
-const SupersededActions: FC<{ life: DraftLifeState; version: number }> = ({ life, version }) => {
+const RemovedDraft: FC<{ name: string; format: string; filing: DraftFiling; focus: boolean }> = ({
+  name,
+  format,
+  filing,
+  focus,
+}) => {
   const t = useTranslations(chatCopy)
-  if (!life.canRestore || life.restoreTarget !== version) return null
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className={FILE_WIDE_BUTTON}
-      aria-disabled={life.busy !== null || undefined}
-      aria-busy={life.busy === 'restore' || undefined}
-      onClick={() => void life.restore()}
-      data-testid="file-draft-restore"
-    >
-      {t('cards.fileDraft.restorePrevious')}
-    </Button>
-  )
-}
-
-const RemovedDraft: FC<{ name: string; format: string }> = ({ name, format }) => {
-  const t = useTranslations(chatCopy)
+  const isMobile = useIsMobile()
+  const shell = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focus) shell.current?.focus()
+  }, [focus])
+  const { href, shownDocumentId, projectId, shownFiled } = filing
   return (
     <Card
+      ref={shell}
+      tabIndex={-1}
       data-testid="file-draft-card"
       data-removed="true"
       role="group"
       aria-label={`${format}: ${name}`}
-      className={cn(CARD_SHELL, 'gap-1 p-4 sm:p-5')}
+      className={cn(CARD_SHELL, 'gap-1 p-4 outline-none sm:p-5')}
     >
       <SectionLabel>{t('cards.fileDraft.removed')}</SectionLabel>
-      <FittedName text={name} lines={2} className="card-title text-muted-foreground line-through" />
+      <FittedName text={name} lines={2} className="card-title text-muted-foreground" />
       <p className="card-caption text-muted-foreground" data-testid="file-draft-removed">
         {t('cards.fileDraft.removedNote')}
+        {shownFiled && ` ${t('cards.fileDraft.removedFiled')}`}
       </p>
+      {shownFiled && href && shownDocumentId && projectId && (
+        <div className={DECISION_ROW}>
+          <Button asChild variant="secondary" size="sm" className={DECISION_BUTTON}>
+            <a
+              href={href}
+              data-testid="document-draft-open"
+              onClick={(event) => openFiledInPlace(event, { documentId: shownDocumentId, projectId, href, isMobile })}
+            >
+              {t('cards.documentDraft.open')}
+            </a>
+          </Button>
+        </div>
+      )}
     </Card>
   )
 }
@@ -163,6 +170,8 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
   const { conversationId, shownFiled, isFiling } = filing
   const [viewerOpen, setViewerOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
+  const [savingOwn, setSavingOwn] = useState(false)
+  const [justRemoved, setJustRemoved] = useState(false)
   const type = useMemo(() => draftFileType(path), [path])
   const name = draftFileName(path) || title
   const urls = props.urls ?? (conversationId ? draftFileUrls(conversationId, path, version) : null)
@@ -176,10 +185,16 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       ? { documentId: props.derivedFromDocumentId, name: props.derivedFromName }
       : null
 
-  if (life.removed) return <RemovedDraft name={name} format={format} />
+  if (life.removed) return <RemovedDraft name={name} format={format} filing={filing} focus={justRemoved} />
+
+  const openSave = (own: boolean) => {
+    setSavingOwn(own)
+    setSaveOpen(true)
+  }
 
   const openFile = () => {
-    if (shownFiled && !life.superseded) {
+    if (life.superseded) return
+    if (shownFiled) {
       if (filing.href && filing.shownDocumentId && filing.projectId) {
         openFiled({ documentId: filing.shownDocumentId, projectId: filing.projectId, href: filing.href, isMobile })
       }
@@ -194,20 +209,24 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       data-format={type.format}
       role="group"
       aria-label={`${format}: ${name}`}
-      className={cn(CARD_SHELL, 'gap-3 p-4 sm:p-5')}
+      className={cn(CARD_SHELL, 'relative gap-3 p-4 sm:p-5')}
     >
-      <div className="flex min-w-0 gap-4">
+      <DraftMenu
+        life={life}
+        name={name}
+        filed={shownFiled}
+        onRemoved={() => setJustRemoved(true)}
+        className="absolute right-2 top-2"
+      />
+      <div className="flex min-w-0 gap-4 pr-8">
         <FileDraftThumbnail
           type={type}
           name={name}
-          urls={shownFiled && !life.superseded ? null : urls}
+          urls={shownFiled || life.superseded ? null : urls}
           onOpen={openFile}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-start justify-between gap-2">
-            <SectionLabel>{shownFiled ? t('cards.fileDraft.eyebrowFiled') : t('cards.fileDraft.eyebrow')}</SectionLabel>
-            <DraftMenu life={life} name={name} />
-          </div>
+          <SectionLabel>{shownFiled ? t('cards.fileDraft.eyebrowFiled') : t('cards.fileDraft.eyebrow')}</SectionLabel>
           <FittedName text={title} lines={2} className="card-title text-foreground" />
           <p className="card-caption tabular-nums text-muted-foreground" data-testid="file-draft-facts">
             <span className="sr-only">{format}, </span>
@@ -217,9 +236,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
           <p className="card-caption text-muted-foreground" aria-live="polite">
             <AnimatePresence mode="wait" initial={false}>
               {life.superseded ? (
-                <span data-testid="file-draft-superseded">
-                  {t('cards.fileDraft.superseded', { version: String(life.newestVersion) })}
-                </span>
+                <span data-testid="file-draft-superseded">{t('cards.fileDraft.superseded')}</span>
               ) : filing.filedKnown ? (
                 <motion.span
                   key={stateLabel}
@@ -241,7 +258,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
         </div>
       </div>
 
-      {shownFiled && !life.superseded ? (
+      {life.superseded ? null : shownFiled ? (
         <FiledActions filing={filing} />
       ) : (
         urls && (
@@ -267,14 +284,13 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
                 {t('cards.fileDraft.askForExcel')}
               </Button>
             )}
-            {life.superseded && <SupersededActions life={life} version={version} />}
-            {filing.canFile && !refused && !life.superseded && (
+            {filing.canFile && !refused && (
               <Button
                 size="sm"
                 className={FILE_WIDE_BUTTON}
                 aria-disabled={isFiling || undefined}
                 aria-busy={isFiling || undefined}
-                onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+                onClick={() => (filing.projectId ? openSave(false) : void filing.file(false))}
                 data-testid="file-draft-file"
               >
                 <StackedLabel
@@ -296,21 +312,21 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
-      <ProjectChangeNotice filing={filing} name={name} />
-      <DraftLifeNote life={life} />
+      <ProjectChangeNotice filing={filing} name={name} onFileAsOwn={() => openSave(true)} />
 
-      {filing.canFile && !refused && (
+      {(filing.canFile || filing.projectChange) && !refused && (
         <DraftSaveDialog
           filing={filing}
           open={saveOpen}
           onOpenChange={setSaveOpen}
           title={title}
           path={path}
-          source={source}
+          source={savingOwn ? null : source}
+          asOwn={savingOwn}
         />
       )}
 
-      {(!shownFiled || life.superseded) && conversationId && urls && (
+      {!shownFiled && !life.superseded && conversationId && urls && (
         <FileDraftViewer
           open={viewerOpen}
           onClose={() => setViewerOpen(false)}

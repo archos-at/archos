@@ -10,7 +10,7 @@ vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:800
 
 import { ForbiddenError } from '@/lib/api/errors'
 import { fetchDraftFromBackend } from './draft-backend'
-import { deleteConversationDraft, restoreConversationDraft } from './draft-edits'
+import { deleteConversationDraft } from './draft-edits'
 
 const session = { userId: 'user_1', organizationId: 'org_1' } as never
 const fetchMock = vi.fn()
@@ -44,27 +44,10 @@ describe('deleting a draft', () => {
   })
 })
 
-describe('restoring the earlier version', () => {
-  it('answers the version the restore made', async () => {
-    fetchMock.mockResolvedValue(Response.json({ path: '/drafts/a.xlsx', version: 4 }))
-
-    await expect(restoreConversationDraft(session, 'conv-1', 'drafts/a.xlsx')).resolves.toEqual({
-      path: '/drafts/a.xlsx',
-      version: 4,
-    })
-    expect(fetchMock.mock.calls[0][0]).toBe('http://backend:8000/v1/drafts/conv-1/restore?path=%2Fdrafts%2Fa.xlsx')
-  })
-})
-
-describe('reading one version of a draft', () => {
-  it('asks for the version an old card names, and says when it is no longer kept', async () => {
-    fetchMock.mockResolvedValue(new Response(null, { status: 410 }))
-
-    const gone = await fetchDraftFromBackend('conv-1', '/drafts/a.xlsx', { raw: true, version: 1 }).catch(
-      (error: unknown) => error,
-    )
-
-    expect(fetchMock.mock.calls[0][0]).toBe('http://backend:8000/v1/drafts/conv-1/drafts/a.xlsx?raw=true&version=1')
-    expect(gone).toMatchObject({ status: 410, details: { reason: 'version-gone' } })
+describe('a draft path', () => {
+  it.each(['/drafts/../x.xlsx', '/drafts//x.xlsx', '/drafts/./x.xlsx', '/drafts/x/..'])('refuses %s', async (path) => {
+    await expect(fetchDraftFromBackend('conv-1', path, { raw: true })).rejects.toMatchObject({ status: 400 })
+    await expect(deleteConversationDraft(session, 'conv-1', path)).rejects.toMatchObject({ status: 400 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

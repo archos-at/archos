@@ -11,6 +11,7 @@ const filingSchema = z.object({
   versionId: z.string().min(1),
   contentHash: z.string().min(1),
   state: z.string().min(1),
+  kind: z.enum(['', 'revision']).optional(),
 })
 
 const factsSchema = z.object({
@@ -18,8 +19,12 @@ const factsSchema = z.object({
   filed: filingSchema.optional(),
   filed_at_version: z.number().int().nonnegative().optional(),
   previous_version: z.number().int().positive().optional(),
-  derived_from: z.object({ document_id: z.string().min(1), name: z.string().min(1) }).optional(),
+  derived_from: z
+    .object({ document_id: z.string().min(1), name: z.string().min(1), content_hash: z.string().min(1).optional() })
+    .optional(),
 })
+
+export type DraftFilingKind = '' | 'revision'
 
 export interface DraftFiling {
   documentId: string
@@ -27,13 +32,14 @@ export interface DraftFiling {
   contentHash: string
   state: string
   filedAtVersion: number
+  kind: DraftFilingKind
 }
 
 export interface DraftFacts {
   version: number
   filing: DraftFiling | null
   previousVersion: number | null
-  derivedFrom: { documentId: string; name: string } | null
+  derivedFrom: { documentId: string; name: string; contentHash: string | null } | null
 }
 
 export async function readDraftFacts(
@@ -48,9 +54,11 @@ export async function readDraftFacts(
   const { version, filed, filed_at_version: filedAt, previous_version: previous, derived_from: derived } = parsed.data
   return {
     version,
-    filing: filed ? { ...filed, filedAtVersion: filedAt ?? 0 } : null,
+    filing: filed ? { ...filed, kind: filed.kind ?? '', filedAtVersion: filedAt ?? 0 } : null,
     previousVersion: previous ?? null,
-    derivedFrom: derived ? { documentId: derived.document_id, name: derived.name } : null,
+    derivedFrom: derived
+      ? { documentId: derived.document_id, name: derived.name, contentHash: derived.content_hash ?? null }
+      : null,
   }
 }
 

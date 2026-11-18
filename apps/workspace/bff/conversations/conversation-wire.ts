@@ -182,13 +182,3 @@ export const fileDraftBodySchema = z
 export const draftPreviewQuerySchema = z.object({
   path: z.string().min(1).max(500),
 })
-
-export const draftFileQuerySchema = draftPreviewQuerySchema.extend({
-  v: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(1_000_000)
-    .optional()
-    .describe('The version the card names (current or the one before); omit for the current.'),
-})

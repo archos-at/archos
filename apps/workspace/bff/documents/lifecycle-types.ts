@@ -303,7 +303,6 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       versionId: z.guid(),
       content: z.string().max(2_000_000),
       ifMatch: z.string().min(1),
-      overChanges: z.boolean().optional(),
     })
     .strict(),
   z
@@ -327,7 +326,6 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       contentType: agentFileContentTypeSchema,
       contentBase64: agentFileBase64Schema,
       ifMatch: z.string().min(1),
-      overChanges: z.boolean().optional(),
     })
     .strict(),
   z
@@ -340,6 +338,8 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
     .object({
       op: z.literal('revise_file'),
       documentId: z.guid(),
+      versionId: z.guid().optional(),
+      ifMatch: z.string().min(1).max(128).optional(),
       contentType: agentFileContentTypeSchema,
       contentBase64: agentFileBase64Schema,
       changeNote: z.string().trim().max(500).optional(),

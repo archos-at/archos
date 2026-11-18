@@ -2,7 +2,6 @@ import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { InternalServiceUnavailableError, internalServiceHeaders } from '@/lib/internal-auth'
 import {
-  ApiError,
   BadRequestError,
   NotFoundError,
   PayloadTooLargeError,
@@ -19,8 +18,11 @@ export function encodedDraftPath(path: string): string {
   if (!trimmed || trimmed.length > MAX_DRAFT_PATH_CHARS) throw new BadRequestError('Invalid draft path')
   const stripped = trimmed.replace(/^\/+/, '')
   if (!stripped) throw new BadRequestError('Invalid draft path')
-  return stripped
-    .split('/')
+  const segments = stripped.split('/')
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
+    throw new BadRequestError('Invalid draft path')
+  }
+  return segments
     .map((segment) => encodeURIComponent(segment))
     .join('/')
 }
@@ -44,9 +46,6 @@ async function callBackend(url: string, init: RequestInit): Promise<Response> {
   if (!response.ok) {
     if (response.status === 404) throw new NotFoundError()
     if (response.status === 400) throw new BadRequestError('Invalid draft path')
-    if (response.status === 410) {
-      throw new ApiError(410, 'DRAFT_VERSION_GONE', 'This version of the draft is no longer kept', { reason: 'version-gone' })
-    }
     if (response.status === 413) throw new PayloadTooLargeError()
     throw new UpstreamError(`Draft preview failed with ${response.status}`)
   }
@@ -58,10 +57,10 @@ const draftsUrl = (conversationId: string): string => `${getBackendUrl()}/v1/dra
 export async function fetchDraftFromBackend(
   conversationId: string,
   path: string,
-  options: { raw: boolean; version?: number },
+  options: { raw: boolean },
 ): Promise<Response> {
   const encodedPath = encodedDraftPath(path)
-  const query = options.raw ? `?raw=true${options.version ? `&version=${options.version}` : ''}` : ''
+  const query = options.raw ? '?raw=true' : ''
   return callBackend(`${draftsUrl(conversationId)}/${encodedPath}${query}`, { method: 'GET', headers: backendHeaders() })
 }
 
@@ -71,6 +70,7 @@ export interface DraftFilingRecord {
   contentHash: string
   state: string
   draftVersion: number
+  kind: '' | 'revision'
 }
 
 export async function recordDraftFilingInBackend(
@@ -84,18 +84,6 @@ export async function recordDraftFilingInBackend(
     headers: { ...backendHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(record),
   })
-}
-
-export async function restoreDraftInBackend(conversationId: string, path: string): Promise<number> {
-  const absolute = `/${encodedDraftPath(path)}`
-  const response = await callBackend(
-    `${draftsUrl(conversationId)}/restore?path=${encodeURIComponent(decodeURIComponent(absolute))}`,
-    { method: 'POST', headers: backendHeaders() },
-  )
-  const body: unknown = await response.json().catch(() => null)
-  const version = typeof body === 'object' && body !== null && 'version' in body ? Number(body.version) : NaN
-  if (!Number.isInteger(version) || version < 1) throw new UpstreamError('Draft restore answered unexpectedly')
-  return version
 }
 
 export async function deleteDraftInBackend(conversationId: string, path: string): Promise<void> {

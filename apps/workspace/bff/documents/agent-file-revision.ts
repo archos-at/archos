@@ -1,5 +1,5 @@
 import 'server-only'
-import { ConflictError } from '@/lib/api/errors'
+import { ConflictError, UnprocessableError } from '@/lib/api/errors'
 import { markingIsInBytes } from '@/lib/ai-provenance'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
@@ -14,18 +14,16 @@ import { generatedDocumentMarking, generatedDocumentProvenance, UnmarkedRenderin
 import { replaceVersionFile, type ReplaceVersionOptions } from './lifecycle'
 import { openDraftForRevision } from './revision'
 import { renderVersionBytes, type RenderedVersionBytes } from './version-content'
-import {
-  findOpenVersion,
-  findPublishedVersion,
-  setVersionChangeNote,
-} from './version-repository'
+import { findOpenVersion, findPublishedVersion, MAX_CHANGE_NOTE_CHARS } from './version-repository'
 
 export type AgentWork = { kind: 'file'; file: AgentFileUpload } | { kind: 'markdown'; content: string }
 
 export interface ReviseWithAgentWorkInput {
   documentId: string
+  projectId: string
   work: AgentWork
   ifMatch?: string | null
+  ownVersionId?: string | null
   overChanges?: boolean
   changeNote?: string | null
   agentFiledOnly?: boolean
@@ -36,6 +34,7 @@ export interface RevisedWithAgentWork {
   document: Document
   version: DocumentVersion
   forked: boolean
+  unchanged: boolean
 }
 
 const EDITABLE: ReadonlySet<string> = new Set(['draft', 'changes_requested'])
@@ -53,13 +52,49 @@ export function renderRevisionFile(document: Document, version: DocumentVersion,
   return { bytes, contentType: checked.contentType, contentHash: contentDigest(bytes) }
 }
 
-function render(work: AgentWork) {
-  return async (document: Document, version: DocumentVersion): Promise<RenderedVersionBytes> =>
-    work.kind === 'file' ? renderRevisionFile(document, version, work.file) : renderVersionBytes(document, version, work.content)
+function render(work: AgentWork, document: Document, version: DocumentVersion): Promise<RenderedVersionBytes> | RenderedVersionBytes {
+  return work.kind === 'file'
+    ? renderRevisionFile(document, version, work.file)
+    : renderVersionBytes(document, version, work.content)
 }
 
 async function currentVersion(session: AuthorizedSession, documentId: string): Promise<DocumentVersion | null> {
   return (await findOpenVersion(documentId, session.organizationId)) ?? findPublishedVersion(documentId, session.organizationId)
+}
+
+function refuseOtherHands(document: Document, current: DocumentVersion | null, input: ReviseWithAgentWorkInput): void {
+  if (current?.state === 'in_review') {
+    throw new ConflictError('This document is in review and cannot get a new Fassung now', {
+      reason: 'in-review',
+      versionNumber: current.versionNumber,
+    })
+  }
+  if (input.overChanges || !current) return
+  const changed = Boolean(input.ifMatch && current.contentHash && current.contentHash !== input.ifMatch)
+  const someoneElsesDraft = EDITABLE.has(current.state) && current.id !== input.ownVersionId
+  if (changed || someoneElsesDraft) {
+    throw new ConflictError('A person changed this document since the draft was made or filed', {
+      reason: 'changed-in-project',
+      documentId: document.id,
+      versionNumber: current.versionNumber,
+    })
+  }
+}
+
+function refuseWrongDocument(document: Document, input: ReviseWithAgentWorkInput): void {
+  if (document.projectId !== input.projectId) {
+    throw new UnprocessableError('That document belongs to another project', { reason: 'other-project' })
+  }
+  if (input.agentFiledOnly && (document.authoredBy === 'user' || !document.authoredByProducer?.startsWith('agent_'))) {
+    throw new ConflictError('Only a document the agent filed can be updated from its draft', {
+      producer: document.authoredByProducer,
+    })
+  }
+  if (!input.agentFiledOnly && input.work.kind !== 'file') {
+    throw new UnprocessableError('A Markdown draft cannot become a Fassung of a person’s document', {
+      reason: 'not-fileable',
+    })
+  }
 }
 
 export async function reviseWithAgentWork(
@@ -67,30 +102,23 @@ export async function reviseWithAgentWork(
   input: ReviseWithAgentWorkInput,
 ): Promise<RevisedWithAgentWork> {
   const document = await getAccessibleDocument(session, input.documentId, 'write')
-  if (input.agentFiledOnly && (document.authoredBy === 'user' || !document.authoredByProducer?.startsWith('agent_'))) {
-    throw new ConflictError('Only a document the agent filed can be updated from its draft', {
-      producer: document.authoredByProducer,
-    })
-  }
+  refuseWrongDocument(document, input)
   const current = await currentVersion(session, document.id)
-  if (current?.state === 'in_review') {
-    throw new ConflictError('This document is in review and cannot get a new Fassung now', {
-      reason: 'in-review',
-      versionNumber: current.versionNumber,
-    })
-  }
-  const changed = Boolean(input.ifMatch && current?.contentHash && current.contentHash !== input.ifMatch)
-  if (changed && !input.overChanges) {
-    throw new ConflictError('A person changed this document since the draft was filed', {
-      reason: 'changed-in-project',
-      documentId: document.id,
-      versionNumber: current?.versionNumber ?? null,
-    })
+  refuseOtherHands(document, current, input)
+  if (current) {
+    const rendered = await render(input.work, document, current)
+    if (rendered.contentHash === current.contentHash) return { document, version: current, forked: false, unchanged: true }
   }
   const open = current && EDITABLE.has(current.state) ? current : null
   const target = open ?? (await openDraftForRevision(session, document.id)).version
-  const version = await replaceVersionFile(session, document.id, target.id, target.contentHash, input.options, render(input.work))
-  const note = input.changeNote?.trim()
-  if (note) await setVersionChangeNote(version.id, session.organizationId, note)
-  return { document, version: note ? { ...version, changeNote: note } : version, forked: open === null }
+  const note = input.changeNote?.trim().slice(0, MAX_CHANGE_NOTE_CHARS) || null
+  const version = await replaceVersionFile(
+    session,
+    document.id,
+    target.id,
+    target.contentHash,
+    { ...input.options, versionFields: { changeNote: note } },
+    async (doc, written) => render(input.work, doc, written),
+  )
+  return { document, version, forked: open === null, unchanged: false }
 }

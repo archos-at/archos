@@ -1,5 +1,5 @@
 import 'server-only'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { BadRequestError, ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireResourceAccess } from '@/lib/sharing/access'
@@ -244,8 +244,8 @@ async function fileNew(
   }
 }
 
-function ownReference(ref: string): string {
-  const suffix = `-${randomUUID().slice(0, 8)}`
+function ownReference(ref: string, filedDocumentId: string): string {
+  const suffix = `-${createHash('sha256').update(filedDocumentId).digest('hex').slice(0, 8)}`
   return `${ref.slice(0, MAX_FILING_REF_CHARS - suffix.length)}${suffix}`
 }
 
@@ -274,7 +274,11 @@ export async function fileConversationDraft(
 
   const nameOf = (folderId: string | null) => folderNameOf(projectId, session.organizationId, folderId)
   if (input.as === 'revision') return fileAsRevision(context, input, nameOf)
-  const filed = facts.filing ?? (await legacyFiling(session, projectId, ref, type))
-  if (filed && input.as !== 'own') return refile(context, filed, input, nameOf)
-  return fileNew(context, input, filed ? ownReference(ref) : ref)
+  const filed = facts.filing ?? (await legacyFiling(context, ref))
+  if (filed && input.as !== 'own') {
+    const refiled = await refile(context, filed, input, nameOf)
+    if (refiled) return refiled
+    return fileNew(context, input, ownReference(ref, filed.documentId))
+  }
+  return fileNew(context, input, filed ? ownReference(ref, filed.documentId) : ref)
 }

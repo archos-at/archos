@@ -9,6 +9,6 @@ BEGIN
     SELECT 1 FROM pg_constraint WHERE conname = 'document_versions_change_note_length'
   ) THEN
     ALTER TABLE "document_versions"
-      ADD CONSTRAINT "document_versions_change_note_length" CHECK (char_length("change_note") <= 500);
+      ADD CONSTRAINT "document_versions_change_note_length" CHECK (char_length("change_note") <= 500) NOT VALID;
   END IF;
 END $$;

@@ -27,13 +27,22 @@ async function reviseOp(
   session: AuthorizedSession,
   request: Request,
   context: VerifiedRequestContext,
-  input: { documentId: string; work: AgentWork; ifMatch?: string; overChanges?: boolean; changeNote?: string; own: boolean },
+  input: {
+    documentId: string
+    work: AgentWork
+    ifMatch?: string
+    ownVersionId?: string
+    changeNote?: string
+    own: boolean
+  },
 ) {
+  if (!context.projectId) throw new BadRequestError('This request names no project', { reason: 'no-project' })
   const revised = await reviseWithAgentWork(session, {
     documentId: input.documentId,
+    projectId: context.projectId,
     work: input.work,
     ifMatch: input.ifMatch,
-    overChanges: input.overChanges,
+    ownVersionId: input.ownVersionId,
     changeNote: input.changeNote,
     agentFiledOnly: input.own,
     options: {
@@ -116,8 +125,8 @@ async function runOp(
       documentId: body.documentId,
       work: { kind: 'file', file },
       ...(body.op === 'update_file'
-        ? { ifMatch: body.ifMatch, overChanges: body.overChanges, own: true }
-        : { changeNote: body.changeNote, own: false }),
+        ? { ifMatch: body.ifMatch, ownVersionId: body.versionId, own: true }
+        : { ifMatch: body.ifMatch, ownVersionId: body.versionId, changeNote: body.changeNote, own: false }),
     })
   }
 
@@ -126,7 +135,7 @@ async function runOp(
       documentId: body.documentId,
       work: { kind: 'markdown', content: body.content },
       ifMatch: body.ifMatch,
-      overChanges: body.overChanges,
+      ownVersionId: body.versionId,
       own: true,
     })
   }

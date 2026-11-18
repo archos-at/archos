@@ -69,8 +69,7 @@ export function ChangeNoteField({
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-muted-foreground text-sm">{t('saveTo.revisionHint', { name: revisionOf })}</p>
+    <div className="flex flex-col gap-3" data-revision-of={revisionOf}>
       <Field>
         <FieldLabel htmlFor="save-to-project-change-note">{t('saveTo.changeNote')}</FieldLabel>
         <Textarea

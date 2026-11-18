@@ -42,6 +42,7 @@ interface FiledDoc {
   folderName?: string | null
   draftVersion?: number
   outcome?: 'filed' | 'unchanged' | 'updated' | 'revised'
+  state?: string
   versionNumber?: number | null
   revisionOf?: { documentId: string; name: string } | null
 }
@@ -125,7 +126,11 @@ export function useDraftFiling({
   const filedAtVersion = filedDoc?.draftVersion ?? filedDraftVersion ?? null
   const shownFiled = filed || filedDoc !== null
   const href = shownDocumentId && projectId ? documentFilesHref(projectId, shownDocumentId) : null
-  const submitted = decision === 'submitted' || (versionState ? !SUBMITTABLE.has(versionState) : false)
+  const rewritten = filedDoc?.outcome === 'updated' || filedDoc?.outcome === 'revised'
+  const currentState = (rewritten ? filedDoc?.state : versionState) as DocumentVersionState | null | undefined
+  const submitted = rewritten
+    ? !SUBMITTABLE.has(currentState ?? 'draft')
+    : decision === 'submitted' || (versionState ? !SUBMITTABLE.has(versionState) : false)
   const filedDecision = decision === 'filed'
   const filedKnown = shownFiled || filedDecision
   const changedSinceFiling =
@@ -226,7 +231,9 @@ export function useDraftFiling({
   const stateLabel = changedSinceFiling
     ? t('cards.fileDraft.changedSinceFiling')
     : revised
-      ? t('cards.fileDraft.revisedFiled', { name: revised.name, number: String(filedDoc?.versionNumber ?? '') })
+      ? filedDoc?.versionNumber
+        ? t('cards.fileDraft.revisedFiledNumbered', { name: revised.name, number: String(filedDoc.versionNumber) })
+        : t('cards.fileDraft.revisedFiled', { name: revised.name })
       : filedDoc?.outcome === 'updated'
         ? t('cards.fileDraft.updated')
         : filed && submitted && stateKey
@@ -250,7 +257,7 @@ export function useDraftFiling({
     submitted,
     canFile: !shownFiled && canDecide && Boolean(conversationId) && (!filedDecision || restoreFailed),
     canSubmit: (filed || filedDoc !== null) && !submitted && canDecide && !changedSinceFiling,
-    canUpdate: changedSinceFiling && canDecide && Boolean(conversationId),
+    canUpdate: changedSinceFiling && canDecide && Boolean(conversationId) && projectChange === null,
     changedSinceFiling,
     projectChange,
     isFiling,

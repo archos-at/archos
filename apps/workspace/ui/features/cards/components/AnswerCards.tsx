@@ -267,7 +267,6 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           versionId={card.version_id}
           versionState={card.version_state}
           filedDraftVersion={card.filed_draft_version}
-          previousVersion={card.previous_version}
           derivedFromDocumentId={card.derived_from_document_id}
           derivedFromName={card.derived_from_name}
           removed={card.removed}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FC, type MouseEvent } from 'react'
-import { MoreHorizontal, RotateCcw, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Trash2 } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -86,25 +86,34 @@ export interface DraftSource {
   name: string
 }
 
-function useSourceFolder(source: DraftSource | null | undefined, open: boolean): string | null | undefined {
-  const [folderId, setFolderId] = useState<string | null | undefined>(undefined)
+interface SourceFolder {
+  folderId: string | null | undefined
+  loading: boolean
+}
+
+function useSourceFolder(source: DraftSource | null | undefined): SourceFolder {
   const documentId = source?.documentId
+  const [found, setFound] = useState<{ documentId: string; folderId: string | null | undefined } | null>(null)
   useEffect(() => {
-    if (!open || !documentId) return
+    if (!documentId) return
     let cancelled = false
+    const settle = (folderId: string | null | undefined) => {
+      if (!cancelled) setFound({ documentId, folderId })
+    }
     void fetch(`/api/documents/${encodeURIComponent(documentId)}`)
       .then((response) => (response.ok ? response.json() : null))
       .then((body: unknown) => {
-        if (cancelled) return
         const document = (body as { document?: { folderId?: string | null } } | null)?.document
-        setFolderId(document && document.folderId !== undefined ? document.folderId : undefined)
+        settle(document && document.folderId !== undefined ? document.folderId : undefined)
       })
-      .catch(() => undefined)
+      .catch(() => settle(undefined))
     return () => {
       cancelled = true
     }
-  }, [open, documentId])
-  return documentId ? folderId : undefined
+  }, [documentId])
+  if (!documentId) return { folderId: undefined, loading: false }
+  const settled = found?.documentId === documentId
+  return { folderId: settled ? found.folderId : undefined, loading: !settled }
 }
 
 export const DraftSaveDialog: FC<{
@@ -114,8 +123,9 @@ export const DraftSaveDialog: FC<{
   title: string
   path: string
   source?: DraftSource | null
-}> = ({ filing, open, onOpenChange, title, path, source }) => {
-  const sourceFolder = useSourceFolder(source, open)
+  asOwn?: boolean
+}> = ({ filing, open, onOpenChange, title, path, source, asOwn = false }) => {
+  const sourceFolder = useSourceFolder(source)
   if (!filing.projectId) return null
   return (
     <SaveToProjectDialog
@@ -124,15 +134,16 @@ export const DraftSaveDialog: FC<{
       projectId={filing.projectId}
       fileName={title}
       extension={filedExtension(draftFileType(path))}
-      initialFolderId={sourceFolder ?? null}
+      initialFolderId={sourceFolder.folderId ?? null}
       initialFolderName={source ? undefined : GENERATED_DOCUMENT_FOLDER_NAME}
+      locating={sourceFolder.loading}
       revisionOf={source?.name}
       pending={filing.isFiling}
       error={open ? filing.error : null}
       onSave={async ({ folderId, name, as, changeNote }) => {
         const outcome = await filing.file(
           false,
-          as === 'revision' ? { as, changeNote } : { folderId, name, ...(as ? { as } : {}) },
+          as === 'revision' ? { as, changeNote } : { folderId, name, ...(as || asOwn ? { as: 'own' as const } : {}) },
         )
         if (outcome !== 'failed') onOpenChange(false)
       }}
@@ -140,7 +151,11 @@ export const DraftSaveDialog: FC<{
   )
 }
 
-export const ProjectChangeNotice: FC<{ filing: DraftFiling; name: string }> = ({ filing, name }) => {
+export const ProjectChangeNotice: FC<{ filing: DraftFiling; name: string; onFileAsOwn: () => void }> = ({
+  filing,
+  name,
+  onFileAsOwn,
+}) => {
   const t = useTranslations(chatCopy)
   const { projectChange, isFiling } = filing
   if (!projectChange) return null
@@ -156,16 +171,17 @@ export const ProjectChangeNotice: FC<{ filing: DraftFiling; name: string }> = ({
           type="button"
           className={DRAFT_ACTION}
           aria-disabled={isFiling || undefined}
+          aria-busy={isFiling || undefined}
           onClick={() => void filing.fileOverChanges()}
           data-testid="draft-over-changes"
         >
-          {t('cards.fileDraft.overChanges')}
+          <StackedLabel busy={isFiling} idle={t('cards.fileDraft.overChanges')} working={t('cards.documentDraft.filing')} />
         </button>
         <button
           type="button"
           className={DRAFT_ACTION}
           aria-disabled={isFiling || undefined}
-          onClick={() => void filing.fileAsOwn()}
+          onClick={onFileAsOwn}
           data-testid="draft-as-own-file"
         >
           {t('cards.fileDraft.asOwnFile')}
@@ -175,31 +191,24 @@ export const ProjectChangeNotice: FC<{ filing: DraftFiling; name: string }> = ({
   )
 }
 
-export const DraftMenu: FC<{ life: DraftLifeState; name: string }> = ({ life, name }) => {
+export const DraftMenu: FC<{
+  life: DraftLifeState
+  name: string
+  filed: boolean
+  onRemoved: () => void
+  className?: string
+}> = ({ life, name, filed, onRemoved, className }) => {
   const t = useTranslations(chatCopy)
   const [confirming, setConfirming] = useState(false)
   if (life.removed) return null
   const entries: ActionMenuEntry[] = [
-    ...(life.canRestore
-      ? [
-          {
-            type: 'item' as const,
-            id: 'restore',
-            label: t('cards.fileDraft.restorePrevious'),
-            icon: RotateCcw,
-            disabled: life.busy !== null,
-            onSelect: () => void life.restore(),
-            testId: 'draft-restore',
-          },
-        ]
-      : []),
     {
       type: 'item',
       id: 'delete',
       label: t('cards.fileDraft.delete'),
       icon: Trash2,
       variant: 'destructive',
-      disabled: life.busy !== null,
+      disabled: life.deleting,
       onSelect: () => setConfirming(true),
       testId: 'draft-delete',
     },
@@ -215,7 +224,7 @@ export const DraftMenu: FC<{ life: DraftLifeState; name: string }> = ({ life, na
             type="button"
             variant="ghost"
             size="icon"
-            className="-mr-2 -mt-2 shrink-0"
+            className={cn('size-8', className)}
             aria-label={t('cards.fileDraft.menu', { name })}
             data-testid="draft-menu"
           >
@@ -227,26 +236,24 @@ export const DraftMenu: FC<{ life: DraftLifeState; name: string }> = ({ life, na
         open={confirming}
         onOpenChange={setConfirming}
         title={t('cards.fileDraft.deleteTitle', { name })}
-        description={t('cards.fileDraft.deleteDescription')}
+        description={`${t('cards.fileDraft.deleteDescription')}${filed ? ` ${t('cards.fileDraft.deleteKeepsFiled')}` : ''}`}
         confirmLabel={t('cards.fileDraft.delete')}
         cancelLabel={t('cards.fileDraft.deleteCancel')}
         tone="destructive"
-        pending={life.busy === 'delete'}
+        pending={life.deleting}
         confirmTestId="draft-delete-confirm"
         onConfirm={async () => {
-          if (await life.remove()) setConfirming(false)
+          if (!(await life.remove())) return
+          setConfirming(false)
+          onRemoved()
         }}
-      />
+      >
+        {life.deleteFailed && (
+          <p className="text-destructive text-sm" role="alert" data-testid="draft-delete-error">
+            {t('cards.fileDraft.deleteError')}
+          </p>
+        )}
+      </ConfirmDialog>
     </>
-  )
-}
-
-export const DraftLifeNote: FC<{ life: DraftLifeState }> = ({ life }) => {
-  const t = useTranslations(chatCopy)
-  if (life.failed === null) return null
-  return (
-    <p className="card-caption text-destructive" role="alert" data-testid="draft-life-error">
-      {life.failed === 'restore' ? t('cards.fileDraft.restoreError') : t('cards.fileDraft.deleteError')}
-    </p>
   )
 }

@@ -49,6 +49,7 @@ vi.mock('@/lib/documents/repository', async (importOriginal) => ({
 vi.mock('@/lib/documents/version-repository', () => ({
   findOpenVersion: vi.fn(),
   findPublishedVersion: vi.fn(),
+  listDocumentVersions: vi.fn(async () => []),
 }))
 
 vi.mock('@/lib/documents/agent-document', () => ({
@@ -71,8 +72,8 @@ import { findConversationInOrg } from '@/lib/conversations/repository'
 import { readConversationDraft, readDraftFacts, type DraftFacts } from '@/lib/conversations/draft-preview'
 import { recordDraftFilingInBackend } from '@/lib/conversations/draft-backend'
 import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
-import { ConflictError } from '@/lib/api/errors'
-import { findOpenVersion } from '@/lib/documents/version-repository'
+import { ConflictError, NotFoundError } from '@/lib/api/errors'
+import { findOpenVersion, listDocumentVersions } from '@/lib/documents/version-repository'
 import {
   fileConversationDraft,
   filingReference,
@@ -306,6 +307,7 @@ describe('fileConversationDraft — one filing truth for the card and the agent'
     contentHash: 'sha256:filed',
     state: 'draft',
     filedAtVersion: version,
+    kind: '' as const,
   })
 
   beforeEach(() => {
@@ -326,6 +328,7 @@ describe('fileConversationDraft — one filing truth for the card and the agent'
       document: { id: 'doc-filed', folderId: 'folder-berichte', displayName: 'Raumbuch.xlsx', filename: 'Raumbuch.xlsx' } as never,
       version: { id: 'ver-2', state: 'draft', contentHash: 'sha256:v2', versionNumber: 2 } as DocumentVersion,
       forked: false,
+      unchanged: false,
     })
   })
 
@@ -338,6 +341,7 @@ describe('fileConversationDraft — one filing truth for the card and the agent'
       contentHash: 'sha256:new',
       state: 'draft',
       draftVersion: 2,
+      kind: '',
     })
   })
 
@@ -368,14 +372,45 @@ describe('fileConversationDraft — one filing truth for the card and the agent'
     expect(reviseWithAgentWork).not.toHaveBeenCalled()
   })
 
-  it('finds a binary filed before the filing was written back under the producer it was filed as', async () => {
+  it('finds a binary filed before the filing was written back, by the version this conversation wrote', async () => {
     vi.mocked(findDocumentAuthoredByRef).mockResolvedValue({ id: 'doc-filed', filename: 'x', folderId: null })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: 'ver-1', state: 'draft', contentHash: 'sha256:old' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: 'ver-1', state: 'published', contentHash: 'sha256:agent', originConversationId: 'conv-1' },
+      { id: 'ver-2', state: 'draft', contentHash: 'sha256:person', originConversationId: null },
+    ] as DocumentVersion[])
 
     await fileConversationDraft(session, 'conv-1', { path: XLSX_PATH })
 
     expect(vi.mocked(findDocumentAuthoredByRef).mock.calls[0][3]).toBe('agent_file')
-    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({ documentId: 'doc-filed', ifMatch: 'sha256:old' })
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({
+      documentId: 'doc-filed',
+      ifMatch: 'sha256:agent',
+      ownVersionId: 'ver-1',
+    })
+  })
+
+  it('files afresh when a person deleted the filed document', async () => {
+    vi.mocked(readDraftFacts).mockResolvedValue(facts({ version: 2, filing: filedAt(1) }))
+    vi.mocked(reviseWithAgentWork).mockRejectedValueOnce(new NotFoundError())
+
+    const filed = await fileConversationDraft(session, 'conv-1', { path: XLSX_PATH })
+
+    expect(filed).toMatchObject({ outcome: 'filed', documentId: DOC })
+    expect(fileAgentFileDraft).toHaveBeenCalled()
+  })
+
+  it('keeps a filed new Fassung on the revision path when the draft is filed again', async () => {
+    vi.mocked(readDraftFacts).mockResolvedValue(facts({ version: 3, filing: { ...filedAt(2), kind: 'revision' } }))
+
+    const filed = await fileConversationDraft(session, 'conv-1', { path: XLSX_PATH })
+
+    expect(filed.outcome).toBe('revised')
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({
+      documentId: 'doc-filed',
+      ownVersionId: 'ver-filed',
+      agentFiledOnly: false,
+    })
+    expect(vi.mocked(recordDraftFilingInBackend).mock.calls[0][2]).toMatchObject({ kind: 'revision' })
   })
 
   it('says in its refusal that a person changed the filed document, and writes over it only when asked', async () => {
@@ -396,9 +431,12 @@ describe('fileConversationDraft — one filing truth for the card and the agent'
 
     await fileConversationDraft(session, 'conv-1', { path: XLSX_PATH, as: 'own', name: 'Flächen neu' })
 
+    await fileConversationDraft(session, 'conv-1', { path: XLSX_PATH, as: 'own', name: 'Flächen neu' })
+
     const ref = vi.mocked(fileAgentFileDraft).mock.calls[0][0].ref
     expect(ref).not.toBe(filingReference('conv-1', XLSX_PATH))
     expect(ref.startsWith(filingReference('conv-1', XLSX_PATH))).toBe(true)
+    expect(vi.mocked(fileAgentFileDraft).mock.calls[1][0].ref).toBe(ref)
     expect(reviseWithAgentWork).not.toHaveBeenCalled()
   })
 
@@ -413,7 +451,7 @@ describe('fileConversationDraft — one filing truth for the card and the agent'
 })
 
 describe('fileConversationDraft — a draft made from a project document', () => {
-  const SOURCE = { documentId: 'doc-raumbuch', name: 'Raumbuch.xlsx' }
+  const SOURCE = { documentId: 'doc-raumbuch', name: 'Raumbuch.xlsx', contentHash: 'sha256:read' }
 
   beforeEach(() => {
     vi.mocked(readConversationDraftBytes).mockResolvedValue({
@@ -433,6 +471,7 @@ describe('fileConversationDraft — a draft made from a project document', () =>
       document: { id: 'doc-raumbuch', folderId: 'folder-source', displayName: 'Raumbuch.xlsx', filename: 'Raumbuch.xlsx' } as never,
       version: { id: 'ver-4', state: 'draft', contentHash: 'sha256:v4', versionNumber: 4 } as DocumentVersion,
       forked: true,
+      unchanged: false,
     })
   })
 
@@ -457,10 +496,21 @@ describe('fileConversationDraft — a draft made from a project document', () =>
     expect(filed).toMatchObject({ outcome: 'revised', versionNumber: 4, revisionOf: { documentId: 'doc-raumbuch' } })
     expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({
       documentId: 'doc-raumbuch',
+      projectId: PROJECT,
+      ifMatch: 'sha256:read',
       changeNote: 'Fläche Raum 2.04 korrigiert',
       agentFiledOnly: false,
     })
     expect(fileAgentFileDraft).not.toHaveBeenCalled()
+  })
+
+  it('refuses a Markdown draft as a new Fassung of a project document', async () => {
+    vi.mocked(readDraftFacts).mockResolvedValue(facts({ derivedFrom: SOURCE }))
+    const failure = await fileConversationDraft(session, 'conv-1', { path: '/drafts/vermerk.md', as: 'revision' }).catch(
+      (error: unknown) => error,
+    )
+    expect(failure).toMatchObject({ status: 422, details: { reason: 'not-fileable' } })
+    expect(reviseWithAgentWork).not.toHaveBeenCalled()
   })
 
   it('refuses a new Fassung for a draft that came from no document', async () => {
