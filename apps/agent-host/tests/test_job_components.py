@@ -5,12 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from agent_host.jobs.callbacks import ArtifactType
 from agent_host.jobs.callbacks import DeepResearchEventCallback
-from agent_host.jobs.callbacks import EventCategory
-from agent_host.jobs.callbacks import EventData
-from agent_host.jobs.callbacks import EventState
-from agent_host.jobs.callbacks import IntermediateStepEvent
+from agent_host.jobs.step_events import ArtifactType
+from agent_host.jobs.step_events import EventCategory
+from agent_host.jobs.step_events import EventData
+from agent_host.jobs.step_events import EventState
+from agent_host.jobs.step_events import IntermediateStepEvent
 from tests.provider_doubles import NAT_LLM_CONFIG
 from tests.provider_doubles import nat_langchain_client
 
@@ -617,7 +617,7 @@ class TestEventStore:
 
 class TestToolArtifactMapping:
     def test_default_mappings(self):
-        from agent_host.jobs.callbacks import ToolArtifactMapping
+        from agent_host.jobs.step_events import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
 
@@ -626,8 +626,8 @@ class TestToolArtifactMapping:
         assert not mapping.is_artifact_tool("unknown_tool")
 
     def test_get_mapping(self):
-        from agent_host.jobs.callbacks import ArtifactType
-        from agent_host.jobs.callbacks import ToolArtifactMapping
+        from agent_host.jobs.step_events import ArtifactType
+        from agent_host.jobs.step_events import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
         todo_mapping = mapping.get_mapping("write_todos")
@@ -636,8 +636,8 @@ class TestToolArtifactMapping:
         assert todo_mapping["artifact_type"] == ArtifactType.TODO
 
     def test_register_custom_mapping(self):
-        from agent_host.jobs.callbacks import ArtifactType
-        from agent_host.jobs.callbacks import ToolArtifactMapping
+        from agent_host.jobs.step_events import ArtifactType
+        from agent_host.jobs.step_events import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
         mapping.register(
