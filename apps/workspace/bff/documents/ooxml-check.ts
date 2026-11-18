@@ -95,9 +95,10 @@ export function xmlAttributes(tag: string): Record<string, string> {
   return attributes
 }
 
+const XML_ELEMENT = /<(?:[\w.-]+:)?([\w.-]+)\b([^>]*?)\/?>/g
+
 export function xmlElements(xml: string, localName: string): Record<string, string>[] {
-  const pattern = new RegExp(`<(?:[\\w.-]+:)?${localName}\\b([^>]*?)/?>`, 'g')
-  return [...xml.matchAll(pattern)].map((match) => xmlAttributes(match[1]))
+  return [...xml.matchAll(XML_ELEMENT)].filter((match) => match[1] === localName).map((match) => xmlAttributes(match[2]))
 }
 
 interface ContentTypeEntry {

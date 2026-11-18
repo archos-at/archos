@@ -67,8 +67,10 @@ export function customPropertiesXml(properties: readonly CustomProperty[]): stri
 
 const PROPERTY_ELEMENT = /<(?:\w+:)?property\b[^>]*?(?:\/>|>[\s\S]*?<\/(?:\w+:)?property>)/g
 
+const XML_ATTRIBUTE = /\s([\w:.-]+)\s*=\s*(["'])(.*?)\2/g
+
 const attributeOf = (tag: string, name: string): string | undefined =>
-  new RegExp(`\\s${name}\\s*=\\s*(["'])(.*?)\\1`).exec(tag)?.[2]
+  [...tag.matchAll(XML_ATTRIBUTE)].find((match) => match[1] === name)?.[3]
 
 export function mergeCustomPropertiesXml(existing: string | null, properties: readonly CustomProperty[]): string {
   const at = existing?.lastIndexOf('</Properties>') ?? -1

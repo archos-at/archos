@@ -32,19 +32,26 @@ export interface PdfStructure {
 
 const MAX_SECTIONS = 64
 
+const REF_ENTRY = /\/(\w+)\s+(\d+)\s+(\d+)\s+R/g
+const INTEGER_ENTRY = /\/(\w+)\s+(\d+)(?!\s+\d+\s+R)/g
+const ARRAY_ENTRY = /\/(\w+)\s*\[([^\]]*)\]/g
+
+const entryIn = (dictionary: string, pattern: RegExp, key: string): RegExpMatchArray | undefined =>
+  [...dictionary.matchAll(pattern)].find((match) => match[1] === key)
+
 export const refIn = (dictionary: string, key: string): ObjectRef | null => {
-  const match = new RegExp(`/${key}\\s+(\\d+)\\s+(\\d+)\\s+R`).exec(dictionary)
-  return match ? { number: Number(match[1]), generation: Number(match[2]) } : null
+  const match = entryIn(dictionary, REF_ENTRY, key)
+  return match ? { number: Number(match[2]), generation: Number(match[3]) } : null
 }
 
 const integerIn = (dictionary: string, key: string): number | null => {
-  const match = new RegExp(`/${key}\\s+(\\d+)(?!\\s+\\d+\\s+R)`).exec(dictionary)
-  return match ? Number(match[1]) : null
+  const match = entryIn(dictionary, INTEGER_ENTRY, key)
+  return match ? Number(match[2]) : null
 }
 
 const arrayIn = (dictionary: string, key: string): number[] | null => {
-  const match = new RegExp(`/${key}\\s*\\[([^\\]]*)\\]`).exec(dictionary)
-  return match ? match[1].trim().split(/\s+/).filter(Boolean).map(Number) : null
+  const match = entryIn(dictionary, ARRAY_ENTRY, key)
+  return match ? match[2].trim().split(/\s+/).filter(Boolean).map(Number) : null
 }
 
 export function dictionaryAt(text: string, start: number): string {

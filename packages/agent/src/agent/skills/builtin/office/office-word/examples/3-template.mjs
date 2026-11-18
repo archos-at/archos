@@ -4,10 +4,7 @@ import JSZip from "jszip";
 const escapeXml = (text) =>
   String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-function placeholder(key) {
-  const letters = `{{${key}}}`.split("").map((ch) => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(letters.join("(?:<[^>]+>)*"), "g");
-}
+const PLACEHOLDER = /\{(?:<[^>]+>)*\{((?:[A-Z_]|<[^>]+>)+)\}(?:<[^>]+>)*\}/g;
 
 export default async function () {
   const values = {
@@ -20,12 +17,12 @@ export default async function () {
   const replaced = {};
   for (const name of parts) {
     let xml = await zip.file(name).async("string");
-    for (const [key, value] of Object.entries(values)) {
-      xml = xml.replace(placeholder(key), () => {
-        replaced[key] = (replaced[key] ?? 0) + 1;
-        return escapeXml(value);
-      });
-    }
+    xml = xml.replace(PLACEHOLDER, (match, inner) => {
+      const key = inner.replace(/<[^>]+>/g, "");
+      if (!(key in values)) return match;
+      replaced[key] = (replaced[key] ?? 0) + 1;
+      return escapeXml(values[key]);
+    });
     zip.file(name, xml);
   }
   const left = [];
