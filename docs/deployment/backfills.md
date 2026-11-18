@@ -65,7 +65,8 @@ at 10%:
 ```
 
 A Qdrant backfill logs one `backfill.count` line per collection and step, with
-`mode` `dry-run`, `apply` or `check`. `backfill.failed` names what was left.
+`mode` `dry-run`, `apply` or `check`, in the same compact JSON, so one search for
+`"event":"backfill.` finds every line. `backfill.failed` names what was left.
 
 ## What CI checks
 
