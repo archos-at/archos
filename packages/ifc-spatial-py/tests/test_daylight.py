@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 from ifc_spatial import daylight as dl
+from ifc_spatial import daylight_sun as dls
 from ifc_spatial import operators as op
 from ifc_spatial.model import SpatialModel
 from ifc_spatial.model import UnknownElementError
@@ -303,26 +304,26 @@ LONDON_LONGITUDE = -0.1262
 
 
 def test_matches_the_nrel_spa_published_reference_case() -> None:
-    sun = dl._solar_azimuth_altitude(
+    sun = dls._solar_azimuth_altitude(
         dt.datetime.fromisoformat(SPA_REFERENCE["when"].replace("Z", "+00:00")),
         SPA_REFERENCE["latitude"],
         SPA_REFERENCE["longitude"],
     )
-    assert sun["azimuth"] == pytest.approx(SPA_REFERENCE["azimuth"], abs=dl.SOLAR_TOLERANCE_DEGREES)
+    assert sun["azimuth"] == pytest.approx(SPA_REFERENCE["azimuth"], abs=dls.SOLAR_TOLERANCE_DEGREES)
     assert sun["altitude"] == pytest.approx(SPA_REFERENCE["altitude"], abs=0.03)
-    assert sun["declination"] == pytest.approx(-9.31434, abs=dl.SOLAR_TOLERANCE_DEGREES)
+    assert sun["declination"] == pytest.approx(-9.31434, abs=dls.SOLAR_TOLERANCE_DEGREES)
 
 
 @pytest.mark.parametrize(("when", "azimuth", "altitude", "declination"), USNO_LONDON)
 def test_matches_the_usno_almanac_at_the_fixtures_own_site(
     when: str, azimuth: float, altitude: float, declination: float
 ) -> None:
-    sun = dl._solar_azimuth_altitude(
+    sun = dls._solar_azimuth_altitude(
         dt.datetime.fromisoformat(when.replace("Z", "+00:00")), LONDON_LATITUDE, LONDON_LONGITUDE
     )
-    assert sun["azimuth"] == pytest.approx(azimuth, abs=dl.SOLAR_TOLERANCE_DEGREES)
-    assert sun["altitude"] == pytest.approx(altitude, abs=dl.SOLAR_TOLERANCE_DEGREES)
-    assert sun["declination"] == pytest.approx(declination, abs=dl.SOLAR_TOLERANCE_DEGREES)
+    assert sun["azimuth"] == pytest.approx(azimuth, abs=dls.SOLAR_TOLERANCE_DEGREES)
+    assert sun["altitude"] == pytest.approx(altitude, abs=dls.SOLAR_TOLERANCE_DEGREES)
+    assert sun["declination"] == pytest.approx(declination, abs=dls.SOLAR_TOLERANCE_DEGREES)
 
 
 @pytest.mark.parametrize(
@@ -336,11 +337,11 @@ def test_matches_the_usno_almanac_at_the_fixtures_own_site(
     ],
 )
 def test_reads_an_ifc_compound_angle_with_its_sign(components: tuple[int, ...], expected: float) -> None:
-    assert dl._compound_angle(components) == pytest.approx(expected, abs=1e-9)
+    assert dls._compound_angle(components) == pytest.approx(expected, abs=1e-9)
 
 
 def test_reads_the_site_coordinates_off_the_fixture(model: SpatialModel) -> None:
-    site = dl._site_coordinates(model)
+    site = dls._site_coordinates(model)
     assert site is not None
     latitude, longitude, site_id = site
     assert latitude == pytest.approx(51.500152588, abs=1e-9)
@@ -353,12 +354,12 @@ def test_the_operator_agrees_with_the_almanac_end_to_end(model: SpatialModel) ->
     assert answer.decidable
     assert answer.provenance == "computed"
     assert answer.unit == "°"
-    assert answer.tolerance == dl.SOLAR_TOLERANCE_DEGREES
-    assert answer.value["azimuth"] == pytest.approx(178.867641, abs=dl.SOLAR_TOLERANCE_DEGREES)
-    assert answer.value["altitude"] == pytest.approx(61.934279, abs=dl.SOLAR_TOLERANCE_DEGREES)
+    assert answer.tolerance == dls.SOLAR_TOLERANCE_DEGREES
+    assert answer.value["azimuth"] == pytest.approx(178.867641, abs=dls.SOLAR_TOLERANCE_DEGREES)
+    assert answer.value["altitude"] == pytest.approx(61.934279, abs=dls.SOLAR_TOLERANCE_DEGREES)
     assert answer.value["compass"] == "S"
     assert answer.value["aboveHorizon"] is True
-    assert answer.from_ == [dl._site_coordinates(model)[2]]
+    assert answer.from_ == [dls._site_coordinates(model)[2]]
 
 
 def test_the_model_direction_is_the_bearing_read_back(model: SpatialModel) -> None:
@@ -397,7 +398,7 @@ def test_an_ifc2x3_file_does_not_explode_on_the_map_conversion_lookup(feet: Spat
     answer = dl.sun_position(feet, "2026-06-21T12:00:00+02:00")
     assert not answer.decidable
     assert answer.missing.what == "IfcSite.RefLatitude / RefLongitude"
-    assert dl._by_type(feet, "IfcMapConversion") == []
+    assert dls._by_type(feet, "IfcMapConversion") == []
 
 
 def test_a_timestamp_without_a_zone_is_refused(model: SpatialModel) -> None:
@@ -436,7 +437,7 @@ def test_caller_supplied_coordinates_are_allowed_and_loudly_flagged(no_north: Sp
 def test_outside_michalskys_span_the_tolerance_widens_and_says_why(model: SpatialModel) -> None:
     answer = dl.sun_position(model, "2101-06-21T12:00:00Z")
     assert answer.decidable
-    assert answer.tolerance == dl.SOLAR_TOLERANCE_DEGREES_EXTRAPOLATED
+    assert answer.tolerance == dls.SOLAR_TOLERANCE_DEGREES_EXTRAPOLATED
     assert "1950–2050" in answer.caveat
 
 
