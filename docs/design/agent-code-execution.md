@@ -175,17 +175,23 @@ the modules a script imports are loaded, which keeps a run fast.
 | Numbers and data | `decimal.js` 10.6.0 (exact decimals for areas and money), `papaparse` 5.7.1 (CSV), `date-fns` 4.4.0 | MIT | Candidates |
 | Office kit | Ours: the office's branding, area schedules, the sources sheet | | To build |
 
-**Skills per file type.** A builtin skill collection, `office`, with one skill each
-for Word, Excel, PowerPoint, PDF and charts, loaded through the skills middleware the
-agent already runs (ADR-0135), so the model reads only the one it needs. Each says
-when to use it, which library and kit functions to call, a worked example, and the
-pitfalls of its type: Excel saves formulas without computed values, German number
-formats, A4, ÖNORM B 1801-1 cost groups for costs, and what the output check refuses.
-Anthropic's Apache-2.0 document skills are source material; they assume Python, a
-shell and LibreOffice, so they are rewritten for this runtime.
+**Skills per file type.** The builtin collection `office`
+(`packages/agent/src/agent/skills/builtin/office/`) holds `office-files`, the entry
+point (the run contract, the libraries, the office's number and date formats, exact
+calculation, the read-back check, filing), and `office-word`, `office-excel`,
+`office-powerpoint` and `office-pdf-charts`, one per file type with its pitfalls and
+worked examples. They carry `agents: researcher` and no `catalog: curated`, so the
+chat agent is offered them by default and deep research is not; no setting turns
+them on. The chat mount serves only each `SKILL.md`, so the examples are inline:
+each `js` fence is also a file under the skill's `examples/`
+(`test_office_skills.py` holds the two equal), and
+`apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate,
+in order, the way one conversation would. Anthropic's Apache-2.0 document skills
+were source material for ideas, rewritten for this runtime; the bundle's `NOTICE`
+says what was taken.
 
-The `execute` description stays short: JavaScript, no network, the list of libraries,
-and "read `/skills/office/<type>/` before writing a file of that type".
+The `execute` description stays short: JavaScript, no network, and "read the
+`office-files` skill first".
 
 ## One run
 
