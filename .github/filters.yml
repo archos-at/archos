@@ -386,6 +386,7 @@ packages:
   - 'packages/ifc-spatial-py/**'
   # The guide for it, beside it.
   - 'packages/*.md'
+  - 'ci/hatchet_engine.sh'
   - 'apps/code-runner/**'
   - 'apps/browser-renderer/**'
   - 'Taskfile.yml'

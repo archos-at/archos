@@ -138,10 +138,14 @@ UI. `agent-reachability.spec.ts` fails the PR otherwise. Checklist:
 
 ## CI and the merge gate
 
+- A pull request gets the light checks. The test shards, suites, Hatchet tests
+  and image builds run on the push to `develop` after the merge, which the deploy
+  to staging waits for. Label a pull request **`ci:full`**, then push or use **Re-run all jobs**,
+  to run them before the merge.
 - The single required status check is **CI OK**
   ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): it passes only when
-  every needed job succeeded or was skipped because the change could not affect
-  it. How CI decides what to run, and why:
+  every job this run needed succeeded or was skipped. How CI decides what to run,
+  and why:
   [docs/contributing/ci.md](docs/contributing/ci.md).
 - Security checks a change can fail are part of CI: gitleaks on every run,
   Semgrep on the findings a PR introduces, trivy on the image pins it adds.

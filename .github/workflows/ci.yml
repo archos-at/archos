@@ -25,7 +25,9 @@ jobs:
       contents: read
       actions: read # the last green run, and a pull request run's green marker
       packages: read # whether GHCR already has an image with these inputs
+      pull-requests: read # the `ci:full` label as it is now, not when the event fired
     outputs:
+      depth: ${{ steps.depth.outputs.depth || 'full' }}
       reused: ${{ steps.reuse.outputs.hit || 'false' }}
       backend: ${{ steps.filter.outputs.backend || 'false' }}
       workspace: ${{ steps.filter.outputs.workspace || 'false' }}
@@ -54,6 +56,17 @@ jobs:
           filter: blob:none
           ref: ${{ github.event.action == 'synchronize' && (github.event.pull_request.head.sha || github.sha) || github.sha }}
 
+      - name: How much this run owes
+        id: depth
+        continue-on-error: true
+        env:
+          EVENT: ${{ github.event_name }}
+          LIGHT_RUNS: ${{ vars.CI_LIGHT_RUNS }}
+          BASE_REF: ${{ github.base_ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/ci_depth.py
       - name: Last commit CI passed on this branch
         id: green
         if: github.event_name == 'push'
@@ -115,6 +128,9 @@ jobs:
         continue-on-error: true
         env:
           EVENT: ${{ github.event_name }}
+          DEPTH: ${{ steps.depth.outputs.depth }}
+          DEPTH_REASON: ${{ steps.depth.outputs.reason }}
+          PY_MODE: ${{ steps.pysel.outputs.py_mode }}
           BASE: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
           BASE_REASON: ${{ steps.green.outputs.reason }}
           REUSED: ${{ steps.reuse.outputs.hit }}
@@ -299,7 +315,7 @@ jobs:
   backend:
     name: Backend core (shard ${{ matrix.shard }}/4)
     needs: changes
-    if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -336,7 +352,7 @@ jobs:
   backend-coverage:
     name: Backend coverage gate
     needs: [changes, backend]
-    if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
@@ -362,7 +378,7 @@ jobs:
   backend-suites:
     name: Backend suites (${{ matrix.suite }})
     needs: changes
-    if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -506,7 +522,7 @@ jobs:
   workspace-test:
     name: Workspace tests (shard ${{ matrix.shard }}/8)
     needs: changes
-    if: needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -664,10 +680,46 @@ jobs:
       - name: execute and file_draft against the real runner
         run: task runner:e2e
 
+  agent-engine:
+    name: Agent to engine tests
+    needs: changes
+    if: >-
+      needs.changes.outputs.depth != 'light'
+      && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.packages == 'true')
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    env:
+      UV_LINK_MODE: copy # setup-python-env says why
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-suffix: agent-engine
+      - name: Install the root environment and the engine
+        run: |
+          uv venv --python 3.14 .venv
+          uv sync --group dev
+          uv pip install -e './packages/ifc-spatial-py[ids]'
+      - name: Agent on the engine
+        run: >-
+          .venv/bin/python -m pytest -q -rsxX
+          packages/agent/tests/core/test_grounding.py
+          packages/agent/tests/knowledge/test_ifc_spatial_client_concurrency.py
+          packages/agent/tests/tools/bim/test_ifc_measure_tool.py
+          packages/agent/tests/tools/bim/test_question_battery.py
+          --junitxml="$RUNNER_TEMP/agent-engine.xml"
+      - name: Every suite ran, none skipped
+        run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP/agent-engine.xml"
   hatchet:
     name: Hatchet engine tests
     needs: changes
-    if: needs.changes.outputs.hatchet == 'true'
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.hatchet == 'true'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
@@ -754,7 +806,7 @@ jobs:
   image:
     name: Image build (${{ matrix.name }})
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
+    if: needs.changes.outputs.depth == 'full' && github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
@@ -809,7 +861,7 @@ jobs:
 
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, runner-e2e, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -849,7 +901,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, runner-e2e, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
@@ -867,7 +919,7 @@ jobs:
           PY
       - name: Name the tree this run tested
         id: tree
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.depth == 'full'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

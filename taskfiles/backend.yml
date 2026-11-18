@@ -9,7 +9,7 @@ vars:
     tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
     tests/test_check_brand_prose.py tests/test_migration_contract.py tests/test_dependabot_merge.py
     tests/test_verify_plan.py tests/test_test_servers_stop_fast.py tests/test_check_country_in_code.py
-    tests/test_expand_switch.py
+    tests/test_expand_switch.py tests/test_ci_depth.py
   PY_PACKAGES: packages/knowledge-layer packages/public-sources packages/ris-adapter packages/tavily-web-search
   TESTMON_ENV: TESTMON_DATAFILE=.testmondata-
   TESTMON_PATHS:
