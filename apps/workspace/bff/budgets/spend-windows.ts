@@ -19,10 +19,3 @@ export const toTenantWindow =
     amount: consumed(window, unit),
     events: Math.max(0, window.events - (window.ingestEvents ?? 0)),
   })
-
-export const toTenantIngestWindow =
-  (unit: BudgetUnit) =>
-  (window: SpendWindow): TenantSpendWindow => ({
-    amount: ingested(window, unit),
-    events: window.ingestEvents ?? 0,
-  })

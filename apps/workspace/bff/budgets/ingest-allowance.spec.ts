@@ -34,7 +34,7 @@ vi.mock('./repository', async (original) => ({
 import { getBudgetStatus } from './budget-status'
 import { getIngestAllowance, ingestAllowanceSpent, ingestBudgetSnapshot } from './ingest-allowance'
 import { buildRollupIncrements } from './repository'
-import { toTenantIngestWindow, toTenantWindow } from './spend-windows'
+import { toTenantWindow } from './spend-windows'
 
 const window = (credits: number, ingestCredits = 0, tokens = 0, ingestTokens = 0) => ({
   costUsd: 0,
@@ -91,16 +91,15 @@ describe('the limits of day-to-day work leave ingestion out', () => {
     expect((await getBudgetStatus('org_1', null, null)).blocked).toBe(true)
   })
 
-  it('shows a tenant the two shares separately', () => {
+  it('shows a tenant the work share without the ingestion', () => {
     expect(toTenantWindow('credit')(window(99, 90))).toEqual({ amount: 9, events: 6 })
-    expect(toTenantIngestWindow('credit')(window(99, 90))).toEqual({ amount: 90, events: 4 })
   })
 })
 
 describe('the ingest allowance', () => {
   it('is three times the monthly limit, spent by the month\'s ingestion only', async () => {
     sumRollupTotals.mockResolvedValue({ day: window(0), month: window(2500, 2000) })
-    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'credit', limit: 3000, used: 2000, remaining: 1000, spent: false })
+    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'credit', limit: 3000, used: 2000, events: 4, remaining: 1000, spent: false })
   })
 
   it('follows an explicit monthly limit', async () => {
@@ -112,7 +111,7 @@ describe('the ingest allowance', () => {
   it('is unlimited where the month is, and counts tokens on an own key', async () => {
     isOrgOnOwnKey.mockResolvedValue(true)
     sumRollupTotals.mockResolvedValue({ day: window(0), month: window(0, 0, 9000, 7000) })
-    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'token', limit: null, used: 7000, remaining: null, spent: false })
+    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'token', limit: null, used: 7000, events: 4, remaining: null, spent: false })
   })
 
   it('is spent at its ceiling, and reads as not spent when it cannot be read', async () => {
@@ -127,6 +126,19 @@ describe('the ingest allowance', () => {
     expect(await ingestBudgetSnapshot('org_1')).toEqual({
       activity: 'ingest',
       remainingOrgUsd: 10,
+      remainingUserUsd: null,
+      remainingProjectUsd: null,
+      remainingOrgTokens: null,
+      remainingUserTokens: null,
+      remainingProjectTokens: null,
+    })
+  })
+
+  it('still marks the reading as ingestion, without a cap, when the allowance cannot be read', async () => {
+    sumRollupTotals.mockRejectedValue(new Error('db down'))
+    expect(await ingestBudgetSnapshot('org_1')).toEqual({
+      activity: 'ingest',
+      remainingOrgUsd: null,
       remainingUserUsd: null,
       remainingProjectUsd: null,
       remainingOrgTokens: null,

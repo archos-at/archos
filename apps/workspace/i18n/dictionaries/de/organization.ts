@@ -543,7 +543,7 @@ export const organization: typeof en.organization = {
     workTitle: 'Laufende Arbeit',
     ingestTitle: 'Einlesen von Unterlagen',
     ingestNote:
-      'Das Einlesen hochgeladener Unterlagen zählt nicht gegen Tages- und Monatslimit. Es hat ein eigenes Kontingent pro Monat: das Dreifache des Monatslimits.',
+      'Das Einlesen hochgeladener Unterlagen zählt nicht gegen Tages- und Monatslimit. Es hat ein eigenes Kontingent pro Monat, das für das ganze Büro gilt: das Dreifache des Monatslimits.',
     ingestOverLimit: 'Kontingent ausgeschöpft — neue Unterlagen werden gespeichert, aber erst nach einer Erhöhung gelesen',
     legendTitle: 'Verbrauch nach Modell',
     legendEmpty: 'In diesem Zeitraum wurde noch keine LLM-Nutzung erfasst.',

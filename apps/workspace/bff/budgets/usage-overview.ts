@@ -5,8 +5,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { getBudgetStatus } from './budget-status'
 import { getOrgBudget, getOrgBudgetUnit } from './policy-lookup'
 import { getDailySpendTrend, getSpendByMember, getSpendSummary } from './spend-queries'
-import { ingestLimitOf } from './ingest-limit'
-import { toTenantIngestWindow, toTenantWindow, type TenantSpendWindow } from './spend-windows'
+import { getIngestAllowance } from './ingest-allowance'
+import { toTenantWindow, type TenantSpendWindow } from './spend-windows'
 
 export interface UsageOverview {
   unit: BudgetUnit
@@ -61,12 +61,12 @@ async function assembleUsageOverview(
   const { filter, statusUserId, admin, scope } = options
   const unit = await getOrgBudgetUnit(organizationId)
   const project = toTenantWindow(unit)
-  const projectIngest = toTenantIngestWindow(unit)
 
-  const [summary, orgBudget, status, perMember, dailyTrend] = await Promise.all([
+  const [summary, orgBudget, status, ingest, perMember, dailyTrend] = await Promise.all([
     getSpendSummary(organizationId, filter),
     getOrgBudget(organizationId, unit),
     getBudgetStatus(organizationId, statusUserId, null),
+    getIngestAllowance(organizationId),
     admin ? getSpendByMember(organizationId) : Promise.resolve(null),
     admin ? getDailySpendTrend({ organizationId, days: 30 }) : Promise.resolve(null),
   ])
@@ -76,15 +76,13 @@ async function assembleUsageOverview(
     summary: {
       day: project(summary.day),
       month: project(summary.month),
-      perModel: summary.perModel.map((entry) => ({
-        model: entry.model,
-        day: project(entry.day),
-        month: project(entry.month),
-      })),
+      perModel: summary.perModel
+        .map((entry) => ({ model: entry.model, day: project(entry.day), month: project(entry.month) }))
+        .filter((entry) => entry.month.events > 0 || entry.month.amount > 0),
     },
     ingest: {
-      month: projectIngest(summary.month),
-      monthlyLimit: ingestLimitOf(orgBudget),
+      month: { amount: ingest.used, events: ingest.events },
+      monthlyLimit: ingest.limit,
     },
     perMember: perMember
       ? perMember.map((entry) => ({ userId: entry.userId, day: project(entry.day), month: project(entry.month) }))

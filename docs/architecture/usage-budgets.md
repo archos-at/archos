@@ -261,18 +261,26 @@ reading documents in is paid from an allowance of its own:
   member and project limits all go through it.
 - **Its ceiling**: per organization and UTC month, `INGEST_ALLOWANCE_FACTOR`
   (3) times the organization's monthly limit (`budgets/ingest-limit.ts`). It
-  has no setting of its own: raising the monthly limit raises it, and an
-  organization with no monthly limit has no ingest ceiling. It exists so a
-  fault cannot spend without bound, not as a commercial limit.
+  has no setting of its own: raising the monthly limit raises it. Every office
+  is run with a monthly limit (product decision, KAN-53, 2026-11-18); the code
+  still reads a missing one as "no ceiling". It exists so a fault cannot spend
+  without bound, not as a commercial limit.
 - **Enforced at the start of a job, never inside one**: `dispatchIngest`
   refuses to start a new ingestion once the allowance is spent and fails the
   row with `INGEST_ALLOWANCE_SPENT_MESSAGE` (the file stays stored; "read
-  again" works after the limit is raised). A running job always finishes. A
-  lookup failure reads as "not spent".
+  again" works after the limit is raised). A running job always finishes, and the
+  check runs per document before that upload's spend lands, so one batch
+  admitted just under the ceiling can overshoot it. A lookup failure reads as
+  "not spent".
 - **The intake reading**: the BFF sends it a budget snapshot holding what is
   left of the ingest allowance and `activity: 'ingest'`
   (`ingestBudgetSnapshot`); `BudgetSnapshot.from_header` carries the activity
-  onto the job's tracker, so its rows are booked as ingestion.
+  onto the job's tracker, so its rows are booked as ingestion. When the
+  allowance cannot be read, the snapshot still carries the activity and no cap.
+- **What the office sees**: the ingest meter of the usage overview is always
+  the whole office against the office's ceiling (`getIngestAllowance`), also
+  for a member and under an admin's member or project filter, because the
+  refusal is office-wide.
 
 Enforcement points:
 

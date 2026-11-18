@@ -12,6 +12,7 @@ export interface IngestAllowance {
   unit: BudgetUnit
   limit: number | null
   used: number
+  events: number
   remaining: number | null
   spent: boolean
 }
@@ -22,7 +23,14 @@ export async function getIngestAllowance(organizationId: string): Promise<Ingest
   const limit = ingestLimitOf(limits)
   const used = ingested(spend.month, unit)
   const remaining = limit === null ? null : Math.max(0, limit - used)
-  return { unit, limit, used, remaining, spent: remaining !== null && remaining <= 0 }
+  return {
+    unit,
+    limit,
+    used,
+    events: spend.month.ingestEvents ?? 0,
+    remaining,
+    spent: remaining !== null && remaining <= 0,
+  }
 }
 
 export async function ingestAllowanceSpent(organizationId: string): Promise<boolean> {
@@ -34,20 +42,27 @@ export async function ingestAllowanceSpent(organizationId: string): Promise<bool
   }
 }
 
-export async function ingestBudgetSnapshot(organizationId: string): Promise<BudgetSnapshot | null> {
+const UNCAPPED_INGEST_SNAPSHOT: BudgetSnapshot = {
+  activity: 'ingest',
+  remainingOrgUsd: null,
+  remainingUserUsd: null,
+  remainingProjectUsd: null,
+  remainingOrgTokens: null,
+  remainingUserTokens: null,
+  remainingProjectTokens: null,
+}
+
+export async function ingestBudgetSnapshot(organizationId: string): Promise<BudgetSnapshot> {
   try {
     const allowance = await getIngestAllowance(organizationId)
     const pricing = allowance.unit === 'credit' && allowance.remaining !== null ? await getEffectivePricing() : null
     return {
-      activity: 'ingest',
+      ...UNCAPPED_INGEST_SNAPSHOT,
       remainingOrgUsd: pricing && allowance.remaining !== null ? creditsToCostUsd(allowance.remaining, pricing) : null,
-      remainingUserUsd: null,
-      remainingProjectUsd: null,
       remainingOrgTokens: allowance.unit === 'token' ? allowance.remaining : null,
-      remainingUserTokens: null,
-      remainingProjectTokens: null,
     }
-  } catch {
-    return null
+  } catch (error) {
+    console.warn('[budgets] the ingest allowance could not be read; the reading is booked as ingestion without a cap', error)
+    return UNCAPPED_INGEST_SNAPSHOT
   }
 }
