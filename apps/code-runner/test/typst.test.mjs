@@ -6,7 +6,7 @@ import { returned, startRunner } from "./harness.mjs";
 
 let runner;
 before(async () => {
-  runner = await startRunner({ slots: 1, slotMemoryMiB: 0 });
+  runner = await startRunner({ slots: 1 });
 });
 after(async () => {
   await runner?.stop();
@@ -145,23 +145,6 @@ test("every bundled package and font is pinned with a licence", () => {
     assert.ok(entry.license, entry.name);
   }
   for (const font of manifest.typst.fonts) assert.equal(font.license, "OFL-1.1");
-});
-
-test("a slot over its memory limit is restarted after the run, and the next run is served", async () => {
-  const limited = await startRunner({ slots: 1, slotMemoryMiB: 1 });
-  try {
-    const first = await limited.run({ source: "export default () => 1" });
-    assert.equal(first.body.value, 1);
-    let second;
-    for (let attempt = 0; attempt < 50; attempt++) {
-      second = await limited.run({ source: "export default () => 2" });
-      if (second.http !== 503) break;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    assert.equal(second.body.value, 2);
-  } finally {
-    await limited.stop();
-  }
 });
 
 after(() => {

@@ -170,11 +170,11 @@ describe("code-runner", () => {
     ]);
   });
 
-  it("requests 1 vCPU and 1 GiB, limited to 2 GiB for eight runs at their worst", async () => {
+  it("requests 1 vCPU and 1 GiB, limited to 4 GiB for four slots at their memory cap", async () => {
     const spec = await resolve(find(DEPLOYMENT, "code-runner").inputs.spec);
     const r = spec.template.spec.containers[0].resources;
     expect(r.requests).toEqual({ cpu: "1", memory: "1Gi" });
-    expect(r.limits.memory).toBe("2Gi");
+    expect(r.limits.memory).toBe("4Gi");
     expect(r.limits.cpu).toBeDefined();
   });
 

@@ -82,8 +82,7 @@ was run", and the agent may try once more.
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
 - **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 1 CPU
-  and 1 GiB requested, 2 GiB limit: 4 × (190 MB per process + 128 MB isolate + 50 MB of files)
-  ≈ 1.5 GB.
+  and 1 GiB requested, 4 GiB limit: 4 slots at their 768 MiB memory cap and the front ([the budget](../../apps/code-runner/README.md#memory-per-run)).
 
 ## Storage
 
@@ -149,7 +148,7 @@ sandbox is configured, which production never does.
 | Forme PDF with table and chart | 1.2 to 1.6 s |
 | Plain module, warm | 13 ms (16 ms as TypeScript) |
 | Endless loop, `timeoutMs` 2000 | `timeout` after 5 s, other slots serving |
-| workerd per slot | 134 MB idle, about 190 MB after a run; about +100 MB per Typst run, restarted over `CODE_RUNNER_SLOT_MEMORY_MIB` (512) |
+| workerd per slot | 134 MB idle, about 190 MB after a run; a slot ending a run above 128 MiB is restarted; a run above `CODE_RUNNER_SLOT_MEMORY_MIB` (768 MiB) is stopped |
 
 In production a run is visible as the `execute` tool span of its `chat-turn` trace in Langfuse: its
 output starts `status: ok`, `error` or `timeout` with the duration, and names the files kept.
@@ -164,7 +163,7 @@ output starts `status: ok`, `error` or `timeout` with the duration, and names th
 | CSV not fileable; HTML kept in the working directory but not fileable | Taken |
 | Run files are checked at filing, not when kept; until then they are served only as a sandboxed attachment or a PDF rendition ([Storage](#storage)) | Taken |
 | Shared runner pods across offices. An escaped script could read another run in the same pod (the other run's inputs) and copy it into its own files; it needs a bug in the isolate engine, and the output check sees types, not contents | Accepted for now; open: one runner deployment per organization |
-| Memory per run: self-hosted workerd enforces none; the pod limit bounds it | Open |
+| Memory per run: self-hosted workerd enforces none, so the runner's front watches each slot's anonymous resident memory and stops a run above 768 MiB (`status: error`), restarting the slot; set by the largest run the 50 MB in / 50 MB out limits allow (up to 628 MiB measured). A smaller cap needs smaller input and output limits first | Taken 2026-11-18 |
 | A cap on concurrent runs per organization | Open, not built |
 | Whether runs count toward an office's credits (ADR-0053) | Open |
 | An `execute` input read as a download-log row. Today no row is written (see [One run](#one-run)). The change: a kind `agent_run` in `download-log/kinds.ts`, recorded always like `download`; a migration widening `document_access_log_kind_check` and `document_access_log_open_needs_own_list` (the table is append-only, so its down migration refuses once a row exists); `GET /api/internal/document-file?handOver=execute` calling `recordDocumentAccess` as the envelope's person, refusing with 503 under an own access list when the row cannot be written; `stored_file.locate_stored_file` passing it for `execute` only; the kind's label in the download-log view and the user guide. `dxf_measure` and the canvas keep no row: their bytes stay in the agent and only a measurement or a rendering leaves | Open, not built |

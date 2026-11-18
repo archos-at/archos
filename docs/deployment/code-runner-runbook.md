@@ -50,7 +50,10 @@ image fails its deploy (`resolve-image-refs.sh`: "no image in the last 200 devel
    - Health from a chat pod (the only pods the NetworkPolicy admits):
      `kubectl -n grid exec chat-0 -- python -c "import urllib.request; print(urllib.request.urlopen('http://code-runner:8080/health').read())"`
      answers `b'ok'` (`chat` is a StatefulSet).
-   - `kubectl -n grid logs deploy/code-runner`: four slots started, no restarts.
+   - `kubectl -n grid logs deploy/code-runner`: four slots started, no restarts. A JSON line
+     `run stopped` with `reason: memory` is a run that passed the 768 MiB slot cap and was answered
+     `status: error`; `slot exited while idle` is a workerd that died on its own and was restarted.
+     A pod that keeps failing `/health` has fewer than half its slots ready.
 4. A first run from the app: in a project chat, ask "Erstelle eine Excel-Tabelle mit drei Räumen und
    ihrer Summe und leg sie ins Projekt". Expect a kept `/drafts/….xlsx`, then a filed draft that opens
    in the viewer. In Langfuse the turn's `chat-turn` trace carries the tag `feature:execute`, an
