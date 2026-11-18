@@ -51,7 +51,8 @@ def main(argv: list[str] | None = None) -> int:
                     "written": count.written,
                     "after": count.after,
                     "disagree": disagree,
-                }
+                },
+                separators=(",", ":"),
             ),
             flush=True,
         )
