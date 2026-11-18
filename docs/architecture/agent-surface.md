@@ -630,6 +630,15 @@ project, where the door is the only path) and for the version operations beside
 proposal: the reviewer's approval is the person's yes, and the tool submits only
 when the person asked for it in the turn (ADR-0122, amendment of 2026-10-21).
 
+Some native tools have no operation, so the exposure config has no entry for them:
+`execute` runs the agent's own JavaScript in the code runner and keeps the files in
+the conversation's working directory
+([agent-code-execution.md](../design/agent-code-execution.md)). It is how the agent
+works, not a capability of the office's workspace, and a calling agent has its own
+code execution. The files reach the project only through `file_draft`
+(`create_file`, `update_file` on `/api/internal/document-versions`, an internal
+route the reachability spec does not count as person-facing).
+
 ## Surface parity: canvas and chat
 
 The exposure config says who is offered a capability; the parity registry says

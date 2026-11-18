@@ -8,6 +8,7 @@ export const AI_PROVENANCE_PROPERTIES = {
   humanReviewed: 'AIHumanReviewed',
   runId: 'AIRunId',
   digitalSourceType: 'DigitalSourceType',
+  marking: 'AIProvenance',
 } as const
 
 // AI Act Art. 50(2) and the Commission's Code of Practice on Transparency of AI-Generated Content (final, 2026-06-10), Measure 1.1.1: embedded metadata records that the content is AI-generated.

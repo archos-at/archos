@@ -29,6 +29,7 @@ their own namespaces.
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
+| `code-runner` (the agent's `execute` tool: one fresh isolate per run, no network, nothing kept; [`agent-code-execution.md`](../design/agent-code-execution.md); `codeRunnerEnabled`, default off, turned on by [`code-runner-runbook.md`](code-runner-runbook.md); CI publishes its image `code-runner` with the others) | Deployment + KEDA ScaledObject + PDB | `codeRunnerMinReplicas`→`codeRunnerMaxReplicas` (default 2→10; dev 1→3) | memory-backed emptyDir `/run/code-runner/do` (1 Gi, a run's files while it runs) and an emptyDir `/tmp`; nothing durable | Horizontally, on CPU and memory utilisation through metrics-server (`codeRunnerCpuTargetPercent` 70, `codeRunnerMemoryTargetPercent` 80). A rollout waits up to 200 s, so a run of the 180 s maximum finishes |
 | `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
@@ -110,8 +111,8 @@ Runbook: [row-level security](../database/row-level-security.md).
 - The provider's **StorageClass** name for block volumes — this is your
   **Lightbits** (NVMe/TCP) class. Find it: `kubectl get storageclass`.
 - Container images in a registry. CI ([`ci.yml`](../../.github/workflows/ci.yml))
-  builds `grid-oib-backend`, `grid-oib-frontend` and `grid-oib-web`, pushes
-  them to GHCR, and tags all three `sha-<commit>` for every `develop` commit
+  builds `grid-oib-backend`, `grid-oib-frontend`, `grid-oib-web`, `cms` and
+  `code-runner`, pushes them to GHCR, and tags each `sha-<commit>` for every `develop` commit
   whose checks passed; an image whose inputs did not change is re-tagged, not
   rebuilt. Deploys pin all three to that tag
   ([cd.md](cd.md#image-pinning)). The kubelet pulls **anonymously**: if the GHCR packages are *private*, set
@@ -270,7 +271,7 @@ pin on dev first, as a change of its own.
 documented prerequisites — an HPA as the first scaling tier, `requests`/`limits`
 on every container, and `topologySpreadConstraints` — are all met: HPAs on
 `frontend` and `web` (CPU), the KEDA-driven queue tiers (`agent-worker`,
-`ingest-worker`, `bff-jobs`, and the chat tier when it autoscales), requests
+`ingest-worker`, `bff-jobs`, `code-runner`, and the chat tier when it autoscales), requests
 **and** limits on every workload, and the spread constraints above. So a burst first scales pods, and only if pods go Pending does
 a node get added.
 
@@ -281,7 +282,12 @@ DaemonSets, `otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`) mounts onl
 its ConfigMap and `otel-logs` (`log-shipper.ts`) reads `/var/log/pods`
 read-only — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
 `/var/lib/kubelet`) is a non-issue here; the only ephemeral file is the
-agent-worker's `/tmp` liveness marker, which is meant to be transient. All state
+agent-worker's `/tmp` liveness marker, which is meant to be transient. The
+`emptyDir` volumes that do exist hold nothing durable: `clamav`'s signatures
+(fetched again), the scratch `/tmp` of read-only-root pods, and `code-runner`'s
+`/run/code-runner/do`, a `medium: Memory` (tmpfs) directory holding one run's
+files only while that run lasts, counted against the pod's memory limit and
+gone with the pod by design. All state
 lives on PVCs (which survive) or in Postgres.
 
 **Networking is Cilium, no kube-proxy.** All Service types work normally;
@@ -1870,7 +1876,8 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   KEDA **operator** pod (the metrics server and the webhooks in `keda` poll
   nothing): Postgres on 5432 when any queue tier runs, and the backend on 8000
   when the chat tier autoscales. Nothing else in `grid` is open to the `keda`
-  namespace.
+  namespace. `code-runner` scales on CPU and memory, which KEDA reads from
+  metrics-server, so it needs no route to the runner's pods.
 
 - **The scaler login is a direct connection.** KEDA's DSN names
   `background-work-pg-rw.background-work.svc.cluster.local`, with no pooler in
@@ -2123,7 +2130,14 @@ emitted somewhere it can read; see §10.
   own contexts (Qdrant runs as uid 1000 on a read-only root, `data/qdrant.ts`), which is why the namespace stays at `baseline` not `restricted`.
 - **NetworkPolicies** (`grid-oib:networkPolicies`, default **on**): a
   default-deny for ingress plus least-privilege allows — intra-namespace, the
-  edge (Envoy) to `frontend`/`seaweedfs`, and the CNPG operator to its pods.
+  edge (Envoy) to `frontend`/`seaweedfs`, and the CNPG operator to its pods:
+  `allow-cnpg-operator` selects pods carrying `cnpg.io/cluster` (instances and
+  a cluster's jobs), `allow-cnpg-operator-to-pooler` those carrying
+  `cnpg.io/poolerName` (the PgBouncers). Until 2026-11-18 it selected every pod
+  in the namespace, so `cnpg-system` could reach `code-runner`, `gotenberg` and
+  `clamav`; `src/app/code-runner.spec.ts` now evaluates every policy's selector
+  against the runner's labels and fails when any but `code-runner-agent-only`
+  admits ingress to it.
   Egress is deliberately open (the agent calls many external LLM/search APIs);
   tightening it is the one item that needs a live-cluster validation pass first.
   The exception is `gotenberg` (`gotenberg-frontend-only`): it parses untrusted
@@ -2139,6 +2153,13 @@ emitted somewhere it can read; see §10.
   for a living, so it admits the frontend and the `bff-jobs` pool alone. Its
   egress stays open, because freshclam fetches signatures from
   `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0157).
+  `code-runner` (`code-runner-agent-only`, when `codeRunnerEnabled`) runs code
+  the agent wrote, so it is withheld from the intra-namespace allow, admits the
+  pods that run the agent's tools alone (the chat tier, `chat` and `aiq-agent`,
+  and `agent-worker`) on 8080, and has no egress at all, DNS included. The api
+  tier is not admitted: it runs only the agent's read tools. The pod also has no
+  service account token, no Secret, no environment from the platform and a
+  read-only root.
 - **Dragonfly authentication** (`grid-oib:dragonflyPassword` and
   `grid-oib:rateLimitStorePassword`, both **required**): `requirepass` on both
   instances, delivered as `DFLY_requirepass` from a Kubernetes Secret rather
@@ -2450,6 +2471,7 @@ Three things are true of this whole table and are easy to miss:
 | Frontend → backend (WebSocket chat) | **No** | `ws://` to the `chat` role (`BACKEND_CHAT_URL`), per-replica via the headless service (ADR-0028 conversation affinity). This is the full chat transport, including prompts and answers. |
 | Producers → OTel Collector, Collector → Langfuse | **No** | Plain OTLP on `http://otel-collector:4318`, and the collector's export to `http://langfuse-web:3000`. This traffic carries **prompts, retrieved snippets, LLM output and live presigned S3 URLs**, so it is the most sensitive plaintext channel in the namespace; Langfuse's store is likewise kept off-limits only by NetworkPolicy, which is why `langfuseEnabled` refuses to deploy with `networkPolicies=false`. |
 | Frontend and `bff-jobs` → Gotenberg | **No, and unauthenticated** | `http://gotenberg:3000`. It carries the bytes of every office file converted, and anyone who can reach it can have LibreOffice parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only. |
+| Chat tier and `agent-worker` → code runner | **No, and unauthenticated** | `http://code-runner:8080`, when `codeRunnerEnabled`. It carries the module the agent wrote and the files handed to the run, and anyone who can reach it can run code of their choosing in an isolate with no network. NetworkPolicy admits the chat tier and `agent-worker` only (`code-runner-agent-only`). |
 | Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0157). |
 | App → Qdrant | **No, but authenticated** | `http://qdrant.grid.svc.cluster.local:6333` (and gRPC 6334) with the read-write API key, which an observer of the pod network could read off the wire. NetworkPolicy admits the named callers only (`allow-app-to-qdrant`); the peers' p2p traffic (6335) is plaintext too, between the peers alone (`qdrant-peers`). The keyless metrics port (6336) admits the collector alone. |
 | Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, from the frontend komoot's public Photon at `photon.komoot.io`, ADR-0151, and with the malware scanner `database.clamav.net`) | **Yes** | All HTTPS. The geocoder call carries every address typed into the project dialog. |

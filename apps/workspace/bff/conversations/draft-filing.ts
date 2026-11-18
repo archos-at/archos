@@ -12,6 +12,12 @@ import type { DocumentListRow } from '@/lib/documents/repository'
 import { findOpenVersion } from '@/lib/documents/version-repository'
 import { findConversationInOrg } from './repository'
 import { readConversationDraft } from './draft-preview'
+import { readConversationDraftBytes } from './draft-file'
+import { draftFileType, type DraftFileType } from './draft-media'
+import { fileAgentFileDraft } from '@/lib/documents/agent-file'
+import { REFUSED_AGENT_FILE_TYPES } from '@/lib/documents/agent-file-types'
+import { GENERATED_DOCUMENT_FOLDER_NAME } from '@/lib/documents/generated'
+import type { FiledAgentDocumentDraft } from '@/lib/documents/agent-document'
 import type { Locale } from '@/i18n/config'
 
 export const MAX_FILING_REF_CHARS = 200
@@ -84,6 +90,52 @@ export interface FiledConversationDraft {
   versionId: string
   state: DocumentVersionState
   alreadyFiled: boolean
+  folderName: string
+}
+
+function refuseUnfileable(type: DraftFileType): void {
+  if (type.filing !== 'refused') return
+  throw new UnprocessableError(
+    REFUSED_AGENT_FILE_TYPES[type.contentType] ??
+      'Only Word, Excel, PowerPoint, PDF, SVG, PNG and Markdown drafts can be filed into the project.',
+    { reason: 'not-fileable', format: type.format, extension: type.extension },
+  )
+}
+
+interface FilingTarget {
+  session: AuthorizedSession
+  conversationId: string
+  projectId: string
+  path: string
+  ref: string
+  title: string
+  request?: Request
+  locale?: Locale
+}
+
+async function fileDraftContent(target: FilingTarget, type: DraftFileType): Promise<FiledAgentDocumentDraft> {
+  const common = {
+    session: target.session,
+    projectId: target.projectId,
+    ref: target.ref,
+    title: target.title,
+    request: target.request,
+    originConversationId: target.conversationId,
+    locale: target.locale,
+  }
+  if (type.filing === 'file') {
+    const draft = await readConversationDraftBytes(target.session, target.conversationId, target.path)
+    return fileAgentFileDraft({ ...common, filename: draft.filename, contentType: type.contentType, bytes: draft.bytes })
+  }
+  const draft = await readConversationDraft(target.session, target.conversationId, target.path)
+  if (draft.encoding !== 'utf-8') {
+    throw new UnprocessableError('This draft is not text and has no file type that can be filed', {
+      reason: 'not-fileable',
+      format: type.format,
+      extension: type.extension,
+    })
+  }
+  return fileAgentDocumentDraft({ ...common, content: draft.content })
 }
 
 export async function fileConversationDraft(
@@ -102,7 +154,8 @@ export async function fileConversationDraft(
   const projectId = conversation.projectId
 
   const path = normalizeDraftPath(input.path)
-  const draft = await readConversationDraft(session, conversationId, path)
+  const type = draftFileType(path)
+  refuseUnfileable(type)
 
   const title = (input.title ?? '').trim() || fallbackTitle(path)
   if (title.length > MAX_FILING_TITLE_CHARS) {
@@ -114,7 +167,13 @@ export async function fileConversationDraft(
   if (refHit) {
     const open = await findOpenVersion(refHit.id, session.organizationId)
     if (open && (open.state === 'draft' || open.state === 'changes_requested')) {
-      return { documentId: refHit.id, versionId: open.id, state: open.state, alreadyFiled: true }
+      return {
+        documentId: refHit.id,
+        versionId: open.id,
+        state: open.state,
+        alreadyFiled: true,
+        folderName: GENERATED_DOCUMENT_FOLDER_NAME,
+      }
     }
     throw new ConflictError('This draft has already been filed and is no longer a draft', {
       reason: 'already-submitted',
@@ -132,20 +191,15 @@ export async function fileConversationDraft(
     }
   }
 
-  const filed = await fileAgentDocumentDraft({
-    session,
-    projectId,
-    ref,
-    title,
-    content: draft.content,
-    request,
-    originConversationId: conversationId,
-    locale: input.locale,
-  })
+  const filed = await fileDraftContent(
+    { session, conversationId, projectId, path, ref, title, request, locale: input.locale },
+    type,
+  )
   return {
     documentId: filed.documentId,
     versionId: filed.version.id,
     state: filed.version.state,
     alreadyFiled: filed.alreadyFiled,
+    folderName: GENERATED_DOCUMENT_FOLDER_NAME,
   }
 }

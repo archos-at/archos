@@ -8,6 +8,8 @@ import { withTenant } from '@/lib/db/tenant-context'
 import type { VerifiedRequestContext } from '@/lib/request-context'
 import { BadRequestError } from '@/lib/api/errors'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
+import { fileAgentFileDraft, replaceAgentFileVersion } from '@/lib/documents/agent-file'
+import { decodeAgentFileBase64 } from '@/lib/documents/agent-file-check'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import { listReviewCandidates, matchReviewCandidate } from '@/lib/documents/reviewers'
 import {
@@ -45,6 +47,43 @@ async function runOp(
       alreadyFiled: filed.alreadyFiled,
       version: toDocumentVersionView(filed.version),
     }
+  }
+
+  if (body.op === 'create_file') {
+    requireEnvelopeProject(context, body.projectId)
+    const filed = await fileAgentFileDraft({
+      session,
+      projectId: body.projectId,
+      ref: body.ref,
+      title: body.title,
+      filename: body.filename,
+      contentType: body.contentType,
+      bytes: decodeAgentFileBase64(body.contentBase64),
+      request,
+      actingHuman: false,
+      originConversationId: context.conversationId,
+    })
+    return {
+      documentId: filed.documentId,
+      alreadyFiled: filed.alreadyFiled,
+      version: toDocumentVersionView(filed.version),
+    }
+  }
+
+  if (body.op === 'update_file') {
+    const version = await replaceAgentFileVersion(
+      session,
+      body.documentId,
+      body.versionId,
+      { contentType: body.contentType, bytes: decodeAgentFileBase64(body.contentBase64) },
+      body.ifMatch,
+      {
+        request,
+        actingHuman: false,
+        origin: { conversationId: context.conversationId, locale: AGENT_REFUSAL_LOCALE },
+      },
+    )
+    return { documentId: body.documentId, version: toDocumentVersionView(version) }
   }
 
   if (body.op === 'update') {
