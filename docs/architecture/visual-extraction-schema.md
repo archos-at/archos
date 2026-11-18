@@ -32,7 +32,7 @@ Three things, kept apart, each replaceable without the others.
 
 | Layer | Owns | Lives in | Changes when |
 |---|---|---|---|
-| **Kernel schema** | The shape: segments, entities, compositions, states, quantities, relations, annotations, provenance | `visual_analysis.py` | Rarely. A bump is a migration. |
+| **Kernel schema** | The shape: segments, entities, compositions, states, quantities, relations, annotations, provenance | `visual_schema.py`, read back by `visual_analysis.py` | Rarely. A bump is a migration. |
 | **Domain vocabulary** | The words: what a segment can be, what can be named in one, what states it can hold | `visual_domains.py` | Whenever a domain is added or refined |
 | **Orchestration** | Which bytes get analysed, what metadata rides along, where chunks land | `adapter.py`, `processing.py` | Independently of both |
 
@@ -80,7 +80,7 @@ plan sheet, because the reader came for the plan.
 
 ### The JSON Schema, and what it deliberately cannot say
 
-`visual_analysis.json_schema(registry)` emits a standalone JSON Schema
+`visual_schema.json_schema(registry)` emits a standalone JSON Schema
 document. One artifact, three uses: handed to providers that support
 schema-constrained decoding, rendered into a compact shape for those that do
 not, and the contract for anything downstream.
