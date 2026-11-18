@@ -19,3 +19,8 @@ export function draftDownloadHref(conversationId: string, href: string): string 
   if (!path) return null
   return `/api/conversations/${encodeURIComponent(conversationId)}/draft/download?path=${encodeURIComponent(path)}`
 }
+
+export function draftFileName(href: string): string {
+  const path = draftLinkPath(href) ?? href
+  return path.slice(path.lastIndexOf('/') + 1)
+}

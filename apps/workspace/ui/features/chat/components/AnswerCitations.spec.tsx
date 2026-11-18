@@ -115,5 +115,7 @@ describe('a link the answer wrote to a file it made', () => {
     const link = screen.getByRole('link', { name: 'Regenbogen.pdf' })
     expect(link).toHaveAttribute('href', '/api/conversations/s_1/draft/download?path=%2Fdrafts%2FRegenbogen.pdf')
     expect(link).toHaveAttribute('download')
+    expect(link).toHaveAttribute('data-testid', 'draft-file-reference')
+    expect(link.querySelector('svg')).not.toBeNull()
   })
 })

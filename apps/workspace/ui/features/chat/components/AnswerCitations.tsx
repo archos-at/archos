@@ -26,13 +26,14 @@ import {
 import { CitationScope } from './CitationScope'
 import { CitationMarker } from './CitationMarker'
 import {
+  DraftFileReference,
   FileReferenceLink,
   FileReferenceProvider,
   type FileReferenceResolver,
 } from './FileReference'
 import { SourceDocumentDialog } from './source-preview/source-document-dialog'
 import { useChatStore } from '../store'
-import { draftDownloadHref, draftLinkPath } from '../lib/draft-links'
+import { draftDownloadHref, draftFileName, draftLinkPath } from '../lib/draft-links'
 
 const NO_FILE_REFERENCES: FileReferenceResolver = () => null
 
@@ -98,13 +99,9 @@ export const AnswerCitations: FC<{
               const download = conversationId ? draftDownloadHref(conversationId, href) : null
               if (!download) return <span>{label}</span>
               return (
-                <a
-                  href={download}
-                  download
-                  className="text-brand duration-quick underline underline-offset-2 transition-opacity ease-out hover:opacity-80"
-                >
+                <DraftFileReference href={download} fileName={draftFileName(href)}>
                   {label}
-                </a>
+                </DraftFileReference>
               )
             }
             if (href.startsWith('/api/')) {

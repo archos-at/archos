@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { draftDownloadHref, draftLinkPath } from './draft-links'
+import { draftDownloadHref, draftFileName, draftLinkPath } from './draft-links'
 
 describe('a link the answer wrote to a file in the working directory', () => {
   test('a /drafts/ or /workspace/ link names the draft by its /drafts/ path', () => {
@@ -20,5 +20,9 @@ describe('a link the answer wrote to a file in the working directory', () => {
       '/api/conversations/s_1/draft/download?path=%2Fdrafts%2FRegenbogen.pdf',
     )
     expect(draftDownloadHref('s_1', '/app/chat')).toBeNull()
+  })
+
+  test('names the file by the last part of its path', () => {
+    expect(draftFileName('/workspace/plaene/Raumbuch%202027.xlsx')).toBe('Raumbuch 2027.xlsx')
   })
 })
