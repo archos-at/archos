@@ -5,7 +5,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Bell, Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Upload, Zap } from 'lucide-react'
+import { Bell, Check, ChevronDown, FileText, FolderLock, Settings, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
 
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
@@ -29,7 +29,7 @@ import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, ProjectMenu, ProjectOverview } from './project-menu'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
-import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatButton, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
+import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
 const OWN = { id: 'none', name: 'Alle Projekte' }
 const OWN_ACROSS = { id: 'none', name: 'Projektübergreifend' }
@@ -61,8 +61,7 @@ const OFFICE_FILES: FileItem[] = [
   makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
 ]
 
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'bell', inboxOpen = false, officeName }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
-  const order = useSearchParams()?.get('order')
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, menuForm = 'gear', shelfCount = 0, inbox = 'bell', inboxOpen = false, officeName, newChat = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; menuForm?: string; shelfCount?: number; inbox?: string; inboxOpen?: boolean; officeName?: string; newChat?: boolean }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -79,89 +78,33 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
           </div>
         </SidebarHeader>
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
-          {order === 'chatfirst' ? (
-            <>
-              <NewChatButton />
-              <div className="h-3" />
-              <SidebarMenu className="gap-0.5">
-                <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
-                {shelfRows && (
-                  <ul className="flex flex-col gap-0.5 pt-0.5">
-                    {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
-                    <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
-                  </ul>
-                )}
-                {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-                <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
-              </SidebarMenu>
-              <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
-                Letzte Chats
-                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
-              </div>
-              <ul className="flex flex-col gap-0.5">
-                {ALL_CHATS.map((chat, index) => (
-                  <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
-                ))}
-                <MoreRow label="Alle Chats" indent={false} />
+          <SidebarMenu className="mb-1 gap-0.5">
+            <NavRow icon={Plus} label="Neuer Chat" active={newChat} />
+            <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
+            {shelfRows && (
+              <ul className="flex flex-col gap-0.5 pt-0.5">
+                {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
+                <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
               </ul>
-            </>
-          ) : order === 'chatsup' ? (
-            <>
-              <NewChatButton />
-              <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
-                Letzte Chats
-                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
-              </div>
-              <ul className="flex flex-col gap-0.5">
-                {ALL_CHATS.map((chat, index) => (
-                  <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
-                ))}
-                <MoreRow label="Alle Chats" indent={false} />
-              </ul>
-              <div className="h-5" />
-              <SidebarMenu className="gap-0.5">
-                <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
-                {shelfRows && (
-                  <ul className="flex flex-col gap-0.5 pt-0.5">
-                    {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
-                    <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
-                  </ul>
-                )}
-                {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-                <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
-              </SidebarMenu>
-            </>
-          ) : (
-            <>
-              <SidebarMenu className="mb-6 gap-0.5">
-                <NavRow icon={Folder} label="Ablage" badge={shelfCount} within={Boolean(shelfRows)} active={!shelfRows && ownShelf !== 'open' && (section === 'files' || projectFilesOpen || (ownFiles && openChat === null && !officeShelfOpen))} />
-                {shelfRows && (
-                  <ul className="flex flex-col gap-0.5 pt-0.5">
-                    {!own && <ChatRow chat={{ title: 'Projektablage' }} current={shelfRows === 'project'} />}
-                    <ChatRow chat={{ title: 'Meine Ablage' }} current={shelfRows === 'own'} />
-                  </ul>
-                )}
-                {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
-                <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
-              </SidebarMenu>
-              <NewChatButton />
-              {inbox === 'top' && (
-                <SidebarMenu className="mt-1 gap-0.5">
-                  <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
-                </SidebarMenu>
-              )}
-              <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
-                Letzte Chats
-                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
-              </div>
-              <ul className="flex flex-col gap-0.5">
-                {ALL_CHATS.map((chat, index) => (
-                  <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
-                ))}
-                <MoreRow label="Alle Chats" indent={false} />
-              </ul>
-            </>
+            )}
+            {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
+            <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
+          </SidebarMenu>
+          {inbox === 'top' && (
+            <SidebarMenu className="mt-1 gap-0.5">
+              <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />
+            </SidebarMenu>
           )}
+          <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
+            Letzte Chats
+            <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {ALL_CHATS.map((chat, index) => (
+              <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
+            ))}
+            <MoreRow label="Alle Chats" indent={false} />
+          </ul>
         </SidebarContent>
         <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} />
         <SidebarRail aria-label="Breite ändern" />
@@ -552,7 +495,7 @@ function Talk({ place, settingsOpen, menu, menuForm, lay, inbox }: { place: stri
   const own = place === 'me' || place === 'newme'
   return (
     <>
-      <Rail own={own} openChat={place === 'newme' ? null : own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} inbox={inbox} inboxOpen={menu === 'inbox' || menu === 'inboxall' || menu === 'inboxpop'} />
+      <Rail own={own} openChat={place === 'newme' ? null : own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} shelfCount={lay === 'inside' ? 6 : 0} inbox={inbox} inboxOpen={menu === 'inbox' || menu === 'inboxall' || menu === 'inboxpop'} newChat={place === 'new' || place === 'newme' || place === 'temp'} />
       {(menu === 'inbox' || menu === 'inboxall') && <InboxPanel />}
       {menu === 'inboxall' && <InboxAll />}
       {menu === 'inboxpop' && <InboxPopover />}
