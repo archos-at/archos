@@ -8,7 +8,7 @@ prod    ──(promotion PR, reviewers)──▶ deploy.yml ──▶ pulumi up 
 ```
 
 CI builds each image only when GHCR has no image with the same inputs, and tags
-every image (backend, frontend, web, cms, code-runner) `sha-<commit>` once every check on the commit has passed
+every image (backend, frontend, web, cms, code-runner, browser-renderer) `sha-<commit>` once every check on the commit has passed
 ([ci.md](../contributing/ci.md#images-and-deploys)). So every commit CI passed
 has every image, every deploy pins every service to the commit it deploys, and
 a commit CI failed cannot be deployed by accident.
@@ -177,10 +177,11 @@ sets it and checks `git diff origin/prod -- deploy/pulumi/Pulumi.prod.yaml`.
 `deploy.yml` pins one ref per service
 ([`resolve-image-refs.sh`](../../deploy/pulumi/scripts/resolve-image-refs.sh)):
 
-- after a green CI run, every service (the CMS's `cmsImage` and the code runner's
-  `grid-oib:codeRunnerImage` included) is the commit's `sha-<40-hex>` tag, which
-  the workflow verifies GHCR has before it pins anything;
-- an operator rollback (dispatch with `imageTag`) pins all three to that tag,
+- after a green CI run, every service (the CMS's `cmsImage`, the code runner's
+  `grid-oib:codeRunnerImage` and the browser renderer's
+  `grid-oib:browserRendererImage` included) is the commit's `sha-<40-hex>` tag,
+  which the workflow verifies GHCR has before it pins anything;
+- an operator rollback (dispatch with `imageTag`) pins every service to that tag,
   verified the same way;
 - a bare dispatch (no `imageTag`) pins each service to the newest commit on
   develop's first-parent line whose `sha-<commit>` tag GHCR has (a manifest
