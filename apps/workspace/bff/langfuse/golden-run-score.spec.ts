@@ -39,7 +39,7 @@ function declaredByPython(): { golden: Declared[]; runtime: Declared[] } {
   const child = spawnSync('python3', ['-c', CATALOGUE_DUMP], {
     cwd: ROOT,
     encoding: 'utf8',
-    env: { PATH: process.env.PATH ?? '', PYTHONPATH: join(ROOT, 'packages', 'agent', 'src'), PYTHONDONTWRITEBYTECODE: '1' },
+    env: { ...process.env, PYTHONPATH: join(ROOT, 'packages', 'agent', 'src'), PYTHONDONTWRITEBYTECODE: '1' },
   })
   if (child.status !== 0) throw new Error(`the Python catalogue did not import: ${child.stderr}`)
   return JSON.parse(child.stdout)
