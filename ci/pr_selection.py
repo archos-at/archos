@@ -244,11 +244,18 @@ def _disk_readers() -> DiskReaders:
     return dict(sorted(readers.items()))
 
 
+def was_full(get: Get, repo: str, run_id: object) -> bool:
+    artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
+    return any(a.get("name", "").startswith("ci-green-") and not a.get("expired") for a in artifacts)
+
+
 def previous_green(get: Get, repo: str, branch: str, head: str, is_ancestor: Callable[[str], bool]) -> dict | None:
     query = urllib.parse.urlencode({"branch": branch, "event": "pull_request", "status": "success", "per_page": 30})
     for run in get(f"/repos/{repo}/actions/workflows/ci.yml/runs?{query}").get("workflow_runs", []):
         sha = run.get("head_sha", "")
-        if re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha)):
+        if not (re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha))):
+            continue
+        if was_full(get, repo, run.get("id")):
             return run
     return None
 
