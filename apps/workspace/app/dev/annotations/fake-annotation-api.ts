@@ -1,6 +1,5 @@
-import { isAgentKind } from '@/lib/agent-kind'
+import { AGENT_KIND, isAgentKind } from '@/lib/agent-kind'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 import { isAgentMentionId } from '@/lib/mentions/types'
 import type { AnnotationReplyView, AnnotationView } from '@/lib/annotations/types'
 import { AGENT_PROPOSALS, ANNOTATION_FIXTURES, INDEX_B_ANNOTATION_FIXTURES } from './annotation-fixtures'
@@ -33,7 +32,7 @@ const wakeReply = (annotationId: string) => {
     kind: 'annotations.changed',
     annotationIds: [annotationId],
     change: 'replied',
-    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
   })
 }
 
@@ -46,7 +45,7 @@ export const proposeFindings = () => {
     kind: 'annotations.changed',
     annotationIds: proposed.map((proposal) => proposal.id),
     change: 'created',
-    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+    actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
   })
 }
 
@@ -156,7 +155,7 @@ export const answerAboutBox = (turn: ScriptedTurn, box: FocusBox, replyInThread:
             kind: 'annotations.changed',
             annotationIds: [thread.id],
             change: 'replied',
-            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
           })
         }
         finish(turn, text, thread ? [] : [OIB_RL_4])
@@ -248,7 +247,7 @@ export const checkFixed = (turn: ScriptedTurn, question: string) => {
             kind: 'annotations.changed',
             annotationIds: checked.map((one) => one.id),
             change: 'replied',
-            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND },
+            actor: { peerId: null, userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
           })
         }
         emit(turn, { type: 'STEP_FINISHED', step: replyStep })

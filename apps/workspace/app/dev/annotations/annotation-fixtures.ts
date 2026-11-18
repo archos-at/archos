@@ -1,5 +1,5 @@
 import type { AnnotationView } from '@/lib/annotations/types'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 import { ANNA, CARRY_HERE, INDEX_B, JAKOB, ME, base, mention, minutesAgo, pt, region, reply } from './fixtures'
 
 export const ANNOTATION_FIXTURES: AnnotationView[] = [
@@ -91,7 +91,7 @@ export const ANNOTATION_FIXTURES: AnnotationView[] = [
     shape: 'point',
     ...pt(640, 420),
     kind: 'question',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     body: 'Gilt die Brüstungshöhe ab Fertigfußboden oder ab Rohdecke?',
     acceptedBy: 'u-1',
     acceptedByName: ME.name,
@@ -161,7 +161,7 @@ export const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'question',
     body: 'Gang als Fluchtweg: lichte Breite ist nicht kotiert. Mindestens 1,20 m nachweisen.',
     basis: 'OIB-RL 4, Pkt. 2.2.1',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -174,7 +174,7 @@ export const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'defect',
     body: 'Tür Technik in den Fluchtweg: Feuerwiderstand fehlt, Technikraum gilt als Raum mit erhöhter Brandgefahr.',
     basis: 'OIB-RL 2, Pkt. 3.4',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },
@@ -187,7 +187,7 @@ export const AGENT_PROPOSALS: AnnotationView[] = [
     kind: 'hint',
     body: 'Belichtung Zimmer 1: Fensterfläche gegen 1/10 der Bodenfläche prüfen.',
     basis: 'OIB-RL 3, Pkt. 9.1.1',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     status: 'proposed',
     canDelete: false,
   },

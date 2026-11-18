@@ -1297,7 +1297,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
 
   test('offers the agent where events wake it, and sends it as the reply’s flag', async () => {
     candidates()
-    const marks = client({ reply: vi.fn(async () => answered('queued', [{ targetId: 'agent:piloti', display: PRODUCT_NAME }])) })
+    const marks = client({ reply: vi.fn(async () => answered('queued', [{ targetId: 'agent:core', display: PRODUCT_NAME }])) })
     render(<InboxItemRow item={markRow({ pilotiWakes: true })} markClient={marks} />)
     fireEvent.click(screen.getByTestId('inbox-mark-reply'))
     fireEvent.click(screen.getByTestId('inbox-mark-reply-box-mention'))
@@ -1307,7 +1307,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
       expect(marks.reply).toHaveBeenCalledWith('doc-eg', 'mark-4', {
         body: `@${PRODUCT_NAME} stimmt das?`,
         addressesPiloti: true,
-        mentions: [{ targetId: 'agent:piloti', display: PRODUCT_NAME }],
+        mentions: [{ targetId: 'agent:core', display: PRODUCT_NAME }],
       }),
     )
   })

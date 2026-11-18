@@ -252,7 +252,7 @@ describe('what client.py sends, replayed against the real route', () => {
     expect(vi.mocked(recordWorkspaceHandOut)).toHaveBeenCalledTimes(1)
     const [principal] = vi.mocked(recordWorkspaceHandOut).mock.calls[0]
     expect(principal).toMatchObject({
-      actor: 'piloti',
+      actor: 'agent',
       conversationId: 'conv_1',
       answerMessageId: recorded('call_read').headers['x-answer-message-id'],
     })

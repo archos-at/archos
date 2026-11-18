@@ -2,7 +2,7 @@ import type { FileItem } from '@/features/documents/components/project-file-work
 import type { RoomPeer } from '@/lib/annotations/room-types'
 import type { AnnotationReplyView } from '@/lib/annotations/types'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 export const SHEET_WIDTH = 842
 export const SHEET_HEIGHT = 595
@@ -107,10 +107,10 @@ export const agentReply = (
   asker: { userId: string; name: string },
   id: string,
   body: string
-): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: LEGACY_AGENT_KIND })
+): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: AGENT_KIND })
 
 const peer = (who: { userId: string; name: string }, peerId: string): RoomPeer => ({ ...who, peerId, kind: 'person' })
 export const annaPeer = peer(ANNA, 'peer-anna-0001')
 export const jakobPeer = peer(JAKOB, 'peer-jakob-001')
 export const lenaPeer = peer(LENA, 'peer-lena-0001')
-export const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: LEGACY_AGENT_KIND }
+export const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: AGENT_KIND }

@@ -48,7 +48,7 @@ import {
   type ProposedChangeStatus,
   type ProposedChangeView,
 } from './types'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 export const APPLY_CLAIM_TTL_MS = 5 * 60 * 1000
 
@@ -91,7 +91,7 @@ export async function createProposal(session: AuthorizedSession, input: CreatePr
     scope,
     kind: typed.kind,
     payload: typed.payload,
-    proposedByKind: LEGACY_AGENT_KIND,
+    proposedByKind: AGENT_KIND,
     onBehalfOf: session.userId,
     originConversationId: input.conversationId,
     originMessageId: input.answerMessageId,

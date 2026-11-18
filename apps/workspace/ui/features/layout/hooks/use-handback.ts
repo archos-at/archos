@@ -3,8 +3,7 @@ import { useChatStore } from '@/features/chat/store'
 import type { ChatMessage } from '@/features/chat/types'
 import type { useSharedThread } from '@/features/collaboration/hooks/use-shared-thread'
 import type { Translator } from '@/i18n'
-import { isAgentMentionId } from '@/lib/mentions/types'
-import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
+import { AGENT_MENTION_ID, isAgentMentionId } from '@/lib/mentions/types'
 
 type SharedThread = ReturnType<typeof useSharedThread>
 
@@ -72,14 +71,14 @@ export function useHandback({
     if (!handback) return
     const agentName = tCollaboration('mentions.picker.agentName')
     setComposerPrefill(`@${agentName} ${tCollaboration('mentions.handback.prefill')}`, [
-      { targetId: LEGACY_AGENT_MENTION_ID, display: agentName },
+      { targetId: AGENT_MENTION_ID, display: agentName },
     ])
     setHandbackDismissedFor(handback.anchorId)
   }, [handback, setComposerPrefill, tCollaboration])
 
   const handleAskAgent = useCallback(() => {
     const agentName = tCollaboration('mentions.picker.agentName')
-    setComposerPrefill(`@${agentName} `, [{ targetId: LEGACY_AGENT_MENTION_ID, display: agentName }])
+    setComposerPrefill(`@${agentName} `, [{ targetId: AGENT_MENTION_ID, display: agentName }])
   }, [setComposerPrefill, tCollaboration])
 
   const handleAskBack = useCallback(

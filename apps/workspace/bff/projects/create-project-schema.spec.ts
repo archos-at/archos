@@ -23,7 +23,7 @@ const location: GeocodeResult = {
 
 describe('createProjectSchema', () => {
   it('defaults the setup to the agent', () => {
-    expect(createProjectSchema.parse({ name: 'Haus' })).toEqual({ name: 'Haus', setup: 'piloti' })
+    expect(createProjectSchema.parse({ name: 'Haus' })).toEqual({ name: 'Haus', setup: 'agent' })
   })
 
   it('accepts the agent setup under its new name, and both names mean the agent', () => {
@@ -48,7 +48,7 @@ describe('createProjectSchema', () => {
   it('still reads `bundesland` from a tab that has not reloaded (remove after one release)', () => {
     expect(createProjectSchema.parse({ name: 'Haus', bundesland: 'tirol' })).toEqual({
       name: 'Haus',
-      setup: 'piloti',
+      setup: 'agent',
       federalState: 'tyrol',
     })
     expect(createProjectSchema.parse({ name: 'Haus', bundesland: 'tirol', federalState: 'vienna' })).toMatchObject({

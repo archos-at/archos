@@ -7,8 +7,7 @@ import { mayWriteDocument } from '@/lib/documents/may-open'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import type { AnnotationRecord } from './repository'
 import type { AnnotationAuthor, AnnotationDeleteRefusal } from './types'
-import { isAgentKind } from '@/lib/agent-kind'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND, isAgentKind } from '@/lib/agent-kind'
 
 export interface AnnotationActor {
   kind: AnnotationAuthor
@@ -16,7 +15,7 @@ export interface AnnotationActor {
 }
 
 export const PERSON: AnnotationActor = { kind: 'person' }
-export const AGENT: AnnotationActor = { kind: LEGACY_AGENT_KIND }
+export const AGENT: AnnotationActor = { kind: AGENT_KIND }
 
 export const mayDeleteMark = (record: Pick<AnnotationRecord, 'authorKind' | 'createdBy' | 'acceptedBy'>, userId: string) =>
   record.createdBy === userId && (record.authorKind === 'person' || record.acceptedBy === userId)

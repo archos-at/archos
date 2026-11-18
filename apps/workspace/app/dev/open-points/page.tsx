@@ -7,7 +7,7 @@ import type { AnnotationReplyView } from '@/lib/annotations/types'
 import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { OpenPointsPanel } from '@/features/documents/components/open-points/open-points-panel'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 const PROJECT = 'dev-project'
 const ME = 'user_anna'
@@ -116,7 +116,7 @@ const MARKS: ProjectMarkView[] = [
     kind: 'defect',
     body: 'Geländerhöhe im Stiegenhaus unter 1,00 m (OIB\u2011RL 4, 2.3.2).',
     basis: 'OIB-RL 4, Pkt. 2.3.2',
-    authorKind: LEGACY_AGENT_KIND,
+    authorKind: AGENT_KIND,
     acceptedBy: ME,
     acceptedByName: 'Anna Berger',
     createdBy: ME,

@@ -293,7 +293,7 @@ describe('The in-product agent (internal token and envelope)', () => {
   it('resolves a verified envelope to the in-product agent, with its conversation and project', async () => {
     const result = await resolvePrincipal(inProduct(envelope()), { jwks })
     expect(result).toEqual({
-      actor: 'piloti',
+      actor: 'agent',
       session,
       clientId: null,
       scopes: [],
@@ -307,9 +307,9 @@ describe('The in-product agent (internal token and envelope)', () => {
   it('reads the answer id the turn names, and ignores one that is not a uuid', async () => {
     const answer = '0b8f3c2e-5d1a-4c6b-9e7f-1a2b3c4d5e6f'
     const named = await resolvePrincipal(inProduct({ ...envelope(), [ANSWER_MESSAGE_HEADER]: answer }), { jwks })
-    expect(named).toMatchObject({ actor: 'piloti', answerMessageId: answer })
+    expect(named).toMatchObject({ actor: 'agent', answerMessageId: answer })
     const junk = await resolvePrincipal(inProduct({ ...envelope(), [ANSWER_MESSAGE_HEADER]: 'drop table' }), { jwks })
-    expect(junk).toMatchObject({ actor: 'piloti', answerMessageId: null })
+    expect(junk).toMatchObject({ actor: 'agent', answerMessageId: null })
   })
 
   it('refuses the service token alone', async () => {
