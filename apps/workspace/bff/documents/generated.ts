@@ -26,6 +26,7 @@ import type { AuthoredRefKind } from './document-authors'
 import { deleteProjectDocument, findDocumentAuthoredByRef } from './repository'
 import { projectShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
+import { GENERATED_DOCUMENT_FOLDER_NAME } from './generated-folder'
 
 export const GENERATED_DOCUMENT_PRODUCER_REF_KINDS = {
   deep_research: 'agent_run',
@@ -99,7 +100,7 @@ export interface FiledGeneratedDocument {
   alreadyFiled: boolean
 }
 
-export const GENERATED_DOCUMENT_FOLDER_NAME = 'Berichte'
+export { GENERATED_DOCUMENT_FOLDER_NAME }
 
 export interface GeneratedDocumentDestination {
   folderName: string

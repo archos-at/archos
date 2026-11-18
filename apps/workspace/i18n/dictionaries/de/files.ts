@@ -1895,6 +1895,12 @@ export const files: typeof en.files = {
     },
   },
   saveTo: {
+    howToFile: 'Wie ablegen',
+    asOwnFile: 'Als eigene Datei ablegen',
+    asRevision: 'Als neue Fassung von „{name}“ ablegen',
+    revisionHint: '„{name}“ bekommt eine neue Fassung im Projekt; die bisherige bleibt lesbar.',
+    changeNote: 'Änderungsvermerk',
+    changeNoteHint: 'Was sich gegenüber der bisherigen Fassung geändert hat, in einem Satz.',
     title: 'Ins Projekt ablegen',
     description: 'Wählen Sie den Ordner und den Namen, unter dem die Datei im Projekt liegt.',
     name: 'Name',

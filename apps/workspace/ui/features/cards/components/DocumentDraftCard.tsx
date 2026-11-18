@@ -17,7 +17,16 @@ import { fetchConversationDraft } from '../lib/document-draft-preview'
 import { CARD_SHELL } from './card-chrome'
 import { ClampedText } from './ClampedText'
 import { DocumentDraftPreviewDialog } from './DocumentDraftPreviewDialog'
-import { DRAFT_ACTION, DraftConflictNotice, DraftSaveDialog, openFiledInPlace } from './draft-filing-parts'
+import {
+  DRAFT_ACTION,
+  DraftConflictNotice,
+  DraftLifeNote,
+  DraftMenu,
+  DraftSaveDialog,
+  ProjectChangeNotice,
+  openFiledInPlace,
+} from './draft-filing-parts'
+import { useDraftLife } from '../hooks/use-draft-life'
 
 interface DocumentDraftCardProps {
   title: string
@@ -27,6 +36,8 @@ interface DocumentDraftCardProps {
   documentId?: string | null
   versionId?: string | null
   versionState?: DocumentVersionState | null
+  filedDraftVersion?: number | null
+  removed?: boolean | null
   messageId?: string
   cardKey: string
   decisionsMustPersist?: boolean
@@ -38,6 +49,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
   const isMobile = useIsMobile()
   const reduced = useReducedMotion()
   const filing = useDraftFiling(props)
+  const life = useDraftLife(props)
   const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling, isSubmitting } = filing
   const [previewOpen, setPreviewOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
@@ -65,9 +77,22 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
     void loadPreview()
   }
 
+  if (life.removed) {
+    return (
+      <Card data-testid="document-draft-card" data-removed="true" className={cn(CARD_SHELL, 'gap-1 p-5')}>
+        <SectionLabel>{t('cards.fileDraft.removed')}</SectionLabel>
+        <ClampedText className="card-title text-muted-foreground line-through">{title}</ClampedText>
+        <p className="card-caption text-muted-foreground">{t('cards.fileDraft.removedNote')}</p>
+      </Card>
+    )
+  }
+
   return (
     <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'gap-2 p-5')}>
-      <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
+      <div className="flex items-start justify-between gap-2">
+        <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
+        <DraftMenu life={life} name={title} />
+      </div>
 
       <div className="flex min-w-0 flex-col">
         <ClampedText className="card-title text-foreground">{title}</ClampedText>
@@ -120,6 +145,23 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
           </a>
         )}
 
+        {filing.canUpdate && (
+          <button
+            type="button"
+            className={DRAFT_ACTION}
+            aria-disabled={isFiling || undefined}
+            aria-busy={isFiling || undefined}
+            onClick={() => void filing.update()}
+            data-testid="document-draft-update"
+          >
+            <StackedLabel
+              busy={isFiling}
+              idle={t('cards.fileDraft.updateInProject')}
+              working={t('cards.fileDraft.updating')}
+            />
+          </button>
+        )}
+
         {filing.canSubmit && (
           <button
             type="button"
@@ -144,6 +186,8 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
+      <ProjectChangeNotice filing={filing} name={title} />
+      <DraftLifeNote life={life} />
 
       {filing.canFile && (
         <DraftSaveDialog filing={filing} open={saveOpen} onOpenChange={setSaveOpen} title={title} path={path} />
