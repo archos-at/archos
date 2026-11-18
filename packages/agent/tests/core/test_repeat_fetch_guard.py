@@ -16,11 +16,11 @@ from agent.common import LLMProvider
 from agent.common import turn_status
 from agent.common.tool_calls import FETCH_FAILED_MARKER
 from agent.common.turn_status import current_retrieval_round
-from agent.core.agent import _REPEAT_FETCH_MESSAGE
-from agent.core.agent import _REPEAT_FETCH_PREFIX
 from agent.core.agent import _SYNTHESIS_ANCHOR
 from agent.core.agent import ChatAgent
 from agent.core.models import ResearchAgentState
+from agent.core.round_split import _REPEAT_FETCH_MESSAGE
+from agent.core.round_split import _REPEAT_FETCH_PREFIX
 
 _CEILING = 7
 

@@ -255,7 +255,9 @@ copy of the engine's names without installing the engine.
 
 The single required status check is **CI OK**
 ([`ci.yml`](../../.github/workflows/ci.yml)), which passes only when every
-needed job succeeded or was skipped by the path filter.
+needed job succeeded or was skipped. A pull request runs the light checks, the
+push to `develop` the full suite, and a pull request labelled `ci:full` both
+([ci.md](ci.md#how-a-ci-run-decides-what-to-run)).
 
 ## The live turn-shape eval
 
