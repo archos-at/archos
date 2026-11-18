@@ -345,7 +345,8 @@ infra:
   - '.github/actions/setup-task/**'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
   - 'apps/agent-host/entrypoint.py'
-  - 'apps/agent-host/src/agent_host/chat_socket.py'
+  - 'apps/agent-host/src/agent_host/chat_fencing.py'
+  - 'apps/agent-host/src/agent_host/chat_turn.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_dispatch.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_worker.py'
   - 'apps/agent-host/src/agent_host/jobs/research_workflow.py'

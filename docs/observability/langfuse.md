@@ -515,7 +515,7 @@ never reads a trace's body, so this is the whole cost.
   carries the browser's PostHog session id there:
   `getPosthogSessionId()` (`apps/workspace/bff/analytics/posthog.ts`) is read
   per question and sent as `user_message.posthog_session_id`; `_drive` in
-  `agent_host/chat_socket.py` records it with `record_posthog_session`
+  `agent_host/chat_run.py` records it with `record_posthog_session`
   (`langfuse_trace_attributes.py`). From a trace, open the same `$session_id`
   in PostHog's replay list.
 * It is **identity-gated**, on the rule in that module's header ("no span names a
@@ -573,7 +573,7 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 |---|---|
 | Environment, release, deployment tag, types, trace names | `packages/agent/src/agent/observability/trace_context.py` |
 | The processors on the runtime's exporter | `packages/agent/src/agent/observability/langfuse_trace_attributes.py`, installed in `otel_header_redaction_exporter.py` |
-| A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_socket.py` `_drive` |
+| A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_run.py` `_drive` |
 | Runtime scores | `packages/agent/src/agent/observability/langfuse_scores.py` |
 | Model calls outside the runtime | `packages/agent/src/agent/observability/direct_trace.py` |
 | Hatchet's spans (trigger, step run) | `packages/agent/src/agent/observability/orchestrator_tracing.py` |
@@ -581,6 +581,6 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 | Votes, reasons, review queue | `apps/workspace/bff/langfuse/feedback-score.ts` |
 | Decisions on the agent's proposals, marks and changes | `apps/workspace/bff/langfuse/decision-score.ts` |
 | Tool calls on the agent door (MCP) | `apps/workspace/bff/langfuse/tool-call-trace.ts`, called from `lib/agent-api/telemetry.ts` |
-| PostHog session link | `record_posthog_session` in `langfuse_trace_attributes.py`, bound in `agent_host/chat_socket.py` `_drive`; the browser side is `getPosthogSessionId` in `apps/workspace/bff/analytics/posthog.ts` |
+| PostHog session link | `record_posthog_session` in `langfuse_trace_attributes.py`, bound in `agent_host/chat_run.py` `_drive`; the browser side is `getPosthogSessionId` in `apps/workspace/bff/analytics/posthog.ts` |
 | Retention and erasure | `apps/workspace/workers/langfuse-traces.js` ([`deletion-pipeline.md`](../architecture/deletion-pipeline.md)) |
 | Deployment | `deploy/pulumi/src/platform/langfuse.ts` ([`kubernetes.md`](../deployment/kubernetes.md) § Langfuse) |

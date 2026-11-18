@@ -3,7 +3,7 @@
   ".github/workflows/deploy.yml": 3,
   "apps/agent-host/Dockerfile": 2,
   "apps/agent-host/src/agent_host/auth/utils.py": 2,
-  "apps/agent-host/src/agent_host/chat_socket.py": 1,
+  "apps/agent-host/src/agent_host/chat_auth.py": 1,
   "apps/agent-host/src/agent_host/context_envelope.py": 2,
   "apps/agent-host/src/agent_host/inflight.py": 2,
   "apps/agent-host/src/agent_host/models/document_search.py": 1,
