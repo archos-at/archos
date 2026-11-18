@@ -2891,12 +2891,12 @@ class TestTheDelegationRulesLiveInTheTool:
 
 class TestTheWorkingDirectoryBudget:
     def test_the_recursion_limit_derives_from_the_ceiling_alone(self):
-        from agent.core.agent import _recursion_limit
+        from agent.core.turn_binding import _recursion_limit
 
         assert _recursion_limit(5) == (5 * 2) + 10
 
     def test_a_draft_read_back_is_never_a_source(self):
-        from agent.core.agent import _capture_sources
+        from agent.core.source_capture import _capture_sources
 
         registry = SourceRegistry()
         for verb in ("ls", "read_file", "write_file", "edit_file"):

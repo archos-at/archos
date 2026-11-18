@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { useDraftFiling, type DraftFiling } from '../hooks/use-draft-filing'
 import { draftFileUrls, type DraftFileUrls } from '../lib/document-draft-preview'
 import { CARD_SHELL, DECISION_BUTTON, DECISION_ROW } from './card-chrome'
-import { DraftConflictNotice, openFiled, openFiledInPlace } from './draft-filing-parts'
+import { DraftConflictNotice, DraftSaveDialog, openFiled, openFiledInPlace } from './draft-filing-parts'
 import { FileDraftThumbnail } from './FileDraftThumbnail'
 import { FileDraftViewer } from './FileDraftViewer'
 
@@ -94,15 +94,13 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
   const filing = useDraftFiling(props)
   const { conversationId, shownFiled, isFiling } = filing
   const [viewerOpen, setViewerOpen] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
   const type = useMemo(() => draftFileType(path), [path])
   const name = draftFileName(path) || title
   const urls = props.urls ?? (conversationId ? draftFileUrls(conversationId, path, version) : null)
   const refused = type.filing === 'refused'
   const format = t(`cards.fileDraft.format.${type.format}` as 'cards.fileDraft.format.word')
-  const stateLabel =
-    filing.folderName && !filing.filed
-      ? t('cards.fileDraft.filedIn', { folder: filing.folderName })
-      : filing.stateLabel
+  const stateLabel = filing.stateLabel
   const facts = [type.extension.toUpperCase() || format, formatBytes(bytes, locale)]
   if (version > 1) facts.push(t('cards.documentDraft.version', { version }))
 
@@ -189,7 +187,8 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
                 className={FILE_WIDE_BUTTON}
                 aria-disabled={isFiling || undefined}
                 aria-busy={isFiling || undefined}
-                onClick={() => void filing.file(false)}
+                onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+                data-testid="file-draft-file"
               >
                 <StackedLabel
                   busy={isFiling}
@@ -203,13 +202,17 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       )}
 
 
-      {filing.error && (
+      {filing.error && !saveOpen && (
         <p className="card-caption text-destructive" role="alert" data-testid="document-draft-error">
           {filing.error}
         </p>
       )}
 
       <DraftConflictNotice filing={filing} />
+
+      {filing.canFile && !refused && (
+        <DraftSaveDialog filing={filing} open={saveOpen} onOpenChange={setSaveOpen} title={title} path={path} />
+      )}
 
       {!shownFiled && conversationId && urls && (
         <FileDraftViewer

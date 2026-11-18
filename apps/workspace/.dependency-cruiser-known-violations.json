@@ -1663,24 +1663,6 @@
   {
     "type": "dependency",
     "from": "ui/features/chat/components/FileReference.tsx",
-    "to": "ui/features/documents/components/project-file-workspace.tsx",
-    "unresolvedTo": "@/features/documents/components/project-file-workspace",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/chat/components/FileReference.tsx",
     "to": "ui/features/documents/hooks/use-surfaced-documents.ts",
     "unresolvedTo": "@/features/documents/hooks/use-surfaced-documents",
     "dependencyTypes": [

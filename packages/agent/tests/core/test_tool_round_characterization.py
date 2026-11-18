@@ -28,14 +28,14 @@ from agent.common.steering import bind_steer_inbox
 from agent.common.steering import unbind_steer_inbox
 from agent.common.tool_calls import FETCH_FAILED_MARKER
 from agent.common.tool_errors import FAILURE_IS_NOT_A_FACT
-from agent.core.agent import _FAILED_FETCH_REPEAT_MESSAGE
-from agent.core.agent import _REPEAT_FETCH_PREFIX
-from agent.core.agent import _WIDTH_CAP_MESSAGE
 from agent.core.agent import ChatAgent
-from agent.core.agent import TurnConfig
 from agent.core.conversation import ConversationGraph
 from agent.core.models import ConversationState
 from agent.core.models import ResearchAgentState
+from agent.core.round_split import _FAILED_FETCH_REPEAT_MESSAGE
+from agent.core.round_split import _REPEAT_FETCH_PREFIX
+from agent.core.round_split import _WIDTH_CAP_MESSAGE
+from agent.core.turn_binding import TurnConfig
 from agent.knowledge import restricted_use as ru
 from agent.knowledge.restricted_use import WITHHELD_NOTICE
 from agent.knowledge.restricted_use import RestrictedUse

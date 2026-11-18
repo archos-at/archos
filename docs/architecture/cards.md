@@ -568,6 +568,18 @@ calls", which made the second card unreachable by construction: the model had
 already decided to draw it, and nothing in the answer, the log or the
 `research_truncated` note said what had been lost.
 
+Why seven: the longest chains this surface answers take five rounds
+(OIB 3 Lichteinfall: `use_skill`, `knowledge_search`, `find_elements` with
+relations, overhang, `light_incidence`; OIB 2 Fluchtweg likewise), and a
+storey-name miss is the commonest repair, so seven is that floor plus two
+repairs. The number stayed at seven when the unit changed from calls to
+rounds: reading the freed calls as headroom would bring the failure back.
+Seven rounds are 14 node visits plus the forced synthesis, inside the graph's
+`recursion_limit` of `(max_tool_iterations * 2) + 10` = 24. What bounds the
+cost of a round is `max_input_tokens_per_turn`, not this ceiling. A cut-off
+turn emits a `status:budget` step and a `Forcing synthesis (rounds)` warning
+with the ceiling, rounds spent, input tokens and the tool shape.
+
 The fix was the UNIT, not an exemption. The budget counts tool-calling ROUNDS
 now — one LLM decision that emitted tool calls, costing one whatever it asked
 for — so a round that draws a shape lookup and both cards costs exactly what

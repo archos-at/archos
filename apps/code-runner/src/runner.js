@@ -96,16 +96,35 @@ function json(status, body) {
   return Response.json(body, { status });
 }
 
-function truncate(text) {
+function truncate(text, limit = LIMITS.maxStdioBytes) {
   const value = text ?? "";
   const bytes = new TextEncoder().encode(value);
-  if (bytes.byteLength <= LIMITS.maxStdioBytes) return value;
+  if (bytes.byteLength <= limit) return value;
   const marker = "\n...[truncated]";
-  return decoder.decode(bytes.subarray(0, LIMITS.maxStdioBytes - marker.length)).replace(/�$/, "") + marker;
+  return decoder.decode(bytes.subarray(0, limit - marker.length)).replace(/\ufffd$/, "") + marker;
+}
+
+function keepTail(text, limit) {
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.byteLength <= limit) return text;
+  const marker = "[truncated]...\n";
+  return marker + decoder.decode(bytes.subarray(bytes.byteLength - (limit - marker.length))).replace(/^\ufffd/, "");
 }
 
 async function sha256(bytes) {
   return Buffer.from(await crypto.subtle.digest("SHA-256", bytes)).toString("hex");
+}
+
+const VALUE_NOT_JSON = /Workspace code inputs and results (must be JSON-compatible values|must use plain objects)/;
+const VALUE_HINT =
+  "The returned value must be plain JSON: no undefined in an array (exceljs row.values and getSheetValues leave holes for empty cells), no Date, Decimal, Map, Set or other class instance. Map holes to null, dates to ISO strings, decimals with toNumber(), Maps with Object.fromEntries and Sets with Array.from.";
+
+function explainedStderr(stderr) {
+  const text = stderr ?? "";
+  if (!VALUE_NOT_JSON.test(text)) return truncate(text);
+  const hint = `\n${VALUE_HINT}\n`;
+  const log = text.split(VALUE_HINT).join("").trimEnd();
+  return keepTail(log, LIMITS.maxStdioBytes - new TextEncoder().encode(hint).byteLength) + hint;
 }
 
 function stripTypes(source) {
@@ -154,7 +173,7 @@ async function runIn(ws, run) {
   const outcome = await execute(ws, run);
   const collected = await collectChanged(ws, sent);
   if (collected.error) {
-    return { ...outcome, status: "error", stderr: truncate(`${outcome.stderr}${outcome.stderr ? "\n" : ""}${collected.error}`), files: [] };
+    return { ...outcome, status: "error", stderr: explainedStderr(`${outcome.stderr}${outcome.stderr ? "\n" : ""}${collected.error}`), files: [] };
   }
   return { ...outcome, files: collected.files };
 }
@@ -179,10 +198,10 @@ async function execute(ws, run) {
       status: statusOf(result),
       value: result.value === undefined ? null : result.value,
       stdout: truncate(result.stdout),
-      stderr: truncate(result.stderr),
+      stderr: explainedStderr(result.stderr),
     };
   } catch (error) {
-    return { ...failed, stderr: truncate(error instanceof Error ? error.message : String(error)) };
+    return { ...failed, stderr: explainedStderr(error instanceof Error ? error.message : String(error)) };
   }
 }
 

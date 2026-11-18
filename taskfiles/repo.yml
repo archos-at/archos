@@ -97,8 +97,13 @@ tasks:
     cmds:
       - bash scripts/local-stack/local-stack.sh up
 
+  local:previews:
+    desc: 'Only `next dev` on :3311, for the /dev/* previews and screenshots: checks node_modules, free disk and the config first, and fails with the fix'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh previews
+
   local:down:
-    desc: Stop everything `local:up` started (the data directory stays)
+    desc: Stop everything `local:up` or `local:previews` started (the data directory stays)
     cmds:
       - bash scripts/local-stack/local-stack.sh down
 
