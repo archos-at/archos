@@ -33,3 +33,38 @@ describe('server.js runtime image copies', () => {
     expect(covered, `deploy/Dockerfile must COPY ${file}: server.js requires it`).toBe(true)
   })
 })
+
+function stage(dockerfile: string, name: string): string[] {
+  const lines = dockerfile.split('\n')
+  const start = lines.findIndex((line) => new RegExp(`^FROM \\S+ AS ${name}$`).test(line))
+  expect(start, `deploy/Dockerfile has no stage ${name}`).toBeGreaterThanOrEqual(0)
+  const end = lines.findIndex((line, index) => index > start && line.startsWith('FROM '))
+  return lines.slice(start, end === -1 ? undefined : end).filter((line) => line && !line.startsWith('#'))
+}
+
+describe('runtime image layers', () => {
+  const dockerfile = readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
+
+  it('installs the production dependencies from the lockfile inputs alone', () => {
+    const sources = stage(dockerfile, 'prod-deps')
+      .filter((line) => line.startsWith('COPY '))
+      .flatMap((line) => line.split(/\s+/).slice(1, -1))
+    expect(sources.sort()).toEqual(['bun.lock', 'package.json', 'patches'])
+  })
+
+  it('ships node_modules from prod-deps, before the build output', () => {
+    const runner = stage(dockerfile, 'runner')
+    const modules = runner.findIndex((line) => /^COPY --from=prod-deps .* \/app\/node_modules \.\/node_modules$/.test(line))
+    const nextOutput = runner.findIndex((line) => line.includes('/app/.next '))
+    expect(modules, 'the runner must COPY node_modules from prod-deps').toBeGreaterThanOrEqual(0)
+    expect(modules).toBeLessThan(nextOutput)
+    expect(runner.filter((line) => line.includes('./node_modules'))).toHaveLength(1)
+  })
+
+  it('sets GIT_SHA after every layer of the runner', () => {
+    const runner = stage(dockerfile, 'runner')
+    const sha = runner.findIndex((line) => line.startsWith('ARG GIT_SHA'))
+    const lastLayer = runner.findLastIndex((line) => /^(COPY|RUN|ADD) /.test(line))
+    expect(sha).toBeGreaterThan(lastLayer)
+  })
+})

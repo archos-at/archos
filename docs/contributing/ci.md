@@ -201,10 +201,9 @@ Why it is built this way:
 - The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the
   Source maps workflow installs that same version (a test holds the two
   together). Its npm package downloads the binary on first use (`bun install
-  --ignore-scripts` skips its postinstall), which happens inside the build RUN,
-  and the same RUN deletes the binary: `bun install --production` over an
-  existing `node_modules` does not prune devDependencies (measured with bun
-  1.3.11), so the later production install would let it ship.
+  --ignore-scripts` skips its postinstall), which happens inside the build RUN.
+  It never ships: the runner's `node_modules` is the `prod-deps` stage's fresh
+  production install, not the builder's.
 
 An image already in GHCR under its `inputs-<hash>` is not rebuilt when the
 secret is added later, so its maps are never uploaded. Wait for the weekly
