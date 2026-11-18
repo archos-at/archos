@@ -7,6 +7,7 @@ import { isAwaitingServerMessages } from './chat-storage'
 import { hasLiveRun, hasNoUserChatMessages } from '../lib/session-activity'
 import { conversationMatchesProject, isHiddenJobConversation } from '../lib/project-scope'
 import { turnStateFor } from './messages-store'
+import { withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createNewConversation } from './new-conversation'
 import { hydratingConversationIds } from './session-server-sync'
 import type { SessionsSlice } from './sessions-store'
@@ -71,7 +72,6 @@ export const createSessionNavigationSlice: StateCreator<
     | 'ensureSession'
     | 'selectConversation'
     | 'restoreSessionState'
-    | 'isSessionBusy'
     | 'hasAnyBusySession'
   >
 > = (set, get) => ({
@@ -231,6 +231,7 @@ export const createSessionNavigationSlice: StateCreator<
       set(
         {
           currentConversation: conversation,
+          unseenAnswers: withoutUnseenAnswer(get().unseenAnswers, conversation.id),
           pendingMessagesFor: null,
           composerSubject: conversation.subjectResourceId
             ? {
@@ -270,14 +271,5 @@ export const createSessionNavigationSlice: StateCreator<
     if (turnId) set({ resumableTurn: { conversationId: conversation.id, turnId } }, false, 'restoreSessionState:resumable')
   },
 
-  isSessionBusy: (conversationId: string) => {
-    const state = get()
-    return state.currentConversation?.id === conversationId && state.isStreaming
-  },
-
-  hasAnyBusySession: () => {
-    const state = get()
-    if (state.pendingInteraction !== null) return true
-    return state.conversations.some((conv) => state.isSessionBusy(conv.id))
-  },
+  hasAnyBusySession: () => Object.values(get().turns).some((view) => view.phase === 'running'),
 })

@@ -18,6 +18,7 @@ import { GATEWAY_NAME } from "./gateway";
 import { OBSERVABILITY_VIEW_PERMISSION, OIDC_CLIENT_SECRET_KEY, platformOidcSecurityPolicySpec } from "./platform-oidc";
 import { EDGE_TIMEOUT, LANGFUSE, PORT } from "../constants";
 import { logicalName, objectName } from "../names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 const SECRETS_NAME = "langfuse-secrets"; // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
@@ -305,7 +306,7 @@ export function installLangfuse(
                   ...langfuseDefaultMembershipEnv(lf),
                   { name: "AUTH_TRUST_HOST", value: "true" },
                 ],
-                resources: LANGFUSE.webResources,
+                resources: scaledCpuRequest(LANGFUSE.webResources),
                 startupProbe: {
                   httpGet: { path: "/api/public/health", port: PORT.langfuseWeb },
                   periodSeconds: WEB_STARTUP_PERIOD_SECONDS,
@@ -378,7 +379,7 @@ export function installLangfuse(
                   { name: "LANGFUSE_AUTO_POSTGRES_MIGRATION_DISABLED", value: "true" },
                   { name: "LANGFUSE_AUTO_CLICKHOUSE_MIGRATION_DISABLED", value: "true" },
                 ],
-                resources: LANGFUSE.workerResources,
+                resources: scaledCpuRequest(LANGFUSE.workerResources),
                 startupProbe: {
                   httpGet: { path: "/api/health", port: PORT.langfuseWorker },
                   periodSeconds: 10,

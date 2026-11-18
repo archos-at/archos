@@ -1807,7 +1807,9 @@ LLM budgets and the usage ledger (ADR-0015).
   `apps/workspace/bff/db/schema/budgets.ts`.
 - `llm_usage_rollups` (migration 0015, ADR-0019): write-through daily spend
   aggregate — one row per (org, UTC day, user, project; empty string = none),
-  `cost_usd`, `events`. Incremented in the same transaction as every ledger
+  `cost_usd`, `events`, and since 0247 `ingest_credits`, `ingest_tokens`,
+  `ingest_events` (the share of the totals from `activity = 'ingest'`, which
+  the limits leave out). Incremented in the same transaction as every ledger
   insert; budget enforcement reads these rows instead of aggregating the
   ledger per WebSocket upgrade. Backfilled from the ledger by the migration.
   Rows of an unbilled activity (`dictation`) are never added to it, and

@@ -5,6 +5,7 @@ import { onNodeGroup } from "../platform/scheduling";
 import { scrapeAnnotations } from "../platform/scrape";
 import { commonLabels } from "../platform/namespaces";
 import { PORT, POSTGRES_TUNING } from "../constants";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface CnpgManagedRole {
   name: string;
@@ -94,7 +95,7 @@ export function cnpgClusterSpec(spec: CnpgClusterSpec) {
         idle_in_transaction_session_timeout: POSTGRES_TUNING.idleInTransactionSessionTimeout,
       },
     },
-    resources: spec.resources,
+    resources: scaledCpuRequest(spec.resources),
     ...barmanBackupSpec(spec.backups, spec.backupSecretName),
   };
 }

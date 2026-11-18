@@ -22,6 +22,7 @@ import {
   POSTGRES_TUNING,
 } from "../constants";
 import { logicalName, objectName } from "../names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export type PgRoute = "pooler" | "direct";
 
@@ -79,7 +80,7 @@ export function installPostgres(
       version: CNPG_CHART_VERSION,
       namespace: opNs.metadata.name,
       repositoryOpts: { repo: "https://cloudnative-pg.github.io/charts" },
-      values: { resources: PLATFORM_RESOURCES.cnpgOperator, config: { data: CNPG_OPERATOR_CONFIG } },
+      values: { resources: scaledCpuRequest(PLATFORM_RESOURCES.cnpgOperator), config: { data: CNPG_OPERATOR_CONFIG } },
     },
     { provider, dependsOn: opNs },
   );
@@ -100,7 +101,7 @@ export function installPostgres(
                 name: "wait",
                 image: "curlimages/curl:latest",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 command: ["/bin/sh", "-c"],
                 args: [
                   "echo 'waiting for cnpg webhook…'; " +
@@ -271,7 +272,7 @@ export function installPostgres(
               {
                 name: "pgbouncer",
                 image: cfg.postgres.pooler.image,
-                resources: POSTGRES_POOLER.resources,
+                resources: scaledCpuRequest(POSTGRES_POOLER.resources),
               },
             ],
           },
@@ -418,7 +419,7 @@ export function installPostgres(
                 name: "psql",
                 image: "postgres:17-alpine",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 envFrom: [{ secretRef: { name: initDsnSecret.metadata.name } }],
                 command: ["/bin/sh", "-c"],
                 args: [

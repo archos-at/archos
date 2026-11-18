@@ -12,6 +12,7 @@ import { MCP_GATEWAY } from "./mcp-gateway-config";
 import { logicalName, objectName } from "../names";
 import { formerDomainListener, formerDomainRedirects, formerMcpGatewayHost } from "../app/former-domain";
 import { CMS } from "../config/cms";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const GATEWAY_NAME = objectName("gateway");
 export const GATEWAY_CLASS = objectName("gatewayClass");
@@ -126,7 +127,7 @@ export function installGatewayResources(
         envoyDeployment: {
           replicas: 2,
           strategy: SURGE_ONLY_STRATEGY,
-          container: { resources: PLATFORM_RESOURCES.envoyProxy },
+          container: { resources: scaledCpuRequest(PLATFORM_RESOURCES.envoyProxy) },
           pod: {
             affinity: {
               podAntiAffinity: {

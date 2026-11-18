@@ -47,12 +47,15 @@ vi.mock('@/lib/base-knowledge/text-guard', async () => ({
   licenceMarkFields: (await vi.importActual<typeof import('@/lib/base-knowledge/office/text-use')>('@/lib/base-knowledge/office/text-use')).licenceMarkFields,
 }))
 
+vi.mock('@/lib/budgets/ingest-allowance', () => ({ ingestAllowanceSpent: vi.fn(async () => false) }))
+
 vi.mock('./rendition', async (importOriginal) => {
   const { renditionModuleMock } = await import('@/test-utils/rendition-module')
   return renditionModuleMock(await importOriginal(), false)
 })
 
 import { runBimExtraction } from '@/lib/bim/service'
+import { ingestAllowanceSpent } from '@/lib/budgets/ingest-allowance'
 import { getOrgSettings } from '@/lib/organizations/service'
 import { isTextHeld } from '@/lib/base-knowledge/text-guard'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
@@ -71,7 +74,7 @@ import { makeDocument } from '@/test-utils/db-fixtures'
 import { internalRead } from '@/lib/documents/document-reader'
 import { dispatchDocument, type DispatchDocumentInput } from './document-dispatch'
 import { runBimExtractJob, runOfficeRenditionJob } from './extraction-jobs'
-import { INGEST_DISPATCH_FAILED_MESSAGE } from './ingest-dispatch'
+import { INGEST_ALLOWANCE_SPENT_MESSAGE, INGEST_DISPATCH_FAILED_MESSAGE } from './ingest-dispatch'
 
 const input = (filename: string): DispatchDocumentInput => ({
   organizationId: 'org-1',
@@ -252,6 +255,15 @@ describe('dispatchDocument', () => {
     expect(runBimExtraction).not.toHaveBeenCalled()
     expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null, expect.objectContaining({ ingestJobId: null }))
     expect(result).toEqual({ jobId: 'job-1', status: 'pending' })
+  })
+
+  it('starts no ingestion once the month\'s ingest allowance is spent, and says so on the row', async () => {
+    vi.mocked(ingestAllowanceSpent).mockResolvedValueOnce(true)
+
+    await expect(dispatchDocument(input('report.pdf'))).resolves.toEqual({ jobId: null, status: 'failed' })
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_ALLOWANCE_SPENT_MESSAGE, expect.anything())
   })
 
   it('sends an IFC model to extraction and NEVER to the ingestor', async () => {

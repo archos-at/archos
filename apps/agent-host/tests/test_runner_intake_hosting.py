@@ -8,7 +8,8 @@ from unittest.mock import patch
 import pytest
 
 from agent.common import AgentGroup
-from agent_host.jobs import runner
+from agent_host.jobs import agent_construction
+from agent_host.jobs import report_passes
 from agent_host.registry import AGENT_REGISTRY
 from agent_host.registry import get_agent_config
 
@@ -29,13 +30,13 @@ def passes(monkeypatch) -> dict[str, AsyncMock]:
         "_run_deep_research_reflection": AsyncMock(return_value=None),
     }
     for name, mock in mocks.items():
-        monkeypatch.setattr(runner, name, mock)
+        monkeypatch.setattr(report_passes, name, mock)
     return mocks
 
 
 def _run_passes(agent_cls: type):
-    return runner._run_report_passes(
-        produces_report=runner._produces_report(agent_cls),
+    return report_passes._run_report_passes(
+        produces_report=report_passes._produces_report(agent_cls),
         llm=object(),
         input_text="q",
         report="r",
@@ -47,8 +48,8 @@ def _run_passes(agent_cls: type):
 
 class TestReportlessAgentGetsNoReportPasses:
     def test_the_declaration_defaults_to_a_report(self) -> None:
-        assert runner._produces_report(_Reporting) is True
-        assert runner._produces_report(_Reportless) is False
+        assert report_passes._produces_report(_Reporting) is True
+        assert report_passes._produces_report(_Reportless) is False
 
     @pytest.mark.asyncio
     async def test_a_reportless_agent_makes_no_model_call(self, passes) -> None:
@@ -75,8 +76,8 @@ class TestReportlessAgentGetsNoReportPasses:
 
     @pytest.mark.parametrize("agent_type", ["deep_researcher", "researcher"])
     def test_the_agents_registered_before_the_intake_keep_their_report(self, agent_type) -> None:
-        agent_cls = runner._load_agent_class(AGENT_REGISTRY[agent_type].class_path)
-        assert runner._produces_report(agent_cls) is True
+        agent_cls = agent_construction._load_agent_class(AGENT_REGISTRY[agent_type].class_path)
+        assert report_passes._produces_report(agent_cls) is True
 
 
 async def _default_group(fn_config) -> AgentGroup:
@@ -96,7 +97,7 @@ async def _default_group(fn_config) -> AgentGroup:
         patch("agent.common.get_langchain_llm", fake_llm),
         patch("agent.common.LLMProvider", _Provider),
     ):
-        await runner._create_llm_provider(object(), fn_config)
+        await agent_construction._create_llm_provider(object(), fn_config)
     return captured["group"]
 
 
@@ -119,10 +120,10 @@ class TestModelGroup:
 
 class TestRunnerWiring:
     def test_the_budget_cap_guards_deep_research_and_the_intake_only(self) -> None:
-        assert runner._BUDGET_GUARDED_AGENT_TYPES == {"deep_research_agent", "project_intake_agent"}
+        assert agent_construction._BUDGET_GUARDED_AGENT_TYPES == {"deep_research_agent", "project_intake_agent"}
 
     def test_the_intake_has_its_own_profile_label(self) -> None:
-        assert runner._JOB_PROFILE_NAMES == {"project_intake_agent": "project_intake_job"}
+        assert agent_construction._JOB_PROFILE_NAMES == {"project_intake_agent": "project_intake_job"}
 
 
 class TestRegistryEntry:

@@ -7,6 +7,7 @@ import { hardenedContainerSecurityContext } from "../platform/security";
 import { type RolloutProfile, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { SCALER_COOLDOWN_SECONDS, SCALER_POLLING_SECONDS } from "./keda-scaling";
+import { cpuUtilizationTarget, scaledCpuRequest } from "../config/cpu-requests";
 
 export const BROWSER_RENDERER = {
   name: "browser-renderer",
@@ -92,7 +93,7 @@ export function installBrowserRenderer(
                   { name: "BROWSER_RENDERER_SESSIONS", value: String(cfg.browserRenderer.sessionsPerPod) },
                   { name: "BROWSER_RENDERER_WORK_DIR", value: `${BROWSER_RENDERER.workDir}/browser-renderer` },
                 ],
-                resources: BROWSER_RENDERER.resources,
+                resources: scaledCpuRequest(BROWSER_RENDERER.resources),
                 readinessProbe: { httpGet: { path: "/health", port }, periodSeconds: 10 },
                 livenessProbe: {
                   httpGet: { path: "/health", port },
@@ -146,7 +147,7 @@ export function installBrowserRendererScaling(
         cooldownPeriod: SCALER_COOLDOWN_SECONDS,
         advanced: { horizontalPodAutoscalerConfig: { behavior: BROWSER_RENDERER_SCALE_BEHAVIOR } },
         triggers: [
-          { type: "cpu", metricType: "Utilization", metadata: { value: String(cpuTargetPercent) } },
+          { type: "cpu", metricType: "Utilization", metadata: { value: String(cpuUtilizationTarget(cpuTargetPercent)) } },
           { type: "memory", metricType: "Utilization", metadata: { value: String(memoryTargetPercent) } },
         ],
       },

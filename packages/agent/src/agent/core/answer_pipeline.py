@@ -39,10 +39,10 @@ from agent.common.answer_dialect import DialectResult
 from agent.common.answer_dialect import validate_dialect
 from agent.common.answer_envelope import TAKEAWAYS_MIN_PROSE_CHARS
 from agent.common.answer_envelope import AnswerMeta
-from agent.common.answer_envelope import drop_unfiled_proposals
-from agent.common.answer_envelope import extract_answer_envelope
-from agent.common.answer_envelope import gate_answer_meta
-from agent.common.answer_envelope import resolve_callout_marker
+from agent.common.envelope_gates import drop_unfiled_proposals
+from agent.common.envelope_gates import gate_answer_meta
+from agent.common.envelope_parsing import extract_answer_envelope
+from agent.common.envelope_parsing import resolve_callout_marker
 from agent.common.quote_stamps import stamp_quote_lines
 from agent.common.retrieval_status import emit_answer_repair
 from agent.common.retrieval_status import emit_citation_check
@@ -487,7 +487,7 @@ class LiveAnswer:
         self._tool_cards: list[dict[str, Any]] | None = None
 
     def masthead(self, fields: dict[str, Any], prose: str = "") -> dict[str, Any] | None:
-        from agent.common.answer_envelope import MASTHEAD_FIELDS
+        from agent.common.envelope_schema import MASTHEAD_FIELDS
 
         try:
             meta = AnswerMeta.model_validate({key: value for key, value in fields.items() if key in MASTHEAD_FIELDS})

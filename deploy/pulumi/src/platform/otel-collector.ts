@@ -35,6 +35,7 @@ import {
   composeCollectorConfig,
   renderCollectorConfig,
 } from "./collector-config";
+import { cpuRequest } from "../config/cpu-requests";
 
 const COMPONENT = "otel-collector";
 export const METRICS_EXPORT_PORT = 8889;
@@ -166,7 +167,7 @@ export function installOtelCollector(
                   { name: "config", mountPath: "/etc/otelcol", readOnly: true },
                 ],
                 resources: {
-                  requests: { cpu: "100m", memory: "128Mi" },
+                  requests: { cpu: cpuRequest("100m"), memory: "128Mi" },
                   limits: { cpu: "500m", memory: "512Mi" },
                 },
                 readinessProbe: {

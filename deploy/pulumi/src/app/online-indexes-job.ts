@@ -7,6 +7,7 @@ import { hardenedJobSecurityContext } from "../platform/security";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS } from "../constants";
 import { AppSecrets, AppWiring } from "./config";
 import { migrationEnv } from "./job-env";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface OnlineIndex {
   migration: string;
@@ -108,7 +109,7 @@ export function buildOnlineIndexes(
                 name: "psql",
                 image: "postgres:17-alpine",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 env: [...migrationEnv(), { name: "PGOPTIONS", value: ONLINE_INDEX_SESSION }],
                 command: ["/bin/sh", "-c", onlineIndexScript()],
               },

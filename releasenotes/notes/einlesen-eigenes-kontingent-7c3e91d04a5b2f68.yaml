@@ -1,0 +1,7 @@
+---
+features:
+  - >
+    Reading uploaded documents in no longer uses up your daily and monthly
+    limit: it has its own allowance per month, three times your monthly limit,
+    and Verbrauch & Budgets shows it separately. A large upload at the start of
+    a project now leaves the day's allowance for your questions.

@@ -12,6 +12,8 @@ from typing import Any
 from typing import Literal
 
 from agent.common.brand import PRODUCT_NAME
+from agent.knowledge.table_diff import TablesDiff
+from agent.knowledge.table_diff import render_tables
 
 TITLE_BLOCK_LABELS: tuple[tuple[str, str], ...] = (
     ("document_number", "Nummer"),
@@ -328,40 +330,55 @@ def _value_text(change: ValueChange) -> str:
     return f"{subject}{change.older} → {change.newer}"
 
 
-def _page_name(change: PageChange) -> str:
+def _page_name(change: PageChange, related: bool) -> str:
     if change.kind == "added":
-        return f"Page {change.newer_page} (new)"
+        return f"Page {change.newer_page} ({'new' if related else 'only in the second file'})"
     if change.kind == "removed":
-        return f"Page {change.older_page} (removed)"
+        return f"Page {change.older_page} ({'removed' if related else 'only in the first file'})"
     if change.older_page and change.older_page != change.newer_page:
-        return f"Page {change.newer_page} (previously {change.older_page})"
+        earlier = "previously" if related else "in the first file page"
+        return f"Page {change.newer_page} ({earlier} {change.older_page})"
     return f"Page {change.newer_page}"
 
 
-def _page_lines(change: PageChange) -> list[str]:
+def _page_lines(change: PageChange, related: bool) -> list[str]:
     if change.kind != "changed":
-        return [f"- {_page_name(change)}."]
+        return [f"- {_page_name(change, related)}."]
+    gone, come = ("removed", "new") if related else ("only in the first file", "only in the second file")
     parts: list[str] = []
     if change.values:
         parts.append("Values: " + "; ".join(_value_text(v) for v in change.values[:MAX_VALUES_PER_PAGE]))
     if change.removed_lines:
         quoted = " | ".join(f"„{_clip(line)}“" for line in change.removed_lines[:MAX_LINES_PER_PAGE])
         more = len(change.removed_lines) - MAX_LINES_PER_PAGE
-        parts.append(f"removed: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
+        parts.append(f"{gone}: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
     if change.added_lines:
         quoted = " | ".join(f"„{_clip(line)}“" for line in change.added_lines[:MAX_LINES_PER_PAGE])
         more = len(change.added_lines) - MAX_LINES_PER_PAGE
-        parts.append(f"new: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
+        parts.append(f"{come}: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
     drawing: list[str] = []
     if change.drawing_values:
         drawing.append("; ".join(_value_text(v) for v in change.drawing_values[:MAX_VALUES_PER_PAGE]))
     if change.annotations_added:
-        drawing.append("Dimensions/labels new: " + ", ".join(f"„{a}“" for a in change.annotations_added[:8]))
+        drawing.append(f"Dimensions/labels {come}: " + ", ".join(f"„{a}“" for a in change.annotations_added[:8]))
     if change.annotations_removed:
-        drawing.append("removed: " + ", ".join(f"„{a}“" for a in change.annotations_removed[:8]))
+        drawing.append(f"{gone}: " + ", ".join(f"„{a}“" for a in change.annotations_removed[:8]))
     if drawing:
         parts.append(f"according to {PRODUCT_NAME}'s reading of the drawing: " + "; ".join(drawing))
-    return [f"- {_page_name(change)}: " + ". ".join(parts) + "."]
+    return [f"- {_page_name(change, related)}: " + ". ".join(parts) + "."]
+
+
+def _page_counts(diff: RevisionDiff, related: bool) -> str:
+    changed = [c for c in diff.pages if c.kind == "changed"]
+    added = [c for c in diff.pages if c.kind == "added"]
+    removed = [c for c in diff.pages if c.kind == "removed"]
+    counts = [f"{diff.unchanged_pages} unchanged" if related else f"{diff.unchanged_pages} the same"]
+    counts.append(f"{len(changed)} changed" if related else f"{len(changed)} differing")
+    if added:
+        counts.append(f"{len(added)} new" if related else f"{len(added)} only in the second file")
+    if removed:
+        counts.append(f"{len(removed)} removed" if related else f"{len(removed)} only in the first file")
+    return f"Pages: {diff.older_page_count} → {diff.newer_page_count}; {', '.join(counts)}."
 
 
 def render_diff(
@@ -370,26 +387,31 @@ def render_diff(
     newer_name: str,
     *,
     change_summary: str | None = None,
+    tables: TablesDiff | None = None,
+    related: bool = True,
 ) -> str:
-    lines = [f"Comparison „{older_name}“ (older) → „{newer_name}“ (newer), from the read content of both files."]
+    table_lines = render_tables(tables, older_name, newer_name) if tables is not None else []
+    if related:
+        lines = [f"Comparison „{older_name}“ (older) → „{newer_name}“ (newer), from the read content of both files."]
+    else:
+        lines = [
+            f"Comparison of two different documents, first „{older_name}“ → second „{newer_name}“, from the read "
+            "content of both files. They are not Fassungen of one document, so neither is the older or the newer "
+            "state; every „→“ reads first file → second file."
+        ]
     if diff.title_block:
         moved = "; ".join(f"{c.label} {c.older or '—'} → {c.newer or '—'}" for c in diff.title_block)
         lines.append(f"Plankopf (title block): {moved}.")
-    changed = [c for c in diff.pages if c.kind == "changed"]
-    added = [c for c in diff.pages if c.kind == "added"]
-    removed = [c for c in diff.pages if c.kind == "removed"]
-    counts = [f"{diff.unchanged_pages} unchanged", f"{len(changed)} changed"]
-    if added:
-        counts.append(f"{len(added)} new")
-    if removed:
-        counts.append(f"{len(removed)} removed")
-    lines.append(f"Pages: {diff.older_page_count} → {diff.newer_page_count}; {', '.join(counts)}.")
+    if diff.older_page_count or diff.newer_page_count or not table_lines:
+        lines.append(_page_counts(diff, related))
     for change in diff.pages[:MAX_PAGES_SHOWN]:
-        lines.extend(_page_lines(change))
+        lines.extend(_page_lines(change, related))
     if len(diff.pages) > MAX_PAGES_SHOWN:
         lines.append(f"… and {len(diff.pages) - MAX_PAGES_SHOWN} more changed pages.")
-    if not diff.pages and not diff.title_block:
-        if diff.has_text or diff.has_drawing:
+    lines.extend(table_lines)
+    differs_in_tables = tables is not None and tables.differs
+    if not diff.pages and not diff.title_block and not differs_in_tables:
+        if diff.has_text or diff.has_drawing or table_lines:
             lines.append("In the read content the two files do not differ.")
         else:
             lines.append(
@@ -399,9 +421,15 @@ def render_diff(
     if change_summary:
         lines.append(f"{PRODUCT_NAME}'s summary of the change (from the descriptions): {_clip(change_summary)}")
     lines.append(
-        f"What was compared is the printed text and {PRODUCT_NAME}'s reading of the drawings, "
+        f"What was compared is the printed text, the tables and {PRODUCT_NAME}'s reading of the drawings, "
         "not the drawings themselves. "
-        "Check a dimension by reading the document before stating it; marks on the page are shown by "
-        "„Vergleichen“ in Dateien."
+        + (
+            "Check a dimension by reading the document before stating it; marks on the page are shown by "
+            "„Vergleichen“ in Dateien."
+            if related
+            else "This comparison rests on these two files only: name both as its basis, state no difference that "
+            "is not listed here, and read the place named beside a difference before stating it, so that it "
+            "carries its source."
+        )
     )
     return "\n".join(lines)

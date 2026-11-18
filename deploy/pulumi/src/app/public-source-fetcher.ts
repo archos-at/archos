@@ -8,6 +8,7 @@ import { installPdb, onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { UID } from "../constants";
 import { API_TIERS, CHAT_TIERS } from "./tier-names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -88,7 +89,7 @@ export function installPublicSourceFetcher(
                   { name: "PUBLIC_SOURCES_DIR", value: "/app/configs/sources" },
                 ],
                 ports: [{ containerPort: port, name: "http" }],
-                resources: PUBLIC_SOURCE_FETCHER.resources,
+                resources: scaledCpuRequest(PUBLIC_SOURCE_FETCHER.resources),
                 readinessProbe: { httpGet: { path: "/healthz", port }, periodSeconds: 10 },
                 livenessProbe: { httpGet: { path: "/healthz", port }, initialDelaySeconds: 10, periodSeconds: 20 },
               },
