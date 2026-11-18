@@ -519,7 +519,7 @@ function Talk({ place, settingsOpen, menu, menuForm }: { place: string; settings
   return (
     <>
       <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} menuForm={menuForm} />
-      {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
+      {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} infoOpen={menu === 'info'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
   )
 }
