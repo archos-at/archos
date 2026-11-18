@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from dataclasses import replace
 from typing import Any
 from typing import Literal
-from uuid import uuid4
 
 from agent import project_context
 from agent.common.bff_http import SignedEnvelope
@@ -23,6 +22,7 @@ from ..execute.trace import filed_scores
 from .cards import draft_title
 from .cards import emit_draft_card
 from .draft_store import DRAFT_ROOT
+from .draft_store import FILED_AS_REVISION
 from .draft_store import FILED_DOCUMENT_KEY
 from .draft_store import FILED_HASH_KEY
 from .draft_store import FILED_STATE_KEY
@@ -50,7 +50,6 @@ FILE_AS_REVISION = "new_revision"
 
 FILE_AS_SEPARATE = "separate_file"
 
-FILE_AS_OVER_CHANGES = "over_changes"
 
 MAX_FOLDER_CHARS = 300
 
@@ -103,9 +102,8 @@ def _changed_in_project(details: dict[str, Any]) -> str:
     which = f" (it is now Fassung {number})" if isinstance(number, int) else ""
     return (
         f"Error: A person changed the document in the project since this draft was filed{which}. Nothing was "
-        "filed. Tell the user in one sentence and ask which they want: the draft as a new version on top of "
-        'theirs (call again with `file_as="over_changes"`), or the draft as its own file '
-        '(`file_as="separate_file"`). Do not choose for them.'
+        "filed. Tell the user so in one sentence: they decide on the draft's card whether it goes over their "
+        'change. Only if they ask for a separate file, call again with `file_as="separate_file"`.'
     )
 
 
@@ -150,6 +148,9 @@ def _file_bytes(usage: DraftUsage) -> str:
 
 def _card_size(usage: DraftUsage) -> int | None:
     return len(base64.b64decode(usage.content or "")) if usage.is_binary else None
+
+
+class _Gone(Exception): ...
 
 
 class _Refused(Exception):
@@ -221,6 +222,8 @@ async def _post(
     try:
         return await asyncio.to_thread(post_document_version, payload, envelope)
     except FilingError as exc:
+        if exc.status == 404 and payload.get("op") in {"update", "update_file", "revise_file"}:
+            raise _Gone from exc
         named = _refusal_for(exc)
         if named is not None:
             raise _Refused(named) from exc
@@ -236,7 +239,6 @@ class _Choice:
     title: str = ""
     folder: str = ""
     file_as: str = ""
-    over_changes: bool = False
     change_note: str = ""
     separate_ref: str = ""
 
@@ -269,30 +271,34 @@ async def _create(path: str, usage: DraftUsage, choice: _Choice, envelope: Signe
         return filing
     if filing[FILED_STATE_KEY] == IN_REVIEW_STATE:
         raise _Refused(_ALREADY_SUBMITTED)
-    return await _update(path, usage, filing, envelope, over_changes=choice.over_changes)
+    return await _update(path, usage, filing, envelope)
 
 
-async def _revise_source(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> dict[str, str]:
-    source = usage.derived_from.get("document_id")
+async def _revise(
+    path: str, usage: DraftUsage, envelope: SignedEnvelope, *, change_note: str, own: dict[str, str]
+) -> dict[str, str]:
+    source = own.get(FILED_DOCUMENT_KEY) or usage.derived_from.get("document_id")
     kind = file_content_type(path)
     if not source or kind is None:
         raise _Refused(_NO_SOURCE.format(path=path))
+    match = own.get(FILED_HASH_KEY) or usage.derived_from.get("content_hash")
     payload = {
         "op": "revise_file",
         "documentId": source,
         "contentType": kind,
         "contentBase64": _file_bytes(usage),
-        **({"changeNote": choice.change_note} if choice.change_note else {}),
+        **({"versionId": own[FILED_VERSION_KEY]} if own.get(FILED_VERSION_KEY) else {}),
+        **({"ifMatch": match} if match else {}),
+        **({"changeNote": change_note} if change_note else {}),
     }
     return filing_record(await _post(payload, envelope))
 
 
-def _update_payload(path: str, usage: DraftUsage, filing: dict[str, str], *, over_changes: bool) -> dict[str, Any]:
+def _update_payload(path: str, usage: DraftUsage, filing: dict[str, str]) -> dict[str, Any]:
     common = {
         "documentId": filing[FILED_DOCUMENT_KEY],
         "versionId": filing[FILED_VERSION_KEY],
         "ifMatch": filing[FILED_HASH_KEY],
-        **({"overChanges": True} if over_changes else {}),
     }
     kind = file_content_type(path)
     if kind is None:
@@ -300,11 +306,8 @@ def _update_payload(path: str, usage: DraftUsage, filing: dict[str, str], *, ove
     return {"op": "update_file", **common, "contentType": kind, "contentBase64": _file_bytes(usage)}
 
 
-async def _update(
-    path: str, usage: DraftUsage, filing: dict[str, str], envelope: SignedEnvelope, *, over_changes: bool = False
-) -> dict[str, str]:
-    payload = _update_payload(path, usage, filing, over_changes=over_changes)
-    body = await _post(payload, envelope, conflict=_NOT_REPLACEABLE_NOW)
+async def _update(path: str, usage: DraftUsage, filing: dict[str, str], envelope: SignedEnvelope) -> dict[str, str]:
+    body = await _post(_update_payload(path, usage, filing), envelope, conflict=_NOT_REPLACEABLE_NOW)
     return filing_record(body)
 
 
@@ -327,7 +330,7 @@ _FILE_DRAFT_DESCRIPTION = (
     "the project's editors. "
     "`folder`: a folder the user named. A file made from a project document files as its own file, unless "
     'the user asks for its new version: `file_as="new_revision"` and `change_note`. '
-    '`file_as="over_changes"`/`"separate_file"` only answer a refusal, as the user chose.'
+    '`file_as="separate_file"` only when the user asks for one after a refusal.'
 )
 
 _REVIEWER_WITHOUT_SUBMIT = (
@@ -339,24 +342,38 @@ _REVIEWER_WITHOUT_SUBMIT = (
 class FileDraftConfig(FunctionBaseConfig, name="file_draft"): ...
 
 
-async def _refile(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> dict[str, str]:
-    return await _update(path, usage, usage.filing, envelope, over_changes=choice.over_changes)
+@dataclass(frozen=True)
+class _Put:
+    filing: dict[str, str]
+    first: bool
+    kind: str | None
 
 
-async def _put(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> tuple[dict[str, str], bool]:
+async def _refile(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> _Put:
+    try:
+        if usage.filed_kind == FILED_AS_REVISION:
+            filing = await _revise(path, usage, envelope, change_note=choice.change_note, own=usage.filing)
+            return _Put(filing, first=False, kind=FILED_AS_REVISION)
+        return _Put(await _update(path, usage, usage.filing, envelope), first=False, kind=None)
+    except _Gone:
+        return _Put(await _create(path, usage, choice, envelope), first=True, kind="")
+
+
+async def _put(path: str, usage: DraftUsage, choice: _Choice, envelope: SignedEnvelope) -> _Put:
     if choice.file_as == FILE_AS_REVISION:
-        return await _revise_source(path, usage, choice, envelope), False
+        filing = await _revise(path, usage, envelope, change_note=choice.change_note, own={})
+        return _Put(filing, first=False, kind=FILED_AS_REVISION)
     filed = bool(usage.filing.get(FILED_DOCUMENT_KEY))
     if filed and choice.file_as != FILE_AS_SEPARATE:
-        return await _refile(path, usage, choice, envelope), False
+        return await _refile(path, usage, choice, envelope)
     if filed:
-        choice = replace(choice, separate_ref=_separate_reference(path))
-    return await _create(path, usage, choice, envelope), True
+        choice = replace(choice, separate_ref=_separate_reference(path, usage.filing[FILED_DOCUMENT_KEY]))
+    return _Put(await _create(path, usage, choice, envelope), first=True, kind="")
 
 
-def _separate_reference(path: str) -> str:
+def _separate_reference(path: str, filed_document: str) -> str:
     ref = filing_reference(_conversation_id(), path)
-    suffix = f"-{uuid4().hex[:8]}"
+    suffix = f"-{hashlib.sha256(filed_document.encode()).hexdigest()[:8]}"
     return f"{ref[: MAX_REF_CHARS - len(suffix)]}{suffix}"
 
 
@@ -418,12 +435,17 @@ async def _submit_unchanged(
     )
 
 
-def _filed_message(chosen: str, usage: DraftUsage, choice: _Choice, first: bool) -> str:
-    if choice.file_as == FILE_AS_REVISION:
+def _filed_message(chosen: str, usage: DraftUsage, choice: _Choice, put: _Put) -> str:
+    unmoved = (
+        f" It stays in its folder; `folder` „{choice.folder}“ was not applied, because a filed document is not moved."
+        if choice.folder and not put.first
+        else ""
+    )
+    if put.kind == FILED_AS_REVISION:
         source = usage.derived_from.get("name") or "the project document"
-        return f"Filed in the project as the new version of „{source}“, as a draft. {_STILL_A_DRAFT}"
-    verb = "Filed in the project" if first else "Filed in the project as the current version of the draft"
-    return f"{verb}: „{chosen}“. {_STILL_A_DRAFT}"
+        return f"Filed in the project as the new version of „{source}“, as a draft.{unmoved} {_STILL_A_DRAFT}"
+    verb = "Filed in the project" if put.first else "Filed in the project as the current version of the draft"
+    return f"{verb}: „{chosen}“.{unmoved} {_STILL_A_DRAFT}"
 
 
 async def _file(path: str, choice: _Choice, *, submit: bool, reviewer: str) -> str:
@@ -438,10 +460,11 @@ async def _file(path: str, choice: _Choice, *, submit: bool, reviewer: str) -> s
         return await _submit_unchanged(backend, path, usage, named, envelope)
 
     chosen = choice.title or draft_title(path, usage.content or "")
-    filing, first = await _put(path, usage, replace(choice, title=chosen), envelope)
-    if first and usage.made_by == MADE_BY_RUN:
+    put = await _put(path, usage, replace(choice, title=chosen), envelope)
+    filing = put.filing
+    if put.first and usage.made_by == MADE_BY_RUN:
         emit_scores(filed_scores(path), writer="file-draft")
-    await backend.arecord_filing(path, filing, draft_version=usage.version)
+    await backend.arecord_filing(path, filing, draft_version=usage.version, kind=put.kind)
 
     def _card(record: dict[str, str]) -> None:
         emit_draft_card(
@@ -452,11 +475,10 @@ async def _file(path: str, choice: _Choice, *, submit: bool, reviewer: str) -> s
             title=chosen,
             size=_card_size(usage),
             filed_at_version=usage.version or 1,
-            previous_version=usage.previous_version,
             derived_from=usage.derived_from,
         )
 
-    filed = _filed_message(chosen, usage, choice, first)
+    filed = _filed_message(chosen, usage, choice, put)
     if not submit:
         _card(filing)
         return f"{filed} The same call with `submit=true` can submit it for approval, if the user asks for that."
@@ -479,14 +501,13 @@ async def run_file_draft(
     submit: bool = False,
     reviewer: str | None = None,
     folder: str | None = None,
-    file_as: Literal["new_revision", "separate_file", "over_changes"] | None = None,
+    file_as: Literal["new_revision", "separate_file"] | None = None,
     change_note: str | None = None,
 ) -> str:
     choice = _Choice(
         title=_clean(title, MAX_TITLE_CHARS),
         folder=_clean(folder, MAX_FOLDER_CHARS),
-        file_as="" if file_as == FILE_AS_OVER_CHANGES else file_as or "",
-        over_changes=file_as == FILE_AS_OVER_CHANGES,
+        file_as=file_as or "",
         change_note=_clean(change_note, MAX_CHANGE_NOTE_CHARS),
     )
     try:

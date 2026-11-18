@@ -466,51 +466,32 @@ class TestTheGermanRootStillReads:
         assert params == {"new": "/drafts/", "cut": len("/entwuerfe/") + 1, "like": "/entwuerfe/%"}
 
 
-class TestTheEarlierVersion:
+class TestOwnKeysSurviveAnEdit:
     @pytest.mark.asyncio
-    async def test_an_overwrite_keeps_the_version_before_it(self, backend: DraftBackend) -> None:
-        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
-        assert await backend.awrite_run_file(path, b"PK-1") is None
-        assert await backend.awrite_run_file(path, b"PK-2") is None
-        assert await backend.awrite_run_file(path, b"PK-3") is None
-
-        assert await backend.aread_version(path, 3) == b"PK-3"
-        assert await backend.aread_version(path, 2) == b"PK-2"
-        assert await backend.aread_version(path, 1) is None
-        usage = await backend.ausage(path)
-        assert (usage.version, usage.previous_version) == (3, 2)
-        assert usage.file_bytes == len(b"PK-3") + len(b"PK-2")
-
-    @pytest.mark.asyncio
-    async def test_restoring_makes_the_earlier_bytes_the_next_version(self, backend: DraftBackend) -> None:
-        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
-        await backend.awrite_run_file(path, b"PK-1")
-        await backend.awrite_run_file(path, b"PK-2")
-
-        assert await backend.arestore_previous(path) == 3
-        assert await backend.aread_version(path, 3) == b"PK-1"
-        assert await backend.aread_version(path, 2) == b"PK-2"
-
-    @pytest.mark.asyncio
-    async def test_a_first_version_has_nothing_to_restore(self, backend: DraftBackend) -> None:
-        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
-        await backend.awrite_run_file(path, b"PK-1")
-        assert await backend.arestore_previous(path) is None
-
-    @pytest.mark.asyncio
-    async def test_the_earlier_version_is_dropped_rather_than_the_new_one_refused(
-        self, backend: DraftBackend, monkeypatch: pytest.MonkeyPatch
+    async def test_an_edit_of_a_run_made_csv_keeps_its_keys_and_stays_out_of_the_markdown_budget(
+        self, backend: DraftBackend
     ) -> None:
-        monkeypatch.setattr(draft_store, "MAX_RUN_FILE_BYTES", 10)
-        path = f"{DRAFT_ROOT}a.bin"
-        assert await backend.awrite_run_file(path, b"123456") is None
-        assert await backend.awrite_run_file(path, b"abcdefg") is None
-        assert (await backend.ausage(path)).previous_version == 0
+        path = f"{DRAFT_ROOT}tabelle.csv"
+        table = ("Raum;Fläche\n" + "EG;32,4\n" * 7000).encode()
+        origin = {"document_id": "doc-1", "name": "tabelle.csv", "content_hash": "sha256:x"}
+        assert await backend.awrite_run_file(path, table, derived_from=origin) is None
+        await backend.arecord_filing(path, {draft_store.FILED_DOCUMENT_KEY: "doc-9"}, draft_version=1)
+
+        assert (await backend.aedit(path, "Raum;Fläche", "Raum;Nutzfläche")).error is None
+
+        value = stored(backend, path)
+        assert value[draft_store.MADE_BY_KEY] == draft_store.MADE_BY_RUN
+        assert value[draft_store.DERIVED_FROM_KEY] == origin
+        assert value[draft_store.FILED_AT_DRAFT_VERSION_KEY] == 1
+        assert value[draft_store.FILED_DOCUMENT_KEY] == "doc-9"
+        assert (await backend.ausage(path)).total_bytes == 0
 
     @pytest.mark.asyncio
-    async def test_removing_a_draft_deletes_it(self, backend: DraftBackend) -> None:
+    async def test_removing_a_draft_deletes_it_only_at_the_version_the_caller_saw(self, backend: DraftBackend) -> None:
         path = f"{DRAFT_ROOT}a.xlsx"
         await backend.awrite_run_file(path, b"PK")
-        assert await backend.aremove(path) is True
+        await backend.awrite_run_file(path, b"PK2")
+        assert await backend.aremove(path, version=1) is False
+        assert await backend.aremove(path, version=2) is True
         assert (await backend.ausage(path)).content is None
         assert await backend.aremove(path) is False

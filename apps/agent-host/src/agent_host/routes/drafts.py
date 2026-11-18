@@ -17,10 +17,10 @@ from agent.tools.documents.draft_store import BASE64
 from agent.tools.documents.draft_store import FILED_AT_DRAFT_VERSION_KEY
 from agent.tools.documents.draft_store import FILED_DOCUMENT_KEY
 from agent.tools.documents.draft_store import FILED_HASH_KEY
+from agent.tools.documents.draft_store import FILED_KIND_KEY
 from agent.tools.documents.draft_store import FILED_STATE_KEY
 from agent.tools.documents.draft_store import FILED_VERSION_KEY
 from agent.tools.documents.draft_store import MAX_DRAFT_BYTES
-from agent.tools.documents.draft_store import PREVIOUS_VERSION_KEY
 from agent.tools.documents.draft_store import VERSION_KEY
 from agent.tools.documents.draft_store import DraftBackend
 from agent.tools.documents.draft_store import delete_conversation_drafts
@@ -31,7 +31,6 @@ from agent.tools.documents.draft_store import filing_from_value
 from agent.tools.documents.draft_store import filing_record
 from agent.tools.documents.draft_store import modernize_draft_path
 from agent.tools.documents.draft_store import path_refusal
-from agent.tools.documents.draft_store import previous_bytes
 from agent.tools.documents.draft_store import stored_bytes
 from agent.tools.documents.draft_store import stored_size
 from agent.tools.execute.tool_data import delete_conversation_tool_data
@@ -49,6 +48,7 @@ class FilingBody(BaseModel):
     content_hash: str = Field(alias="contentHash", min_length=1, max_length=128)
     state: str = Field(min_length=1, max_length=40)
     draft_version: int | None = Field(default=None, alias="draftVersion", ge=1)
+    kind: str = Field(default="", max_length=20, pattern="^(revision)?$")
 
 
 _MAX_CONVERSATION_ID_LENGTH = 200
@@ -127,32 +127,20 @@ async def _read_draft(conversation_id: str, draft_path: str) -> dict:
             "versionId": filing.get(FILED_VERSION_KEY, ""),
             "contentHash": filing.get(FILED_HASH_KEY, ""),
             "state": filing.get(FILED_STATE_KEY, ""),
+            "kind": str(item.value.get(FILED_KIND_KEY) or ""),
         }
-    if item.value.get(PREVIOUS_VERSION_KEY):
-        answer["previous_version"] = int(item.value[PREVIOUS_VERSION_KEY])
     derived = derived_from_value(item.value)
     if derived:
         answer["derived_from"] = derived
     return answer
 
 
-async def _raw_draft(conversation_id: str, draft_path: str, version: int | None = None) -> Response:
+async def _raw_draft(conversation_id: str, draft_path: str) -> Response:
     store = await draft_store.get_draft_store()
     item = await store.aget(draft_namespace(conversation_id), draft_path)
     if item is None:
         raise HTTPException(status_code=404, detail="Draft not found")
-    current = int(item.value.get(VERSION_KEY) or 0)
-    if version is None or version == current:
-        data = stored_bytes(item.value)
-    elif version == int(item.value.get(PREVIOUS_VERSION_KEY) or 0):
-        data = previous_bytes(item.value)
-    else:
-        raise HTTPException(status_code=410, detail="This version of the draft is no longer kept")
-    return Response(
-        content=data,
-        media_type="application/octet-stream",
-        headers={"x-draft-version": str(version or current), "x-draft-current-version": str(current)},
-    )
+    return Response(content=stored_bytes(item.value), media_type="application/octet-stream")
 
 
 async def _backend(conversation_id: str) -> DraftBackend:
@@ -177,15 +165,8 @@ async def _record_filing(conversation_id: str, draft_path: str, body: FilingBody
     record = filing_record(body.model_dump(by_alias=True))
     version = body.draft_version
     filed_at = version if version is not None and version <= usage.version else usage.version
-    await backend.arecord_filing(draft_path, record, draft_version=filed_at)
+    await backend.arecord_filing(draft_path, record, draft_version=filed_at, kind=body.kind)
     return {"path": draft_path, "filed_at_version": filed_at, "version": usage.version}
-
-
-async def _restore(conversation_id: str, draft_path: str) -> dict:
-    version = await (await _backend(conversation_id)).arestore_previous(draft_path)
-    if version is None:
-        raise HTTPException(status_code=404, detail="No earlier version of this draft is kept")
-    return {"path": draft_path, "version": version}
 
 
 async def _remove(conversation_id: str, draft_path: str) -> Response:
@@ -194,10 +175,10 @@ async def _remove(conversation_id: str, draft_path: str) -> Response:
     return Response(status_code=204)
 
 
-async def _read_one(conversation_id: str, draft_path: str, *, raw: bool, version: int | None = None) -> dict | Response:
+async def _read_one(conversation_id: str, draft_path: str, *, raw: bool) -> dict | Response:
     try:
         if raw:
-            return await _raw_draft(conversation_id, draft_path, version)
+            return await _raw_draft(conversation_id, draft_path)
         return await _read_draft(conversation_id, draft_path)
     except HTTPException:
         raise
@@ -218,8 +199,8 @@ def add_draft_routes(router: APIRouter) -> None:
     async def delete_drafts(conversation_id: str, request: Request) -> Response:
         _require_internal_token(request)
         try:
-            await delete_conversation_drafts(conversation_id)
             await delete_conversation_tool_data(conversation_id)
+            await delete_conversation_drafts(conversation_id)
         except Exception:
             logger.exception("Failed to drop the working directory of conversation %s", conversation_id)
             raise HTTPException(status_code=500, detail="Failed to delete drafts")
@@ -274,21 +255,6 @@ def _add_one_draft_routes(router: APIRouter) -> None:
             conversation_id, "record a filing", lambda: _record_filing(conversation_id, draft_path, body)
         )
 
-    @router.post(
-        "/v1/drafts/{conversation_id}/restore",
-        tags=["drafts"],
-        summary="Make a draft's earlier version its next version (internal)",
-    )
-    async def restore_draft(
-        conversation_id: str,
-        request: Request,
-        path: str = Query(description="Draft path, e.g. /drafts/raumbuch.xlsx"),
-    ) -> dict:
-        _require_internal_token(request)
-        _checked_conversation_id(conversation_id)
-        draft_path = _checked_draft_path(path)
-        return await _guarded(conversation_id, "restore a draft", lambda: _restore(conversation_id, draft_path))
-
     @router.delete(
         "/v1/drafts/{conversation_id}/{file_path:path}",
         status_code=204,
@@ -315,10 +281,7 @@ def _add_read_route(router: APIRouter) -> None:
         file_path: str,
         request: Request,
         raw: bool = Query(default=False, description="Answer the file's bytes instead of its JSON preview"),
-        version: int | None = Query(
-            default=None, ge=1, description="With raw: the version to answer, the current one or the one kept before it"
-        ),
     ) -> dict | Response:
         _require_internal_token(request)
         _checked_conversation_id(conversation_id)
-        return await _read_one(conversation_id, _checked_draft_path(file_path), raw=raw, version=version)
+        return await _read_one(conversation_id, _checked_draft_path(file_path), raw=raw)

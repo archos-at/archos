@@ -1347,20 +1347,6 @@
           "title": "Path",
           "type": "string"
         },
-        "previous_version": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The earlier version of this path that is still kept and can be restored",
-          "title": "Previous Version"
-        },
         "removed": {
           "anyOf": [
             {

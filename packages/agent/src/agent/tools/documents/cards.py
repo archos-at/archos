@@ -51,7 +51,6 @@ def emit_draft_card(
     title: str | None = None,
     size: int | None = None,
     filed_at_version: int = 0,
-    previous_version: int = 0,
     derived_from: dict[str, str] | None = None,
     removed: bool = False,
 ) -> bool:
@@ -70,7 +69,6 @@ def emit_draft_card(
         **filed,
         **_optional(
             filed_draft_version=filed_at_version if filed else 0,
-            previous_version=previous_version,
             derived_from_document_id=derived.get("document_id"),
             derived_from_name=derived.get("name"),
             removed=removed,

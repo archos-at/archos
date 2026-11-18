@@ -16,7 +16,7 @@ from .conftest import _version
 
 XLSX = f"{DRAFT_ROOT}Raumbuch.xlsx"
 BYTES = b"PK\x03\x04 a workbook"
-SOURCE = {"document_id": "doc-raumbuch", "name": "Raumbuch.xlsx"}
+SOURCE = {"document_id": "doc-raumbuch", "name": "Raumbuch.xlsx", "content_hash": "sha256:source"}
 
 
 async def _run_file(store: Any, data: bytes = BYTES, derived_from: dict[str, str] | None = None) -> None:
@@ -81,7 +81,9 @@ class TestTheFolder:
 
 
 class TestANewVersionOfTheSource:
-    async def test_it_is_made_only_when_asked_with_its_change_note(self, _one_store, monkeypatch, calls) -> None:
+    async def test_it_is_made_only_when_asked_with_its_change_note_and_the_hash_the_run_read(
+        self, _one_store, monkeypatch, calls
+    ) -> None:
         await _run_file(_one_store, derived_from=SOURCE)
         _answer(monkeypatch, calls, {"documentId": "doc-raumbuch", "version": _version("ver-4", "draft", "h4")})
 
@@ -92,8 +94,27 @@ class TestANewVersionOfTheSource:
         payload = calls[0][0]
         assert payload["op"] == "revise_file"
         assert payload["documentId"] == "doc-raumbuch"
+        assert payload["ifMatch"] == "sha256:source"
+        assert "versionId" not in payload
         assert payload["changeNote"] == "Fläche Raum 2.04 korrigiert"
         assert "new version of „Raumbuch.xlsx“" in message
+
+    async def test_filing_again_after_a_new_version_stays_on_the_revision_path(
+        self, _one_store, monkeypatch, calls
+    ) -> None:
+        await _run_file(_one_store, derived_from=SOURCE)
+        _answer(monkeypatch, calls, {"documentId": "doc-raumbuch", "version": _version("ver-4", "draft", "h4")})
+        await filing_tools.run_file_draft(XLSX, file_as="new_revision")
+        await _run_file(_one_store, data=BYTES + b"v2", derived_from=SOURCE)
+        calls.clear()
+        _answer(monkeypatch, calls, {"documentId": "doc-raumbuch", "version": _version("ver-4", "draft", "h5")})
+
+        message = await filing_tools.run_file_draft(XLSX)
+
+        payload = calls[0][0]
+        assert payload["op"] == "revise_file"
+        assert (payload["documentId"], payload["versionId"], payload["ifMatch"]) == ("doc-raumbuch", "ver-4", "h4")
+        assert not message.startswith("Error:")
 
     async def test_a_file_from_no_document_is_refused_as_a_new_version(self, _one_store, monkeypatch, calls) -> None:
         await _run_file(_one_store)
@@ -106,7 +127,7 @@ class TestANewVersionOfTheSource:
 
 
 class TestAfterAPersonChangedIt:
-    async def test_the_refusal_asks_the_user_and_names_both_ways(self, _one_store, monkeypatch, calls) -> None:
+    async def test_the_refusal_leaves_the_decision_to_the_person(self, _one_store, monkeypatch, calls) -> None:
         await _run_file(_one_store)
         _answer(monkeypatch, calls, _created())
         await filing_tools.run_file_draft(XLSX)
@@ -117,10 +138,17 @@ class TestAfterAPersonChangedIt:
         message = await filing_tools.run_file_draft(XLSX)
 
         assert "Fassung 2" in message
-        assert 'file_as="over_changes"' in message
-        assert 'file_as="separate_file"' in message
+        assert "card" in message
+        assert "over_changes" not in message
+        assert "overChanges" not in calls[0][0]
 
-    async def test_over_changes_and_separate_file_carry_out_the_users_choice(
+    async def test_the_agent_cannot_choose_to_write_over_a_persons_change(self) -> None:
+        import inspect
+
+        file_as = inspect.signature(filing_tools.run_file_draft).parameters["file_as"].annotation
+        assert "over_changes" not in str(file_as)
+
+    async def test_a_separate_file_has_one_reference_however_often_it_is_retried(
         self, _one_store, monkeypatch, calls
     ) -> None:
         await _run_file(_one_store)
@@ -128,16 +156,46 @@ class TestAfterAPersonChangedIt:
         await filing_tools.run_file_draft(XLSX)
         await _run_file(_one_store, data=BYTES + b"v2")
         calls.clear()
-        _answer(monkeypatch, calls, _created("ver-2", "draft", "h2"), _created("ver-9", "draft", "h9"))
+        refused = filing.FilingError("refused", status=502)
+        _answer(monkeypatch, calls, refused, _created("ver-9", "draft", "h9"))
 
-        await filing_tools.run_file_draft(XLSX, file_as="over_changes")
-        await _run_file(_one_store, data=BYTES + b"v3")
+        await filing_tools.run_file_draft(XLSX, file_as="separate_file")
         await filing_tools.run_file_draft(XLSX, file_as="separate_file")
 
-        assert calls[0][0]["op"] == "update_file"
-        assert calls[0][0]["overChanges"] is True
-        assert calls[1][0]["op"] == "create_file"
-        assert calls[1][0]["ref"] != filing_tools.filing_reference(CONVERSATION, XLSX)
+        assert calls[0][0]["ref"] == calls[1][0]["ref"]
+        assert calls[0][0]["ref"] != filing_tools.filing_reference(CONVERSATION, XLSX)
+
+
+class TestAFiledDocumentThatIsGone:
+    async def test_filing_again_files_afresh_when_a_person_deleted_the_document(
+        self, _one_store, monkeypatch, calls
+    ) -> None:
+        await _run_file(_one_store)
+        _answer(monkeypatch, calls, _created())
+        await filing_tools.run_file_draft(XLSX)
+        await _run_file(_one_store, data=BYTES + b"v2")
+        calls.clear()
+        _answer(monkeypatch, calls, filing.FilingError("gone", status=404), _created("ver-7", "draft", "h7"))
+
+        message = await filing_tools.run_file_draft(XLSX)
+
+        assert [payload["op"] for payload, _ in calls] == ["update_file", "create_file"]
+        assert message.startswith("Filed in the project:")
+
+    async def test_a_folder_named_for_a_filed_draft_is_said_to_be_left_alone(
+        self, _one_store, monkeypatch, calls
+    ) -> None:
+        await _run_file(_one_store)
+        _answer(monkeypatch, calls, _created())
+        await filing_tools.run_file_draft(XLSX)
+        await _run_file(_one_store, data=BYTES + b"v2")
+        calls.clear()
+        _answer(monkeypatch, calls, _created("ver-2", "draft", "h2"))
+
+        message = await filing_tools.run_file_draft(XLSX, folder="Einreichung")
+
+        assert "folder" not in calls[0][0]
+        assert "„Einreichung“ was not applied" in message
 
 
 class TestTheCardAndSubmitFollowTheCurrentVersion:

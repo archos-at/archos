@@ -92,7 +92,7 @@ class TestThePlan:
     def test_a_written_path_is_a_write_and_an_input_is_not(self) -> None:
         code = 'await readFile("/workspace/in/Raumliste.xlsx"); await writeFile("/workspace/Raumbuch.xlsx", b)'
         plan = progress.plan_run(code, {"/workspace/in/Raumliste.xlsx"})
-        assert plan == progress.RunPlan(writes=("/workspace/Raumbuch.xlsx",))
+        assert plan == progress.RunPlan(writes=("/workspace/Raumbuch.xlsx",), written=("/workspace/Raumbuch.xlsx",))
 
     def test_reading_back_an_existing_file_is_a_check(self) -> None:
         code = 'const wb = await readFile("/workspace/Raumbuch.xlsx"); return wb.length'
@@ -102,6 +102,11 @@ class TestThePlan:
     def test_writing_an_existing_file_is_an_edit(self) -> None:
         plan = progress.plan_run(WRITE_XLSX, {"/workspace/Raumbuch.xlsx"})
         assert plan.editing == ("/workspace/Raumbuch.xlsx",)
+
+    def test_a_path_held_in_a_variable_and_read_is_a_read_never_a_write(self) -> None:
+        code = 'const src = "/workspace/raumbuch.xlsx"; const wb = await readFile(src); return wb.length'
+        plan = progress.plan_run(code, {"/workspace/raumbuch.xlsx"})
+        assert (plan.writes, plan.written, plan.reads) == ((), (), ("/workspace/raumbuch.xlsx",))
 
     def test_a_path_held_in_a_variable_still_counts(self) -> None:
         code = 'const out = "/workspace/Bericht.docx"; await writeFile(out, b)'
@@ -203,6 +208,28 @@ class TestTheStepTheChatShows:
 
 
 class TestTheStepTellsTheTruth:
+    async def test_a_file_only_read_through_a_variable_is_no_failure(
+        self, store, monkeypatch, registry, emitted
+    ) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        await backend.awrite_run_file(f"{DRAFT_ROOT}raumbuch.xlsx", b"PK1")
+        _runner(monkeypatch, [_answer(value=3)])
+
+        await run.execute(RUNNER, 'const src = "/workspace/raumbuch.xlsx"; return (await readFile(src)).length')
+
+        assert _runs(emitted)[-1].detail["failed"] == []
+
+    async def test_a_file_rewritten_with_the_same_bytes_is_no_failure(
+        self, store, monkeypatch, registry, emitted
+    ) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        await backend.awrite_run_file(f"{DRAFT_ROOT}Raumbuch.xlsx", b"PK1")
+        _runner(monkeypatch, [_answer()])
+
+        await run.execute(RUNNER, WRITE_XLSX)
+
+        assert _runs(emitted)[-1].detail["failed"] == []
+
     async def test_a_file_refused_for_its_size_is_a_failure_with_the_reason(
         self, store, monkeypatch, registry, emitted
     ) -> None:

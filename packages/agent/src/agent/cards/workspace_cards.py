@@ -129,9 +129,6 @@ class DocumentDraftCard(CardModel):
             "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing"
         ),
     )
-    previous_version: int | None = Field(
-        default=None, ge=1, description="The earlier version of this path that is still kept and can be restored"
-    )
     derived_from_document_id: str | None = Field(
         default=None, description="The project document the run read this file from, when it is a changed copy of one"
     )

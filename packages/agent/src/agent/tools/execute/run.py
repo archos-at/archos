@@ -29,15 +29,16 @@ from .runner_client import RunResult
 from .runner_client import run_code
 from .tool_data import DataRefused
 from .tool_data import hand_over
+from .tool_data import is_erased
 from .trace import KeptFile
 from .trace import RunFacts
 from .trace import record_run
 from .workspace_files import MAX_FILE_BYTES
+from .workspace_files import content_hash
 from .workspace_files import derived_origin
 from .workspace_files import not_loaded_message
+from .workspace_files import over_budget_message
 from .workspace_files import oversize_file_message
-from .workspace_files import referenced
-from .workspace_files import too_large_message
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,12 @@ def _headers() -> dict[str, str]:
     return bff_http.SignedEnvelope(header=header, signature=signature).headers()
 
 
+def _too_large(file_name: str, size: int | None, budget: int) -> _Refusal:
+    if size is not None and size > MAX_FILE_BYTES:
+        return _Refusal(oversize_file_message(file_name, size), "too_large")
+    return _Refusal(over_budget_message(file_name, size or budget + 1, budget, MAX_INPUT_BYTES), "too_large")
+
+
 async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
     try:
         resolved = await resolve_document(name)
@@ -119,19 +126,13 @@ async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes, str 
     headers = _headers()
     try:
         bucket, key = await asyncio.to_thread(locate_stored_file, resolved.collection, resolved.file_name, headers)
-        data = await asyncio.to_thread(read_stored_file, bucket, key, min(budget, MAX_FILE_BYTES + 1))
+        data = await asyncio.to_thread(read_stored_file, bucket, key, min(budget, MAX_FILE_BYTES))
     except StoredFileUnavailable as exc:
         if exc.reason == "too_large":
-            raise _Refusal(
-                f"'{resolved.file_name}' is too large: one file in a run may be at most "
-                f"{MAX_FILE_BYTES // (1024 * 1024)} MB and a run takes at most 50 MB of files.",
-                "too_large",
-            ) from exc
+            raise _too_large(resolved.file_name, exc.size, budget) from exc
         raise _Refusal(
             f"'{resolved.file_name}' could not be read for the script ({exc.reason}).", "unreadable"
         ) from exc
-    if len(data) > MAX_FILE_BYTES:
-        raise _Refusal(oversize_file_message(resolved.file_name, len(data)), "too_large")
     note_collections_read([resolved.collection])
     document_id = resolved.target.document_id if resolved.target else None
     return resolved.collection, resolved.file_name, data, document_id
@@ -161,19 +162,18 @@ class _Sent:
     inputs: list[tuple[str, str]] = field(default_factory=list)
     documents: list[tuple[str, str | None]] = field(default_factory=list)
     existing: dict[str, int] = field(default_factory=dict)
-    left_out: list[str] = field(default_factory=list)
     not_loaded: list[str] = field(default_factory=list)
+    origins: dict[str, dict[str, str]] = field(default_factory=dict)
+    versions: dict[str, int] = field(default_factory=dict)
     data: list[tuple[str, str]] = field(default_factory=list)
 
 
-async def _inputs(backend: DraftBackend, documents: list[str], code: str) -> _Sent:
-    drafts = [(_to_runner(path), data) for path, data in await backend.afiles()]
-    files, left_out = referenced(code, drafts)
-    sent = _Sent(files, existing={path: len(data) for path, data in drafts}, left_out=left_out)
+async def _inputs(backend: DraftBackend, documents: list[str]) -> _Sent:
+    drafts = {_to_runner(path): data for path, data in await backend.afiles()}
+    sent = _Sent(dict(drafts), existing={path: len(data) for path, data in drafts.items()})
+    sent.versions = await backend.aversions([_to_drafts(path) for path in drafts])
     used = sum(len(data) for data in sent.files.values())
-    drafts_sent = dict(sent.files)
     read: set[tuple[str, str]] = set()
-    sizes: list[tuple[str, int]] = []
     sent.not_loaded = list(dict.fromkeys(documents[MAX_DOCUMENTS:]))
     for name in documents[:MAX_DOCUMENTS]:
         collection, file_name, data, document_id = await _document_bytes(name, MAX_INPUT_BYTES - used)
@@ -184,10 +184,13 @@ async def _inputs(backend: DraftBackend, documents: list[str], code: str) -> _Se
         sent.files[path] = data
         sent.inputs.append((file_name, path))
         sent.documents.append((file_name, document_id))
-        sizes.append((file_name, len(data)))
+        if document_id:
+            sent.origins[path] = {
+                "document_id": document_id,
+                "name": input_name(file_name),
+                "content_hash": content_hash(data),
+            }
         used += len(data)
-    if used > MAX_INPUT_BYTES:
-        raise _Refusal(too_large_message(MAX_INPUT_BYTES, drafts_sent, sizes), "too_large")
     return sent
 
 
@@ -206,7 +209,7 @@ async def _keep(backend: DraftBackend, sent: _Sent, result: RunResult) -> tuple[
         if path.startswith(INPUT_DIR):
             continue
         draft_path = _to_drafts(path)
-        origin = derived_origin(path, sent.inputs, sent.documents)
+        origin = derived_origin(path, sent.origins)
         refusal = await backend.awrite_run_file(draft_path, data, derived_from=origin)
         if refusal is None:
             kept.append(KeptFile(draft_path, len(data), new=path not in sent.existing))
@@ -216,8 +219,13 @@ async def _keep(backend: DraftBackend, sent: _Sent, result: RunResult) -> tuple[
 
 
 async def _remove(backend: DraftBackend, sent: _Sent, result: RunResult) -> list[str]:
-    gone = [path for path in result.deleted if path in sent.files and not path.startswith(INPUT_DIR)]
-    return [_to_drafts(path) for path in gone if await backend.aremove(_to_drafts(path))]
+    gone = [path for path in result.deleted if path in sent.existing and not path.startswith(INPUT_DIR)]
+    removed: list[str] = []
+    for path in gone:
+        draft = _to_drafts(path)
+        if await backend.aremove(draft, version=sent.versions.get(draft, 0)):
+            removed.append(draft)
+    return removed
 
 
 def _dropped_input(path: str, was_input: bool) -> str:
@@ -243,12 +251,6 @@ def _report(result: RunResult, sent: _Sent, kept: list[KeptFile], refused: dict[
         lines.append("documents read: " + ", ".join(f"'{name}' at {path}" for name, path in sent.inputs))
     if sent.not_loaded:
         lines.append(not_loaded_message(sent.not_loaded, MAX_DOCUMENTS))
-    if sent.left_out:
-        lines.append(
-            "working files not sent, because the code does not name them: "
-            + ", ".join(_to_drafts(path) for path in sent.left_out[:8])
-            + (" …" if len(sent.left_out) > 8 else "")
-        )
     if sent.data:
         lines.append("data read: " + ", ".join(f"{reference} at {path}" for reference, path in sent.data))
     if result.value is not None:
@@ -311,7 +313,7 @@ async def _execute(
     async with _lock(conversation_id):
         backend = await get_draft_backend(conversation_id)
         try:
-            sent = await _with_data(await _inputs(backend, documents, code), conversation_id, data)
+            sent = await _with_data(await _inputs(backend, documents), conversation_id, data)
         except _Refusal as refusal:
             facts.stop("refused", refusal.code)
             return f"Nothing was run. {refusal}"
@@ -326,8 +328,15 @@ async def _execute(
             progress.finish("unavailable", kept=[], elapsed_ms=0)
             return f"Nothing was run: {exc}. Try once more; if it fails again, answer without running code."
         facts.ran(result.status, result.duration_ms, result.stderr)
+        if await is_erased(conversation_id):
+            facts.stop("refused", "erased")
+            return NO_CONVERSATION
         kept, refused = await _keep(backend, sent, result)
         removed = await _remove(backend, sent, result) if result.status == "ok" else []
+        if await is_erased(conversation_id):
+            await backend.aerase()
+            facts.stop("refused", "erased")
+            return NO_CONVERSATION
         facts.kept, facts.files_refused = kept, len(refused)
         progress.finish(
             result.status, kept=kept, elapsed_ms=result.duration_ms, value=result.value, refused=tuple(refused)

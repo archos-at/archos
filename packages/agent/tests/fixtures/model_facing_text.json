@@ -2604,20 +2604,6 @@
           "title": "Path",
           "type": "string"
         },
-        "previous_version": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The earlier version of this path that is still kept and can be restored",
-          "title": "Previous Version"
-        },
         "removed": {
           "anyOf": [
             {
@@ -8680,15 +8666,6 @@
               "type": "integer"
             },
             {
-              "constraints": [
-                ">= 1"
-              ],
-              "description": "The earlier version of this path that is still kept and can be restored",
-              "name": "previous_version",
-              "required": false,
-              "type": "integer"
-            },
-            {
               "constraints": [],
               "description": "The project document the run read this file from, when it is a changed copy of one",
               "name": "derived_from_document_id",
@@ -13667,7 +13644,7 @@
     }
   },
   "tool:chat:file_draft": {
-    "description": "Files a draft from the working directory into the project AS A DRAFT. `path`: `/drafts/<name>.md`; `title` optional. Call it when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write. Again for the same path puts the current draft into the same document. A DRAFT: nobody has approved it. `submit=true` submits it FOR APPROVAL (filed and unchanged, it is only submitted). Call with `submit=true` only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. `reviewer` (only with submit): the person exactly as the user named them; without it the draft goes to the project's editors. `folder`: a folder the user named. A file made from a project document files as its own file, unless the user asks for its new version: `file_as=\"new_revision\"` and `change_note`. `file_as=\"over_changes\"`/`\"separate_file\"` only answer a refusal, as the user chose.",
+    "description": "Files a draft from the working directory into the project AS A DRAFT. `path`: `/drafts/<name>.md`; `title` optional. Call it when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write. Again for the same path puts the current draft into the same document. A DRAFT: nobody has approved it. `submit=true` submits it FOR APPROVAL (filed and unchanged, it is only submitted). Call with `submit=true` only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. `reviewer` (only with submit): the person exactly as the user named them; without it the draft goes to the project's editors. `folder`: a folder the user named. A file made from a project document files as its own file, unless the user asks for its new version: `file_as=\"new_revision\"` and `change_note`. `file_as=\"separate_file\"` only when the user asks for one after a refusal.",
     "schema": {
       "properties": {
         "change_note": {
@@ -13686,8 +13663,7 @@
             {
               "enum": [
                 "new_revision",
-                "separate_file",
-                "over_changes"
+                "separate_file"
               ],
               "type": "string"
             },
