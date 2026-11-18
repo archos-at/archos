@@ -572,7 +572,7 @@ the one merge candidate on the horizon, and it can wait.
 * **`conclusion=` on every retrieval call** (`turn_status.py`). A slot, not a
   sequence: it says *write down what you now know*, never *do this next*. The
   docstring explains why an argument beats prose. Extend it to every new tool.
-* **The envelope's deterministic gates** (`common/answer_envelope.py`): a verdict
+* **The envelope's deterministic gates** (`common/envelope_gates.py`): a verdict
   must be a copyable value, is exclusive to `kind=ruling`, and a `summary` over
   320 chars is dropped. These grade the *output*; they do not tell the model how
   to work.

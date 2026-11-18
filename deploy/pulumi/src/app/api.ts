@@ -18,6 +18,7 @@ import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { AppSecrets, AppWiring, apiEnv } from "./config";
 import { PORT, UID } from "../constants";
 import { API_TIER } from "./tier-names";
+import { cpuUtilizationTarget } from "../config/cpu-requests";
 
 export interface Api {
   deployment: k8s.apps.v1.Deployment;
@@ -136,7 +137,7 @@ export function installApi(
             type: "Resource",
             resource: {
               name: "cpu",
-              target: { type: "Utilization", averageUtilization: cfg.api.hpaCpuTargetPercent },
+              target: { type: "Utilization", averageUtilization: cpuUtilizationTarget(cfg.api.hpaCpuTargetPercent) },
             },
           },
         ],

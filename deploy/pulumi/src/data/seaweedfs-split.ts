@@ -13,6 +13,7 @@ import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduli
 import { DATA_RESOURCES, PORT, SEAWEED } from "../constants";
 import { scrapeAnnotations } from "../platform/scrape";
 import type { SeaweedTopology } from "./seaweedfs-types";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 const METRICS_PORT = { containerPort: PORT.seaweedMetrics, name: "metrics" };
 
@@ -193,7 +194,7 @@ export function installSplitSeaweedFS(
                   initialDelaySeconds: 30,
                   periodSeconds: 15,
                 },
-                resources: DATA_RESOURCES.seaweedfsMaster,
+                resources: scaledCpuRequest(DATA_RESOURCES.seaweedfsMaster),
               },
             ],
           },
@@ -282,7 +283,7 @@ export function installSplitSeaweedFS(
                   initialDelaySeconds: 30,
                   periodSeconds: 15,
                 },
-                resources: DATA_RESOURCES.seaweedfsVolume,
+                resources: scaledCpuRequest(DATA_RESOURCES.seaweedfsVolume),
               },
             ],
           },
@@ -383,7 +384,7 @@ export function installSplitSeaweedFS(
                   periodSeconds: 30,
                   failureThreshold: 4,
                 },
-                resources: DATA_RESOURCES.seaweedfsFiler,
+                resources: scaledCpuRequest(DATA_RESOURCES.seaweedfsFiler),
               },
             ],
             volumes: [

@@ -1009,7 +1009,7 @@ without re-plumbing generation or transport.
    `ui/features/cards` never reaches it: run the whole workspace suite. #1658 missed
    this and left develop red.
 10. For an **envelope** field (native answer anatomy, never a tool call): add
-   a model, a registry entry and a gate in `common/answer_envelope.py` (the
+   a model in `common/answer_envelope.py`, a registry entry and a gate in `common/envelope_gates.py` (the
    taught schema renders itself from the models), an earned-when line in the
    prompt's `<answer_envelope>` section, a sanitizer clause in
    `lib/conversations/message-answer-meta.ts`, and a layout slot in

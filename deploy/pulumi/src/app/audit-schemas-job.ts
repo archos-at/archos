@@ -9,6 +9,7 @@ import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
 import { AppSecrets, AppWiring } from "./config";
 import { auditSchemaEnv } from "./job-env";
 import { logicalName } from "../names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export function reconcileAuditSchemas(
   w: AppWiring,
@@ -39,7 +40,7 @@ export function reconcileAuditSchemas(
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["node", "scripts/provision-workos-audit-schemas.mjs", "--apply"],
                 env: auditSchemaEnv(),
-                resources: LIGHT_WORKER_RESOURCES,
+                resources: scaledCpuRequest(LIGHT_WORKER_RESOURCES),
               },
             ],
           },

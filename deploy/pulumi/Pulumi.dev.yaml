@@ -29,6 +29,8 @@ config:
   grid-oib:qdrantCpu: "1"
   grid-oib:qdrantMemory: 4Gi
   grid-oib:qdrantStorageSize: 20Gi
+  # Every CPU request x0.25: idle staging requested its 4x4-vCPU app nodes full, so no surge pod fit (2026-11-18).
+  grid-oib:cpuRequestScale: "0.25"
   grid-oib:backendRequestsCpu: "500m"
   grid-oib:backendRequestsMemory: 1Gi
   grid-oib:backendLimitsCpu: "2"

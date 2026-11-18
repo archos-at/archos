@@ -81,14 +81,14 @@ class TestTheTaughtContract:
         assert "continue after the highest one" in contract
 
     def test_the_envelope_schema_teaches_the_field(self):
-        from agent.common.answer_envelope import render_envelope_schema
+        from agent.common.envelope_schema import render_envelope_schema
 
         schema = render_envelope_schema()
         assert "cards: [" in schema
         assert "CARDS (the `cards` field):" in schema
 
     def test_the_strict_schema_omits_the_field_it_cannot_express(self):
-        from agent.common.answer_envelope import render_envelope_response_format
+        from agent.common.envelope_schema import render_envelope_response_format
 
         properties = render_envelope_response_format()["json_schema"]["schema"]["properties"]
         assert "cards" not in properties

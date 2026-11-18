@@ -11,6 +11,7 @@ import { hardenedJobSecurityContext } from "../platform/security";
 import { onNodeGroup } from "../platform/scheduling";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, KEDA_SCALER_CONNECTION_LIMIT, KEDA_SCALER_ROLE, PORT } from "../constants";
 import { cnpgClusterSpec, installBackupSecret, installCnpgScheduledBackup } from "./cnpg";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface BackgroundWorkPostgres {
   cluster: k8s.apiextensions.CustomResource;
@@ -178,7 +179,7 @@ function installGrantsJob(
                 name: "psql",
                 image: "postgres:17-alpine",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 envFrom: [{ secretRef: { name: secret.metadata.name } }],
                 command: ["/bin/sh", "-c"],
                 args: [script],

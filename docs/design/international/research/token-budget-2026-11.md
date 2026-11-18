@@ -84,7 +84,7 @@ Windows: advice on prompts, tool descriptions and context must be dated **on or 
 | ↳ CARDS contract | **4,812** (45 % of the system prompt) | `cards/envelope.py:114` `render_envelope_cards_contract` |
 | ↳ ↳ shapes of `calculation` + `formula`, with worked examples | 2,506 | `cards/envelope.py:71` `ENVELOPE_SHAPE_TYPES` |
 | ↳ KINDS, FIELDS, CITATIONS, the three examples | 1,818 (examples alone 673) | `chat_static.md:80-117` |
-| ↳ envelope field list | 1,112 | `common/answer_envelope.py:1321` |
+| ↳ envelope field list | 1,112 | `common/envelope_schema.py` |
 | ↳ formatting 922 · rules 689 · building_law 422 · voice 416 · role 228 · good_answer 160 · done 106 | | `chat_static.md` |
 | **Tool schemas, chat agent, inside a project** | **20,267** as bound for chat (20,798 on raw contracts) | 28 runtime tools 18,555 as bound (19,086 raw) + 6 file verbs 1,712 |
 | ↳ `ifc_measure` | **5,974** (description 2,449) | `tools/bim/measure_description.py`, `measure_input.py` |
