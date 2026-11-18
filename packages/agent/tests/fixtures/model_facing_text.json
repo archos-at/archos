@@ -13519,7 +13519,7 @@
     }
   },
   "tool:chat:execute": {
-    "description": "Runs a JavaScript or TypeScript module you write in a sandbox with no network, and keeps the files it writes. Use it to make real files (Word, Excel, PowerPoint, PDF, charts) and to calculate exactly. Read the `office-files` skill first: it lists the libraries and how to write a file well. `code` is `export default async function (input) { … }`; its return value comes back as `value`. /drafts/ is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/. Files written under /workspace/ are kept in /drafts/. Errors come back on stderr: fix and run again, at most three times per file.",
+    "description": "Runs a JavaScript or TypeScript module you write in a sandbox with no network, and keeps the files it writes. Use it to make real files (Word, Excel, PowerPoint, PDF, charts) and to calculate exactly. Read the `office-files` skill first: it lists the libraries and how to write a file well. `code` is `export default async function (input) { … }`; its return value comes back as `value`. /drafts/ is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/ (the report names each path). Files written under /workspace/ are kept in /drafts/. Errors come back on stderr: fix and run again, at most three times per file.",
     "schema": {
       "properties": {
         "code": {
