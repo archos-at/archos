@@ -24,20 +24,13 @@ while old pods still write the old spelling. Deploy 1 is registered as the expan
 `deploy/rollout/switches/`, so CI and the promotion enforce the order
 ([`expand-and-switch.md`](expand-and-switch.md)).
 
-Every backfill run, on dev or prod, needs the owner's yes. Order for each name:
-writer switch live on every tier (BFF, UI, agent host, workers, purger) → dry
-run → backfill → dry run again (every count 0) → contract (a later release).
-Run SQL as the database owner, outside a transaction: the runtime role is
-confined by tenant RLS and would see one organization, and each batch commits.
-
-The step-1 scripts are in `apps/workspace/scripts/brand-free-backfill/`. Every
-script is idempotent, and `scripts/rls-test-db.sh` runs each against the full
-schema.
-
-```bash
-psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/dry-run.sql
-psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
-```
+The deploy runs the backfills ([`backfills.md`](backfills.md)): the step-1
+scripts are registered in `apps/workspace/backfills/` (`actor-kind`,
+`inbox-types`, `mention-ids`, `lanes`, phase `after-switch`), and the Qdrant
+copy as `qdrant-document-id` (phase `before-readers`). Each runs dry run →
+backfill → dry run again on every deploy and fails the deploy while a count
+stays above 0. The 2026-11-18 runs below were by hand, before the registry; on
+dev and prod every count was already 0, so the first deploy Job finds nothing.
 
 | Step | Environment | Dry run before | Backfill run | Dry run after |
 |---|---|---|---|---|
@@ -46,9 +39,9 @@ psql "$OWNER_URL" -f apps/workspace/scripts/brand-free-backfill/<name>.sql
 | 2a (Qdrant) | dev | office collections 192 with only the old key, 0 disagree; base corpus 0 | 2026-11-18 13:35 UTC: 192 written | 0 left, 0 disagree; a second dry run 0 |
 | 2a (Qdrant) | prod | office collections 108,864 with only the old key, 0 disagree; base corpus 0 | 2026-11-18 13:56–13:59 UTC, before #1765 reached prod: 108,864 written | 0 left, 0 disagree; a second dry run 0 |
 
-The step-1 counts follow `dry-run.sql`'s rows: actor kind is annotations /
-replies / proposals, mention id is annotations / replies / inbox payloads /
-messages, and lane is messages / citation events.
+The step-1 counts follow each backfill's `dry-run.sql` rows: actor kind is
+annotations / replies / proposals, mention id is annotations / replies / inbox
+payloads / messages, and lane is messages / citation events.
 
 ## 1. Session settings `grid.organization_id`, `grid.user_id` → `app.*`
 
@@ -69,7 +62,7 @@ messages, and lane is messages / citation events.
   `is_agent_kind` answer either value.
 - **Switch (step 1):** every writer writes `AGENT_KIND`. The agent's room peer is
   `agent-<conversation>`, and the wake audit's `by` is `'agent'`.
-- **Backfill:** `actor-kind.sql`, three batched `UPDATE`s. No serializer to an
+- **Backfill:** `actor-kind`, three batched `UPDATE`s. No serializer to an
   outside MCP or A2A client sends `authorKind` or `proposedByKind`.
 - **Contract:** a migration drops `'piloti'` from the three checks. Delete the legacy modules.
 - **Owner decision:** audit rows with `by = 'piloti'` are history and are not rewritten.
@@ -83,7 +76,7 @@ messages, and lane is messages / citation events.
   `agent.*` type. Audit events are sent under their `agent.*` action.
   The `piloti.*` actions join `RETIRED_AUDIT_ACTIONS`: their schemas stay
   registered so the history reads.
-- **Backfill:** `inbox-types.sql`. A switched pod writes an `agent.*` row for a
+- **Backfill:** `inbox-types`. A switched pod writes an `agent.*` row for a
   resource whose `piloti.*` row is still open, so the script first folds each old
   row into its twin (the counts add up, the earlier `created_at` stays), then
   renames the rest. Until it runs, a person can see an item twice, and an old
@@ -100,7 +93,7 @@ messages, and lane is messages / citation events.
 - **Switch (step 1):** the mention service, the review composer and the chat
   composer write `agent:core`. The project form sends `'agent'`, the schema
   defaults to it, and the `project.created` audit event records it.
-- **Backfill:** `mention-ids.sql` rewrites each `"targetId": "agent:piloti"` in
+- **Backfill:** `mention-ids` rewrites each `"targetId": "agent:piloti"` in
   `document_annotations.mentions`, `document_annotation_replies.mentions`,
   `inbox_items.payload` and `messages.metadata`. A mention inside free text is
   not rewritten; readers keep accepting it. No project row stores the setup.
@@ -139,16 +132,16 @@ column that says who wrote the document, so the prefix means nothing afterwards.
   with one value and its keyword index. Readers still filter on the old key. The
   lane is read under both values.
 - **Lane switch (step 1):** `norm_registry.lane_for_hit` writes `office_agent`.
-  `lanes.sql` rewrites `office_piloti` as a value in `messages.metadata`, and as
+  `lanes` rewrites `office_piloti` as a value in `messages.metadata`, and as
   a key of `citation_events.detail.lanes`, where its count adds to an existing
   `office_agent` count.
-- **Backfill (step 2a):** `scripts/qdrant_backfill_document_id.py`, run in a
-  pod that has `QDRANT_URL` and `QDRANT_API_KEY` (every agent-host pod), after
-  deploy 1 is live everywhere. The dry run (`all`) counts, per collection, the
+- **Backfill (step 2a):** `scripts/qdrant_backfill_document_id.py`, registered
+  as `qdrant-document-id` and run by the deploy's `before-readers` Job in the
+  backend image, after deploy 1 is live everywhere. The dry run (`all`) counts, per collection, the
   points with only the old key, and the points whose two keys disagree, which
   must be 0. `all --apply` gives each point with only the old key the new one,
   500 per page with no vectors, and exits 1 while any is left or any pair
-  disagrees. Points with neither key (the base corpus, law lookups, imports)
+  disagrees; `all --check` is the dry run that exits 1 the same way. Points with neither key (the base corpus, law lookups, imports)
   are not touched.
 - **Switch (step 2b):** readers filter on and read `document_id`
   (`vector_store/similar.py`, `search/document_groups.py`, the agent host's

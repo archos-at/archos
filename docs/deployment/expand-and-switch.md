@@ -3,7 +3,8 @@
 A stored name or shape that changes in place ships in releases, in this order:
 
 1. **Expand.** Readers accept the old and the new form, and writers keep the old one.
-2. **Switch.** Writers write the new form, and a backfill rewrites what is stored.
+2. **Switch.** Writers write the new form, and a backfill rewrites what is stored
+   ([`backfills.md`](backfills.md)).
 3. **Contract.** The old form goes.
 
 The switch must not reach prod in the same promotion as its expand. If it did,

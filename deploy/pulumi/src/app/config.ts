@@ -197,7 +197,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
   return env;
 }
 
-function backendQdrantEnv(w: AppWiring): EnvVar[] {
+export function backendQdrantEnv(w: AppWiring): EnvVar[] {
   return [
     { name: "QDRANT_URL", value: w.qdrantUrl },
     sref("QDRANT_API_KEY"),
