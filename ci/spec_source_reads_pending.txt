@@ -4,7 +4,6 @@ apps/website/src/lib/rich-text.test.ts
 apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/app/api/inbox/routes.spec.ts
 apps/workspace/app/api/platform/platform-permission-coverage.spec.ts
-apps/workspace/app/api/projects/[id]/experience/route.spec.ts
 apps/workspace/app/manifest.spec.ts
 apps/workspace/bff/agent-api/acting-session.spec.ts
 apps/workspace/bff/agent-asks/ask-wire.spec.ts
