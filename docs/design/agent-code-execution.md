@@ -274,7 +274,7 @@ deletion.
 ## Running it in the cluster
 
 The deployment is written: `deploy/pulumi/src/app/code-runner.ts` and its spec, off
-until the image is published (`codeRunnerEnabled`). It scales on CPU and memory only;
+until a stack sets `codeRunnerEnabled`; CI publishes the image `code-runner` with the others, and the staging deploy pins it as `grid-oib:codeRunnerImage`. It scales on CPU and memory only;
 the Hatchet backlog trigger below waits until background runs exist.
 
 - **A plain Deployment.** The runner holds no state, so pods are interchangeable: no

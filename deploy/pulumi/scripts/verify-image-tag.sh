@@ -3,7 +3,7 @@
 # and ghcr.io/<owner>/cms:<tag> too when CMS_ENABLED=true (the stack runs the
 # CMS, which pulls the same tag as the others).
 #
-# Usage: [CMS_ENABLED=true] verify-image-tag.sh <owner> <tag>
+# Usage: [CMS_ENABLED=true] [CODE_RUNNER_ENABLED=true] verify-image-tag.sh <owner> <tag>
 # Needs GITHUB_ACTOR and GH_TOKEN (a token with `packages: read`).
 #
 # The registry lookup itself is `find-published-tag.sh` beside this, which the
@@ -27,9 +27,12 @@ esac
 
 images=(backend frontend web)
 [ "${CMS_ENABLED:-}" = "true" ] && images+=(cms)
+[ "${CODE_RUNNER_ENABLED:-}" = "true" ] && images+=(code-runner)
 for service in "${images[@]}"; do
-  repository="grid-oib-${service}"
-  [ "$service" = cms ] && repository=cms
+  case "$service" in
+    cms|code-runner) repository="$service" ;;
+    *) repository="grid-oib-${service}" ;;
+  esac
   rc=0
   REPOSITORY="$repository" "$here/find-published-tag.sh" "$owner" "$service" "$tag" >/dev/null || rc=$?
   case "$rc" in

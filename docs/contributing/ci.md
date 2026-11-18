@@ -83,7 +83,7 @@ It also lists the third-party image pins the change adds or moves
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
 | Image build (`image`) | PRs that change an image's inputs | builds it, read-only token, no push. For the UI this IS the production build check: `workspace:build` is not run separately |
 | Image build + push (`image-push`) | pushes, image not in GHCR | builds and pushes `inputs-<hash>` and the layer cache |
-| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on all three images, and `latest` on `develop` |
+| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on every image `ci/image_inputs.py` lists (backend, frontend, web, cms, code-runner), and `latest` on `develop` |
 | `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green PR, records the tested tree for reuse |
 
 One more workflow runs on a push to `develop` and is not CI:
@@ -114,14 +114,17 @@ The contract, end to end:
 1. A push builds content-addressed images (`inputs-<hash>`) beside its checks.
    An image tag of that kind claims nothing about any commit.
 2. Only when every check on the push has passed does `publish` put
-   `sha-<commit>` on **all three** images. A commit CI failed has no `sha-` tag.
+   `sha-<commit>` on **every** image in `IMAGES` of `ci/image_inputs.py`: backend, frontend,
+   web, `cms` and `code-runner`. A commit CI failed has no `sha-` tag.
 3. `CI OK` needs `publish`, so a push run concludes `success` only with the
    tags in place.
 4. `deploy.yml` runs on `workflow_run` of CI, for a successful **push** run of
-   this repository on `develop`, and pins all three services to
+   this repository on `develop`, and pins every service to
    `sha-<commit>`. No polling, no per-service guessing.
-5. A prod promotion pins any `develop` commit CI passed. All of them have all
-   three images.
+5. A prod promotion pins any `develop` commit CI passed. All of them have every
+   image. The CMS and the code runner are optional: `verify-image-tag.sh` checks
+   them only where the stack turns them on (`cmsEnabled`, `codeRunnerEnabled`), and
+   a rollback to a commit from before one had an image keeps the one deployed.
 
 What this replaced, and why it had to go: Publish Images rebuilt each image
 only when its own paths changed since the previous push, from two hand-written

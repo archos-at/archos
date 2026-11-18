@@ -413,6 +413,7 @@ export const deployedImages = {
   frontend: frontendImage(cfg),
   web: webImage(cfg),
   cms: cmsImage(cfg.images, cfg.cms.imageOverride),
+  "code-runner": cfg.codeRunner.image,
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
 export const bffJobsDeployment = bffJobs.deployment.metadata.name;
