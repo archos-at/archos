@@ -10,7 +10,6 @@ import { AuthorityTag } from '../AuthorityTag'
 import { KIND_TO_SIGNAL, type SourceSignal } from '@/lib/source-kinds'
 import {
   citationNumbers,
-  documentPages,
   documentTabLabel,
   isCited,
   type CitedDocument,
@@ -74,7 +73,6 @@ export const SourceCard: FC<{
   const tint = sourceSignalStyle(doc.tint)
   const used = isCited(doc)
   const numbers = citationNumbers(doc)
-  const pages = documentPages(doc)
   const allRepeat = !!loci && loci.length > 0 && loci.every((locus) => locus.repeat)
   const showAuthority =
     !!doc.authority && !tabLabel.toLowerCase().startsWith(doc.authority.toLowerCase())
@@ -83,13 +81,7 @@ export const SourceCard: FC<{
   const named = edition ? { ...doc, title: documentShortName(fileName, doc.title) } : doc
   const location = loci
     ? loci.flatMap((locus) => (locus.detail ? [locus.detail] : [])).join(', ')
-    : doc.loci.some((locus) => locus.clause?.trim())
-      ? (documentLocation(t, doc) ?? '')
-      : pages.length === 0
-        ? ''
-        : pages.length === 1
-          ? t('answerSources.page', { page: pages[0]! })
-          : t('answerSources.pages', { pages: pages.join(', ') })
+    : (documentLocation(t, doc) ?? '')
   const locationDetail = loci ? undefined : documentLocationDetail(t, doc)
 
   return (

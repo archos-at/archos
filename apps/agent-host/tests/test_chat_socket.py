@@ -1836,6 +1836,27 @@ async def test_the_focus_file_name_reaches_the_agent_masked(harness, office):
     assert names == ["[Begriff entfernt] [IBAN entfernt].pdf"]
 
 
+async def test_the_selected_part_of_an_answer_reaches_the_agent_masked(harness, office):
+    excerpts: list[str | None] = []
+
+    async def turn(request, ask):
+        excerpts.append(request.answer_excerpt)
+        yield _finished(request, text="ok")
+
+    h = harness(turn)
+    sock = h.connect(headers=_office_envelope())
+
+    sock.client(
+        type="user_message",
+        message_id="t1",
+        text="Was heißt das?",
+        answer_excerpt=f"Die Zahlung geht an {_IBAN}",
+    )
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+
+    assert excerpts == ["Die Zahlung geht an [IBAN entfernt]"]
+
+
 async def test_without_the_office_s_policy_every_detector_applies_and_no_term(harness, monkeypatch):
     monkeypatch.delenv("FRONTEND_INTERNAL_URL", raising=False)
     monkeypatch.delenv("FRONTEND_URL", raising=False)

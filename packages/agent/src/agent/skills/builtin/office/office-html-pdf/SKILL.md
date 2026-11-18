@@ -1,11 +1,8 @@
 ---
 name: office-html-pdf
 description: >
-  Use when a PDF has to look designed (a report with a cover, colours, a
-  layout), when the person wants a diagram (Mermaid: a process, a schedule, an
-  organisation), or a PNG picture of HTML or a chart. HTML and CSS rendered by
-  Puppeteer in a headless Chromium. Read `office-files` first for the run
-  contract.
+  A PDF with a designed layout, a Mermaid diagram or a PNG? Code that works in
+  this sandbox.
 metadata:
   agents: researcher
   title: HTML zu PDF, Diagramme, Screenshots
@@ -13,7 +10,7 @@ metadata:
 
 # HTML to PDF, Mermaid, screenshots
 
-Read `office-files` first if you have not this conversation.
+Read `execute` first if you have not this conversation.
 
 ## Which tool
 

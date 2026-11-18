@@ -100,14 +100,14 @@ export const AUTOSCALER_SAFE_TO_EVICT = "cluster-autoscaler.kubernetes.io/safe-t
 
 export const DATA_RESOURCES = {
   postgres: {
-    requests: { cpu: "500m", memory: "1Gi" },
+    requests: { cpu: "1750m", memory: "1Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
   dragonflyRequests: { cpu: "50m", memory: "128Mi" },
   dragonflyCpuLimit: "500m", // memory limit is the `dragonflyMemoryLimit` knob
   seaweedfs: {
-    requests: { cpu: "100m", memory: "256Mi" },
-    limits: { cpu: "1", memory: "1Gi" },
+    requests: { cpu: "1500m", memory: "256Mi" },
+    limits: { cpu: "3", memory: "1Gi" },
   },
   seaweedfsMaster: {
     requests: { cpu: "50m", memory: "128Mi" },
@@ -122,7 +122,7 @@ export const DATA_RESOURCES = {
     limits: { cpu: "1", memory: "1Gi" },
   },
   clickhouse: {
-    requests: { cpu: "250m", memory: "1Gi" },
+    requests: { cpu: "2", memory: "1Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
 } as const;
@@ -144,7 +144,7 @@ export const LANGFUSE = {
   listenerName: "https-langfuse",
   otlpTracesPath: "/api/public/otel/v1/traces",
   webResources: {
-    requests: { cpu: "200m", memory: "1Gi" },
+    requests: { cpu: "1", memory: "1Gi" },
     limits: { cpu: "1", memory: "2Gi" },
   },
   workerResources: {

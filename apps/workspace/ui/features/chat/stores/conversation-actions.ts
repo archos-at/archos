@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { CardDecision, CardInteractions } from '@/features/cards/card-decision'
-import type { ChatMessage, Conversation, ErrorCode } from '../types'
+import type { AnswerExcerpt, ChatMessage, Conversation, ErrorCode } from '../types'
 import { useLayoutStore } from '@/features/layout/store'
 import { withErrorMessage } from './connection-errors'
 import { errorConcernsTheThread, getErrorMeta } from '../lib/error-registry'
@@ -67,6 +67,7 @@ export const createConversationActions = (
       metadata?: {
         enabledDataSources?: string[]
         messageFiles?: Array<{ id: string; fileName: string }>
+        answerExcerpt?: AnswerExcerpt
       }
     ) => {
       const { currentConversation, conversations, currentUserId } = get()
@@ -92,6 +93,7 @@ export const createConversationActions = (
         messageType: 'user',
         enabledDataSources: metadata?.enabledDataSources,
         messageFiles: metadata?.messageFiles,
+        ...(metadata?.answerExcerpt ? { answerExcerpt: metadata.answerExcerpt } : {}),
       }
 
       const hasUserMessage = conversation.messages.some((m) => m.messageType === 'user')
@@ -365,7 +367,8 @@ export const createConversationActions = (
         )
       }
       if (chatSendFn) {
-        chatSendFn(text)
+        if (lastUser?.answerExcerpt) chatSendFn(text, { answerExcerpt: lastUser.answerExcerpt })
+        else chatSendFn(text)
       } else {
         setComposerPrefill(text)
       }

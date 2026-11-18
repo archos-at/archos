@@ -548,7 +548,8 @@ rule:
 2. **A `.pdf` path through the stock `read_file` is a base64 file block**, even when the
    backend returns text. Hence `.pdf.md`.
 3. **`CompositeBackend` always offers `delete`.** The tool allowlist excludes it, and
-   `execute`.
+   Deep Agents' shell `execute` (the chat agent's own `execute` is another tool:
+   [agent-code-execution.md](../design/agent-code-execution.md)).
 4. **Eviction to a read-only backend fails silently**, and a 227,779-character result
    stayed in context. `artifacts_root` is `/drafts/`. Our own `grep` and `read_file` are
    exempt from eviction by name, so they truncate themselves.

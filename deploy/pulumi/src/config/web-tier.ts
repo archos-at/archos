@@ -28,14 +28,14 @@ export function loadWebTier(cfg: pulumi.Config): { frontend: FrontendConfig; web
   return {
     frontend: {
       resources: {
-        requestsCpu: cfg.get("frontendRequestsCpu") ?? "500m",
+        requestsCpu: cfg.get("frontendRequestsCpu") ?? "925m",
         requestsMemory: cfg.get("frontendRequestsMemory") ?? "512Mi",
         limitsCpu: cfg.get("frontendLimitsCpu") ?? "1",
-        limitsMemory: cfg.get("frontendLimitsMemory") ?? "1Gi",
+        limitsMemory: cfg.get("frontendLimitsMemory") ?? "1536Mi",
       },
       minReplicas: num(cfg, "frontendMinReplicas", 2),
       maxReplicas: num(cfg, "frontendMaxReplicas", 6),
-      hpaCpuTargetPercent: num(cfg, "frontendHpaCpuTargetPercent", 70),
+      hpaCpuTargetPercent: num(cfg, "frontendHpaCpuTargetPercent", 38),
     },
     web: {
       resources: {

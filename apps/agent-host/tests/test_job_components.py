@@ -273,8 +273,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeDeepAgent.__module__ = "agent.agents.deep_researcher.agent"
-        FakeDeepAgent.__name__ = "DeepResearcherAgent"
+        FakeDeepAgent.state_model = DeepResearchAgentState
 
         monitor = MagicMock()
         monitor.is_cancelled = False
@@ -308,8 +307,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeDeepAgent.__module__ = "agent.agents.deep_researcher.agent"
-        FakeDeepAgent.__name__ = "DeepResearcherAgent"
+        FakeDeepAgent.state_model = DeepResearchAgentState
 
         monitor = MagicMock()
         monitor.is_cancelled = False
@@ -339,8 +337,6 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeChatAgent.__module__ = "agent.core.agent"
-        FakeChatAgent.__name__ = "ChatAgent"
         FakeChatAgent.state_model = ResearchAgentState
 
         monitor = MagicMock()
@@ -364,19 +360,15 @@ class TestRunAgentStateFields:
         assert not hasattr(state, "clarifier_result")
 
     def test_every_registered_agent_declares_its_state_model(self):
-        import importlib
-
-        from agent_host.jobs.agent_run import _get_agent_state_class
         from agent_host.registry import AGENT_REGISTRY
 
         assert AGENT_REGISTRY, "no agents registered"
         for agent_type, config in AGENT_REGISTRY.items():
-            module_path, _, class_name = config.class_path.rpartition(".")
-            agent_cls = getattr(importlib.import_module(module_path), class_name)
+            agent_cls = config.load()
+            class_name = agent_cls.__name__
             declared = getattr(agent_cls, "state_model", None)
             assert isinstance(declared, type), f"{agent_type} ({class_name}) declares no state_model"
             assert "messages" in declared.model_fields, f"{agent_type} state model has no messages field"
-            assert _get_agent_state_class(agent_cls.__new__(agent_cls)) is declared
 
 
 class TestResolveWorkerToolRefs:

@@ -1,27 +1,28 @@
 ---
-name: office-files
+name: execute
 description: >
-  Use before the first `execute` call, whenever the person wants a real file
-  (Word, Excel, PowerPoint, PDF, a chart) or a figure that has to be computed
-  rather than estimated: a Flächenaufstellung, an Aktenvermerk, a deck, a total.
-  The run contract, the libraries, the office's conventions, how to check a file.
+  Read before your first execute call: what a run can import, how documents
+  and tool data get in and files get out, and the mistakes that make a run fail.
 metadata:
   agents: researcher
-  title: Dateien erstellen
+  title: Rechnen und auswerten
 ---
 
-# Files the office opens without explanation
+# Running code with execute
 
-`execute` runs a JavaScript module you write in a fresh sandbox and keeps the
-files it writes. A file is done when the person can open it, read it and work
-on with it, and every figure in it is one a run computed.
+`execute` runs a JavaScript module you write in a fresh sandbox. Use it for
+anything that has to be computed rather than estimated: a total, an area, a
+deadline, a check over a table, the rows another tool returned. It also keeps
+the files a run writes, so it makes the Word, Excel, PowerPoint and PDF files
+the office opens. A figure is done when a run computed it; a file is done when
+the person can open it, read it and work on with it.
 
 ## The run
 
 - `code` is an ES module whose default export does the work:
   `export default async function () { … }`. What it returns comes back as
-  `value` (JSON). Nothing is passed in: write the data into the code as
-  constants, or read it from a file.
+  `value` (JSON). Nothing is passed in: read the data from a file, and write
+  into the code only the few figures the person typed.
 - Return plain JSON only: an array with a hole or `undefined` in it, a `Date`,
   a `Decimal`, a `Map` or a `Set` fails the whole run. Holes become `null`,
   dates ISO strings, decimals `toNumber()`, Maps `Object.fromEntries`, Sets
@@ -40,6 +41,10 @@ on with it, and every figure in it is one a run computed.
   `documents read:` line names every path. Anything written under
   `/workspace/in/` is dropped, and the report says so: write a changed copy to
   `/workspace/<Name>.<ext>`.
+- A result another tool named on its `Data for execute: r3 (…)` line is passed
+  with `data: ["r3"]` and read with `JSON.parse(await readFile(path, "utf8"))`
+  from the path the `data read:` line names; its rows are under `result`, its
+  provenance and model beside them. Never retype a tool's figures into code.
 - No network, no `fetch`, no npm, no shell, no Python, no LibreOffice: only the
   libraries below. TypeScript types are stripped, so plain JavaScript and
   TypeScript both run.

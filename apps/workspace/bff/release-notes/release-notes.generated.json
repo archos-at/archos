@@ -88,6 +88,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "Select text in an answer and choose „Dazu fragen“ to ask about exactly that part, which appears above the message field until you send or remove it. A follow-up no longer has to describe or retype the sentence it means.",
+            "de": "Wählen Sie Text in einer Antwort aus und klicken Sie auf „Dazu fragen“, um genau dazu eine Frage zu stellen. Der ausgewählte Text erscheint über dem Nachrichtenfeld, bis Sie ihn senden oder entfernen. Bei einer Nachfrage müssen Sie den gemeinten Satz nicht mehr beschreiben oder erneut eingeben."
+          }
+        },
+        {
           "section": "improvements",
           "area": "agents",
           "text": {
@@ -101,6 +109,14 @@
           "text": {
             "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
             "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "In the derivation, a source card read across many pages no longer lists every page one by one. It names the pages as ranges, shows the first three, and counts the rest, so the card stays readable.",
+            "de": "In der Ableitung listet eine Quellenkarte mit vielen Seiten nicht mehr jede Seite einzeln auf. Stattdessen fasst sie Seiten zu Bereichen zusammen, zeigt die ersten drei an und zählt die übrigen, damit die Karte übersichtlich bleibt."
           }
         },
         {

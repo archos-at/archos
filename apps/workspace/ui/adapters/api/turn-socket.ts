@@ -50,6 +50,12 @@ export const HELLO_TIMEOUT_MS = 5_000
 
 export const PREPARE_TIMEOUT_MS = 10_000
 
+const asBlockquote = (excerpt: string): string =>
+  excerpt
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n')
+
 export const forServer = (message: ClientMessage, accepts: ReadonlySet<string>): ClientMessage | null => {
   if (message.type === 'steer') return accepts.has('steer') ? message : null
   if (message.type === 'cancel_turn' && message.shown && !accepts.has('cancel_turn.shown')) {
@@ -81,6 +87,10 @@ export const forServer = (message: ClientMessage, accepts: ReadonlySet<string>):
   if (shaped.client_tools !== undefined && !accepts.has('user_message.client_tools')) {
     const { client_tools: _unread, ...rest } = shaped
     shaped = rest
+  }
+  if (shaped.answer_excerpt != null && !accepts.has('user_message.answer_excerpt')) {
+    const { answer_excerpt: excerpt, ...rest } = shaped
+    shaped = { ...rest, text: `${asBlockquote(excerpt)}\n\n${rest.text}` }
   }
   return shaped
 }

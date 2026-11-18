@@ -1,10 +1,8 @@
 ---
 name: office-word
 description: >
-  Use when the person wants a Word document (.docx): an Aktenvermerk, a
-  Baubeschreibung, a letter, a report with tables, or the office's own Word
-  template filled in; or wants the text of a .docx read. Read `office-files`
-  first for the run contract.
+  Making or filling a Word file? The mistakes that make Word refuse or repair
+  it, and code that works.
 metadata:
   agents: researcher
   title: Word-Dokument erstellen
@@ -13,7 +11,7 @@ metadata:
 # A Word document
 
 A .docx is a ZIP of XML parts. `docx` builds a new one; `jszip` opens an
-existing one and changes its XML. Read `office-files` first if you have not
+existing one and changes its XML. Read `execute` first if you have not
 this conversation.
 
 ## A new document with `docx`

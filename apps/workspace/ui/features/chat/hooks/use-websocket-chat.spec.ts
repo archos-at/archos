@@ -1201,6 +1201,20 @@ describe('the agent’s viewer actions', () => {
     expect(sentOf('user_message')[0]).toMatchObject({ client_tools: ['show_in_viewer'] })
   })
 
+  it('sends the part of an answer the question is about, and keeps it on the message', () => {
+    const { result } = open(conversationOf(VIEWER_CONVERSATION))
+    const answerExcerpt = { messageId: 'a1', text: 'höchstens 40 m' }
+    act(() => void result.current.sendMessage('Woher kommt das?', { answerExcerpt }))
+
+    expect(sentOf('user_message')[0]).toMatchObject({ text: 'Woher kommt das?', answer_excerpt: 'höchstens 40 m' })
+    expect(useChatStore.getState().currentConversation?.messages.at(-1)).toMatchObject({ answerExcerpt })
+  })
+
+  it('sends no excerpt with a question that is about none', () => {
+    ask()
+    expect(sentOf('user_message')[0]).not.toHaveProperty('answer_excerpt')
+  })
+
   it('declares nothing without room: a phone is never offered the tool', () => {
     noteViewerRoom(false)
     ask()

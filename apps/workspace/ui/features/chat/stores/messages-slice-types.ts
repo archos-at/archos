@@ -5,9 +5,20 @@ import type { WireEvent } from '@/adapters/api/wire-v2'
 import type { CardDecision } from '@/features/cards/card-decision'
 import type { TurnView } from '@/lib/turns/turn-fold'
 import type { UnseenEnd } from '@/lib/turns/conversation-activity'
-import type { ChatStore, ChatMessage, ComposerPrefill, ComposerSubject, ErrorCode } from '../types'
+import type {
+  AnswerExcerpt,
+  ChatStore,
+  ChatMessage,
+  ComposerExcerpt,
+  ComposerPrefill,
+  ComposerSubject,
+  ErrorCode,
+} from '../types'
 
-export type ChatSendFn = (content: string, options?: { reasoningEffort?: ChatEffort }) => void
+export type ChatSendFn = (
+  content: string,
+  options?: { reasoningEffort?: ChatEffort; answerExcerpt?: AnswerExcerpt }
+) => void
 
 export type MessagesSlice = {
   isStreaming: boolean
@@ -19,6 +30,7 @@ export type MessagesSlice = {
   projectId: string | null
   composerPrefill: ComposerPrefill | null
   composerSubject: ComposerSubject | null
+  composerExcerpt: ComposerExcerpt | null
   composerDrafts: Record<string, string>
   chatSendFn: ChatSendFn | null
 
@@ -34,6 +46,7 @@ export type MessagesSlice = {
     metadata?: {
       enabledDataSources?: string[]
       messageFiles?: Array<{ id: string; fileName: string }>
+      answerExcerpt?: AnswerExcerpt
     }
   ) => ChatMessage
   adoptRunMessage: (conversationId: string, message: ChatMessage) => void
@@ -49,6 +62,7 @@ export type MessagesSlice = {
   setProjectId: (projectId: string | null) => void
   setComposerPrefill: (text: string, mentions?: DraftMention[], subject?: ComposerSubject) => void
   setComposerSubject: (subject: ComposerSubject | null) => void
+  setComposerExcerpt: (excerpt: ComposerExcerpt | null) => void
   consumeComposerPrefill: () => ComposerPrefill | null
   setChatSendFn: (fn: ChatSendFn | null) => void
   retryLastUserMessage: () => void

@@ -41,10 +41,10 @@ export const HATCHET_API_URL = `http://${HATCHET.apiService}.${BACKGROUND_WORK.n
 type Resources = { requests: Record<string, string>; limits: Record<string, string> };
 
 export const HATCHET_RESOURCES: Record<keyof typeof HATCHET_COMPONENTS | "frontend", Resources> = {
-  api: { requests: { cpu: "250m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
-  grpc: { requests: { cpu: "500m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
-  controllers: { requests: { cpu: "250m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
-  scheduler: { requests: { cpu: "500m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
+  api: { requests: { cpu: "50m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
+  grpc: { requests: { cpu: "75m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
+  controllers: { requests: { cpu: "50m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
+  scheduler: { requests: { cpu: "75m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
   frontend: { requests: { cpu: "50m", memory: "64Mi" }, limits: { cpu: "250m", memory: "128Mi" } },
 };
 

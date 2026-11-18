@@ -44,6 +44,7 @@ config:
   grid-oib:codeRunnerEnabled: "true"
   grid-oib:codeRunnerMinReplicas: "1"
   grid-oib:codeRunnerMaxReplicas: "3"
+  grid-oib:browserRendererEnabled: "true"
   grid-oib:ingestWorkerMinReplicas: "1"
   grid-oib:ingestWorkerMaxReplicas: "3"
   grid-oib:ingestWorkerConcurrency: "2"

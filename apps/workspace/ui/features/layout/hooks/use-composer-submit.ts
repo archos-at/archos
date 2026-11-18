@@ -2,6 +2,7 @@ import { useCallback, useEffect, type KeyboardEvent, type RefObject } from 'reac
 import { toast } from 'sonner'
 import type { useWebSocketChat } from '@/features/chat'
 import { useChatStore } from '@/features/chat/store'
+import { excerptFor } from '@/features/chat/answer-excerpt'
 import { resolveAddressee, sendMessageOptions } from '@/features/collaboration/lib/composer-routing'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -126,10 +127,13 @@ export function useComposerSubmit({
       setMentionQuery(null)
       releaseSoftKeyboard(textareaRef.current)
       onStoppedTyping()
+      const excerpt = excerptFor(useChatStore.getState().composerExcerpt, submittingSessionId)
+      const answerExcerpt = excerpt ? { messageId: excerpt.messageId, text: excerpt.text } : undefined
       try {
         const { ok, outcome } = normalizeSendResult(
           await (() => {
-            const options = sendMessageOptions(sent.routing)
+            const routed = sendMessageOptions(sent.routing)
+            const options = answerExcerpt ? { ...routed, answerExcerpt } : routed
             return options ? sendMessage(currentMessage, options) : sendMessage(currentMessage)
           })()
         )
@@ -142,6 +146,7 @@ export function useComposerSubmit({
           return
         }
         if (submittingSessionId) clearComposerDraft(submittingSessionId)
+        if (excerpt && useChatStore.getState().composerExcerpt === excerpt) useChatStore.getState().setComposerExcerpt(null)
         setMentions([])
         if (sent.mentions.length > 0 && submittingSessionId) {
           bumpThreadRevision(submittingSessionId)

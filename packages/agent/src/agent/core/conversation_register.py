@@ -235,6 +235,7 @@ def _turn_state(
         focus_region=inputs.focus_region,
         reply_in_thread=inputs.reply_in_thread,
         trigger=inputs.trigger,
+        answer_excerpt=inputs.answer_excerpt,
         skip_clarifier=skip_clarifier,
         project_context=context.project_context,
         platform_lessons=context.platform_lessons,
@@ -259,6 +260,8 @@ def _finished(
 ) -> RunFinishedBody:
     if inputs.focus_region is not None:
         record_turn_facts(focus_region_viewed=registries.regions_viewed > 0)
+    if inputs.answer_excerpt:
+        record_turn_facts(answer_excerpt_chars=len(inputs.answer_excerpt))
     if outcome.refusal is not None:
         return refused(outcome.refusal, message_id=message_id)
     assert outcome.state is not None

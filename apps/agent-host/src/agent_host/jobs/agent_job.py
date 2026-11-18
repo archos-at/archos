@@ -14,10 +14,10 @@ from agent.common.provider_limiter import with_provider_class
 from agent.observability import boot_timing
 from agent.observability.boot_timing import BootClock
 
+from ..registry import get_agent_config
 from .agent_construction import _BUDGET_GUARDED_AGENT_TYPES
 from .agent_construction import _JOB_PROFILE_NAMES
 from .agent_construction import _create_agent_instance
-from .agent_construction import _load_agent_class
 from .agent_construction import _resolve_deep_research_checkpointer
 from .agent_job_setup import RunContext
 from .agent_job_setup import bind_request
@@ -36,6 +36,7 @@ from .job_outcome import persist
 from .job_status import _current_job_status
 from .job_status import _finalize_cancelled_run
 from .job_status import _update_status_if_not_terminal
+from .legacy_agent_class_paths import agent_type_of
 from .phase_events import PhaseProgressCallback
 from .report_passes import _bound_card_registry
 from .run_ledger_fold import RunLedgerFold
@@ -52,8 +53,8 @@ class JobRequest:
     config_file_path: str
     job_id: str
     input_text: str
-    agent_class_path: str
     agent_config_name: str
+    agent_type: str | None = None
     parent_span_id: str | None = None
     parent_function_id: str | None = None
     parent_function_name: str | None = None
@@ -78,6 +79,15 @@ class JobRequest:
     documents: dict | None = None
     request_envelope: dict | None = None
     knowledge_context: dict | None = None
+    agent_class_path: str | None = None  # drop after release 2026-W50
+
+    @property
+    def registered_agent_type(self) -> str:
+        if self.agent_type is not None:
+            return self.agent_type
+        if self.agent_class_path is not None:
+            return agent_type_of(self.agent_class_path)
+        raise ValueError(f"job {self.job_id} names no agent_type")
 
     @property
     def identity(self) -> dict:
@@ -112,8 +122,8 @@ async def run_agent_job(
     config_file_path: str,
     job_id: str,
     input_text: str,
-    agent_class_path: str,
     agent_config_name: str,
+    agent_type: str | None = None,
     parent_span_id: str | None = None,
     parent_function_id: str | None = None,
     parent_function_name: str | None = None,
@@ -138,6 +148,7 @@ async def run_agent_job(
     documents: dict | None = None,
     request_envelope: dict | None = None,
     knowledge_context: dict | None = None,
+    agent_class_path: str | None = None,  # drop after release 2026-W50
 ):
     request = JobRequest(**{name: value for name, value in locals().items() if name not in _PROCESS_KNOBS})
     scope = JobScope()
@@ -203,7 +214,7 @@ def _prepare_process(scope: JobScope, request: JobRequest, configure_logging: bo
     install_step_stack_repair()
     logger.info(
         "Research worker received: agent=%s, config=%s, job_id=%s",
-        request.agent_class_path,
+        request.agent_type or request.agent_class_path,
         request.agent_config_name,
         request.job_id,
     )
@@ -223,7 +234,7 @@ async def _execute(scope: JobScope, request: JobRequest) -> None:
     clock = BootClock("research-job")  # paid by every job, not once per process
     with clock.phase("load_config"):
         config = load_config(request.config_file_path)
-    agent_cls = _load_agent_class(request.agent_class_path)
+    agent_cls = get_agent_config(request.registered_agent_type).load()
 
     building = time.monotonic()
     async with WorkflowBuilder.from_config(config=config) as builder:
@@ -259,7 +270,7 @@ async def _run(scope: JobScope, request: JobRequest, run: RunContext, *, agent_c
     from agent.common.cost_tracking import track_llm_costs
     from agent.common.profiler import track_agent_profile
 
-    workflow_metadata, parent_metadata = trace_metadata(request, run)
+    workflow_metadata, parent_metadata = trace_metadata(request, run, agent_cls)
     run.open_spans(request, workflow_metadata, parent_metadata)
     callbacks, verbose = _callbacks(scope, request, models.fn_config)
     agent = _create_agent_instance(

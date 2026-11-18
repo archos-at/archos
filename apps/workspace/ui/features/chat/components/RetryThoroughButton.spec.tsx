@@ -11,6 +11,7 @@ const capture = vi.fn()
 vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: (...args: unknown[]) => capture(...args) }))
 vi.mock('../hooks/use-current-session-busy', () => ({ useIsCurrentSessionBusy: () => false }))
 let answerRanAt: string | undefined
+let askedAbout: { messageId: string; text: string } | undefined
 vi.mock('../store', () => ({
   useChatStore: vi.fn((selector: (s: unknown) => unknown) =>
     selector({
@@ -19,7 +20,13 @@ vi.mock('../store', () => ({
       currentConversation: {
         id: 'conv_1',
         messages: [
-          { id: 'u1', role: 'user', messageType: 'user', content: 'Wie breit muss die Treppe sein?' },
+          {
+            id: 'u1',
+            role: 'user',
+            messageType: 'user',
+            content: 'Wie breit muss die Treppe sein?',
+            answerExcerpt: askedAbout,
+          },
           {
             id: 'a1',
             role: 'assistant',
@@ -53,6 +60,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch)
   useEffortStore.setState({ orgDefault: 'medium', draft: null, byConversation: {} })
   answerRanAt = undefined
+  askedAbout = undefined
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -89,6 +97,18 @@ describe('RetryThoroughButton', () => {
     expect(capture).toHaveBeenCalledWith('answer_retry_thorough', {
       message_id: 'a1',
       original_effort: 'medium',
+    })
+  })
+
+  test('re-asks about the part of the answer the question was asked about', async () => {
+    askedAbout = { messageId: 'a0', text: 'Die Laufbreite beträgt mindestens 1,20 m.' }
+    hydrate('down')
+    render(<RetryThoroughButton messageId="a1" conversationId="conv_1" />)
+    await userEvent.click(await screen.findByRole('button', { name: retryName }))
+
+    expect(send).toHaveBeenCalledWith('Wie breit muss die Treppe sein?', {
+      reasoningEffort: 'high',
+      answerExcerpt: askedAbout,
     })
   })
 
