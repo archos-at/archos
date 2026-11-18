@@ -110,14 +110,19 @@ A secret left in a stack file wins over ESC, so it must leave the file once it
 is in ESC, and `pulumi preview` must then show no change.
 
 - **A stack that already imports an environment** (`dev` imports `grid-oib/dev`):
-  copy each remaining `secure:` value into that environment, delete the
-  `secure:` blocks from the stack file, then preview.
+  copy each remaining `secure:` value into that environment:
 
   ```bash
   ESC=matthiasbigl/grid-oib/dev
   for key in pgRuntimePassword seaweedfsBackendReadSecretKey; do
     pulumi env set $ESC "pulumiConfig.grid-oib:$key" "$(pulumi config get "grid-oib:$key" --stack dev)" --secret
   done
+  ```
+
+  Then delete those `secure:` blocks from `Pulumi.dev.yaml`. Only then does the
+  preview read the values from ESC, so only then does a no-op prove they arrived:
+
+  ```bash
   pulumi preview --stack dev
   ```
 
