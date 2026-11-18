@@ -52,11 +52,11 @@ function MoreMenu(): JSX.Element {
   )
 }
 
-export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean }): JSX.Element {
+export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string }): JSX.Element {
   const search = (
     <div className="border-field-border bg-sheet text-muted-foreground flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm">
       <Search className="size-4 shrink-0" aria-hidden />
-      {own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
+      {office ? `In „${office}“ suchen …` : own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
     </div>
   )
   const tools = (
@@ -65,9 +65,11 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: {
         <CheckSquare className="size-4" aria-hidden />
         Auswählen
       </span>
-      <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
-        <Trash2 className="size-4" aria-label="Papierkorb" />
-      </span>
+      {!office && (
+        <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
+          <Trash2 className="size-4" aria-label="Papierkorb" />
+        </span>
+      )}
       <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
         <Upload className="size-4" aria-hidden />
         Hochladen
@@ -89,19 +91,21 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: {
     <header className="border-hairline flex flex-col gap-4 border-b px-8 pb-0 pt-3">
       <div>
         <span className="text-muted-foreground text-meta">{crumb}</span>
-        <h1 className="text-page-title">Ablage</h1>
+        <h1 className="text-page-title">{office ?? 'Ablage'}</h1>
       </div>
-      <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
-        <Side icon={Folder} label="Projektablage" who="Team" picked={!own} />
-        <Side icon={FolderLock} label="Meine Ablage" who="Nur Sie" picked={own} />
-      </div>
+      {!office && (
+        <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
+          <Side icon={Folder} label="Projektablage" who="Team" picked={!own} />
+          <Side icon={FolderLock} label="Meine Ablage" who="Nur Sie" picked={own} />
+        </div>
+      )}
       {form === 'search' ? (
         <>
-          <div className={`flex items-center gap-2 ${own ? 'pb-4' : ''}`}>
+          <div className={`flex items-center gap-2 ${own || office ? 'pb-4' : ''}`}>
             {search}
             {tools}
           </div>
-          {!own && places}
+          {!own && !office && places}
         </>
       ) : (
         <div className="flex items-end justify-between gap-6">
@@ -185,6 +189,16 @@ export function ReadStatus({ text, open }: { text: string; open?: string }): JSX
       <Sparkles className="size-3.5" aria-hidden />
       {text}
       {open && <span className="text-foreground font-medium underline underline-offset-2">{open}</span>}
+    </p>
+  )
+}
+
+export function UnreadHint({ count }: { count: number }): JSX.Element {
+  return (
+    <p className="mx-8 mt-4 flex items-center gap-2 rounded-control bg-[#f6ecd6] px-3 py-2 text-[13px] text-[#8a5a00]">
+      <Sparkles className="size-3.5 shrink-0" aria-hidden />
+      {count} Dokumente konnten nicht gelesen werden.
+      <span className="font-medium underline underline-offset-2">Ansehen</span>
     </p>
   )
 }

@@ -202,13 +202,13 @@ function VariantE({ me, sticky = false, current, noneLabel }: { me: boolean; sti
   )
 }
 
-export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean }): JSX.Element {
+export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, inbox = 'org', inboxOpen = false, officeName = 'Büroablage' }: { personalDoor?: boolean; officeShelfOpen?: boolean; ownShelf?: 'idle' | 'open'; inbox?: string; inboxOpen?: boolean; officeName?: string }): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
       <nav aria-label={OFFICE} className="mb-2 w-full">
         <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium">{OFFICE}</div>
         <SidebarMenu className="gap-0.5">
-          <NavRow icon={Archive} label="Büroablage" active={officeShelfOpen} />
+          <NavRow icon={Archive} label={officeName} active={officeShelfOpen} />
           <NavRow icon={Library} label="Grundlagen" />
           <NavRow icon={Search} label="Suche" />
           {inbox === 'org' && <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />}
