@@ -57,7 +57,8 @@ function refuseUnsafeCiRunners(cfg: pulumi.Config, runners: CiRunnersConfig): vo
         "and its NetworkPolicy is what keeps it off every in-cluster address but DNS.",
     );
   }
-  if (!runners.githubApp.appId || !runners.githubApp.installationId || !cfg.get("ciRunnersGithubAppPrivateKey")) {
+  const hasPrivateKey = cfg.getSecret("ciRunnersGithubAppPrivateKey") !== undefined;
+  if (!runners.githubApp.appId || !runners.githubApp.installationId || !hasPrivateKey) {
     throw new Error(
       "grid-oib:ciRunnersEnabled needs the GitHub App the controller registers runners with: " +
         "ciRunnersGithubAppId, ciRunnersGithubAppInstallationId and (with --secret) ciRunnersGithubAppPrivateKey.",

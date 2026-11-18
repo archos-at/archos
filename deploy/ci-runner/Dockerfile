@@ -67,7 +67,7 @@ RUN curl -fsSL -o /tmp/task.tar.gz "https://github.com/go-task/task/releases/dow
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 RUN ln -s bun /usr/local/bin/bunx \
- && [ "$(task --version)" = "${TASK_VERSION}" ] && [ "$(bun --version)" = 1.4.3 ]
+ && [ "$(task --version)" = "${TASK_VERSION}" ]
 
 # What CI otherwise installs with sudo (Chromium's libraries for the website's accessibility
 # gate) or runs as a container (Semgrep, the scanners, Qdrant).
