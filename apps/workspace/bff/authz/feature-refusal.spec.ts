@@ -27,7 +27,7 @@ const readsSwitch = (source: ts.SourceFile): boolean =>
 const refusesThroughGuard = (source: ts.SourceFile): boolean =>
   nodesOf(source, ts.isCallExpression).some((call) => DELEGATING_GUARDS.includes(calleeName(call) ?? ''))
 
-const isBareEnvelope = (node: ts.Node): boolean =>
+const isBareEnvelope = (node: ts.Node): node is ts.PropertyAssignment =>
   ts.isPropertyAssignment(node) &&
   (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
   node.name.text === 'error' &&
