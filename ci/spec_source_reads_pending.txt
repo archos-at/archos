@@ -5,7 +5,6 @@ apps/website/src/lib/unlisted-routes.test.ts
 apps/workspace/bff/db/integration-suite-coverage.spec.ts
 apps/workspace/bff/documents/ingest-document-type-contract.spec.ts
 apps/workspace/bff/documents/ingest-mail-contract.spec.ts
-apps/workspace/bff/documents/status-batch-contract.spec.ts
 apps/workspace/bff/images/next-config-runtime-copies.spec.ts
 apps/workspace/bff/knowledge/doc-class.spec.ts
 apps/workspace/bff/office-shelf/collection-prefix.spec.ts
