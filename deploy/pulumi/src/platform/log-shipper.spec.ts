@@ -204,7 +204,12 @@ describe("container logs, with PostHog logs on (the default)", () => {
       );
     expect(selectsCollector({ matchExpressions: [{ key: "app.kubernetes.io/name", operator: "In", values: ["otel-collector"] }] })).toBe(true);
     expect(selectsCollector({ matchExpressions: [{ key: "app.kubernetes.io/name", operator: "NotIn", values: ["otel-collector"] }] })).toBe(false);
-    const opensShipperPort = (rule: any) => !rule.ports?.length || rule.ports.some((p: any) => p.port === 4319);
+    const opensShipperPort = (rule: any) =>
+      !rule.ports?.length ||
+      rule.ports.some((p: any) => p.port === undefined || (p.port <= 4319 && 4319 <= (p.endPort ?? p.port)));
+    expect(opensShipperPort({ ports: [{ protocol: "TCP" }] })).toBe(true);
+    expect(opensShipperPort({ ports: [{ protocol: "TCP", port: 4310, endPort: 4320 }] })).toBe(true);
+    expect(opensShipperPort({ ports: [{ protocol: "TCP", port: 4317 }] })).toBe(false);
     const reaching: string[] = [];
     for (const r of RESOURCES.filter((r) => r.type === "kubernetes:networking.k8s.io/v1:NetworkPolicy")) {
       if ((await resolve<any>(r.inputs.metadata)).namespace !== "grid") continue;
