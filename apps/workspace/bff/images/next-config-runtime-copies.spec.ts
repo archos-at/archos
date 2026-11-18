@@ -2,17 +2,10 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
+import { DockerfileParser } from 'dockerfile-ast'
+import { importsOf, parseSource } from '@/test-utils/source-ast'
 
 const UI_ROOT = path.resolve(__dirname, '../..')
-
-function relativeImportsOf(configSource: string): string[] {
-  const imports: string[] = []
-  const pattern = /from\s+['"](\.[^'"]+)['"]/g
-  for (const match of configSource.matchAll(pattern)) {
-    imports.push(match[1])
-  }
-  return imports
-}
 
 function resolveImport(specifier: string): string {
   for (const ext of ['.ts', '.tsx', '.js', '.mjs']) {
@@ -23,22 +16,25 @@ function resolveImport(specifier: string): string {
 }
 
 describe('next.config.ts runtime image copies', () => {
-  const configSource = readFileSync(path.join(UI_ROOT, 'next.config.ts'), 'utf8')
-  const dockerfile = readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
-  const imports = relativeImportsOf(configSource)
+  const imports = importsOf(parseSource('next.config.ts', UI_ROOT))
+    .map((edge) => edge.specifier)
+    .filter((specifier) => specifier.startsWith('.'))
+  const destinations = DockerfileParser.parse(readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8'))
+    .getInstructions()
+    .filter((instruction) => instruction.getKeyword() === 'COPY')
+    .map((instruction) => instruction.getArguments().at(-1)?.getValue())
 
-  it('has at least one relative import (guard against a silently empty regex)', () => {
+  it('has at least one relative import (guard against a silently empty parse)', () => {
     expect(imports.length).toBeGreaterThan(0)
   })
 
   it.each(imports.map((specifier) => [specifier, resolveImport(specifier)] as const))(
     'copies %s into the production image',
     (_specifier, file) => {
-      const copyPattern = new RegExp(`^COPY .* ${file.replace(/[/.]/g, (c) => `\\${c}`)}$`, 'm')
       expect(
-        copyPattern.test(dockerfile),
+        destinations,
         `deploy/Dockerfile must COPY ${file} — next.config.ts imports it at server start`,
-      ).toBe(true)
+      ).toContain(file)
     },
   )
 })
