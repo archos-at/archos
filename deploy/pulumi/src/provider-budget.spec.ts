@@ -4,6 +4,7 @@ import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./test-support/stack-config";
+import { PROVIDER_LIMIT_DEFAULTS } from "./config/provider-limits.generated";
 
 pulumi.runtime.setMocks(
   {
@@ -19,8 +20,6 @@ pulumi.runtime.setMocks(
 );
 
 const pulumiDir = join(__dirname, "..");
-const repoRoot = join(__dirname, "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
 async function load(config: Record<string, string> = {}) {
   pulumi.runtime.setAllConfig({
@@ -189,29 +188,17 @@ describe("the budget reaches the pods that spend it", () => {
       expect(literal).toMatchObject(expected);
     }
 
-    const sources = [
-      read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "vision_calls.py"),
-      read("packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "page_reads.py"),
-      read("packages", "agent", "src", "agent", "common", "provider_limiter.py"),
-    ].join("\n");
-    for (const name of Object.keys(expected)) expect(sources, name).toContain(`"${name}"`);
+    expect(Object.keys(expected).sort()).toEqual(Object.keys(PROVIDER_LIMIT_DEFAULTS).sort());
   });
 
   it("states the numbers the Python modules default to, so the stack file is where they are read", async () => {
     const { cfg } = await load();
-    const python = (path: string[], pattern: RegExp) => Number(read(...path).match(pattern)?.[1]);
 
-    expect(cfg.providerLimits.vlmFleetConcurrency).toBe(
-      python(["packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "vision_calls.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
-    );
-    expect(cfg.providerLimits.pageReadParallelism).toBe(
-      python(["packages", "knowledge-layer", "src", "knowledge_layer", "ingest", "page_reads.py"], /env_int\("INGEST_PAGE_READ_PARALLELISM", (\d+)/),
-    );
-    expect(cfg.providerLimits.limitCeiling).toBe(
-      python(["packages", "agent", "src", "agent", "common", "provider_limiter.py"], /^_DEFAULT_CEILING = (\d+)$/m),
-    );
-    expect(cfg.providerLimits.modelLimitCeiling).toBe(
-      python(["packages", "agent", "src", "agent", "common", "provider_limiter.py"], /^_DEFAULT_MODEL_CEILING = (\d+)$/m),
-    );
+    expect({
+      VLM_FLEET_CONCURRENCY: cfg.providerLimits.vlmFleetConcurrency,
+      INGEST_PAGE_READ_PARALLELISM: cfg.providerLimits.pageReadParallelism,
+      PROVIDER_LIMIT_CEILING: cfg.providerLimits.limitCeiling,
+      PROVIDER_MODEL_LIMIT_CEILING: cfg.providerLimits.modelLimitCeiling,
+    }).toEqual(PROVIDER_LIMIT_DEFAULTS);
   });
 });
